@@ -546,7 +546,7 @@ class TransitClassifier(Worker):
         ax[0].set_xlim([0.0, epochs[-1] + 1])
         # if len(res['epochs']) < 16:
         #     ax[0].set_xticks(np.arange(0, epochs[-1] + 1, 1))
-        # ax[0].set_ylim(bottom=0)
+        # ax[0].set_ylim(bottom=0)dasd
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
         ax[0].legend(loc="upper right")
