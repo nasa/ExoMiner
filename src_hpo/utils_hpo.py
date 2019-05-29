@@ -15,36 +15,45 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
     :param bmin: float, minimum budget
     :param bmax: float, maximum budget
     :return:
-        nruns: int, total number of runs
+        nruns: int, total number of runs for the BOHB study
+        total_budget: int, total budget for the BOHB study
     """
 
-    def compute_nSH(iteSH, s, smax, eta):
+    def compute_nSH(budgets, iteSH, s, smax, eta):
         """ Computes number of runs per budget for a particular iteration of Successive Halving.
 
+        :param budgets: array, budgets
         :param iteSH: int, iteration number of a run of Successive Halving
         :param s:
         :param smax: int, maximum number of inner iterations
         :param eta: int, equal or greater than 2
         :return:
-            int, number of runs for the Successive Halving iteration
+            num_runsSH: int, number of runs for the Successive Halving iteration
+            budgetSH: int, total budget used for the Successive Halving iteration
         """
 
         runs_per_budget = [np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
                            for i in range(0, s + 1, 1)]
-        runs_per_budget = [0] * (smax - s) + runs_per_budget
+        runs_per_budget = np.array([0] * (smax - s) + runs_per_budget)
         print('SH iter.: ', iteSH, '|s: ', s, '|', runs_per_budget)
         # floor instead of ceiling when computing number of configurations for SH as it is in the Hyperband paper
         # (Li et al) and also hpbandster paper
-        return np.sum([np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i)) for i in range(0, s + 1, 1)])
+        # num_runsSH = np.sum([np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
+        #                      for i in range(0, s + 1, 1)])
+        num_runsSH = np.sum(runs_per_budget)
+        budgetSH = np.sum(budgets * runs_per_budget)
+
+        return num_runsSH, budgetSH
 
     smax = int(np.floor(np.log(bmax / bmin) / np.log(eta)))
     print('smax: {}'.format(smax))
 
-    print('Budgets: {}'.format([eta ** (-i) * bmax for i in range(smax, -1, -1)]))
+    budgets = np.array([np.floor(eta ** (-i) * bmax) for i in range(smax, -1, -1)])
+    print('Budgets: {}'.format(budgets))
 
-    nruns = np.sum([compute_nSH(s, smax - s % (smax + 1), smax, eta) for s in range(0, num_iterations, 1)])
+    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta) for s in range(0, num_iterations, 1)], axis=0)
 
-    return nruns
+    return nruns, total_budget
 
 
 def get_configspace():
@@ -100,14 +109,15 @@ def get_configspace():
 
     return config_space
 
+
 # if __name__ == '__main__':
 #
-#     num_iteraions = 10
+#     num_iteraions = 136
 #     eta = 2
 #     bmin, bmax = 5, 50
 #     print('Total number of runs: {}'.format(print_BOHB_runs(num_iteraions, eta, bmin, bmax)))
-
-# load configspace
+#
+# # load configspace
 # sample configurations
 # evaluate them using l and g ratio
 # choose 3 hyperparameters and plot the ratio

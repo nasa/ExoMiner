@@ -488,6 +488,16 @@ class TransitClassifier(Worker):
                    'info': {dataset + ' ' + metric: res[dataset][metric]['median'][ep]
                             for dataset in ['validation', 'test'] for metric in metrics_list}}
 
+        print('#' * 100)
+        for k in res_hpo:
+            if k != 'info':
+                print(k + ': ', res_hpo[k])
+            else:
+                for l in res_hpo[k]:
+                    print(l + ': ', res_hpo[k][l])
+        print('#' * 100)
+        sys.stdout.flush()
+
         return (res_hpo)
 
     @staticmethod

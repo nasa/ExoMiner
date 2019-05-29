@@ -326,3 +326,12 @@ f.set_size_inches(10, 8)
 # The next plot compares the performance of configs picked by the model vs. random ones
 f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
 f.set_size_inches(10, 8)
+
+#%%
+
+train_time = 0.5  # assuming that models on average take 30 minutes to train on 50 epochs
+nensemble = 4
+nnodes = 24
+niter = 512
+runtime = niter * train_time * nensemble / nnodes
+print('Estimate on the number of hours needed: ', runtime)
