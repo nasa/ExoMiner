@@ -24,6 +24,15 @@ from src.config import Config
 
 
 def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5):
+    """
+
+    :param config: Config class, config object
+    :param model_filenames: list, models filepaths
+    :param tfrecord_filenames: list, tfrecords filepaths
+    :param pathsaveres: str, save directory
+    :param threshold: float, classification threshold
+    :return:
+    """
 
     # num_afps, num_ntps, num_pcs = 0, 0, 0
     kepid_vec, glob_vec, loc_vec, labels = [], [], [], []
@@ -91,9 +100,6 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     for i, model_filename in enumerate(model_filenames):
         print('Testing for model %i in %s' % (i + 1, model_filename))
 
-        # DO WE NEED THIS?
-        # config.model_dir_custom = item
-
         estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                            config=tf.estimator.RunConfig(keep_checkpoint_max=1),
                                            model_dir=model_filename)
@@ -112,20 +118,22 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     # average across models
     ensemble_prediction = np.mean(prediction_matrix, axis=0)
 
+    # threshold for classification
     ensemble_classification = np.zeros(ensemble_prediction.shape, dtype='uint8')
     ensemble_classification[ensemble_prediction >= threshold] = 1
 
+    # compute and save performance metrics for the ensemble
     acc = accuracy_score(labels, ensemble_classification)
     roc_auc = roc_auc_score(labels, ensemble_prediction, average='macro')
     pr_auc = average_precision_score(labels, ensemble_prediction, average='macro')
     prec = precision_score(labels, ensemble_classification, average='binary')
     rec = recall_score(labels, ensemble_classification, average='binary')
-
     metrics_dict = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec, 'Threshold': threshold,
                     'Number of models': len(model_filenames), 'PR AUC': pr_auc}
     for metric in metrics_dict:
         print(metric + ': ', metrics_dict[metric])
 
+    # save results
     np.save(pathsaveres + 'metrics.npy', metrics_dict)
     print('Metrics saved to %s' % (pathsaveres + 'metrics.npy'))
 
