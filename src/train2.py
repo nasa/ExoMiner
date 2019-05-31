@@ -20,11 +20,10 @@ import matplotlib.pyplot as plt
 #     from src.config import Config
 # else:
 from src.estimator_util import InputFn, ModelFn, CNN1dModel
-# from src.eval_results import eval_model
 from src.config import Config
 
 
-def draw_plots(res, save_path):
+def draw_plots(res, save_path, opt_metric, min_optmetric=False):
         """ Draw loss and evaluation metric plots.
 
         :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -33,50 +32,56 @@ def draw_plots(res, save_path):
         :return:
         """
 
-        res['epochs'] = np.array(res['epochs'], dtype='int')
+        epochs = np.arange(1, len(res['train']['loss']) + 1)
+        # min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
+        if min_optmetric:
+            ep_idx = np.argmin(res['validation'][opt_metric])
+        else:
+            ep_idx = np.argmax(res['validation'][opt_metric])
 
+        # loss and optimization metric
         f, ax = plt.subplots(1, 2)
-        ax[0].plot(res['epochs'], res['training loss'], label='Training')
-        ax[0].plot(res['epochs'], res['validation loss'], label='Validation', color='r')
-        min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
-        ax[0].scatter(res['epochs'][ep_idx], min_val_loss, c='r')
-        ax[0].scatter(res['epochs'][ep_idx], res['test loss'][ep_idx], c='k', label='Test')
-        ax[0].set_xlim([0.0, res['epochs'][-1] + 1])
-        # if len(res['epochs']) < 16:
-        #     ax[0].set_xticks(np.arange(0, res['epochs'][-1] + 1, 1))
+        ax[0].plot(epochs, res['training']['loss'], label='Training')
+        ax[0].plot(epochs, res['validation']['loss'], label='Validation', color='r')
+
+        ax[0].scatter(epochs[ep_idx], res['validation']['loss'][ep_idx], c='r')
+        ax[0].scatter(epochs[ep_idx], res['test']['loss'][ep_idx], c='k', label='Test')
+        ax[0].set_xlim([0, epochs[-1] + 1])
         # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
-        ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (min_val_loss, res['test loss'][ep_idx]))
+        ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (res['validation']['loss'][ep_idx],
+                                                                           res['test']['loss'][ep_idx]))
         ax[0].legend(loc="upper right")
-        ax[0].grid()
-        ax[1].plot(res['epochs'], res['training auc'], label='Training')
-        ax[1].plot(res['epochs'], res['validation auc'], label='Validation', color='r')
-        max_val_auc, ep_idx = np.max(res['validation auc']), np.argmax(res['validation auc'])
-        ax[1].scatter(res['epochs'][ep_idx], max_val_auc, c='r')
-        # ax[1].scatter(res['epochs'][-1], res['test auc'], label='Test', c='k')
-        ax[1].scatter(res['epochs'][ep_idx], res['test auc'][ep_idx], label='Test', c='k')
-        ax[1].set_xlim([0.0, res['epochs'][-1] + 1])
-        # if len(res['epochs']) < 16:
-        #     ax[1].set_xticks(np.arange(0, res['epochs'][-1] + 1, 1))
+        ax[0].grid('on')
+        ax[1].plot(epochs, res['training'][opt_metric], label='Training')
+        ax[1].plot(epochs, res['validation'][opt_metric], label='Validation', color='r')
+        ax[1].scatter(epochs[ep_idx], res['validation'][opt_metric][ep_idx], c='r')
+        ax[1].scatter(epochs[ep_idx], res['test'][opt_metric][ep_idx], label='Test', c='k')
+        ax[1].set_xlim([0, epochs[-1] + 1])
         # ax[1].set_ylim([0.0, 1.05])
-        ax[1].grid()
+        ax[1].grid('on')
         ax[1].set_xlabel('Epochs')
-        ax[1].set_ylabel('AUC')
-        ax[1].set_title('Evaluation Metric\nVal/Test %.4f/%.4f' % (max_val_auc, res['test auc'][ep_idx]))
+        ax[1].set_ylabel(opt_metric)
+        ax[1].set_title('%s\nVal/Test %.4f/%.4f' % (opt_metric, res['validation'][opt_metric][ep_idx],
+                                                                   res['test'][opt_metric][ep_idx]))
         ax[1].legend(loc="lower right")
-        f.suptitle('Epochs = {:.0f}(Best val:{:.0f})'.format(res['epochs'][-1], res['epochs'][ep_idx]))
+        f.suptitle('Epochs = {:.0f}(Best val:{:.0f})'.format(epochs[-1], epochs[ep_idx]))
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(save_path + '_plotseval_epochs{:.0f}.png'.format(res['epochs'][-1]))
+        f.savefig(save_path + '_plotseval_epochs{:.0f}.png'.format(epochs[-1]))
+        plt.close()
 
+        # plot precision, recall, roc auc, pr auc curves
         f, ax = plt.subplots()
-        ax.plot(res['epochs'], res['validation precision'], label='Val Precision')
-        ax.plot(res['epochs'], res['validation recall'], label='Val Recall')
-        ax.plot(res['epochs'], res['validation auc'], label='Val ROC AUC')
-        ax.plot(res['epochs'], res['test precision'], label='Test Precision')
-        ax.plot(res['epochs'], res['test recall'], label='Test Recall')
-        ax.plot(res['epochs'], res['test auc'], label='Test ROC AUC')
-        ax.grid()
+        ax.plot(epochs, res['validation']['precision'], label='Val Precision')
+        ax.plot(epochs, res['validation']['recall'], label='Val Recall')
+        ax.plot(epochs, res['validation']['roc auc'], label='Val ROC AUC')
+        ax.plot(epochs, res['validation']['pr auc'], label='Val PR AUC')
+        ax.plot(epochs, res['test']['precision'], label='Test Precision')
+        ax.plot(epochs, res['test']['recall'], label='Test Recall')
+        ax.plot(epochs, res['test']['roc auc'], label='Test ROC AUC')
+        ax.plot(epochs, res['test']['pr auc'], label='Test PR AUC')
+        ax.grid('on')
         # ax.set_xticks(np.arange(0, res['epochs'][-1] + 1, 5))
 
         chartBox = ax.get_position()
@@ -90,37 +95,10 @@ def draw_plots(res, save_path):
         # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
         # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
         f.savefig(save_path + '_prec_rec_auc.png')
-
-        # min_val_loss, ep = np.min(res['validation loss']), res['epochs'][np.argmin(res['validation loss'])]
-        # ax[0].scatter(ep, min_val_loss, c='r')
-        # ax[0].scatter(res['epochs'][-1], res['test loss'], c='k', label='Test')
-        # ax[0].set_xlim([0.0, res['epochs'][-1] + 1])
-        # if len(res['epochs']) < 16:
-        #     ax[0].set_xticks(np.arange(0, res['epochs'][-1] + 1, 1))
-        # # ax[0].set_ylim(bottom=0)
-        # ax[0].set_xlabel('Epochs')
-        # ax[0].set_ylabel('Loss')
-        # ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (min_val_loss, res['test loss']))
-        # ax[0].legend(loc="upper right")
-        # ax[1].plot(res['epochs'], res['training auc'], label='Training')
-        # ax[1].plot(res['epochs'], res['validation auc'], label='Validation', color='r')
-        # max_val_auc, ep = np.max(res['validation auc']), res['epochs'][np.argmax(res['validation auc'])]
-        # ax[1].scatter(ep, max_val_auc, c='r')
-        # ax[1].scatter(res['epochs'][-1], res['test auc'], label='Test', c='k')
-        # ax[1].set_xlim([0.0, res['epochs'][-1] + 1])
-        # if len(res['epochs']) < 16:
-        #     ax[1].set_xticks(np.arange(0, res['epochs'][-1] + 1, 1))
-        # # ax[1].set_ylim([0.0, 1.05])
-        # # ax[1].set_xlabel('Epochs')
-        # # ax[1].set_ylabel('AUC')
-        # ax[1].set_title('Evaluation Metric\nVal/Test %.4f/%.4f' % (max_val_auc, res['test auc']))
-        # # ax[1].legend(loc="lower right")
-        # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
-        # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        # f.savefig(save_path + 'plotseval_epochs{:.0f}.png'.format(res['epochs'][-1]))
+        plt.close()
 
 
-def run_main(config, save_path):
+def run_main(config, save_path, opt_metric, min_optmetric):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -144,81 +122,59 @@ def run_main(config, save_path):
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config.label_map,
                             centr_flag=config.centr_flag)
 
-    # result = []
-    res = {k: [] for k in ['training loss', 'training auc', 'validation loss', 'validation auc', 'epochs',
-                           'validation precision', 'validation recall', 'test precision', 'test recall', 'test loss',
-                           'test auc']}
+    metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc']
+    dataset_ids = ['training', 'validation', 'test']
+    res = {dataset: {metric: [] for metric in metrics_list} for dataset in
+           dataset_ids}
     for epoch_i in range(1, config.n_epochs + 1):  # Train and evaluate the model for n_epochs
+
         print('\n\x1b[0;33;33m' + "Starting epoch %d of %d" % (epoch_i, config.n_epochs) + '\x1b[0m\n')
         # train model
         _ = classifier.train(train_input_fn)
 
         # evaluate model on given datasets
         print('\n\x1b[0;33;33m' + "Evaluating" + '\x1b[0m\n')
+        res_i = {'training': classifier.evaluate(train_input_fn),  # evaluate model on the training set
+                 'validation': classifier.evaluate(val_input_fn),  # evaluate model on the validation set
+                 'test': classifier.evaluate(test_input_fn)}  # evaluate model on the test set
 
-        print('on the training set...')
-        # training set
-        res_train = classifier.evaluate(train_input_fn)
-        res['training loss'].append(res_train['loss'])
-        res['training auc'].append(res_train['roc auc'])
-        res['epochs'].append(epoch_i)
-        print('on the validation set...')
-        # validation set
-        res_val = classifier.evaluate(val_input_fn)
-        res['validation loss'].append(res_val['loss'])
-        res['validation auc'].append(res_val['roc auc'])
-        res['validation precision'].append(res_val['precision'])
-        res['validation recall'].append(res_val['recall'])
+        for dataset in dataset_ids:
+            for metric in metrics_list:
+                res[dataset][metric].append(res_i[dataset][metric])
 
-        confm_info = {key: value for key, value in res_val.items() if key.startswith('label_')}
+        # confm_info = {key: value for key, value in res_val.items() if key.startswith('label_')}
 
-        res_i = {'loss': float(res_val['loss']),
-                 'val acc': float(res_val['accuracy']),
-                 # 'train prec': res_train['precision'],
-                 'val prec': float(res_val['precision']),
-                 'confmx': confm_info,
-                 'epoch': epoch_i}
-        if not config.multi_class:
-            res_i['roc auc'] = res_val['roc auc']
-
-        # result.append(res_i)
-        tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
-                                                                                      res_i['val prec']))
-    # eval_model(config, classifier, result)
-
-        print('on the test set...')
-        # evaluate on the test set
-        res_test = classifier.evaluate(test_input_fn)
-        res['test loss'].append(res_test['loss'])
-        res['test auc'].append(res_test['roc auc'])
-        res['test precision'].append(res_test['precision'])
-        res['test recall'].append(res_test['recall'])
+        # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
+        #                                                                               res_i['val prec']))
 
     print('Saving metrics...')
     np.save(save_path + 'res_eval.npy', res)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
-    draw_plots(res, save_path=save_path)
+    draw_plots(res, save_path, opt_metric, min_optmetric)
 
 
 if __name__ == '__main__':
 
     # results directory
-    save_path = '/home/msaragoc/Kepler_planet_finder/results/run_study_4/'
+    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_9/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 2
+    n_epochs = 50
+
+    opt_metric = 'pr auc'
+    min_optmetric = False
 
     # get best configuration from the HPO study
-    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/configs/study_4')
+    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_9')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
-    # best_config = id2config[incumbent]['config']
-    best_config = id2config[(8, 0, 3)]['config']
+    best_config = id2config[incumbent]['config']
+    # best_config = id2config[(8, 0, 3)]['config']
 
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
@@ -229,11 +185,10 @@ if __name__ == '__main__':
     # choose configuration
     config = best_config
 
-    # tf.logging.set_verbosity(tf.logging.INFO)
-    tf.logging.set_verbosity(tf.logging.ERROR)
+    tf.logging.set_verbosity(tf.logging.INFO)
+    # tf.logging.set_verbosity(tf.logging.ERROR)
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
         run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + 'models/', **config),
-                 save_path + 'model%i' % (item + 1))
-
+                 save_path + 'model%i' % (item + 1), opt_metric, min_optmetric)
