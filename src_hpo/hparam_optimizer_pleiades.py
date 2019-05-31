@@ -143,11 +143,13 @@ if __name__ == '__main__':
 
     optimizer = 'random_search'  # 'bohb'
 
-    min_budget = 5  # 16
-    max_budget = 5  # 128
+    min_budget = 50  # 16
+    max_budget = 50  # 128
     n_iterations = 200  # 16
 
-    ensemble_n = 5
+    ensemble_n = 3
+
+    hpo_loss = 'pr auc'
 
     bohb_params = {'top_n_percent': 15, 'num_samples': 64, 'random_fraction': 1/3, 'bandwidth_factor': 3,
                    'min_bandwidth': 1e-3}
@@ -204,11 +206,15 @@ if __name__ == '__main__':
     parser.add_argument('--prev_run_dir', type=str, help='A directory that contains a config.json and results.json for '
                                                          'the same configuration space.',
                         default=prev_run_dir)
+
     parser.add_argument('--optimizer', type=str, help='Optimizer used to conduct the HPO study. Choose between '
                                                       '\'bohb\' and \'random_search\'',
                         default=optimizer)
+
     parser.add_argument('--ensemble_n', type=int,
                         help='Number of models in ensemble when testing a given configuration.', default=ensemble_n)
+    parser.add_argument('--hpo_loss', type=str,
+                        help='Loss used by the hyperparameter optimization algorithm.', default=hpo_loss)
 
     args = parser.parse_args()
 

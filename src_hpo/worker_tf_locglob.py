@@ -397,6 +397,8 @@ class TransitClassifier(Worker):
         self.multi_class = config_args.multi_class
         self.label_map = config_args.label_map
 
+        self.hpo_loss = config_args.hpo_loss
+
         # use of cross-entropy class weights
         if config_args.satellite == 'kepler' and not config_args.use_kepler_ce:
             self.ce_weights = None
@@ -500,7 +502,7 @@ class TransitClassifier(Worker):
 
         # select which epoch to report from
         ep = -1  # np.argmax(res['validation auc'])
-        res_hpo = {'loss': 1 - float(res_val['roc auc']),  # choose metric/loss to optimize
+        res_hpo = {'loss': 1 - float(res_val[self.hpo_loss]),  # choose metric/loss to optimize
                    'info': {'validation loss': float(res['validation loss'][ep]),
                             'validation accuracy': float(res['validation accuracy'][ep]),
                             'validation precision': float(res['validation precision'][ep]),
@@ -610,6 +612,7 @@ class TransitClassifier(Worker):
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
         # f.savefig(model_dir + '/plotseval_budget%.0f.png' % res['epochs'][-1])
         f.savefig(self.results_directory + '/plotseval_{}budget{:.0f}.png'.format(config_id, res['epochs'][-1]))
+        plt.close()
 
         # Precision and Recall plots
         f, ax = plt.subplots()
@@ -628,6 +631,7 @@ class TransitClassifier(Worker):
         f.suptitle('Config {}|Budget = {:.0f}(Best val:{:.0f})'.format(config_id, res['epochs'][-1],
                                                                        res['epochs'][ep_idx]))
         f.savefig(self.results_directory + '/prec_rec_{}budget{:.0f}.png'.format(config_id, res['epochs'][-1]))
+        plt.close()
 
         # TODO: plot ROC curve; need tpr and fpr
         # # ROC curve
@@ -642,6 +646,7 @@ class TransitClassifier(Worker):
         # ax.set_title('ROC')
         # f.suptitle('Config {}|Budget = {:.0f}'.format(config_id, res['epochs'][-1]))
         # f.savefig(save_path + '/roc_{}budget{:.0f}.png'.format(config_id, res['epochs'][-1]))
+        # plt.close()
 
     @staticmethod
     def get_configspace():

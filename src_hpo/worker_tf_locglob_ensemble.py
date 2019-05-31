@@ -228,20 +228,17 @@ class CNN1dModel(object):
         self.labels = labels
         self.weights = None
         self.ce_weights = config['ce_weights']
-        # self.n_train = config['n_train']
+        # self.n_train = config['n_train']  # UNCOMMENT WHEN USING LR SCHEDULER
         self.logits = None
         self.predictions = None
         self.batch_losses = None
         self.total_loss = None
 
-        # self.multi_class = config['multi_class']
-        # self.output_size = 1 if not self.multi_class else max(config['label_map'].values()) + 1
-
-        # if self.config['multi_class'] or self.config['use_softmax']:
-        if self.config['multi_class']:
-            self.output_size = max(config['label_map'].values()) + 1
-        else:
-            self.output_size = 1
+        self.multi_class = config['multi_class']
+        # UNCOMMET TO TRY SOFTMAX
+        # self.output_size = 1 if not (self.multi_class or self.config['use_softmax']) \
+        #     else max(config['label_map'].values()) + 1
+        self.output_size = 1 if not self.multi_class else max(config['label_map'].values()) + 1
 
         self.build()
 
@@ -403,6 +400,8 @@ class TransitClassifier(Worker):
         self.label_map = config_args.label_map
         # self.n_train = config_args.n_train
 
+        self.hpo_loss = config_args.hpo_loss
+
         self.ensemble_n = config_args.ensemble_n
 
         if config_args.satellite == 'kepler' and not config_args.use_kepler_ce:
@@ -457,8 +456,12 @@ class TransitClassifier(Worker):
                                                 model_dir=model_dir_custom)
 
             for epoch_i in range(int(budget)):  # train model
-                printstr = "Training worker %s: Epoch %d of %d" % (self.worker_id_custom, epoch_i + 1, int(budget))
+                printstr = "Training model %i(%i) on worker %s: Epoch %d of %d" % (model_i + 1, self.ensemble_n,
+                                                                                   self.worker_id_custom, epoch_i + 1,
+                                                                                   int(budget))
                 print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
+                # print(printstr)
+
                 sys.stdout.flush()
 
                 _ = classifier.train(input_fn_train)
@@ -478,14 +481,23 @@ class TransitClassifier(Worker):
         for dataset in dataset_ids:
             for metric in metrics_list:
                 res[dataset][metric] = {'all scores': res[dataset][metric],
-                                        'median': np.median(res[dataset][metric], axis=0)}
+                                        'median': np.median(res[dataset][metric], axis=0),
+                                        'mad': np.median(np.abs(res[dataset][metric] -
+                                                                np.median(res[dataset][metric], axis=0)), axis=0)}
+
+        # save metrics
+        np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}.png'.format(config_id, budget), res)
 
         # draw loss and evaluation metric plots for the model on this given budget
         self.draw_plots(res, config_id)
 
-        ep = np.argmax(res['validation']['roc auc']['median'])
-        res_hpo = {'loss': 1 - float(res['validation']['pr auc']['median'][-1]),  # choose metric/loss to optimize
-                   'info': {dataset + ' ' + metric: res[dataset][metric]['median'][ep]
+        # report HPO loss and aditional performance metrics and info
+        # loss = 'pr auc'  # choose metric/loss to optimize
+        hpo_loss = res['validation'][self.hpo_loss]['median']
+        ep = -1  # np.argmax(hpo_loss)  # epoch where the HPO loss was the best
+        res_hpo = {'loss': 1 - float(hpo_loss[-1]),
+                   'info': {dataset + ' ' + metric: [float(res[dataset][metric]['median'][ep]),
+                                                     float(res[dataset][metric]['mad'][ep])]
                             for dataset in ['validation', 'test'] for metric in metrics_list}}
 
         print('#' * 100)
@@ -577,6 +589,7 @@ class TransitClassifier(Worker):
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
         # f.savefig(model_dir + '/plotseval_budget%.0f.png' % epochs[-1])
         f.savefig(self.results_directory + '/plotseval_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        plt.close()
 
         # Precision and Recall plots
         f, ax = plt.subplots()
@@ -605,6 +618,7 @@ class TransitClassifier(Worker):
         ax.set_title('Precision and Recall')
         f.suptitle('Config {} | Budget = {:.0f} (Best val:{:.0f})'.format(config_id, epochs[-1], epochs[auc_ep_idx]))
         f.savefig(self.results_directory + '/prec_rec_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        plt.close()
 
         # TODO: update ROC curve with ensemble data
         # # ROC curve
@@ -619,6 +633,7 @@ class TransitClassifier(Worker):
         # ax.set_title('ROC')
         # f.suptitle('Config {}|Budget = {:.0f}'.format(config_id, epochs[-1]))
         # f.savefig(save_path + '/roc_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        # plt.close()
 
     @staticmethod
     def get_configspace():

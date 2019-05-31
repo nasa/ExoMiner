@@ -110,12 +110,20 @@ def get_configspace():
     return config_space
 
 
-# if __name__ == '__main__':
-#
-#     num_iteraions = 136
-#     eta = 2
-#     bmin, bmax = 5, 50
-#     print('Total number of runs: {}'.format(print_BOHB_runs(num_iteraions, eta, bmin, bmax)))
+if __name__ == '__main__':
+
+    num_iterations = 100
+    eta = 2
+    bmin, bmax = 5, 50
+    print('Total number of runs,total budget: {}'.format(print_BOHB_runs(num_iterations, eta, bmin, bmax)))
+
+    train_time = 0.5  # assuming that models on average take 30 minutes to train on 50 epochs
+    nensemble = 3
+    nnodes = 24
+    niter = 400
+    runtime = niter * train_time * nensemble / nnodes
+    print('Estimate on the number of hours needed, number of configurations tested, total budget: ', runtime, niter, bmax * niter)
+
 #
 # # load configspace
 # sample configurations
