@@ -4,9 +4,12 @@ Test ensemble of models trained using the best configuration obtained in a hyper
 
 import os
 # import csv
+# import logging
+# logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import numpy as np
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 # import pickle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
@@ -24,6 +27,15 @@ from src.config import Config
 
 
 def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5):
+    """
+
+    :param config: Config class, config object
+    :param model_filenames: list, models filepaths
+    :param tfrecord_filenames: list, tfrecords filepaths
+    :param pathsaveres: str, save directory
+    :param threshold: float, classification thresholds
+    :return:
+    """
 
     # num_afps, num_ntps, num_pcs = 0, 0, 0
     kepid_vec, glob_vec, loc_vec, labels = [], [], [], []
@@ -91,15 +103,15 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     for i, model_filename in enumerate(model_filenames):
         print('Testing for model %i in %s' % (i + 1, model_filename))
 
-        # DO WE NEED THIS?
-        # config.model_dir_custom = item
+        config_sess = None
+        config_sess = tf.ConfigProto(log_device_placement=False)
 
         estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
-                                           config=tf.estimator.RunConfig(keep_checkpoint_max=1),
+                                           config=tf.estimator.RunConfig(keep_checkpoint_max=1,
+                                                                         session_config=config_sess),
                                            model_dir=model_filename)
 
         prediction_lst = []
-
         for predictions in estimator.predict(input_fn):
             assert len(predictions) == 1
             prediction_lst.append(predictions[0])
@@ -211,14 +223,15 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
 
 if __name__ == "__main__":
 
-    # tf.logging.set_verbosity(tf.logging.INFO)
+    tf.logging.set_verbosity(tf.logging.ERROR)
 
     # load best config from HPO study
-    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/configs/study_2')
+    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
+                                             'hpo_configs/study_9')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
-    # best_config = id2config[incumbent]['config']
-    best_config = id2config[(13, 0, 7)]['config']
+    best_config = id2config[incumbent]['config']
+    # best_config = id2config[(13, 0, 7)]['config']
     # load Shallue's best config
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
                             'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': 1e-4,
@@ -229,18 +242,18 @@ if __name__ == "__main__":
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
-    models_path = '/home/msaragoc/Kepler_planet_finder/models/run_3'
+    models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_9/models'
     # models_path = '/home/msaragoc/Kepler_planet_finder/models/run_shallues_bestconfig'
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
     # load test data
-    tfrecord_par_path = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
+    tfrecord_par_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
     tfrecord_filenames = [tfrecord_par_path + '/' + file for file in os.listdir(tfrecord_par_path) if 'test' in file]
     if not tfrecord_filenames:
         raise ValueError("Found no input tfrecord files")
 
     # path to save results
-    pathsaveres = '/home/msaragoc/Kepler_planet_finder/results/run_3/'
+    pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_9/'
     # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results/run_shallues_bestconfig/'
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
@@ -248,5 +261,4 @@ if __name__ == "__main__":
     # threshold on binary classification
     threshold = 0.5
 
-    # main(Config(**best_config), model_filenames, tfrecord_filenames, pathsaveres, threshold=threshold)
     main(Config(None, **config), model_filenames, tfrecord_filenames, pathsaveres, threshold=threshold)
