@@ -173,8 +173,10 @@ def run_main(config, save_path, opt_metric, min_optmetric):
 
 if __name__ == '__main__':
 
+    tf.logging.set_verbosity(tf.logging.ERROR)
+
     # results directory
-    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_9/'
+    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_8/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')
@@ -187,7 +189,7 @@ if __name__ == '__main__':
 
     # get best configuration from the HPO study
     res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                                             'hpo_configs/study_9')
+                                             'hpo_configs/study_8')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
