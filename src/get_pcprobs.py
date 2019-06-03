@@ -79,7 +79,7 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     :param model_filenames: list, models filepaths
     :param tfrecord_filenames: list, tfrecords filepaths
     :param pathsaveres: str, save directory
-    :param threshold: float, classification thresholds
+    :param threshold: float, classification threshold
     :return:
     """
 
@@ -152,6 +152,7 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
         config_sess = None
         config_sess = tf.ConfigProto(log_device_placement=False)
 
+
         estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                            config=tf.estimator.RunConfig(keep_checkpoint_max=1,
                                                                          session_config=config_sess),
@@ -170,20 +171,22 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     # average across models
     ensemble_prediction = np.mean(prediction_matrix, axis=0)
 
+    # threshold for classification
     ensemble_classification = np.zeros(ensemble_prediction.shape, dtype='uint8')
     ensemble_classification[ensemble_prediction >= threshold] = 1
 
+    # compute and save performance metrics for the ensemble
     acc = accuracy_score(labels, ensemble_classification)
     roc_auc = roc_auc_score(labels, ensemble_prediction, average='macro')
     pr_auc = average_precision_score(labels, ensemble_prediction, average='macro')
     prec = precision_score(labels, ensemble_classification, average='binary')
     rec = recall_score(labels, ensemble_classification, average='binary')
-
     metrics_dict = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec, 'Threshold': threshold,
                     'Number of models': len(model_filenames), 'PR AUC': pr_auc}
     for metric in metrics_dict:
         print(metric + ': ', metrics_dict[metric])
 
+    # save results
     np.save(pathsaveres + 'metrics.npy', metrics_dict)
     print('Metrics saved to %s' % (pathsaveres + 'metrics.npy'))
 
