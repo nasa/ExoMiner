@@ -3,13 +3,13 @@ Test ensemble of models trained using the best configuration obtained in a hyper
 """
 
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # import csv
 # import logging
 # logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import numpy as np
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 # import pickle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     # load best config from HPO study
     res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                                             'hpo_configs/study_9')
+                                             'hpo_configs/study_8')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
-    models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_9/models'
+    models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_8/models'
     # models_path = '/home/msaragoc/Kepler_planet_finder/models/run_shallues_bestconfig'
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         raise ValueError("Found no input tfrecord files")
 
     # path to save results
-    pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_9/'
+    pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_8/'
     # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results/run_shallues_bestconfig/'
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)

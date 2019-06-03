@@ -156,6 +156,12 @@ def run_main(config, save_path, opt_metric, min_optmetric):
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
 
+    print('Performance on last epoch ({})'.format(config.n_epochs))
+    for dataset in dataset_ids:
+        print('Dataset: {}'.format(dataset))
+        for metric in metrics_list:
+            print('Metric {}: ', res[dataset][metric][-1])
+
     print('Saving metrics...')
     np.save(save_path + 'res_eval.npy', res)
 
@@ -176,7 +182,7 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # results directory
-    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_8/'
+    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')
@@ -202,7 +208,8 @@ if __name__ == '__main__':
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     # choose configuration
-    config = best_config
+    config = shallues_best_config
+    print('Selected configuration: ', config)
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
