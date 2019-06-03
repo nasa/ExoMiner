@@ -26,6 +26,52 @@ from src.config import Config
 # from config import Config
 
 
+def draw_plots(pathsaveres, recroc, preroc, pr_auc, tpr, fpr, roc_auc):
+    """
+
+    :param pathsaveres: str, path to save plots
+    :param recroc: numpy array, recall values for the PR curve
+    :param preroc: numpy array, precision values for the PR curve
+    :param pr_auc: float, precision-recall curve AUC (aka average precision)
+    :param tpr: numpy array, true positive rate
+    :param fpr: numpy array, false positive rate
+    :param roc_auc: float, ROC AUC
+    :return:
+    """
+
+    f = plt.figure(figsize=(9, 6))
+    lw = 2
+    # ax.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve (area = %0.2f)' % auc)
+    ax = f.add_subplot(111, label='PR ROC')
+    ax.plot(recroc, preroc, color='darkorange', lw=lw, label='PR ROC curve (area = %0.2f)' % pr_auc)
+    # ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_xticks(np.arange(0, 1.05, 0.05))
+    ax.set_yticks(np.arange(0, 1.05, 0.05))
+    ax.legend(loc="lower right")
+    ax.grid()
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.0])
+    ax2 = f.add_subplot(111, label='AUC ROC', frame_on=False)
+    ax2.plot(fpr, tpr, color='darkorange', lw=lw, linestyle='--', label='AUC ROC curve (area = %0.2f)' % roc_auc)
+    ax2.set_xlim([0.0, 1.0])
+    ax2.set_ylim([0.0, 1.0])
+    ax2.xaxis.tick_top()
+    ax2.yaxis.tick_right()
+    ax2.set_xlabel('False Positive Rate')
+    ax2.set_ylabel('True Positive Rate')
+    ax2.set_xticks(np.arange(0, 1.05, 0.05))
+    ax2.set_yticks(np.arange(0, 1.05, 0.05))
+    ax2.yaxis.set_label_position('right')
+    ax2.xaxis.set_label_position('top')
+    ax2.legend(loc="lower left")
+
+    f.suptitle('PR/ROC Curves')
+    f.savefig(pathsaveres + 'pr_roc.png')
+    plt.close()
+
+
 def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5):
     """
 
@@ -146,37 +192,8 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
     np.save(pathsaveres + 'roc_pr_aucs.npy', [fpr, tpr, preroc, recroc])
 
     print('Plotting ROC and PR AUCs...')
-    f = plt.figure(figsize=(9, 6))
-    lw = 2
-    # ax.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve (area = %0.2f)' % auc)
-    ax = f.add_subplot(111, label='PR ROC')
-    ax.plot(recroc, preroc, color='darkorange', lw=lw, label='PR ROC curve (area = %0.2f)' % pr_auc)
-    # ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    ax.set_xticks(np.arange(0, 1.05, 0.05))
-    ax.set_yticks(np.arange(0, 1.05, 0.05))
-    ax.legend(loc="lower right")
-    ax.grid()
-    ax.set_xlim([0.0, 1.0])
-    ax.set_ylim([0.0, 1.0])
-    ax2 = f.add_subplot(111, label='AUC ROC', frame_on=False)
-    ax2.plot(fpr, tpr, color='darkorange', lw=lw, linestyle='--', label='AUC ROC curve (area = %0.2f)' % roc_auc)
-    ax2.set_xlim([0.0, 1.0])
-    ax2.set_ylim([0.0, 1.0])
-    ax2.xaxis.tick_top()
-    ax2.yaxis.tick_right()
-    ax2.set_xlabel('False Positive Rate')
-    ax2.set_ylabel('True Positive Rate')
-    ax2.set_xticks(np.arange(0, 1.05, 0.05))
-    ax2.set_yticks(np.arange(0, 1.05, 0.05))
-    ax2.yaxis.set_label_position('right')
-    ax2.xaxis.set_label_position('top')
-    ax2.legend(loc="lower left")
+    draw_plots(pathsaveres, recroc, preroc, pr_auc, tpr, fpr, roc_auc)
 
-    f.suptitle('PR/ROC Curves')
-    f.savefig(pathsaveres + 'pr_roc.png')
-    plt.close()
 
     # # Generate the predictions.
     # prediction_lst = []
@@ -234,7 +251,7 @@ if __name__ == "__main__":
     # best_config = id2config[(13, 0, 7)]['config']
     # load Shallue's best config
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': 1e-4,
+                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 

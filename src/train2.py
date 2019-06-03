@@ -156,12 +156,6 @@ def run_main(config, save_path, opt_metric, min_optmetric):
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
 
-    print('Performance on last epoch ({})'.format(config.n_epochs))
-    for dataset in dataset_ids:
-        print('Dataset: {}'.format(dataset))
-        for metric in metrics_list:
-            print('Metric {}: ', res[dataset][metric][-1])
-
     print('Saving metrics...')
     np.save(save_path + 'res_eval.npy', res)
 
@@ -170,10 +164,11 @@ def run_main(config, save_path, opt_metric, min_optmetric):
     draw_plots(res, save_path, opt_metric, min_optmetric)
 
     print('#' * 100)
+    print('Performance on last epoch ({})'.format(config.n_epochs))
     for dataset in dataset_ids:
         print(dataset)
         for metric in metrics_list:
-            print('{}: {}'.format(metric, res[dataset][metric]))
+            print('{}: {}'.format(metric, res[dataset][metric][-1]))
     print('#' * 100)
 
 
@@ -182,7 +177,7 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # results directory
-    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/'
+    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_7/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')
@@ -195,7 +190,7 @@ if __name__ == '__main__':
 
     # get best configuration from the HPO study
     res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                                             'hpo_configs/study_8')
+                                             'hpo_configs/study_7')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -203,12 +198,12 @@ if __name__ == '__main__':
 
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': 1e-4,
+                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     # choose configuration
-    config = shallues_best_config
+    config = best_config  # shallues_best_config
     print('Selected configuration: ', config)
 
     for item in range(n_models):
