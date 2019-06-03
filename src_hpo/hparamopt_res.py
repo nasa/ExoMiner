@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
 from matplotlib import ticker, cm
-import random
+# import random
 
 # local
 from src_hpo.utils_hpo import print_BOHB_runs
@@ -16,7 +16,9 @@ bmin, bmax = 5, 50
 # nruns = print_BOHB_runs(num_iterations, eta, bmin, bmax)
 
 # load results from the BOHB study
-res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/configs/study_9')
+res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
+model_based_optimizer = False
+ensemble_study = False
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
 
@@ -51,9 +53,10 @@ print('Configs per budget: ', {k: configs_per_budget[k][0] for k in configs_per_
 modelspicks_per_budget = {key: {'model based': [0, []], 'random': [0, []]} for key in budgets}
 for b in configs_per_budget:
     for config in configs_per_budget[b][1]:
-        if id2config[config]['config_info']['model_based_pick']:
-            modelspicks_per_budget[b]['model based'][0] += 1
-            modelspicks_per_budget[b]['model based'][1].append(config)
+        if model_based_optimizer:
+            if id2config[config]['config_info']['model_based_pick']:
+                modelspicks_per_budget[b]['model based'][0] += 1
+                modelspicks_per_budget[b]['model based'][1].append(config)
         else:
             modelspicks_per_budget[b]['random'][0] += 1
             modelspicks_per_budget[b]['random'][1].append(config)
@@ -67,78 +70,82 @@ configs_ftimeu = []
 for config in configs_ftime:
     if config not in configs_ftimeu:
         configs_ftimeu.append(config)
-idxs_modelbased = [1 if id2config[config]['config_info']['model_based_pick'] else 0 for config in configs_ftimeu]
+if model_based_optimizer:
+    idxs_modelbased = [1 if id2config[config]['config_info']['model_based_pick'] else 0 for config in configs_ftimeu]
+else:
+    idxs_modelbased = [0 for config in configs_ftimeu]
 plt.figure()
 plt.plot(idxs_modelbased)
 plt.xlabel('Time Ordered Runs')
 plt.ylabel('Model based (1)/Random (0) \npicked configs.')
 
+nconfigs_valid = len(idxs_modelbased)
+nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
 print('Total number of models trained: {}'.format(len(all_runs)))
 print('Number of nonviable configurations: {}'. format(inv_models))
-print('Number of viable configurations: {}'.format(len(idxs_modelbased)))
-print('Number of model based pick configurations: {}'.format(len(np.nonzero(idxs_modelbased)[0])))
-print('Number of random picked configurations: {}'.format(len(idxs_modelbased) - len(np.nonzero(idxs_modelbased)[0])))
+print('Number of viable configurations: {}'.format(nconfigs_valid))
+print('Number of model based pick configurations: {}'.format(nconfigs_modelbased))
+print('Number of random picked configurations: {}'.format(nconfigs_valid - nconfigs_modelbased))
+
+# remove invalid configs
+all_runs = [run for run in all_runs if run.info is not None]
 
 # get metrics for each configuration
-# TODO: remove nan configs
-# def printit(x):
-#     # print(type(x.info['validation auc']))
-#     return np.random.uniform(0, 1)
-# a = sorted(all_runs, key=lambda x: printit(x))
-
-# metrics = ['validation recall', 'validation precision']
-metrics = ['validation recall', 'validation precision', 'validation auc', 'test recall', 'test precision', 'test auc']
-metrics_rank = {}
-for run in all_runs:
-    if run.info is None:
-        continue
-    metrics_rank['{}_b{:.0f}'.format(run.config_id, run.budget)] = {}
-    for metric in metrics:
-        # print('config_id', run.config_id)
-        # print('budget', run.budget)
-        # print(metric, run.info[metric])
-        metrics_rank['{}_b{:.0f}'.format(run.config_id, run.budget)][metric] = run.info[metric]
-    metrics_rank['{}_b{:.0f}'.format(run.config_id, run.budget)]['id'] = run.config_id
+# metrics = ['validation loss', 'validation accuracy', 'validation pr auc', 'validation precision', 'validation recall',
+#            'validation roc auc', 'test loss', 'test accuracy', 'test pr auc', 'test precision', 'test recall',
+#            'test roc auc']
 
 # plot 2D histograms for two chosen metrics
-# metrics_plot = ['validation recall', 'validation precision']
 metrics_plot = ['test recall', 'test precision']
 # plt.hist([metric_rank[key] for key in metric_rank], range=(0, 1), bins=np.linspace(0, 1, num=40, endpoint=True))
-plt.hist2d([metrics_rank[key][metrics_plot[0]] for key in metrics_rank],
-           [metrics_rank[key][metrics_plot[1]] for key in metrics_rank],
-           range=[(0, 1), (0, 1)],
-           bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
+if ensemble_study:
+    plt.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
+               [run.info[metrics_plot[1]][0] for run in all_runs],
+               range=[(0, 1), (0, 1)],
+               bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
+else:
+    plt.hist2d([run.info[metrics_plot[0]] for run in all_runs],
+               [run.info[metrics_plot[1]] for run in all_runs],
+               range=[(0, 1), (0, 1)],
+               bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
 plt.xticks(np.linspace(0, 1, num=10, endpoint=True))
 plt.xlabel(metrics_plot[0])
 plt.ylabel(metrics_plot[1])
 
 # rank configurations based on metric
-sort_metric = 'validation auc'
-sorted_metrickeys = sorted(metrics_rank.items(), key=lambda x: x[1][sort_metric], reverse=True)
-# for run in sorted_metrickeys:
+rankmetric = 'validation roc auc'
+if ensemble_study:
+    ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric][0], reverse=True)
+else:
+    ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric], reverse=True)
+# for run in ranked_allruns:
 #     print(run)
 
 # select top configurations based on minimum value for the ranking metric
-min_val = 0.982
-vals = []
-top_configs = {}
-for run in sorted_metrickeys:
-    if run[1][sort_metric] < min_val:
-        break
-
-    vals.append(run[1][sort_metric])
-
-    if run[0].split('_')[0] not in top_configs.keys():
-        top_configs[run[1]['id']] = id2config[run[1]['id']]['config']  # add config params
-        top_configs[run[1]['id']]['metric'] = run[1][sort_metric]  # add metric value
-    elif run[1][sort_metric] > top_configs[run[1]['id']]['metric']:  # update metric value with the best run for that config
-        top_configs[run[1]['id']]['metric'] = run[1][sort_metric]
+min_val = 0.96
+top_configs_aux = []
+top_configs = []
+for run in ranked_allruns:
+    if ensemble_study:
+        if run.info[rankmetric][0] < min_val:
+            break
+    else:
+        if run.info[rankmetric] < min_val:
+            break
+    if run.config_id not in top_configs_aux:
+        top_configs.append(run)
+        top_configs_aux.append(run.config_id)
 
 print('Number of top configs {}'.format(len(top_configs)))
 
+# Plot histogram of ranked metric for top configurations
+bins = 'auto'
 plt.figure()
-_, bins, _ = plt.hist(vals, bins='auto')
-plt.xlabel('{}'.format(sort_metric))
+if ensemble_study:
+    _, bins, _ = plt.hist([run.info[rankmetric][0] for run in top_configs], bins=bins)
+else:
+    _, bins, _ = plt.hist([run.info[rankmetric] for run in top_configs], bins=bins)
+plt.xlabel('{}'.format(rankmetric))
 plt.ylabel('Counts')
 plt.title('Histogram top configs ({:.2f})'.format(min_val))
 
@@ -170,10 +177,14 @@ data = []
 metric_vals = []
 for hparam in hparams:
     data_hparam = []
-    for config in top_configs:
-        data_hparam.append(top_configs[config][hparam])
+    for top_config in top_configs:
+        data_hparam.append(id2config[top_config.config_id]['config'][hparam])
+        # data_hparam.append(top_configs[config][hparam])
         if hparam == hparams[0]:
-            metric_vals.append(top_configs[config]['metric'])
+            if ensemble_study:
+                metric_vals.append(top_config.info[rankmetric][0])
+            else:
+                metric_vals.append(top_config.info[rankmetric])
     data.append(data_hparam)
 
 # hyperparameters boxplots
@@ -262,7 +273,7 @@ plt.legend(
      for l in range(len(lims))],
     bbox_to_anchor=(1.2, 1), loc=2, borderaxespad=0.)
 
-plt.suptitle("Parallel Coordinates\nMetric:{}".format(sort_metric))
+plt.suptitle("Parallel Coordinates\nMetric:{}".format(rankmetric))
 if len(hparams) - 1 == 1:
     plt.subplots_adjust(top=0.914, bottom=0.068, left=0.042, right=0.703, hspace=0.195, wspace=0.0)
 
@@ -326,5 +337,3 @@ f.set_size_inches(10, 8)
 # The next plot compares the performance of configs picked by the model vs. random ones
 f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
 f.set_size_inches(10, 8)
-
-#%%
