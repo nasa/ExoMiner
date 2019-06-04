@@ -177,7 +177,7 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # results directory
-    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/'
+    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/'
     # save_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -205,7 +205,7 @@ if __name__ == '__main__':
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     # choose configuration
-    config = best_config  # shallues_best_config
+    config = shallues_best_config  # best_config  # shallues_best_config
     print('Selected configuration: ', config)
 
     for item in range(n_models):
