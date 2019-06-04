@@ -289,7 +289,11 @@ class CNN1dModel(object):
                     for seq_conv_block_i in range(self.config.conv_ls_per_block - 1):
                         net = tf.layers.conv1d(**kwargs)
                         # net = tf.nn.leaky_relu(net, alpha=0.01)
+<<<<<<< HEAD
                         net = tf.nn.relu(net)
+=======
+                        net = tf.nn.leaky_relu(net)
+>>>>>>> c2e1bc6b21dba7d177f67a97f4c07a4e7adfb4ab
 
                     net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config.pool_stride)
                     # net = tf.layers.batch_normalization(inputs=net)
