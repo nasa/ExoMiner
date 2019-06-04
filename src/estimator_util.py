@@ -86,6 +86,12 @@ class InputFn(object):
                         label_id = tf.identity(label_id)
 
                 else:  # input_config.features[feature_name].is_time_series:
+                    # Possibly reverse.
+                    if reverse_time_series_prob > 0:
+                        # pylint:disable=cell-var-from-loop
+                        value = tf.cond(should_reverse, lambda: tf.reverse(value, axis=[0]),
+                                        lambda: tf.identity(value))
+
                     output['time_series_features'][feature_name] = value
 
             # return output

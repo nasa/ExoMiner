@@ -7,7 +7,8 @@ from matplotlib import ticker, cm
 # import random
 
 # local
-from src_hpo.utils_hpo import print_BOHB_runs
+from src_hpo.utils_hpo import print_BOHB_runs, json_result_logger
+import paths
 
 # check number of iterations per Successive Halving and per budget
 num_iterations = 200
@@ -17,7 +18,8 @@ bmin, bmax = 5, 50
 
 # load results from the BOHB study
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
-res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
+# res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
+res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 model_based_optimizer = False
 ensemble_study = True
 id2config = res.get_id2config_mapping()

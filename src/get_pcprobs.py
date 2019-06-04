@@ -2,6 +2,7 @@
 Test ensemble of models trained using the best configuration obtained in a hyperparameter optimization study.
 """
 
+# 3rd party
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # import csv
@@ -15,19 +16,20 @@ import tensorflow as tf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve
 
+# local
 # if 'nobackup' in os.path.dirname(__file__):
 #     from src.estimator_util import ModelFn, CNN1dModel
 #     from src.config import Config
 # else:
 from src.estimator_util import ModelFn, CNN1dModel
 from src.config import Config
-
 # from estimator_util import ModelFn, CNN1dModel
 # from config import Config
+import paths
 
 
 def draw_plots(pathsaveres, recroc, preroc, pr_auc, tpr, fpr, roc_auc):
-    """
+    """ Plot ROC and PR curves.
 
     :param pathsaveres: str, path to save plots
     :param recroc: numpy array, recall values for the PR curve
@@ -73,7 +75,7 @@ def draw_plots(pathsaveres, recroc, preroc, pr_auc, tpr, fpr, roc_auc):
 
 
 def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5):
-    """
+    """ Test ensemble of models.
 
     :param config: Config class, config object
     :param model_filenames: list, models filepaths
@@ -151,7 +153,6 @@ def main(config, model_filenames, tfrecord_filenames, pathsaveres, threshold=0.5
 
         config_sess = None
         config_sess = tf.ConfigProto(log_device_placement=False)
-
 
         estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                            config=tf.estimator.RunConfig(keep_checkpoint_max=1,
@@ -246,7 +247,11 @@ if __name__ == "__main__":
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # load best config from HPO study
-    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
+    res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+    # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
+    # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
+    #                                          'hpo_configs/study_rs')
+
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -261,20 +266,26 @@ if __name__ == "__main__":
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
+
     # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
-    models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
+    # models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
+    models_path = paths.pathtrainedmodels + 'study_rs/models'
+
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
     # load test data
     # tfrecord_par_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
-    tfrecord_par_path = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
+    # tfrecord_par_path = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
+    tfrecord_par_path = paths.tfrec_dir
     tfrecord_filenames = [tfrecord_par_path + '/' + file for file in os.listdir(tfrecord_par_path) if 'test' in file]
     if not tfrecord_filenames:
         raise ValueError("Found no input tfrecord files")
 
     # path to save results
-    # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/shallue/'
-    pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
+    pathsaveres = paths.pathsaveres_get_pcprobs + 'study_rs'
+    # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
+    # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_rs/'
+
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 

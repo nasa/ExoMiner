@@ -2,14 +2,17 @@
 Configuration class used to instantiate models with a config given as a dictionary.
 """
 
-import os
+# 3rd party
+# import os
 
-if 'nobackup' in os.path.dirname(__file__):
-    from src.estimator_util import get_ce_weights, get_model_dir
-else:
-    from src.estimator_util import get_ce_weights, get_model_dir
-
+# local
+# if 'nobackup' in os.path.dirname(__file__):
+#     from src.estimator_util import get_ce_weights, get_model_dir
+# else:
+#     from src.estimator_util import get_ce_weights, get_model_dir
+from src.estimator_util import get_ce_weights, get_model_dir
 # from estimator_util import get_ce_weights, get_model_dir
+import paths
 
 
 class Config(object):
@@ -63,8 +66,14 @@ class Config(object):
         #     self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
         # else:
         # self.tfrec_dir = '/home6/msaragoc/work_dir/data/tfrecord_kepler'
+<<<<<<< HEAD
         self.tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
         # self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
+=======
+        # self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
+        # self.tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
+        self.tfrec_dir = paths.tfrec_dir
+>>>>>>> 54820f571f9df65b772009488b8aad9247aabf89
 
         # For self-training
         # tfrecord_dir_tpsrejects = '/data5/tess_project/classifiers_Laurent/Kepler_classifier/Astronet_Models/tfrecords/kepler_rejects'
