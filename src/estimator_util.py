@@ -27,6 +27,8 @@ class InputFn(object):
     def __call__(self, config, params):
         """Builds the input pipeline."""
 
+        reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
+
         table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
             keys=list(self.label_map.keys()),
             values=list(self.label_map.values()),
@@ -63,6 +65,14 @@ class InputFn(object):
 
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
+
+            if reverse_time_series_prob > 0:
+                # Randomly reverse time series features with probability
+                # reverse_time_series_prob.
+                should_reverse = tf.less(
+                    tf.random_uniform([], 0, 1),
+                    reverse_time_series_prob,
+                    name="should_reverse")
 
             output = {'time_series_features': {}}
             label_id = tf.to_int32(0)
@@ -258,14 +268,16 @@ class CNN1dModel(object):
                               'padding': "same"}
 
                     net = tf.layers.conv1d(**kwargs)
-                    net = tf.nn.leaky_relu(net, alpha=0.01)
+                    # net = tf.nn.leaky_relu(net, alpha=0.01)
+                    net = tf.nn.relu(net)
 
                     for seq_conv_block_i in range(self.config.conv_ls_per_block - 1):
                         net = tf.layers.conv1d(**kwargs)
-                        net = tf.nn.leaky_relu(net, alpha=0.01)
+                        # net = tf.nn.leaky_relu(net, alpha=0.01)
+                        net = tf.nn.leaky_relu(net)
 
                     net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config.pool_stride)
-                    net = tf.layers.batch_normalization(inputs=net)
+                    # net = tf.layers.batch_normalization(inputs=net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
@@ -303,7 +315,8 @@ class CNN1dModel(object):
                                           kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config.decay_rate))
                 else:
                     net = tf.layers.dense(inputs=net, units=fc_neurons)
-                net = tf.nn.leaky_relu(net, alpha=0.01)
+                # net = tf.nn.leaky_relu(net, alpha=0.01)
+                net = tf.nn.relu(net)
                 net = tf.layers.dropout(net, self.config.dropout_rate, training=self.is_training)
 
             tf.identity(net, "final")
