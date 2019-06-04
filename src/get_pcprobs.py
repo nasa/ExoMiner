@@ -246,8 +246,7 @@ if __name__ == "__main__":
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # load best config from HPO study
-    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                                             'hpo_configs/study_rs')
+    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -258,23 +257,24 @@ if __name__ == "__main__":
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
-    config = best_config  # shallues_best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
+    config = shallues_best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
-    models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/old/models'
-    # models_path = '/home/msaragoc/Kepler_planet_finder/models/run_shallues_bestconfig'
+    # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
+    models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
     # load test data
-    tfrecord_par_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
+    # tfrecord_par_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
+    tfrecord_par_path = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
     tfrecord_filenames = [tfrecord_par_path + '/' + file for file in os.listdir(tfrecord_par_path) if 'test' in file]
     if not tfrecord_filenames:
         raise ValueError("Found no input tfrecord files")
 
     # path to save results
-    pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_rs/'
-    # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results/run_shallues_bestconfig/'
+    # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/shallue/'
+    pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 

@@ -16,9 +16,10 @@ bmin, bmax = 5, 50
 # nruns = print_BOHB_runs(num_iterations, eta, bmin, bmax)
 
 # load results from the BOHB study
-res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
+# res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
+res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
 model_based_optimizer = False
-ensemble_study = False
+ensemble_study = True
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
 
@@ -312,10 +313,10 @@ inc_run = inc_runs[-1]
 
 # We have access to all information: the config, the loss observed during
 # optimization, and all the additional information
-inc_loss = inc_run.loss
-inc_test_auc = inc_run.info['test auc']
+inc_hpoloss = inc_run.loss
+inc_test_hpoloss = inc_run.info['test roc auc']
 
-print('It achieved optimization metric of %f (validation) and %f (test).' % (1 - inc_loss, inc_test_auc))
+print('It achieved optimization loss of {} (validation) and {} (test).'.format(1 - inc_hpoloss, inc_test_hpoloss))
 
 # Let's plot the observed losses grouped by budget,
 f, _ = hpvis.losses_over_time(all_runs)
