@@ -160,6 +160,7 @@ def run_main(config, save_path, opt_metric, min_optmetric):
 
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #
+        sys.stdout.flush()
 
     print('Saving metrics...')
     np.save(save_path + 'res_eval.npy', res)
@@ -175,6 +176,7 @@ def run_main(config, save_path, opt_metric, min_optmetric):
         for metric in metrics_list:
             print('{}: {}'.format(metric, res[dataset][metric][-1]))
     print('#' * 100)
+    sys.stdout.flush()
 
 
 if __name__ == '__main__':
