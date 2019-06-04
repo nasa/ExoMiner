@@ -247,11 +247,15 @@ if __name__ == "__main__":
 
     # load best config from HPO study
 <<<<<<< HEAD
+<<<<<<< HEAD
     res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
 =======
     res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
                                              'hpo_configs/study_rs')
 >>>>>>> c2e1bc6b21dba7d177f67a97f4c07a4e7adfb4ab
+=======
+    res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
+>>>>>>> 7d211e769bc5a119170b3ec1e1c8cb67f97cb4d7
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -262,10 +266,11 @@ if __name__ == "__main__":
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
-    config = best_config  # shallues_best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
+    config = shallues_best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
+<<<<<<< HEAD
 <<<<<<< HEAD
     # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
     models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
@@ -273,6 +278,10 @@ if __name__ == "__main__":
     models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/old/models'
     # models_path = '/home/msaragoc/Kepler_planet_finder/models/run_shallues_bestconfig'
 >>>>>>> c2e1bc6b21dba7d177f67a97f4c07a4e7adfb4ab
+=======
+    # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
+    models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
+>>>>>>> 7d211e769bc5a119170b3ec1e1c8cb67f97cb4d7
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
     # load test data
@@ -284,12 +293,17 @@ if __name__ == "__main__":
 
     # path to save results
 <<<<<<< HEAD
+<<<<<<< HEAD
     # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/shallue/'
     pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
 =======
     pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_rs/'
     # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results/run_shallues_bestconfig/'
 >>>>>>> c2e1bc6b21dba7d177f67a97f4c07a4e7adfb4ab
+=======
+    # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/shallue/'
+    pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
+>>>>>>> 7d211e769bc5a119170b3ec1e1c8cb67f97cb4d7
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 
