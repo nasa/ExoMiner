@@ -177,8 +177,8 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     # results directory
-    save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/'
-    # save_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/'
+    # save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/'
+    save_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')

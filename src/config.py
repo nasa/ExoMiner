@@ -64,15 +64,8 @@ class Config(object):
         # else:
         # self.tfrec_dir = '/home6/msaragoc/work_dir/data/tfrecord_kepler'
         # self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
-<<<<<<< HEAD
-<<<<<<< HEAD
         self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
-=======
-        self.tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
->>>>>>> c2e1bc6b21dba7d177f67a97f4c07a4e7adfb4ab
-=======
-        self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
->>>>>>> 7d211e769bc5a119170b3ec1e1c8cb67f97cb4d7
+        # self.tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
 
         # For self-training
         # tfrecord_dir_tpsrejects = '/data5/tess_project/classifiers_Laurent/Kepler_classifier/Astronet_Models/tfrecords/kepler_rejects'
