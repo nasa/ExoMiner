@@ -235,7 +235,7 @@ class CNN1dModel(object):
         self.total_loss = None
 
         self.multi_class = config['multi_class']
-        # UNCOMMET TO TRY SOFTMAX
+        # UNCOMMENT TO TRY SOFTMAX
         # self.output_size = 1 if not (self.multi_class or self.config['use_softmax']) \
         #     else max(config['label_map'].values()) + 1
         self.output_size = 1 if not self.multi_class else max(config['label_map'].values()) + 1

@@ -27,6 +27,8 @@ class InputFn(object):
     def __call__(self, config, params):
         """Builds the input pipeline."""
 
+        reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
+
         table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
             keys=list(self.label_map.keys()),
             values=list(self.label_map.values()),
@@ -63,6 +65,14 @@ class InputFn(object):
 
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
+
+            if reverse_time_series_prob > 0:
+                # Randomly reverse time series features with probability
+                # reverse_time_series_prob.
+                should_reverse = tf.less(
+                    tf.random_uniform([], 0, 1),
+                    reverse_time_series_prob,
+                    name="should_reverse")
 
             output = {'time_series_features': {}}
             label_id = tf.to_int32(0)
@@ -191,13 +201,28 @@ class ModelFn(object):
 
     @staticmethod
     def create_train_op(model):
-        # if config.get("learning_rate_decay_factor"):
+
+        # if model.config['lr_scheduler'] in ["inv_exp_fast", "inv_exp_slow"]:
+        #     global_step = tf.train.get_global_step()
+        #     # global_step = tf.Variable(0, trainable=False)
+        #     # global_step = tf.train.get_or_create_global_step()
+        #
+        #     # decay learning rate every 'decay_epochs' by 'decay_rate'
+        #     decay_rate = 0.5
+        #     decay_epochs = 32 if model.config['lr_scheduler'] == "inv_exp_fast" else 64
+        #
         #     learning_rate = tf.train.exponential_decay(
-        #         learning_rate=float(config.learning_rate),
-        #         global_step=model.global_step,
-        #         decay_steps=config.learning_rate_decay_steps,
-        #         decay_rate=config.learning_rate_decay_factor,
-        #         staircase=config.learning_rate_decay_staircase)
+        #         learning_rate=model.config['lr'],
+        #         global_step=global_step,
+        #         decay_steps=int(decay_epochs * model.n_train / self._base_config['batch_size']),
+        #         decay_rate=decay_rate,
+        #         staircase=True)
+        #
+        # elif model.config['lr_scheduler'] == "constant":
+        #     learning_rate = model.config['lr']
+        # else:
+        #     learning_rate = None
+        #     NotImplementedError('Learning rate scheduler not recognized')
 
         if model.config.optimizer == 'Adam':
             optimizer = tf.train.AdamOptimizer(learning_rate=model.config.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
@@ -258,14 +283,16 @@ class CNN1dModel(object):
                               'padding': "same"}
 
                     net = tf.layers.conv1d(**kwargs)
-                    net = tf.nn.leaky_relu(net, alpha=0.01)
+                    # net = tf.nn.leaky_relu(net, alpha=0.01)
+                    net = tf.nn.relu(net)
 
                     for seq_conv_block_i in range(self.config.conv_ls_per_block - 1):
                         net = tf.layers.conv1d(**kwargs)
-                        net = tf.nn.leaky_relu(net, alpha=0.01)
+                        # net = tf.nn.leaky_relu(net, alpha=0.01)
+                        net = tf.nn.relu(net)
 
                     net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config.pool_stride)
-                    net = tf.layers.batch_normalization(inputs=net)
+                    # net = tf.layers.batch_normalization(inputs=net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
@@ -303,7 +330,8 @@ class CNN1dModel(object):
                                           kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config.decay_rate))
                 else:
                     net = tf.layers.dense(inputs=net, units=fc_neurons)
-                net = tf.nn.leaky_relu(net, alpha=0.01)
+                # net = tf.nn.leaky_relu(net, alpha=0.01)
+                net = tf.nn.relu(net)
                 net = tf.layers.dropout(net, self.config.dropout_rate, training=self.is_training)
 
             tf.identity(net, "final")
