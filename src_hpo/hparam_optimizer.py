@@ -1,306 +1,211 @@
+"""
+Main script used to run hyperparameter optimization studies using BOHB, BO and RS implementation by Falkner et al.
+"""
+
+# 3rd party
 import os
-import pickle
-import time
+import sys
 import argparse
-import logging
-import multiprocessing
-import matplotlib.pyplot as plt
-import tensorflow as tf
-
-import hpbandster.core.nameserver as hpns
-import hpbandster.core.result as hpres
-import hpbandster.visualization as hpvis
-from hpbandster.optimizers import BOHB
-
-from src_hpo.worker_tf_locglob import TransitClassifier as TransitClassifier_tf
-
+import time
+from mpi4py import MPI
+import numpy as np
+# import logging
+# import matplotlib; matplotlib.use('agg')
+# import matplotlib.pyplot as plt
 # logging.basicConfig(level=logging.WARNING)
 # logging.basicConfig(level=logging.DEBUG)
 # logging.propagate = False
+# if 'nobackup' in os.path.dirname(__file__):
+#     # For running on Pleiades without matplotlib fig() error
+#     plt.switch_backend('agg')
 
-if 'nobackup' in os.path.dirname(__file__):
-    # For running on Pleiades without matplotlib fig() error
-    plt.switch_backend('agg')
+import hpbandster.core.nameserver as hpns
+from hpbandster.optimizers import BOHB, RandomSearch
+import hpbandster.core.result as hpres
 
-###################################
-
-
-def check_run_id(run_id, shared_directory, worker=False):
-    def _gen_run_id(run_id):
-        if run_id[-1].isnumeric():
-            return run_id[:-1] + str(int(run_id[-1]) + 1)
-        else:
-            return run_id + str(1)
-
-    while os.path.isfile(os.path.join(shared_directory, 'configs_%s.json' % run_id)):
-        run_id = _gen_run_id(run_id)
-
-    if worker:
-        if run_id[-1] == '1':
-            run_id = run_id[:-1]
-        elif run_id[-1].isnumeric():
-            run_id = run_id[:-1] + str(int(run_id[-1]) - 1)
-
-    print('run_id: ' + run_id)
-
-    return run_id
+# local
+# from src_hpo.worker_tf_locglob import TransitClassifier as TransitClassifier_tf
+from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
+# from src_hpo.hparam_optimizer import analyze_results, get_ce_weights, json_result_logger, check_run_id
+from src_hpo.utils_hpo import analyze_results, get_ce_weights, json_result_logger, check_run_id
+# from worker_tf_locglob import TransitClassifier as TransitClassifier_tf
+# from worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
+# from hparam_optimizer import analyze_results, get_ce_weights, json_result_logger, check_run_id
+import paths
 
 
-def analyze_results(result, args, shared_dir, run_id):
-
-    # save results
-    with open(os.path.join(shared_dir, 'results_%s.pkl' % run_id), 'wb') as fh:
-        pickle.dump(result, fh)
-
-    # # load the example run from the log files
-    # result = hpres.logged_results_to_HBS_result('example_5_run/')
-
-    # get the 'dict' that translates config ids to the actual configurations
-    id2conf = result.get_id2config_mapping()
-
-    # get he incumbent (best configuration)
-    inc_id = result.get_incumbent_id()
-    try:
-        inc_config = id2conf[inc_id]['config']
-        print('Best found configuration:', inc_config)
-    except KeyError:
-        print('No best found configuration!')
-
-    all_runs = result.get_all_runs()
-
-    print('A total of %i unique configurations were sampled.' % len(id2conf.keys()))
-    print('A total of %i runs were executed.' % len(all_runs))
-    print('Total budget corresponds to %.1f full function evaluations.'
-          % (sum([r.budget for r in all_runs]) / args.max_budget))
-    print('Total budget corresponds to %.1f full function evaluations.'
-          % (sum([r.budget for r in all_runs]) / args.max_budget))
-    print('The run took  %.1f seconds to complete.'
-          % (all_runs[-1].time_stamps['finished'] - all_runs[0].time_stamps['started']))
-
-    # let's grab the run on the highest budget
-    inc_runs = result.get_runs_by_id(inc_id)
-    inc_run = inc_runs[-1]
-
-    # We have access to all information: the config, the loss observed during
-    # optimization, and all the additional information
-    inc_loss = inc_run.loss
-
-    print('It achieved accuracies of %f (validation) and %f (test).' % (inc_run.info['validation accuracy'], 0.00))
-
-    figs = {}
-
-    # Observed losses grouped by budget
-    figs['loss'], _ = hpvis.losses_over_time(all_runs)
-
-    # Number of concurrent runs
-    figs['concurrent_n'], _ = hpvis.concurrent_runs_over_time(all_runs)
-
-    # Number of finished runs
-    figs['finished_n'], _ = hpvis.finished_runs_over_time(all_runs)
-
-    # Spearman rank correlation coefficients of the losses between different budgets
-    figs['Spearman'], _ = hpvis.correlation_across_budgets(result)
-
-    # For model based optimizers, one might wonder how much the model actually helped.
-    # The next plot compares the performance of configs picked by the model vs. random ones
-    figs['model_vs_rand'], _ = hpvis.performance_histogram_model_vs_random(all_runs, id2conf)
-
-    for figname, fig in figs.items():
-        fig.set_size_inches(10, 8)
-        fig.savefig(os.path.join(shared_dir, figname + '.png'), bbox_inches='tight')
-
-    if 'nobackup' not in shared_dir:
-        plt.show()
-
-        def realtime_learning_curves(runs):
-            """
-            example how to extract a different kind of learning curve.
-
-            The x values are now the time the runs finished, not the budget anymore.
-            We no longer plot the validation loss on the y axis, but now the test accuracy.
-
-            This is just to show how to get different information into the interactive plot.
-
-            """
-            sr = sorted(runs, key=lambda r: r.budget)
-            lc = list(filter(lambda t: not t[1] is None,
-                             [(r.time_stamps['finished'], r.info['validation accuracy']) for r in sr]))
-            return [lc, ]
-
-        try:
-            lcs = result.get_learning_curves(lc_extractor=realtime_learning_curves)
-            hpvis.interactive_HBS_plot(lcs, tool_tip_strings=hpvis.default_tool_tips(result, lcs))
-        except TypeError as e:
-            print('\nGot TypeError: ', e)
-
-
-class json_result_logger(hpres.json_result_logger):
-    def __init__(self, directory, run_id, overwrite=False):
-        """
-        convenience logger for 'semi-live-results'
-
-        Logger that writes job results into two files (configs.json and results.json).
-        Both files contain proper json objects in each line.
-
-        This version opens and closes the files for each result.
-        This might be very slow if individual runs are fast and the
-        filesystem is rather slow (e.g. a NFS).
-
-        Parameters
-        ----------
-
-        directory: string
-            the directory where the two files 'configs.json' and
-            'results.json' are stored
-        overwrite: bool
-            In case the files already exist, this flag controls the
-            behavior:
-
-                * True:   The existing files will be overwritten. Potential risk of deleting previous results
-                * False:  A FileExistsError is raised and the files are not modified.
-        """
-        os.makedirs(directory, exist_ok=True)
-
-        self.config_fn = os.path.join(directory, 'configs_%s.json' % run_id)
-        self.results_fn = os.path.join(directory, 'results_%s.json' % run_id)
-
-        try:
-            with open(self.config_fn, 'x') as fh:
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.config_fn, 'w') as fh:
-                    pass
-            else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
-        except:
-            raise
-
-        try:
-            with open(self.results_fn, 'x') as fh:
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.results_fn, 'w') as fh:
-                    pass
-            else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
-
-        except:
-            raise
-
-        self.config_ids = set()
-
-
-def _start_worker(worker_i, worker, args, shared_directory, run_id, host, ns_host, ns_port):
-    print('Starting worker %d ..' % worker_i)
-
-    time.sleep(2)  # short artificial delay to make sure the nameserver is already running
-    w = worker(args, worker_id_custom=worker_i, run_id=run_id, host=host, nameserver=ns_host, nameserver_port=ns_port)
-    w.load_nameserver_credentials(working_directory=shared_directory)
-    w.run(background=False)
-    exit(0)
-
-
-def get_ce_weights(label_map, tfrec_dir):
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if not file.startswith('test')]
-
-    label_vec = []
-    for file in filenames:
-        record_iterator = tf.python_io.tf_record_iterator(path=file)
-        # try:
-        for string_record in record_iterator:
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-            label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-            label_vec.append(label_map[label])
-        # except tf.errors.DataLossError as e:
-        #     pass  # 916415
-
-    label_counts = [label_vec.count(category) for category in range(max(label_map.values()) + 1)]
-    ce_weights = [max(label_counts) / count_i for count_i in label_counts]
-
-    return ce_weights, 'global_view_centr' in example.features.feature
-
-
-def run_main(args):
-
-    port = 9090
-    run_id = 'transit_classifier'
+def run_main(args, bohb_params):
 
     if 'tess' in args.tfrec_dir:
-        args.label_map = {"PC": 1, "NTP": 0, "EB": 2, "BEB": 2} if args.multi_class else {"PC": 1, "NTP": 0, "EB": 0, "BEB": 0}
+        args.label_map = {"PC": 1, "NTP": 0, "EB": 2, "BEB": 2} if args.multi_class else {"PC": 1, "NTP": 0, "EB": 0,
+                                                                                          "BEB": 0}
     else:
         args.label_map = {"PC": 1, "NTP": 0, "AFP": 2} if args.multi_class else {"PC": 1, "NTP": 0, "AFP": 0}
 
-    # # Reduce dataset size; for prototyping
-    # fraction = 10
-    # for io_id in ['x', 'y']:
-    #     for set_id in ['train', 'val', 'test']:
-    #         data_dct[io_id][set_id] = data_dct[io_id][set_id][:int(len(data_dct[io_id][set_id])/fraction)]
+    # shared_directory = os.path.dirname(os.path.abspath(__file__)) + '/logs'
 
-    shared_directory = os.path.dirname(__file__)
+    # print('shared directory:', shared_directory)
 
-    result_logger = json_result_logger(directory=shared_directory, run_id=run_id, overwrite=True)
+    if not args.worker:
+        if not os.path.isdir(args.models_directory):
+            os.mkdir(args.models_directory)
+        if not os.path.isdir(args.results_directory):
+            os.mkdir(args.results_directory)
 
-    # Start nameserver:
-    host = hpns.nic_name_to_host('lo')
-    name_server = hpns.NameServer(run_id=run_id, host=host, port=port, working_directory=shared_directory)
-    ns_host, ns_port = name_server.start()
+    # shared_directory = os.path.dirname(__file__) + '/logs'
 
     worker = TransitClassifier_tf
+    args.ce_weights, args.centr_flag = get_ce_weights(args.label_map, args.tfrec_dir)
 
-    # Define and run optimizer
-    bohb = BOHB(
-        configspace=worker.get_configspace(),
-        run_id=run_id,
-        host=host,
-        nameserver=ns_host,
-        nameserver_port=ns_port,
-        result_logger=result_logger,
-        min_budget=args.min_budget,
-        max_budget=args.max_budget,
-        # min_points_in_model=18,
-        eta=args.eta,
-        top_n_percent=15, num_samples=64, random_fraction=1 / 3,
-        bandwidth_factor=3, min_bandwidth=1e-3
-    )
+    host = hpns.nic_name_to_host(args.nic_name)
 
-    args.ce_weights, args.centr_flag = get_ce_weights(args.label_map, tfrec_dir)
+    if args.worker:
+        # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
+        time.sleep(2 * rank)
+        # args.run_id = check_run_id(args.run_id, shared_directory, worker=True)
+        args.run_id = check_run_id(args.studyid, args.results_directory, worker=True)
 
-    arguments = [(i, worker, args, shared_directory, run_id, host, ns_host, ns_port)
-                 for i in range(args.n_processes)]
+        # printstr = "Starting worker %s" % rank
+        # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
-    pool = multiprocessing.Pool(processes=args.n_processes)
-    _ = [pool.apply_async(_start_worker, argument) for argument in arguments]
-    pool.close()
+        # w = worker(args, worker_id_custom=rank, run_id=args.run_id, host=host)
+        w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host)
+        # w.load_nameserver_credentials(working_directory=shared_directory)
+        w.load_nameserver_credentials(working_directory=args.results_directory)
+        w.run(background=False)
+        exit(0)
 
-    res = bohb.run(n_iterations=args.n_iterations)
+    # args.run_id = check_run_id(args.run_id, shared_directory)
+    args.studyid = check_run_id(args.studyid, args.results_directory)
 
-    # shutdown optimizer and nameserver
-    bohb.shutdown(shutdown_workers=True)
+    # Start nameserver:
+    # name_server = hpns.NameServer(run_id=args.run_id, host=host, port=0, working_directory=shared_directory)
+    name_server = hpns.NameServer(run_id=args.studyid, host=host, port=0, working_directory=args.results_directory)
+    ns_host, ns_port = name_server.start()
+
+    # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
+    # w = worker(args, worker_id_custom=rank, run_id=args.run_id, host=host, nameserver=ns_host, nameserver_port=ns_port)
+    w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host, nameserver=ns_host, nameserver_port=ns_port)
+    w.run(background=True)
+
+    # result_logger = json_result_logger(directory=shared_directory, run_id=args.run_id, overwrite=False)
+    # result_logger = json_result_logger(directory=args.results_directory, run_id=args.studyid, overwrite=False)
+    result_logger = hpres.json_result_logger(directory=args.results_directory, overwrite=False)
+
+    # Let us load the old run now to use its results to warmstart a new run with slightly
+    # different budgets in terms of data points and epochs.
+    # Note that the search space has to be identical though!
+    # directory must contain a config.json and results.json for the same configuration space.'
+    if args.prev_run_dir is not None:
+        previous_run = hpres.logged_results_to_HBS_result(args.prev_run_dir)
+    else:
+        previous_run = None
+
+    if args.optimizer == 'bohb':
+        # instantiate BOHB study
+        hpo = BOHB(configspace=worker.get_configspace(),
+                   run_id=args.studyid,  # args.run_id,
+                   host=host,
+                   nameserver=ns_host,
+                   nameserver_port=ns_port,
+                   working_directory=args.results_directory,  # shared_directory,
+                   result_logger=result_logger,
+                   min_budget=args.min_budget,
+                   max_budget=args.max_budget,
+                   # min_points_in_model=18,
+                   eta=args.eta,
+                   previous_result=previous_run,
+                   **bohb_params)
+
+        # run BOHB study
+        res = hpo.run(n_iterations=args.n_iterations)
+
+        # save kde parameters
+        kde_models_bdgt = hpo.config_generator.kde_models
+        kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
+        for bdgt in kde_models_bdgt:
+            for est in kde_models_bdgt[bdgt]:
+                kde_models_bdgt_params[bdgt][est] = [kde_models_bdgt[bdgt][est].data,
+                                                     kde_models_bdgt[bdgt][est].data_type,
+                                                     kde_models_bdgt[bdgt][est].bw]
+        kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
+
+        np.save(args.results_directory + 'kde_models_params.npy', kde_models_bdgt_params)
+
+    else:  # run random search
+        hpo = RandomSearch(configspace=worker.get_configspace(),
+                           run_id=args.run_id,
+                           host=host,
+                           nameserver=ns_host,
+                           nameserver_port=ns_port,
+                           working_directory=args.results_directory,  # shared_directory,
+                           result_logger=result_logger,
+                           min_budget=args.min_budget,
+                           max_budget=args.max_budget,
+                           eta=args.eta,)
+        res = hpo.run(n_iterations=args.n_iterations)
+
+    # shutdown
+    hpo.shutdown(shutdown_workers=True)
     name_server.shutdown()
 
     # Analyse and save results
-    analyze_results(res, args, shared_directory, run_id)
+    # analyze_results(res, args, shared_directory, args.run_id)
+    analyze_results(res, args, args.results_directory, args.run_id)
 
 
 if __name__ == '__main__':
 
-    min_budget = 4  # more info: hpbandster/optimizers/config_generators/bohb.py l.313
-    max_budget = 64
-    n_iterations = 16
+    optimizer = 'random_search'  # 'bohb'
 
-    n_processes = 4
-    eta = 2  # Down sampling rate
+    min_budget = 50  # 16
+    max_budget = 50  # 128
+    n_iterations = 200  # 16
 
+    ensemble_n = 3
 
-    tfrec_dir = '/nobackupp2/plopesge/dr_24'
+    hpo_loss = 'pr auc'
 
+    bohb_params = {'top_n_percent': 15, 'num_samples': 64, 'random_fraction': 1/3, 'bandwidth_factor': 3,
+                   'min_bandwidth': 1e-3}
+
+    eta = 2  # Down sampling rate, must be greater or equal to 2
+
+    # run_id and study could be the same variable
+    # run_id = 'transit_classifier_distributed'
+    study = 'study_rs'
+
+    # directory in which the models are saved
+    # models_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/models/' + study
+    # models_directory = '/home/msaragoc/Kepler_planet_finder/configs/' + study
+    models_directory = paths.path_hpoconfigs + study
+
+    # directory in which the results are saved
+    # results_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/' + study
+    # results_directory = '/home/msaragoc/Kepler_planet_finder/configs/' + study
+    results_directory = paths.path_hpoconfigs + study
+
+    # previous run directory  # used to warmup start model based optimizers
+    prev_run_study = 'study_8'
+    prev_run_dir = paths.path_hpoconfigs + prev_run_study
+    # prev_run_dir = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/study_5/'
+
+    # data directory
+    # tfrec_dir = '/home6/msaragoc/work_dir/data/tfrecord_kepler'
+    # tfrec_dir = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
+    tfrec_dir = paths.tfrec_dir
+
+    nic_name = 'lo'  # 'ib0'
+
+    rank = MPI.COMM_WORLD.rank
+    # size = MPI.COMM_WORLD.size    
+    print('rank=', rank)
+    sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')
-    parser.add_argument('--multi_class', type=bool, default=True)
+    parser.add_argument('--multi_class', type=bool, default=False)
+    parser.add_argument('--satellite', type=str, default='kepler')
+    parser.add_argument('--use_kepler_ce', type=bool, default=True)
     parser.add_argument('--test_frac', type=float, default=0.1, help='data fraction for model testing')
     parser.add_argument('--val_frac', type=float, default=0.1, help='model validation data fraction')
     parser.add_argument('--tfrec_dir', type=str, default=tfrec_dir)
@@ -309,9 +214,34 @@ if __name__ == '__main__':
     parser.add_argument('--max_budget', type=float, help='Maximum number of epochs for training.', default=max_budget)
     parser.add_argument('--n_iterations', type=int, help='Number of iterations performed by the optimizer',
                         default=n_iterations)
-    parser.add_argument('--n_processes', type=int, help='Number of processes to run in parallel.', default=n_processes)
     parser.add_argument('--eta', type=int, help='Down sampling rate', default=eta)
+    parser.add_argument('--worker', help='Flag to turn this into a Worker process',
+                        default=False if rank == 0 else True)
+
+    parser.add_argument('--nic_name', type=str, default=nic_name,
+                        help='Which network interface to use for communication. \'lo\' for local, \'ib0\' '
+                             'for Infinity Band.')
+
+    parser.add_argument('--models_directory', type=str, default=models_directory,
+                        help='Directory where the models are saved.')
+    parser.add_argument('--results_directory', type=str, default=results_directory,
+                        help='Directory where the results and logs are saved.')
+    # parser.add_argument('--run_id', type=str, default=run_id,
+    #                     help='Unique id for the BOHB study.')
+    parser.add_argument('--study', type=str, default=study, help='Name id for the HPO study.')
+    parser.add_argument('--prev_run_dir', type=str, help='A directory that contains a config.json and results.json for '
+                                                         'the same configuration space.',
+                        default=prev_run_dir)
+
+    parser.add_argument('--optimizer', type=str, help='Optimizer used to conduct the HPO study. Choose between '
+                                                      '\'bohb\' and \'random_search\'',
+                        default=optimizer)
+
+    parser.add_argument('--ensemble_n', type=int,
+                        help='Number of models in ensemble when testing a given configuration.', default=ensemble_n)
+    parser.add_argument('--hpo_loss', type=str,
+                        help='Loss used by the hyperparameter optimization algorithm.', default=hpo_loss)
+
     args = parser.parse_args()
 
-    run_main(args)
-
+    run_main(args, bohb_params)

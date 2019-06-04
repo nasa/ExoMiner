@@ -2,6 +2,7 @@
 Train models using a given configuration obtained on a hyperparameter optimization study in parallel.
 """
 
+# 3rd party
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
@@ -11,12 +12,12 @@ import tensorflow as tf
 # logging.getLogger("tensorflow").setLevel(logging.INFO)
 # tf.logging.set_verbosity(tf.logging.INFO)
 import hpbandster.core.result as hpres
-
 import time
 import numpy as np
 # import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
+# local
 # if 'nobackup' in os.path.dirname(__file__):
 #     from src.estimator_util import InputFn, ModelFn, CNN1dModel
 #     from src.eval_results import eval_model
@@ -24,10 +25,10 @@ import matplotlib.pyplot as plt
 # else:
 from src.estimator_util import InputFn, ModelFn, CNN1dModel
 from src.config import Config
-
 # from estimator_util import InputFn, ModelFn, CNN1dModel
 # from src.eval_results import eval_model
 # from config import Config
+import paths
 
 
 def draw_plots(res, save_path, opt_metric, min_optmetric=False):
@@ -191,8 +192,8 @@ if __name__ == '__main__':
 
     # results directory
     # save_path = '/home/msaragoc/Kepler_planet_finder/results/run_study_4/'
-    save_path = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/train_results/run_study_5/'
-
+    # save_path = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/train_results/run_study_5/'
+    save_path = paths.pathsaveres_train + 'study_rs'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + 'models/')
@@ -205,7 +206,8 @@ if __name__ == '__main__':
 
     # get best configuration from the HPO study
     # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/configs/study_4')
-    res = hpres.logged_results_to_HBS_result('/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/study_5')
+    # res = hpres.logged_results_to_HBS_result('/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/study_5')
+    res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
