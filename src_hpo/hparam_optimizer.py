@@ -34,7 +34,7 @@ from src_hpo.utils_hpo import analyze_results, get_ce_weights, json_result_logge
 import paths
 
 
-def run_main(args, bohb_params):
+def run_main(args, bohb_params=None):
 
     if 'tess' in args.tfrec_dir:
         args.label_map = {"PC": 1, "NTP": 0, "EB": 2, "BEB": 2} if args.multi_class else {"PC": 1, "NTP": 0, "EB": 0,
@@ -228,7 +228,7 @@ if __name__ == '__main__':
                         help='Directory where the results and logs are saved.')
     # parser.add_argument('--run_id', type=str, default=run_id,
     #                     help='Unique id for the BOHB study.')
-    parser.add_argument('--study', type=str, default=study, help='Name id for the HPO study.')
+    parser.add_argument('--studyid', type=str, default=study, help='Name id for the HPO study.')
     parser.add_argument('--prev_run_dir', type=str, help='A directory that contains a config.json and results.json for '
                                                          'the same configuration space.',
                         default=prev_run_dir)
