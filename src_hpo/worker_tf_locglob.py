@@ -430,13 +430,11 @@ class TransitClassifier(Worker):
 
         # create folder for model
         model_dir_custom = self.get_model_dir(self.models_directory)  # pathj(dirname(__file__), 'models')  # None  # self.get_model_dir()
-        # print('model directory: ', self.models_directory)
-        # print('results directory: ', self.results_directory)
-        # print('working directory: ', working_directory)
 
-        config_sess = None
+        # gpu_options = tf.GPUOptions(visible_device_list=str(int(self.worker_id_custom) % 4))
+        sess_config = None  # tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
+
         # if 'nobackup' in dirname(__file__):  # if running on Pleiades
-        config_sess = tf.ConfigProto(log_device_placement=False)
         # config_sess.gpu_options.force_gpu_compatible = True  # Force pinned memory
         # config_sess.intra_op_parallelism_threads = 1
         # config_sess.gpu_options.visible_device_list = "0"
@@ -445,7 +443,7 @@ class TransitClassifier(Worker):
 
         classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                             config=tf.estimator.RunConfig(keep_checkpoint_max=1,
-                                                                          session_config=config_sess),
+                                                                          session_config=sess_config),
                                             model_dir=model_dir_custom)
 
         input_fn_train = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],

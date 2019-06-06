@@ -1,5 +1,5 @@
 # 3rd party
-import hpbandster.core.result as hpres
+# import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
@@ -7,11 +7,11 @@ from matplotlib import ticker, cm
 # import random
 
 # local
-from src_hpo.utils_hpo import print_BOHB_runs  # , json_result_logger
+from src_hpo.utils_hpo import print_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
 import paths
 
 # check number of iterations per Successive Halving and per budget
-num_iterations = 105
+num_iterations = 400
 eta = 2
 bmin, bmax = 5, 50
 nmodels = 3
@@ -19,9 +19,11 @@ nruns, total_budget = print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=n
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 # load results from the BOHB study
+study = 'study_rs'
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
-res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+# res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+res = logged_results_to_HBS_result(paths.path_hpoconfigs + study)
 model_based_optimizer = False
 ensemble_study = True
 id2config = res.get_id2config_mapping()

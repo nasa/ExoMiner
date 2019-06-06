@@ -90,8 +90,8 @@ def run_main(args, bohb_params=None):
     w.run(background=True)
 
     # result_logger = json_result_logger(directory=shared_directory, run_id=args.run_id, overwrite=False)
-    # result_logger = json_result_logger(directory=args.results_directory, run_id=args.studyid, overwrite=False)
-    result_logger = hpres.json_result_logger(directory=args.results_directory, overwrite=False)
+    result_logger = json_result_logger(directory=args.results_directory, run_id=args.studyid, overwrite=False)
+    # result_logger = hpres.json_result_logger(directory=args.results_directory, overwrite=False)
 
     # Let us load the old run now to use its results to warmstart a new run with slightly
     # different budgets in terms of data points and epochs.
