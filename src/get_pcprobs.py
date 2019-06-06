@@ -269,7 +269,7 @@ if __name__ == "__main__":
 
     # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
     # models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
-    models_path = paths.pathtrainedmodels + 'study_rs/models'
+    models_path = paths.pathtrainedmodels + 'shallue/models'
 
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
@@ -282,7 +282,7 @@ if __name__ == "__main__":
         raise ValueError("Found no input tfrecord files")
 
     # path to save results
-    pathsaveres = paths.pathsaveres_get_pcprobs + 'study_rs'
+    pathsaveres = paths.pathsaveres_get_pcprobs + 'shallue'
     # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
     # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_rs/'
 
