@@ -12,11 +12,13 @@ import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
+import json
+from hpbandster.core.base_iteration import Datum
 import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 
-def print_BOHB_runs(num_iterations, eta, bmin, bmax):
+def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
     """ Outputs estimate of runs per budget per Successive Halving iteration. Used to get a quick understanding of
     how the BOHB study will run for a given number of SH iterations, eta and minimum and maximum budgets.
 
@@ -24,12 +26,13 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
     :param eta: int, equal or greater than 2
     :param bmin: float, minimum budget
     :param bmax: float, maximum budget
+    :param nmodels: int, number of models trained in each run (performance averaging)
     :return:
         nruns: int, total number of runs for the BOHB study
         total_budget: int, total budget for the BOHB study
     """
 
-    def compute_nSH(budgets, iteSH, s, smax, eta):
+    def compute_nSH(budgets, iteSH, s, smax, eta, nmodels=1):
         """ Computes number of runs per budget for a particular iteration of Successive Halving.
 
         :param budgets: array, budgets
@@ -37,6 +40,7 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
         :param s:
         :param smax: int, maximum number of inner iterations
         :param eta: int, equal or greater than 2
+        :param nmodels: int, number of models trained in each run (performance averaging)
         :return:
             num_runsSH: int, number of runs for the Successive Halving iteration
             budgetSH: int, total budget used for the Successive Halving iteration
@@ -51,7 +55,7 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
         # num_runsSH = np.sum([np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
         #                      for i in range(0, s + 1, 1)])
         num_runsSH = np.sum(runs_per_budget)
-        budgetSH = np.sum(budgets * runs_per_budget)
+        budgetSH = np.sum(nmodels * budgets * runs_per_budget)
 
         return num_runsSH, budgetSH
 
@@ -61,7 +65,8 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
     budgets = np.array([np.floor(eta ** (-i) * bmax) for i in range(smax, -1, -1)])
     print('Budgets: {}'.format(budgets))
 
-    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta) for s in range(0, num_iterations, 1)], axis=0)
+    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta, nmodels=nmodels)
+                                  for s in range(0, num_iterations, 1)], axis=0)
 
     return nruns, total_budget
 
@@ -218,29 +223,29 @@ def analyze_results(result, args, shared_dir, run_id):
         fig.set_size_inches(10, 8)
         fig.savefig(os.path.join(shared_dir, figname + '.png'), bbox_inches='tight')
 
-    if 'nobackup' not in shared_dir:
-        plt.show()
-
-        def realtime_learning_curves(runs):
-            """
-            example how to extract a different kind of learning curve.
-
-            The x values are now the time the runs finished, not the budget anymore.
-            We no longer plot the validation loss on the y axis, but now the test accuracy.
-
-            This is just to show how to get different information into the interactive plot.
-
-            """
-            sr = sorted(runs, key=lambda r: r.budget)
-            lc = list(filter(lambda t: not t[1] is None,
-                             [(r.time_stamps['finished'], r.info['validation accuracy']) for r in sr]))
-            return [lc, ]
-
-        try:
-            lcs = result.get_learning_curves(lc_extractor=realtime_learning_curves)
-            hpvis.interactive_HBS_plot(lcs, tool_tip_strings=hpvis.default_tool_tips(result, lcs))
-        except TypeError as e:
-            print('\nGot TypeError: ', e)
+    # if 'nobackup' not in shared_dir:
+    #     plt.show()
+    #
+    #     def realtime_learning_curves(runs):
+    #         """
+    #         example how to extract a different kind of learning curve.
+    #
+    #         The x values are now the time the runs finished, not the budget anymore.
+    #         We no longer plot the validation loss on the y axis, but now the test accuracy.
+    #
+    #         This is just to show how to get different information into the interactive plot.
+    #
+    #         """
+    #         sr = sorted(runs, key=lambda r: r.budget)
+    #         lc = list(filter(lambda t: not t[1] is None,
+    #                          [(r.time_stamps['finished'], r.info['validation accuracy']) for r in sr]))
+    #         return [lc, ]
+    #
+    #     try:
+    #         lcs = result.get_learning_curves(lc_extractor=realtime_learning_curves)
+    #         hpvis.interactive_HBS_plot(lcs, tool_tip_strings=hpvis.default_tool_tips(result, lcs))
+    #     except TypeError as e:
+    #         print('\nGot TypeError: ', e)
 
 
 class json_result_logger(hpres.json_result_logger):
@@ -301,6 +306,72 @@ class json_result_logger(hpres.json_result_logger):
             raise
 
         self.config_ids = set()
+
+
+def logged_results_to_HBS_result(directory, run_id):
+    """
+    function to import logged 'live-results' and return a HB_result object
+
+    You can load live run results with this function and the returned
+    HB_result object gives you access to the results the same way
+    a finished run would.
+
+    Parameters
+    ----------
+    directory: str
+        the directory containing the results.json and config.json files
+    run_id: str
+        the id of the study. If the study id is "study_example", then the json files are named
+        "config_study_example.json" and "results_study_example.json"
+
+    Returns
+    -------
+    hpbandster.core.result.Result: :object:
+        TODO
+
+    """
+    data = {}
+    time_ref = float('inf')
+    budget_set = set()
+
+    with open(os.path.join(directory, 'configs_{}.json'.format(run_id))) as fh:
+        for line in fh:
+
+            line = json.loads(line)
+
+            if len(line) == 3:
+                config_id, config, config_info = line
+            if len(line) == 2:
+                config_id, config, = line
+                config_info = 'N/A'
+
+            data[tuple(config_id)] = Datum(config=config, config_info=config_info)
+
+    with open(os.path.join(directory, 'results_{}.json'.format(run_id))) as fh:
+        for line in fh:
+            config_id, budget, time_stamps, result, exception = json.loads(line)
+
+            id = tuple(config_id)
+
+            data[id].time_stamps[budget] = time_stamps
+            data[id].results[budget] = result
+            data[id].exceptions[budget] = exception
+
+            budget_set.add(budget)
+            time_ref = min(time_ref, time_stamps['submitted'])
+
+    # infer the hyperband configuration from the data
+    budget_list = sorted(list(budget_set))
+
+    HB_config = {
+        'eta': None if len(budget_list) < 2 else budget_list[1] / budget_list[0],
+        'min_budget': min(budget_set),
+        'max_budget': max(budget_set),
+        'budgets': budget_list,
+        'max_SH_iter': len(budget_set),
+        'time_ref': time_ref
+    }
+    return (hpres.Result([data], HB_config))
 
 
 def get_ce_weights(label_map, tfrec_dir):

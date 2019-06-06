@@ -427,6 +427,9 @@ class TransitClassifier(Worker):
 
     def compute(self, config_id, config, budget, working_directory, *args, **kwargs):
 
+        # gpu_options = tf.GPUOptions(visible_device_list=str(int(self.worker_id_custom) % 4))
+        sess_config = None  # tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
+
         config['ce_weights'] = self.ce_weights
         # config['n_train'] = self.n_train
         config['multi_class'] = self.multi_class
@@ -452,7 +455,8 @@ class TransitClassifier(Worker):
             model_dir_custom = self.get_model_dir(self.models_directory)
 
             classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
-                                                config=tf.estimator.RunConfig(keep_checkpoint_max=1),
+                                                config=tf.estimator.RunConfig(keep_checkpoint_max=1,
+                                                                              session_config=sess_config),
                                                 model_dir=model_dir_custom)
 
             for epoch_i in range(int(budget)):  # train model
@@ -501,6 +505,9 @@ class TransitClassifier(Worker):
                             for dataset in ['validation', 'test'] for metric in metrics_list}}
 
         print('#' * 100)
+        print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
+                                                                                              self.worker_id_custom,
+                                                                                              budget))
         for k in res_hpo:
             if k != 'info':
                 print(k + ': ', res_hpo[k])
