@@ -7,14 +7,16 @@ from matplotlib import ticker, cm
 # import random
 
 # local
-from src_hpo.utils_hpo import print_BOHB_runs, json_result_logger
+from src_hpo.utils_hpo import print_BOHB_runs  # , json_result_logger
 import paths
 
 # check number of iterations per Successive Halving and per budget
-num_iterations = 200
+num_iterations = 105
 eta = 2
 bmin, bmax = 5, 50
-# nruns = print_BOHB_runs(num_iterations, eta, bmin, bmax)
+nmodels = 3
+nruns, total_budget = print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
+print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 # load results from the BOHB study
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
@@ -114,6 +116,7 @@ else:
 plt.xticks(np.linspace(0, 1, num=10, endpoint=True))
 plt.xlabel(metrics_plot[0])
 plt.ylabel(metrics_plot[1])
+plt.title('2D histogram of configs performance metrics')
 
 # rank configurations based on metric
 rankmetric = 'validation roc auc'
@@ -154,6 +157,7 @@ plt.title('Histogram top configs ({:.2f})'.format(min_val))
 
 #%% Configuration Visualization
 
+# pick parameters to be analyzed
 # discrete parameters
 hparams_d = ['conv_ls_per_block', 'init_conv_filters', 'kernel_size', 'kernel_stride', 'num_fc_layers',
            'num_glob_conv_blocks', 'num_loc_conv_blocks', 'pool_size_glob', 'pool_size_loc', 'init_fc_neurons',
@@ -176,6 +180,7 @@ hparams = hparams_all
 # hparams = ['metric'] + hparams + ['metric']
 #     hparams = ['metric'] + [hparam]
 
+# get parameters' values for each configuration
 data = []
 metric_vals = []
 for hparam in hparams:
@@ -201,8 +206,10 @@ for hparam in hparams:
 #     # ax.set_xlabel('')
 #     # ax.set_xticklabels([''])
 
-########
 data, metric_vals = np.array(data), np.array(metric_vals)
+
+# Parallel Coordinates Visualization
+# based on: http://benalexkeen.com/parallel-coordinates-in-matplotlib/
 
 # lims = np.arange(min_val, 0.985, 0.0005)  # [0.981, 0.9815, 0.982, 0.9825, 0.983, 0.984]
 lims = bins
@@ -282,7 +289,7 @@ if len(hparams) - 1 == 1:
 
 #%%
 
-# # plot learning curves for each configuration as function of the different budgets
+# # plot learning curves for each configuration as function of the different budgets - it is a mess
 # lc_configs = res.get_learning_curves(config_ids=None)
 # fig, ax = plt.subplots()
 # for config in lc_configs:
@@ -299,9 +306,46 @@ if len(hparams) - 1 == 1:
 # ax.set_ylim(bottom=0)
 # ax.set_xlim(left=0)
 
-# TODO: work on this
 # returns the best configuration over time
-best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=True, non_decreasing_budget=True)
+# best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
+
+# returns the best configuration over time/over cumulative budget
+timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
+nmodels = 3
+bconfig_loss, cum_budget = np.inf, 0
+timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
+for run in timesorted_allruns:
+    cum_budget += run.budget * nmodels
+    if run.loss < bconfig_loss:
+        timestamps.append(run.time_stamps['finished'])
+        tinc_hpoloss.append(run.loss)
+        cum_budget_vec.append(cum_budget)
+        bconfig_loss = run.loss
+
+f, ax = plt.subplots()
+ax.plot(timestamps, tinc_hpoloss)
+# ax.loglog(timestamps, tinc_hpoloss)
+# ax.semilogx(timestamps, tinc_hpoloss)
+ax.scatter(timestamps, tinc_hpoloss, c='r')
+ax.set_yscale('log')
+# ax.set_xscale('log')
+ax.set_ylim([0, 1])
+ax.set_ylabel('Optimization loss')
+ax.set_xlabel('Wall clock time [s]')
+ax.set_title('')
+ax.grid('on')
+
+f, ax = plt.subplots()
+ax.plot(cum_budget_vec, tinc_hpoloss)
+ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
+ax.set_yscale('log')
+# ax.set_xscale('log')
+ax.set_ylim([0, 1])
+ax.set_ylabel('Optimization loss')
+ax.set_xlabel('Cumulative budget')
+ax.set_title('')
+ax.grid('on')
+
 
 #%% Study analysis plots
 
@@ -338,5 +382,6 @@ f.set_size_inches(10, 8)
 
 # For model based optimizers, one might wonder how much the model actually helped.
 # The next plot compares the performance of configs picked by the model vs. random ones
-f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
-f.set_size_inches(10, 8)
+if model_based_optimizer:
+    f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
+    f.set_size_inches(10, 8)

@@ -9,10 +9,10 @@ import argparse
 import time
 from mpi4py import MPI
 import numpy as np
-# import logging
+import logging
 # import matplotlib; matplotlib.use('agg')
 # import matplotlib.pyplot as plt
-# logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.WARNING)
 # logging.basicConfig(level=logging.DEBUG)
 # logging.propagate = False
 # if 'nobackup' in os.path.dirname(__file__):
@@ -31,6 +31,7 @@ from src_hpo.utils_hpo import analyze_results, get_ce_weights, json_result_logge
 # from worker_tf_locglob import TransitClassifier as TransitClassifier_tf
 # from worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
 # from hparam_optimizer import analyze_results, get_ce_weights, json_result_logger, check_run_id
+# from utils_hpo import analyze_results, get_ce_weights, json_result_logger, check_run_id
 import paths
 
 
@@ -156,7 +157,7 @@ def run_main(args, bohb_params=None):
 
 if __name__ == '__main__':
 
-    optimizer = 'random_search'  # 'bohb'
+    optimizer = 'bohb'  # 'random_search'  # 'bohb'
 
     min_budget = 50  # 16
     max_budget = 50  # 128
@@ -173,12 +174,12 @@ if __name__ == '__main__':
 
     # run_id and study could be the same variable
     # run_id = 'transit_classifier_distributed'
-    study = 'study_rs'
+    study = 'study_bo'
 
     # directory in which the models are saved
     # models_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/models/' + study
     # models_directory = '/home/msaragoc/Kepler_planet_finder/configs/' + study
-    models_directory = paths.path_hpoconfigs + study
+    models_directory = paths.path_hpomodels + study
 
     # directory in which the results are saved
     # results_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/' + study
@@ -187,7 +188,7 @@ if __name__ == '__main__':
 
     # previous run directory  # used to warmup start model based optimizers
     prev_run_study = 'study_8'
-    prev_run_dir = paths.path_hpoconfigs + prev_run_study
+    prev_run_dir = None  # paths.path_hpoconfigs + prev_run_study
     # prev_run_dir = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/study_5/'
 
     # data directory
@@ -199,7 +200,7 @@ if __name__ == '__main__':
 
     rank = MPI.COMM_WORLD.rank
     # size = MPI.COMM_WORLD.size    
-    print('rank=', rank)
+    print('Rank=', rank)
     sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')

@@ -16,7 +16,7 @@ import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 
-def print_BOHB_runs(num_iterations, eta, bmin, bmax):
+def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
     """ Outputs estimate of runs per budget per Successive Halving iteration. Used to get a quick understanding of
     how the BOHB study will run for a given number of SH iterations, eta and minimum and maximum budgets.
 
@@ -24,12 +24,13 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
     :param eta: int, equal or greater than 2
     :param bmin: float, minimum budget
     :param bmax: float, maximum budget
+    :param nmodels: int, number of models trained in each run (performance averaging)
     :return:
         nruns: int, total number of runs for the BOHB study
         total_budget: int, total budget for the BOHB study
     """
 
-    def compute_nSH(budgets, iteSH, s, smax, eta):
+    def compute_nSH(budgets, iteSH, s, smax, eta, nmodels=1):
         """ Computes number of runs per budget for a particular iteration of Successive Halving.
 
         :param budgets: array, budgets
@@ -37,6 +38,7 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
         :param s:
         :param smax: int, maximum number of inner iterations
         :param eta: int, equal or greater than 2
+        :param nmodels: int, number of models trained in each run (performance averaging)
         :return:
             num_runsSH: int, number of runs for the Successive Halving iteration
             budgetSH: int, total budget used for the Successive Halving iteration
@@ -51,7 +53,7 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
         # num_runsSH = np.sum([np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
         #                      for i in range(0, s + 1, 1)])
         num_runsSH = np.sum(runs_per_budget)
-        budgetSH = np.sum(budgets * runs_per_budget)
+        budgetSH = np.sum(nmodels * budgets * runs_per_budget)
 
         return num_runsSH, budgetSH
 
@@ -61,7 +63,8 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax):
     budgets = np.array([np.floor(eta ** (-i) * bmax) for i in range(smax, -1, -1)])
     print('Budgets: {}'.format(budgets))
 
-    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta) for s in range(0, num_iterations, 1)], axis=0)
+    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta, nmodels=nmodels)
+                                  for s in range(0, num_iterations, 1)], axis=0)
 
     return nruns, total_budget
 

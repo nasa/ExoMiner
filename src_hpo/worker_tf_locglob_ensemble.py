@@ -501,6 +501,9 @@ class TransitClassifier(Worker):
                             for dataset in ['validation', 'test'] for metric in metrics_list}}
 
         print('#' * 100)
+        print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
+                                                                                              self.worker_id_custom,
+                                                                                              budget))
         for k in res_hpo:
             if k != 'info':
                 print(k + ': ', res_hpo[k])

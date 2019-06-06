@@ -528,6 +528,9 @@ class TransitClassifier(Worker):
         #            'model subfolder': model_dir_custom.split('/')[-1]}
 
         print('#' * 100)
+        print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
+                                                                                              self.worker_id_custom,
+                                                                                              budget))
         for k in res_hpo:
             if k != 'info':
                 print(k + ': ', res_hpo[k])
