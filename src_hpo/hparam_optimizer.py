@@ -103,7 +103,7 @@ def run_main(args, bohb_params=None):
         previous_run = None
 
     if args.optimizer == 'bohb':
-        # instantiate BOHB study
+        # instantiate BOHB or BO study
         hpo = BOHB(configspace=worker.get_configspace(),
                    run_id=args.studyid,  # args.run_id,
                    host=host,
@@ -131,7 +131,7 @@ def run_main(args, bohb_params=None):
                                                      kde_models_bdgt[bdgt][est].bw]
         kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
 
-        np.save(args.results_directory + 'kde_models_params.npy', kde_models_bdgt_params)
+        np.save(args.results_directory + '/kde_models_params.npy', kde_models_bdgt_params)
 
     else:  # run random search
         hpo = RandomSearch(configspace=worker.get_configspace(),

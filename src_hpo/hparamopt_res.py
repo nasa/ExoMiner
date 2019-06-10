@@ -1,5 +1,5 @@
 # 3rd party
-# import hpbandster.core.result as hpres
+import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
@@ -11,25 +11,32 @@ from src_hpo.utils_hpo import print_BOHB_runs, logged_results_to_HBS_result  # ,
 import paths
 
 # check number of iterations per Successive Halving and per budget
-num_iterations = 400
+num_iterations = 106
 eta = 2
-bmin, bmax = 5, 50
+bmin, bmax = 6, 50
 nmodels = 3
 nruns, total_budget = print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 # load results from the BOHB study
-study = 'study_rs'
+study = 'study_bo'
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
-# res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
-res = logged_results_to_HBS_result(paths.path_hpoconfigs + study)
+res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_7')
+# res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, study)
+
 model_based_optimizer = False
 ensemble_study = True
+
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
+unique_configs = []
+for run in all_runs:
+    if run.config_id not in unique_configs:
+        unique_configs.append(run.config_id)
 
-print('Number of configurations tested: %i' % len(id2config))
+print('Number of configurations submitted: {}'.format(len(id2config)))
+print('Number of configurations evaluated (valid and invalid): %i' % len(unique_configs))
 print('Number of runs: {}'.format(len(all_runs)))
 
 # extract budgets
@@ -64,6 +71,9 @@ for b in configs_per_budget:
             if id2config[config]['config_info']['model_based_pick']:
                 modelspicks_per_budget[b]['model based'][0] += 1
                 modelspicks_per_budget[b]['model based'][1].append(config)
+            else:
+                modelspicks_per_budget[b]['random'][0] += 1
+                modelspicks_per_budget[b]['random'][1].append(config)
         else:
             modelspicks_per_budget[b]['random'][0] += 1
             modelspicks_per_budget[b]['random'][1].append(config)
