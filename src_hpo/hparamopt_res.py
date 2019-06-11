@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
 from matplotlib import ticker, cm
+import glob
 # import random
 
 # local
@@ -417,13 +418,15 @@ for study in studies:
         res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
     # res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, study)
 
+    ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs + study + '/*.*') if 'ensemblemetrics' in file]
+
     all_runs = res.get_all_runs()
     all_runs = [run for run in all_runs if run.info is not None]
 
     timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 
     bconfig_loss, cum_budget = np.inf, 0
-    timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
+    timestamps, cum_budget_vec, tinc_hpoloss, tinc_hpolossdev = [], [], [], []
     for run in timesorted_allruns:
         if cum_budget + run.budget * nmodels > lim_totalbudget:
             print('break {}'.format(study))
@@ -432,22 +435,40 @@ for study in studies:
         cum_budget += run.budget * nmodels
         if run.loss < bconfig_loss:
             timestamps.append(run.time_stamps['finished'])
-            tinc_hpoloss.append(run.loss)
+            # tinc_hpoloss.append(run.loss)
             cum_budget_vec.append(cum_budget)
             bconfig_loss = run.loss
 
+            for ensmetrics in ensmetrics_list:
+                if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
+                    censemetrics = ensmetrics
+                    break
+            else:
+                raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
+                                                                                                    run.budget))
+
+            ensmetrics = np.array(np.load(censemetrics).item()['validation']['loss']['all scores'])
+            mu_hpoloss = np.mean(ensmetrics[:, -1])
+            sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
+
+            tinc_hpoloss.append(mu_hpoloss)
+            tinc_hpolossdev.append(sem_hpoloss)
+
     time_budget_studies[study]['hpo_loss'] = tinc_hpoloss
+    time_budget_studies[study]['hpo_loss_dev'] = tinc_hpolossdev
     time_budget_studies[study]['cum_budget'] = cum_budget_vec
     time_budget_studies[study]['wall_clock_time'] = timestamps
 
 f, ax = plt.subplots()
 for study in time_budget_studies:
-    ax.plot(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], label=study)
+    # ax.plot(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], label=study)
+    ax.errorbar(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'],
+                yerr=time_budget_studies[study]['hpo_loss_dev'], label=study, capsize=5)
     # ax.loglog(timestamps, tinc_hpoloss)
     # ax.semilogx(timestamps, tinc_hpoloss)
     ax.scatter(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], c='r')
-    # ax.set_yscale('log')
-    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
 ax.set_ylim([0, 1])
 ax.set_xlim(xmin=0)
 ax.set_ylabel('Optimization loss')
@@ -458,12 +479,14 @@ ax.legend()
 
 f, ax = plt.subplots()
 for study in time_budget_studies:
-    ax.plot(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], label=study)
+    # ax.plot(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], label=study)
+    ax.errorbar(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'],
+                yerr=time_budget_studies[study]['hpo_loss_dev'], label=study, capsize=5)
     # ax.loglog(timestamps, tinc_hpoloss)
     # ax.semilogx(timestamps, tinc_hpoloss)
     ax.scatter(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], c='r')
-    # ax.set_yscale('log')
-    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
 ax.set_ylim([0, 1])
 ax.set_xlim(xmin=0)
 ax.set_ylabel('Optimization loss')
