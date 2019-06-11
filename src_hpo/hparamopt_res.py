@@ -39,8 +39,8 @@ for run in all_runs:
         unique_configs.append(run.config_id)
 
 print('Number of configurations submitted: {}'.format(len(id2config)))
-print('Number of configurations evaluated (valid and invalid): %i' % len(unique_configs))
-print('Number of runs: {}'.format(len(all_runs)))
+print('Number of configurations evaluated (valid and nonviable): %i' % len(unique_configs))
+print('Total number of runs: {} (viable, nonviable and possibly non-evaluated)'.format(len(all_runs)))
 
 # extract budgets
 budgets = []
@@ -63,8 +63,8 @@ for run in all_runs:
         configs_per_budget[int(run.budget)][0] += 1
         configs_per_budget[int(run.budget)][1].append(run.config_id)
 
-print('Runs per budget: ', {k: runs_per_budget[k][0] for k in runs_per_budget})
-print('Configs per budget: ', {k: configs_per_budget[k][0] for k in configs_per_budget})
+print('Runs per budget (viable): ', {k: runs_per_budget[k][0] for k in runs_per_budget})
+print('Configs per budget (viable): ', {k: configs_per_budget[k][0] for k in configs_per_budget})
 
 # extract model based and random picks per budget
 modelspicks_per_budget = {key: {'model based': [0, []], 'random': [0, []]} for key in budgets}
