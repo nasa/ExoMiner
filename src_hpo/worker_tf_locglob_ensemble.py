@@ -490,7 +490,7 @@ class TransitClassifier(Worker):
                                                                 np.median(res[dataset][metric], axis=0)), axis=0)}
 
         # save metrics
-        np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}.png'.format(config_id, budget), res)
+        np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}'.format(config_id, budget), res)
 
         # draw loss and evaluation metric plots for the model on this given budget
         self.draw_plots(res, config_id)

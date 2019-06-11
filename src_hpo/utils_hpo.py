@@ -334,7 +334,7 @@ def logged_results_to_HBS_result(directory, run_id):
     time_ref = float('inf')
     budget_set = set()
 
-    with open(os.path.join(directory, 'configs_{}.json'.format(run_id))) as fh:
+    with open(os.path.join(directory, 'configs{}.json'.format(run_id))) as fh:
         for line in fh:
 
             line = json.loads(line)
@@ -347,7 +347,7 @@ def logged_results_to_HBS_result(directory, run_id):
 
             data[tuple(config_id)] = Datum(config=config, config_info=config_info)
 
-    with open(os.path.join(directory, 'results_{}.json'.format(run_id))) as fh:
+    with open(os.path.join(directory, 'results{}.json'.format(run_id))) as fh:
         for line in fh:
             config_id, budget, time_stamps, result, exception = json.loads(line)
 

@@ -10,7 +10,8 @@ from matplotlib import ticker, cm
 from src_hpo.utils_hpo import print_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
 import paths
 
-# check number of iterations per Successive Halving and per budget
+#%% check number of iterations per Successive Halving and per budget
+
 num_iterations = 106
 eta = 2
 bmin, bmax = 6, 50
@@ -18,14 +19,15 @@ nmodels = 3
 nruns, total_budget = print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
-# load results from the BOHB study
-study = 'study_bo'
+#%% load results from the BOHB study
+
+study = 'study_bohb_dr25_tcert_spline'  # 'study_rs'
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/study_rs')
 # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
-res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_7')
-# res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, study)
+# res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
+res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
 
-model_based_optimizer = False
+model_based_optimizer = True
 ensemble_study = True
 
 id2config = res.get_id2config_mapping()
@@ -98,7 +100,7 @@ plt.ylabel('Model based (1)/Random (0) \npicked configs.')
 
 nconfigs_valid = len(idxs_modelbased)
 nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
-print('Total number of models trained: {}'.format(len(all_runs)))
+# print('Total number of models trained: {}'.format(len(all_runs)))
 print('Number of nonviable configurations: {}'. format(inv_models))
 print('Number of viable configurations: {}'.format(nconfigs_valid))
 print('Number of model based pick configurations: {}'.format(nconfigs_modelbased))
@@ -339,9 +341,10 @@ ax.plot(timestamps, tinc_hpoloss)
 # ax.loglog(timestamps, tinc_hpoloss)
 # ax.semilogx(timestamps, tinc_hpoloss)
 ax.scatter(timestamps, tinc_hpoloss, c='r')
-ax.set_yscale('log')
+# ax.set_yscale('log')
 # ax.set_xscale('log')
 ax.set_ylim([0, 1])
+ax.set_xlim(xmin=0)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 ax.set_title('')
@@ -350,9 +353,10 @@ ax.grid('on')
 f, ax = plt.subplots()
 ax.plot(cum_budget_vec, tinc_hpoloss)
 ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
-ax.set_yscale('log')
+# ax.set_yscale('log')
 # ax.set_xscale('log')
 ax.set_ylim([0, 1])
+ax.set_xlim(xmin=0)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget')
 ax.set_title('')
@@ -397,3 +401,73 @@ f.set_size_inches(10, 8)
 if model_based_optimizer:
     f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
     f.set_size_inches(10, 8)
+
+#%%
+
+# load results from the BOHB study
+studies = ['study_bo', 'study_rs', 'study_bohb_dr25_tcert_spline']
+lim_totalbudget = 27150
+nmodels = 3
+time_budget_studies = {study: {'hpo_loss': None, 'cum_budget': None, 'wall_clock_time': None} for study in studies}
+
+for study in studies:
+    if study == 'study_bohb_dr25_tcert_spline':
+        res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+    else:
+        res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
+    # res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, study)
+
+    all_runs = res.get_all_runs()
+    all_runs = [run for run in all_runs if run.info is not None]
+
+    timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
+
+    bconfig_loss, cum_budget = np.inf, 0
+    timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
+    for run in timesorted_allruns:
+        if cum_budget + run.budget * nmodels > lim_totalbudget:
+            print('break {}'.format(study))
+            break
+
+        cum_budget += run.budget * nmodels
+        if run.loss < bconfig_loss:
+            timestamps.append(run.time_stamps['finished'])
+            tinc_hpoloss.append(run.loss)
+            cum_budget_vec.append(cum_budget)
+            bconfig_loss = run.loss
+
+    time_budget_studies[study]['hpo_loss'] = tinc_hpoloss
+    time_budget_studies[study]['cum_budget'] = cum_budget_vec
+    time_budget_studies[study]['wall_clock_time'] = timestamps
+
+f, ax = plt.subplots()
+for study in time_budget_studies:
+    ax.plot(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], label=study)
+    # ax.loglog(timestamps, tinc_hpoloss)
+    # ax.semilogx(timestamps, tinc_hpoloss)
+    ax.scatter(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], c='r')
+    # ax.set_yscale('log')
+    # ax.set_xscale('log')
+ax.set_ylim([0, 1])
+ax.set_xlim(xmin=0)
+ax.set_ylabel('Optimization loss')
+ax.set_xlabel('Wall clock time [s]')
+ax.set_title('')
+ax.grid('on')
+ax.legend()
+
+f, ax = plt.subplots()
+for study in time_budget_studies:
+    ax.plot(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], label=study)
+    # ax.loglog(timestamps, tinc_hpoloss)
+    # ax.semilogx(timestamps, tinc_hpoloss)
+    ax.scatter(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], c='r')
+    # ax.set_yscale('log')
+    # ax.set_xscale('log')
+ax.set_ylim([0, 1])
+ax.set_xlim(xmin=0)
+ax.set_ylabel('Optimization loss')
+ax.set_xlabel('Cumulative budget')
+ax.set_title('')
+ax.grid('on')
+ax.legend()
