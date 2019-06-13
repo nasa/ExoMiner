@@ -42,6 +42,7 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
 
     epochs = np.arange(1, len(res['training']['loss']) + 1)
     # min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
+    # choose epoch associated with the best value for the metric
     if min_optmetric:
         ep_idx = np.argmin(res['validation'][opt_metric])
     else:
@@ -96,6 +97,8 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
     ax.legend(loc='upper center', bbox_to_anchor=(1.45, 0.8), shadow=True, ncol=1)
 
+    ax.set_xlim([0, epochs[-1] + 1])
+    ax.set_ylim([0, 1])
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Metric Value')
     ax.set_title('Evaluation Metrics\nVal/Test')
@@ -111,6 +114,16 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
             label='Val (AUC={:3f})'.format(res['validation']['pr auc'][-1]))
     ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
             label='Test (AUC={:3f})'.format(res['test']['pr auc'][-1]))
+    # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
+    thr_vec = np.linspace(0, 999, 11, endpoint=True, dtype='int')
+    ax.scatter(np.array(res['validation']['rec thr'][-1])[thr_vec],
+               np.array(res['validation']['prec thr'][-1])[thr_vec], c='r')
+    ax.scatter(np.array(res['test']['rec thr'][-1])[thr_vec],
+               np.array(res['test']['prec thr'][-1])[thr_vec], c='r')
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
+    ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
     ax.grid('on')
     ax.legend(loc='bottom left')
     ax.set_xlabel('Recall')
@@ -147,6 +160,7 @@ def run_main(config, save_path, opt_metric, min_optmetric):
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config.label_map,
                             centr_flag=config.centr_flag)
 
+    # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
     dataset_ids = ['training', 'validation', 'test']
     res = {dataset: {metric: [] for metric in metrics_list} for dataset in

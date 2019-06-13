@@ -266,16 +266,11 @@ if __name__ == "__main__":
     print('Configuration loaded:', config)
 
     # path to trained models' weights on the best config
-
-    # models_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/shallue/models'
-    # models_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/models'
     models_path = paths.pathtrainedmodels + 'study_rs/models'
 
     model_filenames = [models_path + '/' + file for file in os.listdir(models_path)]
 
     # load test data
-    # tfrecord_par_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_kepler'
-    # tfrecord_par_path = '/home/msaragoc/Kepler_planet_finder/Data/tfrecord_kepler'
     tfrecord_par_path = paths.tfrec_dir
     tfrecord_filenames = [tfrecord_par_path + '/' + file for file in os.listdir(tfrecord_par_path) if 'test' in file]
     if not tfrecord_filenames:
@@ -283,8 +278,6 @@ if __name__ == "__main__":
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + 'study_rs'
-    # pathsaveres = '/home/msaragoc/Kepler_planet_finder/results_ensemble/study_rs/'
-    # pathsaveres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_rs/'
 
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
