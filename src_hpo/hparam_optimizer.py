@@ -159,11 +159,11 @@ if __name__ == '__main__':
 
     optimizer = 'bohb'  # 'random_search'  # 'bohb'
 
-    min_budget = 50  # 16
+    min_budget = 1  # 16
     max_budget = 50  # 128
     n_iterations = 200  # 16
 
-    ensemble_n = 3
+    ensemble_n = 2
 
     hpo_loss = 'pr auc'
 

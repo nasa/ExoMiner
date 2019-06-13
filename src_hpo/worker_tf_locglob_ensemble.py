@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import tensorflow as tf
+from tensorflow.python.ops.metrics_impl import _confusion_matrix_at_thresholds
 import copy
 import os
 import sys
@@ -171,6 +172,22 @@ class ModelFn(object):
         acc_op = tf.metrics.accuracy(labels=model.labels, predictions=predicted_labels)
         prec_op = tf.metrics.precision(labels=model.labels, predictions=predicted_labels)
         rec_op = tf.metrics.recall(labels=model.labels, predictions=predicted_labels)
+
+        # cm_op = _confusion_matrix_at_thresholds(model.labels, predictions, np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'),
+        #                                         weights=None,
+        #                                         includes=None)
+        # fp_op = cm_op[0]['fp'], cm_op[1]['fp']
+        # tp_op = cm_op[0]['tp'], cm_op[1]['tp']
+        # fn_op = cm_op[0]['fn'], cm_op[1]['fn']
+        # tn_op = cm_op[0]['tn'], cm_op[1]['tn']
+
+        prec_thr_op = tf.metrics.precision_at_thresholds(model.labels, predictions,
+                                                         np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
+        rec_thr_op = tf.metrics.recall_at_thresholds(model.labels, predictions,
+                                                     np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
+        # tp_op = tf.metrics.true_positives_at_thresholds(model.labels, predictions, np.linspace(0, 1, num=1000, endpoint=True))
+        # fp_op = tf.metrics.false_positives_at_thresholds(model.labels, predictions, np.linspace(0, 1, num=1000, endpoint=True))
+
         if not model.config['multi_class']:
             if model.output_size == 2:  # in case of softmax binary classification, select class 1 predictions
                 predictions = predictions[:, 1]
@@ -182,7 +199,8 @@ class ModelFn(object):
         else:
             rocauc_op, prauc_op = None, None
 
-        return {'accuracy': acc_op, 'precision': prec_op, 'pr auc': prauc_op, 'recall': rec_op, 'roc auc': rocauc_op}
+        return {'accuracy': acc_op, 'precision': prec_op, 'pr auc': prauc_op, 'recall': rec_op, 'roc auc': rocauc_op,
+                'prec_thr_op': prec_thr_op, 'rec_thr_op': rec_thr_op}
 
     def create_train_op(self, model):
 
@@ -484,10 +502,14 @@ class TransitClassifier(Worker):
         # get median per epoch between ensembles
         for dataset in dataset_ids:
             for metric in metrics_list:
+                # res[dataset][metric] = {'all scores': res[dataset][metric],
+                #                         'median': np.median(res[dataset][metric], axis=0),
+                #                         'mad': np.median(np.abs(res[dataset][metric] -
+                #                                                 np.median(res[dataset][metric], axis=0)), axis=0)}
                 res[dataset][metric] = {'all scores': res[dataset][metric],
-                                        'median': np.median(res[dataset][metric], axis=0),
-                                        'mad': np.median(np.abs(res[dataset][metric] -
-                                                                np.median(res[dataset][metric], axis=0)), axis=0)}
+                                        'mean': np.mean(res[dataset][metric], axis=0),
+                                        'sem': np.std(res[dataset][metric], axis=0, ddof=1) /
+                                               np.sqrt(len(res[dataset][metric]))}
 
         # save metrics
         np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}'.format(config_id, budget), res)
@@ -497,11 +519,11 @@ class TransitClassifier(Worker):
 
         # report HPO loss and aditional performance metrics and info
         # loss = 'pr auc'  # choose metric/loss to optimize
-        hpo_loss = res['validation'][self.hpo_loss]['median']
+        hpo_loss = res['validation'][self.hpo_loss]['mean']
         ep = -1  # np.argmax(hpo_loss)  # epoch where the HPO loss was the best
         res_hpo = {'loss': 1 - float(hpo_loss[-1]),
-                   'info': {dataset + ' ' + metric: [float(res[dataset][metric]['median'][ep]),
-                                                     float(res[dataset][metric]['mad'][ep])]
+                   'info': {dataset + ' ' + metric: [float(res[dataset][metric]['mean'][ep]),
+                                                     float(res[dataset][metric]['sem'][ep])]
                             for dataset in ['validation', 'test'] for metric in metrics_list}}
 
         print('#' * 100)

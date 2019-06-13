@@ -4,6 +4,7 @@ import operator
 import os
 import tempfile
 import _pickle as pickle
+import numpy as np
 
 
 class InputFn(object):
@@ -172,6 +173,11 @@ class ModelFn(object):
         metrics['accuracy'] = tf.metrics.accuracy(labels=labels, predictions=predicted_labels)
         metrics['precision'] = tf.metrics.precision(labels=labels, predictions=predicted_labels)
         metrics['recall'] = tf.metrics.recall(labels=labels, predictions=predicted_labels)
+
+        metrics['prec thr'] = tf.metrics.precision_at_thresholds(model.labels, predictions,
+                                                         np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
+        metrics['rec thr'] = tf.metrics.recall_at_thresholds(model.labels, predictions,
+                                                     np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
 
         def _metric_variable(name, shape, dtype):
             """Creates a Variable in LOCAL_VARIABLES and METRIC_VARIABLES collections."""
