@@ -108,9 +108,9 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     # plot pr curve
     f, ax = plt.subplots()
     ax.plot(res['validation']['rec thr'][-1], res['validation']['prec thr'][-1],
-            label='Val (AUC={:3f})'.format(res['validation']['pr auc']))
+            label='Val (AUC={:3f})'.format(res['validation']['pr auc'][-1]))
     ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
-            label='Test (AUC={:3f})'.format(res['test']['pr auc']))
+            label='Test (AUC={:3f})'.format(res['test']['pr auc'][-1]))
     ax.grid('on')
     ax.legend(loc='bottom left')
     ax.set_xlabel('Recall')
@@ -184,8 +184,9 @@ def run_main(config, save_path, opt_metric, min_optmetric):
     print('Performance on last epoch ({})'.format(config.n_epochs))
     for dataset in dataset_ids:
         print(dataset)
-        for metric in metrics_list and metric not in ['prec thr', 'rec thr']:
-            print('{}: {}'.format(metric, res[dataset][metric][-1]))
+        for metric in metrics_list:
+            if metric not in ['prec thr', 'rec thr']:
+                print('{}: {}'.format(metric, res[dataset][metric][-1]))
     print('#' * 100)
 
 
@@ -201,8 +202,8 @@ if __name__ == '__main__':
         os.mkdir(save_path)
         os.mkdir(save_path + '/models/')
 
-    n_models = 1  # number of models in the ensemble
-    n_epochs = 2
+    n_models = 10  # number of models in the ensemble
+    n_epochs = 50
 
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
