@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 from src.estimator_util import InputFn, ModelFn, CNN1dModel
 from src.config import Config
 import paths
+from src_hpo import utils_hpo
 
 
 def draw_plots(res, save_path, opt_metric, min_optmetric=False):
@@ -41,12 +42,13 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
 
     epochs = np.arange(1, len(res['training']['loss']) + 1)
     # min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
+    # choose epoch associated with the best value for the metric
     if min_optmetric:
         ep_idx = np.argmin(res['validation'][opt_metric])
     else:
         ep_idx = np.argmax(res['validation'][opt_metric])
 
-    # loss and optimization metric
+    # plot loss and optimization metric as function of the epochs
     f, ax = plt.subplots(1, 2)
     ax[0].plot(epochs, res['training']['loss'], label='Training')
     ax[0].plot(epochs, res['validation']['loss'], label='Validation', color='r')
@@ -78,7 +80,7 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     f.savefig(save_path + '_plotseval_epochs{:.0f}.png'.format(epochs[-1]))
     plt.close()
 
-    # plot precision, recall, roc auc, pr auc curves
+    # plot precision, recall, roc auc, pr auc curves for the validation and test sets
     f, ax = plt.subplots()
     ax.plot(epochs, res['validation']['precision'], label='Val Precision')
     ax.plot(epochs, res['validation']['recall'], label='Val Recall')
@@ -95,6 +97,8 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
     ax.legend(loc='upper center', bbox_to_anchor=(1.45, 0.8), shadow=True, ncol=1)
 
+    ax.set_xlim([0, epochs[-1] + 1])
+    ax.set_ylim([0, 1])
     ax.set_xlabel('Epochs')
     ax.set_ylabel('Metric Value')
     ax.set_title('Evaluation Metrics\nVal/Test')
@@ -102,6 +106,30 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
     # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
     f.savefig(save_path + '_prec_rec_auc.png')
+    plt.close()
+
+    # plot pr curve
+    f, ax = plt.subplots()
+    ax.plot(res['validation']['rec thr'][-1], res['validation']['prec thr'][-1],
+            label='Val (AUC={:3f})'.format(res['validation']['pr auc'][-1]))
+    ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
+            label='Test (AUC={:3f})'.format(res['test']['pr auc'][-1]))
+    # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
+    thr_vec = np.linspace(0, 999, 11, endpoint=True, dtype='int')
+    ax.scatter(np.array(res['validation']['rec thr'][-1])[thr_vec],
+               np.array(res['validation']['prec thr'][-1])[thr_vec], c='r')
+    ax.scatter(np.array(res['test']['rec thr'][-1])[thr_vec],
+               np.array(res['test']['prec thr'][-1])[thr_vec], c='r')
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
+    ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
+    ax.grid('on')
+    ax.legend(loc='bottom left')
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_title('Precision Recall curve\nVal/Test')
+    f.savefig(save_path + '_prec_rec.png')
     plt.close()
 
 
@@ -132,7 +160,8 @@ def run_main(config, save_path, opt_metric, min_optmetric):
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config.label_map,
                             centr_flag=config.centr_flag)
 
-    metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc']
+    # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
+    metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
     dataset_ids = ['training', 'validation', 'test']
     res = {dataset: {metric: [] for metric in metrics_list} for dataset in
            dataset_ids}
@@ -170,7 +199,8 @@ def run_main(config, save_path, opt_metric, min_optmetric):
     for dataset in dataset_ids:
         print(dataset)
         for metric in metrics_list:
-            print('{}: {}'.format(metric, res[dataset][metric][-1]))
+            if metric not in ['prec thr', 'rec thr']:
+                print('{}: {}'.format(metric, res[dataset][metric][-1]))
     print('#' * 100)
 
 
@@ -178,25 +208,23 @@ if __name__ == '__main__':
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
+    study = 'study_bohb_dr25_tcert_spline'
+
     # results directory
-    # save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/trained_models/study_rs/'
-    # save_path = '/home/msaragoc/Kepler_planet_finder/trained_models/study_rs/'
-    save_path = paths.pathsaveres_train + 'study_rs'
+    save_path = paths.pathsaveres_train + study
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-        os.mkdir(save_path + 'models/')
+        os.mkdir(save_path + '/models/')
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 50
 
-    opt_metric = 'roc auc'
-    min_optmetric = False
+    opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
+    min_optmetric = False  # if lower value is better set to True
 
     # get best configuration from the HPO study
-    # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Kepler_planet_finder/hpo_configs/study_rs')
-    # res = hpres.logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-    #                                          'hpo_configs/study_rs')
-    res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+    # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -214,5 +242,5 @@ if __name__ == '__main__':
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
-        run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + 'models/', **config),
-                 save_path + 'model%i' % (item + 1), opt_metric, min_optmetric)
+        run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + '/models/', **config),
+                 save_path + '/model%i' % (item + 1), opt_metric, min_optmetric)
