@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     # get best configuration from the HPO study
     # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
