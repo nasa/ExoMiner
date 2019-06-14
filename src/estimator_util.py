@@ -76,7 +76,7 @@ class InputFn(object):
                     name="should_reverse")
 
             output = {'time_series_features': {}}
-            label_id = tf.to_int32(0)
+            # label_id = tf.to_int32(0)
             for feature_name, value in parsed_features.items():
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
@@ -127,11 +127,11 @@ class ModelFn(object):
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
         logging_hook = None
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            tf.summary.scalar('accuracy', metrics['accuracy'][1])
-            tf.summary.scalar('precision', metrics['precision'][1])
-            s = tf.summary.merge_all()
-            logging_hook = [tf.train.SummarySaverHook(save_steps=100, output_dir=config.model_dir_custom, summary_op=s)]
+        # if mode == tf.estimator.ModeKeys.TRAIN:
+        #     tf.summary.scalar('accuracy', metrics['accuracy'][1])
+        #     tf.summary.scalar('precision', metrics['precision'][1])
+        #     s = tf.summary.merge_all()
+        #     logging_hook = [tf.train.SummarySaverHook(save_steps=100, output_dir=config.model_dir_custom, summary_op=s)]
 
         return tf.estimator.EstimatorSpec(mode=mode,
                                           predictions=model.predictions,
@@ -164,8 +164,10 @@ class ModelFn(object):
             predicted_labels = tf.to_int32(tf.greater(predictions, 0.5), name="predicted_labels")
         else:
             predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
+            predictions = model.predictions
+            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
 
-        if model.config.force_softmax:
+        if model.config['force_softmax']:
             labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
         else:
             labels = model.labels
@@ -196,13 +198,13 @@ class ModelFn(object):
             return count.read_value(), update_op
 
         # Confusion matrix metrics.
-        num_labels = 2 if not model.config.multi_class else max(model.config.label_map.values()) + 1
+        num_labels = 2 if not model.config['multi_class'] else max(model.config['label_map'].values()) + 1
         for label in range(num_labels):
             for pred_label in range(num_labels):
                 metric_name = "label_{}_pred_{}".format(label, pred_label)
                 metrics[metric_name] = _count_condition(metric_name, labels_value=label, predicted_value=pred_label)
 
-        if not model.config.multi_class:
+        if not model.config['multi_class']:
             labels = tf.cast(labels, dtype=tf.bool)
             metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
                                                 summation_method='careful_interpolation', curve='ROC')
@@ -236,10 +238,15 @@ class ModelFn(object):
         #     learning_rate = None
         #     NotImplementedError('Learning rate scheduler not recognized')
 
-        if model.config.optimizer == 'Adam':
-            optimizer = tf.train.AdamOptimizer(learning_rate=model.config.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
+        # if model.config.optimizer == 'Adam':
+        if model.config['optimizer'] == 'Adam':
+            # optimizer = tf.train.AdamOptimizer(learning_rate=model.config.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
+            optimizer = tf.train.AdamOptimizer(learning_rate=model.config['lr'], beta1=0.9, beta2=0.999, epsilon=1e-8)
         else:
-            optimizer = tf.train.MomentumOptimizer(model.config.lr, model.config.sgd_momentum,
+            # optimizer = tf.train.MomentumOptimizer(model.config.lr, model.config.sgd_momentum,
+            #                                        # use_nesterov=True
+            #                                        )
+            optimizer = tf.train.MomentumOptimizer(model.config['lr'], model.config['sgd_momentum'],
                                                    # use_nesterov=True
                                                    )
 
@@ -259,12 +266,12 @@ class CNN1dModel(object):
         self.batch_losses = None
         self.total_loss = None
 
-        if self.config.multi_class or (not self.config.multi_class and self.config.force_softmax):
-            self.output_size = max(config.label_map.values()) + 1
+        if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
+            self.output_size = max(config['label_map'].values()) + 1
         else:
             self.output_size = 1
 
-        self.ce_weights = tf.constant(self.config.ce_weights, dtype=tf.float32)
+        self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
         self.build()
 
@@ -272,6 +279,8 @@ class CNN1dModel(object):
 
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
                          'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
+
+        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' else None
 
         cnn_layers = {}
         for name in ['global_view', 'local_view']:
@@ -282,29 +291,35 @@ class CNN1dModel(object):
                 else:
                     net = tf.expand_dims(self.time_series_features[name], -1)  # [batch, length, channels]
 
-                n_blocks = getattr(self.config, config_mapper['blocks'][name])
-                pool_size = getattr(self.config, config_mapper['pool_size'][name])
+                n_blocks = self.config[config_mapper['blocks'][name]]
+                pool_size = self.config[config_mapper['pool_size'][name]]
+                # n_blocks = getattr(self.config, config_mapper['blocks'][name])
+                # pool_size = getattr(self.config, config_mapper['pool_size'][name])
 
                 for conv_block_i in range(n_blocks):
-                    num_filters = self.config.init_conv_filters * (2 ** conv_block_i)
+                    num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
                     kwargs = {'inputs': net,
                               'filters': num_filters,
-                              'kernel_initializer': tf.keras.initializers.he_normal(),
-                              'kernel_size': self.config.kernel_size,
-                              'strides': self.config.kernel_stride,
+                              'kernel_initializer': weight_initializer,
+                              'kernel_size': self.config['kernel_size'],
+                              'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
                     net = tf.layers.conv1d(**kwargs)
                     # net = tf.nn.leaky_relu(net, alpha=0.01)
-                    net = tf.nn.relu(net)
+                    net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                    # net = tf.nn.relu(net)
 
-                    for seq_conv_block_i in range(self.config.conv_ls_per_block - 1):
+                    for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
                         net = tf.layers.conv1d(**kwargs)
-                        # net = tf.nn.leaky_relu(net, alpha=0.01)
-                        net = tf.nn.relu(net)
+                        net = tf.nn.leaky_relu(net, alpha=0.01)
+                        net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                        # net = tf.nn.relu(net)
 
-                    net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config.pool_stride)
-                    # net = tf.layers.batch_normalization(inputs=net)
+                    net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
+
+                    if self.config['batch_norm']:
+                        net = tf.layers.batch_normalization(inputs=net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
@@ -334,17 +349,18 @@ class CNN1dModel(object):
 
     def build_fc_layers(self, net):
         with tf.variable_scope('FcNet'):
-            for fc_layer_i in range(self.config.num_fc_layers - 1):
+            for fc_layer_i in range(self.config['num_fc_layers'] - 1):
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
-                fc_neurons = self.config.init_fc_neurons
-                if self.config.decay_rate is not None:
+                fc_neurons = self.config['init_fc_neurons']
+                if self.config['decay_rate'] is not None:
                     net = tf.layers.dense(inputs=net, units=fc_neurons,
-                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config.decay_rate))
+                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config['decay_rate']))
                 else:
                     net = tf.layers.dense(inputs=net, units=fc_neurons)
                 # net = tf.nn.leaky_relu(net, alpha=0.01)
-                net = tf.nn.relu(net)
-                net = tf.layers.dropout(net, self.config.dropout_rate, training=self.is_training)
+                net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                # net = tf.nn.relu(net)
+                net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
 
             tf.identity(net, "final")
 
@@ -362,14 +378,14 @@ class CNN1dModel(object):
         net = self.connect_segments(cnn_layers)
         self.build_fc_layers(net)
 
-        prediction_fn = tf.nn.softmax if self.config.multi_class else tf.sigmoid
+        prediction_fn = tf.nn.softmax if self.config['multi_class'] else tf.sigmoid
         self.predictions = prediction_fn(self.logits, name="predictions")
 
         if self.mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
             self.build_losses()
 
     def build_losses(self):
-        weights = (1.0 if self.config.satellite == 'kepler' and not self.config.use_kepler_ce
+        weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
                    else tf.gather(self.ce_weights, tf.to_int32(self.labels)))
 
         if self.output_size == 1:
@@ -397,7 +413,7 @@ def get_model_dir(path):
         # return os.path.join(parent_dir, 'models/', tempfile.mkdtemp().split('/')[-1])
         return os.path.join(path, tempfile.mkdtemp().split('/')[-1])
 
-    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+    # parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
     model_dir_custom = _gen_dir()
 

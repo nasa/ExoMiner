@@ -7,7 +7,7 @@ import os
 import sys
 import argparse
 import time
-from mpi4py import MPI
+# from mpi4py import MPI
 import numpy as np
 import logging
 # import matplotlib; matplotlib.use('agg')
@@ -172,35 +172,26 @@ if __name__ == '__main__':
 
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    # run_id and study could be the same variable
-    # run_id = 'transit_classifier_distributed'
     study = 'study_bo'
 
     # directory in which the models are saved
-    # models_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/models/' + study
-    # models_directory = '/home/msaragoc/Kepler_planet_finder/configs/' + study
     models_directory = paths.path_hpomodels + study
 
     # directory in which the results are saved
-    # results_directory = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/' + study
-    # results_directory = '/home/msaragoc/Kepler_planet_finder/configs/' + study
     results_directory = paths.path_hpoconfigs + study
 
     # previous run directory  # used to warmup start model based optimizers
     prev_run_study = 'study_8'
     prev_run_dir = None  # paths.path_hpoconfigs + prev_run_study
-    # prev_run_dir = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/logs/study_5/'
 
     # data directory
-    # tfrec_dir = '/home6/msaragoc/work_dir/data/tfrecord_kepler'
-    # tfrec_dir = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
     tfrec_dir = paths.tfrec_dir
 
     nic_name = 'lo'  # 'ib0'
 
-    rank = MPI.COMM_WORLD.rank
+    rank = 0  # MPI.COMM_WORLD.rank
     # size = MPI.COMM_WORLD.size    
-    print('Rank=', rank)
+    # print('Rank=', rank)
     sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')
