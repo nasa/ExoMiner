@@ -11,7 +11,7 @@ import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.ERROR)
 # logging.getLogger("tensorflow").setLevel(logging.INFO)
 # tf.logging.set_verbosity(tf.logging.INFO)
-import hpbandster.core.result as hpres
+# import hpbandster.core.result as hpres
 import numpy as np
 # import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 #     from src.eval_results import eval_model
 #     from src.config import Config
 # else:
-from src.estimator_util import InputFn, ModelFn, CNN1dModel
-from src.config import Config
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir
+import src.config as config
 import paths
 from src_hpo import utils_hpo
 
@@ -111,9 +111,9 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     # plot pr curve
     f, ax = plt.subplots()
     ax.plot(res['validation']['rec thr'][-1], res['validation']['prec thr'][-1],
-            label='Val (AUC={:3f})'.format(res['validation']['pr auc'][-1]))
+            label='Val (AUC={:.3f})'.format(res['validation']['pr auc'][-1]))
     ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
-            label='Test (AUC={:3f})'.format(res['test']['pr auc'][-1]))
+            label='Test (AUC={:.3f})'.format(res['test']['pr auc'][-1]))
     # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
     thr_vec = np.linspace(0, 999, 11, endpoint=True, dtype='int')
     ax.scatter(np.array(res['validation']['rec thr'][-1])[thr_vec],
@@ -133,7 +133,7 @@ def draw_plots(res, save_path, opt_metric, min_optmetric=False):
     plt.close()
 
 
-def run_main(config, save_path, opt_metric, min_optmetric):
+def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -149,14 +149,14 @@ def run_main(config, save_path, opt_metric, min_optmetric):
     classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1,
                                                                       session_config=config_sess),
-                                        model_dir=config.model_dir_custom
+                                        model_dir=get_model_dir(model_dir)
                                         )
 
-    train_input_fn = InputFn(file_pattern=config.tfrec_dir + '/train*', batch_size=config.batch_size,
+    train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config.batch_size,
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config.label_map, centr_flag=config.centr_flag)
-    val_input_fn = InputFn(file_pattern=config.tfrec_dir + '/val*', batch_size=config.batch_size,
+    val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config.batch_size,
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config.label_map, centr_flag=config.centr_flag)
-    test_input_fn = InputFn(file_pattern=config.tfrec_dir + '/test*', batch_size=config.batch_size,
+    test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config.batch_size,
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config.label_map,
                             centr_flag=config.centr_flag)
 
@@ -188,14 +188,14 @@ def run_main(config, save_path, opt_metric, min_optmetric):
         #                                                                               res_i['val prec']))
 
     print('Saving metrics...')
-    np.save(save_path + 'res_eval.npy', res)
+    np.save(res_dir + 'res_eval.npy', res)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
-    draw_plots(res, save_path, opt_metric, min_optmetric)
+    draw_plots(res, res_dir, opt_metric, min_optmetric)
 
     print('#' * 100)
-    print('Performance on last epoch ({})'.format(config.n_epochs))
+    print('Performance on last epoch ({})'.format(n_epochs))
     for dataset in dataset_ids:
         print(dataset)
         for metric in metrics_list:
@@ -210,18 +210,14 @@ if __name__ == '__main__':
 
     study = 'study_bohb_dr25_tcert_spline'
 
-    # results directory
-    save_path = paths.pathsaveres_train + study
-    if not os.path.isdir(save_path):
-        os.mkdir(save_path)
-        os.mkdir(save_path + '/models/')
-
     n_models = 10  # number of models in the ensemble
     n_epochs = 50
-
+    multi_class = False
+    force_softmax = False  # Use softmax in case of binary classification?
+    use_kepler_ce = False
+    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
-
     # get best configuration from the HPO study
     # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
     res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
@@ -229,18 +225,40 @@ if __name__ == '__main__':
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
     # best_config = id2config[(8, 0, 3)]['config']
-
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
                             'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
-    # choose configuration
-    config = best_config  # shallues_best_config
-    print('Selected configuration: ', config)
+    # choose hpo configuration
+    hpo_config = best_config  # shallues_best_config
+    print('Selected configuration: ', hpo_config)
+
+    # tfrecord files directory
+    tfrec_dir = paths.tfrec_dir
+
+    # results directory
+    save_path = paths.pathsaveres_train + study
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
+        os.mkdir(save_path + '/models/')
+
+    # add dataset parameters
+    params_config = config.add_dataset_params(tfrec_dir, satellite, multi_class, hpo_config)
+
+    # add missing parameters in hpo with default values
+    params_config = config.add_default_missing_params(config=params_config)
+    print('Configuration used: ', params_config)
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
-        run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + '/models/', **config),
-                 save_path + '/model%i' % (item + 1), opt_metric, min_optmetric)
+        # run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + '/models/', **config),
+        #          save_path + '/model%i' % (item + 1), opt_metric, min_optmetric)
+        run_main(config=params_config,
+                 n_epochs=n_epochs,
+                 data_dir = tfrec_dir,
+                 model_dir=save_path + '/models/',
+                 res_dir=save_path + '/model%i' % (item + 1),
+                 opt_metric=opt_metric,
+                 min_optmetric=min_optmetric)
