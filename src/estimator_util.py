@@ -406,7 +406,6 @@ class CNN1dModel(object):
 
 
 def get_model_dir(path):
-# def get_model_dir():
     """Returns a randomly named, non-existing model file folder"""
 
     def _gen_dir():
@@ -460,3 +459,59 @@ def picklesave(path, savedict):
     p = pickle.Pickler(open(path, "wb+"))
     p.fast = True
     p.dump(savedict)
+
+
+def get_labels(tfrecord, label_map):
+
+    labels = []
+    record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
+
+    for string_record in record_iterator:
+
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
+
+        label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+        labels.append(label_map[label])
+
+        # kepid = example.features.feature['kepid'].int64_list.value[0]
+        # tce_n = example.features.feature['tce_plnt_num'].int64_list.value[0]
+        # period = example.features.feature['tce_period'].float_list.value[0]
+        # duration = example.features.feature['tce_duration'].float_list.value[0]
+        # epoch = example.features.feature['tce_time0bk'].float_list.value[0]
+        # MES = example.features.feature['mes'].float_list.value[0]
+        # ephem_vec += [{'period': period, 'duration': duration, 'epoch': epoch}]
+        # glob_view = example.features.feature['global_view'].float_list.value
+        # loc_view = example.features.feature['local_view'].float_list.value
+        # glob_view_centr = example.features.feature['global_view_centr'].float_list.value
+        # loc_view_centr = example.features.feature['local_view_centr'].float_list.value
+
+        # kepid_vec.append(kepid)
+        # glob_vec += [glob_view]
+        # loc_vec += [loc_view]
+        # glob_centrvec += [glob_view_centr]
+        # loc_centrvec += [loc_view_centr]
+        # mes_vec += [MES]
+
+    return labels
+
+
+# def input_fn_pred(features):
+#
+#     dataset = tf.data.Dataset.from_tensor_slices(features)
+#     dataset.repeat(1)
+#     dataset = dataset.map(parser)
+#
+#     return dataset
+#
+#
+# # def parser(localview, globalview, localview_centr, globalview_centr):
+# def parser(localview, globalview):
+#
+#     # output = {"time_series_features": {'local_view': tf.to_float(localview),
+#     #                                    'global_view': tf.to_float(globalview),
+#     #                                    'global_view_centr': tf.to_float(localview_centr),
+#     #                                    'local_view_centr': tf.to_float(globalview_centr)}}
+#     output = {"time_series_features": {'local_view': tf.to_float(localview),
+#                                        'global_view': tf.to_float(globalview)}}
+#     return output

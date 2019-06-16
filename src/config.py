@@ -50,9 +50,10 @@ def add_default_missing_params(config):
 def add_dataset_params(tfrec_dir, satellite, multi_class, config):
 
     config['satellite'] = satellite
+    config['multi_class'] = multi_class
     config['label_map'] = label_map[satellite][multi_class]
     config['ce_weights'], config['centr_flag'], config['n_train_examples'] = \
-        get_ce_weights(label_map, tfrec_dir)
+        get_ce_weights(config['label_map'], tfrec_dir)
 
     return config
 

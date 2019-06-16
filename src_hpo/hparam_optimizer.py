@@ -7,7 +7,7 @@ import os
 import sys
 import argparse
 import time
-# from mpi4py import MPI
+from mpi4py import MPI
 import numpy as np
 import logging
 # import matplotlib; matplotlib.use('agg')
@@ -159,7 +159,7 @@ if __name__ == '__main__':
 
     optimizer = 'bohb'  # 'random_search'  # 'bohb'
 
-    min_budget = 1  # 16
+    min_budget = 2  # 16
     max_budget = 50  # 128
     n_iterations = 200  # 16
 
@@ -189,9 +189,9 @@ if __name__ == '__main__':
 
     nic_name = 'lo'  # 'ib0'
 
-    rank = 0  # MPI.COMM_WORLD.rank
+    rank = MPI.COMM_WORLD.rank
     # size = MPI.COMM_WORLD.size    
-    # print('Rank=', rank)
+    print('Rank=', rank)
     sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')
