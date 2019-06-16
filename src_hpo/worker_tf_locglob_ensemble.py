@@ -503,7 +503,7 @@ class TransitClassifier(Worker):
             # delete saved model (model will not be read from in future)
             shutil.rmtree(model_dir_custom, ignore_errors=True)
 
-        # get median per epoch between ensembles
+        # get average per epoch between ensembles
         for dataset in dataset_ids:
             for metric in metrics_list:
                 # res[dataset][metric] = {'all scores': res[dataset][metric],
@@ -513,7 +513,7 @@ class TransitClassifier(Worker):
                 res[dataset][metric] = {'all scores': res[dataset][metric],
                                         'central tendency': np.mean(res[dataset][metric], axis=0),
                                         'deviation': np.std(res[dataset][metric], axis=0, ddof=1) /
-                                                     np.sqrt(len(res[dataset][metric]))}
+                                                     np.sqrt(self.ensemble_n)}
 
         # save metrics
         np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}'.format(config_id, budget), res)
@@ -528,7 +528,8 @@ class TransitClassifier(Worker):
         res_hpo = {'loss': 1 - float(hpo_loss[-1]),
                    'info': {dataset + ' ' + metric: [float(res[dataset][metric]['central tendency'][ep]),
                                                      float(res[dataset][metric]['deviation'][ep])]
-                            for dataset in ['validation', 'test'] for metric in metrics_list}}
+                            for dataset in ['validation', 'test'] for metric in metrics_list if metric not in
+                            ['prec thr', 'rec thr']}}
 
         print('#' * 100)
         print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
@@ -616,13 +617,12 @@ class TransitClassifier(Worker):
 
         f.suptitle('Config {} | Budget = {:.0f} (Best val:{:.0f})'.format(config_id, epochs[-1], epochs[auc_ep_idx]))
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        # f.savefig(model_dir + '/plotseval_budget%.0f.png' % epochs[-1])
         f.savefig(self.results_directory + '/plotseval_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
         plt.close()
 
         # Precision and Recall plots
         f, ax = plt.subplots()
-        for val_prec_i in res['validation']['prec thr']['all scores']:
+        for val_prec_i in res['validation']['precision']['all scores']:
             ax.plot(epochs, val_prec_i, color='r', alpha=alpha)
         ax.plot(epochs, res['validation']['precision']['central tendency'], color='r', label='Val Prec')
 
@@ -651,14 +651,14 @@ class TransitClassifier(Worker):
 
         # plot pr curve
         f, ax = plt.subplots()
-        for i in range(len(res['validation']['prec thr'])):
+        for i in range(len(res['validation']['prec thr']['all scores'])):
             ax.plot(res['validation']['rec thr']['all scores'][i][-1],
                     res['validation']['prec thr']['all scores'][i][-1], color='r', alpha=alpha, linestyle='--')
         ax.plot(res['validation']['rec thr']['central tendency'][-1],
                 res['validation']['prec thr']['central tendency'][-1], color='k', linestyle='--',
                 label='Validation (AUC={:.3f})'.format(res['validation']['pr auc']['central tendency'][-1]))
 
-        for i in range(len(res['test']['prec thr'])):
+        for i in range(len(res['test']['prec thr']['all scores'])):
             ax.plot(res['test']['rec thr']['all scores'][i][-1],
                     res['test']['prec thr']['all scores'][i][-1], color='r', alpha=alpha)
         ax.plot(res['test']['rec thr']['central tendency'][-1],

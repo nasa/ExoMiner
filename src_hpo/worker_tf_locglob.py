@@ -491,7 +491,8 @@ class TransitClassifier(Worker):
         res_hpo = {'loss': 1 - float(hpo_loss),  # choose metric/loss to optimize
                    'info': {dataset + ' ' + metric: [float(res[dataset][metric][ep]),
                                                      float(res[dataset][metric][ep])]
-                            for dataset in ['validation', 'test'] for metric in metrics_list}}
+                            for dataset in ['validation', 'test'] for metric in metrics_list if metric not in
+                            ['prec thr', 'rec thr']}}
 
         print('#' * 100)
         print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
