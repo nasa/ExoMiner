@@ -43,17 +43,11 @@ def run_main(args, bohb_params=None):
     else:
         args.label_map = {"PC": 1, "NTP": 0, "AFP": 2} if args.multi_class else {"PC": 1, "NTP": 0, "AFP": 0}
 
-    # shared_directory = os.path.dirname(os.path.abspath(__file__)) + '/logs'
-
-    # print('shared directory:', shared_directory)
-
     if not args.worker:
         if not os.path.isdir(args.models_directory):
             os.mkdir(args.models_directory)
         if not os.path.isdir(args.results_directory):
             os.mkdir(args.results_directory)
-
-    # shared_directory = os.path.dirname(__file__) + '/logs'
 
     worker = TransitClassifier_tf
     args.ce_weights, args.centr_flag = get_ce_weights(args.label_map, args.tfrec_dir)
@@ -63,15 +57,12 @@ def run_main(args, bohb_params=None):
     if args.worker:
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
         time.sleep(2 * rank)
-        # args.run_id = check_run_id(args.run_id, shared_directory, worker=True)
-        args.run_id = check_run_id(args.studyid, args.results_directory, worker=True)
+        args.studyid = check_run_id(args.studyid, args.results_directory, worker=True)
 
         # printstr = "Starting worker %s" % rank
         # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
-        # w = worker(args, worker_id_custom=rank, run_id=args.run_id, host=host)
         w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host)
-        # w.load_nameserver_credentials(working_directory=shared_directory)
         w.load_nameserver_credentials(working_directory=args.results_directory)
         w.run(background=False)
         exit(0)
@@ -80,16 +71,13 @@ def run_main(args, bohb_params=None):
     args.studyid = check_run_id(args.studyid, args.results_directory)
 
     # Start nameserver:
-    # name_server = hpns.NameServer(run_id=args.run_id, host=host, port=0, working_directory=shared_directory)
     name_server = hpns.NameServer(run_id=args.studyid, host=host, port=0, working_directory=args.results_directory)
     ns_host, ns_port = name_server.start()
 
     # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
-    # w = worker(args, worker_id_custom=rank, run_id=args.run_id, host=host, nameserver=ns_host, nameserver_port=ns_port)
     w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host, nameserver=ns_host, nameserver_port=ns_port)
     w.run(background=True)
 
-    # result_logger = json_result_logger(directory=shared_directory, run_id=args.run_id, overwrite=False)
     result_logger = json_result_logger(directory=args.results_directory, run_id=args.studyid, overwrite=False)
     # result_logger = hpres.json_result_logger(directory=args.results_directory, overwrite=False)
 
@@ -135,7 +123,7 @@ def run_main(args, bohb_params=None):
 
     else:  # run random search
         hpo = RandomSearch(configspace=worker.get_configspace(),
-                           run_id=args.run_id,
+                           run_id=args.studyid,
                            host=host,
                            nameserver=ns_host,
                            nameserver_port=ns_port,
@@ -151,8 +139,7 @@ def run_main(args, bohb_params=None):
     name_server.shutdown()
 
     # Analyse and save results
-    # analyze_results(res, args, shared_directory, args.run_id)
-    analyze_results(res, args, args.results_directory, args.run_id)
+    analyze_results(res, args, args.results_directory, args.studyid)
 
 
 if __name__ == '__main__':

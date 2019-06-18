@@ -47,13 +47,7 @@ def add_default_missing_params(config):
     return config
 
 
-<<<<<<< HEAD
-
-        # For self-training
-        # tfrecord_dir_tpsrejects = '/data5/tess_project/classifiers_Laurent/Kepler_classifier/Astronet_Models/tfrecords/kepler_rejects'
-=======
 def add_dataset_params(tfrec_dir, satellite, multi_class, config):
->>>>>>> b630a2ba86a219cb217fee4eef798af648442eef
 
     config['satellite'] = satellite
     config['multi_class'] = multi_class

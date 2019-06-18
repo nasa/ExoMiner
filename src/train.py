@@ -90,7 +90,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax.plot(epochs, res['test']['recall'], label='Test Recall')
     ax.plot(epochs, res['test']['roc auc'], label='Test ROC AUC')
     ax.plot(epochs, res['test']['pr auc'], label='Test PR AUC')
-    ax.grid('on')
+    ax.grid(True)
     # ax.set_xticks(np.arange(0, res['epochs'][-1] + 1, 5))
 
     chartBox = ax.get_position()
@@ -111,36 +111,72 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     # plot pr curve
     f, ax = plt.subplots()
     ax.plot(res['validation']['rec thr'][-1], res['validation']['prec thr'][-1],
-            label='Val (AUC={:.3f})'.format(res['validation']['pr auc'][-1]))
+            label='Val (AUC={:.3f})'.format(res['validation']['pr auc'][-1]), color='r')
     ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
-            label='Test (AUC={:.3f})'.format(res['test']['pr auc'][-1]))
+            label='Test (AUC={:.3f})'.format(res['test']['pr auc'][-1]), color='b')
+    ax.plot(res['training']['rec thr'][-1], res['training']['prec thr'][-1],
+            label='Train (AUC={:.3f})'.format(res['training']['pr auc'][-1]), color='k')
     # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
     thr_vec = np.linspace(0, 999, 11, endpoint=True, dtype='int')
     ax.scatter(np.array(res['validation']['rec thr'][-1])[thr_vec],
                np.array(res['validation']['prec thr'][-1])[thr_vec], c='r')
     ax.scatter(np.array(res['test']['rec thr'][-1])[thr_vec],
-               np.array(res['test']['prec thr'][-1])[thr_vec], c='r')
+               np.array(res['test']['prec thr'][-1])[thr_vec], c='b')
+    ax.scatter(np.array(res['training']['rec thr'][-1])[thr_vec],
+               np.array(res['training']['prec thr'][-1])[thr_vec], c='k')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
     ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
-    ax.grid('on')
+    ax.grid(True)
     ax.legend(loc='bottom left')
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
-    ax.set_title('Precision Recall curve\nVal/Test')
+    ax.set_title('Precision Recall curve')
     f.savefig(save_path + '_prec_rec.png')
     plt.close()
 
+    # bins = np.linspace(0, 1, 11, True)
+    # plt.figure()
+    # plt.hist([output_cl[output] for output in output_cl], stacked=False, bins=bins, label=[output for output in output_cl], edgecolor='k')
+    # plt.legend()
+    # plt.xticks(bins)
+    # plt.xlabel('Output')
+    # plt.ylabel('Class fraction')
+    # plt.savefig()
+    # plt.close()
+
     bins = np.linspace(0, 1, 11, True)
-    plt.figure()
-    plt.hist([output_cl[output] for output in output_cl], stacked=False, bins=bins, label=[output for output in output_cl], edgecolor='k')
-    plt.legend()
-    plt.xticks(bins)
-    plt.xlabel('Output')
-    plt.ylabel('Class fraction')
-    plt.savefig()
-    plt.close()
+    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
+    for dataset in output_cl:
+
+        hist, bin_edges = {}, {}
+        for class_label in output_cl[dataset]:
+            counts_cl = list(np.histogram(output_cl[dataset][class_label], bins, density=False, range=(0, 1)))
+            counts_cl[0] = counts_cl[0] / len(output_cl[dataset][class_label])
+            hist[class_label] = counts_cl[0]
+            bin_edges[class_label] = counts_cl[1]
+
+        bins_multicl = np.linspace(0, 1, len(output_cl[dataset]) * 10 + 1, True)
+        bin_width = bins_multicl[1] - bins_multicl[0]
+        bins_cl = {}
+        for i, class_label in enumerate(output_cl[dataset]):
+            bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
+                                    for idx in range(i, len(bins_multicl) - 1, len(output_cl[dataset]))]
+
+        f, ax = plt.subplots()
+        for class_label in output_cl[dataset]:
+            ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
+        ax.set_ylabel('Class fraction')
+        ax.set_xlabel('Predicted output')
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1])
+        ax.set_title('Output distribution')
+        ax.set_xticks(np.linspace(0, 1, 11, True))
+        ax.legend()
+        ax.set_title(dataset_names[dataset])
+        plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
+        plt.close()
 
 
 def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, labels):
@@ -173,6 +209,9 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
                             centr_flag=config['centr_flag'])
+    # predict_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
+    #                         mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+    #                         centr_flag=config['centr_flag'])
 
     # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
@@ -182,7 +221,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     for epoch_i in range(1, n_epochs + 1):  # Train and evaluate the model for n_epochs
 
         print('\n\x1b[0;33;33m' + "Starting epoch %d of %d for %s" %
-              (epoch_i, n_epochs, save_path.split('/')[-1]) + '\x1b[0m\n')
+              (epoch_i, n_epochs, res_dir.split('/')[-1]) + '\x1b[0m\n')
         # train model
         _ = classifier.train(train_input_fn)
 
@@ -201,15 +240,27 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
 
-    prediction_lst = []
-    for predictions in classifier.predict(test_input_fn):
-        prediction_lst.append(predictions[0])
+    predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
+    for dataset in predictions_dataset:
+        predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+                                   mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+                                   centr_flag=config['centr_flag'])
 
-    prediction_lst = np.array(prediction_lst, dtype='uint8')
-    output_cl = {}
-    for class_label in config['label_map']:
-        # map_labels, counts = np.unique(labels[np.where(prediction_lst == config['label_map'][class_label])], return_counts=True)
-        output_cl[class_label] = prediction_lst[np.where(labels == config['label_map'][class_label])]
+        for predictions in classifier.predict(predict_input_fn):
+            predictions_dataset[dataset].append(predictions[0])
+        predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
+
+    output_cl = {dataset: {} for dataset in ['train', 'val', 'test']}
+    for dataset in output_cl:
+        # map_labels
+        for class_label in config['label_map']:
+
+            if class_label == 'AFP':
+                continue
+            elif class_label == 'NTP':
+                output_cl[dataset]['NTP+AFP'] = predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
+            else:
+                output_cl[dataset][class_label] = predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
 
     print('Saving metrics...')
     np.save(res_dir + 'res_eval.npy', res)
@@ -232,10 +283,10 @@ if __name__ == '__main__':
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    study = 'study_bohb_dr25_tcert_spline'
+    study = 'study_bohb_dr25_tcert_spline2'
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 2
+    n_epochs = 50
     multi_class = False
     force_softmax = False  # Use softmax in case of binary classification?
     use_kepler_ce = False
@@ -244,7 +295,7 @@ if __name__ == '__main__':
     min_optmetric = False  # if lower value is better set to True
     # get best configuration from the HPO study
     # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
+    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
     id2config = res.get_id2config_mapping()
     incumbent = res.get_incumbent_id()
     best_config = id2config[incumbent]['config']
@@ -255,11 +306,6 @@ if __name__ == '__main__':
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
-<<<<<<< HEAD
-    # choose configuration
-    config = shallues_best_config  # best_config  # shallues_best_config
-    print('Selected configuration: ', config)
-=======
     # choose hpo configuration
     hpo_config = best_config  # shallues_best_config
     print('Selected configuration: ', hpo_config)
@@ -279,14 +325,17 @@ if __name__ == '__main__':
     # add missing parameters in hpo with default values
     params_config = config.add_default_missing_params(config=params_config)
     print('Configuration used: ', params_config)
->>>>>>> b630a2ba86a219cb217fee4eef798af648442eef
 
-    # get labels for the test set
-    labels = []
+    # get labels for each dataset
+    labels = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(tfrec_dir):
         if 'test' in tfrec_file:
-            labels += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
-    labels = np.array(labels, dtype='uint8')
+            labels['test'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+        elif 'val' in tfrec_file:
+            labels['val'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+        elif 'train' in tfrec_file:
+            labels['train'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+    labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
@@ -300,23 +349,3 @@ if __name__ == '__main__':
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
                  labels=labels)
-
-
-men_means = np.random.randint(0, 1, size=11)
-women_means = np.random.randint(0, 1, size=11)
-
-ind = np.arange(0.05, 1.05, 0.1)  # the x locations for the groups
-width = 0.05  # the width of the bars
-
-fig, ax = plt.subplots()
-rects1 = ax.bar(ind - width/2, men_means, width,
-                label='Men')
-rects2 = ax.bar(ind + width/2, women_means, width,
-                label='Women')
-
-# Add some text for labels, title and custom x-axis tick labels, etc.
-ax.set_ylabel('Scores')
-ax.set_title('Scores by group and gender')
-ax.set_xticks(ind)
-ax.set_xticklabels(('G1', 'G2', 'G3', 'G4', 'G5'))
-ax.legend()

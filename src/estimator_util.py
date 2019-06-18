@@ -76,7 +76,7 @@ class InputFn(object):
                     name="should_reverse")
 
             output = {'time_series_features': {}}
-            # label_id = tf.to_int32(0)
+            label_id = tf.to_int32(0)
             for feature_name, value in parsed_features.items():
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
@@ -100,7 +100,8 @@ class InputFn(object):
 
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
-        dataset = dataset.shuffle(1024)
+        if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+            dataset = dataset.shuffle(1024)
         dataset = dataset.repeat(1)
 
         dataset = dataset.map(_example_parser, num_parallel_calls=4)

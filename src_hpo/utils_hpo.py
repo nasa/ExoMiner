@@ -14,8 +14,8 @@ import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
 import json
 from hpbandster.core.base_iteration import Datum
-import matplotlib; matplotlib.use('agg')
-import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('agg')
+# import matplotlib.pyplot as plt
 
 
 def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
