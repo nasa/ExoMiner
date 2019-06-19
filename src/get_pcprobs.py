@@ -113,10 +113,10 @@ def draw_plots(res, save_path, output_cl):
 def main(config, model_dir, data_dir, res_dir, threshold=0.5):
     """ Test ensemble of models.
 
-    :param config: Config class, config object
-    :param model_filenames: list, models filepaths
-    :param tfrecord_filenames: list, tfrecords filepaths
-    :param pathsaveres: str, save directory
+    :param config: dict, model and dataset configurations
+    :param model_dir: str, directory with saved models
+    :param data_dir: str, data directory with tfrecords
+    :param res_dir: str, save directory
     :param threshold: float, classification threshold
     :return:
     """
@@ -238,9 +238,6 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
                 output_cl[dataset]['NTP+AFP'] = \
                     predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
             else:
-                # print(dataset, class_label, output_cl.keys(), labels.keys(), config['label_map'][class_label])
-                # print(np.where(labels[dataset] == config['label_map'][class_label]))
-                # print(predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])])
                 output_cl[dataset][class_label] = \
                     predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
 
@@ -340,6 +337,8 @@ if __name__ == "__main__":
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
+    ######### SCRIPT PARAMETERS #############################################
+
     study = 'study_bohb'
 
     # load test data
@@ -370,6 +369,8 @@ if __name__ == "__main__":
 
     config = best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
     print('Configuration loaded:', config)
+
+    ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights on the best config
     models_path = paths.pathtrainedmodels + study + '/models'

@@ -334,7 +334,7 @@ if __name__ == '__main__':
     print('Selected configuration: ', config)
 
     # results directory
-    save_path = paths.pathsaveres_train + study
+    save_path = paths.pathtrainedmodels + study
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + '/models/')
