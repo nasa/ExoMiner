@@ -25,7 +25,7 @@ Accuracy:           0.9612452350698857 |    0.9606099110546379
 
 
 Config  Shallue's "several thousands"  |   bconfig study_9         |   bconfig study_8         |   bconfig study_7 
-                  iter (50 ep.)           ~1.6kwp8 iter (50 ep.)       ~1.6kwp7 iter (50 ep.)      ~400 iter (50 ep.)
+                  iter (50 ep.)           ~1.6kwp8 iter (50 ep.)       ~1.6kwp7 iter (50 ep.)      ~200 iter (50 ep.)
  
 Recall:             0.9472222222222222 |    0.9027777777777778     |   0.9083333333333333      |    0.8888888888888888
 ROC AUC:            0.9880377082189273 |    0.9879805052169138     |   0.9840060406370127      |    0.9878889804136921
@@ -37,7 +37,7 @@ Config  	    Random Search      |
                      ~400 iter (50 ep.) 
  
 Recall:             0.8777777777777778 |    0.
-ROC AUC:            0.9849121361889073 |    0.9
+ROC AUC:            0.9849121361889073 |    0.
 Precision:          0.8729281767955801 |    0
 PR AUC:             0.9459805846958026 |    0
 Accuracy:           0.9428208386277002 |    0

@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 #     from src.config import Config
 # else:
 from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_labels
-import src.config as config
+import src.config
 import paths
 from src_hpo import utils_hpo
 
@@ -35,6 +35,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     for the test set.
     :param save_path: str, filepath used to save the plots figure.
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
+    :param output_cl: dict, predicted outputs per class in each dataset
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective
     epoch. If False, gets the maximum value.
     :return:
@@ -69,7 +70,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax[1].scatter(epochs[ep_idx], res['test'][opt_metric][ep_idx], label='Test', c='k')
     ax[1].set_xlim([0, epochs[-1] + 1])
     # ax[1].set_ylim([0.0, 1.05])
-    ax[1].grid('on')
+    ax[1].grid(True)
     ax[1].set_xlabel('Epochs')
     ax[1].set_ylabel(opt_metric)
     ax[1].set_title('%s\nVal/Test %.4f/%.4f' % (opt_metric, res['validation'][opt_metric][ep_idx],
@@ -136,16 +137,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     f.savefig(save_path + '_prec_rec.png')
     plt.close()
 
-    # bins = np.linspace(0, 1, 11, True)
-    # plt.figure()
-    # plt.hist([output_cl[output] for output in output_cl], stacked=False, bins=bins, label=[output for output in output_cl], edgecolor='k')
-    # plt.legend()
-    # plt.xticks(bins)
-    # plt.xlabel('Output')
-    # plt.ylabel('Class fraction')
-    # plt.savefig()
-    # plt.close()
-
+    # plot histogram of the class distribution as a function of the predicted output
     bins = np.linspace(0, 1, 11, True)
     dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
     for dataset in output_cl:
@@ -179,7 +171,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, labels):
+def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -190,9 +182,19 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch.
     If False, gets the maximum value.
-    :param labels: list, labels for the test set
     :return:
     """
+
+    # get labels for each dataset
+    labels = {dataset: [] for dataset in ['train', 'val', 'test']}
+    for tfrec_file in os.listdir(data_dir):
+        if 'test' in tfrec_file:
+            labels['test'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+        elif 'val' in tfrec_file:
+            labels['val'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+        elif 'train' in tfrec_file:
+            labels['train'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+    labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     config_sess = None  # tf.ConfigProto(log_device_placement=False)
 
@@ -203,15 +205,14 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                         )
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
-                             mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'], centr_flag=config['centr_flag'])
+                             mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
+                             centr_flag=config['centr_flag'])
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
-                           mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'], centr_flag=config['centr_flag'])
+                           mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
+                           centr_flag=config['centr_flag'])
     test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
                             centr_flag=config['centr_flag'])
-    # predict_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
-    #                         mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-    #                         centr_flag=config['centr_flag'])
 
     # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
@@ -240,6 +241,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
 
+    # predict on given datasets
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
     for dataset in predictions_dataset:
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
@@ -250,6 +252,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
             predictions_dataset[dataset].append(predictions[0])
         predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
 
+    # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in ['train', 'val', 'test']}
     for dataset in output_cl:
         # map_labels
@@ -258,16 +261,32 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
             if class_label == 'AFP':
                 continue
             elif class_label == 'NTP':
-                output_cl[dataset]['NTP+AFP'] = predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
+                output_cl[dataset]['NTP+AFP'] = \
+                    predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
             else:
-                output_cl[dataset][class_label] = predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
+                output_cl[dataset][class_label] = \
+                    predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
 
-    print('Saving metrics...')
+    # save results in a numpy file
+    print('Saving metrics to a numpy file...')
     np.save(res_dir + 'res_eval.npy', res)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
     draw_plots(res, res_dir, opt_metric, output_cl, min_optmetric=min_optmetric)
+
+    print('Saving metrics to a txt file...')
+    # write results to a txt file
+    with open(res_dir + "res_eval.txt", "a") as res_file:
+        res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], n_epochs, '#' * 10))
+        for dataset in dataset_ids:
+            res_file.write('Dataset: {}\n'.format(dataset))
+            for metric in metrics_list:
+                if metric not in ['prec thr', 'rec thr']:
+                    res_file.write('{}: {}\n'.format(metric, res[dataset][metric][-1]))
+            res_file.write('\n')
+        res_file.write('{}'.format('-' * 100))
+        res_file.write('\n')
 
     print('#' * 100)
     print('Performance on last epoch ({})'.format(n_epochs))
@@ -283,7 +302,10 @@ if __name__ == '__main__':
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    study = 'study_bohb_dr25_tcert_spline2'
+    study = 'study_Shallue_dr25_tcert_spline'
+
+    # tfrecord files directory
+    tfrec_dir = paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 50
@@ -293,12 +315,13 @@ if __name__ == '__main__':
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
-    # get best configuration from the HPO study
+
+    # set the configuration either from a HPO study or manually
     # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    id2config = res.get_id2config_mapping()
-    incumbent = res.get_incumbent_id()
-    best_config = id2config[incumbent]['config']
+    # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+    # id2config = res.get_id2config_mapping()
+    # incumbent = res.get_incumbent_id()
+    # best_config = id2config[incumbent]['config']
     # best_config = id2config[(8, 0, 3)]['config']
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
@@ -307,11 +330,8 @@ if __name__ == '__main__':
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     # choose hpo configuration
-    hpo_config = best_config  # shallues_best_config
-    print('Selected configuration: ', hpo_config)
-
-    # tfrecord files directory
-    tfrec_dir = paths.tfrec_dir
+    config = shallues_best_config  # shallues_best_config
+    print('Selected configuration: ', config)
 
     # results directory
     save_path = paths.pathsaveres_train + study
@@ -320,32 +340,18 @@ if __name__ == '__main__':
         os.mkdir(save_path + '/models/')
 
     # add dataset parameters
-    params_config = config.add_dataset_params(tfrec_dir, satellite, multi_class, hpo_config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, config)
 
     # add missing parameters in hpo with default values
-    params_config = config.add_default_missing_params(config=params_config)
-    print('Configuration used: ', params_config)
-
-    # get labels for each dataset
-    labels = {dataset: [] for dataset in ['train', 'val', 'test']}
-    for tfrec_file in os.listdir(tfrec_dir):
-        if 'test' in tfrec_file:
-            labels['test'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
-        elif 'val' in tfrec_file:
-            labels['val'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
-        elif 'train' in tfrec_file:
-            labels['train'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
-    labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
+    config = src.config.add_default_missing_params(config=config)
+    print('Configuration used: ', config)
 
     for item in range(n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
-        # run_main(Config(n_epochs=n_epochs, model_dir_path=save_path + '/models/', **config),
-        #          save_path + '/model%i' % (item + 1), opt_metric, min_optmetric)
-        run_main(config=params_config,
+        run_main(config=config,
                  n_epochs=n_epochs,
                  data_dir=tfrec_dir,
                  model_dir=save_path + '/models/',
                  res_dir=save_path + '/model%i' % (item + 1),
                  opt_metric=opt_metric,
-                 min_optmetric=min_optmetric,
-                 labels=labels)
+                 min_optmetric=min_optmetric)
