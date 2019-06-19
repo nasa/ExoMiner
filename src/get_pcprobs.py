@@ -47,7 +47,7 @@ def draw_plots(res, save_path, output_cl):
         lw = 2
         ax = f.add_subplot(111, label='PR ROC')
         ax.plot(res[dataset]['Rec thr'], res[dataset]['Prec thr'], color='darkorange', lw=lw,
-                label='PR ROC curve (area = %0.2f)' % res[dataset]['PR AUC'])
+                label='PR ROC curve (area = %0.3f)' % res[dataset]['PR AUC'])
         # ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
@@ -59,7 +59,7 @@ def draw_plots(res, save_path, output_cl):
         ax.set_ylim([0.0, 1.0])
         ax2 = f.add_subplot(111, label='AUC ROC', frame_on=False)
         ax2.plot(res[dataset]['FPR'], res[dataset]['TPR'], color='darkorange', lw=lw, linestyle='--',
-                 label='AUC ROC curve (area = %0.2f)' % res[dataset]['PR AUC'])
+                 label='AUC ROC curve (area = %0.3f)' % res[dataset]['ROC AUC'])
         ax2.set_xlim([0.0, 1.0])
         ax2.set_ylim([0.0, 1.0])
         ax2.xaxis.tick_top()
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     study = 'study_bohb'
 
     # load test data
-    tfrec_dir = paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
 
     # threshold on binary classification
     threshold = 0.5
@@ -352,7 +352,9 @@ if __name__ == "__main__":
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # load best config from HPO study
-    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
+    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+                                                 '' # ''_{}'.format(study)
+                                                 )
     # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 
     # set the configuration either from a HPO study or manually
