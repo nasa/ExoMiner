@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_a
 #     from src.estimator_util import ModelFn, CNN1dModel
 #     from src.config import Config
 # else:
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_labels
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
@@ -128,11 +128,14 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
     labels = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(tfrec_dir):
         if 'test' in tfrec_file:
-            labels['test'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+            labels['test'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
+                                                      config['label_map'])['labels']
         elif 'val' in tfrec_file:
-            labels['val'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+            labels['val'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
+                                                     config['label_map'])['labels']
         elif 'train' in tfrec_file:
-            labels['train'] += get_labels(os.path.join(tfrec_dir, tfrec_file), params_config['label_map'])
+            labels['train'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
+                                                     config['label_map'])['labels']
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     # # num_afps, num_ntps, num_pcs = 0, 0, 0
@@ -225,6 +228,10 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
 
         # average across models
         predictions_dataset[dataset] = np.mean(predictions_dataset[dataset], axis=0)
+
+    # save results in a numpy file
+    print('Saving predicted output to a numpy file...')
+    np.save(res_dir + 'predictions_per_dataset', predictions_dataset)
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in ['train', 'val', 'test']}
@@ -337,12 +344,19 @@ if __name__ == "__main__":
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
+    # load Shallue's best config
+    shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
+                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
+                            'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
+                            'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'study_bohb'
+    study = 'study_Shallue_dr25_tcert_spline'
+    # set configuration manually, None to load it from a HPO study
+    config = shallues_best_config
 
     # load test data
-    tfrec_dir = paths.tfrec_dir  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
 
     # threshold on binary classification
     threshold = 0.5
@@ -351,23 +365,17 @@ if __name__ == "__main__":
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # load best config from HPO study
-    res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
-                                                 '' # ''_{}'.format(study)
-                                                 )
-    # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+    if config is None:
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+                                                     '_{}'.format(study)
+                                                     )
+        # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 
-    # set the configuration either from a HPO study or manually
-    id2config = res.get_id2config_mapping()
-    incumbent = res.get_incumbent_id()
-    best_config = id2config[incumbent]['config']
-    # best_config = id2config[(13, 0, 7)]['config']
-    # load Shallue's best config
-    shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
-                            'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
-                            'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
+        id2config = res.get_id2config_mapping()
+        incumbent = res.get_incumbent_id()
+        config = id2config[incumbent]['config']
+        # best_config = id2config[(13, 0, 7)]['config']
 
-    config = best_config  # best_config  # CHANGE TO THE CONFIG YOU WANT TO LOAD!!!
     print('Configuration loaded:', config)
 
     ######### SCRIPT PARAMETERS ###############################################
@@ -385,8 +393,8 @@ if __name__ == "__main__":
     config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, config)
 
     # add missing parameters in hpo with default values
-    params_config = src.config.add_default_missing_params(config=config)
-    print('Configuration used: ', params_config)
+    config = src.config.add_default_missing_params(config=config)
+    print('Configuration used: ', config)
 
     main(config=config,
          model_dir=models_path,

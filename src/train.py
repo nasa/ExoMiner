@@ -11,7 +11,6 @@ import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.ERROR)
 # logging.getLogger("tensorflow").setLevel(logging.INFO)
 # tf.logging.set_verbosity(tf.logging.INFO)
-# import hpbandster.core.result as hpres
 import numpy as np
 # import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -22,7 +21,7 @@ import matplotlib.pyplot as plt
 #     from src.eval_results import eval_model
 #     from src.config import Config
 # else:
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_labels
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_data_from_tfrecord
 import src.config
 import paths
 from src_hpo import utils_hpo
@@ -92,7 +91,6 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax.plot(epochs, res['test']['roc auc'], label='Test ROC AUC')
     ax.plot(epochs, res['test']['pr auc'], label='Test PR AUC')
     ax.grid(True)
-    # ax.set_xticks(np.arange(0, res['epochs'][-1] + 1, 5))
 
     chartBox = ax.get_position()
     ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
@@ -176,9 +174,9 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     :param config: configuration object from the Config class
     :param n_epochs: int, number of epochs to train the models
-    :param data_dir: path to directory with the tfrecord files
-    :param model_dir: path to directory in which to save the models
-    :param res_dir: path to directory to save results
+    :param data_dir: str, path to directory with the tfrecord files
+    :param model_dir: str, path to directory in which to save the models
+    :param res_dir: str, path to directory to save results
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch.
     If False, gets the maximum value.
@@ -189,11 +187,14 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     labels = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(data_dir):
         if 'test' in tfrec_file:
-            labels['test'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+            labels['test'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
+                                                      config['label_map'])['labels']
         elif 'val' in tfrec_file:
-            labels['val'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+            labels['val'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
+                                                     config['label_map'])['labels']
         elif 'train' in tfrec_file:
-            labels['train'] += get_labels(os.path.join(data_dir, tfrec_file), config['label_map'])
+            labels['train'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
+                                                       config['label_map'])['labels']
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     config_sess = None  # tf.ConfigProto(log_device_placement=False)
@@ -302,36 +303,43 @@ if __name__ == '__main__':
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    study = 'study_Shallue_dr25_tcert_spline'
-
-    # tfrecord files directory
-    tfrec_dir = paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
-
-    n_models = 10  # number of models in the ensemble
-    n_epochs = 50
-    multi_class = False
-    force_softmax = False  # Use softmax in case of binary classification?
-    use_kepler_ce = False
-    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
-    opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
-    min_optmetric = False  # if lower value is better set to True
-
-    # set the configuration either from a HPO study or manually
-    # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
-    # id2config = res.get_id2config_mapping()
-    # incumbent = res.get_incumbent_id()
-    # best_config = id2config[incumbent]['config']
-    # best_config = id2config[(8, 0, 3)]['config']
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
                             'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
+    ######### SCRIPT PARAMETERS #############################################
 
-    # choose hpo configuration
-    config = shallues_best_config  # shallues_best_config
+    study = 'study_bohb_dr25_tcert_spline2'
+    # set configuration manually
+    config = None
+
+    # tfrecord files directory
+    # tfrec_dir = paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
+
+    n_models = 10  # number of models in the ensemble
+    n_epochs = 300
+    multi_class = False
+    use_kepler_ce = False
+    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
+    opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
+    min_optmetric = False  # if lower value is better set to True
+
+    # set the configuration from a HPO study
+    if config is None:
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+                                                     '_' + study
+                                                     )
+        # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+        id2config = res.get_id2config_mapping()
+        incumbent = res.get_incumbent_id()
+        config = id2config[incumbent]['config']
+        # best_config = id2config[(8, 0, 3)]['config']
+
     print('Selected configuration: ', config)
+
+    ######### SCRIPT PARAMETERS #############################################
 
     # results directory
     save_path = paths.pathtrainedmodels + study
@@ -346,7 +354,7 @@ if __name__ == '__main__':
     config = src.config.add_default_missing_params(config=config)
     print('Configuration used: ', config)
 
-    for item in range(n_models):
+    for item in range(5, n_models):
         print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
         run_main(config=config,
                  n_epochs=n_epochs,

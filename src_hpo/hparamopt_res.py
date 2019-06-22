@@ -22,7 +22,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'study_bohb_dr25_tcert_spline'  # 'study_rs'
+study = 'study_bohb_dr25_tcert_spline2'  # 'study_rs'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -35,7 +35,9 @@ metrics_plot = ['test recall', 'test precision']
 min_val = 0.96
 
 # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
-res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
+res = logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+                                   '_{}'.format(study)
+                                   )
 
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()

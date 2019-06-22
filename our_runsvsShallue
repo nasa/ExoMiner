@@ -1,11 +1,13 @@
 TEST SET RESULTS
 
-Features: global and local view, SAME binning parameters (?)
+Features: global and local view, SAME binning parameters
 Method: Ensemble averaging
 Number of models: 10
 Threshold: 0.5
 
 #### DR24 Spline ##############
+
+%%% Exploratory studies
 Config  	    Shallue's (50 ep.) |   bconfig study_1 (50 ep.) |   bconfig study_1 (64 ep.)  |  (13,0,7)config study_2 (32 ep.)  | (8,0,3)config study_4 (32 ep.)  |   (8,0,3)config study_4 (16 ep.)  |  (2,0,3)config study_5 (45 ep.)
  
 Recall:             0.9472222222222222 |     0.8416666666666667	    |     0.8555555555555555      |     0.8944444444444445            |  0.9055555555555556             |  0.9083333333333333               |  0.9194444444444444
@@ -13,8 +15,6 @@ ROC AUC:            0.9880377082189273 |     0.9756749954237598     |     0.9762
 Precision:          0.8903394255874674 |     0.8301369863013699     |     0.8324324324324325      |     0.8518518518518519            |  0.8980716253443526             |  0.8910081743869209               |  0.8897849462365591
 PR AUC:             0.9485344183176972 |     0.9180822512625192     |     0.9194883203831543      |     0.944238567648141             |  0.9331496187719409             |  0.9458915812708693               |  0.949637615529782
 Accuracy:           0.9612452350698857 |     0.9243964421855146     |     0.9275730622617535      |     0.940279542566709             |  0.9548919949174078             |  0.9536213468869124               |  0.9555273189326556
-
-
 
 Config  	    Shallue's (50 ep.) |(6, 0, 7)config study_6 (64 ep.)
  
@@ -25,6 +25,7 @@ PR AUC:             0.9485344183176972 |    0.9492320263077414
 Accuracy:           0.9612452350698857 |    0.9606099110546379
 
 
+%%% Studies with ROC AUC as optimization metric, 1 model and warmup
 Config  Shallue's "several thousands"  |   bconfig study_9         |   bconfig study_8         |   bconfig study_7 
                   iter (50 ep.)           ~1.6kwp8 iter (50 ep.)       ~1.6kwp7 iter (50 ep.)      ~200 iter (50 ep.)
  
@@ -34,6 +35,7 @@ Precision:          0.8903394255874674 |    0.8807588075880759     |   0.8515625
 PR AUC:             0.9485344183176972 |    0.9506331976210319     |   0.9384634160218226      |    0.9496018401259156
 Accuracy:           0.9612452350698857 |    0.9498094027954257     |   0.9428208386277002      |    0.9504447268106735
 
+%%% Different optimizers
 Config  	    Random Search      |    bconfig study_bohb
                      ~400 iter (50 ep.)     ~400 iter (50 ep.)
  
@@ -46,10 +48,10 @@ Accuracy:           0.9428208386277002 |    0.9625158831003812
 
 #### DR25+TCERT Spline ##############
 Config  	    Shallue's (50 ep.) | bconfig study_bohb_dr25_tcert_spline2
-                                                 (50 ep.)
+                                              (50 ep., 3 models, PR AUC)
  
-Recall:             0.8610354223433242 |    0.9559309585016526
+Recall:             0.8610354223433242 |    0.8991825613079019
 ROC AUC:            0.9205431780647011 |    0.9319766796352752
 Precision:          0.8705234159779615 |    0.7990314769975787 
 PR AUC:             0.768280839773135  |    0.7320631245143091 
-Accuracy:           0.9640102827763496 |    0.9606099110546379
+Accuracy:           0.9640102827763496 |    0.9559309585016526

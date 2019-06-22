@@ -49,8 +49,6 @@ class InputFn(object):
             filenames.extend(matches)
         tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
-        # filenames = filenames[:1]  # for prototyping
-
         def _example_parser(serialized_example):
             """Parses a single tf.Example into feature and label tensors."""
 
@@ -410,10 +408,7 @@ def get_model_dir(path):
     """Returns a randomly named, non-existing model file folder"""
 
     def _gen_dir():
-        # return os.path.join(parent_dir, 'models/', tempfile.mkdtemp().split('/')[-1])
         return os.path.join(path, tempfile.mkdtemp().split('/')[-1])
-
-    # parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
     model_dir_custom = _gen_dir()
 
@@ -457,62 +452,79 @@ def get_ce_weights(label_map, tfrec_dir):
 
 
 def picklesave(path, savedict):
+
     p = pickle.Pickler(open(path, "wb+"))
     p.fast = True
     p.dump(savedict)
 
 
-def get_labels(tfrecord, label_map):
+def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
 
-    labels = []
+    # TODO: add lookup table
+
+    data = {field: [] for field in data_fields}
+
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
-
     for string_record in record_iterator:
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-        labels.append(label_map[label])
+        if 'labels' in data_fields:
+            label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+            data['labels'].append(label_map[label])
 
-        # kepid = example.features.feature['kepid'].int64_list.value[0]
-        # tce_n = example.features.feature['tce_plnt_num'].int64_list.value[0]
-        # period = example.features.feature['tce_period'].float_list.value[0]
-        # duration = example.features.feature['tce_duration'].float_list.value[0]
-        # epoch = example.features.feature['tce_time0bk'].float_list.value[0]
-        # MES = example.features.feature['mes'].float_list.value[0]
-        # ephem_vec += [{'period': period, 'duration': duration, 'epoch': epoch}]
-        # glob_view = example.features.feature['global_view'].float_list.value
-        # loc_view = example.features.feature['local_view'].float_list.value
-        # glob_view_centr = example.features.feature['global_view_centr'].float_list.value
-        # loc_view_centr = example.features.feature['local_view_centr'].float_list.value
+        if 'kepid' in data_fields:
+            kepid = example.features.feature['kepid'].int64_list.value[0]
+            data['kepid'].append(kepid)
 
-        # kepid_vec.append(kepid)
-        # glob_vec += [glob_view]
-        # loc_vec += [loc_view]
-        # glob_centrvec += [glob_view_centr]
-        # loc_centrvec += [loc_view_centr]
-        # mes_vec += [MES]
+        if 'tce_n' in data_fields:
+            tce_n = example.features.feature['tce_plnt_num'].int64_list.value[0]
+            data['tce_n'].append(tce_n)
 
-    return labels
+        if 'tce_period' in data_fields:
+            period = example.features.feature['tce_period'].float_list.value[0]
+            data['tce_period'].append(period)
+
+        if 'tce_duration' in data_fields:
+            duration = example.features.feature['tce_duration'].float_list.value[0]
+            data['tce_duration'].append(duration)
+
+        if 'epoch' in data_fields:
+            epoch = example.features.feature['tce_time0bk'].float_list.value[0]
+            data['epoch'].append(epoch)
+
+        if 'MES' in data_fields:
+            MES = example.features.feature['mes'].float_list.value[0]
+            data['MES'].append(MES)
+
+        if 'global_view' in data_fields:
+            glob_view = example.features.feature['global_view'].float_list.value
+            data['global_view'].append(glob_view)
+
+        if 'local_view' in data_fields:
+            glob_view = example.features.feature['local_view'].float_list.value
+            data['local_view'].append(glob_view)
+
+        if 'global_view_centr' in data_fields:
+            glob_view_centr = example.features.feature['global_view_centr'].float_list.value
+            data['global_view_centr'].append(glob_view_centr)
+
+        if 'local_view_centr' in data_fields:
+            local_view_centr = example.features.feature['local_view_centr'].float_list.value
+            data['local_view_centr'].append(local_view_centr)
+
+    return data
 
 
-# def input_fn_pred(features):
-#
-#     dataset = tf.data.Dataset.from_tensor_slices(features)
-#     dataset.repeat(1)
-#     dataset = dataset.map(parser)
-#
-#     return dataset
-#
-#
-# # def parser(localview, globalview, localview_centr, globalview_centr):
-# def parser(localview, globalview):
-#
-#     # output = {"time_series_features": {'local_view': tf.to_float(localview),
-#     #                                    'global_view': tf.to_float(globalview),
-#     #                                    'global_view_centr': tf.to_float(localview_centr),
-#     #                                    'local_view_centr': tf.to_float(globalview_centr)}}
-#     output = {"time_series_features": {'local_view': tf.to_float(localview),
-#                                        'global_view': tf.to_float(globalview)}}
-#     return output
+def get_data_from_tfrecords(tfrecords, data_fields, label_map=None):
+
+    data = {field: [] for field in data_fields}
+
+    for tfrecord in tfrecords:
+        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map)
+        for field in data_aux:
+            data[field].extend(data_aux[field])
+
+    return data
+
