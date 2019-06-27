@@ -1,18 +1,10 @@
 """
-Configuration class used to instantiate models with a config given as a dictionary.
+Utility script for defining configurations.
 """
 
-# 3rd party
-# import os
-
 # local
-# if 'nobackup' in os.path.dirname(__file__):
-#     from src.estimator_util import get_ce_weights, get_model_dir
-# else:
-#     from src.estimator_util import get_ce_weights, get_model_dir
-from src.estimator_util import get_ce_weights, get_model_dir
-# from estimator_util import get_ce_weights, get_model_dir
-# import paths
+from src.estimator_util import get_ce_weights
+
 
 label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary classification
                                "NTP": 0,
@@ -47,13 +39,15 @@ def add_default_missing_params(config):
     return config
 
 
-def add_dataset_params(tfrec_dir, satellite, multi_class, config):
+def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config):
 
+    # add parameters related to the dataset used - kepler/tess, binary/multi class., labels' map, centroid data,
+    # CE weights,...
     config['satellite'] = satellite
     config['multi_class'] = multi_class
     config['label_map'] = label_map[satellite][multi_class]
-    config['ce_weights'], config['centr_flag'], config['n_train_examples'] = \
-        get_ce_weights(config['label_map'], tfrec_dir)
+    config['ce_weights'], config['n_train_examples'] = get_ce_weights(config['label_map'], tfrec_dir)
+    config['centr_flag'] = centr_flag
 
     return config
 

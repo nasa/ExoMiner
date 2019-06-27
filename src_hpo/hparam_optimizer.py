@@ -5,33 +5,23 @@ Main script used to run hyperparameter optimization studies using BOHB, BO and R
 # 3rd party
 import os
 import sys
+# sys.path.append('/home6/msaragoc/work_dir/HPO_Kepler_TESS/')
 import argparse
 import time
 from mpi4py import MPI
 import numpy as np
 import logging
-# import matplotlib; matplotlib.use('agg')
-# import matplotlib.pyplot as plt
 logging.basicConfig(level=logging.WARNING)
 # logging.basicConfig(level=logging.DEBUG)
 # logging.propagate = False
-# if 'nobackup' in os.path.dirname(__file__):
-#     # For running on Pleiades without matplotlib fig() error
-#     plt.switch_backend('agg')
 
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
 
 # local
-# from src_hpo.worker_tf_locglob import TransitClassifier as TransitClassifier_tf
 from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
-# from src_hpo.hparam_optimizer import analyze_results, get_ce_weights, json_result_logger, check_run_id
 from src_hpo.utils_hpo import analyze_results, get_ce_weights, json_result_logger, check_run_id
-# from worker_tf_locglob import TransitClassifier as TransitClassifier_tf
-# from worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
-# from hparam_optimizer import analyze_results, get_ce_weights, json_result_logger, check_run_id
-# from utils_hpo import analyze_results, get_ce_weights, json_result_logger, check_run_id
 import paths
 
 
@@ -44,10 +34,10 @@ def run_main(args, bohb_params=None):
         args.label_map = {"PC": 1, "NTP": 0, "AFP": 2} if args.multi_class else {"PC": 1, "NTP": 0, "AFP": 0}
 
     if not args.worker:
-        if not os.path.isdir(args.models_directory):
-            os.mkdir(args.models_directory)
         if not os.path.isdir(args.results_directory):
             os.mkdir(args.results_directory)
+        if not os.path.isdir(args.models_directory):
+            os.mkdir(args.models_directory)
 
     worker = TransitClassifier_tf
     args.ce_weights, args.centr_flag = get_ce_weights(args.label_map, args.tfrec_dir)
@@ -93,11 +83,11 @@ def run_main(args, bohb_params=None):
     if args.optimizer == 'bohb':
         # instantiate BOHB or BO study
         hpo = BOHB(configspace=worker.get_configspace(),
-                   run_id=args.studyid,  # args.run_id,
+                   run_id=args.studyid,
                    host=host,
                    nameserver=ns_host,
                    nameserver_port=ns_port,
-                   working_directory=args.results_directory,  # shared_directory,
+                   working_directory=args.results_directory,
                    result_logger=result_logger,
                    min_budget=args.min_budget,
                    max_budget=args.max_budget,
@@ -127,7 +117,7 @@ def run_main(args, bohb_params=None):
                            host=host,
                            nameserver=ns_host,
                            nameserver_port=ns_port,
-                           working_directory=args.results_directory,  # shared_directory,
+                           working_directory=args.results_directory,
                            result_logger=result_logger,
                            min_budget=args.min_budget,
                            max_budget=args.max_budget,
@@ -146,11 +136,11 @@ if __name__ == '__main__':
 
     optimizer = 'bohb'  # 'random_search'  # 'bohb'
 
-    min_budget = 2  # 16
-    max_budget = 50  # 128
-    n_iterations = 200  # 16
+    min_budget = 2
+    max_budget = 50
+    n_iterations = 200
 
-    ensemble_n = 2
+    ensemble_n = 3
 
     hpo_loss = 'pr auc'
 
@@ -159,7 +149,7 @@ if __name__ == '__main__':
 
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'study_bo'
+    study = ''
 
     # directory in which the models are saved
     models_directory = paths.path_hpomodels + study
@@ -168,7 +158,7 @@ if __name__ == '__main__':
     results_directory = paths.path_hpoconfigs + study
 
     # previous run directory  # used to warmup start model based optimizers
-    prev_run_study = 'study_8'
+    prev_run_study = ''
     prev_run_dir = None  # paths.path_hpoconfigs + prev_run_study
 
     # data directory
@@ -202,11 +192,9 @@ if __name__ == '__main__':
                              'for Infinity Band.')
 
     parser.add_argument('--models_directory', type=str, default=models_directory,
-                        help='Directory where the models are saved.')
+                        help='Directory in which the models are saved.')
     parser.add_argument('--results_directory', type=str, default=results_directory,
-                        help='Directory where the results and logs are saved.')
-    # parser.add_argument('--run_id', type=str, default=run_id,
-    #                     help='Unique id for the BOHB study.')
+                        help='Directory which the results and logs are saved.')
     parser.add_argument('--studyid', type=str, default=study, help='Name id for the HPO study.')
     parser.add_argument('--prev_run_dir', type=str, help='A directory that contains a config.json and results.json for '
                                                          'the same configuration space.',

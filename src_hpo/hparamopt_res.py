@@ -1,5 +1,9 @@
+"""
+Evaluate a hyperparameter optimization study using BOHB, BO and RS implementation by Falkner et al.
+"""
+
 # 3rd party
-import hpbandster.core.result as hpres
+# import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
@@ -8,25 +12,26 @@ import glob
 # import random
 
 # local
-from src_hpo.utils_hpo import print_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
+from src_hpo.utils_hpo import estimate_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
 import paths
 
 #%% check number of iterations per Successive Halving and per budget
 
-num_iterations = 106
+num_iterations = 300
 eta = 2
 bmin, bmax = 6, 50
 nmodels = 3
-nruns, total_budget = print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
+nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'study_bohb_dr25_tcert_spline2'  # 'study_rs'
+study = 'study_bohb_dr25_tcert_spline2'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
 ensemble_study = True
+nmodels = 3
 # set which metric to be used when ranking configurations evaluated
 rankmetric = 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
@@ -48,13 +53,22 @@ for run in all_runs:
 
 print('Number of configurations submitted: {}'.format(len(id2config)))
 print('Number of configurations evaluated (valid and nonviable): %i' % len(unique_configs))
-print('Total number of runs: {} (viable, nonviable and possibly non-evaluated)'.format(len(all_runs)))
+total_runs = len(all_runs)
+print('Total number of runs: {} (viable, nonviable and possibly non-evaluated)'.format(total_runs))
+
+# remove invalid configs
+all_runs = [run for run in all_runs if run.info is not None]
+print('Number of valid/invalid runs: {}|{}'.format(len(all_runs), total_runs - len(all_runs)))
 
 # extract budgets
 budgets = []
 for run in all_runs:
     if int(run.budget) not in budgets:
         budgets.append(int(run.budget))
+print('Budgets: ', budgets)
+
+total_budget_used = np.sum([int(run.budget) * nmodels for run in all_runs])
+print('Total budget used: {}'.format(total_budget_used))
 
 # extract runs and configurations per budget
 configs_ftime = []
@@ -62,9 +76,9 @@ runs_per_budget = {key: [0, []] for key in budgets}
 configs_per_budget = {key: [0, []] for key in budgets}
 inv_models = 0
 for run in all_runs:
-    if run.loss is None:  # invalid configs are not taken into account
-        inv_models += 1
-        continue
+    # if run.loss is None:  # invalid configs are not taken into account
+    #     inv_models += 1
+    #     continue
     configs_ftime.append([run.config_id, run.time_stamps['finished']])
     runs_per_budget[int(run.budget)][0] += 1
     if run.config_id not in configs_per_budget[int(run.budget)][1]:
@@ -89,7 +103,8 @@ for b in configs_per_budget:
             modelspicks_per_budget[b]['random'][0] += 1
             modelspicks_per_budget[b]['random'][1].append(config)
 
-print({b: {'model based': modelspicks_per_budget[b]['model based'][0], 'random': modelspicks_per_budget[b]['random'][0]}
+print('Model/random based pick configurations: ',
+      {b: {'model based': modelspicks_per_budget[b]['model based'][0], 'random': modelspicks_per_budget[b]['random'][0]}
        for b in modelspicks_per_budget})
 
 # plot time ordered model based and random picked configurations
@@ -109,13 +124,10 @@ plt.ylabel('Model based (1)/Random (0) \npicked configs.')
 
 nconfigs_valid = len(idxs_modelbased)
 nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
-print('Number of nonviable configurations: {}'. format(inv_models))
+print('Number of nonviable configurations: {}'. format(len(unique_configs) - nconfigs_valid))
 print('Number of viable configurations: {}'.format(nconfigs_valid))
 print('Number of model based pick configurations: {}'.format(nconfigs_modelbased))
 print('Number of random picked configurations: {}'.format(nconfigs_valid - nconfigs_modelbased))
-
-# remove invalid configs
-all_runs = [run for run in all_runs if run.info is not None]
 
 # plot 2D histograms for two chosen metrics
 if ensemble_study:

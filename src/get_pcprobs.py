@@ -1,5 +1,9 @@
 """
 Test ensemble of models trained using the best configuration obtained in a hyperparameter optimization study.
+
+TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
+    option would be to have two scripts: one that tests the models individually, the other that gathers their
+    predictions into the ensemble and generates the results for it.
 """
 
 # 3rd party
@@ -8,23 +12,21 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # import csv
 # import logging
 # logging.getLogger("tensorflow").setLevel(logging.ERROR)
-import hpbandster.core.result as hpres
-import matplotlib.pyplot as plt
+# import hpbandster.core.result as hpres
 import numpy as np
 import tensorflow as tf
 # import pickle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve
 
-# local
-# if 'nobackup' in os.path.dirname(__file__):
-#     from src.estimator_util import ModelFn, CNN1dModel
-#     from src.config import Config
-# else:
 from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
+
+if 'home6' in paths.path_hpoconfigs:
+    import matplotlib; matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 
 def draw_plots(res, save_path, output_cl):
@@ -110,7 +112,7 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(config, model_dir, data_dir, res_dir, threshold=0.5):
+def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids={}):
     """ Test ensemble of models.
 
     :param config: dict, model and dataset configurations
@@ -126,16 +128,24 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
 
     # get labels for each dataset
     labels = {dataset: [] for dataset in ['train', 'val', 'test']}
+    selected_idxs = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(tfrec_dir):
         if 'test' in tfrec_file:
-            labels['test'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
-                                                      config['label_map'])['labels']
+            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+                                         filt_by_kepids=cmmn_kepids['test'])
+            labels['test'] += aux['labels']
+            selected_idxs['test'] += aux['selected_idxs']
         elif 'val' in tfrec_file:
-            labels['val'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
-                                                     config['label_map'])['labels']
+            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+                                         filt_by_kepids=cmmn_kepids['val'])
+            labels['val'] += aux['labels']
+            selected_idxs['val'] += aux['selected_idxs']
         elif 'train' in tfrec_file:
-            labels['train'] += get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'],
-                                                     config['label_map'])['labels']
+            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+                                         filt_by_kepids=cmmn_kepids['train'])
+            labels['train'] += aux['labels']
+            selected_idxs['train'] += aux['selected_idxs']
+
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     # # num_afps, num_ntps, num_pcs = 0, 0, 0
@@ -202,8 +212,8 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
 
     # predict on given datasets
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
-    # prediction_matrix = []
     for dataset in predictions_dataset:
+
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                    centr_flag=config['centr_flag'])
@@ -223,11 +233,14 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5):
                 assert len(predictions) == 1
                 prediction_lst.append(predictions[0])
 
-            # prediction_matrix.append(prediction_lst)
             predictions_dataset[dataset].append(prediction_lst)
 
         # average across models
         predictions_dataset[dataset] = np.mean(predictions_dataset[dataset], axis=0)
+
+    for dataset in predictions_dataset:
+        predictions_dataset[dataset] = predictions_dataset[dataset][selected_idxs[dataset]]
+        print(predictions_dataset[dataset].shape, dataset)
 
     # save results in a numpy file
     print('Saving predicted output to a numpy file...')
@@ -351,17 +364,20 @@ if __name__ == "__main__":
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'study_Shallue_dr25_tcert_spline'
+    cmmn_kepids = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
+
+    study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
-    config = shallues_best_config
+    config = None
 
     # load test data
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla_tps'  # paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
 
     # threshold on binary classification
     threshold = 0.5
     multi_class = False
     use_kepler_ce = False
+    centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # load best config from HPO study
@@ -380,8 +396,8 @@ if __name__ == "__main__":
 
     ######### SCRIPT PARAMETERS ###############################################
 
-    # path to trained models' weights on the best config
-    models_path = paths.pathtrainedmodels + study + '/models'
+    # path to trained models' weights for the selected config
+    models_path = paths.pathtrainedmodels + study + '/100_epochs/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'
@@ -390,7 +406,7 @@ if __name__ == "__main__":
         os.mkdir(pathsaveres)
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)
@@ -400,4 +416,5 @@ if __name__ == "__main__":
          model_dir=models_path,
          data_dir=tfrec_dir,
          res_dir=pathsaveres,
-         threshold=threshold)
+         threshold=threshold,
+         cmmn_kepids=cmmn_kepids)

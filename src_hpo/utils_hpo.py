@@ -1,5 +1,5 @@
 """
-Utility function for the hyperparameter optimizer script.
+Utility functions for the hyperparameter optimizer script.
 """
 
 # 3rd party
@@ -14,11 +14,9 @@ import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
 import json
 from hpbandster.core.base_iteration import Datum
-# import matplotlib; matplotlib.use('agg')
-# import matplotlib.pyplot as plt
 
 
-def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
+def estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1, verbose=True):
     """ Outputs estimate of runs per budget per Successive Halving iteration. Used to get a quick understanding of
     how the BOHB study will run for a given number of SH iterations, eta and minimum and maximum budgets.
 
@@ -32,7 +30,7 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
         total_budget: int, total budget for the BOHB study
     """
 
-    def compute_nSH(budgets, iteSH, s, smax, eta, nmodels=1):
+    def compute_nSH(budgets, iteSH, s, smax, eta, nmodels=1, verbose=True):
         """ Computes number of runs per budget for a particular iteration of Successive Halving.
 
         :param budgets: array, budgets
@@ -49,7 +47,8 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
         runs_per_budget = [np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
                            for i in range(0, s + 1, 1)]
         runs_per_budget = np.array([0] * (smax - s) + runs_per_budget)
-        print('SH iter.: ', iteSH, '|s: ', s, '|', runs_per_budget)
+        if verbose:
+            print('SH iter.: ', iteSH, '|s: ', s, '|', runs_per_budget)
         # floor instead of ceiling when computing number of configurations for SH as it is in the Hyperband paper
         # (Li et al) and also hpbandster paper
         # num_runsSH = np.sum([np.floor(np.floor((smax + 1) / (s + 1) * eta ** s) * eta ** (- i))
@@ -65,7 +64,8 @@ def print_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1):
     budgets = np.array([np.floor(eta ** (-i) * bmax) for i in range(smax, -1, -1)])
     print('Budgets: {}'.format(budgets))
 
-    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta, nmodels=nmodels)
+    nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta, nmodels=nmodels,
+                                              verbose=True)
                                   for s in range(0, num_iterations, 1)], axis=0)
 
     return nruns, total_budget
@@ -149,8 +149,6 @@ def check_run_id(run_id, shared_directory, worker=False):
             run_id = run_id[:-1]
         elif run_id[-1].isnumeric():
             run_id = run_id[:-1] + str(int(run_id[-1]) - 1)
-
-    print('run_id: ' + run_id)
 
     return run_id
 
@@ -374,39 +372,39 @@ def logged_results_to_HBS_result(directory, run_id):
     return (hpres.Result([data], HB_config))
 
 
-def get_ce_weights(label_map, tfrec_dir):
-    """ Compute weights for the weighted cross-entropy loss based on the data.
-
-    :param label_map: dict that maps each class to an index (0, 1, 2,...)
-    :param tfrec_dir: list, tfrecord files
-    :return:
-        ce_weights: list, weights for each class
-        bool, set to True to also consider as features the centroids for the local and global views.
-    """
-
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if not file.startswith('test')]
-
-    label_vec = []
-    for file in filenames:
-        record_iterator = tf.python_io.tf_record_iterator(path=file)
-        # try:
-        for string_record in record_iterator:
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-            label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-            label_vec.append(label_map[label])
-        # except tf.errors.DataLossError as e:
-        #     pass  # 916415
-
-    # count instances for each class based on their indexes
-    label_counts = [label_vec.count(category) for category in range(max(label_map.values()) + 1)]
-
-    # give more weight to classes with less instances
-    ce_weights = [max(label_counts) / count_i for count_i in label_counts]
-
-    # returns centroid flag as True if the key is in the tfrecords used
-    return ce_weights, 'global_view_centr' in example.features.feature
+# def get_ce_weights(label_map, tfrec_dir):
+#     """ Compute weights for the weighted cross-entropy loss based on the data.
+#
+#     :param label_map: dict that maps each class to an index (0, 1, 2,...)
+#     :param tfrec_dir: list, tfrecord files
+#     :return:
+#         ce_weights: list, weights for each class
+#         bool, set to True to also consider as features the centroids for the local and global views.
+#     """
+#
+#     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
+#                  if not file.startswith('test')]
+#
+#     label_vec = []
+#     for file in filenames:
+#         record_iterator = tf.python_io.tf_record_iterator(path=file)
+#         # try:
+#         for string_record in record_iterator:
+#             example = tf.train.Example()
+#             example.ParseFromString(string_record)
+#             label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+#             label_vec.append(label_map[label])
+#         # except tf.errors.DataLossError as e:
+#         #     pass  # 916415
+#
+#     # count instances for each class based on their indexes
+#     label_counts = [label_vec.count(category) for category in range(max(label_map.values()) + 1)]
+#
+#     # give more weight to classes with less instances
+#     ce_weights = [max(label_counts) / count_i for count_i in label_counts]
+#
+#     # returns centroid flag as True if the key is in the tfrecords used
+#     return ce_weights, 'global_view_centr' in example.features.feature
 
 
 if __name__ == '__main__':
@@ -414,7 +412,7 @@ if __name__ == '__main__':
     num_iterations = 100
     eta = 2
     bmin, bmax = 5, 50
-    print('Total number of runs,total budget: {}'.format(print_BOHB_runs(num_iterations, eta, bmin, bmax)))
+    print('Total number of runs,total budget: {}'.format(estimate_BOHB_runs(num_iterations, eta, bmin, bmax)))
 
     train_time = 0.5  # assuming that models on average take 30 minutes to train on 50 epochs
     nensemble = 3

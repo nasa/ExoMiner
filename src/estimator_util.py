@@ -10,7 +10,7 @@ import numpy as np
 class InputFn(object):
     """Class that acts as a callable input function for Estimator train / eval."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, centr_flag=False):
+    def __init__(self, file_pattern, batch_size, mode, label_map, centr_flag=False, kepids=None):
         """Initializes the input function.
 
         Args:
@@ -24,6 +24,7 @@ class InputFn(object):
         self.batch_size = batch_size
         self.label_map = label_map
         self.centr_flag = centr_flag
+        self.kepids = kepids
 
     def __call__(self, config, params):
         """Builds the input pipeline."""
@@ -47,7 +48,22 @@ class InputFn(object):
             if not matches:
                 raise ValueError("Found no input files matching {}".format(p))
             filenames.extend(matches)
+
         tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
+
+        # def _get_filt_data(serialized_example):
+        #
+        #     data_fields = {'kepid': tf.FixedLenFeature([], tf.int64)}
+        #
+        #     # Parse the features.
+        #     parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
+        #
+        #     kep_id = tf.to_int64(0)
+        #     for feature_name, value in parsed_features.items():
+        #         if self.kepids is not None and feature_name == 'kepid':
+        #             kep_id = value
+        #
+        #     return kep_id
 
         def _example_parser(serialized_example):
             """Parses a single tf.Example into feature and label tensors."""
@@ -62,6 +78,9 @@ class InputFn(object):
             if include_labels:
                 data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
 
+            # if self.kepids is not None:
+            #     data_fields['kepid'] = tf.FixedLenFeature([], tf.int64)
+
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
 
@@ -75,6 +94,7 @@ class InputFn(object):
 
             output = {'time_series_features': {}}
             label_id = tf.to_int32(0)
+            # kepid = tf.to_int64(0)
             for feature_name, value in parsed_features.items():
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
@@ -83,6 +103,9 @@ class InputFn(object):
                                                    ["Unknown label string:", value])
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
+
+                # elif self.kepids is not None and feature_name == 'kepid':
+                #     kepid = value
 
                 else:  # input_config.features[feature_name].is_time_series:
                     # Possibly reverse.
@@ -93,16 +116,30 @@ class InputFn(object):
 
                     output['time_series_features'][feature_name] = value
 
-            # return output
+            # if self.kepids is not None:
+            #     return output, label_id, kepid
+            # else:
             return output, label_id
+
+        # def _filter_fn(output, label_id, kepid):
+        #
+        #     # print(kepid, self.kepids, kepid in self.kepids)
+        #
+        #     return kepid in dataset_filt
 
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
+
         if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
             dataset = dataset.shuffle(1024)
+
         dataset = dataset.repeat(1)
 
         dataset = dataset.map(_example_parser, num_parallel_calls=4)
+
+        # if self.kepids is not None:
+        #     dataset = dataset.filter(_filter_fn)
+        #     dataset = dataset.map(lambda features, labels, kepids: features, labels)
 
         dataset = dataset.batch(self.batch_size)
         dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))  # Better to set at None?
@@ -292,8 +329,6 @@ class CNN1dModel(object):
 
                 n_blocks = self.config[config_mapper['blocks'][name]]
                 pool_size = self.config[config_mapper['pool_size'][name]]
-                # n_blocks = getattr(self.config, config_mapper['blocks'][name])
-                # pool_size = getattr(self.config, config_mapper['pool_size'][name])
 
                 for conv_block_i in range(n_blocks):
                     num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
@@ -419,9 +454,18 @@ def get_model_dir(path):
 
 
 def get_ce_weights(label_map, tfrec_dir):
+    """ Compute class cross-entropy weights based on the amount of labels for each class.
+
+    :param label_map: dict, map between class name and integer value
+    :param tfrec_dir: str, filepath to directory with the tfrecords
+    :return:
+        ce_weights: list, weight for each class (class 0, class 1, ...)
+        n_train: int, number of training samples
+    """
 
     max_label_val = max(label_map.values())
 
+    # takes into account samples from the validation and train tfrecords???
     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
                  if not file.startswith('test')]
 
@@ -445,10 +489,13 @@ def get_ce_weights(label_map, tfrec_dir):
         except tf.errors.DataLossError as err:
             print("Oops: " + str(err))
 
+    # count instances for each class based on their indexes
     label_counts = [label_vec.count(category) for category in range(max_label_val + 1)]
+
+    # give more weight to classes with less instances
     ce_weights = [max(label_counts) / count_i for count_i in label_counts]
 
-    return ce_weights, 'global_view_centr' in example.features.feature, n_train
+    return ce_weights, n_train  # , 'global_view_centr' in example.features.feature
 
 
 def picklesave(path, savedict):
@@ -458,17 +505,26 @@ def picklesave(path, savedict):
     p.dump(savedict)
 
 
-def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
+def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt_by_kepids=[]):
 
     # TODO: add lookup table
+    #       right now, it assumes that all examples have the same fields
 
     data = {field: [] for field in data_fields}
+    if len(filt_by_kepids) > 0:
+        data['selected_idxs'] = []
 
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
     for string_record in record_iterator:
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
+
+        if len(filt_by_kepids) > 0:
+            if example.features.feature['kepid'].int64_list.value[0] not in filt_by_kepids or \
+                    example.features.feature['tce_plnt_num'].int64_list.value[0] != 1:
+                data['selected_idxs'].append(False)
+                continue
 
         if 'labels' in data_fields:
             label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
@@ -514,17 +570,21 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
             local_view_centr = example.features.feature['local_view_centr'].float_list.value
             data['local_view_centr'].append(local_view_centr)
 
+        if len(filt_by_kepids) > 0:
+            data['selected_idxs'].append(True)
+
     return data
 
 
-def get_data_from_tfrecords(tfrecords, data_fields, label_map=None):
+def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt_by_kepids=[]):
 
     data = {field: [] for field in data_fields}
+    if len(filt_by_kepids) > 0:
+        data['selected_idxs'] = []
 
     for tfrecord in tfrecords:
-        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map)
+        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt_by_kepids=filt_by_kepids)
         for field in data_aux:
             data[field].extend(data_aux[field])
 
     return data
-

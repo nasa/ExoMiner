@@ -1,52 +1,62 @@
+"""
+Utility functions for the TensorFlow estimator.
+"""
+
+# 3rd party
 import os
-import matplotlib; matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import numpy as np
 
 
-def evalplots_ensemble(eval_dir, models_eval, metrics, datasets):
+def early_stopping(best_value, curr_value, last_best, patience, minimize, min_delta=-np.inf):
+    """ Early stopping.
 
-    color_codes = {'val': 'r', 'test': 'k'}
-    displ = 'curves'  # 'band'
-    alpha = 0.3
+    :param best_value: float, best value so far
+    :param curr_value: float, current value
+    :param last_best: int, best iteration with respect to the current iteration
+    :param patience: int, number of epochs to wait before early stopping
+    :param minimize: bool, if True, metric tracked is being minimized, False vice-versa
+    :param min_delta: float, minimum change in the monitored quantity to qualify as an improvement
+    :return:
+        stop: bool, True if early stopping
+        last_best: int, best iteration with respect to the current iteration
+        best_value: float, best value so far
+    """
 
-    for m in metrics:
-        f, ax = plt.subplots()
-        for d in datasets:
-            mvalues = []
-            for model_eval in models_eval:
-                mvalue = np.load(model_eval).item()[d][m]
-                mvalues.append(mvalue)
+    delta = curr_value - best_value
 
-                if displ == 'curves':
-                    ax.plot(mvalue, alpha=alpha, color=color_codes[d])
+    # if current value is worse than best value so far
+    if (minimize and delta >= 0) or (not minimize and delta <= 0):
+        last_best += 1
+    # if current value is better than best value so far
+    # reset when best value was seen
+    elif (minimize and delta < 0) or (not minimize and delta > 0) and np.abs(delta) > min_delta:
+        last_best = 0
+        best_value = curr_value
 
-            avg = np.mean(mvalues, axis=0)
+    # reached patience, stop training
+    if last_best == patience:
+        stop = True
+    else:
+        stop = False
 
-            ax.plot(avg, color=color_codes[d], label=m)
-
-            if displ == 'band':
-                std = np.std(mvalues, axis=0, ddof=1)
-                ax.plot(avg + std, linestyle='--', color=color_codes[d])
-                ax.plot(avg - std, linestyle='--', color=color_codes[d])
-                # ax.fill_between(np.arange(len(mvalue)), avg - std, avg + std, color=color_codes[d], alpha=alpha)
-
-            ax.set_ylabel('Value')
-            ax.set_xlabel('Epochs')
-            ax.set_xlim([0.0, len(mvalue) + 1])
-            if m != 'loss':
-                ax.set_ylim([0, 1])
-            ax.legend(loc="lower right")
-            ax.set_title('{}'.format(m))
-        f.savefig(eval_dir + '/ensemble_plots_{}.png'.format(m))
+    return stop, last_best, best_value
 
 
-if __name__ == '__main__':
+def delete_checkpoints(model_dir, keep_model_i):
+    """ Delete checkpoints.
 
-    eval_dir = '/home6/msaragoc/work_dir/HPO_Kepler_TESS/train_results/run_study_8/'
-    models_eval = [os.path.join(eval_dir, f) for f in os.listdir(eval_dir) if os.path.isfile(os.path.join(eval_dir, f))
-                   and 'res_eval.npy' in f]
-    metrics = ['precision', 'recall', 'pr auc', 'roc auc', 'accuracy', 'loss']
-    datasets = ['val', 'test']
+    :param model_dir: str, filepath to the directory in which the model checkpoints are saved
+    :param keep_model_i: int, model instance to be kept based on epoch index
+    :return:
+    """
 
-    evalplots_ensemble(eval_dir, models_eval, metrics, datasets)
+    ckpt_files = [ckpt for ckpt in os.listdir(model_dir) if 'model.ckpt' in ckpt]
+    ckpt_files = sorted(ckpt_files, key=lambda file: file.split('.')[1].split('-')[1])
+
+    ckpt_steps = np.unique([int(ckpt_file.split('.')[1].split('-')[1]) for ckpt_file in ckpt_files])
+
+    for i in range(len(ckpt_files)):
+        if str(ckpt_steps[keep_model_i - 1]) not in ckpt_files[i]:
+            fp = os.path.join(model_dir, ckpt_files[i])
+            if os.path.isfile(fp):  # delete file
+                os.unlink(fp)

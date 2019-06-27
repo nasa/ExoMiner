@@ -1,3 +1,14 @@
+"""
+Custom worker for the optimizer.
+
+TODO: add sess_config as parameter for the worker
+      check if ensemble can work as individual when using one model, maybe have to add if condition to the
+      plots
+      add additional default parameters to the configs file
+      find a way to automate the matplotlib switch backend when running on Pleiades
+"""
+
+# 3rd party
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import tensorflow as tf
@@ -450,6 +461,7 @@ class TransitClassifier(Worker):
         # config_sess.gpu_options.force_gpu_compatible = True  # Force pinned memory
         # config_sess.intra_op_parallelism_threads = 1
         # config_sess.gpu_options.visible_device_list = "0"
+        # gpu_options = tf.GPUOptions(visible_device_list=str(int(self.worker_id_custom) % 4))
         sess_config = None  # tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
 
         config['satellite'] = self.satellite
@@ -492,9 +504,10 @@ class TransitClassifier(Worker):
 
                 _ = classifier.train(input_fn_train)
 
-                res_i = {'training': classifier.evaluate(input_fn_train),  # evaluate model on the training set
-                         'validation': classifier.evaluate(input_fn_val),  # evaluate model on the validation set
-                         'test': classifier.evaluate(input_fn_test)}  # evaluate model on the test set
+                # evaluate model on the training, validation and test sets
+                res_i = {'training': classifier.evaluate(input_fn_train, name='training set'),
+                         'validation': classifier.evaluate(input_fn_val, name='validation set'),
+                         'test': classifier.evaluate(input_fn_test, name='test set')}
 
                 for dataset in dataset_ids:
                     for metric in metrics_list:
@@ -617,7 +630,7 @@ class TransitClassifier(Worker):
 
         f.suptitle('Config {} | Budget = {:.0f} (Best val:{:.0f})'.format(config_id, epochs[-1], epochs[auc_ep_idx]))
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(self.results_directory + '/plotseval_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        f.savefig(self.results_directory + '/plotseval_{}budget{:.0f}.png'.format(config_id, epochs[-1] + 1))
         plt.close()
 
         # Precision and Recall plots
@@ -646,7 +659,7 @@ class TransitClassifier(Worker):
         ax.grid('on')
         ax.set_title('Precision and Recall')
         f.suptitle('Config {} | Budget = {:.0f} (Best val:{:.0f})'.format(config_id, epochs[-1], epochs[auc_ep_idx]))
-        f.savefig(self.results_directory + '/prec_rec_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        f.savefig(self.results_directory + '/prec_rec_{}budget{:.0f}.png'.format(config_id, epochs[-1] + 1))
         plt.close()
 
         # plot pr curve
@@ -679,9 +692,9 @@ class TransitClassifier(Worker):
         ax.legend(loc='bottom left')
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
-        ax.set_title('Precision Recall curve\nVal/Test')
+        ax.set_title('Precision Recall curve Val/Test')
         f.suptitle('Config {} | Budget = {:.0f}'.format(config_id, epochs[-1]))
-        f.savefig(self.results_directory + '/pr_curve_{}budget{:.0f}.png'.format(config_id, epochs[-1]))
+        f.savefig(self.results_directory + '/pr_curve_{}budget{:.0f}.png'.format(config_id, epochs[-1] + 1))
         plt.close()
 
     @staticmethod
