@@ -21,7 +21,7 @@ import hpbandster.core.result as hpres
 
 # local
 from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
-from src_hpo.utils_hpo import analyze_results, get_ce_weights, json_result_logger, check_run_id
+from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
 
 

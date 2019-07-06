@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'study_bohb_dr25_tcert_spline2'
+study = 'bohb_dr25_tcert_whitened1'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -345,7 +345,7 @@ timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
 if ensemble_study:
     tinc_hpolossdev = []
 for run in timesorted_allruns:
-    cum_budget += run.budget * nmodels
+    cum_budget += int(run.budget) * nmodels
     if run.loss < bconfig_loss:
         cum_budget_vec.append(cum_budget)
         bconfig_loss = run.loss
@@ -366,7 +366,7 @@ for run in timesorted_allruns:
             ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
             mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
-            print('mu and sem: ', mu_hpoloss, sem_hpoloss)
+            # print('mu and sem: ', mu_hpoloss, sem_hpoloss)
 
             tinc_hpoloss.append(mu_hpoloss)
             tinc_hpolossdev.append(sem_hpoloss)
@@ -380,8 +380,8 @@ else:
 ax.scatter(timestamps, tinc_hpoloss, c='r')
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_ylim(ymax=1)
-ax.set_xlim(xmax=1e5)
+ax.set_ylim(top=1)
+# ax.set_xlim(right=1e5)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
@@ -396,8 +396,8 @@ else:
 ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_ylim(ymax=1)
-ax.set_xlim(xmax=1e5)
+ax.set_ylim(top=1)
+# ax.set_xlim(right=1e5)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')

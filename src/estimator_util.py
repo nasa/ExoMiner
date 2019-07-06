@@ -83,6 +83,10 @@ class InputFn(object):
 
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
+            # a = tf.parse_single_example(serialized_example, features={'kepid': tf.FixedLenFeature([], tf.int64)})
+            # for feature_name, value in a.items():
+            #     print(feature_name)
+            #     print(value)
 
             if reverse_time_series_prob > 0:
                 # Randomly reverse time series features with probability
@@ -470,9 +474,17 @@ def get_ce_weights(label_map, tfrec_dir):
                  if not file.startswith('test')]
 
     label_vec, example = [], tf.train.Example()
-    n_train = 0
+    # n_train = 0
+    n_samples = [0, 0, 0]
     for file in filenames:
-        upd_c = True if file.split('/')[-1].startswith('train') else False  # update counter only if train files
+        # upd_c = True if file.split('/')[-1].startswith('train') else False  # update counter only if train files
+        file_dataset = file.split('/')[-1]
+        if 'train' in file_dataset:
+            idx_dataset = 0
+        elif 'val' in file_dataset:
+            idx_dataset = 1
+        else:
+            idx_dataset = 2
 
         record_iterator = tf.python_io.tf_record_iterator(path=file)
         try:
@@ -483,8 +495,9 @@ def get_ce_weights(label_map, tfrec_dir):
                 label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
                 label_vec.append(label_map[label])
 
-                if upd_c:
-                    n_train += 1
+                n_samples[idx_dataset] += 1
+                # if upd_c:
+                #     n_train += 1
 
         except tf.errors.DataLossError as err:
             print("Oops: " + str(err))
@@ -495,7 +508,9 @@ def get_ce_weights(label_map, tfrec_dir):
     # give more weight to classes with less instances
     ce_weights = [max(label_counts) / count_i for count_i in label_counts]
 
-    return ce_weights, n_train  # , 'global_view_centr' in example.features.feature
+    print('Train, validation, test samples: {}'.format(n_samples))
+
+    return ce_weights, n_samples[0]  # n_train  # , 'global_view_centr' in example.features.feature
 
 
 def picklesave(path, savedict):

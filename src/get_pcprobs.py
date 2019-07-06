@@ -112,7 +112,7 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids={}):
+def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids=None):
     """ Test ensemble of models.
 
     :param config: dict, model and dataset configurations
@@ -123,6 +123,9 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids={}):
     :return:
     """
 
+    if cmmn_kepids is None:
+        cmmn_kepids = {dataset: [] for dataset in ['train', 'val', 'test']}
+
     # get models' paths
     model_filenames = [model_dir + '/' + file for file in os.listdir(model_dir)]
 
@@ -130,21 +133,31 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids={}):
     labels = {dataset: [] for dataset in ['train', 'val', 'test']}
     selected_idxs = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(tfrec_dir):
-        if 'test' in tfrec_file:
-            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-                                         filt_by_kepids=cmmn_kepids['test'])
-            labels['test'] += aux['labels']
-            selected_idxs['test'] += aux['selected_idxs']
-        elif 'val' in tfrec_file:
-            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-                                         filt_by_kepids=cmmn_kepids['val'])
-            labels['val'] += aux['labels']
-            selected_idxs['val'] += aux['selected_idxs']
-        elif 'train' in tfrec_file:
-            aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-                                         filt_by_kepids=cmmn_kepids['train'])
-            labels['train'] += aux['labels']
-            selected_idxs['train'] += aux['selected_idxs']
+        dataset_idx = np.where([dataset in tfrec_file for dataset in ['train', 'val', 'test']])[0][0]
+        dataset = ['train', 'val', 'test'][dataset_idx]
+
+        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+                                     filt_by_kepids=cmmn_kepids[dataset])
+        labels[dataset] += aux['labels']
+        if len(cmmn_kepids[dataset]) > 0:
+            selected_idxs[dataset] += aux['selected_idxs']
+
+        # if 'test' in tfrec_file:
+        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+        #                                  filt_by_kepids=cmmn_kepids[dataset])
+        #     labels['test'] += aux['labels']
+        #     if len(cmmn_kepids[dataset]) > 0:
+        #         selected_idxs['test'] += aux['selected_idxs']
+        # elif 'val' in tfrec_file:
+        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+        #                                  filt_by_kepids=cmmn_kepids['val'])
+        #     labels['val'] += aux['labels']
+        #     selected_idxs['val'] += aux['selected_idxs']
+        # elif 'train' in tfrec_file:
+        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
+        #                                  filt_by_kepids=cmmn_kepids['train'])
+        #     labels['train'] += aux['labels']
+        #     selected_idxs['train'] += aux['selected_idxs']
 
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
@@ -238,9 +251,11 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids={}):
         # average across models
         predictions_dataset[dataset] = np.mean(predictions_dataset[dataset], axis=0)
 
+    # select only indexes of interest
     for dataset in predictions_dataset:
-        predictions_dataset[dataset] = predictions_dataset[dataset][selected_idxs[dataset]]
-        print(predictions_dataset[dataset].shape, dataset)
+        if len(selected_idxs[dataset]) > 0:
+            predictions_dataset[dataset] = predictions_dataset[dataset][selected_idxs[dataset]]
+            print(predictions_dataset[dataset].shape, dataset)
 
     # save results in a numpy file
     print('Saving predicted output to a numpy file...')
@@ -364,14 +379,14 @@ if __name__ == "__main__":
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
 
-    cmmn_kepids = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
+    cmmn_kepids = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
 
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
     config = None
 
     # load test data
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla_tps'  # paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']  #'/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla_tps'  # paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
 
     # threshold on binary classification
     threshold = 0.5
@@ -397,7 +412,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/100_epochs/models'
+    models_path = paths.pathtrainedmodels + study + '/models'  # + '/100_epochs/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'

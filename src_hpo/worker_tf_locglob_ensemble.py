@@ -689,7 +689,7 @@ class TransitClassifier(Worker):
         ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
         ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
         ax.grid('on')
-        ax.legend(loc='bottom left')
+        ax.legend(loc='lower left')
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
         ax.set_title('Precision Recall curve Val/Test')

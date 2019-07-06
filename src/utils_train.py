@@ -50,13 +50,22 @@ def delete_checkpoints(model_dir, keep_model_i):
     :return:
     """
 
+    # get checkpoint files
     ckpt_files = [ckpt for ckpt in os.listdir(model_dir) if 'model.ckpt' in ckpt]
+    # sort files based on steps
     ckpt_files = sorted(ckpt_files, key=lambda file: file.split('.')[1].split('-')[1])
-
+    # get the steps id for each checkpoint
     ckpt_steps = np.unique([int(ckpt_file.split('.')[1].split('-')[1]) for ckpt_file in ckpt_files])
+    # print('keeping checkpoint ({}) {}'.format(keep_model_i, ckpt_steps[keep_model_i - 1]))
 
     for i in range(len(ckpt_files)):
-        if str(ckpt_steps[keep_model_i - 1]) not in ckpt_files[i]:
+        if 'model.ckpt-' + str(ckpt_steps[keep_model_i - 1]) + '.' not in ckpt_files[i]:
+            print('deleting checkpoint file {}'.format(ckpt_files[i]))
             fp = os.path.join(model_dir, ckpt_files[i])
             if os.path.isfile(fp):  # delete file
                 os.unlink(fp)
+
+    # updating checkpoint txt file
+    with open(model_dir + "/checkpoint", "w") as file:
+        file.write('model_checkpoint_path: "model.ckpt-{}"\n'.format(int(ckpt_steps[keep_model_i - 1])))
+        file.write('all_model_checkpoint_paths: "model.ckpt-{}"'.format(int(ckpt_steps[keep_model_i - 1])))

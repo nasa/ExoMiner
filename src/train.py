@@ -1,12 +1,14 @@
 """
 Train models using a given configuration obtained on a hyperparameter optimization study.
 
-TODO: add early stopping
+TODO: allocate several models to the same GPU
+      avoid that more than one process writes to the res_eval.txt file when doing parallelization
 
 """
 
 # 3rd party
 import sys
+sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 # import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -17,17 +19,17 @@ import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 import numpy as np
 from mpi4py import MPI
+import time
 
 # local
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_data_from_tfrecord
-import src.config
 import paths
-from src_hpo import utils_hpo
-from src import utils_train
-
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_data_from_tfrecord
+import src.config
+from src_hpo import utils_hpo
+from src import utils_train
 
 
 def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
@@ -65,7 +67,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (res['validation']['loss'][ep_idx],
                                                                        res['test']['loss'][ep_idx]))
     ax[0].legend(loc="upper right")
-    ax[0].grid('on')
+    ax[0].grid(True)
     ax[1].plot(epochs, res['training'][opt_metric], label='Training')
     ax[1].plot(epochs, res['validation'][opt_metric], label='Validation', color='r')
     ax[1].scatter(epochs[ep_idx], res['validation'][opt_metric][ep_idx], c='r')
@@ -131,7 +133,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
     ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
     ax.grid(True)
-    ax.legend(loc='bottom left')
+    ax.legend(loc='lower left')
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     ax.set_title('Precision Recall curve')
@@ -181,8 +183,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     :param model_dir: str, path to directory in which to save the models
     :param res_dir: str, path to directory to save results
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
-    :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch.
-    If False, gets the maximum value.
+    :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch
+    If False, gets the maximum value
+    :param patience: int, number of epochs to wait before early stopping. If it is set to -1, early stopping is not
+    used
     :return:
     """
 
@@ -203,7 +207,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     config_sess = None  # tf.ConfigProto(log_device_placement=False)
 
     classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
-                                        config=tf.estimator.RunConfig(keep_checkpoint_max=patience,
+                                        config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1 else patience,
                                                                       session_config=config_sess),
                                         model_dir=get_model_dir(model_dir)
                                         )
@@ -225,10 +229,12 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
            dataset_ids}
     res_aux = {dataset: {metric: [] for metric in metrics_list} for dataset in
                dataset_ids}
-    if min_optmetric:
-        best_value = np.inf
-    else:
-        best_value = -np.inf
+
+    if patience != -1:
+        if min_optmetric:
+            best_value = np.inf
+        else:
+            best_value = -np.inf
     last_best, early_stop = 0, False
     for epoch_i in range(1, n_epochs + 1):  # Train and evaluate the model for n_epochs
 
@@ -244,24 +250,23 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                  'validation': classifier.evaluate(val_input_fn, name='validation set'),
                  'test': classifier.evaluate(test_input_fn, name='test set')}
 
-        early_stop, last_best, best_value = utils_train.early_stopping(best_value, res_i['validation'][opt_metric],
-                                                                       last_best, patience, min_optmetric)
-        print(early_stop, last_best, best_value, res_i['validation'][opt_metric])
+        if patience != -1:
+            early_stop, last_best, best_value = utils_train.early_stopping(best_value, res_i['validation'][opt_metric],
+                                                                           last_best, patience, min_optmetric)
 
-        if early_stop:
-            print('Early Stopping at epoch {}. Best value for {}: {} | Current value: {}'.format(epoch_i - patience,
-                                                                                                 opt_metric, best_value,
-                                                                                                 res_i['validation']
-                                                                                                 [opt_metric]))
-            break
+            if early_stop:
+                print('Early Stopping at epoch {}. Best value for {}: {} | Current value: {}'.format(epoch_i - patience,
+                                                                                                     opt_metric,
+                                                                                                     best_value,
+                                                                                                     res_i['validation']
+                                                                                                     [opt_metric]))
+                break
 
         if last_best > 0:
-            print('epoch was not better than best so far, patience', patience)
             for dataset in dataset_ids:
                 for metric in metrics_list:
                     res_aux[dataset][metric].append(res_i[dataset][metric])
         else:  # current value is the best one found so far
-            print('best epoch so far reset, patience', patience)
             for dataset in dataset_ids:
                 for metric in metrics_list:
                     if len(res_aux[dataset][metric]) == 0:
@@ -269,6 +274,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                     else:
                         res[dataset][metric].extend(res_aux[dataset][metric])
                         res_aux[dataset][metric] = []
+                        res[dataset][metric].append(res_i[dataset][metric])
 
         # confm_info = {key: value for key, value in res_val.items() if key.startswith('label_')}
 
@@ -276,10 +282,16 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         #                                                                               res_i['val prec']))
 
     # delete older checkpoints
-    if early_stop:
-        utils_train.delete_checkpoints(classifier.model_dir, 1)
-    else:
-        utils_train.delete_checkpoints(classifier.model_dir, patience)
+    if patience != -1:
+        if early_stop:
+            print('deleting checkpoints except for the oldest saved...')
+            # ckpt = utils_train.delete_checkpoints(classifier.model_dir, 1)
+            utils_train.delete_checkpoints(classifier.model_dir, 1)
+            print('loading best model...')
+
+        else:
+            print('deleting checkpoints except for the newest saved...')
+            utils_train.delete_checkpoints(classifier.model_dir, patience)
 
     # predict on given datasets
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
@@ -288,6 +300,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                    centr_flag=config['centr_flag'])
 
+        # for predictions in classifier.predict(predict_input_fn, checkpoint_path=None if not early_stop else
+        # os.path.join(classifier.model_dir, ckpt)):
         for predictions in classifier.predict(predict_input_fn):
             predictions_dataset[dataset].append(predictions[0])
         predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
@@ -318,7 +332,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     print('Saving metrics to a txt file...')
     # write results to a txt file
     with open(res_dir + "res_eval.txt", "a") as res_file:
-        res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], n_epochs, '#' * 10))
+        res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], len(res['training']['loss']),
+                                                      '#' * 10))
         for dataset in dataset_ids:
             res_file.write('Dataset: {}\n'.format(dataset))
             for metric in metrics_list:
@@ -329,7 +344,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         res_file.write('\n')
 
     print('#' * 100)
-    print('Performance on last epoch ({})'.format(n_epochs))
+    print('Performance on epoch ({})'.format(len(res['training']['loss'])))
     for dataset in dataset_ids:
         print(dataset)
         for metric in metrics_list:
@@ -340,10 +355,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
 if __name__ == '__main__':
 
-    # for MPI multiprocessing
+    # # for MPI multiprocessing
     # rank = MPI.COMM_WORLD.rank
-    # # size = MPI.COMM_WORLD.size
-    # print('Rank={}'.format(rank))
+    # size = MPI.COMM_WORLD.size
+    # print('Rank={}/{}'.format(rank, size - 1))
     # sys.stdout.flush()
     # if rank != 0:
     #     time.sleep(2)
@@ -357,22 +372,24 @@ if __name__ == '__main__':
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'study_Shallue_dr25_tcert_spline'
-    # set configuration manually
-    config = shallues_best_config
+    study = 'study_bohb_dr25_tcert_spline2'
+    # set configuration manually. Set to None to use a configuration from a HPO study
+    config = None
 
     # tfrecord files directory
-    # tfrec_dir = paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
     tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 300
     multi_class = False
     use_kepler_ce = False
+    centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
-    patience = 10  # number of epochs without improvement before performing early stopping
+    # number of epochs without improvement before performing early stopping. Set to -1 to deactivate early stopping and
+    # save just the latest model
+    patience = 20
 
     # set the configuration from a HPO study
     if config is None:
@@ -396,14 +413,14 @@ if __name__ == '__main__':
         os.mkdir(save_path + '/models/')
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)
     print('Configuration used: ', config)
 
     for item in range(n_models):
-        print('Training model %i out of %i on %i' % (item + 1, n_models, n_epochs))
+        print('Training model %i out of %i on %i epochs...' % (item + 1, n_models, n_epochs))
         run_main(config=config,
                  n_epochs=n_epochs,
                  data_dir=tfrec_dir,
