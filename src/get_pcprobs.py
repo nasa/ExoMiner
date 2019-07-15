@@ -8,17 +8,15 @@ TODO: add multiprocessing option, maybe from inside Python, but that would only 
 
 # 3rd party
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-# import csv
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # import logging
 # logging.getLogger("tensorflow").setLevel(logging.ERROR)
-# import hpbandster.core.result as hpres
 import numpy as np
 import tensorflow as tf
-# import pickle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve
 
+# local
 from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
@@ -112,7 +110,7 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids=None):
+def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_ids=None):
     """ Test ensemble of models.
 
     :param config: dict, model and dataset configurations
@@ -123,8 +121,8 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids=None):
     :return:
     """
 
-    if cmmn_kepids is None:
-        cmmn_kepids = {dataset: [] for dataset in ['train', 'val', 'test']}
+    if cmmn_ids is None:
+        cmmn_ids = {dataset: None for dataset in ['train', 'val', 'test']}
 
     # get models' paths
     model_filenames = [model_dir + '/' + file for file in os.listdir(model_dir)]
@@ -137,27 +135,10 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_kepids=None):
         dataset = ['train', 'val', 'test'][dataset_idx]
 
         aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-                                     filt_by_kepids=cmmn_kepids[dataset])
+                                     filt=cmmn_ids[dataset])
         labels[dataset] += aux['labels']
-        if len(cmmn_kepids[dataset]) > 0:
+        if cmmn_ids[dataset] is not None:
             selected_idxs[dataset] += aux['selected_idxs']
-
-        # if 'test' in tfrec_file:
-        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-        #                                  filt_by_kepids=cmmn_kepids[dataset])
-        #     labels['test'] += aux['labels']
-        #     if len(cmmn_kepids[dataset]) > 0:
-        #         selected_idxs['test'] += aux['selected_idxs']
-        # elif 'val' in tfrec_file:
-        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-        #                                  filt_by_kepids=cmmn_kepids['val'])
-        #     labels['val'] += aux['labels']
-        #     selected_idxs['val'] += aux['selected_idxs']
-        # elif 'train' in tfrec_file:
-        #     aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-        #                                  filt_by_kepids=cmmn_kepids['train'])
-        #     labels['train'] += aux['labels']
-        #     selected_idxs['train'] += aux['selected_idxs']
 
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
@@ -379,14 +360,14 @@ if __name__ == "__main__":
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
 
-    cmmn_kepids = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
+    cmmn_ids = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
 
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
     config = None
 
     # load test data
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']  #'/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla_tps'  # paths.tfrec_dir['DR25']['spline']['TCERT']  # paths.tfrec_dir_DR25_TCERT  # paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     # threshold on binary classification
     threshold = 0.5
@@ -432,4 +413,4 @@ if __name__ == "__main__":
          data_dir=tfrec_dir,
          res_dir=pathsaveres,
          threshold=threshold,
-         cmmn_kepids=cmmn_kepids)
+         cmmn_ids=cmmn_ids)

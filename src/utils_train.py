@@ -60,7 +60,7 @@ def delete_checkpoints(model_dir, keep_model_i):
 
     for i in range(len(ckpt_files)):
         if 'model.ckpt-' + str(ckpt_steps[keep_model_i - 1]) + '.' not in ckpt_files[i]:
-            print('deleting checkpoint file {}'.format(ckpt_files[i]))
+            # print('deleting checkpoint file {}'.format(ckpt_files[i]))
             fp = os.path.join(model_dir, ckpt_files[i])
             if os.path.isfile(fp):  # delete file
                 os.unlink(fp)

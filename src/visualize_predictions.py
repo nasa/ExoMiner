@@ -83,10 +83,13 @@ for idx in idxs_interest:
 
 #%% get common observations that are present in both datasets - DV and TPS ephemeris based
 
-kepids_data = {ephemeris_src: {dataset: [] for dataset in ['train', 'val', 'test']} for ephemeris_src in ['dv', 'tps']}
+import pandas as pd
 
-tfrec_dirs = {'dv': '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla',
-              'tps': '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_vanilla_tps'}
+src = ['spline', 'whitened']
+kepids_data = {data_src: {dataset: None for dataset in ['train', 'val', 'test']} for data_src in src}
+
+tfrec_dirs = {src[0]: '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplernonwhitened_2001-201',
+              src[1]: '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'}
 
 data_fields = ['kepid', 'tce_n']
 for tfrec_dir in tfrec_dirs:
@@ -94,17 +97,23 @@ for tfrec_dir in tfrec_dirs:
         tfrec_filenames = [os.path.join(tfrec_dirs[tfrec_dir], file)
                            for file in os.listdir(tfrec_dirs[tfrec_dir]) if dataset in file]
 
-        data = get_data_from_tfrecords(tfrec_filenames, data_fields, label_map=label_map)
+        data = get_data_from_tfrecords(tfrec_filenames, data_fields, label_map=label_map, filt=None)
         print(tfrec_dir, dataset, len(data['kepid']), len(data['tce_n']))
-        idxs_tce1 = np.where(np.array(data['tce_n'], dtype='uint64') == 1)
-        kepids_data[tfrec_dir][dataset] = np.array(data['kepid'], dtype='int')[idxs_tce1]
+        # get only the first TCEs
+        # idxs_tce1 = np.where(np.array(data['tce_n'], dtype='uint64') == 1)
+        # kepids_data[tfrec_dir][dataset] = np.array(data['kepid'], dtype='int')[idxs_tce1]
+        # kepids_data[tfrec_dir][dataset] = np.array(data['kepid'], dtype='int')
+        # kepids_data[tfrec_dir][dataset] = pd.DataFrame(data)
+        kepids_data[tfrec_dir][dataset] = ['{}_{}'.format(data['kepid'][i], data['tce_n'][i])
+                                           for i in range(len(data['kepid']))]
 
-
+# a.to_csv('/home/msaragoc/Downloads/testpd', index=False)
+# b = pd.read_csv('/home/msaragoc/Downloads/testpd')
 # get the common ones
-cmmn_kepids = {dataset: np.intersect1d(kepids_data['tps'][dataset], kepids_data['dv'][dataset])
+cmmn_ids = {dataset: {'kepid+tce_n': np.intersect1d(kepids_data[src[0]][dataset], kepids_data[src[1]][dataset])}
                for dataset in ['train', 'val', 'test']}
 
-# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids', cmmn_kepids)
+np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids_spline-whitened', cmmn_ids)
 
 # %%
 

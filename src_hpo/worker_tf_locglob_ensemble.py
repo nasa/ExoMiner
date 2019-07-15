@@ -9,16 +9,14 @@ TODO: add sess_config as parameter for the worker
 """
 
 # 3rd party
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+# import os
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import os
 import sys
 import tempfile
 import shutil
 import numpy as np
-# import matplotlib; matplotlib.use('agg')
-import matplotlib.pyplot as plt
 
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
@@ -27,7 +25,11 @@ from hpbandster.core.worker import Worker
 # local
 from src.estimator_util import CNN1dModel, ModelFn, InputFn
 from src.config import add_default_missing_params
+import paths
 
+if 'home6' in paths.path_hpoconfigs:
+    import matplotlib; matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 # class InputFn(object):
 #     """Class that acts as a callable input function for Estimator train / eval."""
@@ -415,34 +417,46 @@ from src.config import add_default_missing_params
 
 
 class TransitClassifier(Worker):
+
     def __init__(self, config_args, worker_id_custom=1, **kwargs):
         super().__init__(**kwargs)
 
-        self.worker_id_custom = str(worker_id_custom)
+        self.worker_id_custom = str(worker_id_custom)  # worker id
 
-        self.models_directory = config_args.models_directory
-        self.results_directory = config_args.results_directory
+        self.models_directory = config_args.models_directory  # directory to save models
+        self.results_directory = config_args.results_directory  # directory to save results
 
-        self.satellite = config_args.satellite
-        self.label_map = config_args.label_map
-        self.centr_flag = config_args.centr_flag
-        self.tfrec_dir = config_args.tfrec_dir
-        self.multi_class = config_args.multi_class
-        self.label_map = config_args.label_map
+        self.satellite = config_args.satellite  # kepler or tess
+        self.label_map = config_args.label_map  # maps between class and integer index
+        self.centr_flag = config_args.centr_flag  # bool, True if centroid data is being used
+        self.tfrec_dir = config_args.tfrec_dir  # tfrecord directory
+        self.multi_class = config_args.multi_class  # bool, True for multiclassification
         # self.n_train = config_args.n_train
 
-        self.hpo_loss = config_args.hpo_loss
+        self.hpo_loss = config_args.hpo_loss  # HPO loss (it has to be one of the metrics/loss being evaluated
 
-        self.ensemble_n = config_args.ensemble_n
+        self.ensemble_n = config_args.ensemble_n  # number of models trained per configuration
 
+        # get cross-entropy class weights (weighted cross-entropy)
         if config_args.satellite == 'kepler' and not config_args.use_kepler_ce:
             self.ce_weights = None
         else:
             self.ce_weights = config_args.ce_weights
 
+        # get data to filter the datasets on real-time
+        if config_args.filter_data is None:
+            self.filter_data = {dataset: None for dataset in ['train', 'val', 'test']}
+        else:
+            self.filter_data = config_args.filter_data
+
     @staticmethod
     def get_model_dir(path):
-        """Returns a randomly named, non-existing model file folder"""
+        """Returns a randomly named, non-existing model file folder
+
+        :param path: str, base directory in which the models' folders are created
+        :return:
+            model_dir_custom: str, path to model directory
+        """
 
         def _gen_dir():
             return os.path.join(path, tempfile.mkdtemp().split('/')[-1])
@@ -474,13 +488,16 @@ class TransitClassifier(Worker):
         config = add_default_missing_params(config=config)
 
         input_fn_train = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
-                                 mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map, centr_flag=self.centr_flag)
+                                 mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map, centr_flag=self.centr_flag,
+                                 filter_data=self.filter_data['train'])
 
         input_fn_val = InputFn(file_pattern=self.tfrec_dir + '/val*', batch_size=config['batch_size'],
-                               mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag)
+                               mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
+                               filter_data=self.filter_data['val'])
 
         input_fn_test = InputFn(file_pattern=self.tfrec_dir + '/test*', batch_size=config['batch_size'],
-                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag)
+                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
+                                filter_data=self.filter_data['test'])
 
         metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
         dataset_ids = ['training', 'validation', 'test']
@@ -534,8 +551,7 @@ class TransitClassifier(Worker):
         # draw loss and evaluation metric plots for the model on this given budget
         self.draw_plots(res, config_id)
 
-        # report HPO loss and aditional performance metrics and info
-        # loss = 'pr auc'  # choose metric/loss to optimize
+        # report HPO loss and additional performance metrics and info
         hpo_loss = res['validation'][self.hpo_loss]['central tendency']
         ep = -1  # np.argmax(hpo_loss)  # epoch where the HPO loss was the best
         res_hpo = {'loss': 1 - float(hpo_loss[-1]),
@@ -607,7 +623,7 @@ class TransitClassifier(Worker):
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
         ax[0].legend(loc="upper right")
-        ax[0].grid('on')
+        ax[0].grid(True)
         ax[0].set_title('Categorical cross-entropy\nVal/Test '
                         '%.4f/%.4f' % (min_val_loss, res['test']['loss']['central tendency'][loss_ep_idx]))
 
@@ -624,7 +640,7 @@ class TransitClassifier(Worker):
         ax[1].set_xlabel('Epochs')
         ax[1].set_ylabel('AUC')
         ax[1].legend(loc="lower right")
-        ax[1].grid('on')
+        ax[1].grid(True)
         ax[1].set_title('Evaluation Metric\nVal/Test %.4f/%.4f' % (max_val_auc,
                                                                    res['test']['pr auc']['central tendency'][auc_ep_idx]))
 
@@ -656,7 +672,7 @@ class TransitClassifier(Worker):
         ax.set_xlim([0.0, epochs[-1] + 1])
         ax.set_ylim([0, 1])
         ax.legend(loc="lower right")
-        ax.grid('on')
+        ax.grid(True)
         ax.set_title('Precision and Recall')
         f.suptitle('Config {} | Budget = {:.0f} (Best val:{:.0f})'.format(config_id, epochs[-1], epochs[auc_ep_idx]))
         f.savefig(self.results_directory + '/prec_rec_{}budget{:.0f}.png'.format(config_id, epochs[-1] + 1))
@@ -688,7 +704,7 @@ class TransitClassifier(Worker):
         ax.set_ylim([0, 1])
         ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
         ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
-        ax.grid('on')
+        ax.grid(True)
         ax.legend(loc='lower left')
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')

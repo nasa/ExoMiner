@@ -11,7 +11,7 @@ import sys
 sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 # import logging
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 # tf.logging.set_verbosity(tf.logging.ERROR)
@@ -144,7 +144,6 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     bins = np.linspace(0, 1, 11, True)
     dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
     for dataset in output_cl:
-
         hist, bin_edges = {}, {}
         for class_label in output_cl[dataset]:
             counts_cl = list(np.histogram(output_cl[dataset][class_label], bins, density=False, range=(0, 1)))
@@ -174,7 +173,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience):
+def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, filter_data=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -190,18 +189,18 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     :return:
     """
 
+    if filter_data is None:
+        filter_data = {dataset: None for dataset in ['train', 'val', 'test']}
+        
     # get labels for each dataset
     labels = {dataset: [] for dataset in ['train', 'val', 'test']}
     for tfrec_file in os.listdir(data_dir):
-        if 'test' in tfrec_file:
-            labels['test'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
-                                                      config['label_map'])['labels']
-        elif 'val' in tfrec_file:
-            labels['val'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
-                                                     config['label_map'])['labels']
-        elif 'train' in tfrec_file:
-            labels['train'] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
-                                                       config['label_map'])['labels']
+        dataset_idx = np.where([dataset in tfrec_file for dataset in ['train', 'val', 'test']])[0][0]
+        dataset = ['train', 'val', 'test'][dataset_idx]
+
+        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
+                                                 config['label_map'], filt=filter_data[dataset])['labels']
+
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     config_sess = None  # tf.ConfigProto(log_device_placement=False)
@@ -214,13 +213,13 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
-                             centr_flag=config['centr_flag'])
+                             centr_flag=config['centr_flag'], filt_ids=filter_data['train'])
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                           centr_flag=config['centr_flag'])
+                           centr_flag=config['centr_flag'], filter_data=filter_data['val'])
     test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                            centr_flag=config['centr_flag'])
+                            centr_flag=config['centr_flag'], filter_data=filter_data['test'])
 
     # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
@@ -298,12 +297,14 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     for dataset in predictions_dataset:
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                   centr_flag=config['centr_flag'])
+                                   centr_flag=config['centr_flag'], filter_data=filter_data[dataset])
 
         # for predictions in classifier.predict(predict_input_fn, checkpoint_path=None if not early_stop else
         # os.path.join(classifier.model_dir, ckpt)):
         for predictions in classifier.predict(predict_input_fn):
             predictions_dataset[dataset].append(predictions[0])
+        print('predictions for dataset {}: {}'.format(dataset, len(predictions_dataset[dataset])))
+        print('number of valid examples for dataset {}: {}'.format(dataset, len(filter_data[dataset]['kepid+tce_n'])))
         predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
 
     # sort predictions per class based on ground truth labels
@@ -364,6 +365,7 @@ if __name__ == '__main__':
     #     time.sleep(2)
 
     tf.logging.set_verbosity(tf.logging.ERROR)
+    # tf.logging.set_verbosity(tf.logging.INFO)
 
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
@@ -371,6 +373,8 @@ if __name__ == '__main__':
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
     ######### SCRIPT PARAMETERS #############################################
+
+    filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids_spline-whitened.npy').item()
 
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually. Set to None to use a configuration from a HPO study
@@ -380,7 +384,7 @@ if __name__ == '__main__':
     tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 300
+    n_epochs = 2
     multi_class = False
     use_kepler_ce = False
     centr_flag = False
@@ -390,6 +394,9 @@ if __name__ == '__main__':
     # number of epochs without improvement before performing early stopping. Set to -1 to deactivate early stopping and
     # save just the latest model
     patience = 20
+    if patience > n_epochs:
+        print('Setting patience to maximum number of epochs ({})'.format(n_epochs))
+        patience = n_epochs
 
     # set the configuration from a HPO study
     if config is None:
@@ -407,7 +414,7 @@ if __name__ == '__main__':
     ######### SCRIPT PARAMETERS #############################################
 
     # results directory
-    save_path = paths.pathtrainedmodels + study
+    save_path = paths.pathtrainedmodels + study + 'test'
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + '/models/')
@@ -428,7 +435,8 @@ if __name__ == '__main__':
                  res_dir=save_path + '/model%i' % (item + 1),
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
-                 patience=patience)
+                 patience=patience,
+                 filter_data=filter_data)
 
     # print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
     # run_main(config=config,
@@ -438,4 +446,5 @@ if __name__ == '__main__':
     #          res_dir=save_path + '/model%i' % (rank + 1),
     #          opt_metric=opt_metric,
     #          min_optmetric=min_optmetric,
-    #          patience=patience)
+    #          patience=patience,
+    #          filter_data=filter_data)

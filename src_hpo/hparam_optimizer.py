@@ -12,7 +12,6 @@ from mpi4py import MPI
 import numpy as np
 import logging
 logging.basicConfig(level=logging.WARNING)
-# logging.basicConfig(level=logging.DEBUG)
 # logging.propagate = False
 
 import hpbandster.core.nameserver as hpns
@@ -20,6 +19,7 @@ from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
 
 # local
+from src.estimator_util import get_ce_weights
 from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
@@ -136,9 +136,9 @@ if __name__ == '__main__':
 
     optimizer = 'bohb'  # 'random_search'  # 'bohb'
 
-    min_budget = 2
+    min_budget = 6
     max_budget = 50
-    n_iterations = 200
+    n_iterations = 400
 
     ensemble_n = 3
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = ''
+    study = 'bohb_dr25tcert_spline3'
 
     # directory in which the models are saved
     models_directory = paths.path_hpomodels + study
@@ -162,13 +162,13 @@ if __name__ == '__main__':
     prev_run_dir = None  # paths.path_hpoconfigs + prev_run_study
 
     # data directory
-    tfrec_dir = paths.tfrec_dir
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     nic_name = 'lo'  # 'ib0'
 
     rank = MPI.COMM_WORLD.rank
     # size = MPI.COMM_WORLD.size    
-    print('Rank=', rank)
+    print('Rank = ', rank)
     sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')
@@ -210,5 +210,9 @@ if __name__ == '__main__':
                         help='Loss used by the hyperparameter optimization algorithm.', default=hpo_loss)
 
     args = parser.parse_args()
+
+    # data used to filer the datasets; use None if not filtering
+    args.filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
+                               'cmmn_kepids_spline-whitened.npy').item()
 
     run_main(args, bohb_params)

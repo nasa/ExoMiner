@@ -1,3 +1,7 @@
+"""
+Custom estimator built using the estimator API from Tensorflow.
+"""
+
 import tensorflow as tf
 import copy
 import operator
@@ -10,7 +14,7 @@ import numpy as np
 class InputFn(object):
     """Class that acts as a callable input function for Estimator train / eval."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, centr_flag=False, kepids=None):
+    def __init__(self, file_pattern, batch_size, mode, label_map, centr_flag=False, filter_data=None):
         """Initializes the input function.
 
         Args:
@@ -24,7 +28,7 @@ class InputFn(object):
         self.batch_size = batch_size
         self.label_map = label_map
         self.centr_flag = centr_flag
-        self.kepids = kepids
+        self.filter_data = filter_data
 
     def __call__(self, config, params):
         """Builds the input pipeline."""
@@ -51,20 +55,6 @@ class InputFn(object):
 
         tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
-        # def _get_filt_data(serialized_example):
-        #
-        #     data_fields = {'kepid': tf.FixedLenFeature([], tf.int64)}
-        #
-        #     # Parse the features.
-        #     parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
-        #
-        #     kep_id = tf.to_int64(0)
-        #     for feature_name, value in parsed_features.items():
-        #         if self.kepids is not None and feature_name == 'kepid':
-        #             kep_id = value
-        #
-        #     return kep_id
-
         def _example_parser(serialized_example):
             """Parses a single tf.Example into feature and label tensors."""
 
@@ -78,15 +68,13 @@ class InputFn(object):
             if include_labels:
                 data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
 
-            # if self.kepids is not None:
-            #     data_fields['kepid'] = tf.FixedLenFeature([], tf.int64)
+            # initialize filtering data fields
+            if self.filter_data is not None:
+                data_fields['kepid'] = tf.FixedLenFeature([], tf.int64)
+                data_fields['tce_plnt_num'] = tf.FixedLenFeature([], tf.int64)
 
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
-            # a = tf.parse_single_example(serialized_example, features={'kepid': tf.FixedLenFeature([], tf.int64)})
-            # for feature_name, value in a.items():
-            #     print(feature_name)
-            #     print(value)
 
             if reverse_time_series_prob > 0:
                 # Randomly reverse time series features with probability
@@ -96,10 +84,12 @@ class InputFn(object):
                     reverse_time_series_prob,
                     name="should_reverse")
 
-            output = {'time_series_features': {}}
+            # output = {'time_series_features': {}}
+            output = {'time_series_features': {}, 'filt_features': {'kepid': tf.to_int64(0), 'tce_plnt': tf.to_int64(0)}}
             label_id = tf.to_int32(0)
-            # kepid = tf.to_int64(0)
             for feature_name, value in parsed_features.items():
+
+                # label
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
                     # Ensure that the label_id is non negative to verify a successful hash map lookup.
@@ -108,9 +98,13 @@ class InputFn(object):
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
 
-                # elif self.kepids is not None and feature_name == 'kepid':
-                #     kepid = value
+                # get filtering features
+                elif self.filter_data is not None and feature_name == 'kepid':
+                    output['filt_features']['kepid'] = value
+                elif self.filter_data is not None and feature_name == 'tce_plnt_num':
+                    output['filt_features']['tce_n'] = value
 
+                # features
                 else:  # input_config.features[feature_name].is_time_series:
                     # Possibly reverse.
                     if reverse_time_series_prob > 0:
@@ -120,32 +114,48 @@ class InputFn(object):
 
                     output['time_series_features'][feature_name] = value
 
-            # if self.kepids is not None:
-            #     return output, label_id, kepid
-            # else:
             return output, label_id
 
-        # def _filter_fn(output, label_id, kepid):
-        #
-        #     # print(kepid, self.kepids, kepid in self.kepids)
-        #
-        #     return kepid in dataset_filt
+        def filt_func(x, y):
 
+            z1 = tf.as_string(x['filt_features']['kepid'])
+            z_ = tf.convert_to_tensor('_')
+            z2 = tf.as_string(x['filt_features']['tce_n'])
+            zj = tf.strings.join([z1, z_, z2])
+
+            return tf.math.reduce_any(tf.math.equal(zj, tf.convert_to_tensor(self.filter_data['kepid+tce_n'])))
+
+        def get_features_and_labels(x, y):
+
+            return {'time_series_features': x['time_series_features']}, y
+
+        # create filename dataset based on the list of tfrecords filepaths
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
+
+        # map a TFRecordDataset object to each tfrecord filepath
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
 
+        # shuffle the dataset if training or evaluating
         if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
             dataset = dataset.shuffle(1024)
 
+        # ????????
         dataset = dataset.repeat(1)
 
+        # map the example parser across the tfrecords dataset to extract the examples
         dataset = dataset.map(_example_parser, num_parallel_calls=4)
 
-        # if self.kepids is not None:
-        #     dataset = dataset.filter(_filter_fn)
-        #     dataset = dataset.map(lambda features, labels, kepids: features, labels)
+        # filter the dataset based on the filtering features
+        if self.filter_data is not None:
+            dataset = dataset.filter(filt_func)
 
+        # remove the filtering features from the dataset
+        dataset = dataset.map(get_features_and_labels)
+
+        # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size)
+
+        # prefetches batches determined by the buffer size chosen - is it needed?
         dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))  # Better to set at None?
 
         return dataset
@@ -166,7 +176,8 @@ class ModelFn(object):
         # metrics = self.create_metrics(model)  # None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
-        logging_hook = None
+        logging_hook = None  # if mode == tf.estimator.ModeKeys.TRAIN else None
+
         # if mode == tf.estimator.ModeKeys.TRAIN:
         #     tf.summary.scalar('accuracy', metrics['accuracy'][1])
         #     tf.summary.scalar('precision', metrics['precision'][1])
@@ -475,7 +486,7 @@ def get_ce_weights(label_map, tfrec_dir):
 
     label_vec, example = [], tf.train.Example()
     # n_train = 0
-    n_samples = [0, 0, 0]
+    n_samples = [0, 0]
     for file in filenames:
         # upd_c = True if file.split('/')[-1].startswith('train') else False  # update counter only if train files
         file_dataset = file.split('/')[-1]
@@ -520,13 +531,70 @@ def picklesave(path, savedict):
     p.dump(savedict)
 
 
-def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt_by_kepids=[]):
+def get_num_samples(label_map, tfrec_dir, datasets):
+    """ Compute number of samples in the datasets for each class.
+
+    :param label_map: dict, map between class name and integer value
+    :param tfrec_dir: str, filepath to directory with the tfrecords
+    :param datasets: list, datasets to be counted. It follows that convention that the tfrecords have in their name
+    train, val, or test if they contain examples pertaining to the training, validation or test sets, respectively.
+    :return:
+        n_samples: int, number of samples in the datasets for each class
+    """
+
+    n_samples = {dataset: {label: 0 for label in label_map.values()} for dataset in datasets}
+
+    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if any([dataset in file for dataset in datasets])]
+
+    # label_vec, example = [], tf.train.Example()
+
+    for file in filenames:
+
+        file_dataset = file.split('/')[-1]
+        curr_dataset = datasets[np.where([dataset in file_dataset for dataset in datasets])[0][0]]
+
+        record_iterator = tf.python_io.tf_record_iterator(path=file)
+        try:
+            for string_record in record_iterator:
+
+                example = tf.train.Example()
+                example.ParseFromString(string_record)
+                try:
+                    label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+                except ValueError as e:
+                    print('No label field found on the example. Ignoring it.')
+                    print('Error output:', e)
+
+                n_samples[curr_dataset][label_map[label]] += 1
+
+        except tf.errors.DataLossError as err:
+            print("Oops: " + str(err))
+
+    return n_samples
+
+
+def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, coupled=False):
+    """
+
+    :param tfrecord: str, tfrecord filepath
+    :param data_fields: list of data fields to be extracted from the tfrecords.
+    :param label_map: dict, map between class name and integer value
+    :param filt:
+    :return:
+        data: dict, each key value pair is a list of values for a specific data field
 
     # TODO: add lookup table
     #       right now, it assumes that all examples have the same fields
+    """
+
+    # if filt is not None:
+    #     filt_fields = np.intersect1d(list(filt.keys()), data_fields)
+    # else:
+    #     filt_fields = data_fields
 
     data = {field: [] for field in data_fields}
-    if len(filt_by_kepids) > 0:
+
+    if filt is not None:
         data['selected_idxs'] = []
 
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
@@ -535,71 +603,136 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt_by_kepids
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        if len(filt_by_kepids) > 0:
-            if example.features.feature['kepid'].int64_list.value[0] not in filt_by_kepids or \
-                    example.features.feature['tce_plnt_num'].int64_list.value[0] != 1:
-                data['selected_idxs'].append(False)
-                continue
+        if filt is not None:
+            data['selected_idxs'].append(False)
 
-        if 'labels' in data_fields:
-            label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-            data['labels'].append(label_map[label])
+        # if len(filt_by_kepids) > 0:
+        #     if example.features.feature['kepid'].int64_list.value[0] not in filt_by_kepids or \
+        #             example.features.feature['tce_plnt_num'].int64_list.value[0] != 1:
+        #         data['selected_idxs'].append(False)
+        #         continue
+
+        datum = {}
+
+        if 'label' in data_fields:
+            datum['label'] = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+            if label_map is not None:
+                datum['label'] = label_map[datum['label']]
 
         if 'kepid' in data_fields:
-            kepid = example.features.feature['kepid'].int64_list.value[0]
-            data['kepid'].append(kepid)
+            datum['kepid'] = example.features.feature['kepid'].int64_list.value[0]
 
         if 'tce_n' in data_fields:
-            tce_n = example.features.feature['tce_plnt_num'].int64_list.value[0]
-            data['tce_n'].append(tce_n)
+            datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
         if 'tce_period' in data_fields:
-            period = example.features.feature['tce_period'].float_list.value[0]
-            data['tce_period'].append(period)
+            datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
 
         if 'tce_duration' in data_fields:
-            duration = example.features.feature['tce_duration'].float_list.value[0]
-            data['tce_duration'].append(duration)
+            datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
 
         if 'epoch' in data_fields:
-            epoch = example.features.feature['tce_time0bk'].float_list.value[0]
-            data['epoch'].append(epoch)
+            datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
 
         if 'MES' in data_fields:
-            MES = example.features.feature['mes'].float_list.value[0]
-            data['MES'].append(MES)
+            datum['MES'] = example.features.feature['mes'].float_list.value[0]
 
         if 'global_view' in data_fields:
-            glob_view = example.features.feature['global_view'].float_list.value
-            data['global_view'].append(glob_view)
+            datum['glob_view'] = example.features.feature['global_view'].float_list.value
 
         if 'local_view' in data_fields:
-            glob_view = example.features.feature['local_view'].float_list.value
-            data['local_view'].append(glob_view)
+            datum['local_view'] = example.features.feature['local_view'].float_list.value
 
         if 'global_view_centr' in data_fields:
-            glob_view_centr = example.features.feature['global_view_centr'].float_list.value
-            data['global_view_centr'].append(glob_view_centr)
+            datum['glob_view_centr'] = example.features.feature['global_view_centr'].float_list.value
 
         if 'local_view_centr' in data_fields:
-            local_view_centr = example.features.feature['local_view_centr'].float_list.value
-            data['local_view_centr'].append(local_view_centr)
+            datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
 
-        if len(filt_by_kepids) > 0:
-            data['selected_idxs'].append(True)
+        # filtering
+        if filt is not None:
+
+            if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+                continue
+
+            if coupled:
+                if 'kepid+tce_n' in filt.keys() and '{}_{}'.format(datum['kepid'], datum['tce_n']) \
+                        not in filt['kepid+tce_n']:
+                    continue
+            else:
+                if 'kepid' in filt.keys() and datum['kepid'] not in filt['kepid']:
+                    continue
+                if 'tce_n' in filt.keys() and datum['tce_n'] not in filt['tce_n']:
+                    continue
+
+            if 'tce_period' in filt.keys() and not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
+                continue
+
+            if 'tce_duration' in filt.keys() and not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
+                continue
+
+            if 'epoch' in filt.keys() and not filt['epoch'][0] <= datum['epoch'] <= filt['epoch'][1]:
+                continue
+
+            if 'MES' in filt.keys() and not filt['MES'][0] <= datum['MES'] <= filt['MES'][1]:
+                continue
+
+            data['selected_idxs'][-1] = True
+
+        # add example
+        for field in datum:
+            data[field].append(datum[field])
 
     return data
 
 
-def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt_by_kepids=[]):
+def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None):
+    """
+
+    :param tfrecords: list of tfrecords filepaths.
+    :param data_fields: list of data fields to be extracted from the tfrecords.
+    :param label_map: dict, map between class name and integer value
+    :param filt:
+    :return:
+        data: dict, each key value pair is a list of values for a specific data field
+    """
 
     data = {field: [] for field in data_fields}
-    if len(filt_by_kepids) > 0:
+
+    if filt is not None:
         data['selected_idxs'] = []
 
     for tfrecord in tfrecords:
-        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt_by_kepids=filt_by_kepids)
+        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt=filt)
         for field in data_aux:
             data[field].extend(data_aux[field])
 
     return data
+
+
+if __name__ == '__main__':
+
+    import paths
+    from src.config import label_map
+
+    # get number of samples in the datasets
+    multi_class = False
+    satellite = 'kepler'
+    label_map = label_map[satellite][multi_class]
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
+    nsamples = get_num_samples(label_map, tfrec_dir, ['train', 'test', 'val'])
+    print(nsamples)
+
+    # assert that there are no repeated examples in the datasets based on KeplerID and TCE number
+    # multi_class = False
+    # satellite = 'kepler'
+    # label_map = label_map[satellite][multi_class]
+    # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
+    tfrecords = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir)]
+    data_fields = ['kepid', 'tce_n']
+    data_dict = get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None)
+    tces = []
+    for i in range(len(data_dict['kepid'])):
+        tces.append('{}_{}'.format(data_dict['kepid'][i], data_dict['tce_n'][i]))
+    unique_tces = np.unique(tces)
+    print(len(unique_tces), len(data_dict['kepid']))
