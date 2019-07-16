@@ -84,8 +84,9 @@ class InputFn(object):
                     reverse_time_series_prob,
                     name="should_reverse")
 
-            # output = {'time_series_features': {}}
-            output = {'time_series_features': {}, 'filt_features': {'kepid': tf.to_int64(0), 'tce_plnt': tf.to_int64(0)}}
+            output = {'time_series_features': {}}
+            if self.filter_data is not None:
+                output['filt_features'] = {}
             label_id = tf.to_int32(0)
             for feature_name, value in parsed_features.items():
 
@@ -149,8 +150,8 @@ class InputFn(object):
         if self.filter_data is not None:
             dataset = dataset.filter(filt_func)
 
-        # remove the filtering features from the dataset
-        dataset = dataset.map(get_features_and_labels)
+            # remove the filtering features from the dataset
+            dataset = dataset.map(get_features_and_labels)
 
         # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size)
@@ -587,11 +588,6 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     #       right now, it assumes that all examples have the same fields
     """
 
-    # if filt is not None:
-    #     filt_fields = np.intersect1d(list(filt.keys()), data_fields)
-    # else:
-    #     filt_fields = data_fields
-
     data = {field: [] for field in data_fields}
 
     if filt is not None:
@@ -605,12 +601,6 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
 
         if filt is not None:
             data['selected_idxs'].append(False)
-
-        # if len(filt_by_kepids) > 0:
-        #     if example.features.feature['kepid'].int64_list.value[0] not in filt_by_kepids or \
-        #             example.features.feature['tce_plnt_num'].int64_list.value[0] != 1:
-        #         data['selected_idxs'].append(False)
-        #         continue
 
         datum = {}
 

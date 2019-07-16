@@ -27,7 +27,7 @@ import paths
 
 def run_main(args, bohb_params=None):
 
-    if 'tess' in args.tfrec_dir:
+    if 'tess' in args.satellite:
         args.label_map = {"PC": 1, "NTP": 0, "EB": 2, "BEB": 2} if args.multi_class else {"PC": 1, "NTP": 0, "EB": 0,
                                                                                           "BEB": 0}
     else:
@@ -151,6 +151,8 @@ if __name__ == '__main__':
 
     study = 'bohb_dr25tcert_spline3'
 
+    num_gpus = 1
+
     # directory in which the models are saved
     models_directory = paths.path_hpomodels + study
 
@@ -209,10 +211,13 @@ if __name__ == '__main__':
     parser.add_argument('--hpo_loss', type=str,
                         help='Loss used by the hyperparameter optimization algorithm.', default=hpo_loss)
 
+    parser.add_argument('--num_gpus', type=int,
+                        help='Number of GPUs per node. If set to \'0\' the workers (configurations) are not distributed '
+                             'by the available GPUs (1 worker/GPU).', default=num_gpus)
+
     args = parser.parse_args()
 
     # data used to filer the datasets; use None if not filtering
-    args.filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                               'cmmn_kepids_spline-whitened.npy').item()
+    args.filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/cmmn_kepids_spline-whitened.npy').item()
 
     run_main(args, bohb_params)
