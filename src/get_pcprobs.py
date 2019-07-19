@@ -4,17 +4,19 @@ Test ensemble of models trained using the best configuration obtained in a hyper
 TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
     option would be to have two scripts: one that tests the models individually, the other that gathers their
     predictions into the ensemble and generates the results for it.
+    does the code work for only one model?
 """
 
 # 3rd party
 import os
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # import logging
 # logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve
+import pandas as pd
 
 # local
 from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
@@ -30,17 +32,14 @@ import matplotlib.pyplot as plt
 def draw_plots(res, save_path, output_cl):
     """ Plot ROC and PR curves.
 
-    :param pathsaveres: str, path to save plots
-    :param recroc: numpy array, recall values for the PR curve
-    :param preroc: numpy array, precision values for the PR curve
-    :param pr_auc: float, precision-recall curve AUC (aka average precision)
-    :param tpr: numpy array, true positive rate
-    :param fpr: numpy array, false positive rate
-    :param roc_auc: float, ROC AUC
+    :param res:
+    :param save_path: str, path to save directory
+    :param output_cl:
     :return:
     """
 
-    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
+    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set', 'predict': 'Predict set'}
+
     # ROC and PR curves
     for dataset in res:
         f = plt.figure(figsize=(9, 6))
@@ -78,13 +77,12 @@ def draw_plots(res, save_path, output_cl):
 
     # plot histogram of the class distribution as a function of the predicted output
     bins = np.linspace(0, 1, 11, True)
-    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
     for dataset in output_cl:
 
         hist, bin_edges = {}, {}
         for class_label in output_cl[dataset]:
             counts_cl = list(np.histogram(output_cl[dataset][class_label], bins, density=False, range=(0, 1)))
-            counts_cl[0] = counts_cl[0] / len(output_cl[dataset][class_label])
+            counts_cl[0] = counts_cl[0] / max(len(output_cl[dataset][class_label]), 1e-7)
             hist[class_label] = counts_cl[0]
             bin_edges[class_label] = counts_cl[1]
 
@@ -98,123 +96,87 @@ def draw_plots(res, save_path, output_cl):
         f, ax = plt.subplots()
         for class_label in output_cl[dataset]:
             ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
-        ax.set_ylabel('Class fraction')
+        if dataset == 'predict':
+            ax.set_ylabel('Dataset fraction')
+        else:
+            ax.set_ylabel('Class fraction')
         ax.set_xlabel('Predicted output')
         ax.set_xlim([0, 1])
         ax.set_ylim([0, 1])
         ax.set_title('Output distribution')
         ax.set_xticks(np.linspace(0, 1, 11, True))
-        ax.legend()
+        if dataset != 'predict':
+            ax.legend()
         ax.set_title(dataset_names[dataset])
         plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
         plt.close()
 
 
-def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_ids=None):
-    """ Test ensemble of models.
+def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=None, filter_data=None,
+         inference_only=False, generate_csv_pred=False):
+    """ Test single model/ensemble of models.
 
     :param config: dict, model and dataset configurations
     :param model_dir: str, directory with saved models
     :param data_dir: str, data directory with tfrecords
     :param res_dir: str, save directory
+    :param datasets: list, datasets in which the model(s) is(are) applied to. The datasets names should be strings that
+    match a part of the tfrecord filename - 'train', 'val', 'test', 'predict'
     :param threshold: float, classification threshold
+    :param fields: additional fields to be extracted from the tfrecords. If generate_csv_pred is True, these fields
+    are also written to the csv file
+    :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
+    elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
+    values should be a list; for the other data_fields, it should be a two element list that defines the interval of
+    acceptable values
+    :param inference_only: bool, if True the labels are not extracted from the tfrecords
+    :param generate_csv_pred: bool, if True a csv file is generated per dataset containing the ranked model(ensemble)
+    outputs and predicted classes for each example in the dataset. If fields is not None, then the values for those
+    fields will also be written to the csv file.
     :return:
     """
 
-    if cmmn_ids is None:
-        cmmn_ids = {dataset: None for dataset in ['train', 'val', 'test']}
+    if filter_data is None:
+        filter_data = {dataset: None for dataset in datasets}
 
     # get models' paths
     model_filenames = [model_dir + '/' + file for file in os.listdir(model_dir)]
 
     # get labels for each dataset
-    labels = {dataset: [] for dataset in ['train', 'val', 'test']}
-    selected_idxs = {dataset: [] for dataset in ['train', 'val', 'test']}
+    if fields is None:
+        fields = []
+
+    if not inference_only:
+        if 'label' not in fields:
+            fields += 'label'
+
+    data = {dataset: {field: [] for field in fields} for dataset in datasets}
     for tfrec_file in os.listdir(tfrec_dir):
-        dataset_idx = np.where([dataset in tfrec_file for dataset in ['train', 'val', 'test']])[0][0]
-        dataset = ['train', 'val', 'test'][dataset_idx]
 
-        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), ['labels'], config['label_map'],
-                                     filt=cmmn_ids[dataset])
-        labels[dataset] += aux['labels']
-        if cmmn_ids[dataset] is not None:
-            selected_idxs[dataset] += aux['selected_idxs']
+        dataset_idx = np.where([dataset in tfrec_file for dataset in datasets])[0][0]
+        dataset = datasets[dataset_idx]
 
-    labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
+        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, config['label_map'],
+                                     filt=filter_data[dataset])
 
-    # # num_afps, num_ntps, num_pcs = 0, 0, 0
-    # kepid_vec, glob_vec, loc_vec, labels = [], [], [], []
-    # # kepid_vec, glob_vec, loc_vec, ephem_vec, glob_centrvec, loc_centrvec, mes_vec = [], [], [], [], [], [], []
-    # for file in tfrecord_filenames:
-    #     record_iterator = tf.python_io.tf_record_iterator(path=file)
-    #     for string_record in record_iterator:
-    #         example = tf.train.Example()
-    #         example.ParseFromString(string_record)
-    #         kepid = example.features.feature['kepid'].int64_list.value[0]
-    #         # tce_n = example.features.feature['tce_plnt_num'].int64_list.value[0]
-    #         label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-    #         # if label == 'AFP':
-    #         #     num_afps += 1
-    #         # if label == 'NTP':
-    #         #     num_ntps += 1
-    #         # if label == 'PC':
-    #         #     num_pcs += 1
-    #         # NEEDS TO BE ADAPTED FOR MULTICLASS AND TESS!!!
-    #         if label in ['AFP', 'NTP']:
-    #             labels.append(0)
-    #         else:
-    #             labels.append(1)
-    #         # period = example.features.feature['tce_period'].float_list.value[0]
-    #         # duration = example.features.feature['tce_duration'].float_list.value[0]
-    #         # epoch = example.features.feature['tce_time0bk'].float_list.value[0]
-    #         # MES = example.features.feature['mes'].float_list.value[0]
-    #         # ephem_vec += [{'period': period, 'duration': duration, 'epoch': epoch}]
-    #
-    #         glob_view = example.features.feature['global_view'].float_list.value
-    #         loc_view = example.features.feature['local_view'].float_list.value
-    #         # glob_view_centr = example.features.feature['global_view_centr'].float_list.value
-    #         # loc_view_centr = example.features.feature['local_view_centr'].float_list.value
-    #
-    #         kepid_vec.append(kepid)
-    #         glob_vec += [glob_view]
-    #         loc_vec += [loc_view]
-    #         # glob_centrvec += [glob_view_centr]
-    #         # loc_centrvec += [loc_view_centr]
-    #         # mes_vec += [MES]
-    #
-    # # print('number of AFP, ATP, PC: ', num_afps, num_ntps, num_pcs)
-    # # features = [np.array(loc_vec), np.array(glob_vec), np.array(glob_centrvec), np.array(loc_centrvec)]
-    # features = [np.array(loc_vec), np.array(glob_vec)]
-    # features = tuple([np.reshape(i, (i.shape[0], 1, i.shape[-1])) for i in features])
+        for field in aux:
+            data[dataset][field].extend(aux[field])
 
-    # def input_fn():
-    #     dataset = tf.data.Dataset.from_tensor_slices(features)
-    #     dataset.repeat(1)
-    #     dataset = dataset.map(parser)
-    #
-    #     return dataset
-    #
-    # # def parser(localview, globalview, localview_centr, globalview_centr):
-    # def parser(localview, globalview):
-    #     # output = {"time_series_features": {'local_view': tf.to_float(localview),
-    #     #                                    'global_view': tf.to_float(globalview),
-    #     #                                    'global_view_centr': tf.to_float(localview_centr),
-    #     #                                    'local_view_centr': tf.to_float(globalview_centr)}}
-    #     output = {"time_series_features": {'local_view': tf.to_float(localview),
-    #                                        'global_view': tf.to_float(globalview)}}
-    #     return output
+    if 'label' in data[dataset]:
+        for dataset in datasets:
+            data[dataset]['label'] = np.array(data[dataset]['label'], dtype='uint8')
 
     # predict on given datasets
-    predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
+    predictions_dataset = {dataset: [] for dataset in datasets}
     for dataset in predictions_dataset:
 
-        predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+        predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=8192,
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                    centr_flag=config['centr_flag'])
+
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
 
-            config_sess = None
             config_sess = tf.ConfigProto(log_device_placement=False)
 
             estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
@@ -234,16 +196,16 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_ids=None):
 
     # select only indexes of interest
     for dataset in predictions_dataset:
-        if len(selected_idxs[dataset]) > 0:
-            predictions_dataset[dataset] = predictions_dataset[dataset][selected_idxs[dataset]]
+        if 'selected_idxs' in data[dataset]:
+            predictions_dataset[dataset] = predictions_dataset[dataset][data[dataset]['selected_idxs']]
             print(predictions_dataset[dataset].shape, dataset)
 
     # save results in a numpy file
-    print('Saving predicted output to a numpy file...')
+    print('Saving predicted output to a numpy file {}...'.format(res_dir + 'predictions_per_dataset'))
     np.save(res_dir + 'predictions_per_dataset', predictions_dataset)
 
     # sort predictions per class based on ground truth labels
-    output_cl = {dataset: {} for dataset in ['train', 'val', 'test']}
+    output_cl = {dataset: {} for dataset in datasets}
     for dataset in output_cl:
         # map_labels
         for class_label in config['label_map']:
@@ -252,49 +214,54 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_ids=None):
                 continue
             elif class_label == 'NTP':
                 output_cl[dataset]['NTP+AFP'] = \
-                    predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
+                    predictions_dataset[dataset][np.where(data[dataset]['label'] == config['label_map'][class_label])]
             else:
                 output_cl[dataset][class_label] = \
-                    predictions_dataset[dataset][np.where(labels[dataset] == config['label_map'][class_label])]
+                    predictions_dataset[dataset][np.where(data[dataset]['label'] == config['label_map'][class_label])]
 
-    res = {dataset: None for dataset in ['train', 'val', 'test']}
-    for dataset in res:
+    # dict with performance metrics
+    res = {dataset: None for dataset in datasets if dataset != 'predict'}
+    # dict with classification predictions
+    pred_classification = {dataset: np.zeros(predictions_dataset[dataset].shape, dtype='uint8') for dataset in datasets}
+    for dataset in datasets:
         # threshold for classification
-        pred_classification = np.zeros(predictions_dataset[dataset].shape, dtype='uint8')
-        pred_classification[predictions_dataset[dataset] >= threshold] = 1
+        pred_classification[dataset][predictions_dataset[dataset] >= threshold] = 1
 
-        # compute and save performance metrics for the ensemble
-        acc = accuracy_score(labels[dataset], pred_classification)
-        roc_auc = roc_auc_score(labels[dataset], pred_classification, average='macro')
-        pr_auc = average_precision_score(labels[dataset], pred_classification, average='macro')
-        prec = precision_score(labels[dataset], pred_classification, average='binary')
-        rec = recall_score(labels[dataset], pred_classification, average='binary')
+        if not inference_only:
+            # compute and save performance metrics for the ensemble
+            acc = accuracy_score(data[dataset]['label'], pred_classification[dataset])
+            roc_auc = roc_auc_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            pr_auc = average_precision_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            prec = precision_score(data[dataset]['label'], pred_classification[dataset], average='binary')
+            rec = recall_score(data[dataset]['label'], pred_classification[dataset], average='binary')
 
-        fpr, tpr, _ = roc_curve(labels[dataset], predictions_dataset[dataset])
-        preroc, recroc, _ = precision_recall_curve(labels[dataset], predictions_dataset[dataset])
+            fpr, tpr, _ = roc_curve(data[dataset]['label'], predictions_dataset[dataset])
+            preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_dataset[dataset])
 
-        res[dataset] = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec, 'Threshold': threshold,
-                        'Number of models': len(model_filenames), 'PR AUC': pr_auc, 'FPR': fpr, 'TPR': tpr,
-                        'Prec thr': preroc, 'Rec thr': recroc}
+            res[dataset] = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec,
+                            'Threshold': threshold, 'Number of models': len(model_filenames), 'PR AUC': pr_auc, 'FPR': fpr, 'TPR': tpr,
+                            'Prec thr': preroc, 'Rec thr': recroc}
 
     # save results in a numpy file
-    print('Saving metrics to a numpy file...')
-    np.save(res_dir + 'res_eval.npy', res)
+    if not inference_only:
+        print('Saving metrics to a numpy file {}...'.format(res_dir + 'res_eval.npy'))
+        np.save(res_dir + 'res_eval', res)
 
     print('Plotting ROC and PR AUCs...')
     # draw evaluation plots
     draw_plots(res, res_dir, output_cl)
 
-    print('Saving metrics to a txt file...')
-    # write results to a txt file
-    with open(res_dir + "res_eval.txt", "a") as res_file:
-        res_file.write('{} Performance ensemble (nmodels={}) {}\n'.format('#' * 10, len(model_filenames), '#' * 10))
-        for dataset in res:
-            res_file.write('Dataset: {}\n'.format(dataset))
-            for metric in res[dataset]:
-                if metric not in ['Prec thr', 'Rec thr', 'TPR', 'FPR']:
-                    res_file.write('{}: {}\n'.format(metric, res[dataset][metric]))
-            res_file.write('\n')
+    if not inference_only:
+        print('Saving metrics to a {}...'.format(res_dir + "res_eval.txt"))
+        # write results to a txt file
+        with open(res_dir + "res_eval.txt", "a") as res_file:
+            res_file.write('{} Performance ensemble (nmodels={}) {}\n'.format('#' * 10, len(model_filenames), '#' * 10))
+            for dataset in res:
+                res_file.write('Dataset: {}\n'.format(dataset))
+                for metric in res[dataset]:
+                    if metric not in ['Prec thr', 'Rec thr', 'TPR', 'FPR']:
+                        res_file.write('{}: {}\n'.format(metric, res[dataset][metric]))
+                res_file.write('\n')
 
     print('#' * 100)
     print('Performance ensemble (nmodels={})'.format(len(model_filenames)))
@@ -305,48 +272,21 @@ def main(config, model_dir, data_dir, res_dir, threshold=0.5, cmmn_ids=None):
                 print('{}: {}'.format(metric, res[dataset][metric]))
     print('#' * 100)
 
+    if generate_csv_pred:
 
-    # # Generate the predictions.
-    # prediction_lst = []
-    # count = 0
-    # for predictions in estimator.predict(input_fn):
-    #     assert len(predictions) == 1
-    #     prediction_lst.append(predictions[0])
-    #     count += 1
-    #     if (count % 500) == 0:
-    #         print(count)
-    #     # print(str(predictions[0]))
-    #
-    #
-    # # filepath = '/data5/tess_project/pedro/dr25_total/filt_input_tb.csv'
-    # # tce_table = pd.read_csv(filepath, index_col="loc_rowid", comment="#")
-    # # mes_dict = {}
-    # # for index, row in tce_table.iterrows():
-    # #     mes_dict[row['kepid']] = row['mes']
-    # # p = pickle.Pickler(open('mes_dict.pkl', "wb+"))
-    # # p.fast = True
-    # # p.dump(mes_dict)
-    #
-    # with open('mes_dict.pkl', 'rb+') as fp:
-    #     mes_dict = pickle.load(fp)
-    #
-    # output_list = [{'kepid': kepid, 'prediction': pred_i, 'ephemeris': ephem_i, 'mes': mes_dict[kepid]}
-    #                for kepid, pred_i, ephem_i in zip(kepid_vec, prediction_lst, ephem_vec)]
-    #
-    # ranked_predictions = sorted(output_list, key=lambda x: x['prediction'], reverse=True)
-    #
-    #
-    # print_n_entries_thres = 10000000
-    # ranked_predictions = ranked_predictions[:print_n_entries_thres] if len(ranked_predictions) > print_n_entries_thres else ranked_predictions
-    #
-    # count_row = 1
-    # with open('cand_list_2.csv', mode='w') as f:
-    #     f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    #     f_writer.writerow([str('Total datapoints:' + str(len(ranked_predictions)))])
-    #     f_writer.writerow(['rowid', 'kepid', 'prediction', 'MES'])
-    #     for entry in ranked_predictions:
-    #         f_writer.writerow([count_row, entry['kepid'], entry['prediction'], entry['mes']])
-    #         count_row += 1
+        # add predictions to the data dict
+        for dataset in datasets:
+            data[dataset]['output'] = predictions_dataset[dataset]
+            data[dataset]['predicted class'] = pred_classification[dataset]
+
+        # write results to a txt file
+        for dataset in datasets:
+            print('Saving ranked predictions in dataset {}'
+                  ' to {}...'.format(dataset, res_dir + "ranked_predictions_{}".format(dataset)))
+            data_df = pd.DataFrame(data[dataset])
+            # sort in descending order of output
+            data_df.sort_values(by='output', ascending=False, inplace=True)
+            data_df.to_csv(res_dir + "ranked_predictions_{}set".format(dataset), index=False)
 
 
 if __name__ == "__main__":
@@ -358,23 +298,32 @@ if __name__ == "__main__":
                             'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
-    ######### SCRIPT PARAMETERS #############################################
 
-    cmmn_ids = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids.npy').item()
+    ######### SCRIPT PARAMETERS #############################################
 
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
     config = None
 
     # load test data
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT_180k']
 
-    # threshold on binary classification
-    threshold = 0.5
+    datasets = ['predict']
+
+    fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
+
+    inference_only = True
+
+    generate_csv_pred = True
+
+    threshold = 0.5  # threshold on binary classification
     multi_class = False
     use_kepler_ce = False
     centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
+
+    filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
+    # cmmn_kepids.npy').item()
 
     # load best config from HPO study
     if config is None:
@@ -412,5 +361,9 @@ if __name__ == "__main__":
          model_dir=models_path,
          data_dir=tfrec_dir,
          res_dir=pathsaveres,
+         datasets=datasets,
          threshold=threshold,
-         cmmn_ids=cmmn_ids)
+         fields=fields,
+         filter_data=filter_data,
+         inference_only=inference_only,
+         generate_csv_pred=generate_csv_pred)

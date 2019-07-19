@@ -198,8 +198,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         dataset_idx = np.where([dataset in tfrec_file for dataset in ['train', 'val', 'test']])[0][0]
         dataset = ['train', 'val', 'test'][dataset_idx]
 
-        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['labels'],
-                                                 config['label_map'], filt=filter_data[dataset])['labels']
+        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
+                                                 config['label_map'], filt=filter_data[dataset])['label']
 
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
@@ -213,7 +213,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
-                             centr_flag=config['centr_flag'], filt_ids=filter_data['train'])
+                             centr_flag=config['centr_flag'], filter_data=filter_data['train'])
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
                            centr_flag=config['centr_flag'], filter_data=filter_data['val'])
@@ -249,6 +249,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                  'validation': classifier.evaluate(val_input_fn, name='validation set'),
                  'test': classifier.evaluate(test_input_fn, name='test set')}
 
+        # early stopping
         if patience != -1:
             early_stop, last_best, best_value = utils_train.early_stopping(best_value, res_i['validation'][opt_metric],
                                                                            last_best, patience, min_optmetric)
@@ -261,7 +262,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                                                                                      [opt_metric]))
                 break
 
-        if last_best > 0:
+        if last_best > 0:  # current value is not the best one found so far
             for dataset in dataset_ids:
                 for metric in metrics_list:
                     res_aux[dataset][metric].append(res_i[dataset][metric])
@@ -280,14 +281,11 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
 
-    # delete older checkpoints
+    # delete checkpoints in early stopping, preserving only the best one
     if patience != -1:
         if early_stop:
             print('deleting checkpoints except for the oldest saved...')
-            # ckpt = utils_train.delete_checkpoints(classifier.model_dir, 1)
             utils_train.delete_checkpoints(classifier.model_dir, 1)
-            print('loading best model...')
-
         else:
             print('deleting checkpoints except for the newest saved...')
             utils_train.delete_checkpoints(classifier.model_dir, patience)
@@ -299,12 +297,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                    centr_flag=config['centr_flag'], filter_data=filter_data[dataset])
 
-        # for predictions in classifier.predict(predict_input_fn, checkpoint_path=None if not early_stop else
-        # os.path.join(classifier.model_dir, ckpt)):
         for predictions in classifier.predict(predict_input_fn):
             predictions_dataset[dataset].append(predictions[0])
         print('predictions for dataset {}: {}'.format(dataset, len(predictions_dataset[dataset])))
-        print('number of valid examples for dataset {}: {}'.format(dataset, len(filter_data[dataset]['kepid+tce_n'])))
+        # print('number of valid examples for dataset {}: {}'.format(dataset, len(filter_data[dataset]['kepid+tce_n'])))
         predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
 
     # sort predictions per class based on ground truth labels
@@ -372,9 +368,11 @@ if __name__ == '__main__':
                             'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
                             'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
                             'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
+
     ######### SCRIPT PARAMETERS #############################################
 
-    filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/cmmn_kepids_spline-whitened.npy').item()
+    filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
+    # cmmn_kepids_spline-whitened.npy').item()
 
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually. Set to None to use a configuration from a HPO study
@@ -384,7 +382,7 @@ if __name__ == '__main__':
     tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 2
+    n_epochs = 300
     multi_class = False
     use_kepler_ce = False
     centr_flag = False
@@ -414,7 +412,7 @@ if __name__ == '__main__':
     ######### SCRIPT PARAMETERS #############################################
 
     # results directory
-    save_path = paths.pathtrainedmodels + study + 'test'
+    save_path = paths.pathtrainedmodels + study
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + '/models/')

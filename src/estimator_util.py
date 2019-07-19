@@ -1,7 +1,8 @@
 """
-Custom estimator built using the estimator API from Tensorflow.
+Custom estimator built using the estimator API from TensorFlow.
 """
 
+# 3rd party
 import tensorflow as tf
 import copy
 import operator
@@ -29,6 +30,8 @@ class InputFn(object):
         self.label_map = label_map
         self.centr_flag = centr_flag
         self.filter_data = filter_data
+        # if self._mode == tf.estimator.ModeKeys.PREDICT and pred_feat is not None:
+        #     self.pred_feat = pred_feat
 
     def __call__(self, config, params):
         """Builds the input pipeline."""
@@ -483,20 +486,23 @@ def get_ce_weights(label_map, tfrec_dir):
 
     # takes into account samples from the validation and train tfrecords???
     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if not file.startswith('test')]
+                 if not (file.startswith('test') or file.startswith('predict'))]
 
     label_vec, example = [], tf.train.Example()
     # n_train = 0
-    n_samples = [0, 0]
+    # n_samples = {'train': 0, 'val': 0, 'test': 0, 'predict': 0}
+    n_samples = {'train': 0, 'val': 0}
     for file in filenames:
         # upd_c = True if file.split('/')[-1].startswith('train') else False  # update counter only if train files
         file_dataset = file.split('/')[-1]
         if 'train' in file_dataset:
-            idx_dataset = 0
+            dataset = 'train'
         elif 'val' in file_dataset:
-            idx_dataset = 1
-        else:
-            idx_dataset = 2
+            dataset = 'val'
+        # elif 'test' in file_dataset:
+        #     dataset = 'test'
+        # elif 'predict' in file_dataset:
+        #     dataset = 'predict'
 
         record_iterator = tf.python_io.tf_record_iterator(path=file)
         try:
@@ -507,7 +513,7 @@ def get_ce_weights(label_map, tfrec_dir):
                 label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
                 label_vec.append(label_map[label])
 
-                n_samples[idx_dataset] += 1
+                n_samples[dataset] += 1
                 # if upd_c:
                 #     n_train += 1
 
@@ -518,11 +524,11 @@ def get_ce_weights(label_map, tfrec_dir):
     label_counts = [label_vec.count(category) for category in range(max_label_val + 1)]
 
     # give more weight to classes with less instances
-    ce_weights = [max(label_counts) / count_i for count_i in label_counts]
+    ce_weights = [max(label_counts) / max(count_i, 1e-7) for count_i in label_counts]
 
-    print('Train, validation, test samples: {}'.format(n_samples))
+    print('Train and validation samples: {}, {}'.format(n_samples['train'], n_samples['val']))
 
-    return ce_weights, n_samples[0]  # n_train  # , 'global_view_centr' in example.features.feature
+    return ce_weights, n_samples['train']  # n_train  # , 'global_view_centr' in example.features.feature
 
 
 def picklesave(path, savedict):
@@ -575,18 +581,29 @@ def get_num_samples(label_map, tfrec_dir, datasets):
 
 
 def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, coupled=False):
-    """
+    """ Extract data from a tfrecord file.
 
     :param tfrecord: str, tfrecord filepath
     :param data_fields: list of data fields to be extracted from the tfrecords.
     :param label_map: dict, map between class name and integer value
-    :param filt:
+    :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
+    examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
+    two element list that defines the interval of acceptable values
+    :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
     :return:
         data: dict, each key value pair is a list of values for a specific data field
 
     # TODO: add lookup table
     #       right now, it assumes that all examples have the same fields
+    #       deal with errors
     """
+
+    if filt is not None:
+        union_fields = np.union1d(data_fields, list(filt.keys()))
+        if 'kepid+tce_n' in list(filt.keys()):
+            union_fields = np.concatenate((union_fields, ['kepid', 'tce_n']))
+    else:
+        union_fields = data_fields
 
     data = {field: [] for field in data_fields}
 
@@ -602,41 +619,41 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         if filt is not None:
             data['selected_idxs'].append(False)
 
+        # extracting data fields
         datum = {}
-
-        if 'label' in data_fields:
+        if 'label' in union_fields:
             datum['label'] = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
             if label_map is not None:
                 datum['label'] = label_map[datum['label']]
 
-        if 'kepid' in data_fields:
+        if 'kepid' in union_fields:
             datum['kepid'] = example.features.feature['kepid'].int64_list.value[0]
 
-        if 'tce_n' in data_fields:
+        if 'tce_n' in union_fields:
             datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
-        if 'tce_period' in data_fields:
+        if 'tce_period' in union_fields:
             datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
 
-        if 'tce_duration' in data_fields:
+        if 'tce_duration' in union_fields:
             datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
 
-        if 'epoch' in data_fields:
+        if 'epoch' in union_fields:
             datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
 
-        if 'MES' in data_fields:
+        if 'MES' in union_fields:
             datum['MES'] = example.features.feature['mes'].float_list.value[0]
 
-        if 'global_view' in data_fields:
-            datum['glob_view'] = example.features.feature['global_view'].float_list.value
+        if 'global_view' in union_fields:
+            datum['global_view'] = example.features.feature['global_view'].float_list.value
 
-        if 'local_view' in data_fields:
+        if 'local_view' in union_fields:
             datum['local_view'] = example.features.feature['local_view'].float_list.value
 
-        if 'global_view_centr' in data_fields:
-            datum['glob_view_centr'] = example.features.feature['global_view_centr'].float_list.value
+        if 'global_view_centr' in union_fields:
+            datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
 
-        if 'local_view_centr' in data_fields:
+        if 'local_view_centr' in union_fields:
             datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
 
         # filtering
@@ -658,7 +675,8 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             if 'tce_period' in filt.keys() and not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
                 continue
 
-            if 'tce_duration' in filt.keys() and not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
+            if 'tce_duration' in filt.keys() and not filt['tce_duration'][0] <= datum['tce_duration'] <= \
+                                                     filt['tce_duration'][1]:
                 continue
 
             if 'epoch' in filt.keys() and not filt['epoch'][0] <= datum['epoch'] <= filt['epoch'][1]:
@@ -670,19 +688,22 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             data['selected_idxs'][-1] = True
 
         # add example
-        for field in datum:
+        for field in data_fields:
             data[field].append(datum[field])
 
     return data
 
 
-def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None):
-    """
+def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None, coupled=False):
+    """ Extract data from a set of tfrecord files.
 
     :param tfrecords: list of tfrecords filepaths.
     :param data_fields: list of data fields to be extracted from the tfrecords.
     :param label_map: dict, map between class name and integer value
-    :param filt:
+    :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
+    examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
+    two element list that defines the interval of acceptable values
+    :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
     :return:
         data: dict, each key value pair is a list of values for a specific data field
     """
@@ -693,11 +714,49 @@ def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None):
         data['selected_idxs'] = []
 
     for tfrecord in tfrecords:
-        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt=filt)
+        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt=filt, coupled=coupled)
         for field in data_aux:
             data[field].extend(data_aux[field])
 
     return data
+
+
+def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_filt_args=None):
+    """ Create filtered tfrecord from a source tfrecord file.
+
+    :param: src_tfrecord:
+    :param save_dir: str, directory in which the new tfrecords are saved
+    :param filt: dict, containing as keys the fields used to filter the examples. For 'label', 'kepid' and 'tce_n' the
+    values should be a list; for the other data_fields, it should be a two element list that defines the interval of
+    acceptable values
+    :param append_name: str, string added to the name of the new filtered tfrecord
+    :param kw_filt_args: dict, keyword parameters for function get_data_from_tfrecord
+    :return:
+    """
+
+    if kw_filt_args is None:
+        kw_filt_args = {}
+
+    # get boolean indexes for the examples in the tfrecord file
+    filt_idx = get_data_from_tfrecord(src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args)
+
+    # tfrecord destination filepath
+    dest_tfrecord = save_dir + src_tfrecord.split['/'][-1] + append_name
+
+    # write new tfrecord
+    with tf.python_io.TFRecordWriter(dest_tfrecord) as writer:
+        # create iterator for source tfrecord 
+        record_iterator = tf.python_io.tf_record_iterator(path=src_tfrecord)
+        # go over the examples in the source tfrecord
+        for i, string_record in enumerate(record_iterator):
+            if not filt_idx[i]:  # filter out examples
+                continue
+
+            # add example to the new tfrecord
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+            if example is not None:
+                writer.write(example.SerializeToString())
 
 
 if __name__ == '__main__':
@@ -709,9 +768,9 @@ if __name__ == '__main__':
     multi_class = False
     satellite = 'kepler'
     label_map = label_map[satellite][multi_class]
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
-    nsamples = get_num_samples(label_map, tfrec_dir, ['train', 'test', 'val'])
-    print(nsamples)
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
+    # nsamples = get_num_samples(label_map, tfrec_dir, ['predict'])
+    # print(nsamples)
 
     # assert that there are no repeated examples in the datasets based on KeplerID and TCE number
     # multi_class = False
@@ -719,10 +778,19 @@ if __name__ == '__main__':
     # label_map = label_map[satellite][multi_class]
     # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
     tfrecords = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir)]
-    data_fields = ['kepid', 'tce_n']
+    data_fields = ['kepid', 'tce_period', 'tce_duration', 'global_view', 'local_view', 'MES', 'epoch', 'label']
     data_dict = get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None)
-    tces = []
-    for i in range(len(data_dict['kepid'])):
-        tces.append('{}_{}'.format(data_dict['kepid'][i], data_dict['tce_n'][i]))
-    unique_tces = np.unique(tces)
-    print(len(unique_tces), len(data_dict['kepid']))
+    # tces = []
+    # for i in range(len(data_dict['kepid'])):
+    #     tces.append('{}_{}'.format(data_dict['kepid'][i], data_dict['tce_n'][i]))
+    # unique_tces = np.unique(tces)
+    # print(len(unique_tces), len(data_dict['kepid']))
+    #
+    # # create new tfrecord files by filtering source tfrecord files
+    # filt_data = np.load('').item()
+    # save_dir = ''
+    # filt_dataset_name = ''
+    # add_params = {'coupled': True}
+    # for tfrec in os.list_dir(tfrec_dir):
+    #     create_filtered_tfrecord(os.path.join(tfrec_dir, tfrec), save_dir, filt, append_name=filt_dataset_name, kw_filt_args=add_params)
+

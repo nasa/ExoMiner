@@ -36,7 +36,7 @@ class Config:
     gap_with_confidence_level = False  # Gap transits in lightcurve correponding to other TCE's only if highly confident other TCE is planet?
     gap_confidence_level = 0.75
 
-    whitened = True  # Use pre-whitened time series as source?
+    whitened = False  # Use pre-whitened time series as source?
     gap_imputed = False  # impute gaps (if gapped) with normally distributed random noise?
 
     use_tps_ephem = False  # Use TPS output ephemeris to phase phold data? (as opposed to DV ephemeris output)

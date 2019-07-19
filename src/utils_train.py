@@ -1,5 +1,5 @@
 """
-Utility functions for the TensorFlow estimator.
+Utility functions used during training for the TensorFlow custom estimator.
 """
 
 # 3rd party
