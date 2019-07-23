@@ -39,7 +39,7 @@ def add_default_missing_params(config):
     return config
 
 
-def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config):
+def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config):
 
     # add parameters related to the dataset used - kepler/tess, binary/multi class., labels' map, centroid data,
     # CE weights,...
@@ -48,6 +48,7 @@ def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config):
     config['label_map'] = label_map[satellite][multi_class]
     config['ce_weights'], config['n_train_examples'] = get_ce_weights(config['label_map'], tfrec_dir)
     config['centr_flag'] = centr_flag
+    config['use_kepler_ce'] = use_kepler_ce
 
     return config
 

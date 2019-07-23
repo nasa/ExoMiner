@@ -70,7 +70,7 @@ class Config:
     output_dir = os.path.join(w_dir, output_dir)
 
     if satellite.startswith('kepler'):
-        input_tce_csv_file = os.path.join(w_dir, "dr25_tce_upd_label.csv")
+        input_tce_csv_file = '/dr25_tce_upd_label.csv'  # os.path.join(w_dir, "dr25_tce_upd_label.csv")
         lc_data_dir = '/home6/msaragoc/work_dir/data/PDC_timeseries/DR25/pdc-tce-time-series-fits'  # "/nobackupp2/lswilken/dr_25_all"
     elif satellite == 'tess':
         lc_str = 'lc_init_white' if whitened else 'lc_init'
@@ -169,10 +169,12 @@ def _process_file_shard(tce_table, file_name, eph_table):
 
 def get_kepler_tce_table(config):
 
-    eph_savstr = config.w_dir + '/DR25_readouts'
+    eph_savstr = '/DR25_readouts/DR25_readout_table'  # config.w_dir + '/DR25_readouts'
+    whitened_dir = ''
+
     eph_table = None
     if config.gapped:
-        with open(eph_savstr + '/DR25_readout_table', 'rb') as fp:
+        with open(eph_savstr, 'rb') as fp:
             eph_table = pickle.load(fp)
 
     # Read CSV file of Kepler KOIs.
@@ -211,9 +213,9 @@ def get_kepler_tce_table(config):
         # load whitened flux time series and respective cadences
         if config.whitened:
             # get filepaths for the flux and cadences
-            flux_files = [i for i in os.listdir(eph_savstr) if i.startswith('DR25_readout_flux')
+            flux_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_flux')
                           and not i.endswith('(copy)')]
-            time_files = [i for i in os.listdir(eph_savstr) if i.startswith('DR25_readout_time')
+            time_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_time')
                           and not i.endswith('(copy)')]
 
             # create global variables so that the data are available in other functions without needing to pass it as argument
@@ -224,7 +226,7 @@ def get_kepler_tce_table(config):
             flux_import, time_import = {}, {}
             # flux time series
             for file in flux_files:
-                with open(os.path.join(eph_savstr, file), 'rb') as fp:
+                with open(os.path.join(whitened_dir, file), 'rb') as fp:
                     flux_import_i = pickle.load(fp)
 
                 # remove flux time series pertaining to Kepler IDs that are not in the TCE table
@@ -241,7 +243,7 @@ def get_kepler_tce_table(config):
 
             # cadences
             for file in time_files:
-                with open(os.path.join(eph_savstr, file), 'rb') as fp:
+                with open(os.path.join(whitened_dir, file), 'rb') as fp:
                     time_import_i = pickle.load(fp)
 
                 remove_kepids = []

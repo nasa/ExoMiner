@@ -487,6 +487,8 @@ def get_ce_weights(label_map, tfrec_dir):
     # takes into account samples from the validation and train tfrecords???
     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
                  if not (file.startswith('test') or file.startswith('predict'))]
+    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
+                 if file.startswith('train')]
 
     label_vec, example = [], tf.train.Example()
     # n_train = 0

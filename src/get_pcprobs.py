@@ -148,7 +148,7 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
 
     if not inference_only:
         if 'label' not in fields:
-            fields += 'label'
+            fields += ['label']
 
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
     for tfrec_file in os.listdir(tfrec_dir):
@@ -239,8 +239,8 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
             preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_dataset[dataset])
 
             res[dataset] = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec,
-                            'Threshold': threshold, 'Number of models': len(model_filenames), 'PR AUC': pr_auc, 'FPR': fpr, 'TPR': tpr,
-                            'Prec thr': preroc, 'Rec thr': recroc}
+                            'Threshold': threshold, 'Number of models': len(model_filenames), 'PR AUC': pr_auc,
+                            'FPR': fpr, 'TPR': tpr, 'Prec thr': preroc, 'Rec thr': recroc}
 
     # save results in a numpy file
     if not inference_only:
@@ -318,15 +318,17 @@ if __name__ == "__main__":
 
     threshold = 0.5  # threshold on binary classification
     multi_class = False
-    use_kepler_ce = False
+    use_kepler_ce = True
     centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
+    # set to None to not filter any data in the datasets
     filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
     # cmmn_kepids.npy').item()
 
     # load best config from HPO study
     if config is None:
+        # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
         res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
                                                      '_{}'.format(study)
                                                      )
@@ -342,7 +344,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/models'  # + '/100_epochs/models'
+    models_path = paths.pathtrainedmodels + study + '/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'
@@ -351,7 +353,7 @@ if __name__ == "__main__":
         os.mkdir(pathsaveres)
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)

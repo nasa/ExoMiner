@@ -384,7 +384,7 @@ if __name__ == '__main__':
     n_models = 10  # number of models in the ensemble
     n_epochs = 300
     multi_class = False
-    use_kepler_ce = False
+    use_kepler_ce = True
     centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
@@ -418,7 +418,7 @@ if __name__ == '__main__':
         os.mkdir(save_path + '/models/')
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)

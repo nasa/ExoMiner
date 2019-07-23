@@ -141,11 +141,12 @@ def _process_file_shard(tce_table, file_name, eph_table):
 
 def get_kepler_tce_table(config):
 
-    eph_savstr = config.w_dir + '/DR25_readouts'
+    eph_savstr = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'  # config.w_dir + '/DR25_readouts'
+    whitened_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/DR25_readouts'
 
     eph_table = None
     if config.gapped:  # get the ephemeris table for the gapped time series
-        with open(eph_savstr + '/DR25_readout_table', 'rb') as fp:
+        with open(eph_savstr, 'rb') as fp:
             eph_table = pickle.load(fp)
 
     _LABEL_COLUMN = "av_training_set"
@@ -201,9 +202,9 @@ def get_kepler_tce_table(config):
 
     else:
         if config.whitened:  # get flux and cadence time series for the whitened data
-            flux_files = [i for i in os.listdir(eph_savstr) if i.startswith('DR25_readout_flux')
+            flux_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_flux')
                           and not i.endswith('(copy)')]
-            time_files = [i for i in os.listdir(eph_savstr) if i.startswith('DR25_readout_time')
+            time_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_time')
                           and not i.endswith('(copy)')]
 
             # print('doing one quarter of all tces')
@@ -213,10 +214,10 @@ def get_kepler_tce_table(config):
             flux_import, time_import = {}, {}
 
             for file in flux_files:  # [:int(len(flux_files)/4)]
-                with open(os.path.join(eph_savstr, file), 'rb') as fp:
+                with open(os.path.join(whitened_dir, file), 'rb') as fp:
                     flux_import.update(pickle.load(fp))
             for file in time_files:  # [:int(len(time_files)/4)]
-                with open(os.path.join(eph_savstr, file), 'rb') as fp:
+                with open(os.path.join(whitened_dir, file), 'rb') as fp:
                     time_import.update(pickle.load(fp))
 
     return tce_table, eph_table
