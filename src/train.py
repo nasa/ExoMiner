@@ -2,7 +2,8 @@
 Train models using a given configuration obtained on a hyperparameter optimization study.
 
 TODO: allocate several models to the same GPU
-      avoid that more than one process writes to the res_eval.txt file when doing parallelization
+      figure out the logging
+      save configuration used in each model's folder as a json file
 
 """
 
@@ -11,7 +12,7 @@ import sys
 sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 # import logging
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 # tf.logging.set_verbosity(tf.logging.ERROR)
@@ -173,7 +174,8 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, filter_data=None):
+def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, filter_data=None,
+             mpi_rank=None, sess_config=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -186,6 +188,13 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     If False, gets the maximum value
     :param patience: int, number of epochs to wait before early stopping. If it is set to -1, early stopping is not
     used
+    :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
+    elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
+    values should be a list; for the other data_fields, it should be a two element list that defines the interval of
+    acceptable values
+    :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
+    training multiple models in multiple GPUs in parallel
+    :param sess_config: TensorFlow ConfigProto
     :return:
     """
 
@@ -203,11 +212,12 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
-    config_sess = None  # tf.ConfigProto(log_device_placement=False)
+    if mpi_rank is not None:
+        sess_config.gpu_options.visible_device_list = str(mpi_rank % 4)
 
     classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
-                                        config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1 else patience,
-                                                                      session_config=config_sess),
+                                        config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
+                                        else patience, session_config=sess_config),
                                         model_dir=get_model_dir(model_dir)
                                         )
 
@@ -352,7 +362,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
 if __name__ == '__main__':
 
-    # # for MPI multiprocessing
+    # # uncomment for MPI multiprocessing
     # rank = MPI.COMM_WORLD.rank
     # size = MPI.COMM_WORLD.size
     # print('Rank={}/{}'.format(rank, size - 1))
@@ -360,8 +370,10 @@ if __name__ == '__main__':
     # if rank != 0:
     #     time.sleep(2)
 
-    tf.logging.set_verbosity(tf.logging.ERROR)
+    # tf.logging.set_verbosity(tf.logging.ERROR)
     # tf.logging.set_verbosity(tf.logging.INFO)
+
+    sess_config = tf.ConfigProto(log_device_placement=False)
 
     # Shallue's best configuration
     shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
@@ -374,17 +386,17 @@ if __name__ == '__main__':
     filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
     # cmmn_kepids_spline-whitened.npy').item()
 
-    study = 'study_bohb_dr25_tcert_spline2'
+    study = 'bohb_dr25tcert_whitened4'
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
 
     # tfrecord files directory
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
+    tfrec_dir = paths.tfrec_dir['DR25']['whitened']['TCERT']
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 300
     multi_class = False
-    use_kepler_ce = True
+    use_kepler_ce = False
     centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
@@ -401,10 +413,12 @@ if __name__ == '__main__':
         res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
                                                      '_' + study
                                                      )
-        # res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
+        # get ID to config mapping
         id2config = res.get_id2config_mapping()
+        # best config - incumbent
         incumbent = res.get_incumbent_id()
         config = id2config[incumbent]['config']
+        # select a specific config based on its ID
         # config = id2config[(8, 0, 3)]['config']
 
     print('Selected configuration: ', config)
@@ -424,6 +438,7 @@ if __name__ == '__main__':
     config = src.config.add_default_missing_params(config=config)
     print('Configuration used: ', config)
 
+    # comment for multiprocessing using MPI
     for item in range(n_models):
         print('Training model %i out of %i on %i epochs...' % (item + 1, n_models, n_epochs))
         run_main(config=config,
@@ -434,8 +449,10 @@ if __name__ == '__main__':
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
                  patience=patience,
-                 filter_data=filter_data)
+                 filter_data=filter_data,
+                 sess_config=sess_config)
 
+    # # uncomment for multiprocessing using MPI
     # print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
     # run_main(config=config,
     #          n_epochs=n_epochs,
@@ -445,4 +462,6 @@ if __name__ == '__main__':
     #          opt_metric=opt_metric,
     #          min_optmetric=min_optmetric,
     #          patience=patience,
-    #          filter_data=filter_data)
+    #          filter_data=filter_data,
+    #          sess_config=sess_config,
+    #          mpi_rank=rank)

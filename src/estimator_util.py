@@ -90,14 +90,14 @@ class InputFn(object):
             output = {'time_series_features': {}}
             if self.filter_data is not None:
                 output['filt_features'] = {}
-            label_id = tf.to_int32(0)
+            label_id = tf.cast(0, dtype=tf.int32)
             for feature_name, value in parsed_features.items():
 
                 # label
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
                     # Ensure that the label_id is non negative to verify a successful hash map lookup.
-                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.to_int32(0)),
+                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
                                                    ["Unknown label string:", value])
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
@@ -216,7 +216,7 @@ class ModelFn(object):
         if model.output_size == 1:
             assert model.predictions.shape[1] == 1
             predictions = tf.squeeze(model.predictions, axis=[1])
-            predicted_labels = tf.to_int32(tf.greater(predictions, 0.5), name="predicted_labels")
+            predicted_labels = tf.cast(tf.greater(predictions, 0.5), name="predicted_labels", dtype=tf.int32)
         else:
             predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
             predictions = model.predictions
@@ -247,8 +247,8 @@ class ModelFn(object):
         def _count_condition(name, labels_value, predicted_value):
             """Creates a counter for given values of predictions and labels."""
             count = _metric_variable(name, [], tf.float32)
-            is_equal = tf.to_float(tf.logical_and(tf.equal(labels, labels_value),
-                                                  tf.equal(predicted_labels, predicted_value)))
+            is_equal = tf.cast(tf.logical_and(tf.equal(labels, labels_value),
+                                                  tf.equal(predicted_labels, predicted_value)), dtype=tf.float32)
             update_op = tf.assign_add(count, tf.reduce_sum(tf.ones_like(model.labels, dtype=tf.float32) * is_equal))
             return count.read_value(), update_op
 
@@ -358,17 +358,19 @@ class CNN1dModel(object):
                               'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
+                    # net = tf.keras.layers.Conv1D(**kwargs)
                     net = tf.layers.conv1d(**kwargs)
-                    # net = tf.nn.leaky_relu(net, alpha=0.01)
                     net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
-                    # net = tf.nn.relu(net)
 
                     for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
+                        # net = tf.keras.layers.Conv1D(**kwargs)
                         net = tf.layers.conv1d(**kwargs)
-                        net = tf.nn.leaky_relu(net, alpha=0.01)
-                        net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
-                        # net = tf.nn.relu(net)
+                        net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' \
+                            else tf.nn.relu(net)
 
+
+                    # net = tf.keras.layers.MaxPooling1D(inputs=net, pool_size=pool_size,
+                    # strides=self.config['pool_stride'])
                     net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
 
                     if self.config['batch_norm']:
@@ -406,17 +408,23 @@ class CNN1dModel(object):
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
                 if self.config['decay_rate'] is not None:
+                    # net = tf.keras.layers.Dense(inputs=net, units=fc_neurons,
+                    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config['decay_rate']))
                     net = tf.layers.dense(inputs=net, units=fc_neurons,
-                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config['decay_rate']))
+                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                                                    self.config['decay_rate']))
                 else:
+                    # net = tf.keras.layers.Dense(inputs=net, units=fc_neurons)
                     net = tf.layers.dense(inputs=net, units=fc_neurons)
-                # net = tf.nn.leaky_relu(net, alpha=0.01)
+
                 net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
-                # net = tf.nn.relu(net)
+
+                # net = tf.keras.layers.Dropout(net, self.config['dropout_rate'], training=self.is_training)
                 net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
 
             tf.identity(net, "final")
 
+            # logits = tf.keras.layers.Dense(inputs=net, units=self.output_size, name="logits")
             logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
 
         self.logits = logits
@@ -439,10 +447,10 @@ class CNN1dModel(object):
 
     def build_losses(self):
         weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
-                   else tf.gather(self.ce_weights, tf.to_int32(self.labels)))
+                   else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
 
         if self.output_size == 1:
-            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.to_float(self.labels),
+            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
                                                                    logits=tf.squeeze(self.logits, [1]))
         else:
             batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)

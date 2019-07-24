@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25_tcert_whitened1'
+study = 'bohb_dr25tcert_whitened4'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -37,7 +37,7 @@ rankmetric = 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
 metrics_plot = ['test recall', 'test precision']
 # minimum value of top configurations (used also for Parallel Coordinates Visualization)
-min_val = 0.96
+min_val = 0.90
 
 # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
 res = logged_results_to_HBS_result(paths.path_hpoconfigs + study,
@@ -346,7 +346,10 @@ if ensemble_study:
     tinc_hpolossdev = []
 for run in timesorted_allruns:
     cum_budget += int(run.budget) * nmodels
+    # if cum_budget > 128673:
+    #     break
     if run.loss < bconfig_loss:
+        print('Best config so far: {}'. format(run.config_id))
         cum_budget_vec.append(cum_budget)
         bconfig_loss = run.loss
 
@@ -475,11 +478,11 @@ for study in studies:
     bconfig_loss, cum_budget = np.inf, 0
     timestamps, cum_budget_vec, tinc_hpoloss, tinc_hpolossdev = [], [], [], []
     for run in timesorted_allruns:
-        if cum_budget + run.budget * nmodels > lim_totalbudget:
+        if cum_budget + int(run.budget) * nmodels > lim_totalbudget:
             print('break {}'.format(study))
             break
 
-        cum_budget += run.budget * nmodels
+        cum_budget += int(run.budget) * nmodels
         if run.loss < bconfig_loss:
             timestamps.append(run.time_stamps['finished'])
             # tinc_hpoloss.append(run.loss)
@@ -535,4 +538,3 @@ ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')
 ax.grid(True, which='both')
 ax.legend()
-

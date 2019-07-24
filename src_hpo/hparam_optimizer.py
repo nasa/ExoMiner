@@ -14,6 +14,10 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 # logging.propagate = False
 
+import paths
+if 'home6' in paths.path_hpoconfigs:
+    import matplotlib; matplotlib.use('agg')
+
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres

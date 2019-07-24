@@ -4,7 +4,7 @@ Utility functions for the hyperparameter optimizer script.
 
 # 3rd party
 import os
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 import pickle
 # import statsmodels.api as sm

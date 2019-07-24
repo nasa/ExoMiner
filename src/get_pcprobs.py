@@ -5,6 +5,7 @@ TODO: add multiprocessing option, maybe from inside Python, but that would only 
     option would be to have two scripts: one that tests the models individually, the other that gathers their
     predictions into the ensemble and generates the results for it.
     does the code work for only one model?
+    load config from json file in the model's folder
 """
 
 # 3rd party
@@ -263,14 +264,14 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
                         res_file.write('{}: {}\n'.format(metric, res[dataset][metric]))
                 res_file.write('\n')
 
-    print('#' * 100)
-    print('Performance ensemble (nmodels={})'.format(len(model_filenames)))
-    for dataset in res:
-        print(dataset)
-        for metric in res[dataset]:
-            if metric not in ['Prec thr', 'Rec thr', 'TPR', 'FPR']:
-                print('{}: {}'.format(metric, res[dataset][metric]))
-    print('#' * 100)
+        print('#' * 100)
+        print('Performance ensemble (nmodels={})'.format(len(model_filenames)))
+        for dataset in res:
+            print(dataset)
+            for metric in res[dataset]:
+                if metric not in ['Prec thr', 'Rec thr', 'TPR', 'FPR']:
+                    print('{}: {}'.format(metric, res[dataset][metric]))
+        print('#' * 100)
 
     if generate_csv_pred:
 
@@ -301,20 +302,25 @@ if __name__ == "__main__":
 
     ######### SCRIPT PARAMETERS #############################################
 
+    # study folder name
     study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
     config = None
 
     # load test data
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT_180k']
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
-    datasets = ['predict']
+    # datasets used; choose from 'train', 'val', 'test', 'predict'
+    datasets = ['train', 'val', 'test']
 
-    fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
+    #
+    fields = None  # ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
 
-    inference_only = True
+    # perform only inference
+    inference_only = False
 
-    generate_csv_pred = True
+    # generate prediction ranking when inferencing
+    generate_csv_pred = False
 
     threshold = 0.5  # threshold on binary classification
     multi_class = False
@@ -344,7 +350,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/models'
+    models_path = paths.pathtrainedmodels + study + '/ES-weightedloss_300-p20_34k' + '/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'
