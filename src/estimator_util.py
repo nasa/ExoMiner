@@ -1,5 +1,8 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
+
+# TODO: update model to use Keras API instead of the Estimator API
+
 """
 
 # 3rd party
@@ -367,7 +370,6 @@ class CNN1dModel(object):
                         net = tf.layers.conv1d(**kwargs)
                         net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' \
                             else tf.nn.relu(net)
-
 
                     # net = tf.keras.layers.MaxPooling1D(inputs=net, pool_size=pool_size,
                     # strides=self.config['pool_stride'])
