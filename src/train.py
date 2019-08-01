@@ -33,6 +33,7 @@ from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_
 import src.config
 from src_hpo import utils_hpo
 from src import utils_train
+import baseline_configs
 
 
 def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
@@ -381,11 +382,11 @@ if __name__ == '__main__':
 
     sess_config = tf.ConfigProto(log_device_placement=False)
 
-    # Shallue's best configuration
-    shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
-                            'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
-                            'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
+    # # Shallue's best configuration
+    # shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
+    #                         'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
+    #                         'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
+    #                         'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     ######### SCRIPT PARAMETERS #############################################
 
@@ -470,6 +471,7 @@ if __name__ == '__main__':
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
                  patience=patience,
+                 features_set=features_set,
                  filter_data=filter_data,
                  sess_config=sess_config)
 
@@ -483,6 +485,7 @@ if __name__ == '__main__':
     #          opt_metric=opt_metric,
     #          min_optmetric=min_optmetric,
     #          patience=patience,
+    #          features_set = features_set,
     #          filter_data=filter_data,
     #          sess_config=sess_config,
     #          mpi_rank=rank)

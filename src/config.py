@@ -23,6 +23,12 @@ label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary clas
 
 
 def add_default_missing_params(config):
+    """ Adds parameters with default values that were not optimized in the HPO study.
+
+    :param config: dict, model parameters tested in the HPO study
+    :return:
+        config: dict, with additional parameters that were not optimized in the HPO study
+    """
 
     # check parameters not optimized by the HPO study
     default_parameters = {'non_lin_fn': False,
@@ -40,9 +46,19 @@ def add_default_missing_params(config):
 
 
 def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config):
+    """ Adds parameters related to the dataset used - kepler/tess, binary/multi class., labels' map, centroid data,
+    CE weights,...
 
-    # add parameters related to the dataset used - kepler/tess, binary/multi class., labels' map, centroid data,
-    # CE weights,...
+    :param tfrec_dir: str, directory for the tfrecords dataset
+    :param satellite: str, satellite used. Either 'kepler' or 'tess'
+    :param multi_class: bool, True for multiclass, binary classification otherwise (PC vs Non-PC)
+    :param centr_flag: bool, if True uses centroid data
+    :param use_kepler_ce: bool, if True, uses weighted CE
+    :param config: dict, model parameters and hyperparameters
+    :return:
+        config: dict, now with parameters related to the dataset used
+    """
+
     config['satellite'] = satellite
     config['multi_class'] = multi_class
     config['label_map'] = label_map[satellite][multi_class]
@@ -51,73 +67,3 @@ def add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler
     config['use_kepler_ce'] = use_kepler_ce
 
     return config
-
-
-# class Config(object):
-#
-#     def __init__(self, n_epochs, batch_size, conv_ls_per_block, dropout_rate, init_conv_filters, init_fc_neurons,
-#                  kernel_size, kernel_stride, lr, num_fc_layers, num_glob_conv_blocks, num_loc_conv_blocks, optimizer,
-#                  pool_size_glob, pool_size_loc, pool_stride, decay_rate=None, model_dir_path=None, **kwargs):
-#
-#         if 'sgd_momentum' in kwargs:
-#             self.sgd_momentum = kwargs['sgd_momentum']
-#         else:
-#             self.sgd_momentum = None
-#         self.batch_size = batch_size
-#         self.conv_ls_per_block = conv_ls_per_block
-#         self.decay_rate = decay_rate
-#         self.dropout_rate = dropout_rate
-#         self.init_conv_filters = init_conv_filters
-#         self.init_fc_neurons = init_fc_neurons
-#         self.kernel_size = kernel_size
-#         self.kernel_stride = kernel_stride
-#         self.lr = lr
-#         self.num_fc_layers = num_fc_layers
-#         self.num_glob_conv_blocks = num_glob_conv_blocks
-#         self.num_loc_conv_blocks = num_loc_conv_blocks
-#         self.optimizer = optimizer
-#         self.pool_size_glob = pool_size_glob
-#         self.pool_size_loc = pool_size_loc
-#         self.pool_stride = pool_stride
-#
-#         self.n_epochs = n_epochs
-#
-#         self.multi_class = False
-#         self.force_softmax = False  # Use softmax in case of binary classification?
-#         self.use_kepler_ce = False  # If kepler model, use weighted cross entropy?
-#
-#         self.label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary classification
-#                                        "NTP": 0,
-#                                        "AFP": 2},
-#                                      False: {'PC': 1,
-#                                         'NTP': 0,
-#                                         'AFP': 0}},
-#                          'tess': {True: {"PC": 1,
-#                                      "NTP": 0,
-#                                      "EB": 2,
-#                                      "BEB": 2},
-#                                   False: {"PC": 1,
-#                                       "NTP": 0,
-#                                       "EB": 0,
-#                                       "BEB": 0}}}
-#
-#         # if 'nobackup' not in os.path.dirname(__file__):
-#         #     self.tfrec_dir = '/home/msaragoc/Kepler_planet_finder/tfrecord_kepler'
-#         # else:
-#         self.tfrec_dir = paths.tfrec_dir
-#
-#         # For self-training
-#         # tfrecord_dir_tpsrejects = '/data5/tess_project/classifiers_Laurent/Kepler_classifier/Astronet_Models/tfrecords/kepler_rejects'
-#
-#         ######  End of input section #######
-#
-#         self.satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
-#         self.label_map = self.label_map[self.satellite][self.multi_class]
-#         self.ce_weights, self.centr_flag, self.n_train_examples = get_ce_weights(self.label_map, self.tfrec_dir)
-#
-#         # self.model_dir_custom = get_model_dir()
-#         self.model_dir_path = model_dir_path
-#         if self.model_dir_path is not None:
-#             self.model_dir_custom = get_model_dir(self.model_dir_path)
-#         else:
-#             self.model_dir_custom = None

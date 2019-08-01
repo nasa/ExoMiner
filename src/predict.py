@@ -24,6 +24,7 @@ from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrec
 import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
+import baseline_configs
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
@@ -301,11 +302,11 @@ if __name__ == "__main__":
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    # load Shallue's best config
-    shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-                            'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
-                            'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
-                            'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
+    # # load Shallue's best config
+    # shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
+    #                         'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
+    #                         'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
+    #                         'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
 
     ######### SCRIPT PARAMETERS #############################################
 
