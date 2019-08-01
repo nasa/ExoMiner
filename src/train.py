@@ -4,6 +4,7 @@ Train models using a given configuration obtained on a hyperparameter optimizati
 TODO: allocate several models to the same GPU
       figure out the logging
       save configuration used in each model's folder as a json file
+      save features used as a dict in a npy file
 
 """
 
@@ -21,6 +22,7 @@ import tensorflow as tf
 import numpy as np
 from mpi4py import MPI
 import time
+import itertools
 
 # local
 import paths
@@ -174,8 +176,8 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, filter_data=None,
-             mpi_rank=None, sess_config=None):
+def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, features_set=None,
+             filter_data=None, mpi_rank=None, sess_config=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -220,6 +222,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                         else patience, session_config=sess_config),
                                         model_dir=get_model_dir(model_dir)
                                         )
+
+    # save features and config used for this model
+    np.save('{}/features_set'.format(classifier.model_dir), features_set)
+    np.save('{}/config'.format(classifier.model_dir), config)
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
@@ -383,15 +389,30 @@ if __name__ == '__main__':
 
     ######### SCRIPT PARAMETERS #############################################
 
-    filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
-    # cmmn_kepids_spline-whitened.npy').item()
-
     study = 'bohb_dr25tcert_whitened4'
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
 
     # tfrecord files directory
     tfrec_dir = paths.tfrec_dir['DR25']['whitened']['TCERT']
+
+    # features to be extracted from the dataset
+    # views = ['global_view', 'local_view']
+    # channels_centr = ['', '_centr']
+    # channels_oddeven = ['', '_odd', '_even']
+    # features_names = [''.join(feature_name_tuple)
+    #                   for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
+    # example
+    features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+                    'local_view': {'dim': 201, 'dtype': tf.float32}}
+
+    # features used to filter the dataset
+    filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
+    # cmmn_kepids_spline-whitened.npy').item()
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 300

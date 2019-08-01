@@ -351,7 +351,7 @@ def main(_):
     for i in range(config.num_train_shards):
         start = boundaries[i]
         end = boundaries[i + 1]
-        # filename = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
+        # filedicname = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
         # file_shards.append((train_tces[start:end], filename, eph_table))
         filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
         file_shards.append((pred_tces[start:end], filename, eph_table))

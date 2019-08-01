@@ -1,7 +1,8 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-# TODO: update model to use Keras API instead of the Estimator API
+# TODO: update model to use Keras API instead of the Estimator API?
+        remove centr_flag (only there for backward compatibility)
 
 """
 
@@ -16,28 +17,51 @@ import numpy as np
 
 
 class InputFn(object):
-    """Class that acts as a callable input function for Estimator train / eval."""
+    """Class that acts as a callable input function for the Estimator."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, centr_flag=False, filter_data=None):
+    def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False, filter_data=None):
         """Initializes the input function.
 
-        Args:
-            file_pattern: File pattern matching input TFRecord files, e.g.
-            "/tmp/train-?????-of-00100". May also be a comma-separated list of file patterns.
-            mode: A tf.estimator.ModeKeys.
+        :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
+        May also be a comma-separated list of file patterns.
+        :param batch_size: int, batch size
+        :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
+        :param label_map:
+        :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
+        value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
+        (can the dimension and data type be inferred from the tensors in the dataset?)
+        :param filter_data:
+        :return:
         """
 
         self._file_pattern = file_pattern
         self._mode = mode
         self.batch_size = batch_size
         self.label_map = label_map
-        self.centr_flag = centr_flag
+        if features_set is None:
+            # by default, assume there are global and local views
+            self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+                                'local_view': {'dim': 201, 'dtype': tf.float32}}
+            if self.centr_flag:
+                features_set['global_view_centr'] = {'dim': 2001, 'dtype': tf.float32}
+                features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}
+        else:
+            self.features_set = features_set
         self.filter_data = filter_data
+
+        self.centr_flag = centr_flag
+
         # if self._mode == tf.estimator.ModeKeys.PREDICT and pred_feat is not None:
         #     self.pred_feat = pred_feat
 
     def __call__(self, config, params):
-        """Builds the input pipeline."""
+        """Builds the input pipeline.
+
+        :param config: dict, parameters and hyperparameters for the model
+        :param params:
+        :return:
+            a tf.data.Dataset with features and labels
+        """
 
         reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
 
@@ -62,15 +86,21 @@ class InputFn(object):
         tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
         def _example_parser(serialized_example):
-            """Parses a single tf.Example into feature and label tensors."""
+            """Parses a single tf.Example into feature and label tensors.
 
-            feature_size_dict = {'global_view': 2001, 'local_view': 201}
+            :param serialized_example: a single tf.Example
+            :return:
+                tuple, feature and label tensors
+            """
 
-            if self.centr_flag:
-                feature_size_dict = {**feature_size_dict, 'global_view_centr': 2001, 'local_view_centr': 201}
+            # data_fields = {feature_name: tf.FixedLenFeature([length], tf.float32)
+            #                for feature_name, length in feature_size_dict.items()}
 
-            data_fields = {feature_name: tf.FixedLenFeature([length], tf.float32)
-                           for feature_name, length in feature_size_dict.items()}
+            # IT MAKES THE CENTR_FLAG IRRELEVANT
+            data_fields = {feature_name: tf.FixedLenFeature([feature_info['dim']], feature_info['dtype'])
+                           for feature_name, feature_info in self.features_set.items()}
+
+            # get labels if in TRAIN or PREDICT mode
             if include_labels:
                 data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
 
@@ -82,6 +112,7 @@ class InputFn(object):
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
 
+            # data augmentation - time axis flipping
             if reverse_time_series_prob > 0:
                 # Randomly reverse time series features with probability
                 # reverse_time_series_prob.
@@ -124,6 +155,13 @@ class InputFn(object):
             return output, label_id
 
         def filt_func(x, y):
+            """ Utility function used to filter examples from the dataset based on their Kepler ID + TCE planet number
+
+            :param x: feature tensor
+            :param y: label tensor
+            :return:
+                boolean tensor, True for valid examples, False otherwise
+            """
 
             z1 = tf.as_string(x['filt_features']['kepid'])
             z_ = tf.convert_to_tensor('_')
@@ -133,6 +171,13 @@ class InputFn(object):
             return tf.math.reduce_any(tf.math.equal(zj, tf.convert_to_tensor(self.filter_data['kepid+tce_n'])))
 
         def get_features_and_labels(x, y):
+            """ Utility function used to remove the features used to filter the dataset.
+
+            :param x: feature tensor
+            :param y: label tensor
+            :return:
+                tuple, dict with features tensor, and label tensor
+            """
 
             return {'time_series_features': x['time_series_features']}, y
 
@@ -169,17 +214,38 @@ class InputFn(object):
 
 
 class ModelFn(object):
+    """Class that acts as a callable model function for the Estimator."""
+
     def __init__(self, model_class, config):
+        """ Initialized the model function.
+
+        :param model_class: type of model
+        :param config: dict, parameters and hyperparameters for the model
+        :return:
+        """
+
         self._model_class = model_class
         self._base_config = config
 
     def __call__(self, features, labels, mode):
+        """
+
+        :param features: feature tensor
+        :param labels: label tensor
+        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
+        :return:
+            EstimatorSpec
+        """
+
         config = copy.deepcopy(self._base_config)
+
         # initialize model instance of the class
         model = self._model_class(features, labels, config, mode)
 
+        # create train op if training mode
         train_op = self.create_train_op(model) if mode == tf.estimator.ModeKeys.TRAIN else None
 
+        # create metrics if mode is not predict
         # metrics = self.create_metrics(model)  # None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
@@ -312,10 +378,20 @@ class ModelFn(object):
 
 
 class CNN1dModel(object):
+
     def __init__(self, features, labels, config, mode):
+        """ Initializes the CNN 1D model.
+
+        :param features: feature tensor
+        :param labels: label tensor
+        :param config: dict, model configuration for its parameters and hyperparameters
+        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
+        """
+
         self.config = config
         self.mode = mode
         self.time_series_features = features['time_series_features']
+
         self.is_training = None
         self.labels = labels
         self.weights = None
@@ -334,6 +410,11 @@ class CNN1dModel(object):
         self.build()
 
     def build_cnn_layers(self):
+        """ Builds the conv columns/branches.
+
+        :return:
+            cnn_layers, dict with the different conv columns
+        """
 
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
                          'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
@@ -341,16 +422,20 @@ class CNN1dModel(object):
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' else None
 
         cnn_layers = {}
-        for name in ['global_view', 'local_view']:
-            with tf.variable_scope('ConvNet_%s' % name):
+        for view in ['global_view', 'local_view']:
+            with tf.variable_scope('ConvNet_%s' % view):
 
-                if 'global_view_centr' in self.time_series_features:
-                    net = tf.stack([self.time_series_features[name], self.time_series_features[name + '_centr']], -1)
-                else:
-                    net = tf.expand_dims(self.time_series_features[name], -1)  # [batch, length, channels]
+                # add the different time series for a view as channels
+                net = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                                if view in feature_name], -1)
 
-                n_blocks = self.config[config_mapper['blocks'][name]]
-                pool_size = self.config[config_mapper['pool_size'][name]]
+                # if 'global_view_centr' in self.time_series_features:
+                #     net = tf.stack([self.time_series_features[view], self.time_series_features[view + '_centr']], -1)
+                # else:
+                #     net = tf.expand_dims(self.time_series_features[view], -1)  # [batch, length, channels]
+
+                n_blocks = self.config[config_mapper['blocks'][view]]
+                pool_size = self.config[config_mapper['pool_size'][view]]
 
                 for conv_block_i in range(n_blocks):
                     num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
@@ -384,28 +469,47 @@ class CNN1dModel(object):
                 output_dim = net_shape[1] * net_shape[2]
                 net = tf.reshape(net, [-1, output_dim], name="flatten")
 
-            cnn_layers[name] = net
+            cnn_layers[view] = net
 
         return cnn_layers
 
-    @staticmethod
-    def connect_segments(cnn_layers):
+    # @staticmethod
+    def connect_segments(self, cnn_layers):
+        """ Connect the different conv columns/branches; also has the option to concatenate additional features
+        (stellar params for example)
+
+        :param cnn_layers: dict with the different conv columns
+        :return:
+            model before logits
+        """
 
         # Sort the hidden layers by name because the order of dictionary items is
         # nondeterministic between invocations of Python.
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
 
-        # Concatenate the hidden layers.
-        if len(time_series_hidden_layers) == 1:
-            pre_logits_concat = time_series_hidden_layers[0][1]
-        else:
+        # Concatenate the conv hidden layers.
+        if len(time_series_hidden_layers) == 1:  # only one column
+            pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+        else:  # more than one column
             pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
                                           axis=1, name="pre_logits_concat")
+
+        # concatenate stellar params
+        if 'stellar_params' in self.time_series_features:
+            pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+                                          name="pre_logits_concat")
 
         return pre_logits_concat
 
     def build_fc_layers(self, net):
+        """ Builds the FC layers
+
+        :param net: model upstream the FC layers
+        :return:
+        """
+
         with tf.variable_scope('FcNet'):
+
             for fc_layer_i in range(self.config['num_fc_layers'] - 1):
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
@@ -424,30 +528,45 @@ class CNN1dModel(object):
                 # net = tf.keras.layers.Dropout(net, self.config['dropout_rate'], training=self.is_training)
                 net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
 
-            tf.identity(net, "final")
+            # ?????????????
+            # tf.identity(net, "final")
 
+            # create output FC layer
             # logits = tf.keras.layers.Dense(inputs=net, units=self.output_size, name="logits")
             logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
 
         self.logits = logits
 
     def build(self):
+        """ Builds the model.
+
+        :return:
+        """
+
         if self.mode == tf.estimator.ModeKeys.TRAIN:
             self.is_training = tf.placeholder_with_default(True, [], "is_training")
         else:
             self.is_training = False
 
+        # create convolutional columns for local and global views
         cnn_layers = self.build_cnn_layers()
+
+        # merge columns
         net = self.connect_segments(cnn_layers)
+
+        # create FC layers
         self.build_fc_layers(net)
 
+        # transform outputs to predictions
         prediction_fn = tf.nn.softmax if self.config['multi_class'] else tf.sigmoid
         self.predictions = prediction_fn(self.logits, name="predictions")
 
+        # build loss if in TRAIN or EVAL modes
         if self.mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
             self.build_losses()
 
     def build_losses(self):
+
         weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
                    else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
 
@@ -469,7 +588,12 @@ class CNN1dModel(object):
 
 
 def get_model_dir(path):
-    """Returns a randomly named, non-existing model file folder"""
+    """Returns a randomly named, non-existing model file folder.
+
+    :param path: str, root directory for saved model directories
+    :return:
+        model_dir_custom: str, model directory
+    """
 
     def _gen_dir():
         return os.path.join(path, tempfile.mkdtemp().split('/')[-1])
@@ -563,7 +687,8 @@ def get_num_samples(label_map, tfrec_dir, datasets):
 
     n_samples = {dataset: {label: 0 for label in label_map.values()} for dataset in datasets}
 
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if any([dataset in file for dataset in datasets])]
+    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if
+                 any([dataset in file for dataset in datasets])]
 
     # label_vec, example = [], tf.train.Example()
 

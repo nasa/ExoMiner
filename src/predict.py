@@ -171,12 +171,19 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
     predictions_dataset = {dataset: [] for dataset in datasets}
     for dataset in predictions_dataset:
 
-        predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=8192,
-                                   mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                   centr_flag=config['centr_flag'])
-
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
+
+            # REMOVE CONFIG FROM THE ARGUMENTS OF THE FUNCTION
+            # config = np.load('{}/config.npy'.format(model_filename))
+            # features_set = np.load('{}/features_set.npy'.format(model_filename))
+
+            predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+                                       mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+                                       centr_flag=config['centr_flag'])
+            # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+            #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+            #                            features_set=features_set)
 
             config_sess = tf.ConfigProto(log_device_placement=False)
 
