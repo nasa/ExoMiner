@@ -9,6 +9,8 @@ TODO: add multiprocessing option, maybe from inside Python, but that would only 
 """
 
 # 3rd party
+import sys
+sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # import logging
@@ -153,13 +155,17 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
             fields += ['label']
 
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
+    if data[datasets[0]] is not None:
+        for dataset in datasets:
+            data[dataset]['selected_idxs'] = []
+
     for tfrec_file in os.listdir(tfrec_dir):
 
         dataset_idx = np.where([dataset in tfrec_file for dataset in datasets])[0][0]
         dataset = datasets[dataset_idx]
 
         aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, config['label_map'],
-                                     filt=filter_data[dataset])
+                                     filt=filter_data[dataset], coupled=True)
 
         for field in aux:
             data[dataset][field].extend(aux[field])
@@ -311,7 +317,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'study_bohb_dr25_tcert_spline2'
+    study = 'bohb_dr25tcert_spline3'
     # set configuration manually, None to load it from a HPO study
     config = None
 
@@ -332,13 +338,12 @@ if __name__ == "__main__":
 
     threshold = 0.5  # threshold on binary classification
     multi_class = False
-    use_kepler_ce = True
+    use_kepler_ce = False
     centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # set to None to not filter any data in the datasets
-    filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
-    # cmmn_kepids.npy').item()
+    filter_data = np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
 
     # load best config from HPO study
     if config is None:
@@ -351,14 +356,14 @@ if __name__ == "__main__":
         id2config = res.get_id2config_mapping()
         incumbent = res.get_incumbent_id()
         config = id2config[incumbent]['config']
-        # best_config = id2config[(13, 0, 7)]['config']
+        config = id2config[(41, 0, 0)]['config']
 
     print('Configuration loaded:', config)
 
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/ES-weightedloss_300-p20_34k' + '/models'
+    models_path = paths.pathtrainedmodels + study + '/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'

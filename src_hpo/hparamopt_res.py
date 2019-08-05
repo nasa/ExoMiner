@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_whitened4'
+study = 'bohb_dr25tcert_spline3'  # 'bohb_dr25tcert_spline_gapped'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -40,7 +40,13 @@ metrics_plot = ['test recall', 'test precision']
 min_val = 0.90
 
 # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
-res = logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+# res = logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+#                                    '_{}'.format(study)
+#                                    )
+# paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/'
+# paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/'
+res = logged_results_to_HBS_result(paths.path_hpoconfigs
+                                   + study,
                                    '_{}'.format(study)
                                    )
 

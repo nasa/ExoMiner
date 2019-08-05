@@ -19,7 +19,8 @@ import numpy as np
 class InputFn(object):
     """Class that acts as a callable input function for the Estimator."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False, filter_data=None):
+    def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False,
+                 filter_data=None):
         """Initializes the input function.
 
         :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
@@ -42,7 +43,7 @@ class InputFn(object):
             # by default, assume there are global and local views
             self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
                                 'local_view': {'dim': 201, 'dtype': tf.float32}}
-            if self.centr_flag:
+            if centr_flag:
                 features_set['global_view_centr'] = {'dim': 2001, 'dtype': tf.float32}
                 features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}
         else:
@@ -65,6 +66,7 @@ class InputFn(object):
 
         reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
 
+        # Create a HashTable mapping label strings to integer ids.
         table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
             keys=list(self.label_map.keys()),
             values=list(self.label_map.values()),
@@ -189,9 +191,9 @@ class InputFn(object):
 
         # shuffle the dataset if training or evaluating
         if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-            dataset = dataset.shuffle(1024)
+            dataset = dataset.shuffle(1024, seed=None)
 
-        # ????????
+        # do not repeat the dataset
         dataset = dataset.repeat(1)
 
         # map the example parser across the tfrecords dataset to extract the examples
@@ -207,8 +209,9 @@ class InputFn(object):
         # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size)
 
-        # prefetches batches determined by the buffer size chosen - is it needed?
-        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))  # Better to set at None?
+        # prefetches batches determined by the buffer size chosen
+        # parallelized processing in the CPU with model computations in the GPU
+        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
 
         return dataset
 
@@ -246,7 +249,6 @@ class ModelFn(object):
         train_op = self.create_train_op(model) if mode == tf.estimator.ModeKeys.TRAIN else None
 
         # create metrics if mode is not predict
-        # metrics = self.create_metrics(model)  # None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
         logging_hook = None  # if mode == tf.estimator.ModeKeys.TRAIN else None
@@ -419,55 +421,89 @@ class CNN1dModel(object):
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
                          'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
 
-        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' else None
+        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
+            else 'glorot_uniform'
 
         cnn_layers = {}
         for view in ['global_view', 'local_view']:
             with tf.variable_scope('ConvNet_%s' % view):
 
                 # add the different time series for a view as channels
-                net = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
                                 if view in feature_name], -1)
 
                 # if 'global_view_centr' in self.time_series_features:
-                #     net = tf.stack([self.time_series_features[view], self.time_series_features[view + '_centr']], -1)
+                #     input = tf.stack([self.time_series_features[view], self.time_series_features[view + '_centr']], -1)
                 # else:
-                #     net = tf.expand_dims(self.time_series_features[view], -1)  # [batch, length, channels]
+                #     input = tf.expand_dims(self.time_series_features[view], -1)  # [batch, length, channels]
 
                 n_blocks = self.config[config_mapper['blocks'][view]]
                 pool_size = self.config[config_mapper['pool_size'][view]]
 
+                tf.keras.layers.InputLayer(input_shape=None,
+                                           batch_size=None,
+                                           dtype=None,
+                                           input_tensor=input,
+                                           sparse=False,
+                                           name='input_{}'.format(view))
+
                 for conv_block_i in range(n_blocks):
+
                     num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
-                    kwargs = {'inputs': net,
-                              'filters': num_filters,
+                    # kwargs = {'inputs': input,
+                    #           'filters': num_filters,
+                    #           'kernel_initializer': weight_initializer,
+                    #           'kernel_size': self.config['kernel_size'],
+                    #           'strides': self.config['kernel_stride'],
+                    #           'padding': "same"}
+                    kwargs = {'filters': num_filters,
                               'kernel_initializer': weight_initializer,
                               'kernel_size': self.config['kernel_size'],
                               'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
-                    # net = tf.keras.layers.Conv1D(**kwargs)
-                    net = tf.layers.conv1d(**kwargs)
-                    net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                 bias_initializer='zeros', kernel_regularizer=None,
+                                                 bias_regularizer=None, activity_regularizer=None,
+                                                 kernel_constraint=None, bias_constraint=None,
+                                                 name='conv{}_{}'.format(conv_block_i, view), **kwargs)(input)
+                    # net = tf.layers.conv1d(**kwargs)
+
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                        else tf.keras.layers.ReLU()(net)
+                    # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
 
                     for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
-                        # net = tf.keras.layers.Conv1D(**kwargs)
-                        net = tf.layers.conv1d(**kwargs)
-                        net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' \
-                            else tf.nn.relu(net)
+                        net = tf.keras.layers.Conv1D(**kwargs)(net)
+                        # net = tf.layers.conv1d(**kwargs)
 
-                    # net = tf.keras.layers.MaxPooling1D(inputs=net, pool_size=pool_size,
-                    # strides=self.config['pool_stride'])
-                    net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
+                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                            else tf.keras.layers.ReLU()(net)
+                        # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' \
+                        #     else tf.nn.relu(net)
+
+                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
+                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
+                    # net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
 
                     if self.config['batch_norm']:
-                        net = tf.layers.batch_normalization(inputs=net)
+                        tf.keras.layers.BatchNormalization(axis=-1, momentum=0.99, epsilon=1e-3, center=True,
+                                                           scale=True, beta_initializer='zeros',
+                                                           gamma_initializer='ones', moving_mean_initializer='zeros',
+                                                           moving_variance_initializer='ones', beta_regularizer=None,
+                                                           gamma_regularizer=None, beta_constraint=None,
+                                                           gamma_constraint=None, renorm=False, renorm_clipping=None,
+                                                           renorm_momentum=0.99, fused=None, trainable=True,
+                                                           virtual_batch_size=None, adjustment=None,
+                                                           name='batch_norm{}_block{}'.format(view, conv_block_i))(net)
+                        # net = tf.layers.batch_normalization(inputs=net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net_shape = net.get_shape().as_list()
-                output_dim = net_shape[1] * net_shape[2]
-                net = tf.reshape(net, [-1, output_dim], name="flatten")
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
+                # net_shape = net.get_shape().as_list()
+                # output_dim = net_shape[1] * net_shape[2]
+                # net = tf.reshape(net, [-1, output_dim], name="flatten")
 
             cnn_layers[view] = net
 
@@ -491,13 +527,18 @@ class CNN1dModel(object):
         if len(time_series_hidden_layers) == 1:  # only one column
             pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
         else:  # more than one column
-            pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
-                                          axis=1, name="pre_logits_concat")
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [branch_output[1] for branch_output in time_series_hidden_layers])
+            # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
+            #                               axis=1, name="pre_logits_concat")
 
         # concatenate stellar params
         if 'stellar_params' in self.time_series_features:
-            pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
-                                          name="pre_logits_concat")
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [branch_output[1] for branch_output in time_series_hidden_layers] +
+                self.time_series_features['stellar_params'])
+            # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+            #                               name="pre_logits_concat")
 
         return pre_logits_concat
 
@@ -511,29 +552,44 @@ class CNN1dModel(object):
         with tf.variable_scope('FcNet'):
 
             for fc_layer_i in range(self.config['num_fc_layers'] - 1):
+
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
+
                 if self.config['decay_rate'] is not None:
-                    # net = tf.keras.layers.Dense(inputs=net, units=fc_neurons,
-                    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config['decay_rate']))
-                    net = tf.layers.dense(inputs=net, units=fc_neurons,
+                    net = tf.keras.layers.Dense(units=fc_neurons,
                                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(
-                                                    self.config['decay_rate']))
+                                                    self.config['decay_rate']),
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
+                                                name='fc{}'.format(fc_layer_i))(net)
+                    # net = tf.layers.dense(inputs=net, units=fc_neurons,
+                    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                    #                                 self.config['decay_rate']))
                 else:
-                    # net = tf.keras.layers.Dense(inputs=net, units=fc_neurons)
-                    net = tf.layers.dense(inputs=net, units=fc_neurons)
+                    net = tf.keras.layers.Dense(units=fc_neurons,
+                                                name='fc{}'.format(fc_layer_i))(net)
+                    # net = tf.layers.dense(inputs=net, units=fc_neurons)
 
-                net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                    else tf.keras.layers.ReLU()(net)
+                # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
 
-                # net = tf.keras.layers.Dropout(net, self.config['dropout_rate'], training=self.is_training)
-                net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
+                net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net, training=self.is_training)
+                # net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
 
             # ?????????????
             # tf.identity(net, "final")
 
             # create output FC layer
-            # logits = tf.keras.layers.Dense(inputs=net, units=self.output_size, name="logits")
-            logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
+            logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
+            # logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
 
         self.logits = logits
 
@@ -566,6 +622,11 @@ class CNN1dModel(object):
             self.build_losses()
 
     def build_losses(self):
+        """ Build the loss. Weighted or non-weighted cross-entropy. Sigmoid for binary classification, softmax for
+        multiclassification.
+
+        :return:
+        """
 
         weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
                    else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
@@ -574,6 +635,7 @@ class CNN1dModel(object):
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
                                                                    logits=tf.squeeze(self.logits, [1]))
         else:
+            # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
             batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection

@@ -44,7 +44,7 @@ def run_main(args, bohb_params=None):
             os.mkdir(args.models_directory)
 
     worker = TransitClassifier_tf
-    args.ce_weights, args.centr_flag = get_ce_weights(args.label_map, args.tfrec_dir)
+    args.ce_weights, args.n_train = get_ce_weights(args.label_map, args.tfrec_dir)
 
     host = hpns.nic_name_to_host(args.nic_name)
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'bohb_dr25tcert_spline3'
+    study = 'test'
 
     num_gpus = 1
 
@@ -181,9 +181,13 @@ if __name__ == '__main__':
     parser.add_argument('--multi_class', type=bool, default=False)
     parser.add_argument('--satellite', type=str, default='kepler')
     parser.add_argument('--use_kepler_ce', type=bool, default=True)
+
     parser.add_argument('--test_frac', type=float, default=0.1, help='data fraction for model testing')
     parser.add_argument('--val_frac', type=float, default=0.1, help='model validation data fraction')
+
     parser.add_argument('--tfrec_dir', type=str, default=tfrec_dir)
+
+    parser.add_argument('--centr_flag', type=bool, default=False)
 
     parser.add_argument('--min_budget', type=float, help='Minimum number of epochs for training.', default=min_budget)
     parser.add_argument('--max_budget', type=float, help='Maximum number of epochs for training.', default=max_budget)
@@ -201,6 +205,7 @@ if __name__ == '__main__':
                         help='Directory in which the models are saved.')
     parser.add_argument('--results_directory', type=str, default=results_directory,
                         help='Directory which the results and logs are saved.')
+
     parser.add_argument('--studyid', type=str, default=study, help='Name id for the HPO study.')
     parser.add_argument('--prev_run_dir', type=str, help='A directory that contains a config.json and results.json for '
                                                          'the same configuration space.',

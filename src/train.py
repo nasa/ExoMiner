@@ -224,10 +224,6 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                         model_dir=get_model_dir(model_dir)
                                         )
 
-    # save features and config used for this model
-    np.save('{}/features_set'.format(classifier.model_dir), features_set)
-    np.save('{}/config'.format(classifier.model_dir), config)
-
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
                              centr_flag=config['centr_flag'], filter_data=filter_data['train'])
@@ -297,6 +293,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
+        if mpi_rank is not None:
+            sys.stdout.flush()
 
     # delete checkpoints in early stopping, preserving only the best one
     if patience != -1:
@@ -306,6 +304,9 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         else:
             print('deleting checkpoints except for the newest saved...')
             utils_train.delete_checkpoints(classifier.model_dir, patience)
+
+    if mpi_rank is not None:
+        sys.stdout.flush()
 
     # predict on given datasets
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
@@ -365,6 +366,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
             if metric not in ['prec thr', 'rec thr']:
                 print('{}: {}'.format(metric, res[dataset][metric][-1]))
     print('#' * 100)
+
+    # save features and config used for this model
+    np.save('{}/features_set'.format(classifier.model_dir), features_set)
+    np.save('{}/config'.format(classifier.model_dir), config)
 
 
 if __name__ == '__main__':
@@ -476,16 +481,18 @@ if __name__ == '__main__':
                  sess_config=sess_config)
 
     # # uncomment for multiprocessing using MPI
-    # print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
-    # run_main(config=config,
-    #          n_epochs=n_epochs,
-    #          data_dir=tfrec_dir,
-    #          model_dir=save_path + '/models/',
-    #          res_dir=save_path + '/model%i' % (rank + 1),
-    #          opt_metric=opt_metric,
-    #          min_optmetric=min_optmetric,
-    #          patience=patience,
-    #          features_set = features_set,
-    #          filter_data=filter_data,
-    #          sess_config=sess_config,
-    #          mpi_rank=rank)
+    # if rank < n_models:
+    #     print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
+    #     sys.stdout.flush()
+    #     run_main(config=config,
+    #              n_epochs=n_epochs,
+    #              data_dir=tfrec_dir,
+    #              model_dir=save_path + '/models/',
+    #              res_dir=save_path + '/model%i' % (rank + 1),
+    #              opt_metric=opt_metric,
+    #              min_optmetric=min_optmetric,
+    #              patience=patience,
+    #              features_set = features_set,
+    #              filter_data=filter_data,
+    #              sess_config=sess_config,
+    #              mpi_rank=rank)
