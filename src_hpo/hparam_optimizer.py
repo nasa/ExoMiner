@@ -13,6 +13,8 @@ import numpy as np
 import logging
 logging.basicConfig(level=logging.WARNING)
 # logging.propagate = False
+import tensorflow as tf
+import itertools
 
 import paths
 if 'home6' in paths.path_hpoconfigs:
@@ -24,7 +26,7 @@ import hpbandster.core.result as hpres
 
 # local
 from src.estimator_util import get_ce_weights
-from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as TransitClassifier_tf
+from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as worker
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
 
@@ -43,7 +45,7 @@ def run_main(args, bohb_params=None):
         if not os.path.isdir(args.models_directory):
             os.mkdir(args.models_directory)
 
-    worker = TransitClassifier_tf
+    # worker = TransitClassifier_tf
     args.ce_weights, args.n_train = get_ce_weights(args.label_map, args.tfrec_dir)
 
     host = hpns.nic_name_to_host(args.nic_name)
@@ -170,6 +172,20 @@ if __name__ == '__main__':
     # data directory
     tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
+    # features to be extracted from the dataset
+    # views = ['global_view', 'local_view']
+    # channels_centr = ['', '_centr']
+    # channels_oddeven = ['', '_odd', '_even']
+    # features_names = [''.join(feature_name_tuple)
+    #                   for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
+    # example
+    features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+                    'local_view': {'dim': 201, 'dtype': tf.float32}}
+
     nic_name = 'lo'  # 'ib0'
 
     rank = MPI.COMM_WORLD.rank
@@ -227,6 +243,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # data used to filer the datasets; use None if not filtering
-    args.filter_data = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/cmmn_kepids_spline-whitened.npy').item()
+    args.filter_data = None  # np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
+
+    args.features_set = features_set
 
     run_main(args, bohb_params)

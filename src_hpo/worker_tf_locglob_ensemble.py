@@ -68,6 +68,8 @@ class TransitClassifier(Worker):
         else:
             self.filter_data = config_args.filter_data
 
+        self.features_set = config_args.features_set
+
         self.num_gpus = config_args.num_gpus  # number of GPUs per node; each worker (configuration) is assigned one GPU
 
     @staticmethod
@@ -111,15 +113,15 @@ class TransitClassifier(Worker):
 
         input_fn_train = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
                                  mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map, centr_flag=self.centr_flag,
-                                 filter_data=self.filter_data['train'])
+                                 filter_data=self.filter_data['train'], features_set=self.features_set)
 
         input_fn_val = InputFn(file_pattern=self.tfrec_dir + '/val*', batch_size=config['batch_size'],
                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
-                               filter_data=self.filter_data['val'])
+                               filter_data=self.filter_data['val'], features_set=self.features_set)
 
         input_fn_test = InputFn(file_pattern=self.tfrec_dir + '/test*', batch_size=config['batch_size'],
                                 mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
-                                filter_data=self.filter_data['test'])
+                                filter_data=self.filter_data['test'], features_set=self.features_set)
 
         metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
         dataset_ids = ['training', 'validation', 'test']

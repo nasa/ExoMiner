@@ -14,6 +14,7 @@ import os
 import tempfile
 import _pickle as pickle
 import numpy as np
+import itertools
 
 
 class InputFn(object):
@@ -797,6 +798,12 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     #       deal with errors
     """
 
+    EPHEMERIS = {'tce_period': 'tce_period', 'tce_duration': 'tce_duration', 'epoch': 'tce_time0bk', 'MES': 'mes'}
+    VIEWS = ['global_view', 'local_view']
+    ODDEVEN = ['_odd', '_even', '']
+    CENTR = ['', '_centr']
+    TIMESERIES = [''.join(timeseries_name) for timeseries_name in itertools.product(VIEWS, ODDEVEN, CENTR)]
+
     if filt is not None:
         union_fields = np.union1d(data_fields, list(filt.keys()))
         if 'kepid+tce_n' in list(filt.keys()):
@@ -831,29 +838,39 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         if 'tce_n' in union_fields:
             datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
-        if 'tce_period' in union_fields:
-            datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
+        # ephemeris data
+        for ephem in EPHEMERIS:
+            if ephem in union_fields:
+                datum[ephem] = example.features.feature[EPHEMERIS[ephem]].float_list.value[0]
 
-        if 'tce_duration' in union_fields:
-            datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
+        # if 'tce_period' in union_fields:
+        #     datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
+        #
+        # if 'tce_duration' in union_fields:
+        #     datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
+        #
+        # if 'epoch' in union_fields:
+        #     datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
+        #
+        # if 'MES' in union_fields:
+        #     datum['MES'] = example.features.feature['mes'].float_list.value[0]
 
-        if 'epoch' in union_fields:
-            datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
+        # time series
+        for timeseries in TIMESERIES:
+            if timeseries in union_fields:
+                datum[timeseries] = example.features.feature[timeseries].float_list.value
 
-        if 'MES' in union_fields:
-            datum['MES'] = example.features.feature['mes'].float_list.value[0]
-
-        if 'global_view' in union_fields:
-            datum['global_view'] = example.features.feature['global_view'].float_list.value
-
-        if 'local_view' in union_fields:
-            datum['local_view'] = example.features.feature['local_view'].float_list.value
-
-        if 'global_view_centr' in union_fields:
-            datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
-
-        if 'local_view_centr' in union_fields:
-            datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
+        # if 'global_view' in union_fields:
+        #     datum['global_view'] = example.features.feature['global_view'].float_list.value
+        #
+        # if 'local_view' in union_fields:
+        #     datum['local_view'] = example.features.feature['local_view'].float_list.value
+        #
+        # if 'global_view_centr' in union_fields:
+        #     datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
+        #
+        # if 'local_view_centr' in union_fields:
+        #     datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
 
         # filtering
         if filt is not None:
