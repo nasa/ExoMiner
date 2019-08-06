@@ -954,7 +954,7 @@ def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_fi
         kw_filt_args = {}
 
     # get boolean indexes for the examples in the tfrecord file
-    filt_idx = get_data_from_tfrecord(src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args)
+    filt_idx = get_data_from_tfrecord(src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args)['selected_idxs']
 
     # tfrecord destination filepath
     dest_tfrecord = save_dir + src_tfrecord.split['/'][-1] + append_name
@@ -984,7 +984,8 @@ if __name__ == '__main__':
     multi_class = False
     satellite = 'kepler'
     label_map = label_map[satellite][multi_class]
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/' \
+                'tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
     # nsamples = get_num_samples(label_map, tfrec_dir, ['predict'])
     # print(nsamples)
 

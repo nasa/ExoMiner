@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline3'  # 'bohb_dr25tcert_spline_gapped'
+study = 'study_bohb_dr25_tcert_spline2'  # 'bohb_dr25tcert_spline_gapped'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -459,22 +459,41 @@ if model_based_optimizer:
 
 #%% Compare different HPO studies
 
+paths.path_hpoconfigs = ['/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven/hpo_confs/bohb_dr25tcert_spline_gapped_oddeven_only',
+                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_Centroid/hpo_confs/bohb_dr25tcert_spline_gapped_centroid',
+                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/bohb_dr25tcert_spline_gapped',
+                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/bohb_dr25tcert_spline_oddeven']
+
 # load results from the BOHB study
-studies = ['study_bo', 'study_rs', 'study_bohb']
-studies_name = {'study_bo': 'BO', 'study_rs': 'RS', 'study_bohb': 'BOHB'}
+# studies = ['study_bo', 'study_rs', 'study_bohb']
+studies = ['Gapped+odd_even', 'Gapped+centroid', 'Gapped', 'Gapped+odd_even+centroid']
+# studies_name = {'study_bo': 'BO', 'study_rs': 'RS', 'study_bohb': 'BOHB'}
+studies_name = {study: study for study in studies}
 hpo_loss = 'pr auc'
-lim_totalbudget = 27150
+lim_totalbudget = np.inf
 nmodels = 3
 time_budget_studies = {study: {'hpo_loss': None, 'cum_budget': None, 'wall_clock_time': None} for study in studies}
 
-for study in studies:
+# for study in studies:
+for study_i in range(len(studies)):
+
+    print('Study {}'.format(studies[study_i]))
     # if study == 'study_bohb_dr25_tcert_spline':
     #     res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_' + study)
     # else:
     #     res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
-    res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
+    # res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '')
+    res = logged_results_to_HBS_result(paths.path_hpoconfigs[study_i], '_' + paths.path_hpoconfigs[study_i].split('/')[-1])
 
-    ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs + study + '/*.*') if 'ensemblemetrics' in file]
+    # extract best configuration
+    inc_id = res.get_incumbent_id()
+    id2config = res.get_id2config_mapping()
+    inc_config = id2config[inc_id]['config']
+    print('Best config:', inc_id, inc_config)
+
+    # ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs + study + '/*.*') if 'ensemblemetrics' in file]
+    ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs[study_i] + '/*.*') if 'ensemblemetrics' in file]
+    study = studies[study_i]
 
     all_runs = res.get_all_runs()
     all_runs = [run for run in all_runs if run.info is not None]
@@ -482,18 +501,19 @@ for study in studies:
     timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 
     bconfig_loss, cum_budget = np.inf, 0
+    bmu_hpoloss, bsem_hpoloss = None, None
     timestamps, cum_budget_vec, tinc_hpoloss, tinc_hpolossdev = [], [], [], []
-    for run in timesorted_allruns:
+    for run_i, run in enumerate(timesorted_allruns):
+
         if cum_budget + int(run.budget) * nmodels > lim_totalbudget:
             print('break {}'.format(study))
             break
 
         cum_budget += int(run.budget) * nmodels
-        if run.loss < bconfig_loss:
+        if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
             timestamps.append(run.time_stamps['finished'])
             # tinc_hpoloss.append(run.loss)
             cum_budget_vec.append(cum_budget)
-            bconfig_loss = run.loss
 
             for ensmetrics in ensmetrics_list:
                 if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
@@ -507,8 +527,16 @@ for study in studies:
             mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
 
-            tinc_hpoloss.append(mu_hpoloss)
-            tinc_hpolossdev.append(sem_hpoloss)
+            if run.loss < bconfig_loss:
+                bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss
+                tinc_hpoloss.append(mu_hpoloss)
+                tinc_hpolossdev.append(sem_hpoloss)
+            else:
+                tinc_hpoloss.append(bmu_hpoloss)
+                tinc_hpolossdev.append(bsem_hpoloss)
+
+            if run.loss < bconfig_loss:
+                bconfig_loss = run.loss
 
     time_budget_studies[study]['hpo_loss'] = tinc_hpoloss
     time_budget_studies[study]['hpo_loss_dev'] = tinc_hpolossdev

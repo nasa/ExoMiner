@@ -26,7 +26,7 @@ import hpbandster.core.result as hpres
 
 # local
 from src.estimator_util import get_ce_weights
-from src_hpo.worker_tf_locglob_ensemble import TransitClassifier as worker
+from src_hpo.worker_tf_locglob import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
 
@@ -58,7 +58,7 @@ def run_main(args, bohb_params=None):
         # printstr = "Starting worker %s" % rank
         # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
-        w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host)
+        w = TransitClassifier(args, worker_id_custom=rank, run_id=args.studyid, host=host)
         w.load_nameserver_credentials(working_directory=args.results_directory)
         w.run(background=False)
         exit(0)
@@ -71,7 +71,8 @@ def run_main(args, bohb_params=None):
     ns_host, ns_port = name_server.start()
 
     # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
-    w = worker(args, worker_id_custom=rank, run_id=args.studyid, host=host, nameserver=ns_host, nameserver_port=ns_port)
+    w = TransitClassifier(args, worker_id_custom=rank, run_id=args.studyid, host=host, nameserver=ns_host,
+                          nameserver_port=ns_port)
     w.run(background=True)
 
     result_logger = json_result_logger(directory=args.results_directory, run_id=args.studyid, overwrite=False)
@@ -88,7 +89,7 @@ def run_main(args, bohb_params=None):
 
     if args.optimizer == 'bohb':
         # instantiate BOHB or BO study
-        hpo = BOHB(configspace=worker.get_configspace(),
+        hpo = BOHB(configspace=TransitClassifier.get_configspace(),
                    run_id=args.studyid,
                    host=host,
                    nameserver=ns_host,
@@ -118,7 +119,7 @@ def run_main(args, bohb_params=None):
         np.save(args.results_directory + '/kde_models_params.npy', kde_models_bdgt_params)
 
     else:  # run random search
-        hpo = RandomSearch(configspace=worker.get_configspace(),
+        hpo = RandomSearch(configspace=TransitClassifier.get_configspace(),
                            run_id=args.studyid,
                            host=host,
                            nameserver=ns_host,
@@ -146,7 +147,7 @@ if __name__ == '__main__':
     max_budget = 50
     n_iterations = 400
 
-    ensemble_n = 3
+    ensemble_n = 1
 
     hpo_loss = 'pr auc'
 
