@@ -18,7 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
-    roc_curve, precision_recall_curve
+    roc_curve, precision_recall_curve, auc
 import pandas as pd
 
 # local
@@ -209,11 +209,12 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
         # average across models
         predictions_dataset[dataset] = np.mean(predictions_dataset[dataset], axis=0)
 
-    # select only indexes of interest
+    # select only indexes of interest that were not filtered out
     for dataset in predictions_dataset:
         if 'selected_idxs' in data[dataset]:
+            print('Filtering predictions for dataset {}'.format(dataset))
             predictions_dataset[dataset] = predictions_dataset[dataset][data[dataset]['selected_idxs']]
-            print(predictions_dataset[dataset].shape, dataset)
+            # print(predictions_dataset[dataset].shape, dataset)
 
     # save results in a numpy file
     print('Saving predicted output to a numpy file {}...'.format(res_dir + 'predictions_per_dataset'))
@@ -243,19 +244,36 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
         pred_classification[dataset][predictions_dataset[dataset] >= threshold] = 1
 
         if not inference_only:
+            # nclasse = len(np.unique(data[dataset]['label']))
             # compute and save performance metrics for the ensemble
             acc = accuracy_score(data[dataset]['label'], pred_classification[dataset])
-            roc_auc = roc_auc_score(data[dataset]['label'], pred_classification[dataset], average='macro')
-            pr_auc = average_precision_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            # if nlclasses == 2:
             prec = precision_score(data[dataset]['label'], pred_classification[dataset], average='binary')
             rec = recall_score(data[dataset]['label'], pred_classification[dataset], average='binary')
+
+            # if in multiclass classification, macro average does not take into account label imbalance
+            roc_auc = roc_auc_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            avp_pec = average_precision_score(data[dataset]['label'], pred_classification[dataset], average='macro')
 
             fpr, tpr, _ = roc_curve(data[dataset]['label'], predictions_dataset[dataset])
             preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_dataset[dataset])
 
+            pr_auc = auc(recroc, preroc)
+
+            # else:
+            #     prec = precision_score(data[dataset]['label'], pred_classification[dataset], average='binary')
+            #     rec = recall_score(data[dataset]['label'], pred_classification[dataset], average='binary')
+            #
+            #     roc_auc = roc_auc_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            #     pr_auc = average_precision_score(data[dataset]['label'], pred_classification[dataset], average='macro')
+            #     pr_auc = auc(data[dataset]['label'], pred_classification[dataset], average='macro')
+            #
+            #     fpr, tpr, _ = roc_curve(data[dataset]['label'], predictions_dataset[dataset])
+            #     preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_dataset[dataset])
+
             res[dataset] = {'Accuracy': acc, 'ROC AUC': roc_auc, 'Precision': prec, 'Recall': rec,
                             'Threshold': threshold, 'Number of models': len(model_filenames), 'PR AUC': pr_auc,
-                            'FPR': fpr, 'TPR': tpr, 'Prec thr': preroc, 'Rec thr': recroc}
+                            'FPR': fpr, 'TPR': tpr, 'Prec thr': preroc, 'Rec thr': recroc, 'Avg Precision': avp_pec}
 
     # save results in a numpy file
     if not inference_only:
@@ -308,17 +326,12 @@ if __name__ == "__main__":
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    # # load Shallue's best config
-    # shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-    #                         'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
-    #                         'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
-    #                         'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
-
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline3'
+    study = ''
     # set configuration manually, None to load it from a HPO study
+    # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # load test data
@@ -343,7 +356,7 @@ if __name__ == "__main__":
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # set to None to not filter any data in the datasets
-    filter_data = np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
+    filter_data = None  # np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
 
     # load best config from HPO study
     if config is None:
@@ -356,7 +369,8 @@ if __name__ == "__main__":
         id2config = res.get_id2config_mapping()
         incumbent = res.get_incumbent_id()
         config = id2config[incumbent]['config']
-        config = id2config[(41, 0, 0)]['config']
+        # select a specific config based on its ID
+        # config = id2config[(41, 0, 0)]['config']
 
     print('Configuration loaded:', config)
 

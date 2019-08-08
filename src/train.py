@@ -3,8 +3,6 @@ Train models using a given configuration obtained on a hyperparameter optimizati
 
 TODO: allocate several models to the same GPU
       figure out the logging
-      save configuration used in each model's folder as a json file
-      save features used as a dict in a npy file
 
 """
 
@@ -169,10 +167,9 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         ax.set_xlabel('Predicted output')
         ax.set_xlim([0, 1])
         ax.set_ylim([0, 1])
-        ax.set_title('Output distribution')
         ax.set_xticks(np.linspace(0, 1, 11, True))
         ax.legend()
-        ax.set_title(dataset_names[dataset])
+        ax.set_title(ax.set_title('Output distribution - {}'.format(dataset_names[dataset])))
         plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
         plt.close()
 
@@ -387,16 +384,11 @@ if __name__ == '__main__':
 
     sess_config = tf.ConfigProto(log_device_placement=False)
 
-    # # Shallue's best configuration
-    # shallues_best_config = {'num_loc_conv_blocks': 2, 'init_fc_neurons': 512, 'pool_size_loc': 7,
-    #                         'init_conv_filters': 4, 'conv_ls_per_block': 2, 'dropout_rate': 0, 'decay_rate': None,
-    #                         'kernel_stride': 1, 'pool_stride': 2, 'num_fc_layers': 4, 'batch_size': 64, 'lr': 1e-5,
-    #                         'optimizer': 'Adam', 'kernel_size': 5, 'num_glob_conv_blocks': 5, 'pool_size_glob': 5}
-
     ######### SCRIPT PARAMETERS #############################################
 
     study = 'bohb_dr25tcert_whitened4'
     # set configuration manually. Set to None to use a configuration from a HPO study
+    # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory

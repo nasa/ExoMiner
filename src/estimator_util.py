@@ -1,8 +1,7 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-# TODO: update model to use Keras API instead of the Estimator API?
-        remove centr_flag (only there for backward compatibility)
+# TODO: remove centr_flag (only there for backward compatibility)
 
 """
 
@@ -28,7 +27,7 @@ class InputFn(object):
         May also be a comma-separated list of file patterns.
         :param batch_size: int, batch size
         :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        :param label_map:
+        :param label_map: dict, map between class name and integer value
         :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
         value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
         (can the dimension and data type be inferred from the tensors in the dataset?)
@@ -285,28 +284,39 @@ class ModelFn(object):
         metrics = {}
 
         assert len(model.predictions.shape) == 2
-        if model.output_size == 1:
+
+        if model.output_size == 1:  # binary classification
             assert model.predictions.shape[1] == 1
             predictions = tf.squeeze(model.predictions, axis=[1])
             predicted_labels = tf.cast(tf.greater(predictions, 0.5), name="predicted_labels", dtype=tf.int32)
-        else:
-            predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
+        else:  # multiclassification
             predictions = model.predictions
-            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
+            predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
+            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)  # if using one-hot encoding
 
         if model.config['force_softmax']:
             labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
         else:
             labels = model.labels
 
+        # compute metrics for the given threshold
         metrics['accuracy'] = tf.metrics.accuracy(labels=labels, predictions=predicted_labels)
         metrics['precision'] = tf.metrics.precision(labels=labels, predictions=predicted_labels)
         metrics['recall'] = tf.metrics.recall(labels=labels, predictions=predicted_labels)
 
+        # compute precision-recall curve
+        # define the number of thresholds used
         metrics['prec thr'] = tf.metrics.precision_at_thresholds(model.labels, predictions,
                                                          np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
         metrics['rec thr'] = tf.metrics.recall_at_thresholds(model.labels, predictions,
                                                      np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
+
+        # if not model.config['multi_class']:
+        # labels = tf.cast(labels, dtype=tf.bool)
+        metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                            summation_method='careful_interpolation', curve='ROC')
+        metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                           summation_method='careful_interpolation', curve='PR')
 
         def _metric_variable(name, shape, dtype):
             """Creates a Variable in LOCAL_VARIABLES and METRIC_VARIABLES collections."""
@@ -330,13 +340,6 @@ class ModelFn(object):
             for pred_label in range(num_labels):
                 metric_name = "label_{}_pred_{}".format(label, pred_label)
                 metrics[metric_name] = _count_condition(metric_name, labels_value=label, predicted_value=pred_label)
-
-        if not model.config['multi_class']:
-            labels = tf.cast(labels, dtype=tf.bool)
-            metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                                summation_method='careful_interpolation', curve='ROC')
-            metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                               summation_method='careful_interpolation', curve='PR')
 
         return metrics
 
@@ -367,12 +370,8 @@ class ModelFn(object):
 
         # if model.config.optimizer == 'Adam':
         if model.config['optimizer'] == 'Adam':
-            # optimizer = tf.train.AdamOptimizer(learning_rate=model.config.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
             optimizer = tf.train.AdamOptimizer(learning_rate=model.config['lr'], beta1=0.9, beta2=0.999, epsilon=1e-8)
         else:
-            # optimizer = tf.train.MomentumOptimizer(model.config.lr, model.config.sgd_momentum,
-            #                                        # use_nesterov=True
-            #                                        )
             optimizer = tf.train.MomentumOptimizer(model.config['lr'], model.config['sgd_momentum'],
                                                    # use_nesterov=True
                                                    )
@@ -391,25 +390,37 @@ class CNN1dModel(object):
         :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
         """
 
+        # model configuration (parameters and hyperparameters)
         self.config = config
-        self.mode = mode
-        self.time_series_features = features['time_series_features']
+        self.mode = mode  # TRAIN, EVAL or PREDICT
+
+        self.time_series_features = features['time_series_features']  # features
+        self.labels = labels  # labels
 
         self.is_training = None
-        self.labels = labels
-        self.weights = None
+
+        # self.weights = None  # ?????????
+
         self.logits = None
         self.predictions = None
+
+        # losses
+        # total loss adds possible regularization terms
         self.batch_losses = None
         self.total_loss = None
 
+        # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
+        # classes
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
-        else:
+        else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
+        # class-label weights for weighted loss
+        # convert from numpy to tensor
         self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
+        # build the model
         self.build()
 
     def build_cnn_layers(self):
@@ -1009,5 +1020,5 @@ if __name__ == '__main__':
     # filt_dataset_name = ''
     # add_params = {'coupled': True}
     # for tfrec in os.list_dir(tfrec_dir):
-    #     create_filtered_tfrecord(os.path.join(tfrec_dir, tfrec), save_dir, filt, append_name=filt_dataset_name, kw_filt_args=add_params)
-
+    #     create_filtered_tfrecord(os.path.join(tfrec_dir, tfrec), save_dir, filt, append_name=filt_dataset_name,
+    #     kw_filt_args=add_params)
