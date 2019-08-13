@@ -223,117 +223,130 @@ from src.estimator_util import get_data_from_tfrecords
 #
 #     del data_tps, data_dv
 #
-# #%% visualize inputs
-#
-# tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
-#             'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
-# dataset = 'test'
-# tfrec_filenames = [os.path.join(tfrec_dir, file)
-#                    for file in os.listdir(tfrec_dir) if dataset in file]
-# data_fields = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'global_view_even',
-#                'global_view_odd', 'local_view_even', 'local_view_odd', 'label']
-# data_dict = get_data_from_tfrecords(tfrec_filenames, data_fields, label_map=None, filt=None, coupled=False)
-#
-# ntces = len(data_dict['label'])
-# chosen_idxs = np.arange(ntces)  # np.random.choice(ntces, 340)
-# print('Number of TCEs = {}'.format(ntces))
-#
-# print('Computing quantities...')
-# # stats = np.zeros((5, 4, ntces), dtype='float')
-# stats = np.zeros((5, 8, len(chosen_idxs)), dtype='float')
-# # for i in range(ntces):
-# for ei, i in enumerate(chosen_idxs):
-#     for j, field in enumerate(data_fields[:-1]):
-#         stats[0, j, ei] = np.min(data_dict[field][i])
-#         stats[1, j, ei] = np.max(data_dict[field][i])
-#         stats[2, j, ei] = np.mean(data_dict[field][i])
-#         stats[3, j, ei] = np.median(data_dict[field][i])
-#         stats[4, j, ei] = np.std(data_dict[field][i])
-#
-#     # f, ax = plt.subplots(2, 2, figsize=(12, 10))
-#     # ax[0, 0].plot(data_dict['global_view'][i])
-#     # ax[0, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('global_view', stats[0, 0, ei],
-#     #                                                                         stats[1, 0, ei], stats[2, 0, ei],
-#     #                                                                         stats[3, 0, ei], stats[4, 0, ei]))
-#     # ax[0, 0].set_ylabel('Normalized Brightness')
-#     # ax[1, 0].plot(data_dict['local_view'][i])
-#     # ax[1, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('local_view', stats[0, 1, ei],
-#     #                                                                         stats[1, 1, ei], stats[2, 1, ei],
-#     #                                                                         stats[3, 1, ei], stats[4, 1, ei]))
-#     # ax[1, 0].set_xlabel('Bin Number')
-#     # ax[1, 0].set_ylabel('Normalized Brightness')
-#     # ax[0, 1].plot(data_dict['global_view_centr'][i])
-#     # ax[0, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('global_view_centr', stats[0, 2, ei],
-#     #                                                                         stats[1, 2, ei], stats[2, 2, ei],
-#     #                                                                         stats[3, 2, ei], stats[4, 2, ei]))
-#     # ax[0, 1].set_ylabel('Normalized Brightness')
-#     # ax[1, 1].plot(data_dict['local_view_centr'][i])
-#     # ax[1, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('local_view_centr', stats[0, 3, ei],
-#     #                                                                         stats[1, 3, ei], stats[2, 3, ei],
-#     #                                                                         stats[3, 3, ei], stats[4, 3, ei]))
-#     # ax[1, 1].set_xlabel('Bin Number')
-#     # ax[1, 1].set_ylabel('Normalized Brightness')
-#     # f.suptitle('Label: {}\n'.format(data_dict['label'][i]))
-#     # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/time_series_plots/'
-#     #           '{}_{}.svg'.format(data_dict['label'][i], ei))
-#
-#     # f, ax = plt.subplots(2, 4, figsize=(16, 11))
-#     # ax[0, 0].plot(data_dict['global_view'][i])
-#     # ax[0, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view',
-#     #                                                                                             stats[0, 0, ei],
-#     #                                                                         stats[1, 0, ei], stats[2, 0, ei],
-#     #                                                                         stats[3, 0, ei], stats[4, 0, ei]))
-#     # ax[0, 0].set_ylabel('Normalized Brightness')
-#     # ax[1, 0].plot(data_dict['local_view'][i])
-#     # ax[1, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view',
-#     #                                                                                             stats[0, 1, ei],
-#     #                                                                         stats[1, 1, ei], stats[2, 1, ei],
-#     #                                                                         stats[3, 1, ei], stats[4, 1, ei]))
-#     # ax[1, 0].set_xlabel('Bin Number')
-#     # ax[1, 0].set_ylabel('Normalized Brightness')
-#     # ax[0, 1].plot(data_dict['global_view_centr'][i])
-#     # ax[0, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_centr',
-#     #                                                                                             stats[0, 2, ei],
-#     #                                                                         stats[1, 2, ei], stats[2, 2, ei],
-#     #                                                                         stats[3, 2, ei], stats[4, 2, ei]))
-#     # ax[1, 1].plot(data_dict['local_view_centr'][i])
-#     # ax[1, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_centr',
-#     #                                                                                             stats[0, 3, ei],
-#     #                                                                         stats[1, 3, ei], stats[2, 3, ei],
-#     #                                                                         stats[3, 3, ei], stats[4, 3, ei]))
-#     # ax[1, 1].set_xlabel('Bin Number')
-#     # ax[0, 2].plot(data_dict['global_view_even'][i])
-#     # ax[0, 2].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_even',
-#     #                                                                                             stats[0, 4, ei],
-#     #                                                                         stats[1, 4, ei], stats[2, 4, ei],
-#     #                                                                         stats[3, 4, ei], stats[4, 4, ei]))
-#     # ax[1, 2].plot(data_dict['local_view_even'][i])
-#     # ax[1, 2].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_even',
-#     #                                                                                             stats[0, 5, ei],
-#     #                                                                         stats[1, 5, ei], stats[2, 5, ei],
-#     #                                                                         stats[3, 5, ei], stats[4, 5, ei]))
-#     # ax[1, 2].set_xlabel('Bin Number')
-#     # ax[0, 3].plot(data_dict['global_view_odd'][i])
-#     # ax[0, 3].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_odd',
-#     #                                                                                             stats[0, 6, ei],
-#     #                                                                         stats[1, 6, ei], stats[2, 6, ei],
-#     #                                                                         stats[3, 6, ei], stats[4, 6, ei]))
-#     # ax[1, 3].plot(data_dict['local_view_odd'][i])
-#     # ax[1, 3].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_odd',
-#     #                                                                                             stats[0, 7, ei],
-#     #                                                                                             stats[1, 7, ei],
-#     #                                                                                             stats[2, 7, ei],
-#     #                                                                                             stats[3, 7, ei],
-#     #                                                                                             stats[4, 7, ei]))
-#     # ax[1, 3].set_xlabel('Bin Number')
-#     #
-#     # f.subplots_adjust(top=0.88, bottom=0.11, left=0.125, right=0.9, hspace=0.245, wspace=0.2)
-#     # f.suptitle('Label: {}\n'.format(data_dict['label'][i]))
-#     # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/'
-#     #           'time_series_plots_wodd_even/{}_{}.svg'.format(data_dict['label'][i], ei))
-#     # # aaaa
-#     # plt.close()
-#
+#%% visualize inputs
+
+tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
+            'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+dataset = 'test'
+tfrec_filenames = [os.path.join(tfrec_dir, file)
+                   for file in os.listdir(tfrec_dir) if dataset in file]
+data_fields = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'global_view_even',
+               'global_view_odd', 'local_view_even', 'local_view_odd', 'label']
+data_dict = get_data_from_tfrecords(tfrec_filenames, data_fields, label_map=None, filt=None, coupled=False)
+
+ntces = len(data_dict['label'])
+chosen_idxs = np.random.choice(ntces, 340)  # np.arange(ntces)
+print('Number of TCEs = {}'.format(ntces))
+
+print('Computing quantities...')
+# stats = np.zeros((5, 4, ntces), dtype='float')
+stats = np.zeros((5, 8, len(chosen_idxs)), dtype='float')
+# for i in range(ntces):
+for ei, i in enumerate(chosen_idxs):
+    for j, field in enumerate(data_fields[:-1]):
+        stats[0, j, ei] = np.min(data_dict[field][i])
+        stats[1, j, ei] = np.max(data_dict[field][i])
+        stats[2, j, ei] = np.mean(data_dict[field][i])
+        stats[3, j, ei] = np.median(data_dict[field][i])
+        stats[4, j, ei] = np.std(data_dict[field][i])
+
+    # f, ax = plt.subplots(2, 2, figsize=(12, 10))
+    # ax[0, 0].plot(data_dict['global_view'][i])
+    # ax[0, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('global_view',
+    #                                                                                             stats[0, 0, ei],
+    #                                                                         stats[1, 0, ei], stats[2, 0, ei],
+    #                                                                         stats[3, 0, ei], stats[4, 0, ei]))
+    # ax[0, 0].set_ylabel('Normalized Brightness')
+    # ax[1, 0].plot(data_dict['local_view'][i])
+    # ax[1, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('local_view',
+    #                                                                                             stats[0, 1, ei],
+    #                                                                         stats[1, 1, ei], stats[2, 1, ei],
+    #                                                                         stats[3, 1, ei], stats[4, 1, ei]))
+    # ax[1, 0].set_xlabel('Bin Number')
+    # ax[1, 0].set_ylabel('Normalized Brightness')
+    # ax[0, 1].plot(data_dict['global_view_centr'][i])
+    # ax[0, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('global_view_centr',
+    #                                                                                             stats[0, 2, ei],
+    #                                                                         stats[1, 2, ei], stats[2, 2, ei],
+    #                                                                         stats[3, 2, ei], stats[4, 2, ei]))
+    # ax[0, 1].set_ylabel('Normalized Brightness')
+    # ax[1, 1].plot(data_dict['local_view_centr'][i])
+    # ax[1, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, Med={:.2f}, Std={:.2f}'.format('local_view_centr',
+    #                                                                                             stats[0, 3, ei],
+    #                                                                         stats[1, 3, ei], stats[2, 3, ei],
+    #                                                                         stats[3, 3, ei], stats[4, 3, ei]))
+    # ax[1, 1].set_xlabel('Bin Number')
+    # ax[1, 1].set_ylabel('Normalized Brightness')
+    # f.suptitle('Label: {}\n'.format(data_dict['label'][i]))
+    # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/time_series_plots/'
+    #           '{}_{}.svg'.format(data_dict['label'][i], ei))
+    # plt.close()
+
+    # f, ax = plt.subplots(2, 4, figsize=(16, 11))
+    f, ax = plt.subplots(2, 3, figsize=(16, 11))
+    ax[0, 0].plot(data_dict['global_view'][i])
+    ax[0, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view',
+                                                                                                stats[0, 0, ei],
+                                                                            stats[1, 0, ei], stats[2, 0, ei],
+                                                                            stats[3, 0, ei], stats[4, 0, ei]))
+    ax[0, 0].set_ylabel('Normalized Brightness')
+    ax[1, 0].plot(data_dict['local_view'][i])
+    ax[1, 0].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view',
+                                                                                                stats[0, 1, ei],
+                                                                            stats[1, 1, ei], stats[2, 1, ei],
+                                                                            stats[3, 1, ei], stats[4, 1, ei]))
+    ax[1, 0].set_xlabel('Bin Number')
+    ax[1, 0].set_ylabel('Normalized Brightness')
+    ax[0, 1].plot(data_dict['global_view_centr'][i])
+    ax[0, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_centr',
+                                                                                                stats[0, 2, ei],
+                                                                            stats[1, 2, ei], stats[2, 2, ei],
+                                                                            stats[3, 2, ei], stats[4, 2, ei]))
+    ax[1, 1].plot(data_dict['local_view_centr'][i])
+    ax[1, 1].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_centr',
+                                                                                                stats[0, 3, ei],
+                                                                            stats[1, 3, ei], stats[2, 3, ei],
+                                                                            stats[3, 3, ei], stats[4, 3, ei]))
+    ax[1, 1].set_xlabel('Bin Number')
+    ax[0, 2].plot(data_dict['global_view_even'][i])
+    ax[0, 2].set_title('{}'.format('global_view_even-odd'))
+    # ax[0, 2].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_even',
+    #                                                                                               stats[0, 4, ei],
+    #                                                                                               stats[1, 4, ei],
+    #                                                                                               stats[2, 4, ei],
+    #                                                                                               stats[3, 4, ei],
+    #                                                                                               stats[4, 4, ei]))
+    ax[1, 2].plot(data_dict['local_view_even'][i])
+    ax[1, 2].set_title('{}'.format('local_view_even-odd'))
+    # ax[1, 2].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_even',
+    #                                                                                             stats[0, 5, ei],
+    #                                                                         stats[1, 5, ei], stats[2, 5, ei],
+    #                                                                         stats[3, 5, ei], stats[4, 5, ei]))
+    ax[1, 2].set_xlabel('Bin Number')
+    # ax[0, 3].plot(data_dict['global_view_odd'][i])
+    # ax[0, 3].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('global_view_odd',
+    #                                                                                             stats[0, 6, ei],
+    #                                                                         stats[1, 6, ei], stats[2, 6, ei],
+    #                                                                         stats[3, 6, ei], stats[4, 6, ei]))
+    # ax[1, 3].plot(data_dict['local_view_odd'][i])
+    # ax[1, 3].set_title('{}\nMin={:.2f}, Max={:.2f}, Mean={:.2f}, \nMed={:.2f}, Std={:.2f}'.format('local_view_odd',
+    #                                                                                             stats[0, 7, ei],
+    #                                                                                             stats[1, 7, ei],
+    #                                                                                             stats[2, 7, ei],
+    #                                                                                             stats[3, 7, ei],
+    #                                                                                             stats[4, 7, ei]))
+    # ax[1, 3].set_xlabel('Bin Number')
+
+    ax[0, 2].plot(data_dict['global_view_odd'][i], 'r--')
+    ax[1, 2].plot(data_dict['local_view_odd'][i], 'r--')
+
+    f.subplots_adjust(top=0.88, bottom=0.11, left=0.125, right=0.9, hspace=0.245, wspace=0.2)
+    f.suptitle('Label: {}\n'.format(data_dict['label'][i]))
+    f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/'
+              'time_series_plots_wodd_even_overlapped/{}_{}.svg'.format(data_dict['label'][i], ei))
+    # aaaa
+    plt.close()
+
 # quantities = ['Min', 'Max', 'Mean', "Median", "Std"]
 # idxs_tces = np.arange(ntces)  # np.where(np.array(data_dict['label']) == 'NTP')[0]
 # print('Number of TCEs used = {}'.format(len(idxs_tces)))

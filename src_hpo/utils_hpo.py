@@ -369,42 +369,7 @@ def logged_results_to_HBS_result(directory, run_id):
         'max_SH_iter': len(budget_set),
         'time_ref': time_ref
     }
-    return (hpres.Result([data], HB_config))
-
-
-# def get_ce_weights(label_map, tfrec_dir):
-#     """ Compute weights for the weighted cross-entropy loss based on the data.
-#
-#     :param label_map: dict that maps each class to an index (0, 1, 2,...)
-#     :param tfrec_dir: list, tfrecord files
-#     :return:
-#         ce_weights: list, weights for each class
-#         bool, set to True to also consider as features the centroids for the local and global views.
-#     """
-#
-#     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-#                  if not file.startswith('test')]
-#
-#     label_vec = []
-#     for file in filenames:
-#         record_iterator = tf.python_io.tf_record_iterator(path=file)
-#         # try:
-#         for string_record in record_iterator:
-#             example = tf.train.Example()
-#             example.ParseFromString(string_record)
-#             label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-#             label_vec.append(label_map[label])
-#         # except tf.errors.DataLossError as e:
-#         #     pass  # 916415
-#
-#     # count instances for each class based on their indexes
-#     label_counts = [label_vec.count(category) for category in range(max(label_map.values()) + 1)]
-#
-#     # give more weight to classes with less instances
-#     ce_weights = [max(label_counts) / count_i for count_i in label_counts]
-#
-#     # returns centroid flag as True if the key is in the tfrecords used
-#     return ce_weights, 'global_view_centr' in example.features.feature
+    return hpres.Result([data], HB_config)
 
 
 if __name__ == '__main__':

@@ -33,8 +33,8 @@ def update_labels_tcetable(tce_table, upd_table):
                 print('Setting label to AFP')
                 tce_table.loc[comp.index, 'av_training_set'] = 'AFP'
 
-
     return tce_table
+
 
 if __name__ == '__main__':
 
