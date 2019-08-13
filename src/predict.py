@@ -22,7 +22,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_a
 import pandas as pd
 
 # local
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+# from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
@@ -107,11 +108,10 @@ def draw_plots(res, save_path, output_cl):
         ax.set_xlabel('Predicted output')
         ax.set_xlim([0, 1])
         ax.set_ylim([0, 1])
-        ax.set_title('Output distribution')
+        ax.set_title('Output distribution - {}'.format(dataset_names[dataset]))
         ax.set_xticks(np.linspace(0, 1, 11, True))
         if dataset != 'predict':
             ax.legend()
-        ax.set_title(dataset_names[dataset])
         plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
         plt.close()
 
@@ -155,9 +155,10 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
             fields += ['label']
 
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
-    if data[datasets[0]] is not None:
-        for dataset in datasets:
-            data[dataset]['selected_idxs'] = []
+
+    # if data[datasets[0]] is not None:
+    #     for dataset in datasets:
+    #         data[dataset]['selected_idxs'] = []
 
     for tfrec_file in os.listdir(tfrec_dir):
 
@@ -170,6 +171,7 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
         for field in aux:
             data[dataset][field].extend(aux[field])
 
+    # converting label array to numpy array
     if 'label' in data[dataset]:
         for dataset in datasets:
             data[dataset]['label'] = np.array(data[dataset]['label'], dtype='uint8')
@@ -329,7 +331,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = ''
+    study = 'study_bohb_dr25_tcert_spline2'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
@@ -340,14 +342,15 @@ if __name__ == "__main__":
     # datasets used; choose from 'train', 'val', 'test', 'predict'
     datasets = ['train', 'val', 'test']
 
-    #
-    fields = None  # ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
+    # set to None if not adding other fields to
+    # fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
+    fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
 
     # perform only inference
     inference_only = False
 
     # generate prediction ranking when inferencing
-    generate_csv_pred = False
+    generate_csv_pred = True
 
     threshold = 0.5  # threshold on binary classification
     multi_class = False
@@ -377,7 +380,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/models'
+    models_path = paths.pathtrainedmodels + study + '/ES_300-p20_34k' + '/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'

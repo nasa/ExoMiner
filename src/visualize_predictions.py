@@ -2,13 +2,14 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # local
 import paths
 import src.config
 from src.estimator_util import get_data_from_tfrecords
 
-# #%%
+#%%
 #
 # pathres = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_lc_modelpred/'
 #
@@ -349,67 +350,195 @@ from src.estimator_util import get_data_from_tfrecords
 #                     '{}_{}.svg'.format(field, quantities[quantity_i]))
 #         plt.close()
 
-#%%
+#%% Plot histogram for each class in each dataset (train, val and test) as a function of MES
+
+save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/histogram_classes_mes/'
 
 tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
             'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
 # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/' \
 #                                        'tfrecord_dr25_manual_2dkeplernonwhitened_2001-201'
+upd_tce_table = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/'
+                            'q1_q17_dr25_tce_2019.08.07_16.23.32_updt_tcert.csv')
 
 datasets = ['train', 'val', 'test']
 tfrec_filenames = {dataset: [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir) if dataset in file] for
                    dataset in datasets}
-data_fields = ['label', 'MES']
+# data_fields = ['label', 'MES']
+data_fields = ['label', 'kepid', 'tce_n']
 
 data_dict = {dataset: get_data_from_tfrecords(tfrec_filenames[dataset], data_fields, label_map=None, filt=None,
                                               coupled=False) for dataset in datasets}
 
-for dataset in datasets:
-    print('Min and Max MES values for dataset {}'.format(dataset), np.min(data_dict[dataset]['MES']),
-          np.max(data_dict[dataset]['MES']))
+# for dataset in datasets:
+#     print('Min and Max MES values for dataset {}'.format(dataset), np.min(data_dict[dataset]['MES']),
+#           np.max(data_dict[dataset]['MES']))
 
-nsamples_class = {len(data_dict[dataset]['label']) for dataset in datasets}
-# nsamplestotal = np.sum([len(data_dict[dataset]['label']) for dataset in datasets])
-nsamplestotal = np.sum(data_dict.values())
+# nsamples_class = {len(data_dict[dataset]['label']) for dataset in datasets}
+# # nsamplestotal = np.sum([len(data_dict[dataset]['label']) for dataset in datasets])
+# nsamplestotal = np.sum(data_dict.values())
 
 classes = ['AFP', 'NTP', 'PC']
 
-mes_bins = np.arange(0, 12, 1)
+mes_bins = np.arange(0, 12, 0.5)
 for dataset in datasets:
     for class_i in classes:
-        idxs_class_i = np.where(np.array(data_dict[dataset]['label']) == class_i)[0]
-        data_aux = np.array(data_dict[dataset]['MES'])[idxs_class_i]
 
-        hist, bin_edges = np.histogram(data_aux['MES'], mes_bins, density=False, range=None)
+        # get data pertaining to the given glass
+        idxs_class_i = np.where(np.array(data_dict[dataset]['label']) == class_i)[0]
+        data_aux = {field: np.array(data_dict[dataset][field])[idxs_class_i]for field in data_dict[dataset]}
+
+        # get MES for those examples
+        mes_vec = []
+        for i in range(len(data_aux['kepid'])):
+            mes_vec.append(
+                upd_tce_table.loc[(upd_tce_table['kepid'] == data_aux['kepid'][i]) &
+                                  (upd_tce_table['tce_plnt_num'] == data_aux['tce_n'][i])]['tce_max_mult_ev'].values[0])
+
+        print('MES range:', min(mes_vec), max(mes_vec))
+        # hist, bin_edges = np.histogram(data_aux['MES'], mes_bins, density=False, range=None)
+        hist, bin_edges = np.histogram(mes_vec, mes_bins, density=False, range=None)
 
         f, ax = plt.subplots()
-        ax.bar(bin_edges, hist, mes_bins[1] - mes_bins[0])
-        ax.set_ylabel('Class fraction')
+        ax.bar([(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)],
+               hist, mes_bins[1] - mes_bins[0], edgecolor='k')
+        ax.set_ylabel('Number of TCEs')
         ax.set_xlabel('MES')
         ax.set_xlim([0, mes_bins[-1]])
-        ax.set_ylim([0, 1])
-        ax.set_title('{} distribution - {}'.format(class_i, dataset))
+        # ax.set_ylim([0, 1])
+        ax.set_title('Class {} - Dataset {}'.format(class_i, dataset))
         # ax.set_xticks(np.linspace(0, 1, 11, True))
-        ax.legend()
-        # plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
-        # plt.close()
-        aaaa
+        ax.set_xticks(np.arange(0, 13, 1))
+        # ax.legend()
+        plt.savefig(save_path + 'hist_class{}_mes_{}.svg'.format(class_i, dataset))
+        plt.close()
+        # aaaa
 
-#%%
+#%% Plot distribution of MES as a function of the scores output by the model
 
-import pandas as pd
+clf_thr = 0.5  # classification threshold
 
-ranking_df = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/study_bohb_dr25_tcert_spline2/180k_ES_300-p20_34k/ranked_predictions_predict')
+# tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_2001-201'
+tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
+                'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
 
-print(ranking_df['MES'].min(), ranking_df['MES'].max())
+save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+            'study_bohb_dr25_tcert_spline2/180k_ES_300-p20_34k/'
+
+ranking_df = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                         'study_bohb_dr25_tcert_spline2/180k_ES_300-p20_34k/ranked_predictions_predict')
+
+print('MES minimum and maximum values:', ranking_df['MES'].min(), ranking_df['MES'].max())
+
 f, ax = plt.subplots()
 ax.scatter(ranking_df['output'], ranking_df['MES'])
 ax.set_ylabel('MES')
 ax.set_xlabel('Score')
-ax.set_ylim([0, 15])
+ax.set_ylim([0, 12])
 ax.set_xlim([0, 1])
 # ax.set_yscale('log')
 # ax.set_xscale('log')
 ax.grid(True)
 ax.set_xticks(np.arange(0, 1.1, 0.1))
-ax.set_yticks(np.arange(0, 16, 1))
+ax.set_yticks(np.arange(0, 13, 1))
+ax.set_title('Dataset predict')
+plt.savefig(save_path + '/mes_distribution_scores_predictset.svg')
+
+# when the ranking does not have the MES
+save_path = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+            'flux-centroid-pc-nonpc__flux-centroid-odd_even-pc-afp/'
+
+upd_tce_table = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/'
+                                'q1_q17_dr25_tce_2019.08.07_16.23.32_updt_tcert.csv')
+
+datasets = ['train', 'val', 'test']
+output_column = 'output modelseq'
+for dataset in datasets:
+
+    print('Dataset {}'.format(dataset))
+
+    ranking_df = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                             'flux-centroid-pc-nonpc__flux-centroid-odd_even-pc-afp/'
+                             'ranked_predictions_{}set'.format(dataset))
+
+    # add MES values to the ranking using the updated TCE table
+    for i in range(len(ranking_df)):
+        ranking_df.loc[i, 'MES'] = upd_tce_table.loc[(upd_tce_table['kepid'] ==
+                                                      ranking_df.iloc[i]['kepid']) &
+                                                     (upd_tce_table['tce_plnt_num'] ==
+                                                      ranking_df.iloc[i]['tce_n'])]['tce_max_mult_ev'].values[0]
+
+    pc_tp = ranking_df.loc[(ranking_df['label'] == 1) & (ranking_df[output_column] >= clf_thr)]
+    pc_fn = ranking_df.loc[(ranking_df['label'] == 1) & (ranking_df[output_column] < clf_thr)]
+    # npc_fp = ranking_df.loc[(ranking_df['label'] == 0) & (ranking_df['output'] >= clf_thr)]
+    # npc_tn = ranking_df.loc[(ranking_df['label'] == 0) & (ranking_df['output'] < clf_thr)]
+
+    tfrec_filenames = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir) if dataset in file]
+    data_fields = ['label', 'kepid', 'tce_n']
+    data_dict = get_data_from_tfrecords(tfrec_filenames, data_fields, label_map=None, filt=None, coupled=False)
+
+    idx_afp = np.where(np.array(data_dict['label']) == 'AFP')[0]
+    data_afp = {field: np.array(data_dict[field])[idx_afp] for field in data_dict}
+    df_afp = pd.DataFrame(data_afp)
+
+    idx_ntp = np.where(np.array(data_dict['label']) == 'NTP')[0]
+    data_ntp = {field: np.array(data_dict[field])[idx_ntp] for field in data_dict}
+    df_ntp = pd.DataFrame(data_ntp)
+
+    idx_pc = np.where(np.array(data_dict['label']) == 'PC')[0]
+    data_pc = {field: np.array(data_dict[field])[idx_ntp] for field in data_dict}
+    df_pc = pd.DataFrame(data_pc)
+
+    print(len(idx_pc), len(idx_afp), len(idx_ntp))
+
+    for i in range(len(ranking_df)):
+        # print(ranking_df.loc[i, ['kepid', 'tce_n']])
+        cond_afp = (df_afp['kepid'] == ranking_df.iloc[i]['kepid']) & (df_afp['tce_n'] == ranking_df.iloc[i]['tce_n'])
+        cond_ntp = (df_ntp['kepid'] == ranking_df.iloc[i]['kepid']) & (df_ntp['tce_n'] == ranking_df.iloc[i]['tce_n'])
+        cond_pc = (df_pc['kepid'] == ranking_df.iloc[i]['kepid']) & (df_pc['tce_n'] == ranking_df.iloc[i]['tce_n'])
+
+        if np.any(cond_afp):
+            # print('AFP')
+            ranking_df.loc[i, 'label'] = df_afp.loc[cond_afp]['label'].values[0]
+        elif np.any(cond_ntp):
+            # print('NTP')
+            ranking_df.loc[i, 'label'] = df_ntp.loc[cond_ntp]['label'].values[0]
+        elif np.any(cond_pc):
+            # print('PC')
+            ranking_df.loc[i, 'label'] = df_pc.loc[cond_pc]['label'].values[0]
+
+    afp_tn = ranking_df.loc[(ranking_df['label'] == 'AFP') & (ranking_df[output_column] < clf_thr)]
+    afp_fp = ranking_df.loc[(ranking_df['label'] == 'AFP') & (ranking_df[output_column] >= clf_thr)]
+    ntp_tn = ranking_df.loc[(ranking_df['label'] == 'NTP') & (ranking_df[output_column] < clf_thr)]
+    ntp_fp = ranking_df.loc[(ranking_df['label'] == 'NTP') & (ranking_df[output_column] >= clf_thr)]
+
+    # SAVE IT!!!!!
+    print('MES minimum and maximum values:', ranking_df['MES'].min(), ranking_df['MES'].max())
+
+    f, ax = plt.subplots(figsize=(14, 8))
+    # ax.scatter(ranking_df['output'], ranking_df['MES'])
+    ax.scatter(pc_tp[output_column], pc_tp['MES'], c='g', label='PC')
+    ax.scatter(pc_fn[output_column], pc_fn['MES'], c='r', label='PC')
+    # ax.scatter(npc_fp['output'], npc_fp['MES'], c='b', label='Non-PC')
+    # ax.scatter(npc_tn['output'], npc_tn['MES'], c='y', label='Non-PC')
+    ax.scatter(afp_tn[output_column], afp_tn['MES'], c='b', label='AFP')
+    ax.scatter(afp_fp[output_column], afp_fp['MES'], c='y', label='AFP')
+    ax.scatter(ntp_tn[output_column], ntp_tn['MES'], c='k', label='NTP')
+    ax.scatter(ntp_fp[output_column], ntp_fp['MES'], c='m', label='NTP')
+
+    ax.axvline(x=clf_thr)
+
+    ax.set_ylabel('MES')
+    ax.set_xlabel('Score')
+    ax.set_ylim([6, 20])
+    ax.set_xlim([0, 1])
+    # ax.set_yscale('log')
+    # ax.set_xscale('log')
+    ax.grid(True)
+    ax.set_xticks(np.arange(0, 1.1, 0.1))
+    ax.set_yticks(np.arange(6, 21, 1))
+    ax.set_title('Dataset {} - {}'.format(dataset, output_column))
+    ax.legend(bbox_to_anchor=(1, 1))
+    # aaa
+    plt.savefig(save_path + '/mes_distribution_scores_{}set_{}.svg'.format(dataset, output_column))
+    plt.close()

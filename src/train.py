@@ -223,13 +223,14 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
-                             centr_flag=config['centr_flag'], filter_data=filter_data['train'])
+                             centr_flag=config['centr_flag'], filter_data=filter_data['train'],
+                             features_set=features_set)
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                           centr_flag=config['centr_flag'], filter_data=filter_data['val'])
+                           centr_flag=config['centr_flag'], filter_data=filter_data['val'], features_set=features_set)
     test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                            centr_flag=config['centr_flag'], filter_data=filter_data['test'])
+                            centr_flag=config['centr_flag'], filter_data=filter_data['test'], features_set=features_set)
 
     # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']

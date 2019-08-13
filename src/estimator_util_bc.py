@@ -1,11 +1,10 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
-
-# TODO: remove centr_flag (only there for backward compatibility)
-
 """
 
 # 3rd party
+import itertools
+
 import tensorflow as tf
 import copy
 import operator
@@ -13,26 +12,19 @@ import os
 import tempfile
 import _pickle as pickle
 import numpy as np
-import itertools
 
 
 class InputFn(object):
-    """Class that acts as a callable input function for the Estimator."""
+    """Class that acts as a callable input function for Estimator train / eval."""
 
     def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False,
                  filter_data=None):
         """Initializes the input function.
 
-        :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
-        May also be a comma-separated list of file patterns.
-        :param batch_size: int, batch size
-        :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        :param label_map: dict, map between class name and integer value
-        :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
-        value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
-        (can the dimension and data type be inferred from the tensors in the dataset?)
-        :param filter_data:
-        :return:
+        Args:
+            file_pattern: File pattern matching input TFRecord files, e.g.
+            "/tmp/train-?????-of-00100". May also be a comma-separated list of file patterns.
+            mode: A tf.estimator.ModeKeys.
         """
 
         self._file_pattern = file_pattern
@@ -48,25 +40,19 @@ class InputFn(object):
                 features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}
         else:
             self.features_set = features_set
-        self.filter_data = filter_data
 
         self.centr_flag = centr_flag
+
+        self.filter_data = filter_data
 
         # if self._mode == tf.estimator.ModeKeys.PREDICT and pred_feat is not None:
         #     self.pred_feat = pred_feat
 
     def __call__(self, config, params):
-        """Builds the input pipeline.
-
-        :param config: dict, parameters and hyperparameters for the model
-        :param params:
-        :return:
-            a tf.data.Dataset with features and labels
-        """
+        """Builds the input pipeline."""
 
         reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
 
-        # Create a HashTable mapping label strings to integer ids.
         table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
             keys=list(self.label_map.keys()),
             values=list(self.label_map.values()),
@@ -88,13 +74,22 @@ class InputFn(object):
         tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
         def _example_parser(serialized_example):
-            """Parses a single tf.Example into feature and label tensors.
+            """Parses a single tf.Example into feature and label tensors."""
 
-            :param serialized_example: a single tf.Example
-            :return:
-                tuple, feature and label tensors
-            """
-
+            # # feature_size_dict = {'global_view': 2001, 'local_view': 201}
+            # viewlist = ['global_view', 'local_view']
+            # # pairlist = ['_even', '_odd', '_centr', '']
+            # pairlist = ['']
+            #
+            # features_names = [el[0] + el[1] for el in list(itertools.product(viewlist, pairlist))]
+            #
+            # feature_size_dict = {feat: (2001, 201)['local' in feat] for feat in features_names}
+            #
+            # # feature_size_dict = {'global_view': 2001, 'local_view': 201}
+            #
+            # # if self.centr_flag:
+            # #     feature_size_dict = {**feature_size_dict, 'global_view_centr': 2001, 'local_view_centr': 201}
+            #
             # data_fields = {feature_name: tf.FixedLenFeature([length], tf.float32)
             #                for feature_name, length in feature_size_dict.items()}
 
@@ -102,7 +97,6 @@ class InputFn(object):
             data_fields = {feature_name: tf.FixedLenFeature([feature_info['dim']], feature_info['dtype'])
                            for feature_name, feature_info in self.features_set.items()}
 
-            # get labels if in TRAIN or PREDICT mode
             if include_labels:
                 data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
 
@@ -114,7 +108,6 @@ class InputFn(object):
             # Parse the features.
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
 
-            # data augmentation - time axis flipping
             if reverse_time_series_prob > 0:
                 # Randomly reverse time series features with probability
                 # reverse_time_series_prob.
@@ -126,14 +119,14 @@ class InputFn(object):
             output = {'time_series_features': {}}
             if self.filter_data is not None:
                 output['filt_features'] = {}
-            label_id = tf.cast(0, dtype=tf.int32)
+            label_id = tf.to_int32(0)
             for feature_name, value in parsed_features.items():
 
                 # label
                 if include_labels and feature_name == 'av_training_set':
                     label_id = label_to_id.lookup(value)
                     # Ensure that the label_id is non negative to verify a successful hash map lookup.
-                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
+                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.to_int32(0)),
                                                    ["Unknown label string:", value])
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
@@ -157,13 +150,6 @@ class InputFn(object):
             return output, label_id
 
         def filt_func(x, y):
-            """ Utility function used to filter examples from the dataset based on their Kepler ID + TCE planet number
-
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                boolean tensor, True for valid examples, False otherwise
-            """
 
             z1 = tf.as_string(x['filt_features']['kepid'])
             z_ = tf.convert_to_tensor('_')
@@ -173,13 +159,6 @@ class InputFn(object):
             return tf.math.reduce_any(tf.math.equal(zj, tf.convert_to_tensor(self.filter_data['kepid+tce_n'])))
 
         def get_features_and_labels(x, y):
-            """ Utility function used to remove the features used to filter the dataset.
-
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                tuple, dict with features tensor, and label tensor
-            """
 
             return {'time_series_features': x['time_series_features']}, y
 
@@ -191,9 +170,9 @@ class InputFn(object):
 
         # shuffle the dataset if training or evaluating
         if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-            dataset = dataset.shuffle(1024, seed=None)
+            dataset = dataset.shuffle(1024)
 
-        # do not repeat the dataset
+        # ????????
         dataset = dataset.repeat(1)
 
         # map the example parser across the tfrecords dataset to extract the examples
@@ -209,46 +188,25 @@ class InputFn(object):
         # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size)
 
-        # prefetches batches determined by the buffer size chosen
-        # parallelized processing in the CPU with model computations in the GPU
-        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
+        # prefetches batches determined by the buffer size chosen - is it needed?
+        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))  # Better to set at None?
 
         return dataset
 
 
 class ModelFn(object):
-    """Class that acts as a callable model function for the Estimator."""
-
     def __init__(self, model_class, config):
-        """ Initialized the model function.
-
-        :param model_class: type of model
-        :param config: dict, parameters and hyperparameters for the model
-        :return:
-        """
-
         self._model_class = model_class
         self._base_config = config
 
     def __call__(self, features, labels, mode):
-        """
-
-        :param features: feature tensor
-        :param labels: label tensor
-        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        :return:
-            EstimatorSpec
-        """
-
         config = copy.deepcopy(self._base_config)
-
         # initialize model instance of the class
         model = self._model_class(features, labels, config, mode)
 
-        # create train op if training mode
         train_op = self.create_train_op(model) if mode == tf.estimator.ModeKeys.TRAIN else None
 
-        # create metrics if mode is not predict
+        # metrics = self.create_metrics(model)  # None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
         logging_hook = None  # if mode == tf.estimator.ModeKeys.TRAIN else None
@@ -284,39 +242,28 @@ class ModelFn(object):
         metrics = {}
 
         assert len(model.predictions.shape) == 2
-
-        if model.output_size == 1:  # binary classification
+        if model.output_size == 1:
             assert model.predictions.shape[1] == 1
             predictions = tf.squeeze(model.predictions, axis=[1])
-            predicted_labels = tf.cast(tf.greater(predictions, 0.5), name="predicted_labels", dtype=tf.int32)
-        else:  # multiclassification
-            predictions = model.predictions
+            predicted_labels = tf.to_int32(tf.greater(predictions, 0.5), name="predicted_labels")
+        else:
             predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
-            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)  # if using one-hot encoding
+            predictions = model.predictions
+            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
 
         if model.config['force_softmax']:
             labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
         else:
             labels = model.labels
 
-        # compute metrics for the given threshold
         metrics['accuracy'] = tf.metrics.accuracy(labels=labels, predictions=predicted_labels)
         metrics['precision'] = tf.metrics.precision(labels=labels, predictions=predicted_labels)
         metrics['recall'] = tf.metrics.recall(labels=labels, predictions=predicted_labels)
 
-        # compute precision-recall curve
-        # define the number of thresholds used
         metrics['prec thr'] = tf.metrics.precision_at_thresholds(model.labels, predictions,
                                                          np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
         metrics['rec thr'] = tf.metrics.recall_at_thresholds(model.labels, predictions,
                                                      np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
-
-        # if not model.config['multi_class']:
-        # labels = tf.cast(labels, dtype=tf.bool)
-        metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                            summation_method='careful_interpolation', curve='ROC')
-        metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                           summation_method='careful_interpolation', curve='PR')
 
         def _metric_variable(name, shape, dtype):
             """Creates a Variable in LOCAL_VARIABLES and METRIC_VARIABLES collections."""
@@ -329,8 +276,8 @@ class ModelFn(object):
         def _count_condition(name, labels_value, predicted_value):
             """Creates a counter for given values of predictions and labels."""
             count = _metric_variable(name, [], tf.float32)
-            is_equal = tf.cast(tf.logical_and(tf.equal(labels, labels_value),
-                                                  tf.equal(predicted_labels, predicted_value)), dtype=tf.float32)
+            is_equal = tf.to_float(tf.logical_and(tf.equal(labels, labels_value),
+                                                  tf.equal(predicted_labels, predicted_value)))
             update_op = tf.assign_add(count, tf.reduce_sum(tf.ones_like(model.labels, dtype=tf.float32) * is_equal))
             return count.read_value(), update_op
 
@@ -340,6 +287,13 @@ class ModelFn(object):
             for pred_label in range(num_labels):
                 metric_name = "label_{}_pred_{}".format(label, pred_label)
                 metrics[metric_name] = _count_condition(metric_name, labels_value=label, predicted_value=pred_label)
+
+        if not model.config['multi_class']:
+            labels = tf.cast(labels, dtype=tf.bool)
+            metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                                summation_method='careful_interpolation', curve='ROC')
+            metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                               summation_method='careful_interpolation', curve='PR')
 
         return metrics
 
@@ -370,8 +324,12 @@ class ModelFn(object):
 
         # if model.config.optimizer == 'Adam':
         if model.config['optimizer'] == 'Adam':
+            # optimizer = tf.train.AdamOptimizer(learning_rate=model.config.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
             optimizer = tf.train.AdamOptimizer(learning_rate=model.config['lr'], beta1=0.9, beta2=0.999, epsilon=1e-8)
         else:
+            # optimizer = tf.train.MomentumOptimizer(model.config.lr, model.config.sgd_momentum,
+            #                                        # use_nesterov=True
+            #                                        )
             optimizer = tf.train.MomentumOptimizer(model.config['lr'], model.config['sgd_momentum'],
                                                    # use_nesterov=True
                                                    )
@@ -380,274 +338,158 @@ class ModelFn(object):
 
 
 class CNN1dModel(object):
-
     def __init__(self, features, labels, config, mode):
-        """ Initializes the CNN 1D model.
-
-        :param features: feature tensor
-        :param labels: label tensor
-        :param config: dict, model configuration for its parameters and hyperparameters
-        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        """
-
-        # model configuration (parameters and hyperparameters)
         self.config = config
-        self.mode = mode  # TRAIN, EVAL or PREDICT
-
-        self.time_series_features = features['time_series_features']  # features
-        self.labels = labels  # labels
-
+        self.mode = mode
+        self.time_series_features = features['time_series_features']
         self.is_training = None
-
-        # self.weights = None  # ?????????
-
+        self.labels = labels
+        self.weights = None
         self.logits = None
         self.predictions = None
-
-        # losses
-        # total loss adds possible regularization terms
         self.batch_losses = None
         self.total_loss = None
 
-        # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
-        # classes
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
-        else:  # binary classification with sigmoid output layer
+        else:
             self.output_size = 1
 
-        # class-label weights for weighted loss
-        # convert from numpy to tensor
         self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
-        # build the model
         self.build()
 
     def build_cnn_layers(self):
-        """ Builds the conv columns/branches.
-
-        :return:
-            cnn_layers, dict with the different conv columns
-        """
 
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
                          'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
 
-        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
-            else 'glorot_uniform'
+        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' else None
 
         cnn_layers = {}
-        for view in ['global_view', 'local_view']:
-            with tf.variable_scope('ConvNet_%s' % view):
-
-                # add the different time series for a view as channels
-                input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
-                                if view in feature_name], -1)
+        for name in ['global_view', 'local_view']:
+            with tf.variable_scope('ConvNet_%s' % name):
 
                 # if 'global_view_centr' in self.time_series_features:
-                #     input = tf.stack([self.time_series_features[view], self.time_series_features[view + '_centr']], -1)
+                #     net = tf.stack([self.time_series_features[name], self.time_series_features[name + '_centr']], -1)
                 # else:
-                #     input = tf.expand_dims(self.time_series_features[view], -1)  # [batch, length, channels]
+                # net = tf.expand_dims(self.time_series_features[name], -1)  # [batch, length, channels]
+                # add the different time series for a view as channels
+                net = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                                if name in feature_name], -1)
 
-                n_blocks = self.config[config_mapper['blocks'][view]]
-                pool_size = self.config[config_mapper['pool_size'][view]]
+                # if 'global_view_centr' in self.time_series_features:
+                #     net = tf.stack(
+                #         [
+                #             self.time_series_features[name],
+                #             self.time_series_features[name + '_centr'],
+                #             self.time_series_features[name + '_odd'],
+                #             self.time_series_features[name + '_even']
+                #         ],
+                #         -1
+                #     )
+                # else:
+                #     net = tf.expand_dims(self.time_series_features[name], -1)  # [batch, length, channels]
 
-                tf.keras.layers.InputLayer(input_shape=None,
-                                           batch_size=None,
-                                           dtype=None,
-                                           input_tensor=input,
-                                           sparse=False,
-                                           name='input_{}'.format(view))
+                n_blocks = self.config[config_mapper['blocks'][name]]
+                pool_size = self.config[config_mapper['pool_size'][name]]
 
                 for conv_block_i in range(n_blocks):
-
                     num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
-                    # kwargs = {'inputs': input,
-                    #           'filters': num_filters,
-                    #           'kernel_initializer': weight_initializer,
-                    #           'kernel_size': self.config['kernel_size'],
-                    #           'strides': self.config['kernel_stride'],
-                    #           'padding': "same"}
-                    kwargs = {'filters': num_filters,
+                    kwargs = {'inputs': net,
+                              'filters': num_filters,
                               'kernel_initializer': weight_initializer,
                               'kernel_size': self.config['kernel_size'],
                               'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
-                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
-                                                 bias_initializer='zeros', kernel_regularizer=None,
-                                                 bias_regularizer=None, activity_regularizer=None,
-                                                 kernel_constraint=None, bias_constraint=None,
-                                                 name='conv{}_{}'.format(conv_block_i, view), **kwargs)(input)
-                    # net = tf.layers.conv1d(**kwargs)
-
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
-                        else tf.keras.layers.ReLU()(net)
-                    # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                    net = tf.layers.conv1d(**kwargs)
+                    # net = tf.nn.leaky_relu(net, alpha=0.01)
+                    net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                    # net = tf.nn.relu(net)
 
                     for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
-                        net = tf.keras.layers.Conv1D(**kwargs)(net)
-                        # net = tf.layers.conv1d(**kwargs)
+                        net = tf.layers.conv1d(**kwargs)
+                        net = tf.nn.leaky_relu(net, alpha=0.01)
+                        net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                        # net = tf.nn.relu(net)
 
-                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
-                            else tf.keras.layers.ReLU()(net)
-                        # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' \
-                        #     else tf.nn.relu(net)
-
-                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
-                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
-                    # net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
+                    net = tf.layers.max_pooling1d(inputs=net, pool_size=pool_size, strides=self.config['pool_stride'])
 
                     if self.config['batch_norm']:
-                        tf.keras.layers.BatchNormalization(axis=-1, momentum=0.99, epsilon=1e-3, center=True,
-                                                           scale=True, beta_initializer='zeros',
-                                                           gamma_initializer='ones', moving_mean_initializer='zeros',
-                                                           moving_variance_initializer='ones', beta_regularizer=None,
-                                                           gamma_regularizer=None, beta_constraint=None,
-                                                           gamma_constraint=None, renorm=False, renorm_clipping=None,
-                                                           renorm_momentum=0.99, fused=None, trainable=True,
-                                                           virtual_batch_size=None, adjustment=None,
-                                                           name='batch_norm{}_block{}'.format(view, conv_block_i))(net)
-                        # net = tf.layers.batch_normalization(inputs=net)
+                        net = tf.layers.batch_normalization(inputs=net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
-                # net_shape = net.get_shape().as_list()
-                # output_dim = net_shape[1] * net_shape[2]
-                # net = tf.reshape(net, [-1, output_dim], name="flatten")
+                net_shape = net.get_shape().as_list()
+                output_dim = net_shape[1] * net_shape[2]
+                net = tf.reshape(net, [-1, output_dim], name="flatten")
 
-            cnn_layers[view] = net
+            cnn_layers[name] = net
 
         return cnn_layers
 
-    # @staticmethod
-    def connect_segments(self, cnn_layers):
-        """ Connect the different conv columns/branches; also has the option to concatenate additional features
-        (stellar params for example)
-
-        :param cnn_layers: dict with the different conv columns
-        :return:
-            model before logits
-        """
+    @staticmethod
+    def connect_segments(cnn_layers):
 
         # Sort the hidden layers by name because the order of dictionary items is
         # nondeterministic between invocations of Python.
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
 
-        # Concatenate the conv hidden layers.
-        if len(time_series_hidden_layers) == 1:  # only one column
-            pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
-        else:  # more than one column
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers])
-            # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
-            #                               axis=1, name="pre_logits_concat")
-
-        # concatenate stellar params
-        if 'stellar_params' in self.time_series_features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers] +
-                self.time_series_features['stellar_params'])
-            # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
-            #                               name="pre_logits_concat")
+        # Concatenate the hidden layers.
+        if len(time_series_hidden_layers) == 1:
+            pre_logits_concat = time_series_hidden_layers[0][1]
+        else:
+            pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
+                                          axis=1, name="pre_logits_concat")
 
         return pre_logits_concat
 
     def build_fc_layers(self, net):
-        """ Builds the FC layers
-
-        :param net: model upstream the FC layers
-        :return:
-        """
-
         with tf.variable_scope('FcNet'):
-
             for fc_layer_i in range(self.config['num_fc_layers'] - 1):
-
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
-
                 if self.config['decay_rate'] is not None:
-                    net = tf.keras.layers.Dense(units=fc_neurons,
-                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(
-                                                    self.config['decay_rate']),
-                                                activation=None,
-                                                use_bias=True,
-                                                kernel_initializer='glorot_uniform',
-                                                bias_initializer='zeros',
-                                                bias_regularizer=None,
-                                                activity_regularizer=None,
-                                                kernel_constraint=None,
-                                                bias_constraint=None,
-                                                name='fc{}'.format(fc_layer_i))(net)
-                    # net = tf.layers.dense(inputs=net, units=fc_neurons,
-                    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(
-                    #                                 self.config['decay_rate']))
+                    net = tf.layers.dense(inputs=net, units=fc_neurons,
+                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(self.config['decay_rate']))
                 else:
-                    net = tf.keras.layers.Dense(units=fc_neurons,
-                                                name='fc{}'.format(fc_layer_i))(net)
-                    # net = tf.layers.dense(inputs=net, units=fc_neurons)
+                    net = tf.layers.dense(inputs=net, units=fc_neurons)
+                # net = tf.nn.leaky_relu(net, alpha=0.01)
+                net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+                # net = tf.nn.relu(net)
+                net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
 
-                net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
-                    else tf.keras.layers.ReLU()(net)
-                # net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
+            tf.identity(net, "final")
 
-                net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net, training=self.is_training)
-                # net = tf.layers.dropout(net, self.config['dropout_rate'], training=self.is_training)
-
-            # ?????????????
-            # tf.identity(net, "final")
-
-            # create output FC layer
-            logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
-            # logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
+            logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
 
         self.logits = logits
 
     def build(self):
-        """ Builds the model.
-
-        :return:
-        """
-
         if self.mode == tf.estimator.ModeKeys.TRAIN:
             self.is_training = tf.placeholder_with_default(True, [], "is_training")
         else:
             self.is_training = False
 
-        # create convolutional columns for local and global views
         cnn_layers = self.build_cnn_layers()
-
-        # merge columns
         net = self.connect_segments(cnn_layers)
-
-        # create FC layers
         self.build_fc_layers(net)
 
-        # transform outputs to predictions
         prediction_fn = tf.nn.softmax if self.config['multi_class'] else tf.sigmoid
         self.predictions = prediction_fn(self.logits, name="predictions")
 
-        # build loss if in TRAIN or EVAL modes
         if self.mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
             self.build_losses()
 
     def build_losses(self):
-        """ Build the loss. Weighted or non-weighted cross-entropy. Sigmoid for binary classification, softmax for
-        multiclassification.
-
-        :return:
-        """
-
         weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
-                   else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
+                   else tf.gather(self.ce_weights, tf.to_int32(self.labels)))
 
         if self.output_size == 1:
-            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
+            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.to_float(self.labels),
                                                                    logits=tf.squeeze(self.logits, [1]))
         else:
-            # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
             batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
@@ -662,12 +504,7 @@ class CNN1dModel(object):
 
 
 def get_model_dir(path):
-    """Returns a randomly named, non-existing model file folder.
-
-    :param path: str, root directory for saved model directories
-    :return:
-        model_dir_custom: str, model directory
-    """
+    """Returns a randomly named, non-existing model file folder"""
 
     def _gen_dir():
         return os.path.join(path, tempfile.mkdtemp().split('/')[-1])
@@ -695,8 +532,6 @@ def get_ce_weights(label_map, tfrec_dir):
     # takes into account samples from the validation and train tfrecords???
     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
                  if not (file.startswith('test') or file.startswith('predict'))]
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if file.startswith('train')]
 
     label_vec, example = [], tf.train.Example()
     # n_train = 0
@@ -761,8 +596,7 @@ def get_num_samples(label_map, tfrec_dir, datasets):
 
     n_samples = {dataset: {label: 0 for label in label_map.values()} for dataset in datasets}
 
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if
-                 any([dataset in file for dataset in datasets])]
+    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if any([dataset in file for dataset in datasets])]
 
     # label_vec, example = [], tf.train.Example()
 
@@ -809,12 +643,6 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     #       deal with errors
     """
 
-    EPHEMERIS = {'tce_period': 'tce_period', 'tce_duration': 'tce_duration', 'epoch': 'tce_time0bk', 'MES': 'mes'}
-    VIEWS = ['global_view', 'local_view']
-    ODDEVEN = ['_odd', '_even', '']
-    CENTR = ['', '_centr']
-    TIMESERIES = [''.join(timeseries_name) for timeseries_name in itertools.product(VIEWS, ODDEVEN, CENTR)]
-
     if filt is not None:
         union_fields = np.union1d(data_fields, list(filt.keys()))
         if 'kepid+tce_n' in list(filt.keys()):
@@ -852,39 +680,29 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         if 'tce_n' in union_fields:
             datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
-        # ephemeris data
-        for ephem in EPHEMERIS:
-            if ephem in union_fields:
-                datum[ephem] = example.features.feature[EPHEMERIS[ephem]].float_list.value[0]
+        if 'tce_period' in union_fields:
+            datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
 
-        # if 'tce_period' in union_fields:
-        #     datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
-        #
-        # if 'tce_duration' in union_fields:
-        #     datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
-        #
-        # if 'epoch' in union_fields:
-        #     datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
-        #
-        # if 'MES' in union_fields:
-        #     datum['MES'] = example.features.feature['mes'].float_list.value[0]
+        if 'tce_duration' in union_fields:
+            datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
 
-        # time series
-        for timeseries in TIMESERIES:
-            if timeseries in union_fields:
-                datum[timeseries] = example.features.feature[timeseries].float_list.value
+        if 'epoch' in union_fields:
+            datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
 
-        # if 'global_view' in union_fields:
-        #     datum['global_view'] = example.features.feature['global_view'].float_list.value
-        #
-        # if 'local_view' in union_fields:
-        #     datum['local_view'] = example.features.feature['local_view'].float_list.value
-        #
-        # if 'global_view_centr' in union_fields:
-        #     datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
-        #
-        # if 'local_view_centr' in union_fields:
-        #     datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
+        if 'MES' in union_fields:
+            datum['MES'] = example.features.feature['mes'].float_list.value[0]
+
+        if 'global_view' in union_fields:
+            datum['global_view'] = example.features.feature['global_view'].float_list.value
+
+        if 'local_view' in union_fields:
+            datum['local_view'] = example.features.feature['local_view'].float_list.value
+
+        if 'global_view_centr' in union_fields:
+            datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
+
+        if 'local_view_centr' in union_fields:
+            datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
 
         # filtering
         if filt is not None:
@@ -1000,9 +818,13 @@ if __name__ == '__main__':
     # get number of samples in the datasets
     multi_class = False
     satellite = 'kepler'
-    label_map = label_map[satellite][multi_class]
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/' \
-                'tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
+    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
+    # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
+    save_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid_afp_pc/'
+
+    for file in os.listdir(tfrec_dir):
+        create_filtered_tfrecord(os.path.join(tfrec_dir, file), save_dir, {'label': ['AFP', 'PC']})
+
     # nsamples = get_num_samples(label_map, tfrec_dir, ['predict'])
     # print(nsamples)
 
@@ -1011,9 +833,9 @@ if __name__ == '__main__':
     # satellite = 'kepler'
     # label_map = label_map[satellite][multi_class]
     # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
-    tfrecords = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir)]
-    data_fields = ['kepid', 'tce_period', 'tce_duration', 'global_view', 'local_view', 'MES', 'epoch', 'label']
-    data_dict = get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None)
+    # tfrecords = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir)]
+    # data_fields = ['kepid', 'tce_period', 'tce_duration', 'global_view', 'local_view', 'MES', 'epoch', 'label']
+    # data_dict = get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None)
     # tces = []
     # for i in range(len(data_dict['kepid'])):
     #     tces.append('{}_{}'.format(data_dict['kepid'][i], data_dict['tce_n'][i]))
@@ -1026,5 +848,5 @@ if __name__ == '__main__':
     # filt_dataset_name = ''
     # add_params = {'coupled': True}
     # for tfrec in os.list_dir(tfrec_dir):
-    #     create_filtered_tfrecord(os.path.join(tfrec_dir, tfrec), save_dir, filt, append_name=filt_dataset_name,
-    #     kw_filt_args=add_params)
+    #     create_filtered_tfrecord(os.path.join(tfrec_dir, tfrec), save_dir, filt, append_name=filt_dataset_name, kw_filt_args=add_params)
+
