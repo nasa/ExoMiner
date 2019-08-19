@@ -13,6 +13,7 @@ import pickle
 
 # local
 from src_preprocessing.preprocess import _process_tce
+# from src_preprocessing.preprocess_oddeven_nwalia import _process_tce
 
 
 class Config:
@@ -20,8 +21,8 @@ class Config:
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
 
     # output directory
-    output_dir = 'tfrecords/tfrecord_dr25_manual_2d_few180k_' + satellite  # "tfrecords/tfrecord_dr25_manual_2d" + satellite
-    gapped = False  # remove other TCEs from the light curve
+    output_dir = "tfrecords/tfrecord_dr25_manual_2d" + satellite
+    gapped = True  # remove other TCEs from the light curve
     whitened = False  # whiten data
     gap_imputed = False  # add noise to gapped light curves
 
@@ -44,8 +45,8 @@ class Config:
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
     if satellite.startswith('kepler'):
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'  # w_dir + '/dr25_tce_upd_label.csv'
-        lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final'  # "/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits"
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/dr25_tce_upd_label.csv'
+        lc_data_dir = "/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits"
         dict_savedir = ''  # '/home/lswilken/Documents/Astronet_Simplified/pc_confidence_kepler_q1q17'
     elif satellite == 'tess':
         lc_str = 'lc_init_white' if whitened else 'lc_init'
@@ -161,13 +162,13 @@ def get_kepler_tce_table(config):
     allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
     tce_table = tce_table[allowed_tces]
 
-    print('len before filter by kepids: {}'.format(len(tce_table)))
-    # FILTER TCE TABLE FOR A SET OF KEPIDS
-    filt_kepids = os.listdir('/data5/tess_project/Data/DV_summaries_promising_before_pixeldata_fix')
-    filt_kepids = [int(el.split('-')[0][2:]) for el in filt_kepids if '.pdf' in el]
-    allowed_tces = tce_table['kepid'].apply(lambda l: l in filt_kepids)
-    tce_table = tce_table[allowed_tces]
-    print('len after filter by kepids: {}'.format(len(tce_table)))
+    # print('len before filter by kepids: {}'.format(len(tce_table)))
+    # # FILTER TCE TABLE FOR A SET OF KEPIDS
+    # filt_kepids = os.listdir('/data5/tess_project/Data/DV_summaries_promising_before_pixeldata_fix')
+    # filt_kepids = [int(el.split('-')[0][2:]) for el in filt_kepids if '.pdf' in el]
+    # allowed_tces = tce_table['kepid'].apply(lambda l: l in filt_kepids)
+    # tce_table = tce_table[allowed_tces]
+    # print('len after filter by kepids: {}'.format(len(tce_table)))
 
     if config.use_tps_ephem:  # load TPS ephemeris from the TPS TCE struct MATLAB file
 
@@ -335,30 +336,30 @@ def main(_):
     # tf.logging.info("Randomly shuffled TCEs.")
 
     # Partition the TCE table as follows:
-    pred_tces = tce_table
-    # train_cutoff = int(0.80 * num_tces)
-    # val_cutoff = int(0.90 * num_tces)
-    # train_tces = tce_table[0:train_cutoff]
-    # val_tces = tce_table[train_cutoff:val_cutoff]
-    # test_tces = tce_table[val_cutoff:]
-    # tf.logging.info("Partitioned %d TCEs into training (%d), validation (%d) and test (%d)",
-    #               num_tces, len(train_tces), len(val_tces), len(test_tces))
+    # pred_tces = tce_table
+    train_cutoff = int(0.80 * num_tces)
+    val_cutoff = int(0.90 * num_tces)
+    train_tces = tce_table[0:train_cutoff]
+    val_tces = tce_table[train_cutoff:val_cutoff]
+    test_tces = tce_table[val_cutoff:]
+    tf.logging.info("Partitioned %d TCEs into training (%d), validation (%d) and test (%d)",
+                  num_tces, len(train_tces), len(val_tces), len(test_tces))
 
     # Further split training TCEs into file shards.
     file_shards = []  # List of (tce_table_shard, file_name).
-    # boundaries = np.linspace(0, len(train_tces), config.num_train_shards + 1).astype(np.int)
-    boundaries = np.linspace(0, len(pred_tces), config.num_train_shards + 1).astype(np.int)
+    boundaries = np.linspace(0, len(train_tces), config.num_train_shards + 1).astype(np.int)
+    # boundaries = np.linspace(0, len(pred_tces), config.num_train_shards + 1).astype(np.int)
     for i in range(config.num_train_shards):
         start = boundaries[i]
         end = boundaries[i + 1]
-        # filedicname = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
-        # file_shards.append((train_tces[start:end], filename, eph_table))
-        filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
-        file_shards.append((pred_tces[start:end], filename, eph_table))
+        filename = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
+        file_shards.append((train_tces[start:end], filename, eph_table))
+        # filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
+        # file_shards.append((pred_tces[start:end], filename, eph_table))
 
     # # Validation and test sets each have a single shard.
-    # file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00001"), eph_table))
-    # file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00001"), eph_table))
+    file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00001"), eph_table))
+    file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00001"), eph_table))
 
     num_file_shards = len(file_shards)
 

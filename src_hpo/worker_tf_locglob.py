@@ -197,6 +197,10 @@ class TransitClassifier(Worker):
         print('#' * 100)
         sys.stdout.flush()
 
+        # save features and config used for this model
+        np.save('{}/features_set'.format(classifier.model_dir), self.features_set)
+        np.save('{}/config'.format(classifier.model_dir), config)
+
         return (res_hpo)
 
     @staticmethod

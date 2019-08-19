@@ -42,7 +42,7 @@ class InputFn(object):
         if features_set is None:
             # by default, assume there are global and local views
             self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-                                'local_view': {'dim': 201, 'dtype': tf.float32}}
+                                 'local_view': {'dim': 201, 'dtype': tf.float32}}
             if centr_flag:
                 features_set['global_view_centr'] = {'dim': 2001, 'dtype': tf.float32}
                 features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}

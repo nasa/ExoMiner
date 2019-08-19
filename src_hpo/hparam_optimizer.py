@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'test'
+    study = ''
 
     num_gpus = 1
 
@@ -174,18 +174,18 @@ if __name__ == '__main__':
     tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
 
     # features to be extracted from the dataset
-    # views = ['global_view', 'local_view']
-    # channels_centr = ['', '_centr']
-    # channels_oddeven = ['', '_odd', '_even']
-    # features_names = [''.join(feature_name_tuple)
-    #                   for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
-    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-    #                 for feature_name in features_names}
-    # example
-    features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-                    'local_view': {'dim': 201, 'dtype': tf.float32}}
+    views = ['global_view', 'local_view']
+    channels_centr = ['', '_centr']
+    channels_oddeven = ['', '_odd', '_even']
+    features_names = [''.join(feature_name_tuple)
+                      for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+    features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+                    for feature_name in features_names}
+    # # example
+    # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+    #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
     nic_name = 'lo'  # 'ib0'
 

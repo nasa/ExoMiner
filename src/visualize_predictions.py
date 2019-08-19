@@ -226,7 +226,7 @@ from src.estimator_util import get_data_from_tfrecords
 #%% visualize inputs
 
 tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
-            'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+            'tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
 dataset = 'test'
 tfrec_filenames = [os.path.join(tfrec_dir, file)
                    for file in os.listdir(tfrec_dir) if dataset in file]
@@ -343,7 +343,7 @@ for ei, i in enumerate(chosen_idxs):
     f.subplots_adjust(top=0.88, bottom=0.11, left=0.125, right=0.9, hspace=0.245, wspace=0.2)
     f.suptitle('Label: {}\n'.format(data_dict['label'][i]))
     f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/visualize_inputs/'
-              'time_series_plots_wodd_even_overlapped/{}_{}.svg'.format(data_dict['label'][i], ei))
+              'time_series_plots_oddeven_normed/{}_{}.svg'.format(data_dict['label'][i], ei))
     # aaaa
     plt.close()
 
