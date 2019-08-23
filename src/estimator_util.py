@@ -1001,8 +1001,8 @@ if __name__ == '__main__':
     multi_class = False
     satellite = 'kepler'
     label_map = label_map[satellite][multi_class]
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/Pre_processor/' \
-                'tfrecords/tfrecord_dr25_manual_2d_few180k_keplernonwhitened'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_' \
+                'normsep_nonwhitened_gapped_2001-201'  # '/data5/tess_project/Data/tfrecords/180k_tfrecord'
     # nsamples = get_num_samples(label_map, tfrec_dir, ['predict'])
     # print(nsamples)
 
@@ -1012,8 +1012,10 @@ if __name__ == '__main__':
     # label_map = label_map[satellite][multi_class]
     # tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecord_dr25_manual_2dkeplerwhitened_2001-201'
     tfrecords = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir)]
-    data_fields = ['kepid', 'tce_period', 'tce_duration', 'global_view', 'local_view', 'MES', 'epoch', 'label']
+    # data_fields = ['kepid', 'tce_period', 'tce_duration', 'global_view', 'local_view', 'MES', 'epoch', 'label']
+    data_fields = ['kepid']
     data_dict = get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None)
+    print(len(data_dict['kepid']))
     # tces = []
     # for i in range(len(data_dict['kepid'])):
     #     tces.append('{}_{}'.format(data_dict['kepid'][i], data_dict['tce_n'][i]))

@@ -20,6 +20,7 @@ import tensorflow as tf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve, auc
 import pandas as pd
+import itertools
 
 # local
 # from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
@@ -28,6 +29,7 @@ import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
 import baseline_configs
+import src.utils_data as utils_data
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
@@ -77,7 +79,7 @@ def draw_plots(res, save_path, output_cl):
         ax2.legend(loc="lower left")
 
         f.suptitle('PR/ROC Curves - {}'.format(dataset_names[dataset]))
-        f.savefig(pathsaveres + 'pr_roc_{}.png'.format(dataset))
+        f.savefig(pathsaveres + 'pr_roc_{}.svg'.format(dataset))
         plt.close()
 
     # plot histogram of the class distribution as a function of the predicted output
@@ -112,12 +114,12 @@ def draw_plots(res, save_path, output_cl):
         ax.set_xticks(np.linspace(0, 1, 11, True))
         if dataset != 'predict':
             ax.legend()
-        plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
+        plt.savefig(save_path + 'class_predoutput_distribution_{}.svg'.format(dataset))
         plt.close()
 
 
-def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=None, filter_data=None,
-         inference_only=False, generate_csv_pred=False):
+def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None, features_set=None,
+         filter_data=None, inference_only=False, generate_csv_pred=False):
     """ Test single model/ensemble of models.
 
     :param config: dict, model and dataset configurations
@@ -189,7 +191,7 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
 
             predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                        mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                       centr_flag=config['centr_flag'])
+                                       centr_flag=config['centr_flag'], features_set=features_set)
             # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
             #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
             #                            features_set=features_set)
@@ -223,19 +225,22 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
     np.save(res_dir + 'predictions_per_dataset', predictions_dataset)
 
     # sort predictions per class based on ground truth labels
-    output_cl = {dataset: {} for dataset in datasets}
-    for dataset in output_cl:
-        # map_labels
-        for class_label in config['label_map']:
+    if 'label' in fields:
+        output_cl = {dataset: {} for dataset in datasets}
+        for dataset in output_cl:
+            # map_labels
+            for class_label in config['label_map']:
 
-            if class_label == 'AFP':
-                continue
-            elif class_label == 'NTP':
-                output_cl[dataset]['NTP+AFP'] = \
-                    predictions_dataset[dataset][np.where(data[dataset]['label'] == config['label_map'][class_label])]
-            else:
-                output_cl[dataset][class_label] = \
-                    predictions_dataset[dataset][np.where(data[dataset]['label'] == config['label_map'][class_label])]
+                if class_label == 'AFP':
+                    continue
+                elif class_label == 'NTP':
+                    output_cl[dataset]['NTP+AFP'] = \
+                        predictions_dataset[dataset][np.where(data[dataset]['label'] ==
+                                                              config['label_map'][class_label])]
+                else:
+                    output_cl[dataset][class_label] = \
+                        predictions_dataset[dataset][np.where(data[dataset]['label'] ==
+                                                              config['label_map'][class_label])]
 
     # dict with performance metrics
     res = {dataset: None for dataset in datasets if dataset != 'predict'}
@@ -309,16 +314,23 @@ def main(config, model_dir, data_dir, res_dir, datasets, threshold=0.5, fields=N
 
     if generate_csv_pred:
 
+        print('Generating csv file(s) with ranking(s)...')
+
         # add predictions to the data dict
         for dataset in datasets:
             data[dataset]['output'] = predictions_dataset[dataset]
             data[dataset]['predicted class'] = pred_classification[dataset]
+
+            # add Kepler magnitude of the target star for each TCE from the fits files
+            print('adding Kp to dataset {}'.format(dataset))
+            data[dataset]['Kp'] = [kp_dict[kepid] for kepid in data[dataset]['kepid']]
 
         # write results to a txt file
         for dataset in datasets:
             print('Saving ranked predictions in dataset {}'
                   ' to {}...'.format(dataset, res_dir + "ranked_predictions_{}".format(dataset)))
             data_df = pd.DataFrame(data[dataset])
+
             # sort in descending order of output
             data_df.sort_values(by='output', ascending=False, inplace=True)
             data_df.to_csv(res_dir + "ranked_predictions_{}set".format(dataset), index=False)
@@ -331,17 +343,39 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid'
+    study = 'bohb_dr25tcert_spline_gapped_oddeven_centroid_oddeven_config'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
-    # load test data
-    tfrec_dir = paths.tfrec_dir['DR25']['spline']['TCERT']
+    # load preprocessed data
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    # # path to directory with fits files with PDC data
+    # # 34k labeled TCEs
+    # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
+    # # 180k unlabeled TCEs
+    # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final/'
+    kp_dict = np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
+
+    # features to be extracted from the dataset
+    views = ['global_view', 'local_view']
+    channels_centr = ['', '_centr']
+    channels_oddeven = ['', '_odd', '_even', '_centr']
+    features_names = [''.join(feature_name_tuple)
+                      for feature_name_tuple in itertools.product(views, channels_oddeven)]
+    features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+                    for feature_name in features_names}
+    # # example
+    # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+    #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
     # datasets used; choose from 'train', 'val', 'test', 'predict'
     datasets = ['train', 'val', 'test']
+    # datasets = ['predict']
 
+    # fields to be extracted from the tfrecords
     # set to None if not adding other fields to
     # fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
     fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
@@ -380,7 +414,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/ES_300-p20_34k' + '/models'
+    models_path = paths.pathtrainedmodels + study + '/models'
 
     # path to save results
     pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'
@@ -398,10 +432,12 @@ if __name__ == "__main__":
     main(config=config,
          model_dir=models_path,
          data_dir=tfrec_dir,
+         kp_dict=kp_dict,
          res_dir=pathsaveres,
          datasets=datasets,
          threshold=threshold,
          fields=fields,
+         features_set=features_set,
          filter_data=filter_data,
          inference_only=inference_only,
          generate_csv_pred=generate_csv_pred)

@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'study_bohb_dr25_tcert_spline2'  # 'bohb_dr25tcert_spline_gapped'
+study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair'  # 'bohb_dr25tcert_spline_gapped'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -343,42 +343,58 @@ if len(hparams) - 1 == 1:
 # returns the best configuration over time/over cumulative budget
 nmodels = 3
 hpo_loss = 'pr auc'
+lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
     ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs + study + '/*.*') if 'ensemblemetrics' in file]
 bconfig_loss, cum_budget = np.inf, 0
+bmu_hpoloss, bsem_hpoloss = None, None
 timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
 if ensemble_study:
     tinc_hpolossdev = []
-for run in timesorted_allruns:
-    cum_budget += int(run.budget) * nmodels
-    # if cum_budget > 128673:
-    #     break
-    if run.loss < bconfig_loss:
-        print('Best config so far: {}'. format(run.config_id))
-        cum_budget_vec.append(cum_budget)
-        bconfig_loss = run.loss
+for run_i, run in enumerate(timesorted_allruns):
 
+    if cum_budget + int(run.budget) * nmodels > lim_totalbudget:
+        print('break. pass the total budget limit')
+        break
+
+    cum_budget += int(run.budget) * nmodels
+
+    if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
+
+        print('Best config so far: {}'. format(run.config_id))
+
+        # add timestamp and cumulated budget to the arrays
+        cum_budget_vec.append(cum_budget)
         timestamps.append(run.time_stamps['finished'])
+
         if not ensemble_study:
             tinc_hpoloss.append(run.loss)
-        else:
+        else:  # for ensemble studies, use the mean and std
 
+            # search for the numpy file with the values for the given run
             for ensmetrics in ensmetrics_list:
                 if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
                     censemetrics = ensmetrics
                     break
-            else:
+            else:  # did not find the file for that run
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
                                                                                                     run.budget))
 
             ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
             mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
-            # print('mu and sem: ', mu_hpoloss, sem_hpoloss)
 
-            tinc_hpoloss.append(mu_hpoloss)
-            tinc_hpolossdev.append(sem_hpoloss)
+            if run.loss < bconfig_loss:
+                bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss
+                tinc_hpoloss.append(mu_hpoloss)
+                tinc_hpolossdev.append(sem_hpoloss)
+            else:
+                tinc_hpoloss.append(bmu_hpoloss)
+                tinc_hpolossdev.append(bsem_hpoloss)
+
+        if run.loss < bconfig_loss:
+            bconfig_loss = run.loss
 
 f, ax = plt.subplots()
 if not ensemble_study:
@@ -502,7 +518,9 @@ for study_i in range(len(studies)):
 
     bconfig_loss, cum_budget = np.inf, 0
     bmu_hpoloss, bsem_hpoloss = None, None
-    timestamps, cum_budget_vec, tinc_hpoloss, tinc_hpolossdev = [], [], [], []
+    timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
+    if ensemble_study:
+        tinc_hpolossdev = []
     for run_i, run in enumerate(timesorted_allruns):
 
         if cum_budget + int(run.budget) * nmodels > lim_totalbudget:
@@ -510,31 +528,41 @@ for study_i in range(len(studies)):
             break
 
         cum_budget += int(run.budget) * nmodels
+
         if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
+
+            # add timestamp and cumulated budget to the arrays
             timestamps.append(run.time_stamps['finished'])
-            # tinc_hpoloss.append(run.loss)
             cum_budget_vec.append(cum_budget)
 
-            for ensmetrics in ensmetrics_list:
-                if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
-                    censemetrics = ensmetrics
-                    break
+            # for ensemble studies, use the mean and std
+            if ensemble_study:
+
+                # search for the numpy file with the values for the given run
+                for ensmetrics in ensmetrics_list:
+                    if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
+                        censemetrics = ensmetrics
+                        break
+                else:  # did not find the file for that run
+                    raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
+                                                                                                        run.budget))
+
+                ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
+                mu_hpoloss = 1 - np.median(ensmetrics[:, -1])  # compute mean loss
+                sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])  # compute std
+
+                if run.loss < bconfig_loss:
+                    bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss
+                    tinc_hpoloss.append(mu_hpoloss)
+                    tinc_hpolossdev.append(sem_hpoloss)
+                else:
+                    tinc_hpoloss.append(bmu_hpoloss)
+                    tinc_hpolossdev.append(bsem_hpoloss)
+
             else:
-                raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
-                                                                                                    run.budget))
+                tinc_hpoloss.append(run.loss)
 
-            ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
-            mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
-            sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
-
-            if run.loss < bconfig_loss:
-                bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss
-                tinc_hpoloss.append(mu_hpoloss)
-                tinc_hpolossdev.append(sem_hpoloss)
-            else:
-                tinc_hpoloss.append(bmu_hpoloss)
-                tinc_hpolossdev.append(bsem_hpoloss)
-
+            # update best config loss
             if run.loss < bconfig_loss:
                 bconfig_loss = run.loss
 

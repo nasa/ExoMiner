@@ -223,7 +223,7 @@ from src.estimator_util import get_data_from_tfrecords
 #
 #     del data_tps, data_dv
 #
-#%% visualize inputs
+#%% Visualize input channels
 
 tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
             'tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
@@ -555,3 +555,25 @@ for dataset in datasets:
     # aaa
     plt.savefig(save_path + '/mes_distribution_scores_{}set_{}.svg'.format(dataset, output_column))
     plt.close()
+
+#%% Histogram of MES for the predict dataset (180k TCEs)
+
+mes_predictset = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv')
+mes_predictset = mes_predictset[['mes']]
+mes_bins = np.arange(0, 12, 0.5)
+
+hist, bin_edges = np.histogram(mes_predictset, mes_bins, density=False, range=None)
+
+f, ax = plt.subplots()
+ax.bar([(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)],
+       hist, mes_bins[1] - mes_bins[0], edgecolor='k')
+ax.set_ylabel('Number of TCEs')
+ax.set_xlabel('MES')
+ax.set_xlim([0, mes_bins[-1]])
+# ax.set_ylim([0, 1])
+ax.set_title('Dataset Predict')
+# ax.set_xticks(np.linspace(0, 1, 11, True))
+ax.set_xticks(np.arange(0, 13, 0.5))
+# ax.legend()
+# plt.savefig(save_path + 'hist_mes_predict.svg')
+# plt.close()

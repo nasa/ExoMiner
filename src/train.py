@@ -309,9 +309,11 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     # predict on given datasets
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
     for dataset in predictions_dataset:
+        print('Predicting on dataset {}...'.format(dataset))
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                   centr_flag=config['centr_flag'], filter_data=filter_data[dataset])
+                                   centr_flag=config['centr_flag'], filter_data=filter_data[dataset],
+                                   features_set=features_set)
 
         for predictions in classifier.predict(predict_input_fn):
             predictions_dataset[dataset].append(predictions[0])
@@ -387,27 +389,28 @@ if __name__ == '__main__':
 
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'bohb_dr25tcert_whitened4'
+    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair'
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory
-    tfrec_dir = paths.tfrec_dir['DR25']['whitened']['TCERT']
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_' \
+                'normsep_nonwhitened_gapped_2001-201'
 
     # features to be extracted from the dataset
-    # views = ['global_view', 'local_view']
-    # channels_centr = ['', '_centr']
-    # channels_oddeven = ['', '_odd', '_even']
-    # features_names = [''.join(feature_name_tuple)
-    #                   for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
-    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-    #                 for feature_name in features_names}
+    views = ['global_view', 'local_view']
+    channels_centr = ['', '_centr']
+    channels_oddeven = ['', '_odd', '_even']
+    features_names = [''.join(feature_name_tuple)
+                      for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+    features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+                    for feature_name in features_names}
     # example
-    features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-                    'local_view': {'dim': 201, 'dtype': tf.float32}}
+    # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+    #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
     # features used to filter the dataset
     filter_data = None  # np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/
