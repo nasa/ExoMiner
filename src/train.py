@@ -175,7 +175,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
 
 
 def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, features_set=None,
-             filter_data=None, mpi_rank=None, sess_config=None):
+             filter_data=None, mpi_rank=None, ngpus_per_node=1, sess_config=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -213,7 +213,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     if mpi_rank is not None:
-        sess_config.gpu_options.visible_device_list = str(mpi_rank % 4)
+        sess_config.gpu_options.visible_device_list = str(mpi_rank % ngpus_per_node)
 
     classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
@@ -382,21 +382,21 @@ if __name__ == '__main__':
     # if rank != 0:
     #     time.sleep(2)
 
-    # tf.logging.set_verbosity(tf.logging.ERROR)
+    tf.logging.set_verbosity(tf.logging.ERROR)
     # tf.logging.set_verbosity(tf.logging.INFO)
 
     sess_config = tf.ConfigProto(log_device_placement=False)
+    ngpus_per_node = 1
 
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair'
+    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven'
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_' \
-                'normsep_nonwhitened_gapped_2001-201'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
 
     # features to be extracted from the dataset
     views = ['global_view', 'local_view']
@@ -491,4 +491,5 @@ if __name__ == '__main__':
     #              features_set = features_set,
     #              filter_data=filter_data,
     #              sess_config=sess_config,
-    #              mpi_rank=rank)
+    #              mpi_rank=rank,
+    #              ngpus_per_node=ngpus_per_node)

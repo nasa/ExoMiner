@@ -23,8 +23,8 @@ import pandas as pd
 import itertools
 
 # local
-# from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+# from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
@@ -343,13 +343,13 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_oddeven_centroid_oddeven_config'
+    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair_ncoe'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # load preprocessed data
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
     # # path to directory with fits files with PDC data
     # # 34k labeled TCEs
     # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
