@@ -17,11 +17,10 @@ from src_preprocessing.preprocess import _process_tce
 
 
 class Config:
+    """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
 
-    # output directory
-    output_dir = "tfrecords/tfrecord_dr25_manual_2d" + satellite
     gapped = True  # remove other TCEs from the light curve
     whitened = False  # whiten data
     gap_imputed = False  # add noise to gapped light curves
@@ -39,14 +38,29 @@ class Config:
 
     use_ground_truth = False
 
+    # output directory
+    output_dir = "tfrecords/tfrecord{}_dr25_centroidnonnormalized".format(satellite)
+
     # working directory
-    w_dir = os.path.dirname(__file__)
+    w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)
+
+    # Ephemeris table (complete with the gapped TCEs)
+    eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'
+    # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
+
+    # whitened data directory
+    whitened_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/DR25_readouts'
+
+    # Ephemeris table from the TPS module
+    tps_ephem_tbl = '/data5/tess_project/Data/Ephemeris_tables/tpsTceStructV4_KSOP2536.mat'
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
     if satellite.startswith('kepler'):
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/dr25_tce_upd_label.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/q1_q17_dr25_tce_2019.08.20_11.34.45_updt_tcert.csv'  # '/data5/tess_project/Data/Ephemeris_tables/dr25_tce_upd_label.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
         lc_data_dir = "/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits"
+        # lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final'
         dict_savedir = ''  # '/home/lswilken/Documents/Astronet_Simplified/pc_confidence_kepler_q1q17'
     elif satellite == 'tess':
         lc_str = 'lc_init_white' if whitened else 'lc_init'
@@ -80,19 +94,24 @@ class Config:
     if use_ground_truth:
         assert satellite == 'tess'
 
+    # number of shards (tfrecords)
     # 8 training shards, 1 validation and 1 test
-    num_train_shards = 1  # 8
-    num_worker_processes = 1  # number of workers
+    num_train_shards = 8  # 8
+
+    # number of processes spawned
+    num_worker_processes = 10  # number of workers
 
     omit_missing = True  # skips Kepler IDs that are not in the fits files
 
 
 def _process_file_shard(tce_table, file_name, eph_table):
-    """Processes a single file shard.
+    """ Processes a single file shard.
 
     Args:
-    tce_table: A Pandas DateFrame containing the TCEs in the shard.
-    file_name: The output TFRecord file.
+    tce_table: A Pandas DataFrame containing the TCEs ephemeris in the shard
+    file_name: The output TFRecord file
+    eph_table: A Pandas DataFrame containing the complete TCEs ephemeris database - needed when gapping TCEs from the
+    light curve
     """
 
     # (tce_table, file_name) = inputi
@@ -102,6 +121,8 @@ def _process_file_shard(tce_table, file_name, eph_table):
     shard_name = os.path.basename(file_name)
     shard_size = len(tce_table)
     tf.logging.info("%s: Processing %d items in shard %s", process_name, shard_size, shard_name)
+
+    # get preprocessing configuration parameters
     config = Config()
 
     # load confidence dictionary
@@ -110,12 +131,16 @@ def _process_file_shard(tce_table, file_name, eph_table):
     with tf.python_io.TFRecordWriter(file_name) as writer:
         num_processed = 0
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
-            if config.satellite == 'kepler':
+
+            # get flux and cadence data
+            if config.satellite == 'kepler':  # Kepler
+                # check if TCE is in the whitened dataset
                 if config.whitened and not (tce['kepid'] in flux_import and tce['kepid'] in time_import):
                     continue
 
                 lc, time = (flux_import[tce['kepid']][1], time_import[tce['kepid']][1]) \
                     if config.whitened else (None, None)
+
             else:  # TESS
                 aux_id = (tce['tessid'], 1, tce['sector'])  # tce_n = 1, import non-previous-tce-gapped light curves
                 lc, time = aux_dict[aux_id][0], aux_dict[aux_id][1]
@@ -128,6 +153,7 @@ def _process_file_shard(tce_table, file_name, eph_table):
             #         aux_id = (tce['tessid'], 1, tce['sector'])  # tce_n = 1, import non-previous-tce-gapped light curves
             #         lc, time = aux_dict[aux_id][0], aux_dict[aux_id][1]
 
+            # preprocess TCE and add it to the tfrecord
             example = _process_tce(tce, eph_table, lc, time, config, confidence_dict)
             if example is not None:
                 writer.write(example.SerializeToString())
@@ -141,13 +167,17 @@ def _process_file_shard(tce_table, file_name, eph_table):
 
 
 def get_kepler_tce_table(config):
+    """ Get TCE ephemeris tables.
 
-    eph_savstr = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'  # config.w_dir + '/DR25_readouts'
-    whitened_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/DR25_readouts'
+    :param config:
+    :return:
+        tce_table: pandas DataFrame, table with ephemeris table
+        eph_table: pandas DataFrame, table with complete ephemeris table used when gapping the time series
+    """
 
     eph_table = None
     if config.gapped:  # get the ephemeris table for the gapped time series
-        with open(eph_savstr, 'rb') as fp:
+        with open(config.eph_tbl_fp, 'rb') as fp:
             eph_table = pickle.load(fp)
 
     _LABEL_COLUMN = "av_training_set"
@@ -170,17 +200,16 @@ def get_kepler_tce_table(config):
     # tce_table = tce_table[allowed_tces]
     # print('len after filter by kepids: {}'.format(len(tce_table)))
 
-    if config.use_tps_ephem:  # load TPS ephemeris from the TPS TCE struct MATLAB file
+    if config.use_tps_ephem:  # use TPS ephemeris from the TPS TCE struct MATLAB file
 
         # extract these fields from the mat file
         fields = ['kepid', 'tce_plnt_num', 'tce_period', 'tce_time0bk', 'tce_duration', 'av_training_set']
 
-        mat = \
-        io.loadmat('/data5/tess_project/Data/Ephemeris_tables/'
-                   'tpsTceStructV4_KSOP2536.mat')['tpsTceStructV4_KSOP2536'][0][0]
+        mat = io.loadmat(config.tps_ephem_tbl)['tpsTceStructV4_KSOP2536'][0][0]
 
         d = {name: [] for name in fields}
 
+        # iterate over each row to get the ephemeris for each TCE
         for i in tce_table.iterrows():
             if i[1]['tce_plnt_num'] == 1:
                 tpsStructIndex = np.where(mat['keplerId'] == i[1]['kepid'])[0]
@@ -201,27 +230,53 @@ def get_kepler_tce_table(config):
         # convert from dictionary to Pandas DataFrame
         tce_table = pd.DataFrame(data=d)
 
-    else:
-        if config.whitened:  # get flux and cadence time series for the whitened data
-            flux_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_flux')
-                          and not i.endswith('(copy)')]
-            time_files = [i for i in os.listdir(whitened_dir) if i.startswith('DR25_readout_time')
-                          and not i.endswith('(copy)')]
-
-            # print('doing one quarter of all tces')
-
-            global flux_import
-            global time_import
-            flux_import, time_import = {}, {}
-
-            for file in flux_files:  # [:int(len(flux_files)/4)]
-                with open(os.path.join(whitened_dir, file), 'rb') as fp:
-                    flux_import.update(pickle.load(fp))
-            for file in time_files:  # [:int(len(time_files)/4)]
-                with open(os.path.join(whitened_dir, file), 'rb') as fp:
-                    time_import.update(pickle.load(fp))
+    # else:
+    #     if config.whitened:  # get flux and cadence time series for the whitened data
+    #         flux_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_flux')
+    #                       and not i.endswith('(copy)')]
+    #         time_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_time')
+    #                       and not i.endswith('(copy)')]
+    #
+    #         # print('doing one quarter of all tces')
+    #
+    #         global flux_import
+    #         global time_import
+    #         flux_import, time_import = {}, {}
+    #
+    #         for file in flux_files:  # [:int(len(flux_files)/4)]
+    #             with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
+    #                 flux_import.update(pickle.load(fp))
+    #         for file in time_files:  # [:int(len(time_files)/4)]
+    #             with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
+    #                 time_import.update(pickle.load(fp))
 
     return tce_table, eph_table
+
+
+def load_whitened_data(config):
+    """ Loads the whitened data into global variables
+
+    :param config: Config object, contains the preprocessing parameters
+    :return:
+    """
+
+    flux_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_flux')
+                  and not i.endswith('(copy)')]
+    time_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_time')
+                  and not i.endswith('(copy)')]
+
+    # print('doing one quarter of all tces')
+
+    global flux_import
+    global time_import
+    flux_import, time_import = {}, {}
+
+    for file in flux_files:  # [:int(len(flux_files)/4)]
+        with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
+            flux_import.update(pickle.load(fp))
+    for file in time_files:  # [:int(len(time_files)/4)]
+        with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
+            time_import.update(pickle.load(fp))
 
 
 def _update_tess_lists(table_dict, ephemdict, match_dict, tid, sector_n, tce_n, config, time_vectors):
@@ -325,10 +380,14 @@ def main(_):
     # Make the output directory if it doesn't already exist.
     tf.gfile.MakeDirs(config.output_dir)
 
+    # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
                             else get_tess_tce_table(config))
 
     num_tces = len(tce_table)
+
+    if config.whitened:  # get flux and cadence time series for the whitened data
+        load_whitened_data(config)
 
     # # Randomly shuffle the TCE table.
     # np.random.seed(123)
@@ -339,16 +398,20 @@ def main(_):
     # pred_tces = tce_table
     train_cutoff = int(0.80 * num_tces)
     val_cutoff = int(0.90 * num_tces)
+
     train_tces = tce_table[0:train_cutoff]
     val_tces = tce_table[train_cutoff:val_cutoff]
     test_tces = tce_table[val_cutoff:]
+
     tf.logging.info("Partitioned %d TCEs into training (%d), validation (%d) and test (%d)",
                   num_tces, len(train_tces), len(val_tces), len(test_tces))
+    # tf.logging.info("Partitioned %d TCEs into predict (%d)", num_tces, len(pred_tces))
 
     # Further split training TCEs into file shards.
-    file_shards = []  # List of (tce_table_shard, file_name).
+    file_shards = []  # List of (tce_table_shard, file_name, full ephemeris table)
     boundaries = np.linspace(0, len(train_tces), config.num_train_shards + 1).astype(np.int)
     # boundaries = np.linspace(0, len(pred_tces), config.num_train_shards + 1).astype(np.int)
+
     for i in range(config.num_train_shards):
         start = boundaries[i]
         end = boundaries[i + 1]
@@ -357,13 +420,13 @@ def main(_):
         # filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
         # file_shards.append((pred_tces[start:end], filename, eph_table))
 
-    # # Validation and test sets each have a single shard.
-    file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00001"), eph_table))
-    file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00001"), eph_table))
+    # # Validation and test sets each have a single shard
+    # file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00000"), eph_table))
+    # file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00000"), eph_table))
 
     num_file_shards = len(file_shards)
 
-    # Launch subprocesses for the file shards.
+    # launch subprocesses for the file shards
     num_processes = min(num_file_shards, config.num_worker_processes)
     tf.logging.info("Launching %d subprocesses for %d total file shards", num_processes, num_file_shards)
 
@@ -379,5 +442,7 @@ def main(_):
 
 
 if __name__ == "__main__":
+
     tf.logging.set_verbosity(tf.logging.INFO)
+
     tf.app.run(main=main)

@@ -475,19 +475,23 @@ if model_based_optimizer:
 
 #%% Compare different HPO studies
 
-paths.path_hpoconfigs = ['/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven/hpo_confs/bohb_dr25tcert_spline_gapped_oddeven_only',
-                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_Centroid/hpo_confs/bohb_dr25tcert_spline_gapped_centroid',
-                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/bohb_dr25tcert_spline_gapped',
-                         '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/bohb_dr25tcert_spline_oddeven']
+# paths.path_hpoconfigs = ['/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven/hpo_confs/bohb_dr25tcert_spline_gapped_oddeven_only',
+#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_Centroid/hpo_confs/bohb_dr25tcert_spline_gapped_centroid',
+#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/bohb_dr25tcert_spline_gapped',
+#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/bohb_dr25tcert_spline_oddeven']
+paths.path_hpoconfigs = ['/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair_ncoe',
+                         '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid_oddeven',
+                         '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped']
 
 # load results from the BOHB study
 # studies = ['study_bo', 'study_rs', 'study_bohb']
-studies = ['Gapped+odd_even', 'Gapped+centroid', 'Gapped', 'Gapped+odd_even+centroid']
+studies = ['Gapped+centroid+jointnorm_oddeven', 'Gapped+centroid+oddeven', 'Gapped']
 # studies_name = {'study_bo': 'BO', 'study_rs': 'RS', 'study_bohb': 'BOHB'}
 studies_name = {study: study for study in studies}
 hpo_loss = 'pr auc'
 lim_totalbudget = np.inf
 nmodels = 3
+ensemble_study = True
 time_budget_studies = {study: {'hpo_loss': None, 'cum_budget': None, 'wall_clock_time': None} for study in studies}
 
 # for study in studies:
@@ -578,8 +582,8 @@ for study in time_budget_studies:
     ax.scatter(time_budget_studies[study]['wall_clock_time'], time_budget_studies[study]['hpo_loss'], c='r')
     ax.set_yscale('log')
     ax.set_xscale('log')
-ax.set_ylim(ymax=1)
-ax.set_xlim(xmax=1e5)
+ax.set_ylim(top=1)
+ax.set_xlim(right=1e5)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 ax.set_title('')
@@ -593,8 +597,8 @@ for study in time_budget_studies:
     ax.scatter(time_budget_studies[study]['cum_budget'], time_budget_studies[study]['hpo_loss'], c='r')
     ax.set_yscale('log')
     ax.set_xscale('log')
-ax.set_ylim(ymax=1)
-ax.set_xlim(xmax=1e5)
+ax.set_ylim(top=1)
+ax.set_xlim(right=1e5)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')

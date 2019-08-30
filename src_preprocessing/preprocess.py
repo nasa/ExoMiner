@@ -20,6 +20,8 @@ Authors:
 - Laurent Wilkens
 - Nikash Walia
 
+#FIXME: why do we need the flux values for the imputed intervals?
+
 """
 
 # 3rd party
@@ -89,10 +91,11 @@ def report_exclusion(config, tce, id_str, stderr=None):
 
 
 def get_gap_indices(flux, checkfuncs=None):
-    """
-    Finds gaps in time series data (where time series one of [0, nan, inf, -inf])
+    """ Finds gaps in time series data (where time series is one of [0, nan, inf, -inf])
+
     :param flux:  flux time-series
-    :return: id_dict: dict with start and end indices of each gap in flux time series
+    :return:
+        id_dict: dict with start and end indices of each gap in flux time series
     """
 
     # maybe only the checks requested should be performed
@@ -197,23 +200,41 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_ids=None
     """Processes the light curve and returns an Example proto.
 
     Args:
-    tce: Row of the input TCE table.
+        tce: Row of the input TCE table.
+        table: pandas DataFrame, ephemeris information on other TCEs used when gapping
+        all_flux:
+        all_time:
+        config:
+        conf_dict:
+        gap_ids:
 
     Returns:
-    A tensorflow.train.Example proto containing TCE features.
+        A tensorflow.train.Example proto containing TCE features.
     """
+
     centroid_time = None  # pre-fill
+
     if all_flux is None:  # all_flux = None if satellite = kepler and non-whitened light curves
+
+        # get cadence, flux and centroid data for the tce
         all_time, all_flux, all_centroids = read_light_curve(tce, config)
 
-        if all_flux is None and config.omit_missing:
-            report_exclusion(config, tce, 'all flux import values are NaNs')
-            # print('omitting missing %5d for planet %5d' % (tce['kepid'], tce['tce_plnt_num']))
-            return None
+        # if all_flux is None and config.omit_missing:
+        #     report_exclusion(config, tce, 'all flux import values are NaNs')
+        #     # print('omitting missing %5d for planet %5d' % (tce['kepid'], tce['tce_plnt_num']))
+        #     return None
+
     else:  # only keep centroids as whitened source does not have centroid information
         centroid_time, __, all_centroids = read_light_curve(tce, config)
 
+    if all_flux is None and not config.omit_missing:
+        report_exclusion(config, tce, 'all flux import values are NaNs')
+        # print('omitting missing %5d for planet %5d' % (tce['kepid'], tce['tce_plnt_num']))
+        return None
+
+    # for the whitened data series we need to do some extra data manipulation and processing
     if config.whitened:
+
         all_centroids['x'] = np.concatenate(all_centroids['x'])
         all_centroids['y'] = np.concatenate(all_centroids['y'])
         centroid_time = np.concatenate(centroid_time)
@@ -228,30 +249,37 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_ids=None
 
         # remove patches of 0's (whitened time series are filled with 0's instead of nan's)
         zero_gaps = get_gap_indices(all_flux, checkfuncs=[0])[0]
-        for gap_n in reversed(list(range(len(zero_gaps.items())))):
+        # if removing different valued gaps, we would need an additional step to order the gaps
+        # starting from the last gap to the first one in order to not mess with the indexing
+        for gap_n in range(len(zero_gaps) - 1, -1, -1):
             gap = zero_gaps[gap_n]
             gap_length = gap[-1] - gap[0] + 1
-            if gap_length > 2:
+            if gap_length > 2:  # avoiding gaps smaller than 3 cadences
                 all_flux = np.concatenate((all_flux[:gap[0]], all_flux[gap[-1]:]))
                 all_time = np.concatenate((all_time[:gap[0]], all_time[gap[-1]:]))
 
         # align cadences of centroid and time
         all_centroids = synchronize_centroids_with_flux(all_time, centroid_time, all_centroids)
-        assert len(all_centroids['x']) == len(all_flux)
+        # assert len(all_centroids['x']) == len(all_flux)
+        if len(all_centroids['x']) != len(all_flux):
+            report_exclusion(config, tce, 'after sychronizing the centroid with the flux time series, the two time '
+                                          'series do not have the same length.')
 
-        if not config.gapped:
-            all_time, all_flux, all_centroids['x'], all_centroids['y'] = \
-                [all_time], [all_flux], [all_centroids['x']], [all_centroids['y']]
+        # if not config.gapped:
+        all_time, all_flux, all_centroids['x'], all_centroids['y'] = \
+            [all_time], [all_flux], [all_centroids['x']], [all_centroids['y']]
 
     # oot_rms = get_centr_oot_rms(all_centroids, all_time, tce, table, config)  # centroid Out Of transit (oot) RMS
 
+    # gap other TCEs in the light curve
     if config.gapped:
         all_time, all_flux, all_centroids, gap_ids = \
             kepler_io.gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_dict)
 
+    # connect centroid time series between consecutive quarters
     all_centroids = patch_centroid_curve(all_centroids)
 
-    # Remove timestamps with NaN time, flux or centroid values.
+    # Remove timestamps with NaN time, flux or centroid values
     for i, (time, flux, centr_x, centr_y) in enumerate(zip(all_time, all_flux, all_centroids['x'], all_centroids['y'])):
         finite_id_flux = np.logical_and(np.isfinite(flux), np.isfinite(time))
         finite_id_centr = np.logical_and(np.isfinite(centr_x), np.isfinite(centr_y))
@@ -261,9 +289,14 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_ids=None
         all_centroids['x'][i] = centr_x[finite_id]
         all_centroids['y'][i] = centr_y[finite_id]
 
-    time, flux, centroids = process_light_curve(all_time, all_flux, all_centroids, gap_ids, config.whitened, tce)
-    transit_times = kepler_io.transit_points(all_time, tce, table)
-    return generate_example_for_tce(time, flux, centroids, tce, config, transit_times)
+    # preprocess the flux and centroid time series
+    time, flux, centroids = process_light_curve(all_time, all_flux, all_centroids, gap_ids, config.whitened)
+
+    # transit_times = kepler_io.transit_points(all_time, tce, table)
+
+    # create the different channels
+    # return generate_example_for_tce(time, flux, centroids, tce, config, transit_times)
+    return generate_example_for_tce(time, flux, centroids, tce, config)
 
 
 # if config.gapped:
@@ -282,7 +315,7 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_ids=None
 
 
 def read_light_curve(tce, config):
-    """Reads a Kepler light curve.
+    """ Reads a Kepler light curve.
 
     Args:
       kepid: Kepler id of the target star.
@@ -297,14 +330,13 @@ def read_light_curve(tce, config):
     Raises:
       IOError: If the light curve files for this Kepler ID cannot be found.
     """
-    kepler_data_dir = config.lc_data_dir
 
     # Read the Kepler light curve.
-    file_names = kepler_io.kepler_filenames(kepler_data_dir, tce.kepid)
+    file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.kepid)
 
     if not file_names:
         if not config.omit_missing:
-            raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(kepler_data_dir, tce.kepid))
+            raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.kepid))
         else:
             report_exclusion(config, tce, 'No available lightcurve .fits files')
             return None, None, None
@@ -318,53 +350,65 @@ def patch_centroid_curve(all_centroids):
     :param all_centroids: x and y centroid shift time series.
     :return: corrected x and y centroid shift time series.
     """
+
+    # check if all_centroids is only on numpy array instead of a list of numpy arrays
     if isinstance(all_centroids, np.ndarray) and all_centroids.ndim == 1:
         return all_centroids
+
     end = len(all_centroids['x'])
-    i = 1
+    i = 1  # start in the second quarter
     while i < end:
+
+        # value of the first index that is not nan in the current quarter
         init_x = all_centroids['x'][i][np.where(~np.isnan(all_centroids['x'][i]))[0][0]]
+        # value of the last index that is not nan in the previous quarter
         end_x = all_centroids['x'][i-1][np.where(~np.isnan(all_centroids['x'][i-1]))[0][-1]]
+
         # med_prev_x = all_centroids['x'][i-1][np.nanmedian(all_centroids['x'][i-1])]
+
+        # same for the y coordinate
         init_y = all_centroids['y'][i][np.where(~np.isnan(all_centroids['y'][i]))[0][0]]
         end_y = all_centroids['y'][i-1][np.where(~np.isnan(all_centroids['y'][i-1]))[0][-1]]
+
         # med_prev_y = all_centroids['y'][i-1][np.nanmedian(all_centroids['y'][i-1])]
+
+        # subtract the difference between consecutive quarters
         all_centroids['x'][i] -= (init_x - end_x)
         all_centroids['y'][i] -= (init_y - end_y)
+
         i += 1
+
     return all_centroids
 
 
-def process_light_curve(all_time, all_flux, all_centroids, gap_ids, whitened, tce):
+def process_light_curve(all_time, all_flux, all_centroids, gap_ids, whitened):
     """Removes low-frequency variability from a light curve. Also repairs centroid shift time series
     by dividing by local medians.
 
     Args:
-      all_time: A list of numpy arrays; the time values of the raw light curve.
-      all_flux: A list of numpy arrays corresponding to the time arrays in
-        all_time.
+      all_time: A list of numpy arrays; the time values of the raw light curve
+      all_flux: A list of numpy arrays corresponding to the time arrays in all_time
+      all_centroids:
+      gap_ids: A list of numpy arrays; the cadences and flux for the imputed intervals
+      whitened: bool, True if data is whitened
 
     Returns:
-      time: 1D NumPy array; the time values of the light curve.
-      flux: 1D NumPy array; the normalized fluxv values of the light curve.
+      time: 1D NumPy array; the time values of the light curve
+      flux: 1D NumPy array; the normalized flux values of the light curve
+      centroid_quadr NumPy array; the euclidean distance of the centroid time series to the global centroid median
     """
+
     # Split on gaps.
     all_time, all_flux, all_centroids = util.split_wcentroids(all_time, all_flux, all_centroids, gap_width=0.75)
 
     # Concatenate the piecewise light curve and spline.
-    # try:
     time = np.concatenate(all_time)
-    # except ValueError:
-    #     print(all_time)
-
-    # try:
     flux = np.concatenate(all_flux)
-    # except ValueError:
-    #     print(all_flux)
 
     for dim, array in all_centroids.items():
         all_centroids[dim] = np.concatenate(array)
 
+    # compute the local median in windows of total_length/2000 and divide each window by the respective median
     bin_size = int(np.ceil(len(all_centroids['x']) / 2000))
     limit = len(all_centroids['x'])
     i = 0
@@ -375,9 +419,11 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_ids, whitened, tc
         all_centroids['y'][i:i + bin_size] /= loc_median_y
         i += bin_size
 
+    # compute global median and the euclidean distance to it
     median_x = np.nanmedian(all_centroids['x'])
     median_y = np.nanmedian(all_centroids['y'])
     centroid_quadr = np.sqrt(np.square(all_centroids['x'] - median_x) + np.square(all_centroids['y'] - median_y))
+
     # plt.subplot(3, 1, 1)
     # plt.scatter(np.arange(len(all_centroids['x'])), all_centroids['x'] - median_x, s=0.01)
     # plt.subplot(3, 1, 2)
@@ -395,6 +441,7 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_ids, whitened, tc
     # plt.clf()
     # plt.close()
 
+    # spline preprocessing
     if not whitened:
         # Fit a piecewise-cubic spline with default arguments.
         spline = kepler_spline.fit_kepler_spline(all_time, all_flux, verbose=False)[0]
@@ -413,11 +460,8 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_ids, whitened, tc
         # the spline.
         flux /= spline
 
-    # if type(flux) is not np.ndarray:  # flux and time type = Maskedcolumn if imported from .tbl files, which are whitened
-    #   flux = np.array(flux)
-    #   time = np.array(time)
-
-    if gap_ids:  # if gaps need not be imputed, gap_ids = None
+    # impute the time series with noise base on global estimates of median and std of the flux
+    if gap_ids:
         flux_med = np.median(flux)
         std_rob_estm = np.median(np.abs(flux - flux_med)) * 1.4826
         for [time_slice, flux_slice] in gap_ids:
@@ -471,6 +515,7 @@ def phase_fold_and_sort_light_curve_odd_even(time, flux, centroids, period, t0):
         folded_flux: 1D NumPy array. Values are the same as the original input array, but sorted by folded_time.
         folded_centroids: 1D NumPy array. Values are the same as the original input array, but sorted by folded_time.
     """
+
     half_period = period / 2
     odd_indices = np.array([], dtype='int64')
     even_indices = np.array([], dtype='int64')
@@ -676,8 +721,14 @@ def average_series(input_y, output_y_len):
     return (input_y + np.zeros(output_y_len)) / 2
 
 
-def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
-    """Generates a tf.train.Example representing an input TCE.
+# def afterpreprocessing_normalization(tfrecs, val, centroid=True):
+#
+#     for tfrec in tfrecs:
+
+
+# def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
+def generate_example_for_tce(time, flux, centroids, tce, config):
+    """ Generates a tf.train.Example representing an input TCE.
 
     Args:
       time: 1D NumPy array; the time values of the light curve.
@@ -689,69 +740,79 @@ def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
       A tf.train.Example containing features 'global_view', 'local_view', and all
       values present in `tce`.
     """
+
     period = tce["tce_period"]
     duration = tce["tce_duration"]
     t0 = tce["tce_time0bk"]
 
-    original_time = time
-    original_flux = flux
+    # original_time = time
+    # original_flux = flux
     (odd_time, odd_flux, odd_centroid), \
         (even_time, even_flux, even_centroid) = phase_fold_and_sort_light_curve_odd_even(
                                                             time, flux, centroids, period, t0
                                                             )
     time, flux, centroid = phase_fold_and_sort_light_curve(time, flux, centroids, period, t0)
 
-    # Make output proto.
+    # Make output proto
     ex = tf.train.Example()
 
-    # Set time series features.
+    # Set time series features
     try:
-        glob_view = global_view(time, flux, period,
-                                num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
-        loc_view = local_view(time, flux, period, duration,
-                              num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
-        glob_view_centr = global_view(time, centroid, period, centroid=True,
+
+        # # get flux views
+        # glob_view = global_view(time, flux, period,
+        #                         num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+        # loc_view = local_view(time, flux, period, duration,
+        #                       num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+
+        # get centroid views
+        glob_view_centr = global_view(time, centroid, period, centroid=True, normalize=False,
                                       num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
-        loc_view_centr = local_view(time, centroid, period, duration, centroid=True,
+        loc_view_centr = local_view(time, centroid, period, duration, centroid=True, normalize=False,
                                     num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
 
-        glob_view_odd = global_view(odd_time, odd_flux, period,
-                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
-                                    normalize=False)
-        loc_view_odd = local_view(odd_time, odd_flux, period, duration,
-                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
-                                  normalize=False)
-        glob_view_odd_centr = global_view(odd_time, odd_centroid, period, centroid=True, normalize=False,
-                                          num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
-        loc_view_odd_centr = local_view(odd_time, odd_centroid, period, duration, centroid=True, normalize=False,
-                                        num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
-
-        glob_view_even = global_view(even_time, even_flux, period,
-                                     num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
-                                     normalize=False)
-        loc_view_even = local_view(even_time, even_flux, period, duration,
-                                   num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
-                                   normalize=False)
-        glob_view_even_centr = global_view(even_time, even_centroid, period, centroid=True, normalize=False,
-                                           num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
-        loc_view_even_centr = local_view(even_time, even_centroid, period, duration, centroid=True, normalize=False,
-                                         num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
-
-        val_norm = np.abs(min(np.min(glob_view_even), np.min(glob_view_odd)))
-        glob_view_even = normalize_view(glob_view_even, val=val_norm)
-        glob_view_odd = normalize_view(glob_view_odd, val=val_norm)
-
-        val_norm = np.abs(min(np.min(loc_view_even), np.min(loc_view_odd)))
-        loc_view_even = normalize_view(loc_view_even, val=val_norm)
-        loc_view_odd = normalize_view(loc_view_odd, val=val_norm)
-
-        val_norm = np.abs(max(np.max(glob_view_even_centr), np.max(glob_view_odd_centr)))
-        glob_view_even_centr = normalize_view(glob_view_even_centr, val=val_norm, centroid=True)
-        glob_view_odd_centr = normalize_view(glob_view_odd_centr, val=val_norm, centroid=True)
-
-        val_norm = np.abs(max(np.max(loc_view_even_centr), np.max(loc_view_odd_centr)))
-        loc_view_odd_centr = normalize_view(loc_view_odd_centr, val=val_norm, centroid=True)
-        loc_view_even_centr = normalize_view(loc_view_even_centr, val=val_norm, centroid=True)
+        # # get odd views (flux and centroid)
+        # glob_view_odd = global_view(odd_time, odd_flux, period,
+        #                             num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+        #                             normalize=False)
+        # loc_view_odd = local_view(odd_time, odd_flux, period, duration,
+        #                           num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
+        #                           normalize=False)
+        #
+        # glob_view_odd_centr = global_view(odd_time, odd_centroid, period, centroid=True, normalize=False,
+        #                                   num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+        # loc_view_odd_centr = local_view(odd_time, odd_centroid, period, duration, centroid=True, normalize=False,
+        #                                 num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+        #
+        # # get even views (flux and centroid)
+        # glob_view_even = global_view(even_time, even_flux, period,
+        #                              num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+        #                              normalize=False)
+        # loc_view_even = local_view(even_time, even_flux, period, duration,
+        #                            num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
+        #                            normalize=False)
+        #
+        # glob_view_even_centr = global_view(even_time, even_centroid, period, centroid=True, normalize=False,
+        #                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+        # loc_view_even_centr = local_view(even_time, even_centroid, period, duration, centroid=True, normalize=False,
+        #                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+        #
+        # # normalize odd and even views by their joint minimum (flux)/maximum (centroid)
+        # val_norm = np.abs(min(np.min(glob_view_even), np.min(glob_view_odd)))
+        # glob_view_even = normalize_view(glob_view_even, val=val_norm)
+        # glob_view_odd = normalize_view(glob_view_odd, val=val_norm)
+        #
+        # val_norm = np.abs(min(np.min(loc_view_even), np.min(loc_view_odd)))
+        # loc_view_even = normalize_view(loc_view_even, val=val_norm)
+        # loc_view_odd = normalize_view(loc_view_odd, val=val_norm)
+        #
+        # val_norm = np.abs(max(np.max(glob_view_even_centr), np.max(glob_view_odd_centr)))
+        # glob_view_even_centr = normalize_view(glob_view_even_centr, val=val_norm, centroid=True)
+        # glob_view_odd_centr = normalize_view(glob_view_odd_centr, val=val_norm, centroid=True)
+        #
+        # val_norm = np.abs(max(np.max(loc_view_even_centr), np.max(loc_view_odd_centr)))
+        # loc_view_odd_centr = normalize_view(loc_view_odd_centr, val=val_norm, centroid=True)
+        # loc_view_even_centr = normalize_view(loc_view_even_centr, val=val_norm, centroid=True)
 
     # except ValueError:
     except Exception as e:
@@ -759,20 +820,21 @@ def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
         # print("ValueError, returning None")
         return None
 
-    example_util.set_float_feature(ex, "global_view", glob_view)
-    example_util.set_float_feature(ex, "local_view", loc_view)
+    # set time series features in the tfrecord
+    # example_util.set_float_feature(ex, "global_view", glob_view)
+    # example_util.set_float_feature(ex, "local_view", loc_view)
     example_util.set_float_feature(ex, "global_view_centr", glob_view_centr)
     example_util.set_float_feature(ex, "local_view_centr", loc_view_centr)
 
-    example_util.set_float_feature(ex, "global_view_odd", glob_view_odd)
-    example_util.set_float_feature(ex, "local_view_odd", loc_view_odd)
-    example_util.set_float_feature(ex, "global_view_odd_centr", glob_view_odd_centr)
-    example_util.set_float_feature(ex, "local_view_odd_centr", loc_view_odd_centr)
-
-    example_util.set_float_feature(ex, "global_view_even", glob_view_even)
-    example_util.set_float_feature(ex, "local_view_even", loc_view_even)
-    example_util.set_float_feature(ex, "global_view_even_centr", glob_view_even_centr)
-    example_util.set_float_feature(ex, "local_view_even_centr", loc_view_even_centr)
+    # example_util.set_float_feature(ex, "global_view_odd", glob_view_odd)
+    # example_util.set_float_feature(ex, "local_view_odd", loc_view_odd)
+    # example_util.set_float_feature(ex, "global_view_odd_centr", glob_view_odd_centr)
+    # example_util.set_float_feature(ex, "local_view_odd_centr", loc_view_odd_centr)
+    #
+    # example_util.set_float_feature(ex, "global_view_even", glob_view_even)
+    # example_util.set_float_feature(ex, "local_view_even", loc_view_even)
+    # example_util.set_float_feature(ex, "global_view_even_centr", glob_view_even_centr)
+    # example_util.set_float_feature(ex, "local_view_even_centr", loc_view_even_centr)
 
     # plt.subplot(13, 1, 1)
     # plt.scatter(np.arange(len(glob_view)), glob_view, s=0.1)
@@ -864,17 +926,18 @@ def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
     # plt.cla()
     # plt.clf()
     # plt.close()
-    if True not in np.isfinite(glob_view) or True not in np.isfinite(loc_view) \
-            or True not in np.isfinite(glob_view_centr) or True not in np.isfinite(loc_view_centr) \
-            or True not in np.isfinite(glob_view_odd) or True not in np.isfinite(loc_view_odd) \
-            or True not in np.isfinite(glob_view_odd_centr) or True not in np.isfinite(loc_view_odd_centr) \
-            or True not in np.isfinite(glob_view_even) or True not in np.isfinite(loc_view_even) \
-            or True not in np.isfinite(glob_view_even_centr) or True not in np.isfinite(loc_view_even_centr):
+    # if True not in np.isfinite(glob_view) or True not in np.isfinite(loc_view) \
+    #         or True not in np.isfinite(glob_view_centr) or True not in np.isfinite(loc_view_centr) \
+    #         or True not in np.isfinite(glob_view_odd) or True not in np.isfinite(loc_view_odd) \
+    #         or True not in np.isfinite(glob_view_odd_centr) or True not in np.isfinite(loc_view_odd_centr) \
+    #         or True not in np.isfinite(glob_view_even) or True not in np.isfinite(loc_view_even) \
+    #         or True not in np.isfinite(glob_view_even_centr) or True not in np.isfinite(loc_view_even_centr):
+    if True not in np.isfinite(glob_view_centr) or True not in np.isfinite(loc_view_centr):
         print("returning None because of NaNs for %5d for planet %5d" % (tce['kepid'], tce['tce_plnt_num']))
         return None
 
-    # Set other features in `tce`.
-    for name, value in tce.items():
-        example_util.set_feature(ex, name, [value])
+    # # Set other features in `tce`.
+    # for name, value in tce.items():
+    #     example_util.set_feature(ex, name, [value])
 
     return ex

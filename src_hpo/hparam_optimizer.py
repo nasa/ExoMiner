@@ -147,7 +147,7 @@ if __name__ == '__main__':
     max_budget = 50
     n_iterations = 400
 
-    ensemble_n = 1
+    ensemble_n = 3
 
     hpo_loss = 'pr auc'
 
@@ -175,10 +175,10 @@ if __name__ == '__main__':
 
     # features to be extracted from the dataset
     views = ['global_view', 'local_view']
-    channels_centr = ['', '_centr']
+    #channels_centr = ['', '_centr']
     channels_oddeven = ['', '_odd', '_even']
     features_names = [''.join(feature_name_tuple)
-                      for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+                      for feature_name_tuple in itertools.product(views, channels_oddeven)]
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}

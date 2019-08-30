@@ -34,7 +34,7 @@ from src import utils_train
 import baseline_configs
 
 
-def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
+def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False, last_best=0):
     """ Draw loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -44,6 +44,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     :param output_cl: dict, predicted outputs per class in each dataset
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective
     epoch. If False, gets the maximum value.
+    :param last_best: int, when using Early Stopping, it indicates epoch where ES occurred.
     :return:
     """
 
@@ -60,7 +61,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     ax[0].plot(epochs, res['training']['loss'], label='Training')
     ax[0].plot(epochs, res['validation']['loss'], label='Validation', color='r')
 
-    ax[0].scatter(epochs[ep_idx], res['validation']['loss'][ep_idx], c='r')
+    # ax[0].scatter(epochs[ep_idx], res['validation']['loss'][ep_idx], c='r')
     ax[0].scatter(epochs[ep_idx], res['test']['loss'][ep_idx], c='k', label='Test')
     ax[0].set_xlim([0, epochs[-1] + 1])
     # ax[0].set_ylim(bottom=0)
@@ -115,21 +116,23 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
     plt.close()
 
     # plot pr curve
+    if last_best == 0:
+        ep_idx = -1
     f, ax = plt.subplots()
-    ax.plot(res['validation']['rec thr'][-1], res['validation']['prec thr'][-1],
-            label='Val (AUC={:.3f})'.format(res['validation']['pr auc'][-1]), color='r')
-    ax.plot(res['test']['rec thr'][-1], res['test']['prec thr'][-1],
-            label='Test (AUC={:.3f})'.format(res['test']['pr auc'][-1]), color='b')
-    ax.plot(res['training']['rec thr'][-1], res['training']['prec thr'][-1],
-            label='Train (AUC={:.3f})'.format(res['training']['pr auc'][-1]), color='k')
+    ax.plot(res['validation']['rec thr'][ep_idx], res['validation']['prec thr'][ep_idx],
+            label='Val (AUC={:.3f})'.format(res['validation']['pr auc'][ep_idx]), color='r')
+    ax.plot(res['test']['rec thr'][ep_idx], res['test']['prec thr'][ep_idx],
+            label='Test (AUC={:.3f})'.format(res['test']['pr auc'][ep_idx]), color='b')
+    ax.plot(res['training']['rec thr'][ep_idx], res['training']['prec thr'][ep_idx],
+            label='Train (AUC={:.3f})'.format(res['training']['pr auc'][ep_idx]), color='k')
     # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
     thr_vec = np.linspace(0, 999, 11, endpoint=True, dtype='int')
-    ax.scatter(np.array(res['validation']['rec thr'][-1])[thr_vec],
-               np.array(res['validation']['prec thr'][-1])[thr_vec], c='r')
-    ax.scatter(np.array(res['test']['rec thr'][-1])[thr_vec],
-               np.array(res['test']['prec thr'][-1])[thr_vec], c='b')
-    ax.scatter(np.array(res['training']['rec thr'][-1])[thr_vec],
-               np.array(res['training']['prec thr'][-1])[thr_vec], c='k')
+    ax.scatter(np.array(res['validation']['rec thr'][ep_idx])[thr_vec],
+               np.array(res['validation']['prec thr'][ep_idx])[thr_vec], c='r')
+    ax.scatter(np.array(res['test']['rec thr'][ep_idx])[thr_vec],
+               np.array(res['test']['prec thr'][ep_idx])[thr_vec], c='b')
+    ax.scatter(np.array(res['training']['rec thr'][ep_idx])[thr_vec],
+               np.array(res['training']['prec thr'][ep_idx])[thr_vec], c='k')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
@@ -169,7 +172,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False):
         ax.set_ylim([0, 1])
         ax.set_xticks(np.linspace(0, 1, 11, True))
         ax.legend()
-        ax.set_title(ax.set_title('Output distribution - {}'.format(dataset_names[dataset])))
+        ax.set_title('Output distribution - {}'.format(dataset_names[dataset]))
         plt.savefig(save_path + 'class_predoutput_distribution_{}.png'.format(dataset))
         plt.close()
 
@@ -208,7 +211,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         dataset = ['train', 'val', 'test'][dataset_idx]
 
         labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
-                                                 config['label_map'], filt=filter_data[dataset])['label']
+                                                  config['label_map'], filt=filter_data[dataset])['label']
 
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
@@ -217,7 +220,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
-                                        else patience, session_config=sess_config),
+                                        else patience + 1, session_config=sess_config),
                                         model_dir=get_model_dir(model_dir)
                                         )
 
@@ -237,8 +240,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     dataset_ids = ['training', 'validation', 'test']
     res = {dataset: {metric: [] for metric in metrics_list} for dataset in
            dataset_ids}
-    res_aux = {dataset: {metric: [] for metric in metrics_list} for dataset in
-               dataset_ids}
+    # res_aux = {dataset: {metric: [] for metric in metrics_list} for dataset in
+    #            dataset_ids}
 
     if patience != -1:
         if min_optmetric:
@@ -248,8 +251,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     last_best, early_stop = 0, False
     for epoch_i in range(1, n_epochs + 1):  # Train and evaluate the model for n_epochs
 
-        print('\n\x1b[0;33;33m' + "Starting epoch %d of %d for %s" %
-              (epoch_i, n_epochs, res_dir.split('/')[-1]) + '\x1b[0m\n')
+        print('\n\x1b[0;33;33m' + "Starting epoch %d of %d for %s (%s)" %
+              (epoch_i, n_epochs, res_dir.split('/')[-1], classifier.model_dir.split('/')[-1]) + '\x1b[0m\n')
 
         # train model
         _ = classifier.train(train_input_fn)
@@ -259,6 +262,10 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
         res_i = {'training': classifier.evaluate(train_input_fn, name='training set'),
                  'validation': classifier.evaluate(val_input_fn, name='validation set'),
                  'test': classifier.evaluate(test_input_fn, name='test set')}
+
+        for dataset in dataset_ids:
+            for metric in metrics_list:
+                res[dataset][metric].append(res_i[dataset][metric])
 
         # early stopping
         if patience != -1:
@@ -273,19 +280,19 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                                                                                      [opt_metric]))
                 break
 
-        if last_best > 0:  # current value is not the best one found so far
-            for dataset in dataset_ids:
-                for metric in metrics_list:
-                    res_aux[dataset][metric].append(res_i[dataset][metric])
-        else:  # current value is the best one found so far
-            for dataset in dataset_ids:
-                for metric in metrics_list:
-                    if len(res_aux[dataset][metric]) == 0:
-                        res[dataset][metric].append(res_i[dataset][metric])
-                    else:
-                        res[dataset][metric].extend(res_aux[dataset][metric])
-                        res_aux[dataset][metric] = []
-                        res[dataset][metric].append(res_i[dataset][metric])
+        # if last_best > 0:  # current value is not the best one found so far
+        #     for dataset in dataset_ids:
+        #         for metric in metrics_list:
+        #             res_aux[dataset][metric].append(res_i[dataset][metric])
+        # else:  # current value is the best one found so far
+        #     for dataset in dataset_ids:
+        #         for metric in metrics_list:
+        #             if len(res_aux[dataset][metric]) == 0:
+        #                 res[dataset][metric].append(res_i[dataset][metric])
+        #             else:
+        #                 res[dataset][metric].extend(res_aux[dataset][metric])
+        #                 res_aux[dataset][metric] = []
+        #                 res[dataset][metric].append(res_i[dataset][metric])
 
         # confm_info = {key: value for key, value in res_val.items() if key.startswith('label_')}
 
@@ -300,8 +307,13 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
             print('deleting checkpoints except for the oldest saved...')
             utils_train.delete_checkpoints(classifier.model_dir, 1)
         else:
-            print('deleting checkpoints except for the newest saved...')
-            utils_train.delete_checkpoints(classifier.model_dir, patience)
+            print('deleting checkpoints except for the latest best...')
+            utils_train.delete_checkpoints(classifier.model_dir, patience - last_best)
+
+        res_es = {dataset: {metric: res[dataset][metric][:epoch_i - last_best - 1] for metric in metrics_list}
+                  for dataset in dataset_ids}
+    else:
+        res_es = res
 
     if mpi_rank is not None:
         sys.stdout.flush()
@@ -338,33 +350,33 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     # save results in a numpy file
     print('Saving metrics to a numpy file...')
-    np.save(res_dir + 'res_eval.npy', res)
+    np.save(res_dir + 'res_eval.npy', res_es)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
-    draw_plots(res, res_dir, opt_metric, output_cl, min_optmetric=min_optmetric)
+    draw_plots(res, res_dir, opt_metric, output_cl, min_optmetric=min_optmetric, last_best=last_best)
 
     print('Saving metrics to a txt file...')
     # write results to a txt file
     with open(res_dir + "res_eval.txt", "a") as res_file:
-        res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], len(res['training']['loss']),
+        res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], len(res_es['training']['loss']),
                                                       '#' * 10))
         for dataset in dataset_ids:
             res_file.write('Dataset: {}\n'.format(dataset))
             for metric in metrics_list:
                 if metric not in ['prec thr', 'rec thr']:
-                    res_file.write('{}: {}\n'.format(metric, res[dataset][metric][-1]))
+                    res_file.write('{}: {}\n'.format(metric, res_es[dataset][metric][-1]))
             res_file.write('\n')
         res_file.write('{}'.format('-' * 100))
         res_file.write('\n')
 
     print('#' * 100)
-    print('Performance on epoch ({})'.format(len(res['training']['loss'])))
+    print('Performance on epoch ({})'.format(len(res_es['training']['loss'])))
     for dataset in dataset_ids:
         print(dataset)
         for metric in metrics_list:
             if metric not in ['prec thr', 'rec thr']:
-                print('{}: {}'.format(metric, res[dataset][metric][-1]))
+                print('{}: {}'.format(metric, res_es[dataset][metric][-1]))
     print('#' * 100)
 
     # save features and config used for this model
@@ -390,20 +402,21 @@ if __name__ == '__main__':
 
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven'
+    study = 'bohb_dr25tcert_spline_gapped_centroid_gapped_config'
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
+                'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
 
     # features to be extracted from the dataset
     views = ['global_view', 'local_view']
     channels_centr = ['', '_centr']
-    channels_oddeven = ['', '_odd', '_even']
+    # channels_oddeven = ['', '_odd', '_even', '_centr']
     features_names = [''.join(feature_name_tuple)
-                      for feature_name_tuple in itertools.product(views, channels_oddeven, channels_centr)]
+                      for feature_name_tuple in itertools.product(views, channels_centr)]
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -433,8 +446,8 @@ if __name__ == '__main__':
 
     # set the configuration from a HPO study
     if config is None:
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
-                                                     '_' + study
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + 'bohb_dr25tcert_spline_gapped',
+                                                     '_' + 'bohb_dr25tcert_spline_gapped'
                                                      )
         # get ID to config mapping
         id2config = res.get_id2config_mapping()

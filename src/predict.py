@@ -343,13 +343,14 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair_ncoe'
+    study = 'bohb_dr25tcert_spline_gapped_centroid_oddevenindnorm_gapped_config_noglobalviews2'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # load preprocessed data
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
+    # tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
     # # path to directory with fits files with PDC data
     # # 34k labeled TCEs
     # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
@@ -358,11 +359,13 @@ if __name__ == "__main__":
     kp_dict = np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
 
     # features to be extracted from the dataset
-    views = ['global_view', 'local_view']
-    channels_centr = ['', '_centr']
+    views = ['local_view']
+    # views = ['global_view']
+    # channels_centr = ['', '_centr']
     channels_oddeven = ['', '_odd', '_even', '_centr']
     features_names = [''.join(feature_name_tuple)
                       for feature_name_tuple in itertools.product(views, channels_oddeven)]
+    features_names.append('global_view')
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -398,8 +401,8 @@ if __name__ == "__main__":
     # load best config from HPO study
     if config is None:
         # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
-                                                     '_{}'.format(study)
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + 'bohb_dr25tcert_spline_gapped',
+                                                     '_{}'.format('bohb_dr25tcert_spline_gapped')
                                                      )
         # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 
