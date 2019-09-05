@@ -370,6 +370,7 @@ if __name__ == "__main__":
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
+
     # # example
     # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
     #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
