@@ -4,8 +4,8 @@ Test ensemble of models trained using the best configuration obtained in a hyper
 TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
     option would be to have two scripts: one that tests the models individually, the other that gathers their
     predictions into the ensemble and generates the results for it.
-    does the code work for only one model?
     load config from json file in the model's folder
+    after adding argument to choose model used, either find a way to save this or also add this argument to predict
 """
 
 # 3rd party
@@ -23,7 +23,9 @@ import pandas as pd
 import itertools
 
 # local
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord, CNN1dPlanetFinderv1
+# needed for backward compatibility for models created before upgrading the model building function CNN1dModel in
+# estimator_util to use tf.keras layers and different names for the graph nodes
 # from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 import src.config
 import src_hpo.utils_hpo as utils_hpo
@@ -39,9 +41,11 @@ import matplotlib.pyplot as plt
 def draw_plots(res, save_path, output_cl):
     """ Plot ROC and PR curves.
 
-    :param res:
+    :param res: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
+    metrics for each dataset
     :param save_path: str, path to save directory
-    :param output_cl:
+    :param output_cl: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
+    the scores for each class ('PC', 'non-PC', for example)
     :return:
     """
 
@@ -118,19 +122,22 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None, features_set=None,
+def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
          filter_data=None, inference_only=False, generate_csv_pred=False):
     """ Test single model/ensemble of models.
 
     :param config: dict, model and dataset configurations
     :param model_dir: str, directory with saved models
     :param data_dir: str, data directory with tfrecords
+    :param kp_dict: dict, each key is a Kepler ID and the value is the Kepler magnitude (Kp) of the star
     :param res_dir: str, save directory
     :param datasets: list, datasets in which the model(s) is(are) applied to. The datasets names should be strings that
     match a part of the tfrecord filename - 'train', 'val', 'test', 'predict'
     :param threshold: float, classification threshold
     :param fields: additional fields to be extracted from the tfrecords. If generate_csv_pred is True, these fields
     are also written to the csv file
+    # :param features_set: dict, each key is a type of feature that is given as input to the model and the values are
+    dicts with information about the dimension and type of these features
     :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
     elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
     values should be a list; for the other data_fields, it should be a two element list that defines the interval of
@@ -138,7 +145,7 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
     :param inference_only: bool, if True the labels are not extracted from the tfrecords
     :param generate_csv_pred: bool, if True a csv file is generated per dataset containing the ranked model(ensemble)
     outputs and predicted classes for each example in the dataset. If fields is not None, then the values for those
-    fields will also be written to the csv file.
+    fields will also be written to the csv file
     :return:
     """
 
@@ -185,20 +192,19 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
 
-            # REMOVE CONFIG FROM THE ARGUMENTS OF THE FUNCTION
-            # config = np.load('{}/config.npy'.format(model_filename))
-            # features_set = np.load('{}/features_set.npy'.format(model_filename))
+            config = np.load('{}/config.npy'.format(model_filename))
+            features_set = np.load('{}/features_set.npy'.format(model_filename))
 
-            predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
-                                       mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                       centr_flag=config['centr_flag'], features_set=features_set)
             # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
             #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-            #                            features_set=features_set)
+            #                            centr_flag=config['centr_flag'], features_set=features_set)
+            predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+                                       mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+                                       features_set=features_set)
 
             config_sess = tf.ConfigProto(log_device_placement=False)
 
-            estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
+            estimator = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
                                                config=tf.estimator.RunConfig(keep_checkpoint_max=1,
                                                                              session_config=config_sess),
                                                model_dir=model_filename)
@@ -321,7 +327,7 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
             data[dataset]['output'] = predictions_dataset[dataset]
             data[dataset]['predicted class'] = pred_classification[dataset]
 
-            # add Kepler magnitude of the target star for each TCE from the fits files
+            # add Kepler magnitude of the target star
             print('adding Kp to dataset {}'.format(dataset))
             data[dataset]['Kp'] = [kp_dict[kepid] for kepid in data[dataset]['kepid']]
 
@@ -343,14 +349,14 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_centroid_oddevenindnorm_gapped_config_noglobalviews2'
+    study = 'bohb_dr25tcert_spline_gapped_gflux_lflux_loddevenjointnorm_lcentr'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # load preprocessed data
-    # tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_normsep_nonwhitened_gapped_2001-201'
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_jointnorm_nonwhitened_gapped_2001-201'
+    # tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
     # # path to directory with fits files with PDC data
     # # 34k labeled TCEs
     # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
@@ -359,17 +365,18 @@ if __name__ == "__main__":
     kp_dict = np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
 
     # features to be extracted from the dataset
-    views = ['local_view']
+    # views = ['local_view', 'global_view']
     # views = ['global_view']
-    # channels_centr = ['', '_centr']
-    channels_oddeven = ['', '_odd', '_even', '_centr']
-    features_names = [''.join(feature_name_tuple)
-                      for feature_name_tuple in itertools.product(views, channels_oddeven)]
-    features_names.append('global_view')
-    features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-                    for feature_name in features_names}
+    # channels_centr = ['']
+    # channels_oddeven = ['', '_odd', '_even']
+    # features_names = [''.join(feature_name_tuple)
+    #                   for feature_name_tuple in itertools.product(views, channels_centr)]
+    # features_names.append('global_view')
+    # features_names = ['global_view', 'local_view', 'local_view_centr', 'local_view_odd', 'local_view_even']
+    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
 
     # # example
     # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
@@ -402,8 +409,8 @@ if __name__ == "__main__":
     # load best config from HPO study
     if config is None:
         # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + 'bohb_dr25tcert_spline_gapped',
-                                                     '_{}'.format('bohb_dr25tcert_spline_gapped')
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
+                                                     '_{}'.format(study)
                                                      )
         # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 
@@ -441,7 +448,7 @@ if __name__ == "__main__":
          datasets=datasets,
          threshold=threshold,
          fields=fields,
-         features_set=features_set,
+         # features_set=features_set,
          filter_data=filter_data,
          inference_only=inference_only,
          generate_csv_pred=generate_csv_pred)

@@ -79,49 +79,54 @@ def split(all_time, all_flux, gap_width=0.75):
   return out_time, out_flux
 
 
-def split_wcentroids(all_time, all_flux, all_centroids, gap_width=0.75):
-  """Splits a light curve on discontinuities (gaps).
+def split_wcentroids(all_time, all_flux, all_centroids, add_info, gap_width=0.75):
+    """Splits the time series on discontinuities (gaps) if the time interval between consecutive cadences is larger
+    than the gap_width.
 
-  This function accepts a light curve that is either a single segment, or is
-  piecewise defined (e.g. split by quarter breaks or gaps in the in the data).
+    This function accepts a light curve that is either a single segment, or is
+    piecewise defined (e.g. split by quarter breaks or gaps in the in the data).
 
-  Args:
-    all_time: Numpy array or sequence of numpy arrays; each is a sequence of
-      time values.
-    all_flux: Numpy array or sequence of numpy arrays; each is a sequence of
-      flux values of the corresponding time array.
-    all_centroids: dict with x and y coordinates as keys, values are numpy arrays or lists of numpy arrays; each is
-    a sequence of centroid coordinates
-    gap_width: Minimum gap size (in time units) for a split.
+    Args:
+      all_time: Numpy array or sequence of numpy arrays; each is a sequence of
+        time values.
+      all_flux: Numpy array or sequence of numpy arrays; each is a sequence of
+        flux values of the corresponding time array.
+      all_centroids: dict with x and y coordinates as keys, values are numpy arrays or lists of numpy arrays; each is
+      a sequence of centroid coordinates
+      gap_width: Minimum gap size (in time units) for a split.
 
-  Returns:
-    out_time: List of numpy arrays; the split time arrays.
-    out_flux: List of numpy arrays; the split flux arrays.
-    out_centroid: List of numpy arrays; the split centroid arrays.
-  """
+    Returns:
+      out_time: List of numpy arrays; the split time arrays.
+      out_flux: List of numpy arrays; the split flux arrays.
+      out_centroid: List of numpy arrays; the split centroid arrays.
+    """
 
-  # Handle single-segment inputs.
-  if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
-    all_time = [all_time]
-    all_flux = [all_flux]
-    for dim, array in all_centroids.items():
-      all_centroids[dim] = [array]
+    # Handle single-segment inputs.
+    if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
+        all_time = [all_time]
+        all_flux = [all_flux]
+        for dim, array in all_centroids.items():
+          all_centroids[dim] = [array]
 
-  out_time = []
-  out_flux = []
-  out_centroid = {'x': [], 'y': []}
-  for time, flux, centr_x, centr_y in zip(all_time, all_flux, all_centroids['x'], all_centroids['y']):
-    start = 0
-    for end in range(1, len(time) + 1):
-      # Choose the largest endpoint such that time[start:end] has no gaps.
-      if end == len(time) or time[end] - time[end - 1] > gap_width:
-        out_time.append(time[start:end])
-        out_flux.append(flux[start:end])
-        out_centroid['x'].append(centr_x[start:end])
-        out_centroid['y'].append(centr_y[start:end])
-        start = end
+    out_time = []
+    out_flux = []
+    out_centroid = {'x': [], 'y': []}
+    out_add_info = {'quarter': [], 'module': []}
+    for time, flux, centr_x, centr_y, quarter, module in zip(all_time, all_flux, all_centroids['x'], all_centroids['y'],
+                                                             add_info['quarter'], add_info['module']):
+        start = 0
+        for end in range(1, len(time) + 1):
+            # Choose the largest endpoint such that time[start:end] has no gaps.
+            if end == len(time) or time[end] - time[end - 1] > gap_width:
+                out_time.append(time[start:end])
+                out_flux.append(flux[start:end])
+                out_centroid['x'].append(centr_x[start:end])
+                out_centroid['y'].append(centr_y[start:end])
+                out_add_info['quarter'].append(quarter)
+                out_add_info['module'].append(module)
+                start = end
 
-  return out_time, out_flux, out_centroid
+    return out_time, out_flux, out_centroid, out_add_info
 
 
 def remove_events(all_time,
@@ -129,12 +134,12 @@ def remove_events(all_time,
                   events,
                   width_factor=1.0,
                   include_empty_segments=True):
-  """Removes events from a light curve.
+    """Removes events from a light curve.
 
-  This function accepts either a single-segment or piecewise-defined light
-  curve (e.g. one that is split by quarter breaks or gaps in the in the data).
+    This function accepts either a single-segment or piecewise-defined light
+    curve (e.g. one that is split by quarter breaks or gaps in the in the data).
 
-  Args:
+    Args:
     all_time: Numpy array or sequence of numpy arrays; each is a sequence of
       time values.
     all_flux: Numpy array or sequence of numpy arrays; each is a sequence of
@@ -143,37 +148,38 @@ def remove_events(all_time,
     width_factor: Fractional multiplier of the duration of each event to remove.
     include_empty_segments: Whether to include empty segments in the output.
 
-  Returns:
+    Returns:
     output_time: Numpy array or list of numpy arrays; the time arrays with
         events removed.
     output_flux: Numpy array or list of numpy arrays; the flux arrays with
         events removed.
-  """
-  # Handle single-segment inputs.
-  if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
-    all_time = [all_time]
-    all_flux = [all_flux]
-    single_segment = True
-  else:
-    single_segment = False
+    """
 
-  output_time = []
-  output_flux = []
-  for time, flux in zip(all_time, all_flux):
-    mask = np.ones_like(time, dtype=np.bool)
-    for event in events:
-      transit_dist = np.abs(phase_fold_time(time, event.period, event.t0))
-      mask = np.logical_and(mask,
-                            transit_dist > 0.5 * width_factor * event.duration)
+    # Handle single-segment inputs.
+    if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
+        all_time = [all_time]
+        all_flux = [all_flux]
+        single_segment = True
+    else:
+        single_segment = False
+
+    output_time = []
+    output_flux = []
+    for time, flux in zip(all_time, all_flux):
+       mask = np.ones_like(time, dtype=np.bool)
+       for event in events:
+          transit_dist = np.abs(phase_fold_time(time, event.period, event.t0))
+          mask = np.logical_and(mask,
+                                transit_dist > 0.5 * width_factor * event.duration)
 
     if single_segment:
-      output_time = time[mask]
-      output_flux = flux[mask]
+       output_time = time[mask]
+       output_flux = flux[mask]
     elif include_empty_segments or np.any(mask):
-      output_time.append(time[mask])
-      output_flux.append(flux[mask])
+       output_time.append(time[mask])
+       output_flux.append(flux[mask])
 
-  return output_time, output_flux
+    return output_time, output_flux
 
 
 def interpolate_missing_time(time, cadence_no=None, fill_value="extrapolate"):

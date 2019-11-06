@@ -2,8 +2,6 @@
 Custom worker for the optimizer.
 
 TODO: add sess_config as parameter for the worker
-      check if ensemble can work as individual when using one model, maybe have to add if condition to the
-      plots
       add additional default parameters to the configs file
       find a way to automate the matplotlib switch backend when running on Pleiades
       ******** remember to enable/disable GPU assignment for multi/single GPU systems **********

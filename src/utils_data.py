@@ -11,7 +11,14 @@ from scipy.io import loadmat
 import itertools
 
 
-def update_labels_tcetable(tce_table, upd_table):
+def crossref_ephem(ephem, ephem_upd):
+
+    matched_tce = None
+
+    return matched_tce
+
+
+def update_labels_KeplerDR25(tce_table, upd_table):
     """ Update the TCE table with new labels.
 
     :param tce_table: pandas DataFrame, original TCE table
@@ -20,23 +27,39 @@ def update_labels_tcetable(tce_table, upd_table):
         tce_table: pandas DataFrame, TCE table with updated labels
     """
 
-    tce_table['av_training_set'] = 'NTP'
+    # # fill everything as NTP
+    # tce_table['av_training_set'] = 'NTP'
 
+    # iterate over the table with the labels
     for i in range(len(upd_table)):
 
-        comp = tce_table.loc[(tce_table['kepid'] == upd_table.iloc[i]['kepid']) &
-                             (tce_table['tce_plnt_num'] == upd_table.iloc[i]['koi_tce_plnt_num'])]
+        # comp = tce_table.loc[(tce_table['kepid'] == upd_table.iloc[i]['kepid']) &
+        #                      (tce_table['tce_plnt_num'] == upd_table.iloc[i]['koi_tce_plnt_num'])]
+        ephem = tce_table.loc[(tce_table['kepid'] == upd_table.iloc[i]['kepid'])][['tce_period', 'tce_time0bk',
+                                                                                   'tce_duration']]
+        ephem_upd = upd_table.iloc[i]['koi_period', 'koi_time0bk', 'koi_duration']
 
-        if len(comp) >= 2:
-            raise ValueError('{} rows matched (same Kepler ID and TCE planet number)'.format(len(comp)))
 
-        if len(comp) == 1:
-            if upd_table.iloc[i]['koi_disposition'] in ['CONFIRMED', 'CANDIDATE']:
-                # print('Setting label to PC')
-                tce_table.loc[comp.index, 'av_training_set'] = 'PC'
-            else:
-                # print('Setting label to AFP')
-                tce_table.loc[comp.index, 'av_training_set'] = 'AFP'
+        matched_tce = crossref_ephem(ephem, ephem_upd)
+        # if len(comp) >= 2:
+        #     raise ValueError('{} rows matched (same Kepler ID and TCE planet number)'.format(len(comp)))
+
+        # if len(comp) == 1:
+        #     if upd_table.iloc[i]['koi_disposition'] in ['CONFIRMED', 'CANDIDATE']:
+        #         # print('Setting label to PC')
+        #         tce_table.loc[comp.index, 'av_training_set'] = 'PC'
+        #     else:
+        #         # print('Setting label to AFP')
+        #         tce_table.loc[comp.index, 'av_training_set'] = 'AFP'
+
+        if upd_table.iloc[i]['koi_disposition'] in ['CONFIRMED', 'CANDIDATE']:
+            # print('Setting label to PC')
+            tce_table.loc[(tce_table['kepid'] == matched_tce['kepid']) &
+                          (tce_table['tce_plnt_num'] == matched_tce['tce_plnt_num']), 'av_training_set'] = 'PC'
+        else:
+            # print('Setting label to AFP')
+            tce_table.loc[(tce_table['kepid'] == matched_tce['kepid']) &
+                          (tce_table['tce_plnt_num'] == matched_tce['tce_plnt_num']), 'av_training_set'] = 'AFP'
 
     return tce_table
 

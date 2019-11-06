@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair'  # 'bohb_dr25tcert_spline_gapped'
+study = 'bohb_dr25tcert_spline_gapped_gflux_lflux_loddevenjointnorm_lcentr'  # 'bohb_dr25tcert_spline_gapped'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

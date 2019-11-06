@@ -1,7 +1,12 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-# TODO: remove centr_flag (only there for backward compatibility)
+#TODO: remove centr_flag (only there for backward compatibility)
+
+[1] Shallue, Christopher J., and Andrew Vanderburg. "Identifying exoplanets with deep learning: A five-planet resonant
+chain around kepler-80 and an eighth planet around kepler-90." The Astronomical Journal 155.2 (2018): 94.
+[2] Ansdell, Megan, et al. "Scientific Domain Knowledge Improves Exoplanet Transit Classification with Deep Learning."
+The Astrophysical Journal Letters 869.1 (2018): L7.
 
 """
 
@@ -382,7 +387,8 @@ class ModelFn(object):
 class CNN1dModel(object):
 
     def __init__(self, features, labels, config, mode):
-        """ Initializes the CNN 1D model.
+        """ Initializes the CNN 1D model. The core structure follows Shallue & Vandenburg [1], one convolutional branch
+        per view (global and local), each one with one or more channels (flux, centroid, odd and even, ...)
 
         :param features: feature tensor
         :param labels: label tensor
@@ -664,7 +670,8 @@ class CNN1dModel(object):
 class CNN1dPlanetFinderv1(object):
 
     def __init__(self, features, labels, config, mode):
-        """ Initializes the CNN 1D model.
+        """ Initializes the CNN 1D Planet Finder v1 model. The core structure consists of separate convolutional
+        branches for non-related types of input (flux, centroid, odd and even time series, ...).
 
         :param features: feature tensor
         :param labels: label tensor
@@ -736,8 +743,12 @@ class CNN1dPlanetFinderv1(object):
                 # else:
                 #     input = tf.expand_dims(self.time_series_features[view], -1)  # [batch, length, channels]
 
-                n_blocks = self.config[config_mapper['blocks'][view]]
-                pool_size = self.config[config_mapper['pool_size'][view]]
+                # n_blocks = self.config[config_mapper['blocks'][view]]
+                # pool_size = self.config[config_mapper['pool_size'][view]]
+
+                n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global_view' in view]]]
+                pool_size = self.config[
+                    config_mapper['pool_size'][('local_view', 'global_view')['global_view' in view]]]
 
                 tf.keras.layers.InputLayer(input_shape=None,
                                            batch_size=None,
@@ -914,6 +925,487 @@ class CNN1dPlanetFinderv1(object):
 
         # transform outputs to predictions
         prediction_fn = tf.nn.softmax if self.config['multi_class'] else tf.sigmoid
+        self.predictions = prediction_fn(self.logits, name="predictions")
+
+        # build loss if in TRAIN or EVAL modes
+        if self.mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+            self.build_losses()
+
+    def build_losses(self):
+        """ Build the loss. Weighted or non-weighted cross-entropy. Sigmoid for binary classification, softmax for
+        multiclassification.
+
+        :return:
+        """
+
+        weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
+                   else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
+
+        if self.output_size == 1:
+            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
+                                                                   logits=tf.squeeze(self.logits, [1]))
+        else:
+            # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
+
+        # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
+        tf.losses.compute_weighted_loss(losses=batch_losses,
+                                        weights=weights,
+                                        reduction=tf.losses.Reduction.MEAN)
+
+        # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
+        self.total_loss = tf.losses.get_total_loss()
+
+        self.batch_losses = batch_losses
+
+
+class Exonet(object):
+
+    def __init__(self, features, labels, config, mode):
+        """ Initializes the Exonet model [2]. The core structure is based on [1] and consists of two branches - local
+        and global view - with centroid time series as additional channel besides the flux time series. Stellar
+        parameters are concatenated with the outputs from the two convolutional branches before the FC layers.
+
+        :param features: feature tensor
+        :param labels: label tensor
+        :param config: dict, model configuration for its parameters and hyperparameters
+        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
+        """
+
+        # model configuration (parameters and hyperparameters)
+        self.config = config
+        self.mode = mode  # TRAIN, EVAL or PREDICT
+
+        self.time_series_features = features['time_series_features']  # features
+        self.labels = labels  # labels
+
+        self.is_training = None
+
+        self.logits = None
+        self.predictions = None
+
+        # losses
+        # total loss adds possible regularization terms
+        self.batch_losses = None
+        self.total_loss = None
+
+        # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
+        # classes
+        if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
+            self.output_size = max(config['label_map'].values()) + 1
+        else:  # binary classification with sigmoid output layer
+            self.output_size = 1
+
+        # class-label weights for weighted loss
+        # convert from numpy to tensor
+        self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
+
+        # build the model
+        self.build()
+
+    def build_cnn_layers(self):
+        """ Builds the conv columns/branches.
+
+        :return:
+            cnn_layers, dict with the different conv columns
+        """
+
+        weight_initializer = 'glorot_uniform'
+
+        num_filters = {'local_view': [16, 32], 'global_view': [16, 32, 64, 128, 256]}
+        pool_size = {'local_view': 7, 'global_view': 5}
+        conv_ls_per_block = {'local_view': 2, 'global_view': 2}
+
+        cnn_layers = {}
+        for view in ['global_view', 'local_view']:
+            with tf.variable_scope('ConvNet_%s' % view):
+
+                # add the different time series for a view as channels
+                input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                                 if view in feature_name], -1)
+
+                tf.keras.layers.InputLayer(input_shape=None,
+                                           batch_size=None,
+                                           dtype=None,
+                                           input_tensor=input,
+                                           sparse=False,
+                                           name='input_{}'.format(view))
+
+                for conv_block_i in range(len(num_filters[view])):
+
+                    kwargs = {'filters': num_filters[view][conv_block_i],
+                              'kernel_initializer': weight_initializer,
+                              'kernel_size': 5,
+                              'strides': 1,
+                              'padding': "same"}
+
+                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                 bias_initializer='zeros', kernel_regularizer=None,
+                                                 bias_regularizer=None, activity_regularizer=None,
+                                                 kernel_constraint=None, bias_constraint=None,
+                                                 name='conv{}-{}_{}'.format(conv_block_i, 0, view), **kwargs)(input)
+
+                    net = tf.keras.layers.ReLU()(net)
+
+                    for seq_conv_block_i in range(1, conv_ls_per_block[view]):
+
+                        net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                     bias_initializer='zeros', kernel_regularizer=None,
+                                                     bias_regularizer=None, activity_regularizer=None,
+                                                     kernel_constraint=None, bias_constraint=None,
+                                                     name='conv{}-{}_{}'.format(conv_block_i, seq_conv_block_i, view),
+                                                     **kwargs)(net)
+
+                        net = tf.keras.layers.ReLU()(net)
+
+                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size[view], strides=2,
+                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
+
+                # Flatten
+                net.get_shape().assert_has_rank(3)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
+
+            cnn_layers[view] = net
+
+        return cnn_layers
+
+    def connect_segments(self, cnn_layers):
+        """ Connect the different conv columns/branches; also has the option to concatenate additional features
+        (stellar params for example)
+
+        :param cnn_layers: dict with the different conv columns
+        :return:
+            model before logits
+        """
+
+        # Sort the hidden layers by name because the order of dictionary items is
+        # nondeterministic between invocations of Python.
+        time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
+
+        # # Concatenate the conv hidden layers.
+        # if len(time_series_hidden_layers) == 1:  # only one column
+        #     pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+        # else:  # more than one column
+        #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+        #         [branch_output[1] for branch_output in time_series_hidden_layers])
+
+        # concatenate stellar params
+        pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+            [branch_output[1] for branch_output in time_series_hidden_layers] +
+            self.time_series_features['stellar_params'])
+
+        return pre_logits_concat
+
+    def build_fc_layers(self, net):
+        """ Builds the FC layers
+
+        :param net: model upstream the FC layers
+        :return:
+        """
+
+        fc_neurons = 512
+
+        with tf.variable_scope('FcNet'):
+
+            for fc_layer_i in range(4):
+
+                if self.config['decay_rate'] is not None:
+                    net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                                                    self.config['decay_rate']),
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
+                                                name='fc{}'.format(fc_layer_i))(net)
+                else:
+                    net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=None,
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
+                                                name='fc{}'.format(fc_layer_i))(net)
+
+
+                net = tf.keras.layers.ReLU()(net)
+
+            # create output FC layer
+            logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
+
+        self.logits = logits
+
+    def build(self):
+        """ Builds the model.
+
+        :return:
+        """
+
+        if self.mode == tf.estimator.ModeKeys.TRAIN:
+            self.is_training = tf.placeholder_with_default(True, [], "is_training")
+        else:
+            self.is_training = False
+
+        # create convolutional columns for local and global views
+        cnn_layers = self.build_cnn_layers()
+
+        # merge columns
+        net = self.connect_segments(cnn_layers)
+
+        # create FC layers
+        self.build_fc_layers(net)
+
+        # transform outputs to predictions
+        prediction_fn = tf.sigmoid
+        self.predictions = prediction_fn(self.logits, name="predictions")
+
+        # build loss if in TRAIN or EVAL modes
+        if self.mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+            self.build_losses()
+
+    def build_losses(self):
+        """ Build the loss. Weighted or non-weighted cross-entropy. Sigmoid for binary classification, softmax for
+        multiclassification.
+
+        :return:
+        """
+
+        weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
+                   else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
+
+        if self.output_size == 1:
+            batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
+                                                                   logits=tf.squeeze(self.logits, [1]))
+        else:
+            # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
+
+        # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
+        tf.losses.compute_weighted_loss(losses=batch_losses,
+                                        weights=weights,
+                                        reduction=tf.losses.Reduction.MEAN)
+
+        # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
+        self.total_loss = tf.losses.get_total_loss()
+
+        self.batch_losses = batch_losses
+
+
+class Exonet_XS(object):
+
+    def __init__(self, features, labels, config, mode):
+        """ Initializes the Exonet-XS model [2]. Shallower version of Exonet that converts the convolutional features
+        to a single featuere per view by using global max pooling layers at the end of the convolutional branches.
+
+        :param features: feature tensor
+        :param labels: label tensor
+        :param config: dict, model configuration for its parameters and hyperparameters
+        :param mode: a tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
+        """
+
+        # model configuration (parameters and hyperparameters)
+        self.config = config
+        self.mode = mode  # TRAIN, EVAL or PREDICT
+
+        self.time_series_features = features['time_series_features']  # features
+        self.labels = labels  # labels
+
+        self.is_training = None
+
+        self.logits = None
+        self.predictions = None
+
+        # losses
+        # total loss adds possible regularization terms
+        self.batch_losses = None
+        self.total_loss = None
+
+        # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
+        # classes
+        if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
+            self.output_size = max(config['label_map'].values()) + 1
+        else:  # binary classification with sigmoid output layer
+            self.output_size = 1
+
+        # class-label weights for weighted loss
+        # convert from numpy to tensor
+        self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
+
+        # build the model
+        self.build()
+
+    def build_cnn_layers(self):
+        """ Builds the conv columns/branches.
+
+        :return:
+            cnn_layers, dict with the different conv columns
+        """
+
+        weight_initializer = 'glorot_uniform'
+
+        num_filters = {'local_view': [16, 16], 'global_view': [16, 16, 32]}
+        pool_size = {'local_view': 2, 'global_view': 2}
+        conv_ls_per_block = {'local_view': 1, 'global_view': 1}
+
+        cnn_layers = {}
+        for view in ['global_view', 'local_view']:
+            with tf.variable_scope('ConvNet_%s' % view):
+
+                # add the different time series for a view as channels
+                input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                                 if view in feature_name], -1)
+
+                tf.keras.layers.InputLayer(input_shape=None,
+                                           batch_size=None,
+                                           dtype=None,
+                                           input_tensor=input,
+                                           sparse=False,
+                                           name='input_{}'.format(view))
+
+                for conv_block_i in range(len(num_filters[view])):
+
+                    kwargs = {'filters': num_filters[view][conv_block_i],
+                              'kernel_initializer': weight_initializer,
+                              'kernel_size': 5,
+                              'strides': 1,
+                              'padding': "same"}
+
+                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                 bias_initializer='zeros', kernel_regularizer=None,
+                                                 bias_regularizer=None, activity_regularizer=None,
+                                                 kernel_constraint=None, bias_constraint=None,
+                                                 name='conv{}-{}_{}'.format(conv_block_i, 0, view), **kwargs)(input)
+
+                    net = tf.keras.layers.ReLU()(net)
+
+                    for seq_conv_block_i in range(1, conv_ls_per_block[view]):
+
+                        net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                     bias_initializer='zeros', kernel_regularizer=None,
+                                                     bias_regularizer=None, activity_regularizer=None,
+                                                     kernel_constraint=None, bias_constraint=None,
+                                                     name='conv{}-{}_{}'.format(conv_block_i, seq_conv_block_i, view),
+                                                     **kwargs)(net)
+
+                        net = tf.keras.layers.ReLU()(net)
+
+                    if conv_block_i < len(num_filters[view]) - 1:
+                        net = tf.keras.layers.MaxPooling1D(pool_size=pool_size[view], strides=2,
+                                                           name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
+                    else:
+                        net = tf.keras.layers.GlobalMaxPooling1D(name='globalmaxpooling{}}'.format(view))(net)
+
+                # Flatten
+                net.get_shape().assert_has_rank(3)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
+
+            cnn_layers[view] = net
+
+        return cnn_layers
+
+    def connect_segments(self, cnn_layers):
+        """ Connect the different conv columns/branches; also has the option to concatenate additional features
+        (stellar params for example)
+
+        :param cnn_layers: dict with the different conv columns
+        :return:
+            model before logits
+        """
+
+        # Sort the hidden layers by name because the order of dictionary items is
+        # nondeterministic between invocations of Python.
+        time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
+
+        # # Concatenate the conv hidden layers.
+        # if len(time_series_hidden_layers) == 1:  # only one column
+        #     pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+        # else:  # more than one column
+        #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+        #         [branch_output[1] for branch_output in time_series_hidden_layers])
+
+        # concatenate stellar params
+        pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+            [branch_output[1] for branch_output in time_series_hidden_layers] +
+            self.time_series_features['stellar_params'])
+
+        return pre_logits_concat
+
+    def build_fc_layers(self, net):
+        """ Builds the FC layers
+
+        :param net: model upstream the FC layers
+        :return:
+        """
+
+        fc_neurons = 512
+
+        with tf.variable_scope('FcNet'):
+
+            for fc_layer_i in range(1):
+
+                if self.config['decay_rate'] is not None:
+                    net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                                                    self.config['decay_rate']),
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
+                                                name='fc{}'.format(fc_layer_i))(net)
+                else:
+                    net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=None,
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
+                                                name='fc{}'.format(fc_layer_i))(net)
+
+                net = tf.keras.layers.ReLU()(net)
+
+            # create output FC layer
+            logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
+
+        self.logits = logits
+
+    def build(self):
+        """ Builds the model.
+
+        :return:
+        """
+
+        if self.mode == tf.estimator.ModeKeys.TRAIN:
+            self.is_training = tf.placeholder_with_default(True, [], "is_training")
+        else:
+            self.is_training = False
+
+        # create convolutional columns for local and global views
+        cnn_layers = self.build_cnn_layers()
+
+        # merge columns
+        net = self.connect_segments(cnn_layers)
+
+        # create FC layers
+        self.build_fc_layers(net)
+
+        # transform outputs to predictions
+        prediction_fn = tf.sigmoid
         self.predictions = prediction_fn(self.logits, name="predictions")
 
         # build loss if in TRAIN or EVAL modes

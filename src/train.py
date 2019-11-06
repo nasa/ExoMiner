@@ -3,7 +3,7 @@ Train models using a given configuration obtained on a hyperparameter optimizati
 
 TODO: allocate several models to the same GPU
       figure out the logging
-
+      add argument to choose model used
 """
 
 # 3rd party

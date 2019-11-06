@@ -175,26 +175,33 @@ def scramble_light_curve(all_time, all_flux, all_quarters, scramble_type):
     return scr_time, scr_flux
 
 
-def get_gap_ephems(table, tce, satellite_id):
+def get_gap_ephems_for_DR25readouttbl(table, tce):
     """ Get ephemeris for the gapped TCEs.
 
     :param table: pandas DataFrame, TCE ephemeris table
-    :param tce: row of pandas DataFrame
-    :param satellite_id: str, either 'kepler' or 'tess'
+    :param tce: row of pandas DataFrame, TCE of interest
     :return:
         gap_ephems: dict, each item contains ephemeris information for a gapped TCE
     """
 
+    ephem_keys = {'epoch': 'tce_time0bk', 'period': 'tce_period', 'duration': 'tce_duration'}
+
+    # initialize empty dictionary for gapped TCEs
     gap_ephems = {}
 
-    d_factor = 1.0 / 24.0 if satellite_id == 'kepler' else 1.0  # for tess, duration is already in [day] units
+    # FIXME: is it already in days?
+    d_factor = 1.0 / 24.0  # if satellite_id == 'kepler' else 1.0  # for tess, duration is already in [day] units
 
     # search for TCEs belonging to the same Kepler ID but with a different TCE planet number
     for tce_i, tce_i_ephem in table[tce.kepid].items():
-        if tce.tce_plnt_num != tce_i:
-            gap_ephems[len(gap_ephems)] = {'epoch': tce_i_ephem['epoch_corr'],
-                                           'period': tce_i_ephem['period'],
-                                           'duration': tce_i_ephem['duration'] * d_factor,
+        if tce.tce_plnt_num != tce_i:  # if it is not the TCE of interest
+            # gap_ephems[len(gap_ephems)] = {'epoch': tce_i_ephem['epoch_corr'],
+            #                                'period': tce_i_ephem['period'],
+            #                                'duration': tce_i_ephem['duration'] * d_factor,
+            #                                'tce_n': tce_i}
+            gap_ephems[len(gap_ephems)] = {'epoch': tce_i_ephem[ephem_keys['epoch']],
+                                           'period': tce_i_ephem[ephem_keys['period']],
+                                           'duration': tce_i_ephem[ephem_keys['duration']] * d_factor,
                                            'tce_n': tce_i}
 
     return gap_ephems
@@ -303,15 +310,17 @@ def transit_points(all_time, tce):
 
 
 def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_dict, gap_pad=0):
-    """
+    """ Remove from the time series the cadences that belong to other TCEs in the light curve. These values are set to
+    NaN.
 
     :param all_time: list of numpy arrays, cadences
     :param all_flux: list of numpy arrays, flux time series
     :param all_centroids: list of numpy arrays, centroid time series
     :param tce: row of pandas DataFrame, main TCE ephemeris
     :param table: pandas DataFrame, TCE ephemeris table
-    :param config:
-    :param conf_dict:
+    :param config: Config object, preprocessing parameters
+    :param conf_dict: dict, keys are a tuple (Kepler ID, TCE planet number) and the values are the confidence level used
+     when gapping (between 0 and 1)
     :param gap_pad: extra pad on both sides of the gapped TCE transit duration
     :return:
         all_time: list of numpy arrays, cadences
@@ -320,55 +329,57 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
         imputed_time: list of numpy arrays,
     """
 
-    # # extra pad on both sides of the gapped TCE transit duration
-    # #FIXME: parameter of the function?
-    # gap_pad = 0
-
     # get gapped TCEs ephemeris
-    gap_ephems = get_gap_ephems(table, tce, config.satellite)
+    if config.satellite == 'kepler':
+        gap_ephems = table.loc[(table['kepid'] == tce.kepid) &
+                               (table['tce_plnt_num'] != tce.tce_plnt_num)][['tce_period', 'tce_duration',
+                                                                             'tce_time0bk']]
+    else:
+        raise NotImplementedError('Gapping is still not implemented for TESS.')
+
+        # gap_ephems = table.loc[(table['tic'] == tce.kepid) &
+        #                        (table['tce_plnt_num'] != tce.tce_plnt_num)][['tce_period', 'tce_duration',
+        #                                                                      'tce_time0bk']]
 
     # if gapping with confidence level, remove those gapped TCEs that are not in the confidence dict
     if config.gap_with_confidence_level:
         poplist = []
-        for ephem_i, ephem in gap_ephems.items():
-            if (tce.kepid, ephem['tce_n']) not in conf_dict or \
-                    conf_dict[(tce.kepid, ephem['tce_n'])] < config.gap_confidence_level:
-                poplist += [ephem_i]
-        for i in poplist:
-            gap_ephems.pop(i)
+        for index, gapped_tce in gap_ephems.iterrows():
+            if (tce.kepid, gapped_tce.tce_plnt_num) not in conf_dict or \
+                    conf_dict[(tce.kepid, gapped_tce.tce_plnt_num)] < config.gap_confidence_level:
+                poplist += [gapped_tce.tce_plnt_num]
 
-    # if config.whitened or config.satellite == 'tess':
-    if config.satellite == 'tess':
-        all_time, all_flux, all_centroids['x'], all_centroids['y'] = \
-            [all_time], [all_flux], [all_centroids['x']], [all_centroids['y']]
+        gap_ephems = gap_ephems.loc[gap_ephems['tce_plnt_num'].isin(poplist)]
 
     imputed_time = [] if config.gap_imputed else None
 
     begin_time, end_time = all_time[0][0], all_time[-1][-1]
 
-    for ephem in gap_ephems.values():
+    for ephem_i, ephem in gap_ephems.iterrows():
 
-        if ephem['epoch'] < begin_time:  # when the epoch of the gapped TCE occurs before the first cadence
-            ephem['epoch'] = ephem['epoch'] + ephem['period'] * np.ceil((begin_time - ephem['epoch']) / ephem['period'])
+        if ephem['tce_time0bk'] < begin_time:  # when the epoch of the gapped TCE occurs before the first cadence
+            ephem['tce_time0bk'] = ephem['tce_time0bk'] + \
+                                   ephem['tce_period'] * np.ceil((begin_time - ephem['tce_time0bk']) /
+                                                                 ephem['tce_period'])
         else:
-            ephem['epoch'] = ephem['epoch'] - ephem['period'] * np.floor(
-                (ephem['epoch'] - begin_time) / ephem['period'])
+            ephem['tce_time0bk'] = ephem['tce_time0bk'] - ephem['tce_period'] * np.floor(
+                (ephem['tce_time0bk'] - begin_time) / ephem['tce_period'])
 
-        ephem['duration'] = ephem['duration'] * (1 + 2 * gap_pad)
+        ephem['tce_duration'] = ephem['tce_duration'] * (1 + 2 * gap_pad)
 
-        if ephem['epoch'] <= end_time:
-            midTransitTimes = np.arange(ephem['epoch'], end_time, ephem['period'])
-            midTransitTimeBefore = midTransitTimes[0] - ephem['period']
-            midTransitTimeAfter = midTransitTimes[-1] + ephem['period']
+        if ephem['tce_time0bk'] <= end_time:
+            midTransitTimes = np.arange(ephem['tce_time0bk'], end_time, ephem['tce_period'])
+            midTransitTimeBefore = midTransitTimes[0] - ephem['tce_period']
+            midTransitTimeAfter = midTransitTimes[-1] + ephem['tce_period']
         else:
             midTransitTimes = []
-            midTransitTimeBefore = ephem['epoch'] - ephem['period']
-            midTransitTimeAfter = ephem['epoch']
+            midTransitTimeBefore = ephem['tce_time0bk'] - ephem['tce_period']
+            midTransitTimeAfter = ephem['tce_time0bk']
 
         extendedMidTransitTimes = np.concatenate([[midTransitTimeBefore], midTransitTimes, [midTransitTimeAfter]])
 
-        startTransitTimes = (extendedMidTransitTimes - 0.5 * ephem['duration'])
-        endTransitTimes = (extendedMidTransitTimes + 0.5 * ephem['duration'])
+        startTransitTimes = (extendedMidTransitTimes - 0.5 * ephem['tce_duration'])
+        endTransitTimes = (extendedMidTransitTimes + 0.5 * ephem['tce_duration'])
         nTransits = len(startTransitTimes)
 
         for quarter_i, time_i in enumerate(all_time):
@@ -386,7 +397,8 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
                     break
 
             if config.gap_imputed and np.any(transit_boolean):  # if gaps need to be imputed and True in transit_boolean
-                imputed_time += [[all_time[quarter_i][transit_boolean], all_flux[quarter_i][transit_boolean]]]
+                imputed_time += [[all_time[quarter_i][transit_boolean], all_flux[quarter_i][transit_boolean],
+                                  {all_centroids[coord][quarter_i][transit_boolean] for coord in all_centroids}]]
 
             all_flux[quarter_i][transit_boolean] = np.nan
             all_centroids['x'][quarter_i][transit_boolean] = np.nan
@@ -395,11 +407,37 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
     return all_time, all_flux, all_centroids, imputed_time
 
 
+def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert):
+    """ Convert the centroid time series from pixel coordinates to world coordinates right ascension (RA) and
+    declination (Dec).
+
+    :param centroid_x: list [num cadences], column centroid position time series [pixel] in the CCD frame
+    :param centroid_y: list, row centroid position time series [pixel] in the CCD frame
+    :param cd_transform_matrix: numpy array [2x2], coordinates transformation matrix from col, row aperture frame
+    to world coordinates RA and Dec
+    :param ref_px:  numpy array [2x1], reference pixel [pixel] coordinates in the aperture frame of the target star
+    frame
+    :param ref_px_apert: numpy array [2x1], reference pixel [pixel] coordinates of the origin of the aperture frame in
+    the CCD frame
+    :param ref_angcoord: numpy array [2x1], RA and Dec at reference pixel [RA, Dec]
+    :return:
+        ra: numpy array [num cadences], right ascension coordinate centroid time series
+        dec: numpy array [num cadences], declination coordinate centroid time series
+    """
+
+    px_coords = np.reshape(np.concatenate((centroid_x, centroid_y)), (2, len(centroid_x)))
+
+    ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert + np.array([[1], [1]]))
+
+    return ra, dec
+
+
 def read_kepler_light_curve(filenames,
                             light_curve_extension="LIGHTCURVE",
                             scramble_type=None,
-                            interpolate_missing_time=False):
-    """Reads time and flux measurements for a Kepler target star.
+                            interpolate_missing_time=False,
+                            centroid_radec=False):
+    """ Reads time and flux measurements for a Kepler target star.
 
   Args:
     filenames: A list of .fits files containing time and flux measurements.
@@ -410,17 +448,23 @@ def read_kepler_light_curve(filenames,
       This should only affect the output if scramble_type is specified (NaN time
       values typically come with NaN flux values, which are removed anyway, but
       scrambing decouples NaN time values from NaN flux values).
+    centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
+      and Dec, or not
 
   Returns:
     all_time: A list of numpy arrays; the time values of the light curve.
     all_flux: A list of numpy arrays; the flux values of the light curve.
+    all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values of
+    the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
+    add_info: A dict, 'quarter' is a list of quarters for each numpy array of the light curve; 'module' is the same but
+      for the module in which the target is in every quarter.
   """
 
     all_time = []
     all_flux = []
-    all_quarters = []
-
     all_centroid = {'x': [], 'y': []}
+
+    add_info = {'quarter': [], 'module': []}
 
     def _has_finite(array):
         for i in array:
@@ -431,7 +475,15 @@ def read_kepler_light_curve(filenames,
 
     for filename in filenames:
         with fits.open(gfile.Open(filename, "rb")) as hdu_list:
+
+            # needed to transform coordinates when target is in module 13 and when using pixel coordinates
             quarter = hdu_list["PRIMARY"].header["QUARTER"]
+            module = hdu_list["PRIMARY"].header["MODULE"]
+
+            # uncomment to get only TCEs from module 13
+            # if module != 13:
+            #     return None, None, None, None
+
             light_curve = hdu_list[light_curve_extension].data
 
             if _has_finite(light_curve.PSF_CENTR1):
@@ -441,6 +493,29 @@ def read_kepler_light_curve(filenames,
                     centroid_x, centroid_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
                 else:
                     continue  # no data
+
+            if centroid_radec:
+
+                # transformation matrix from aperture coordinate frame to RA and Dec
+                cd_transform_matrix = np.zeros((2, 2))
+                cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
+                                         hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
+                cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
+                                         hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
+
+                # reference pixel in the aperture coordinate frame
+                ref_px = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
+
+                # reference pixel in CCD coordinate frame
+                ref_px_apert = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
+                                         [hdu_list['APERTURE'].header['CRVAL2P']]])
+
+                # # RA and Dec at reference pixel
+                # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
+                #                          [hdu_list['APERTURE'].header['CRVAL2']]])
+
+        if centroid_radec:
+            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert)
 
         all_centroid['x'].append(centroid_x)
         all_centroid['y'].append(centroid_y)
@@ -456,9 +531,10 @@ def read_kepler_light_curve(filenames,
 
         all_time.append(time)
         all_flux.append(flux)
-        all_quarters.append(quarter)
+        add_info['quarter'].append(quarter)
+        add_info['module'].append(module)
 
     if scramble_type:
-        all_time, all_flux = scramble_light_curve(all_time, all_flux, all_quarters, scramble_type)
+        all_time, all_flux = scramble_light_curve(all_time, all_flux, add_info['quarter'], scramble_type)
 
-    return all_time, all_flux, all_centroid
+    return all_time, all_flux, all_centroid, add_info

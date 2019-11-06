@@ -3,6 +3,9 @@ Generate preprocessed tfrecords locally.
 """
 
 # 3rd party
+import sys
+# sys.path.append('/home6/msaragoc/work_dir/HPO_Kepler_TESS/')
+sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import multiprocessing
 import os
 from scipy import io
@@ -21,9 +24,13 @@ class Config:
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
 
+    whitened = False  # use whitened data (currently only available for Kepler DR25 34k TCEs dataset)
+
     gapped = True  # remove other TCEs from the light curve
-    whitened = False  # whiten data
     gap_imputed = False  # add noise to gapped light curves
+    # Gap transits in lightcurve correponding to other TCE's only if highly confident other TCE is planet?
+    gap_with_confidence_level = False
+    gap_confidence_level = 0.75
 
     use_tps_ephem = False  # use TPS ephemeris instead of DV
 
@@ -33,20 +40,30 @@ class Config:
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
 
-    gap_with_confidence_level = False
-    gap_confidence_level = 0.75
+    # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
+    # (world coordinates)
+    px_coordinates = False
 
-    use_ground_truth = False
+    # if True, saves plots of several preprocessing steps
+    plot_figures = True
+
+    omit_missing = True  # skips Kepler IDs that are not in the fits files
+
+    # filepath to numpy file with stats used to preprocess the data
+    stats_preproc_filepath = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing/' \
+                             'tfrecords/tfrecordkepler_dr25_flux_centroidnonnormalized_nonwhitened_gapped_2001-201/' \
+                             'stats_trainingset.npy'
+
+    # use_ground_truth = False
 
     # output directory
-    output_dir = "tfrecords/tfrecord{}_dr25_centroidnonnormalized".format(satellite)
-
+    output_dir = "tfrecords/tfrecord{}_dr25_centroidnonnormalized_test".format(satellite)
     # working directory
     w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)
 
     # Ephemeris table (complete with the gapped TCEs)
-    eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'
+    # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'
     # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
     # whitened data directory
@@ -54,10 +71,13 @@ class Config:
 
     # Ephemeris table from the TPS module
     tps_ephem_tbl = '/data5/tess_project/Data/Ephemeris_tables/tpsTceStructV4_KSOP2536.mat'
+    # TESS TPS ephemeris directory with TPS TCE struct MATLAB files for 1 year of TESS data (sectors 1-13)
+    # tps_ephem_tbl = '/data5/tess_project/Data/Ephemeris_tables/TESS/TPS_TCE_struct_TESS_1yr'
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
     if satellite.startswith('kepler'):
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/q1_q17_dr25_tce_2019.08.20_11.34.45_updt_tcert.csv'  # '/data5/tess_project/Data/Ephemeris_tables/dr25_tce_upd_label.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/' \
+                             'q1_q17_dr25_tce_2019.03.12_updt_tcert.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
         lc_data_dir = "/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits"
         # lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final'
@@ -77,8 +97,8 @@ class Config:
         output_dir += '_imputed'
     if gap_with_confidence_level:
         output_dir += '_conf%d' % int(gap_confidence_level * 100)
-    if use_ground_truth:
-        output_dir += '_groundtruth'
+    # if use_ground_truth:
+    #     output_dir += '_groundtruth'
     if use_tps_ephem:
         output_dir += '_tps'
 
@@ -91,8 +111,8 @@ class Config:
     if gap_with_confidence_level:
         assert gapped
 
-    if use_ground_truth:
-        assert satellite == 'tess'
+    # if use_ground_truth:
+    #     assert satellite == 'tess'
 
     # number of shards (tfrecords)
     # 8 training shards, 1 validation and 1 test
@@ -100,8 +120,6 @@ class Config:
 
     # number of processes spawned
     num_worker_processes = 10  # number of workers
-
-    omit_missing = True  # skips Kepler IDs that are not in the fits files
 
 
 def _process_file_shard(tce_table, file_name, eph_table):
@@ -132,7 +150,10 @@ def _process_file_shard(tce_table, file_name, eph_table):
         num_processed = 0
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
-            # get flux and cadence data
+            # if tce['kepid'] != 757450:
+            #     continue
+
+            # get flux and cadence data (if using whitened data)
             if config.satellite == 'kepler':  # Kepler
                 # check if TCE is in the whitened dataset
                 if config.whitened and not (tce['kepid'] in flux_import and tce['kepid'] in time_import):
@@ -142,8 +163,10 @@ def _process_file_shard(tce_table, file_name, eph_table):
                     if config.whitened else (None, None)
 
             else:  # TESS
-                aux_id = (tce['tessid'], 1, tce['sector'])  # tce_n = 1, import non-previous-tce-gapped light curves
-                lc, time = aux_dict[aux_id][0], aux_dict[aux_id][1]
+                # aux_id = (tce['tessid'], 1, tce['sector'])  # tce_n = 1, import non-previous-tce-gapped light curves
+                # lc, time = aux_dict[aux_id][0], aux_dict[aux_id][1]
+
+                NotImplementedError('TESS preprocessing not yet implemented')
 
             # if tce['kepid'] in flux_import and tce['kepid'] in time_import:
             #     if config.satellite == 'kepler':
@@ -169,24 +192,23 @@ def _process_file_shard(tce_table, file_name, eph_table):
 def get_kepler_tce_table(config):
     """ Get TCE ephemeris tables.
 
-    :param config:
+    :param config: Config object, preprocessing parameter
     :return:
-        tce_table: pandas DataFrame, table with ephemeris table
-        eph_table: pandas DataFrame, table with complete ephemeris table used when gapping the time series
+        tce_table: pandas DataFrame, table with complete ephemeris table used when gapping the time series
     """
 
-    eph_table = None
-    if config.gapped:  # get the ephemeris table for the gapped time series
-        with open(config.eph_tbl_fp, 'rb') as fp:
-            eph_table = pickle.load(fp)
-
-    _LABEL_COLUMN = "av_training_set"
-    _ALLOWED_LABELS = {"PC", "AFP", "NTP"}
+    # eph_table = None
+    # if config.gapped:  # get the ephemeris table for the gapped time series
+    #     with open(config.eph_tbl_fp, 'rb') as fp:
+    #         eph_table = pickle.load(fp)
 
     # Read the CSV file of Kepler KOIs.
     tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
     tce_table["tce_duration"] /= 24  # Convert hours to days.
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
+
+    _LABEL_COLUMN = "av_training_set"
+    _ALLOWED_LABELS = {"PC", "AFP", "NTP"}
 
     # Filter TCE table to allowed labels.
     allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
@@ -200,7 +222,7 @@ def get_kepler_tce_table(config):
     # tce_table = tce_table[allowed_tces]
     # print('len after filter by kepids: {}'.format(len(tce_table)))
 
-    if config.use_tps_ephem:  # use TPS ephemeris from the TPS TCE struct MATLAB file
+    if config.use_tps_ephem:  # use TPS ephemeris from the TPS TCE struct MATLAB file for the 34k TCEs in Kepler DR25
 
         # extract these fields from the mat file
         fields = ['kepid', 'tce_plnt_num', 'tce_period', 'tce_time0bk', 'tce_duration', 'av_training_set']
@@ -250,11 +272,14 @@ def get_kepler_tce_table(config):
     #             with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
     #                 time_import.update(pickle.load(fp))
 
-    return tce_table, eph_table
+    return tce_table
 
 
 def load_whitened_data(config):
-    """ Loads the whitened data into global variables
+    """ Loads the whitened data from Kepler into global variables. The tbl files were converted to pickle files.
+
+    # FIXME: we have to eventually go back, talk with TESS team and think about how to use and implement the whitening
+            # there are several TCEs whose time series as zero arrays
 
     :param config: Config object, contains the preprocessing parameters
     :return:
@@ -265,8 +290,7 @@ def load_whitened_data(config):
     time_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_time')
                   and not i.endswith('(copy)')]
 
-    # print('doing one quarter of all tces')
-
+    # FIXME: I am not a fan of using global variables...
     global flux_import
     global time_import
     flux_import, time_import = {}, {}
@@ -279,97 +303,173 @@ def load_whitened_data(config):
             time_import.update(pickle.load(fp))
 
 
-def _update_tess_lists(table_dict, ephemdict, match_dict, tid, sector_n, tce_n, config, time_vectors):
-    tce_dict = ephemdict['tce'][(tid, sector_n)][tce_n]
-
-    if config.use_ground_truth and match_dict is not None:  # only matched transits [pc, eb, beb]
-        ephem_dict = match_dict['truth']
-    else:
-        ephem_dict = tce_dict
-
-    update_id = False
-    for i in tce_dict[config.lc_str]:
-        if np.isfinite(i):
-            update_id = True
-            break
-
-    if update_id:  # check if light curve is not all NaN's
-        table_dict['tessid'] += [tid]
-        table_dict['sector'] += [sector_n]
-        table_dict['tce_n'] += [tce_n]
-        table_dict['tce_period'] += [ephem_dict['period']]
-        table_dict['tce_duration'] += [ephem_dict['duration']]
-        table_dict['tce_time0bk'] += [ephem_dict['epoch']]
-
-        aux_dict[(tid, tce_n, sector_n)] = [tce_dict[config.lc_str], time_vectors[sector_n - 1]]
-
-    return table_dict, update_id
-
-
-def get_tess_table(ephemdict, table_dict, label_map, config):
-    # count = 0
-    tce_tid_dict = {tce: None for tce in ephemdict['tce']}
-    time_vectors = ephemdict['info_dict'].pop('time')
-    for (tid, sector_n) in ephemdict['info_dict']:
-        tces_processed = []
-        n_tces = len(ephemdict['tce'][(tid, sector_n)])
-        for class_id in ephemdict['info_dict'][(tid, sector_n)]:
-            for match_n, match_dict in ephemdict['info_dict'][(tid, sector_n)][class_id].items():
-                tce_n = match_dict['tce_id']['pred_tce_i']
-                table_dict, update_id = _update_tess_lists(table_dict, ephemdict, match_dict, tid, sector_n,
-                                                           tce_n, config.lc_str, time_vectors)
-                if update_id:
-                    table_dict['av_training_set'] += [label_map[class_id]]
-
-                if tce_n not in tces_processed:
-                    tces_processed += [tce_n]
-        # count += 1
-        # if count % int(len(ephemdict['info_dict'])/100) == 0:
-        #     print('info dict percentage: %d, tce count: %d' % (int(count/len(ephemdict['info_dict'])*100), count))
-
-        # add all non-ephemeris matched tce's in 'info_dict'
-        if len(tces_processed) < n_tces:
-            for tce_n in set(range(1, n_tces + 1)) - set(tces_processed):
-                table_dict, update_id = _update_tess_lists(table_dict, ephemdict, None, tid, sector_n,
-                                                           tce_n, config.lc_str, time_vectors)
-                if update_id:
-                    table_dict['av_training_set'] += ['NTP']
-
-        tce_tid_dict.pop((tid, sector_n))
-
-    # all tess id's which are not present in 'info_dict' (info_dict: only tid's with matched tce's)
-    # count = 0
-    for (tid, sector_n) in tce_tid_dict:
-        for tce_n in ephemdict['tce'][(tid, sector_n)]:
-            table_dict, update_id = _update_tess_lists(table_dict, ephemdict, None, tid, sector_n,
-                                                       tce_n, config.lc_str, time_vectors)
-            if update_id:
-                table_dict['av_training_set'] += ['NTP']
-
-        # count += 1
-        # if count % int(len(tce_tid_dict)/100) == 0:
-        #     print('post-info dict tce_t percentage: %d, tce count: %d' % (int(count/len(tce_tid_dict) * 100), count))
-
-    return table_dict
+# def _update_tess_lists(table_dict, ephemdict, match_dict, tid, sector_n, tce_n, config, time_vectors):
+#     tce_dict = ephemdict['tce'][(tid, sector_n)][tce_n]
+#
+#     if config.use_ground_truth and match_dict is not None:  # only matched transits [pc, eb, beb]
+#         ephem_dict = match_dict['truth']
+#     else:
+#         ephem_dict = tce_dict
+#
+#     update_id = False
+#     for i in tce_dict[config.lc_str]:
+#         if np.isfinite(i):
+#             update_id = True
+#             break
+#
+#     if update_id:  # check if light curve is not all NaN's
+#         table_dict['tessid'] += [tid]
+#         table_dict['sector'] += [sector_n]
+#         table_dict['tce_n'] += [tce_n]
+#         table_dict['tce_period'] += [ephem_dict['period']]
+#         table_dict['tce_duration'] += [ephem_dict['duration']]
+#         table_dict['tce_time0bk'] += [ephem_dict['epoch']]
+#
+#         aux_dict[(tid, tce_n, sector_n)] = [tce_dict[config.lc_str], time_vectors[sector_n - 1]]
+#
+#     return table_dict, update_id
 
 
 def get_tess_tce_table(config):
-    ephemdict_str = ('/nobackupp2/lswilken/Astronet' if 'Documents' not in os.path.dirname(__file__)
-                     else '/home/lswilken/Documents/TESS_classifier') + '/TSOP-301_DV_ephem_dict'
-    with open(ephemdict_str, 'rb') as fp:
-        eph_table = pickle.load(fp)
+    """ Get TCE ephemeris tables.
 
-    table_dict = {'tessid': [], 'sector': [], 'tce_period': [], 'tce_duration': [],
-                  'tce_time0bk': [], 'av_training_set': [], 'tce_n': []}
+    :param config:
+    :return:
+        tce_table: pandas DataFrame, table with ephemeris table
+        eph_table: pandas DataFrame, table with complete ephemeris table used when gapping the time series
+    """
 
-    label_map = {'planet': 'PC', 'eb': 'EB', 'backeb': 'BEB'}  # map TESS injected transit labels to AutoVetter labels
+    # name of the column in the TCE table with the label/disposition
+    _LABEL_COLUMN = "disposition"
+    # labels used to filter TCEs in the TCE table
+    _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O"}
 
-    global aux_dict
-    aux_dict = {}
+    # map from fields' names in the TCE table to fields' names in the TCE TPS table for TESS that we want to extract
+    # if fields is None:
+    fields = {'mes': 'maxMultipleEventStatistic', 'orbitalPeriodDays': 'detectedOrbitalPeriodInDays',
+              'transitEpochBtjd': 'epochTjd', 'label': 'isPlanetACandidate'}
 
-    table_dict = get_tess_table(eph_table, table_dict, label_map, config)
+    # eph_table = None
+    # if config.gapped:  # get the ephemeris table for the gapped time series
+    #     with open(config.eph_tbl_fp, 'rb') as fp:
+    #         eph_table = pickle.load(fp)
 
-    return pd.DataFrame(table_dict), eph_table
+    # Read the CSV file of Kepler KOIs.
+    tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
+    tce_table["transitDurationHours"] /= 24  # convert hours to days.
+    tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
+
+    # Filter TCE table to allowed labels.
+    allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
+    tce_table = tce_table[allowed_tces]
+
+    if config.use_tps_ephem:  # use TPS ephemeris from the TPS TCE struct MATLAB file
+
+        tf.logging.info("Using TPS ephemeris from {}.".format(config.use_tps_ephem))
+
+        tps_files = os.path.join(config.tps_ephem_tbl, os.listdir(config.tps_ephem_tbl))
+
+        for tps_file in tps_files:
+
+            mat = io.loadmat(tps_file)['tpsTceStruct'][0][0]
+
+            d = {name: [] for name in fields}
+
+            # iterate over each row to get the ephemeris for each TCE
+            for i in tce_table.iterrows():
+
+                # only for TCEs detected by TPS module
+                if i[1]['tce_plnt_num'] == 1:
+
+                    tpsStructIndex = np.where(mat['catId'] == i[1][''])[0]
+
+                    d['tic'].append(i[1]['tic'])
+                    d['tce_plnt_num'].append(1)
+
+                    # convert from hours to days
+                    d['tce_duration'].append(float(mat['maxMesPulseDurationHours'][0][tpsStructIndex]) / 24.0)
+                    d['tce_period'].append(float(mat['detectedOrbitalPeriodInDays'][tpsStructIndex][0][0]))
+                    d['tce_time0bk'].append(float(mat['epochTjd'][tpsStructIndex][0][0]))
+
+                    # dispositions based on DV ephemeris
+                    d['disposition'].append(i[1]['disposition'])
+
+                    # TODO: check dispositions when using TPS labels - use 'O' for the rest?
+                    # TPS detection - PC, EB or else
+                    # d['disposition'].append('PC' if float(mat['isPlanetACandidate'][tpsStructIndex][0][0]) == 1.0 else
+                    #                         'EB' if float(mat['isOnEclipsingBinaryList'][tpsStructIndex][0][0]) == 1.0
+                    #                         else 'O')
+
+        # convert from dictionary to Pandas DataFrame
+        tce_table = pd.DataFrame(data=d)
+
+    return tce_table
+
+
+# def get_tess_table(ephemdict, table_dict, label_map, config):
+#     # count = 0
+#     tce_tid_dict = {tce: None for tce in ephemdict['tce']}
+#     time_vectors = ephemdict['info_dict'].pop('time')
+#     for (tid, sector_n) in ephemdict['info_dict']:
+#         tces_processed = []
+#         n_tces = len(ephemdict['tce'][(tid, sector_n)])
+#         for class_id in ephemdict['info_dict'][(tid, sector_n)]:
+#             for match_n, match_dict in ephemdict['info_dict'][(tid, sector_n)][class_id].items():
+#                 tce_n = match_dict['tce_id']['pred_tce_i']
+#                 table_dict, update_id = _update_tess_lists(table_dict, ephemdict, match_dict, tid, sector_n,
+#                                                            tce_n, config.lc_str, time_vectors)
+#                 if update_id:
+#                     table_dict['av_training_set'] += [label_map[class_id]]
+#
+#                 if tce_n not in tces_processed:
+#                     tces_processed += [tce_n]
+#         # count += 1
+#         # if count % int(len(ephemdict['info_dict'])/100) == 0:
+#         #     print('info dict percentage: %d, tce count: %d' % (int(count/len(ephemdict['info_dict'])*100), count))
+#
+#         # add all non-ephemeris matched tce's in 'info_dict'
+#         if len(tces_processed) < n_tces:
+#             for tce_n in set(range(1, n_tces + 1)) - set(tces_processed):
+#                 table_dict, update_id = _update_tess_lists(table_dict, ephemdict, None, tid, sector_n,
+#                                                            tce_n, config.lc_str, time_vectors)
+#                 if update_id:
+#                     table_dict['av_training_set'] += ['NTP']
+#
+#         tce_tid_dict.pop((tid, sector_n))
+#
+#     # all tess id's which are not present in 'info_dict' (info_dict: only tid's with matched tce's)
+#     # count = 0
+#     for (tid, sector_n) in tce_tid_dict:
+#         for tce_n in ephemdict['tce'][(tid, sector_n)]:
+#             table_dict, update_id = _update_tess_lists(table_dict, ephemdict, None, tid, sector_n,
+#                                                        tce_n, config.lc_str, time_vectors)
+#             if update_id:
+#                 table_dict['av_training_set'] += ['NTP']
+#
+#         # count += 1
+#         # if count % int(len(tce_tid_dict)/100) == 0:
+#         #     print('post-info dict tce_t percentage: %d, tce count: %d' % (int(count/len(tce_tid_dict) * 100), count))
+#
+#     return table_dict
+
+
+# def get_tess_tce_table(config):
+#     ephemdict_str = ('/nobackupp2/lswilken/Astronet' if 'Documents' not in os.path.dirname(__file__)
+#                      else '/home/lswilken/Documents/TESS_classifier') + '/TSOP-301_DV_ephem_dict'
+#     with open(ephemdict_str, 'rb') as fp:
+#         eph_table = pickle.load(fp)
+#
+#     table_dict = {'tessid': [], 'sector': [], 'tce_period': [], 'tce_duration': [],
+#                   'tce_time0bk': [], 'av_training_set': [], 'tce_n': []}
+#
+#     label_map = {'planet': 'PC', 'eb': 'EB', 'backeb': 'BEB'}  # map TESS injected transit labels to AutoVetter labels
+#
+#     global aux_dict
+#     aux_dict = {}
+#
+#     table_dict = get_tess_table(eph_table, table_dict, label_map, config)
+#
+#     return pd.DataFrame(table_dict), eph_table
 
 
 def main(_):
@@ -380,9 +480,12 @@ def main(_):
     # Make the output directory if it doesn't already exist.
     tf.gfile.MakeDirs(config.output_dir)
 
+    if config.plot_figures is not None:
+        tf.gfile.MakeDirs(os.path.join(config.output_dir, 'plots'))
+
     # get TCE and gapping ephemeris tables
-    tce_table, eph_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
-                            else get_tess_tce_table(config))
+    tce_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
+                 else get_tess_tce_table(config))
 
     num_tces = len(tce_table)
 
@@ -416,7 +519,7 @@ def main(_):
         start = boundaries[i]
         end = boundaries[i + 1]
         filename = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
-        file_shards.append((train_tces[start:end], filename, eph_table))
+        file_shards.append((train_tces[start:end], filename, tce_table))
         # filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
         # file_shards.append((pred_tces[start:end], filename, eph_table))
 
