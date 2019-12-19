@@ -16,7 +16,7 @@ import itertools
 def find_first_epoch_after_this_time(epoch, period, reference_time):
     """ Finds the first epoch after a certain reference time.
 
-    :param epoch: float initial epoch value (TJD)
+    :param epoch: float initial epoch value (TJD/KJD)
     :param period: float, period (d)
     :param reference_time: float, start reference time
     :return:

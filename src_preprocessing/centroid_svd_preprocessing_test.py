@@ -261,6 +261,7 @@ for sector in np.arange(1, num_sectors + 1):
 #%% Plot raw and processed centroid data - Kepler
 
 channel = 1
+quarters = range(1, 3)
 
 save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/Kepler/'
 
@@ -272,17 +273,26 @@ prep_centroids = np.load('{}svdpreproc_data/centroidtimeseries_ch{}.npy'.format(
 plot_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/Kepler/' \
            'centroid_timeseries_plots/'
 
-for quarter in range(1, 18):
+kepids = [int(el.split('_')[-1][5:-4]) for el in os.listdir('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
+                                                            'centroid_svd_processing/Kepler/centroid_timeseries_plots/'
+                                                            'per_ccd_separatecoordinates_6sv')]
+
+for quarter in quarters:
 
     print('Quarter {}/{}'.format(quarter, 17))
 
     for kepid in raw_centroids[quarter]:
 
+        if kepid not in kepids:
+            continue
+
         f, ax = plt.subplots(1, 2,  sharex='col', sharey='col', figsize=(14, 9))
-        ax[0].plot(raw_centroids[quarter][kepid]['x'] + centr_tend[quarter]['x'][np.where(kepids_aux[quarter] == kepid)], label='raw')
+        ax[0].plot(raw_centroids[quarter][kepid]['x'] +
+                   centr_tend[quarter]['x'][np.where(kepids_aux[quarter] == kepid)], label='raw')
         ax[0].set_ylabel('Amplitude')
         ax[0].set_title('Coordinate x')
-        ax[1].plot(raw_centroids[quarter][kepid]['y'] + centr_tend[quarter]['y'][np.where(kepids_aux[quarter] == kepid)], label='raw')
+        ax[1].plot(raw_centroids[quarter][kepid]['y'] +
+                   centr_tend[quarter]['y'][np.where(kepids_aux[quarter] == kepid)], label='raw')
         ax[1].set_title('Coordinate y')
         ax[0].plot(prep_centroids[quarter][kepid]['x'], label='processed')
         ax[0].set_xlabel('Sample number')
@@ -295,7 +305,7 @@ for quarter in range(1, 18):
         ax[1].legend()
         f.suptitle('Channel {} | Quarter {} | Kepler ID {}'.format(channel, quarter, kepid))
         # aaaa
-        f.savefig('{}centroidtimeseries_ch{}_q{}_kepid{}.svg'.format(plot_dir, channel, quarter, kepid))
+        f.savefig('{}centroidtimeseries_ch{}_q{}_kepid{}.png'.format(plot_dir, channel, quarter, kepid))
         # plt.waitforbuttonpress()
         plt.close()
         # aaaa
@@ -359,7 +369,7 @@ for channel in channels:
     ax[1].set_title('Coordinate y')
     ax[1].set_xticks(np.arange(0, 20))
     ax[1].set_xlim([0, 20])
-    f.suptitle('Channel {}'.format(channel))
+    f.suptitle('Scree plot SVD - Channel {}'.format(channel))
     # aaaa
     plt.waitforbuttonpress()
     f.savefig('{}singularvalues_ch{}.png'.format(plot_dir, channel))
@@ -373,16 +383,23 @@ ccd = 2
 
 save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/TESS/'
 
-raw_centroids = np.load('{}raw_data/centroidtimeseries_s{}_c{}_ccd{}.npy'.format(save_dir, sector, camera, ccd)).item()
+raw_centroids = np.load('{}raw_data/per_ccd_jointcoordinates/centroidtimeseries_s{}_c{}_ccd{}.npy'.format(save_dir, sector, camera, ccd)).item()
 prep_centroids = np.load('{}svdpreproc_data/centroidtimeseries_s{}_c{}_ccd{}.npy'.format(save_dir, sector, camera,
                                                                                          ccd)).item()
-centr_tend = np.load('{}raw_data/rawdata_s{}_c{}_ccd{}_centraltendency.npy'.format(save_dir, sector, camera, ccd))
-ticids_aux = np.load('{}raw_data/ticids_s{}_c{}_ccd{}.npy'.format(save_dir, sector, camera, ccd))
+centr_tend = np.load('{}raw_data/per_ccd_jointcoordinates/rawdata_s{}_c{}_ccd{}_centraltendency.npy'.format(save_dir, sector, camera, ccd))
+ticids_aux = np.load('{}raw_data/per_ccd_jointcoordinates/ticids_s{}_c{}_ccd{}.npy'.format(save_dir, sector, camera, ccd))
 
 plot_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/TESS/' \
            'centroid_timeseries_plots/'
 
+ticids = [int(el.split('_')[-1][5:-4]) for el in os.listdir('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
+                                                            'centroid_svd_processing/TESS/centroid_timeseries_plots/'
+                                                            'per_ccd_jointcoordinates_6sv')]
+
 for ticid in raw_centroids:
+
+    if ticid not in ticids:
+        continue
 
     f, ax = plt.subplots(1, 2,  sharex='col', sharey='col', figsize=(14, 9))
     ax[0].plot(raw_centroids[ticid]['x'] + centr_tend[2 * np.where(ticids_aux == ticid)[0][0]], label='raw')
@@ -401,8 +418,9 @@ for ticid in raw_centroids:
     ax[1].legend()
     f.suptitle('Sector {} | Camera {} | CCD {} | TIC ID {}'.format(sector, camera, ccd, ticid))
     # aaaa
-    f.savefig('{}centroidtimeseries_s{}_c{}_ccd{}_ticid{}.svg'.format(plot_dir, sector, camera, ccd, ticid))
-    plt.waitforbuttonpress()
+    f.savefig('{}centroidtimeseries_s{}_c{}_ccd{}_ticid{}.png'.format(plot_dir, sector, camera, ccd, ticid))
+    # aaa
+    # plt.waitforbuttonpress()
     plt.close()
     # aaaa
 
@@ -415,7 +433,7 @@ ccds = range(1, 4)
 save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/TESS/'
 
 plot_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/TESS/' \
-           'singularvalues_plots/'
+           'singularvalues_plots/per_cddjointcoordinates/'
 
 for sector in sectors:
 
@@ -443,9 +461,12 @@ for sector in sectors:
     ax.set_yscale('log')
     ax.set_ylabel('Singular value')
     ax.set_xlabel('Singular number')
-    # ax.set_title()
-    ax.set_xticks(np.arange(0, 20))
-    ax.set_xlim([0, 20])
+    ax.set_title('Scree plot SVD')
+    # ax.set_xticks(np.arange(0, 20))
+    # ax.set_xlim([0, 20])
+    ax.set_xticks(np.arange(0, len(singular_values), 100))
+    ax.set_xlim([0, len(singular_values)])
+    ax.grid(True)
     # ax[0].set_yscale('log')
     # ax[1].set_yscale('log')
     # ax[0].set_ylabel('Singular value')
@@ -462,3 +483,71 @@ for sector in sectors:
     plt.waitforbuttonpress()
     f.savefig('{}singularvalues_s{}.png'.format(plot_dir, sector))
     plt.close()
+
+#%% Robust LS
+
+import scipy.optimize as optimize
+import numpy as np
+
+
+def minimizer(x, design_matrix_col, u_trunc, lambda_reg, reg_func):
+
+    # print(np.linalg.norm(design_matrix_col - np.dot(u_trunc, x), ord=2))
+
+    return np.linalg.norm(design_matrix_col - np.dot(u_trunc, x), ord=2) + lambda_reg * reg_func(x)
+
+
+def l2_reg(x):
+    return np.linalg.norm(x, ord=2)
+
+
+def l1_reg(x):
+    return np.linalg.norm(x, ord=1)
+
+
+design_matrix_col = np.random.rand(200, 1)
+u_trunc = np.random.rand(200, 3)
+x0 = np.random.rand(3)
+
+loss = 'linear'  # 'linear', 'soft_l1', 'huber', 'cauchy', 'arctan'
+result = optimize.least_squares(minimizer, x0, args=(design_matrix_col, u_trunc, 1000, l2_reg), loss=loss, method='trf')
+
+print('result: {} | {}'.format(result.x, result.fun))
+
+#%%
+
+from sklearn.linear_model import Ridge, Huber, Lasso, BayesianRidge, ElasticNet, LassoLarsIC
+
+design_matrix = np.random.rand(200, 20)
+u_trunc = np.random.rand(200, 3)
+
+alpha = 1.0
+clf_ridge = Ridge(alpha=alpha, solver='auto', fit_intercept=True)
+clf_ridge.fit(u_trunc, design_matrix)
+
+coefs = clf_ridge.coef_.T
+
+denoised_matrix = design_matrix - np.dot(u_trunc, coefs)
+
+alpha = 1.0
+clf_lasso = Lasso(alpha=alpha, fit_intercept=True)
+clf_lasso.fit(u_trunc, design_matrix)
+
+coefs = clf_lasso.coef_.T
+
+denoised_matrix = design_matrix - np.dot(u_trunc, coefs)
+
+alpha = 1.0
+clf_elasticnet = ElasticNet(alpha=alpha, l1_ratio=0.5, fit_intercept=True)
+clf_elasticnet.fit(u_trunc, design_matrix)
+
+coefs = clf_elasticnet.coef_.T
+
+denoised_matrix = design_matrix - np.dot(u_trunc, coefs)
+
+clf_lassolars = LassoLarsIC(criterion='bic', fit_intercept=True, normalize=True)
+clf_elasticnet.fit(u_trunc, design_matrix)
+
+coefs = clf_elasticnet.coef_.T
+
+denoised_matrix = design_matrix - np.dot(u_trunc, coefs)

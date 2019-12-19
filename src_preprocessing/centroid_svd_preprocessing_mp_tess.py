@@ -5,6 +5,21 @@ from astropy.io import fits
 from tensorflow import gfile
 import multiprocessing
 import itertools
+import scipy.optimize as optimize
+
+
+# def minimizer(x, design_matrix_col, u_trunc, lambda_reg, reg_func):
+#     # print(np.linalg.norm(design_matrix_col - np.dot(u_trunc, x), ord=2))
+#
+#     return np.linalg.norm(design_matrix_col - np.dot(u_trunc, x), ord=2) + lambda_reg * reg_func(x)
+#
+#
+# def l2_reg(x):
+#     return np.linalg.norm(x, ord=2)
+#
+#
+# def l1_reg(x):
+#     return np.linalg.norm(x, ord=1)
 
 
 def report_exclusion(fits_id, fits_filep, id_str, savedir, stderr=None):
@@ -169,6 +184,17 @@ def tess_svdcentroidprocessing(pair_seccam, lc_data_dir, save_dir, num_singularv
 
         # get the singular values
         singular_values = {coord: svd_comps[coord][1] for coord in ['x', 'y']}
+
+        # # TODO: implement criterion to choose number of components
+        #
+        # # robust LS
+        # design_matrix_col = np.random.rand(200, 1)
+        # u_trunc = np.random.rand(200, 3)
+        # x0 = np.random.rand(3)
+        #
+        # loss = 'linear'  # 'linear', 'soft_l1', 'huber', 'cauchy', 'arctan'
+        # result = optimize.least_squares(minimizer, x0, args=(design_matrix_col, u_trunc, 1000, l2_reg), loss=loss,
+        #                                 method='trf')
 
         # Truncated SVD: remove the components associated with the largest singular values
         # A_tr [mxn] = U [mxk] * S [kxk] * V^T [kxn]

@@ -60,6 +60,7 @@ def split(all_time, all_flux, gap_width=0.75):
     out_time: List of numpy arrays; the split time arrays.
     out_flux: List of numpy arrays; the split flux arrays.
   """
+
   # Handle single-segment inputs.
   if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
     all_time = [all_time]
@@ -79,7 +80,7 @@ def split(all_time, all_flux, gap_width=0.75):
   return out_time, out_flux
 
 
-def split_wcentroids(all_time, all_flux, all_centroids, add_info, gap_width=0.75):
+def split_wcentroids(all_time, all_flux, all_centroids, add_info, satellite, gap_width=0.75):
     """Splits the time series on discontinuities (gaps) if the time interval between consecutive cadences is larger
     than the gap_width.
 
@@ -91,14 +92,17 @@ def split_wcentroids(all_time, all_flux, all_centroids, add_info, gap_width=0.75
         time values.
       all_flux: Numpy array or sequence of numpy arrays; each is a sequence of
         flux values of the corresponding time array.
-      all_centroids: dict with x and y coordinates as keys, values are numpy arrays or lists of numpy arrays; each is
+      all_centroids: Dict with x and y coordinates as keys, values are numpy arrays or lists of numpy arrays; each is
       a sequence of centroid coordinates
+      add_info: Dict, additional data extracted from the FITS files such as quarter and module arrays for Kepler data
+      and, for both Kepler and TESS, the target position [coord1, coord2]
       gap_width: Minimum gap size (in time units) for a split.
 
     Returns:
       out_time: List of numpy arrays; the split time arrays.
       out_flux: List of numpy arrays; the split flux arrays.
       out_centroid: List of numpy arrays; the split centroid arrays.
+      out_add_info: Dict, the possible split additional FITS data arrays.
     """
 
     # Handle single-segment inputs.
@@ -111,19 +115,34 @@ def split_wcentroids(all_time, all_flux, all_centroids, add_info, gap_width=0.75
     out_time = []
     out_flux = []
     out_centroid = {'x': [], 'y': []}
-    out_add_info = {'quarter': [], 'module': []}
-    for time, flux, centr_x, centr_y, quarter, module in zip(all_time, all_flux, all_centroids['x'], all_centroids['y'],
-                                                             add_info['quarter'], add_info['module']):
+    # if satellite == 'kepler':
+    out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info}
+    # else:
+    #     out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info}
+
+    # for time, flux, centr_x, centr_y, quarter, module in zip(all_time, all_flux, all_centroids['x'], all_centroids['y'],
+    #                                                          add_info['quarter'], add_info['module']):
+    for i in range(len(all_time)):
+
         start = 0
-        for end in range(1, len(time) + 1):
+        for end in range(1, len(all_time[i]) + 1):
+
             # Choose the largest endpoint such that time[start:end] has no gaps.
-            if end == len(time) or time[end] - time[end - 1] > gap_width:
-                out_time.append(time[start:end])
-                out_flux.append(flux[start:end])
-                out_centroid['x'].append(centr_x[start:end])
-                out_centroid['y'].append(centr_y[start:end])
-                out_add_info['quarter'].append(quarter)
-                out_add_info['module'].append(module)
+            if end == len(all_time[i]) or all_time[i][end] - all_time[i][end - 1] > gap_width:
+
+                out_time.append(all_time[i][start:end])
+
+                out_flux.append(all_flux[i][start:end])
+
+                out_centroid['x'].append(all_centroids['x'][i][start:end])
+                out_centroid['y'].append(all_centroids['y'][i][start:end])
+
+                if satellite == 'kepler':
+                    if 'quarter' in out_add_info:
+                        out_add_info['quarter'].append(add_info['quarter'][i])
+                    if 'module' in out_add_info:
+                        out_add_info['module'].append(add_info['module'][i])
+
                 start = end
 
     return out_time, out_flux, out_centroid, out_add_info
@@ -134,7 +153,7 @@ def remove_events(all_time,
                   events,
                   width_factor=1.0,
                   include_empty_segments=True):
-    """Removes events from a light curve.
+    """ Removes events from a light curve.
 
     This function accepts either a single-segment or piecewise-defined light
     curve (e.g. one that is split by quarter breaks or gaps in the in the data).
@@ -317,7 +336,7 @@ def uniform_cadence_light_curve(cadence_no, time, flux):
 
 
 def count_transit_points(time, event):
-  """Computes the number of points in each transit of a given event.
+  """ Computes the number of points in each transit of a given event.
 
   Args:
     time: Sorted numpy array of time values.
