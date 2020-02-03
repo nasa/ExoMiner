@@ -1,8 +1,6 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-#TODO: remove centr_flag (only there for backward compatibility)
-
 [1] Shallue, Christopher J., and Andrew Vanderburg. "Identifying exoplanets with deep learning: A five-planet resonant
 chain around kepler-80 and an eighth planet around kepler-90." The Astronomical Journal 155.2 (2018): 94.
 [2] Ansdell, Megan, et al. "Scientific Domain Knowledge Improves Exoplanet Transit Classification with Deep Learning."
@@ -11,10 +9,10 @@ The Astrophysical Journal Letters 869.1 (2018): L7.
 """
 
 # 3rd party
+import os
 import tensorflow as tf
 import copy
 import operator
-import os
 import tempfile
 import _pickle as pickle
 import numpy as np
@@ -22,207 +20,83 @@ import itertools
 
 
 class InputFn(object):
-    """Class that acts as a callable input function for the Estimator."""
+    """ Class that acts as a callable input function for the Estimator."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False,
-                 filter_data=None):
+    def __init__(self, features, batch_size, mode, features_set):
         """Initializes the input function.
 
-        :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
-        May also be a comma-separated list of file patterns.
+        :param features: dictionary of the features to be extracted {'featureName1': featureArray1, ...}
         :param batch_size: int, batch size
         :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        :param label_map: dict, map between class name and integer value
-        :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
-        value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
-        (can the dimension and data type be inferred from the tensors in the dataset?)
-        :param filter_data:
+        :param features_set: dict of the dimension and data type of the features to be extracted to create the dataset.
+        The key is the feature name and the value is a dict with the dimension 'dim' of the feature and its data type
+        'dtype'
         :return:
         """
 
-        self._file_pattern = file_pattern
+        self.features = features
         self._mode = mode
         self.batch_size = batch_size
-        self.label_map = label_map
-        if features_set is None:
-            # by default, assume there are global and local views
-            self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-                                 'local_view': {'dim': 201, 'dtype': tf.float32}}
-            if centr_flag:
-                features_set['global_view_centr'] = {'dim': 2001, 'dtype': tf.float32}
-                features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}
-        else:
-            self.features_set = features_set
-        self.filter_data = filter_data
+        self.features_set = features_set
 
-        self.centr_flag = centr_flag
+    def __call__(self):
+        """ Builds the input pipeline.
 
-        # if self._mode == tf.estimator.ModeKeys.PREDICT and pred_feat is not None:
-        #     self.pred_feat = pred_feat
-
-    def __call__(self, config, params):
-        """Builds the input pipeline.
-
-        :param config: dict, parameters and hyperparameters for the model
-        :param params:
         :return:
-            a tf.data.Dataset with features and labels
+            a tf.data.Dataset with features
         """
 
-        reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
+        def create_dataset_from_dict():
+            """ Creates a dataset from a dictionary of features.
 
-        # Create a HashTable mapping label strings to integer ids.
-        table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
-            keys=list(self.label_map.keys()),
-            values=list(self.label_map.values()),
-            key_dtype=tf.string,
-            value_dtype=tf.int32)
-
-        label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
-
-        include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
-
-        file_patterns = self._file_pattern.split(",")
-        filenames = []
-        for p in file_patterns:
-            matches = tf.gfile.Glob(p)
-            if not matches:
-                raise ValueError("Found no input files matching {}".format(p))
-            filenames.extend(matches)
-
-        tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
-
-        def _example_parser(serialized_example):
-            """Parses a single tf.Example into feature and label tensors.
-
-            :param serialized_example: a single tf.Example
             :return:
-                tuple, feature and label tensors
+                dictionary with feature tensors
+                {'time_series_features':
+                {'time_series_feature1': timeSeriesFeatureTensor1, ...},
+                'scalar_params': scalarParamsFeatureTensor}
             """
 
-            # data_fields = {feature_name: tf.FixedLenFeature([length], tf.float32)
-            #                for feature_name, length in feature_size_dict.items()}
+            featuresTensorDict = {}
+            for featureName in self.features:
+                featuresTensorDict[featureName] = tf.convert_to_tensor(self.features[featureName],
+                                                                       dtype=self.features_set[featureName]['dtype'],
+                                                                       name=featureName)
 
-            # IT MAKES THE CENTR_FLAG IRRELEVANT
-            data_fields = {feature_name: tf.FixedLenFeature([feature_info['dim']], feature_info['dtype'])
-                           for feature_name, feature_info in self.features_set.items()}
-
-            # get labels if in TRAIN or PREDICT mode
-            if include_labels:
-                data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
-
-            # initialize filtering data fields
-            if self.filter_data is not None:
-                data_fields['kepid'] = tf.FixedLenFeature([], tf.int64)
-                data_fields['tce_plnt_num'] = tf.FixedLenFeature([], tf.int64)
-
-            # Parse the features.
-            parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
-
-            # data augmentation - time axis flipping
-            if reverse_time_series_prob > 0:
-                # Randomly reverse time series features with probability
-                # reverse_time_series_prob.
-                should_reverse = tf.less(
-                    tf.random_uniform([], 0, 1),
-                    reverse_time_series_prob,
-                    name="should_reverse")
-
+            # initialize feature output
             output = {'time_series_features': {}}
-            if self.filter_data is not None:
-                output['filt_features'] = {}
-            label_id = tf.cast(0, dtype=tf.int32)
-            for feature_name, value in parsed_features.items():
 
-                # label
-                if include_labels and feature_name == 'av_training_set':
-                    label_id = label_to_id.lookup(value)
-                    # Ensure that the label_id is non negative to verify a successful hash map lookup.
-                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
-                                                   ["Unknown label string:", value])
-                    with tf.control_dependencies([assert_known_label]):
-                        label_id = tf.identity(label_id)
+            # for feature_name, value in parsed_features.items():
+            for feature_name, value in featuresTensorDict.items():
 
-                # get filtering features
-                elif self.filter_data is not None and feature_name == 'kepid':
-                    output['filt_features']['kepid'] = value
-                elif self.filter_data is not None and feature_name == 'tce_plnt_num':
-                    output['filt_features']['tce_n'] = value
+                # scalar features (e.g, stellar, TCE, transit fit parameters)
+                if feature_name == 'scalar_params':
+                    output['scalar_params'] = value
 
-                # features
-                else:  # input_config.features[feature_name].is_time_series:
-                    # Possibly reverse.
-                    if reverse_time_series_prob > 0:
-                        # pylint:disable=cell-var-from-loop
-                        value = tf.cond(should_reverse, lambda: tf.reverse(value, axis=[0]),
-                                        lambda: tf.identity(value))
-
+                # time-series features
+                else:
                     output['time_series_features'][feature_name] = value
 
-            return output, label_id
+            return output
 
-        def filt_func(x, y):
-            """ Utility function used to filter examples from the dataset based on their Kepler ID + TCE planet number
+        # tf.logging.info("Building input pipeline...")
 
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                boolean tensor, True for valid examples, False otherwise
-            """
-
-            z1 = tf.as_string(x['filt_features']['kepid'])
-            z_ = tf.convert_to_tensor('_')
-            z2 = tf.as_string(x['filt_features']['tce_n'])
-            zj = tf.strings.join([z1, z_, z2])
-
-            return tf.math.reduce_any(tf.math.equal(zj, tf.convert_to_tensor(self.filter_data['kepid+tce_n'])))
-
-        def get_features_and_labels(x, y):
-            """ Utility function used to remove the features used to filter the dataset.
-
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                tuple, dict with features tensor, and label tensor
-            """
-
-            return {'time_series_features': x['time_series_features']}, y
-
-        # create filename dataset based on the list of tfrecords filepaths
-        filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
-
-        # map a TFRecordDataset object to each tfrecord filepath
-        dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
-
-        # shuffle the dataset if training or evaluating
-        if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-            dataset = dataset.shuffle(1024, seed=None)
-
-        # do not repeat the dataset
-        dataset = dataset.repeat(1)
-
-        # map the example parser across the tfrecords dataset to extract the examples
-        dataset = dataset.map(_example_parser, num_parallel_calls=4)
-
-        # filter the dataset based on the filtering features
-        if self.filter_data is not None:
-            dataset = dataset.filter(filt_func)
-
-            # remove the filtering features from the dataset
-            dataset = dataset.map(get_features_and_labels)
+        # create dataset from dictionary of features tensors
+        dataset = tf.data.Dataset.from_tensors(create_dataset_from_dict())
 
         # creates batches by combining consecutive elements
+        # creates am additional outer dimension batch_size (or N % batch_size for last element if batch_size does not
+        # divide the number of input elements N evenly)
         dataset = dataset.batch(self.batch_size)
 
-        # prefetches batches determined by the buffer size chosen
-        # parallelized processing in the CPU with model computations in the GPU
-        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
+        # # prefetches batches determined by the buffer size chosen
+        # # parallelized processing in the CPU with model computations in the GPU
+        # dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
 
         return dataset
 
 
 class ModelFn(object):
-    """Class that acts as a callable model function for the Estimator."""
+    """ Class that acts as a callable model function for the Estimator. """
 
     def __init__(self, model_class, config):
         """ Initialized the model function.
@@ -257,12 +131,6 @@ class ModelFn(object):
         metrics = None if mode == tf.estimator.ModeKeys.PREDICT else self.create_metrics(model)
 
         logging_hook = None  # if mode == tf.estimator.ModeKeys.TRAIN else None
-
-        # if mode == tf.estimator.ModeKeys.TRAIN:
-        #     tf.summary.scalar('accuracy', metrics['accuracy'][1])
-        #     tf.summary.scalar('precision', metrics['precision'][1])
-        #     s = tf.summary.merge_all()
-        #     logging_hook = [tf.train.SummarySaverHook(save_steps=100, output_dir=config.model_dir_custom, summary_op=s)]
 
         return tf.estimator.EstimatorSpec(mode=mode,
                                           predictions=model.predictions,
@@ -350,28 +218,6 @@ class ModelFn(object):
 
     @staticmethod
     def create_train_op(model):
-
-        # if model.config['lr_scheduler'] in ["inv_exp_fast", "inv_exp_slow"]:
-        #     global_step = tf.train.get_global_step()
-        #     # global_step = tf.Variable(0, trainable=False)
-        #     # global_step = tf.train.get_or_create_global_step()
-        #
-        #     # decay learning rate every 'decay_epochs' by 'decay_rate'
-        #     decay_rate = 0.5
-        #     decay_epochs = 32 if model.config['lr_scheduler'] == "inv_exp_fast" else 64
-        #
-        #     learning_rate = tf.train.exponential_decay(
-        #         learning_rate=model.config['lr'],
-        #         global_step=global_step,
-        #         decay_steps=int(decay_epochs * model.n_train / self._base_config['batch_size']),
-        #         decay_rate=decay_rate,
-        #         staircase=True)
-        #
-        # elif model.config['lr_scheduler'] == "constant":
-        #     learning_rate = model.config['lr']
-        # else:
-        #     learning_rate = None
-        #     NotImplementedError('Learning rate scheduler not recognized')
 
         # if model.config.optimizer == 'Adam':
         if model.config['optimizer'] == 'Adam':
@@ -550,11 +396,10 @@ class CNN1dModel(object):
             # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
             #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        if 'stellar_params' in self.time_series_features:
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers] +
-                self.time_series_features['stellar_params'])
+                [pre_logits_concat, self.time_series_features['scalar_params']])
             # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
             #                               name="pre_logits_concat")
 
@@ -726,7 +571,9 @@ class CNN1dPlanetFinderv1(object):
             else 'glorot_uniform'
 
         cnn_layers = {}
-        for view in ['global_view', 'local_view', 'local_view_oddeven', 'local_view_centr']:
+        # NEED TO CHANGE THIS MANUALLY...
+        # for view in ['global_view', 'local_view', 'local_view_oddeven', 'local_view_centr']:
+        for view in ['global_view', 'local_view', 'local_view_centr']:
             with tf.variable_scope('ConvNet_%s' % view):
 
                 # add the different time series for a view as channels
@@ -842,13 +689,12 @@ class CNN1dPlanetFinderv1(object):
             # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
             #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        if 'stellar_params' in self.time_series_features:
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers] +
-                self.time_series_features['stellar_params'])
-            # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
-            #                               name="pre_logits_concat")
+                [pre_logits_concat, self.time_series_features['scalar_params']])
+        # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+        #                               name="pre_logits_concat")
 
         return pre_logits_concat
 
@@ -1331,10 +1177,10 @@ class Exonet_XS(object):
         #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
         #         [branch_output[1] for branch_output in time_series_hidden_layers])
 
-        # concatenate stellar params
-        pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-            [branch_output[1] for branch_output in time_series_hidden_layers] +
-            self.time_series_features['stellar_params'])
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [time_series_hidden_layers, self.time_series_features['scalar_params']])
 
         return pre_logits_concat
 

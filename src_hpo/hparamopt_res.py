@@ -19,14 +19,14 @@ import paths
 
 num_iterations = 300
 eta = 2
-bmin, bmax = 6, 50
+bmin, bmax = 5, 120
 nmodels = 3
 nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline_gapped_gflux_lflux_loddevenjointnorm_lcentr'  # 'bohb_dr25tcert_spline_gapped'
+study = 'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -45,10 +45,7 @@ min_val = 0.90
 #                                    )
 # paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/'
 # paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/'
-res = logged_results_to_HBS_result(paths.path_hpoconfigs
-                                   + study,
-                                   '_{}'.format(study)
-                                   )
+res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_{}'.format(study))
 
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()

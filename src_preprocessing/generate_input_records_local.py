@@ -21,6 +21,7 @@ class Config:
     """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
+    multisector = False  # True for TESS multi-sector runs
 
     training = True  # choose from: 'training' or 'predict'
     # partition the data set
@@ -34,7 +35,7 @@ class Config:
     gapWidth = 0.75
 
     # gapping - remove other TCEs belonging to the same target
-    gapped = False
+    gapped = True
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
     gap_with_confidence_level = False
@@ -50,12 +51,17 @@ class Config:
 
     # if True, CCD module pixel coordinates are used. If False, local CCD pixel coordinates are transformed into RA and
     # Dec (world coordinates)
-    px_coordinates = True
+    px_coordinates = False
 
     # if True, saves plots of several preprocessing steps
     plot_figures = True
 
     omit_missing = True  # skips target IDs that are not in the FITS files
+
+    # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
+    # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
+    # These parameters are added to the example in the TFRecord as a list of float values.
+    scalar_params = []
 
     # save_stats = True
 
@@ -66,7 +72,7 @@ class Config:
 
     # output directory
     # output_dir = "tfrecords/tfrecord{}dr25_centroidnormalized_test".format(satellite)
-    output_dir = "tfrecords/tfrecord{}_test".format(satellite)
+    output_dir = "tfrecords/tfrecord{}_testpreprocessing".format(satellite)
     # working directory
     w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)

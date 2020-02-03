@@ -27,11 +27,11 @@ import paths
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_model_dir, get_data_from_tfrecord
+from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir, get_data_from_tfrecord
 import src.config
 from src_hpo import utils_hpo
 from src import utils_train
-import baseline_configs
+# import baseline_configs
 
 
 def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False, last_best=0):
@@ -191,6 +191,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     If False, gets the maximum value
     :param patience: int, number of epochs to wait before early stopping. If it is set to -1, early stopping is not
     used
+    :param features_set:
     :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
     elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
     values should be a list; for the other data_fields, it should be a two element list that defines the interval of
@@ -201,24 +202,32 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     :return:
     """
 
+    # datasets - same name convetion as used for the TFRecords
+    datasets = ['train', 'val', 'test']
+
     if filter_data is None:
-        filter_data = {dataset: None for dataset in ['train', 'val', 'test']}
+        filter_data = {dataset: None for dataset in datasets}
         
     # get labels for each dataset
-    labels = {dataset: [] for dataset in ['train', 'val', 'test']}
-    for tfrec_file in os.listdir(data_dir):
-        dataset_idx = np.where([dataset in tfrec_file for dataset in ['train', 'val', 'test']])[0][0]
-        dataset = ['train', 'val', 'test'][dataset_idx]
+    labels = {dataset: [] for dataset in datasets}
+
+    tfrec_files = [file for file in os.listdir(data_dir) if file.split('-')[0] in datasets]
+    for tfrec_file in tfrec_files:
+
+        # find which dataset the TFRecord is from
+        dataset = tfrec_file.split('-')[0]
 
         labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
                                                   config['label_map'], filt=filter_data[dataset])['label']
 
+    # convert from list to numpy array
+    # TODO: should make this a numpy array from the beginning
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in ['train', 'val', 'test']}
 
     if mpi_rank is not None:
         sess_config.gpu_options.visible_device_list = str(mpi_rank % ngpus_per_node)
 
-    classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
+    classifier = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
                                         else patience + 1, session_config=sess_config),
                                         model_dir=get_model_dir(model_dir)
@@ -226,16 +235,17 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     train_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
-                             centr_flag=config['centr_flag'], filter_data=filter_data['train'],
+                             filter_data=filter_data['train'],
                              features_set=features_set)
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                           centr_flag=config['centr_flag'], filter_data=filter_data['val'], features_set=features_set)
+                           filter_data=filter_data['val'], features_set=features_set)
     test_input_fn = InputFn(file_pattern=data_dir + '/test*', batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
-                            centr_flag=config['centr_flag'], filter_data=filter_data['test'], features_set=features_set)
+                            filter_data=filter_data['test'], features_set=features_set)
 
-    # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR
+    # METRIC LIST DEPENDS ON THE METRICS COMPUTED FOR THE ESTIMATOR - CHECK create_metrics method of class ModelFn in
+    # estimator_util.py
     metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
     dataset_ids = ['training', 'validation', 'test']
     res = {dataset: {metric: [] for metric in metrics_list} for dataset in
@@ -280,22 +290,6 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                                                                                                      [opt_metric]))
                 break
 
-        # if last_best > 0:  # current value is not the best one found so far
-        #     for dataset in dataset_ids:
-        #         for metric in metrics_list:
-        #             res_aux[dataset][metric].append(res_i[dataset][metric])
-        # else:  # current value is the best one found so far
-        #     for dataset in dataset_ids:
-        #         for metric in metrics_list:
-        #             if len(res_aux[dataset][metric]) == 0:
-        #                 res[dataset][metric].append(res_i[dataset][metric])
-        #             else:
-        #                 res[dataset][metric].extend(res_aux[dataset][metric])
-        #                 res_aux[dataset][metric] = []
-        #                 res[dataset][metric].append(res_i[dataset][metric])
-
-        # confm_info = {key: value for key, value in res_val.items() if key.startswith('label_')}
-
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
         if mpi_rank is not None:
@@ -318,22 +312,27 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     if mpi_rank is not None:
         sys.stdout.flush()
 
-    # predict on given datasets
+    # predict on given datasets - needed for computing the output distribution
     predictions_dataset = {dataset: [] for dataset in ['train', 'val', 'test']}
     for dataset in predictions_dataset:
+
         print('Predicting on dataset {}...'.format(dataset))
+        # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
+        #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
+        #                            centr_flag=config['centr_flag'], filter_data=filter_data[dataset],
+        #                            features_set=features_set)
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                   centr_flag=config['centr_flag'], filter_data=filter_data[dataset],
-                                   features_set=features_set)
+                                   filter_data=filter_data[dataset], features_set=features_set)
 
         for predictions in classifier.predict(predict_input_fn):
             predictions_dataset[dataset].append(predictions[0])
-        print('predictions for dataset {}: {}'.format(dataset, len(predictions_dataset[dataset])))
-        # print('number of valid examples for dataset {}: {}'.format(dataset, len(filter_data[dataset]['kepid+tce_n'])))
+
         predictions_dataset[dataset] = np.array(predictions_dataset[dataset], dtype='float')
 
     # sort predictions per class based on ground truth labels
+    # TODO: only defined for Kepler - maybe this should be a function to be run separately using the csv ranking which
+    #  also has the scores
     output_cl = {dataset: {} for dataset in ['train', 'val', 'test']}
     for dataset in output_cl:
         # map_labels
@@ -379,7 +378,8 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                 print('{}: {}'.format(metric, res_es[dataset][metric][-1]))
     print('#' * 100)
 
-    # save features and config used for this model
+    # save features and config used for training this model - they can (and should) be used when running predict.py for
+    # this model
     np.save('{}/features_set'.format(classifier.model_dir), features_set)
     np.save('{}/config'.format(classifier.model_dir), config)
 
@@ -402,21 +402,22 @@ if __name__ == '__main__':
 
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'bohb_dr25tcert_spline_gapped_centroid_gapped_config'
+    study = 'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized'
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/' \
-                'tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
+                'tfrecordkeplerdr25_flux-centroid_selfnormalized_nonwhitened_gapped_2001-201'
 
     # features to be extracted from the dataset
-    views = ['global_view', 'local_view']
-    channels_centr = ['', '_centr']
+    # views = ['global_view', 'local_view']
+    # channels_centr = ['', '_centr']
     # channels_oddeven = ['', '_odd', '_even', '_centr']
-    features_names = [''.join(feature_name_tuple)
-                      for feature_name_tuple in itertools.product(views, channels_centr)]
+    # features_names = [''.join(feature_name_tuple)
+    #                   for feature_name_tuple in itertools.product(views, channels_centr)]
+    features_names = ['global_view', 'local_view', 'local_view_centr']
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -433,7 +434,6 @@ if __name__ == '__main__':
     n_epochs = 300
     multi_class = False
     use_kepler_ce = False
-    centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
@@ -446,15 +446,16 @@ if __name__ == '__main__':
 
     # set the configuration from a HPO study
     if config is None:
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + 'bohb_dr25tcert_spline_gapped',
-                                                     '_' + 'bohb_dr25tcert_spline_gapped'
-                                                     )
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
+                                                     'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized',
+                                                     '_bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized')
         # get ID to config mapping
         id2config = res.get_id2config_mapping()
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config = id2config[incumbent]['config']
         # select a specific config based on its ID
+        # example - check config.json
         # config = id2config[(8, 0, 3)]['config']
 
     print('Selected configuration: ', config)
@@ -468,7 +469,7 @@ if __name__ == '__main__':
         os.mkdir(save_path + '/models/')
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, use_kepler_ce, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)

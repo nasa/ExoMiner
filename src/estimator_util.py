@@ -20,11 +20,14 @@ import _pickle as pickle
 import numpy as np
 import itertools
 
+# local
+from src.utils_train import phase_inversion, phase_shift, add_whitegaussiannoise
+
 
 class InputFn(object):
     """Class that acts as a callable input function for the Estimator."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, features_set=None, centr_flag=False,
+    def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
                  filter_data=None):
         """Initializes the input function.
 
@@ -36,6 +39,7 @@ class InputFn(object):
         :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
         value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
         (can the dimension and data type be inferred from the tensors in the dataset?)
+        :param data_augmentation: bool, if True data augmentation is performed
         :param filter_data:
         :return:
         """
@@ -44,53 +48,29 @@ class InputFn(object):
         self._mode = mode
         self.batch_size = batch_size
         self.label_map = label_map
-        if features_set is None:
-            # by default, assume there are global and local views
-            self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-                                 'local_view': {'dim': 201, 'dtype': tf.float32}}
-            if centr_flag:
-                features_set['global_view_centr'] = {'dim': 2001, 'dtype': tf.float32}
-                features_set['local_view_centr'] = {'dim': 201, 'dtype': tf.float32}
-        else:
-            self.features_set = features_set
+        # if features_set is None:
+        #
+        #     tf.logging.info("Feature set is empty. Assuming global and local flux views as features.")
+        #
+        #     # by default, assume there are global and local views
+        #     self.features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
+        #                          'local_view': {'dim': 201, 'dtype': tf.float32}}
+        # else:
+        self.features_set = features_set
+        self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
+
         self.filter_data = filter_data
 
-        self.centr_flag = centr_flag
-
-        # if self._mode == tf.estimator.ModeKeys.PREDICT and pred_feat is not None:
-        #     self.pred_feat = pred_feat
-
     def __call__(self, config, params):
-        """Builds the input pipeline.
+        """ Builds the input pipeline.
 
         :param config: dict, parameters and hyperparameters for the model
         :param params:
         :return:
             a tf.data.Dataset with features and labels
+
+        TODO: does the call method need config and parameters?
         """
-
-        reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
-
-        # Create a HashTable mapping label strings to integer ids.
-        table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
-            keys=list(self.label_map.keys()),
-            values=list(self.label_map.values()),
-            key_dtype=tf.string,
-            value_dtype=tf.int32)
-
-        label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
-
-        include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
-
-        file_patterns = self._file_pattern.split(",")
-        filenames = []
-        for p in file_patterns:
-            matches = tf.gfile.Glob(p)
-            if not matches:
-                raise ValueError("Found no input files matching {}".format(p))
-            filenames.extend(matches)
-
-        tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
         def _example_parser(serialized_example):
             """Parses a single tf.Example into feature and label tensors.
@@ -100,12 +80,15 @@ class InputFn(object):
                 tuple, feature and label tensors
             """
 
-            # data_fields = {feature_name: tf.FixedLenFeature([length], tf.float32)
-            #                for feature_name, length in feature_size_dict.items()}
-
-            # IT MAKES THE CENTR_FLAG IRRELEVANT
+            # get features names, shapes and data types to be extracted from the TFRecords
             data_fields = {feature_name: tf.FixedLenFeature([feature_info['dim']], feature_info['dtype'])
                            for feature_name, feature_info in self.features_set.items()}
+
+            # # get auxiliary data from TFRecords required to perform data augmentation
+            # if self.data_augmentation:
+            #     for feature_name in self.features_set:
+            #         if 'view' in feature_name:
+            #             data_fields[feature_name + '_rmsoot'] = tf.FixedLenFeature([], tf.float32)
 
             # get labels if in TRAIN or PREDICT mode
             if include_labels:
@@ -120,42 +103,63 @@ class InputFn(object):
             parsed_features = tf.parse_single_example(serialized_example, features=data_fields)
 
             # data augmentation - time axis flipping
-            if reverse_time_series_prob > 0:
-                # Randomly reverse time series features with probability
-                # reverse_time_series_prob.
-                should_reverse = tf.less(
-                    tf.random_uniform([], 0, 1),
-                    reverse_time_series_prob,
-                    name="should_reverse")
+            # TODO: do we need this check?
+            # if reverse_time_series_prob > 0:
+            # Randomly reverse time series features with probability reverse_time_series_prob.
+            should_reverse = tf.less(tf.random_uniform([], 0, 1), 0.5, name="should_reverse")
 
+            # initialize feature output
             output = {'time_series_features': {}}
             if self.filter_data is not None:
                 output['filt_features'] = {}
+
             label_id = tf.cast(0, dtype=tf.int32)
+
             for feature_name, value in parsed_features.items():
 
+                if 'oot' in feature_name:
+                    continue
                 # label
-                if include_labels and feature_name == 'av_training_set':
+                elif include_labels and feature_name == 'av_training_set':
+
                     label_id = label_to_id.lookup(value)
+
                     # Ensure that the label_id is non negative to verify a successful hash map lookup.
                     assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
                                                    ["Unknown label string:", value])
+
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
 
-                # get filtering features
+                # filtering features
                 elif self.filter_data is not None and feature_name == 'kepid':
                     output['filt_features']['kepid'] = value
                 elif self.filter_data is not None and feature_name == 'tce_plnt_num':
                     output['filt_features']['tce_n'] = value
 
-                # features
+                # scalar features (e.g, stellar, TCE, transit fit parameters)
+                elif feature_name == 'scalar_params':
+                    output['scalar_params'] = value
+
+                # time-series features
                 else:  # input_config.features[feature_name].is_time_series:
-                    # Possibly reverse.
-                    if reverse_time_series_prob > 0:
-                        # pylint:disable=cell-var-from-loop
-                        value = tf.cond(should_reverse, lambda: tf.reverse(value, axis=[0]),
-                                        lambda: tf.identity(value))
+
+                    # data augmentation
+                    if self.data_augmentation:
+                        # # Possibly reverse.
+                        # if reverse_time_series_prob > 0:
+                        #     # pylint:disable=cell-var-from-loop
+                        #     value = tf.cond(should_reverse, lambda: tf.reverse(value, axis=[0]), lambda: tf.identity(value))
+
+                        # invert phase
+                        value = phase_inversion(value, should_reverse)
+
+                        # # phase shift some bins
+                        # value = phase_shift(value, [-5, 5])
+
+                        # # add white gaussian noise
+                        # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
+                        #                                parsed_features[feature_name + '_stdoot'])
 
                     output['time_series_features'][feature_name] = value
 
@@ -187,6 +191,29 @@ class InputFn(object):
             """
 
             return {'time_series_features': x['time_series_features']}, y
+
+        # reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
+
+        # Create a HashTable mapping label strings to integer ids.
+        table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
+            keys=list(self.label_map.keys()),
+            values=list(self.label_map.values()),
+            key_dtype=tf.string,
+            value_dtype=tf.int32)
+
+        label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
+
+        include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
+
+        file_patterns = self._file_pattern.split(",")
+        filenames = []
+        for p in file_patterns:
+            matches = tf.gfile.Glob(p)
+            if not matches:
+                raise ValueError("Found no input files matching {}".format(p))
+            filenames.extend(matches)
+
+        tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
         # create filename dataset based on the list of tfrecords filepaths
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
@@ -550,11 +577,10 @@ class CNN1dModel(object):
             # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
             #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        if 'stellar_params' in self.time_series_features:
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers] +
-                self.time_series_features['stellar_params'])
+                [pre_logits_concat, self.time_series_features['scalar_params']])
             # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
             #                               name="pre_logits_concat")
 
@@ -726,7 +752,9 @@ class CNN1dPlanetFinderv1(object):
             else 'glorot_uniform'
 
         cnn_layers = {}
-        for view in ['global_view', 'local_view', 'local_view_oddeven', 'local_view_centr']:
+        # NEED TO CHANGE THIS MANUALLY...
+        # for view in ['global_view', 'local_view', 'local_view_oddeven', 'local_view_centr']:
+        for view in ['global_view', 'local_view', 'local_view_centr', 'oddeven']:
             with tf.variable_scope('ConvNet_%s' % view):
 
                 # add the different time series for a view as channels
@@ -842,13 +870,12 @@ class CNN1dPlanetFinderv1(object):
             # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
             #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        if 'stellar_params' in self.time_series_features:
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers] +
-                self.time_series_features['stellar_params'])
-            # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
-            #                               name="pre_logits_concat")
+                [pre_logits_concat, self.time_series_features['scalar_params']])
+        # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+        #                               name="pre_logits_concat")
 
         return pre_logits_concat
 
@@ -1082,17 +1109,21 @@ class Exonet(object):
         # nondeterministic between invocations of Python.
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
 
-        # # Concatenate the conv hidden layers.
-        # if len(time_series_hidden_layers) == 1:  # only one column
-        #     pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
-        # else:  # more than one column
-        #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-        #         [branch_output[1] for branch_output in time_series_hidden_layers])
+        # Concatenate the conv hidden layers.
+        if len(time_series_hidden_layers) == 1:  # only one column
+            pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+        else:  # more than one column
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [branch_output[1] for branch_output in time_series_hidden_layers])
+            # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
+            #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-            [branch_output[1] for branch_output in time_series_hidden_layers] +
-            self.time_series_features['stellar_params'])
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [pre_logits_concat, self.time_series_features['scalar_params']])
+        # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+        #                               name="pre_logits_concat")
 
         return pre_logits_concat
 
@@ -1324,17 +1355,21 @@ class Exonet_XS(object):
         # nondeterministic between invocations of Python.
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
 
-        # # Concatenate the conv hidden layers.
-        # if len(time_series_hidden_layers) == 1:  # only one column
-        #     pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
-        # else:  # more than one column
-        #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-        #         [branch_output[1] for branch_output in time_series_hidden_layers])
+        # Concatenate the conv hidden layers.
+        if len(time_series_hidden_layers) == 1:  # only one column
+            pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+        else:  # more than one column
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [branch_output[1] for branch_output in time_series_hidden_layers])
+            # pre_logits_concat = tf.concat([layer[1] for layer in time_series_hidden_layers],
+            #                               axis=1, name="pre_logits_concat")
 
-        # concatenate stellar params
-        pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-            [branch_output[1] for branch_output in time_series_hidden_layers] +
-            self.time_series_features['stellar_params'])
+        # concatenate scalar params
+        if 'scalar_params' in self.time_series_features:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
+                [pre_logits_concat, self.time_series_features['scalar_params']])
+        # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
+        #                               name="pre_logits_concat")
 
         return pre_logits_concat
 

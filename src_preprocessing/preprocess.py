@@ -125,7 +125,6 @@ def read_light_curve(tce, config):
     """
 
     # gets all filepaths for the FITS files for this target
-
     if config.satellite == 'kepler':
 
         file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.kepid)
@@ -140,7 +139,7 @@ def read_light_curve(tce, config):
         return kepler_io.read_kepler_light_curve(file_names, centroid_radec=not config.px_coordinates)
 
     else:
-        file_names = tess_io.tess_filenames(config.lc_data_dir, tce.tic, tce.sector)
+        file_names = tess_io.tess_filenames(config.lc_data_dir, tce.tic, tce.sector, config.multisector)
 
         if not file_names:
             if not config.omit_missing:
@@ -260,7 +259,8 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
                     timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
                         timeseries['y'][i][idxs_it[end_idx - 1] + 1]
                 else:
-                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = timeseries[i][idxs_it[end_idx - 1] + 1]
+                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries[i][idxs_it[end_idx - 1] + 1]
 
             elif idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
                 if centroid:
@@ -269,7 +269,8 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
                     timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = timeseries['y'][i][
                         idxs_it[start_idx] - 1]
                 else:
-                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = timeseries[i][idxs_it[start_idx] - 1]
+                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries[i][idxs_it[start_idx] - 1]
 
             else:  # linear interpolation
                 idxs_interp = np.array([idxs_it[start_idx] - 1, idxs_it[end_idx - 1] + 1])
@@ -308,6 +309,7 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
     """
 
     # get gapped TCEs ephemeris
+    # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
     if config.satellite == 'kepler':
         gap_ephems = table.loc[(table['kepid'] == tce.kepid) &
                                (table['tce_plnt_num'] != tce.tce_plnt_num)][['tce_period', 'tce_duration',
@@ -380,17 +382,17 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
         A tensorflow.train.Example proto containing TCE features.
     """
 
-    if tce['av_training_set'] == 'AFP' and tce['kepid'] == 2302758 and tce['tce_plnt_num'] == 1:
-        print(tce[['kepid', 'tce_plnt_num', 'ra', 'dec', 'av_training_set']])
-    else:
-        return None
-    # if tce['disposition'] == 'V' and tce['tic'] == 68904 and tce['tce_plnt_num'] == 1:
+    # if tce['av_training_set'] == 'PC' and tce['kepid'] == 3236705 and tce['tce_plnt_num'] == 1:
+    #     print(tce[['kepid', 'tce_plnt_num', 'ra', 'dec', 'av_training_set']])
+    # else:
+    #     return None
+    # if tce['disposition'] == 'PC' and tce['tic'] == 100608026 and tce['tce_plnt_num'] == 1:  # what about sector?
     #     print(tce[['tic', 'tce_plnt_num', 'disposition']])
     # else:
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True
+    plot_preprocessing_tce = False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
@@ -506,7 +508,7 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_time, config, add
       centroid_dist NumPy array; the distance of the corrected centroid time series to the target position
     """
 
-    # FIXME: why do we use this if we concatenate the arrays right after? Check Shallue's code (why 0.75 gap?)
+    # FIXME: why 0.75 gap?
     # Split on gaps.
     all_time, all_flux, all_centroids, add_info = util.split_wcentroids(all_time, all_flux, all_centroids, add_info,
                                                                         config.satellite, gap_width=config.gapWidth)
@@ -521,6 +523,7 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_time, config, add
                                                    os.path.join(config.output_dir, 'plots/'),
                                                    '2_rawaftertransformation', add_info=add_info)
 
+    # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
     if config.satellite == 'kepler':
         period, duration, t0, transit_depth = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"], \
                                               tce['tce_depth']
@@ -531,6 +534,7 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_time, config, add
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(t0, period, time[0])
                               for time in all_time]
+
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration, period)
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
@@ -850,7 +854,7 @@ def phase_fold_and_sort_light_curve_odd_even(time, flux, centroids, period, t0):
 
 
 def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
-                  centering=True, normalize=True, centroid=False):
+                  centering=True, normalize=True, centroid=False, eps=1e-32):
     """Generates a view of a phase-folded light curve using a median filter.
 
     Args:
@@ -863,23 +867,14 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
       centering: bool, whether to center the view by subtracting the median
       normalize: Whether to perform normalization
       centroid: bool, if True considers these view a centroid time series
+      eps: float, non-zero normalization term
 
     Returns:
       1D NumPy array of size num_bins containing the median flux values of
       uniformly spaced bins on the phase-folded time axis.
     """
 
-    # # TODO: do we need this check?
-    # if centroid:
-    #     finite_idxs = np.isfinite(flux)
-    #     flux_allfinite = flux[finite_idxs]
-    #     time_allfinite = time[finite_idxs]
-    # else:
-    #     flux_allfinite = flux
-    #     time_allfinite = time
-
     # binning using median
-    # view = median_filter.median_filter(time_allfinite, flux_allfinite, num_bins, bin_width, t_min, t_max)
     view = median_filter.median_filter(time, flux, num_bins, bin_width, t_min, t_max)
 
     # global median centering
@@ -888,23 +883,21 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
 
     # normalization
     if normalize:
-        view = normalize_view(view, val=None, centroid=centroid)
+        view = normalize_view(view, val=None, centroid=centroid, eps=eps)
 
     return view
 
 
-def normalize_view(view, val=None, centroid=False):
+def normalize_view(view, val=None, centroid=False, eps=1e-32):
     """ Normalize the phase-folded time series.
 
     :param view: array, phase-folded time series
     :param val: float, value used to normalize the time series
     :param centroid: bool, True for centroid time series
+    :param eps: float, non-zero normalization term
     :return:
         array, normalized phase-folded time series
     """
-
-    # # median centering
-    # view -= np.median(view)
 
     # for the centroid time series
     # range [new_min_val, 1], assuming max is positive, which should be since we are removing the median from a
@@ -914,20 +907,18 @@ def normalize_view(view, val=None, centroid=False):
     if val is None:
         val = np.abs(np.max(view)) if centroid else np.abs(np.min(view))
 
-    # TODO: divide view by an infinitesimal instead of returning it? The normalization value is provided to the function
-    #  so I dont think that makes sense
-    if val == 0:
-        print('Dividing view by 0. Returning the non-normalized view.')
-        return view
-    else:
-        view = view / val
-        # view /= val
+    # if val == 0:
+    #     print('Dividing view by 0. Returning the non-normalized view.')
+    #     return view
+    # else:
+    #     view = view / val
+    #     # view /= val
 
-    return view
+    return view / (val + eps)
 
 
-def global_view(time, flux, period, num_bins=2001, bin_width_factor=1 / 2001, centroid=False, normalize=True,
-                centering=True):
+def global_view(time, flux, period, num_bins=2001, bin_width_factor=1/2001, centroid=False, normalize=True,
+                centering=True, eps=1e-32):
     """Generates a 'global view' of a phase folded light curve.
 
     See Section 3.3 of Shallue & Vanderburg, 2018, The Astronomical Journal.
@@ -942,6 +933,7 @@ def global_view(time, flux, period, num_bins=2001, bin_width_factor=1 / 2001, ce
       centering: bool, whether to center the view by subtracting the median
       normalize: Whether to perform normalization
       centroid: bool, if True considers these view a centroid time series
+      eps: float, non-zero normalization term
 
 
     Returns:
@@ -957,7 +949,8 @@ def global_view(time, flux, period, num_bins=2001, bin_width_factor=1 / 2001, ce
         t_max=period / 2,
         centroid=centroid,
         normalize=normalize,
-        centering=centering)
+        centering=centering,
+        eps=eps)
 
 
 def local_view(time,
@@ -969,7 +962,8 @@ def local_view(time,
                num_durations=4,
                centroid=False,
                normalize=True,
-               centering=True):
+               centering=True,
+               eps=1e-32):
     """Generates a 'local view' of a phase folded light curve.
 
     See Section 3.3 of Shallue & Vanderburg, 2018, The Astronomical Journal.
@@ -1001,7 +995,8 @@ def local_view(time,
         t_max=min(period / 2, duration * num_durations),
         centroid=centroid,
         normalize=normalize,
-        centering=centering)
+        centering=centering,
+        eps=eps)
 
 
 # def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
@@ -1023,8 +1018,9 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
     """
 
     # get ephemeris
+    # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
     if config.satellite == 'kepler':
-        period, duration, t0 = tce["tce_period"], tce["tce_duration"], t0 = tce["tce_time0bk"]
+        period, duration, t0 = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"]
     else:
         period, duration, t0 = tce["orbitalPeriodDays"], tce["transitDurationHours"], tce["transitEpochBtjd"]
 
@@ -1044,30 +1040,28 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
     # set time series features
     try:
+        # TODO: take into account that eps value depends on the kind of data and preprocessing done previously
+
         # get flux views
         glob_view = global_view(time, flux, period, normalize=True, centering=True,
-                                num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+                                num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob, eps=1e-32)
         loc_view = local_view(time, flux, period, duration, normalize=True, centering=True,
-                              num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+                              num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc, eps=1e-32)
 
         # get centroid views
         glob_view_centr = global_view(time, centroid, period, centroid=True, normalize=False, centering=False,
-                                      num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+                                      num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+                                      eps=1e-32)
         loc_view_centr = local_view(time, centroid, period, duration, centroid=True, normalize=False, centering=False,
-                                    num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
-
-        # views = {'global_view': glob_view, 'local_view': loc_view, 'global_view_centr': glob_view_centr,
-        #          'local_view_centr': loc_view_centr}
-
-        # if plot_preprocessing_tce:
-        #     utils_visualization.plot_all_views(views, tce, (2, 2), os.path.join(config.output_dir, 'plots/'),
-        #                                        '8_views_nonnormalizedcentroids')
+                                    num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
+                                    eps=1e-32)
 
         # get odd views (flux and centroid)
         glob_view_odd = global_view(odd_time, odd_flux, period, normalize=False, centering=True,
-                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+                                    eps=1e-32)
         loc_view_odd = local_view(odd_time, odd_flux, period, duration, normalize=False, centering=True,
-                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc, eps=1e-32)
 
         # glob_view_odd_centr = global_view(odd_time, odd_centroid, period, centroid=True, normalize=False,
         #                                   num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
@@ -1076,9 +1070,11 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
         # get even views (flux and centroid)
         glob_view_even = global_view(even_time, even_flux, period, normalize=False, centering=True,
-                                     num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
+                                     num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+                                     eps=1e-32)
         loc_view_even = local_view(even_time, even_flux, period, duration, normalize=False, centering=True,
-                                   num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
+                                   num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
+                                   eps=1e-32)
 
         # glob_view_even_centr = global_view(even_time, even_centroid, period, centroid=True, normalize=False,
         #                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
@@ -1087,15 +1083,15 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
         # normalize odd and even views by their joint minimum (flux)/maximum (centroid)
         val_norm = np.abs(min(np.min(glob_view_even), np.min(glob_view_odd)))
-        glob_view_even = normalize_view(glob_view_even, val=val_norm)
-        glob_view_odd = normalize_view(glob_view_odd, val=val_norm)
+        glob_view_even = normalize_view(glob_view_even, val=val_norm, eps=1e-32)
+        glob_view_odd = normalize_view(glob_view_odd, val=val_norm, eps=1e-32)
 
         val_norm = np.abs(min(np.min(loc_view_even), np.min(loc_view_odd)))
-        loc_view_even = normalize_view(loc_view_even, val=val_norm)
-        loc_view_odd = normalize_view(loc_view_odd, val=val_norm)
+        loc_view_even = normalize_view(loc_view_even, val=val_norm, eps=1e-32)
+        loc_view_odd = normalize_view(loc_view_odd, val=val_norm, eps=1e-32)
 
-        # # TODO: should we normalize the odd and even centroid jointly or use the normalization factor used for the main
-        # #   centroid time series?
+        # # TODO: should we normalize the odd and even centroid jointly or use the normalization factor used for the
+        #  main centroid time series?
         # # val_norm = np.abs(max(np.max(glob_view_even_centr), np.max(glob_view_odd_centr)))
         # # glob_view_even_centr = normalize_view(glob_view_even_centr, val=val_norm, centroid=True)
         # # glob_view_odd_centr = normalize_view(glob_view_odd_centr, val=val_norm, centroid=True)
@@ -1187,28 +1183,45 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
         #          'local_view_odd': loc_view_odd, 'global_view_even': glob_view_even,
         #          'local_view_even': loc_view_even}
 
+        # views = {'global_view': glob_view, 'local_view': loc_view, 'global_view_centr': glob_view_centr,
+        #          'local_view_centr': loc_view_centr, 'global_view_odd': glob_view_odd,
+        #          'local_view_odd': loc_view_odd, 'global_view_even': glob_view_even,
+        #          'local_view_even': loc_view_even}
         views = {'global_view': glob_view, 'local_view': loc_view, 'global_view_centr': glob_view_centr,
-                 'local_view_centr': loc_view_centr, 'global_view_odd': glob_view_odd,
-                 'local_view_odd': loc_view_odd, 'global_view_even': glob_view_even,
-                 'local_view_even': loc_view_even}
+                 'local_view_centr': loc_view_centr, 'global_view_odd': glob_view_odd, 'local_view_odd': loc_view_odd,
+                 'global_view_even': glob_view_even, 'local_view_even': loc_view_even}
+
+        # compute oot mean and std for each view
+        auxiliary_data = {}
+        for view in views:
+            auxiliary_data['{}_meanoot'.format(view)] = \
+                np.mean(views[view][(idxs_nontransitcadences_loc, idxs_nontransitcadences_glob)['glob' in view]])
+            auxiliary_data['{}_stdoot'.format(view)] = \
+                np.std(views[view][(idxs_nontransitcadences_loc, idxs_nontransitcadences_glob)['glob' in view]])
 
         if plot_preprocessing_tce:
+            # CHANGE NUMBER OF VIEWS PLOTTED!!!
             utils_visualization.plot_all_views(views, tce, config, (2, 4), os.path.join(config.output_dir, 'plots/'),
-                                               '8_views_normalizedcentroids')
+                                               '8_views_normalized')
 
     except Exception as e:
         report_exclusion(config, tce, 'Error when creating views', stderr=e)
         return None
 
+    # TODO: exclude TCEs that have at least one view with at least a NaN/infinite value? Right now is checking just for
+    #  one finite value...
+    for view in views:
+        if not np.any(np.isfinite(views[view])):  # at least one point is not infinite or NaN
+            report_exclusion(config, tce, 'Views are NaNs.')
+            return None
+
     # set time series features in the tfrecord
     for view in views:
         example_util.set_float_feature(ex, view, views[view])
 
-    # TODO: exclude TCEs that have at least one view with at least a NaN value?
-    for view in views:
-        if not np.any(np.isfinite(views[view])):
-            report_exclusion(config, tce, 'Views are NaNs.')
-            return None
+        # add auxiliary data
+        example_util.set_float_feature(ex, '{}_meanoot'.format(view), [auxiliary_data['{}_meanoot'.format(view)]])
+        example_util.set_float_feature(ex, '{}_stdoot'.format(view), [auxiliary_data['{}_stdoot'.format(view)]])
 
     # # save statistics about the non-normalized views in numpy files, one per TCE
     # extrema_centr = {'glob_view_centr': {'max': np.nanmax(glob_view_centr), 'min': np.nanmin(glob_view_centr)},
@@ -1217,7 +1230,14 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
     #                      'extrema_centroid-{}_{}'.format(tce['kepid'], tce['tce_plnt_num'])), extrema_centr)
 
     # set other features from the TCE table - TCE and stellar parameters
+    scalar_params = []
     for name, value in tce.items():
-        example_util.set_feature(ex, name, [value])
+        if name in config.scalar_params:
+            scalar_params.append(value)
+        else:  # set individual parameters
+            example_util.set_feature(ex, name, [value])
+
+    if len(scalar_params) > 0:
+        example_util.set_feature(ex, 'scalar_params', scalar_params)
 
     return ex

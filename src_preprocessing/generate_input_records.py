@@ -26,6 +26,7 @@ class Config:
     """
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
+    multisector = False  # True for TESS multi-sector runs
 
     training = True  # choose from: 'training' or 'predict'
     # partition the data set
@@ -54,6 +55,11 @@ class Config:
 
     omit_missing = True  # skips target IDs that are not in the FITS files
 
+    # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
+    # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
+    # These parameters are added to the example in the TFRecord as a list of float values.
+    scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
+
     use_tps_ephem = False  # use TPS ephemeris instead of DV
 
     # binning parameters
@@ -68,7 +74,7 @@ class Config:
     stats_preproc_filepath = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/stats_trainingset.npy'
 
     # output directory
-    output_dir = "tfrecords/tfrecord{}dr25_flux-centroid_selfnormalized".format(satellite)
+    output_dir = "tfrecords/tfrecord{}dr25_flux-centroid_selfnormalized-oddeven".format(satellite)
     # working directory
     w_dir = '/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/src_preprocessing'  # os.path.dirname(__file__)
     output_dir = os.path.join(w_dir, output_dir)
@@ -98,7 +104,6 @@ class Config:
 
     # shuffle TCE table
     shuffle = False
-
 
     output_dir += '_whitened' if whitened else '_nonwhitened'
     if gapped:

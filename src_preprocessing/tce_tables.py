@@ -2,6 +2,7 @@
 import pandas as pd
 from scipy import io
 import numpy as np
+import matplotlib.pyplot as plt
 
 #%% Add TPS TCE parameters to the non-TCE (~180k) Kepler table
 
@@ -44,19 +45,54 @@ tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
 
 stellar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
 
+# fill in NaNs using Solar parameters
+tce_tbl['tce_smass'] = tce_tbl['tce_smass'].fillna(value=1.0)
+tce_tbl['tce_sdens'] = tce_tbl['tce_sdens'].fillna(value=1.408)
+
 # normalize using statistics computed in the training set
 trainingset_idx = int(len(tce_tbl) * 0.8)
 
-tce_tbl[stellar_params].hist()
+ax = tce_tbl[stellar_params].hist(figsize=(15, 8))
+ax[0, 0].set_title('Stellar density')
+ax[0, 0].set_ylabel('g/cm^3')
+ax[0, 1].set_title('Stellar surface gravity')
+ax[0, 1].set_ylabel('log10(cm/s^2)')
+ax[1, 0].set_title('Stellar mass')
+ax[1, 0].set_ylabel('Solar masses')
+ax[1, 1].set_title('Stellar metallicity (Fe/H)')
+ax[1, 1].set_ylabel('dex')
+ax[2, 0].set_title('Stellar radius')
+ax[2, 0].set_ylabel('Solar radii')
+ax[2, 0].set_xlabel('Bins')
+ax[2, 1].set_title('Stellar effective temperature')
+ax[2, 1].set_ylabel('K')
+ax[2, 1].set_xlabel('Bins')
+plt.suptitle('Stellar parameters')
 
-stellar_params_med = tce_tbl[stellar_params][:trainingset_idx].median(axis=0, skipna=True)
-stellar_params_std = tce_tbl[stellar_params][:trainingset_idx].std(axis=0, skipna=True)
+stellar_params_med = tce_tbl[stellar_params][:trainingset_idx].median(axis=0, skipna=False)
+stellar_params_std = tce_tbl[stellar_params][:trainingset_idx].std(axis=0, skipna=False)
 
 tce_tbl[stellar_params] = (tce_tbl[stellar_params] - stellar_params_med) / stellar_params_std
 
-tce_tbl[stellar_params].hist()
-tce_tbl[stellar_params].median(axis=0, skipna=True)
-tce_tbl[stellar_params].std(axis=0, skipna=True)
+ax = tce_tbl[stellar_params].hist(figsize=(15, 8))
+ax[0, 0].set_title('Stellar density')
+ax[0, 0].set_ylabel('Amplitude')
+ax[0, 1].set_title('Stellar surface gravity')
+ax[0, 1].set_ylabel('Amplitude')
+ax[1, 0].set_title('Stellar mass')
+ax[1, 0].set_ylabel('Amplitude')
+ax[1, 1].set_title('Stellar metallicity (Fe/H)')
+ax[1, 1].set_ylabel('Amplitude')
+ax[2, 0].set_title('Stellar radius')
+ax[2, 0].set_ylabel('Amplitude')
+ax[2, 0].set_xlabel('Bins')
+ax[2, 1].set_title('Stellar effective temperature')
+ax[2, 1].set_ylabel('Amplitude')
+ax[2, 1].set_xlabel('Bins')
+plt.suptitle('Normalized stellar parameters')
+
+tce_tbl[stellar_params].median(axis=0, skipna=False)
+tce_tbl[stellar_params].std(axis=0, skipna=False)
 
 tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
                'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors.csv',
@@ -74,7 +110,7 @@ bins = np.arange(0, 2e6, 1e5)
 ax = transit_depth_col.hist(bins=bins, cumulative=False, density=False)[0]
 for x in ax:
     x.set_title("TCE transit depth histogram\nMax {}\nMin {}".format(transit_depth_col.min().values[0],
-                                                                 transit_depth_col.max().values[0]))
+                                                                     transit_depth_col.max().values[0]))
 
     # Set x-axis label
     x.set_xlabel("Transit depth (ppm)")
@@ -85,3 +121,16 @@ for x in ax:
     # x.set_ylabel("Density")
     x.set_xscale('log')
     x.set_xlim(left=bins[0], right=bins[-1])
+
+#%% Uniformization of the fields
+
+stellar_params_in = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
+
+stellar_params_out = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
+
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
+                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_stellarparamswitherrors.csv')
+
+tce_tbl[stellar_params_out].hist()
+tce_tbl[stellar_params_out].median(axis=0, skipna=False)
+tce_tbl[stellar_params_out].std(axis=0, skipna=False)

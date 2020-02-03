@@ -4,8 +4,8 @@ Test ensemble of models trained using the best configuration obtained in a hyper
 TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
     option would be to have two scripts: one that tests the models individually, the other that gathers their
     predictions into the ensemble and generates the results for it.
-    load config from json file in the model's folder
-    after adding argument to choose model used, either find a way to save this or also add this argument to predict
+    add argument to choose model general architecture used, either find a way to save this or also add this argument to
+    predict
 """
 
 # 3rd party
@@ -165,14 +165,11 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
 
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
 
-    # if data[datasets[0]] is not None:
-    #     for dataset in datasets:
-    #         data[dataset]['selected_idxs'] = []
+    tfrec_files = [file for file in os.listdir(data_dir) if file.split('-')[0] in datasets]
+    for tfrec_file in tfrec_files:
 
-    for tfrec_file in os.listdir(tfrec_dir):
-
-        dataset_idx = np.where([dataset in tfrec_file for dataset in datasets])[0][0]
-        dataset = datasets[dataset_idx]
+        # find which dataset the TFRecord is from
+        dataset = tfrec_file.split('-')[0]
 
         aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, config['label_map'],
                                      filt=filter_data[dataset], coupled=True)
@@ -192,8 +189,8 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
 
-            config = np.load('{}/config.npy'.format(model_filename))
-            features_set = np.load('{}/features_set.npy'.format(model_filename))
+            config = np.load('{}/config.npy'.format(model_filename)).item()
+            features_set = np.load('{}/features_set.npy'.format(model_filename)).item()
 
             # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
             #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
@@ -204,7 +201,7 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
 
             config_sess = tf.ConfigProto(log_device_placement=False)
 
-            estimator = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
+            estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                                config=tf.estimator.RunConfig(keep_checkpoint_max=1,
                                                                              session_config=config_sess),
                                                model_dir=model_filename)
@@ -252,11 +249,13 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
     res = {dataset: None for dataset in datasets if dataset != 'predict'}
     # dict with classification predictions
     pred_classification = {dataset: np.zeros(predictions_dataset[dataset].shape, dtype='uint8') for dataset in datasets}
-    for dataset in datasets:
+    for dataset in res:
+
         # threshold for classification
         pred_classification[dataset][predictions_dataset[dataset] >= threshold] = 1
 
-        if not inference_only:
+        if dataset != 'predict' or not inference_only:
+
             # nclasse = len(np.unique(data[dataset]['label']))
             # compute and save performance metrics for the ensemble
             acc = accuracy_score(data[dataset]['label'], pred_classification[dataset])
@@ -327,9 +326,9 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
             data[dataset]['output'] = predictions_dataset[dataset]
             data[dataset]['predicted class'] = pred_classification[dataset]
 
-            # add Kepler magnitude of the target star
-            print('adding Kp to dataset {}'.format(dataset))
-            data[dataset]['Kp'] = [kp_dict[kepid] for kepid in data[dataset]['kepid']]
+            # # add Kepler magnitude of the target star
+            # print('adding Kp to dataset {}'.format(dataset))
+            # data[dataset]['Kp'] = [kp_dict[kepid] for kepid in data[dataset]['kepid']]
 
         # write results to a txt file
         for dataset in datasets:
@@ -349,20 +348,21 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_gflux_lflux_loddevenjointnorm_lcentr'
+    study = 'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
     # set configuration manually, None to load it from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # load preprocessed data
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkepler_centroid_oddeven_jointnorm_nonwhitened_gapped_2001-201'
-    # tfrec_dir = '/data5/tess_project/Data/tfrecords/dr25_koilabels/tfrecord_dr25_manual_2dkeplernonwhitened_gapped_oddeven_centroid'
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
+                'tfrecordkeplerdr25_flux-centroid_selfnormalized_nonwhitened_gapped_2001-201'
+
     # # path to directory with fits files with PDC data
     # # 34k labeled TCEs
     # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
     # # 180k unlabeled TCEs
     # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final/'
-    kp_dict = np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
+    kp_dict = None  # np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
 
     # features to be extracted from the dataset
     # views = ['local_view', 'global_view']
@@ -400,7 +400,6 @@ if __name__ == "__main__":
     threshold = 0.5  # threshold on binary classification
     multi_class = False
     use_kepler_ce = False
-    centr_flag = False
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # set to None to not filter any data in the datasets
@@ -409,8 +408,9 @@ if __name__ == "__main__":
     # load best config from HPO study
     if config is None:
         # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs + study,
-                                                     '_{}'.format(study)
+        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
+                                                     'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized',
+                                                     '_bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized'
                                                      )
         # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
 
@@ -434,7 +434,7 @@ if __name__ == "__main__":
         os.mkdir(pathsaveres)
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
+    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, use_kepler_ce, config)
 
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)
@@ -448,7 +448,6 @@ if __name__ == "__main__":
          datasets=datasets,
          threshold=threshold,
          fields=fields,
-         # features_set=features_set,
          filter_data=filter_data,
          inference_only=inference_only,
          generate_csv_pred=generate_csv_pred)

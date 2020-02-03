@@ -325,7 +325,8 @@ def logged_results_to_HBS_result(directory, run_id):
     Returns
     -------
     hpbandster.core.result.Result: :object:
-        TODO
+
+    TODO: the arguments are too convoluted...
 
     """
     data = {}

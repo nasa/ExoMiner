@@ -374,9 +374,7 @@ def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_a
 
 def read_kepler_light_curve(filenames,
                             light_curve_extension="LIGHTCURVE",
-                            scramble_type=None,
-                            interpolate_missing_time=False,
-                            centroid_radec=False):
+                            interpolate_missing_time=False):
     """ Reads data from FITS files for a Kepler target star.
 
   Args:
@@ -405,74 +403,70 @@ def read_kepler_light_curve(filenames,
     # initialize variables
     all_time = []
     all_flux = []
-    all_centroid = {'x': [], 'y': []}
-    add_info = {'quarter': [], 'module': [], 'target position': []}
+    # all_centroid = {'x': [], 'y': []}
+    # add_info = {'quarter': [], 'module': [], 'target position': []}
 
-    def _has_finite(array):
-        for i in array:
-            if np.isfinite(i):
-                return True
-
-        return False
+    # def _has_finite(array):
+    #     for i in array:
+    #         if np.isfinite(i):
+    #             return True
+    #
+    #     return False
 
     # iterate through the FITS files for the target star
     for filename in filenames:
         with fits.open(gfile.Open(filename, "rb")) as hdu_list:
 
-            # needed to transform coordinates when target is in module 13 and when using pixel coordinates
-            quarter = hdu_list["PRIMARY"].header["QUARTER"]
-            if quarter == 0:  # ignore quarter 0
-                continue
-            module = hdu_list["PRIMARY"].header["MODULE"]
+            # # needed to transform coordinates when target is in module 13 and when using pixel coordinates
+            # quarter = hdu_list["PRIMARY"].header["QUARTER"]
+            # if quarter == 0:  # ignore quarter 0
+            #     continue
+            # module = hdu_list["PRIMARY"].header["MODULE"]
 
-            kepid_coord1, kepid_coord2 = hdu_list["PRIMARY"].header["RA_OBJ"], hdu_list["PRIMARY"].header["DEC_OBJ"]
+            # kepid_coord1, kepid_coord2 = hdu_list["PRIMARY"].header["RA_OBJ"], hdu_list["PRIMARY"].header["DEC_OBJ"]
 
-            if len(add_info['target position']) == 0:
-                add_info['target position'] = [kepid_coord1, kepid_coord2]
+            # if len(add_info['target position']) == 0:
+            #     add_info['target position'] = [kepid_coord1, kepid_coord2]
 
-            # TODO: convert target position from RA and Dec to local CCD pixel coordinates
-            if not centroid_radec:
-                pass
-
-            # uncomment to get only TCEs from module 13
-            # if module != 13:
-            #     return None, None, None, None
+            # # TODO: convert target position from RA and Dec to local CCD pixel coordinates
+            # if not centroid_radec:
+            #     pass
 
             light_curve = hdu_list[light_curve_extension].data
 
-            if _has_finite(light_curve.PSF_CENTR1):
-                centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
-            else:
-                if _has_finite(light_curve.MOM_CENTR1):
-                    centroid_x, centroid_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-                else:
-                    continue  # no data
+            # if _has_finite(light_curve.PSF_CENTR1):
+            #     centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
+            # else:
+            #     if _has_finite(light_curve.MOM_CENTR1):
+            #         centroid_x, centroid_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+            #     else:
+            #         continue  # no data
 
-            # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
-            if centroid_radec:
+            # # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
+            # if centroid_radec:
+            #
+            #     # transformation matrix from aperture coordinate frame to RA and Dec
+            #     cd_transform_matrix = np.zeros((2, 2))
+            #     cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
+            #                              hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
+            #     cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
+            #                              hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
+            #
+            #     # # reference pixel in the aperture coordinate frame
+            #     # ref_px = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
+            #
+            #     # reference pixel in CCD coordinate frame
+            #     ref_px_apert = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
+            #                              [hdu_list['APERTURE'].header['CRVAL2P']]])
+            #
+            #     # RA and Dec at reference pixel
+            #     ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
+            #                              [hdu_list['APERTURE'].header['CRVAL2']]])
 
-                # transformation matrix from aperture coordinate frame to RA and Dec
-                cd_transform_matrix = np.zeros((2, 2))
-                cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
-                                         hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
-                cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
-                                         hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
-
-                # # reference pixel in the aperture coordinate frame
-                # ref_px = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
-
-                # reference pixel in CCD coordinate frame
-                ref_px_apert = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
-                                         [hdu_list['APERTURE'].header['CRVAL2P']]])
-
-                # RA and Dec at reference pixel
-                ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
-                                         [hdu_list['APERTURE'].header['CRVAL2']]])
-
-        # convert from CCD pixel coordinates to world coordinates RA and Dec
-        if centroid_radec:
-            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert,
-                                                            ref_angcoord)
+        # # convert from CCD pixel coordinates to world coordinates RA and Dec
+        # if centroid_radec:
+        #     centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert,
+        #                                                     ref_angcoord)
 
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME
@@ -487,15 +481,14 @@ def read_kepler_light_curve(filenames,
 
         all_time.append(time)
         all_flux.append(flux)
-        all_centroid['x'].append(centroid_x)
-        all_centroid['y'].append(centroid_y)
+        # all_centroid['x'].append(centroid_x)
+        # all_centroid['y'].append(centroid_y)
 
-        add_info['quarter'].append(quarter)
-        add_info['module'].append(module)
-        # add_info['target position'] = [kepid_coord1, kepid_coord2]
+        # add_info['quarter'].append(quarter)
+        # add_info['module'].append(module)
 
-    # TODO: adapt this to the centroid time series as well?
-    if scramble_type:
-        all_time, all_flux = scramble_light_curve(all_time, all_flux, add_info['quarter'], scramble_type)
+    # # TODO: adapt this to the centroid time series as well?
+    # if scramble_type:
+    #     all_time, all_flux = scramble_light_curve(all_time, all_flux, add_info['quarter'], scramble_type)
 
-    return all_time, all_flux, all_centroid, add_info
+    return all_time, all_flux  # , all_centroid, add_info

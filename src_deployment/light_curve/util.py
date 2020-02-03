@@ -132,7 +132,7 @@ def split_wcentroids(all_time, all_flux, gap_width=0.75):
                 #     out_add_info['module'].append(module)
                 start = end
 
-    return out_time, out_flux # , out_centroid, out_add_info
+    return out_time, out_flux  # , out_centroid, out_add_info
 
 
 def remove_events(all_time,
