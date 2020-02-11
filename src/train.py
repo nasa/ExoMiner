@@ -11,7 +11,7 @@ import sys
 sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 # import logging
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 # tf.logging.set_verbosity(tf.logging.ERROR)
@@ -229,7 +229,9 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
     classifier = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
-                                        else patience + 1, session_config=sess_config),
+                                        else patience + 1,
+                                                                      session_config=sess_config,
+                                                                      tf_random_seed=1234),
                                         model_dir=get_model_dir(model_dir)
                                         )
 
@@ -237,6 +239,9 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
                              mode=tf.estimator.ModeKeys.TRAIN, label_map=config['label_map'],
                              filter_data=filter_data['train'],
                              features_set=features_set)
+    # FIXME: should we have another input function for evaluating the training set?
+    #        how does the evaluation step differ from the training step? - compute metrics for both, but not train for
+    #        eval
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
                            filter_data=filter_data['val'], features_set=features_set)
@@ -394,22 +399,22 @@ if __name__ == '__main__':
     # if rank != 0:
     #     time.sleep(2)
 
-    tf.logging.set_verbosity(tf.logging.ERROR)
-    # tf.logging.set_verbosity(tf.logging.INFO)
+    # tf.logging.set_verbosity(tf.logging.ERROR)
+    tf.logging.set_verbosity(tf.logging.INFO)
 
     sess_config = tf.ConfigProto(log_device_placement=False)
     ngpus_per_node = 1
 
     ######### SCRIPT PARAMETERS #############################################
 
-    study = 'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized'
+    study = 'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalizedtest'
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
 
     # tfrecord files directory
     tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordkeplerdr25_flux-centroid_selfnormalized_nonwhitened_gapped_2001-201'
+                'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201'
 
     # features to be extracted from the dataset
     # views = ['global_view', 'local_view']
@@ -417,7 +422,7 @@ if __name__ == '__main__':
     # channels_oddeven = ['', '_odd', '_even', '_centr']
     # features_names = [''.join(feature_name_tuple)
     #                   for feature_name_tuple in itertools.product(views, channels_centr)]
-    features_names = ['global_view', 'local_view', 'local_view_centr']
+    features_names = ['global_view', 'local_view']
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -447,8 +452,8 @@ if __name__ == '__main__':
     # set the configuration from a HPO study
     if config is None:
         res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
-                                                     'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized',
-                                                     '_bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized')
+                                                     'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized',
+                                                     '_bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized')
         # get ID to config mapping
         id2config = res.get_id2config_mapping()
         # best config - incumbent

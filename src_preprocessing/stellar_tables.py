@@ -1,6 +1,9 @@
 import pandas as pd
 import msgpack
 import numpy as np
+from astropy.io import fits
+from tensorflow import gfile
+import os
 
 # TODO: do the same for the targets of the 180k Kepler non-TCEs and for TESS
 #%% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
@@ -273,3 +276,97 @@ for row_star_i, row_star in stellar_tbl.iterrows():
 
 print('Number of TCEs updated: {}'.format(count))
 tce_tbl.to_csv('/home/msaragoc/Downloads/newtcetbl180k_test.csv', index=False)
+
+#%% Create stellar parameters table based on info from the FITS files
+
+# list of targets
+ticIdsVisited2 = []
+
+# observation sectors
+sectors = np.arange(1, 20)
+
+# FITS base directory
+fitsDir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
+
+# in_fields = ['RADIUS', '']
+# out_fields = ['ticid', 'tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet']
+# stellar_dict = {field: [] for field in out_fields}
+for sector in sectors:
+
+    # sectorTicIds = []
+    # fitsFilepaths = []
+    fitsFilenames = os.listdir(os.path.join(fitsDir, 'sector_{}'.format(sector)))
+    for i, fitsFilename in enumerate(fitsFilenames):
+        print('Sector {} - {} % complete | Number of TIC IDs: {}'.format(sector, i / len(fitsFilenames) * 100,
+                                                                         len(ticIdsVisited2)))
+        if 'tesscurl' in fitsFilename:
+            continue
+        sectorTicId = int(fitsFilename.split('-')[2])
+        if sectorTicId not in ticIdsVisited2:
+            ticIdsVisited2.append(sectorTicId)
+        # sectorTicIds.append(int(fitsFilename.split('-')[2]))
+        # fitsFilepaths.append(os.path.join(fitsDir, os.path.join(sector, fitsFilename)))
+
+    # for i in range(len(sectorTicIds)):
+    #     if sectorTicIds[i] not in ticIdsVisited:
+            with fits.open(gfile.Open(os.path.join(fitsDir, os.path.join('sector_{}'.format(sector), fitsFilename)), "rb")) as hdu_list:
+                ticIdsVisited2.append(hdu_list['PRIMARY'].header['TICID'])
+    #         ticIdsVisited.append(ticId)
+
+# 182939 targets
+np.save('/data5/tess_project/Data/Ephemeris_tables/Stellar_parameters/TESS/final_target_list_s1-s19.npy', ticIdsVisited)
+headerList = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/tic_column_description.txt',
+                         skiprows=1, header=None, sep='\t', usecols=[1]).values.ravel()
+
+chunksize = 1000
+# 9488282 targets in the CTL
+dfCtlReader = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar_parameters/TESS/CTL/'
+                          'exo_CTL_08.01xTIC_v8.csv', chunksize=chunksize, header=None, names=headerList)
+
+dfTicList = None
+i = 1
+for chunk in dfCtlReader:
+    print('Reading TICs {}-{}'.format(i, i + len(chunk) - 1))
+
+    validTics = chunk.loc[chunk['[ID] [bigint]'].isin(ticIdsVisited)]
+
+    if dfTicList is None:
+        dfTicList = validTics
+    else:
+        dfTicList = pd.concat([dfTicList, validTics])
+
+    i += len(chunk)
+    print('Number of valid TICs added: {}\nTotal: {}'.format(len(validTics), len(dfTicList)))
+
+# 144318 targets
+dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar_parameters/TESS/aaaa.csv')
+
+# ####################
+# for ticId in ticIdsVisited:
+#
+#     numMatches = len(dfTicList.loc[dfTicList['[ID] [bigint]'] == ticId])
+#     print(numMatches)
+#     if numMatches == 0:
+#         aaaa
+#
+# for sector in sectors:
+#     fitsFilepaths = []
+#     for fitsFilename in os.listdir(os.path.join(fitsDir, 'sector_{}'.format(sector))):
+#         if 'tesscurl' in fitsFilename:
+#             continue
+#         sectorTicId = int(fitsFilename.split('-')[2])
+#         if sectorTicId == 1078:  # 234302530:
+#             aaaaaa
+#
+# dfCtlReader2 = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/CTL/'
+#                            'exo_CTL_08.01xTIC_v8.csv', chunksize=15210, header=None, names=headerList)
+#
+# j = 1
+# for chunk2 in dfCtlReader2:
+#     print('Reading TICs {}-{}'.format(j, j + len(chunk2) - 1))
+#
+#     numMatches = len(chunk2.loc[chunk2['[ID] [bigint]'] == 234302530])
+#     if numMatches > 0:
+#         aaaaa
+#
+#     j += len(chunk2)

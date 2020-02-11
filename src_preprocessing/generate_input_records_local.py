@@ -20,7 +20,7 @@ from src_preprocessing.utils_generate_input_records import get_kepler_tce_table,
 class Config:
     """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
-    satellite = 'kepler'  # choose from: ['kepler', 'tess']
+    satellite = 'tess'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
 
     training = True  # choose from: 'training' or 'predict'
@@ -72,7 +72,7 @@ class Config:
 
     # output directory
     # output_dir = "tfrecords/tfrecord{}dr25_centroidnormalized_test".format(satellite)
-    output_dir = "tfrecords/tfrecord{}_testpreprocessing".format(satellite)
+    output_dir = "tfrecords/tfrecord{}_convertrowcolpixtoradec".format(satellite)
     # working directory
     w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)

@@ -321,3 +321,19 @@ ax.legend()
 
 #%%
 
+dr25Koi = pd.read_csv('/home/msaragoc/Downloads/cumulative_2020.02.06_16.03.16.csv', header=85)
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
+                     'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors.csv')
+
+addFields = ['koi_pdisposition', 'koi_score', 'koi_fpflag', 'koi_fpflag_ss', 'koi_fpflag_co', 'koi_fpflag_ec']
+tceTbl[addFields] = \
+    pd.DataFrame(np.nan * np.ones((len(tceTbl), 6)), index=tceTbl.index)
+for i, row in dr25Koi.iterrow():
+
+    tcesTarget = tceTbl.loc[tceTbl['kepid'] == row.kepid][['tce_plnt_num']]
+
+    if len(tcesTarget) == 0:
+        print('Kepid {} not found in TCE table.'.format(row.kepid))
+    elif len(tcesTarget) == 1:
+
+    else:

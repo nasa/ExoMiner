@@ -134,3 +134,54 @@ tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
 tce_tbl[stellar_params_out].hist()
 tce_tbl[stellar_params_out].median(axis=0, skipna=False)
 tce_tbl[stellar_params_out].std(axis=0, skipna=False)
+
+#%% Getting EBs - need list for the 34k TCEs!!!
+
+tpsStruct = io.loadmat('/data5/tess_project/Data/TPS_output/Kepler/'
+                       'tpsTceStructV4_KSOP2536.mat')['tpsTceStructV4_KSOP2536'][0][0]
+
+kepIdList = tpsStruct['keplerId'].ravel()
+ebList = tpsStruct['isOnEclipsingBinaryList'].ravel()
+
+plt.hist(ebList)
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
+                     'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors.csv')
+
+tceTbl['isOnEclipsingBinaryList'] = -1
+
+for i, row in tceTbl.iterrows():
+
+    idxEbList = np.where(kepIdList == row.kepid)[0]
+    if row.tce_plnt_num == 1 and len(idxEbList) > 0:
+        tceTbl.loc[i, 'isOnEclipsingBinaryList'] = ebList[idxEbList]
+
+tceTbl.to_csv('/home/msaragoc/Downloads/qqqqq.csv', index=False)
+
+#%% Update fields in TEV MIT TOI disposition lists to standardized fields; remove TCEs with no value for the required
+# parameters
+
+rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
+                          'toi-plus-tev.mit.edu_2020-01-15.csv', header=4)
+print(len(rawTceTable))
+
+# Create Group or TOI disposition table by changing the field name in rawFields
+rawFields = ['TIC', 'Full TOI ID', 'Group Disposition', 'TIC Right Ascension', 'TIC Declination', 'TMag Value',
+             'TMag Uncertainty', 'Orbital Epoch Value', 'Orbital Epoch Error', 'Orbital Period Value',
+             'Orbital Period Error', 'Transit Duration Value', 'Transit Duration Error', 'Transit Depth Value',
+             'Transit Depth Error', 'Sectors']
+newFields = ['target_id', 'label', 'ra', 'dec', 'mag', 'mag_uncert', 'tce_time0bk', 'tce_time0bk_err', 'tce_period',
+             'tce_period_err', 'tce_duration', 'tce_duration_err', 'transit_depth', 'transit_depth_err', 'sectors']
+
+# remove TCEs with any NaN in the required fields
+rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 5, 7, 9, 11]], inplace=True)
+print(len(rawTceTable))
+
+# rename fields to standardize fieldnames
+renameDict = {}
+for i in range(len(rawFields)):
+    renameDict[rawFields[i]] = newFields[i]
+rawTceTable.rename(columns=renameDict, inplace=True)
+
+rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
+                   'toi-plus-tev.mit.edu_2020-01-15_Groupdisposition_processed.csv', index=False)

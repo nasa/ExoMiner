@@ -1,7 +1,7 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-#TODO: remove centr_flag (only there for backward compatibility)
+# USE THIS SCRIPT FOR ESTIMATORS BUILT BEFORE FEB 11 2020
 
 [1] Shallue, Christopher J., and Andrew Vanderburg. "Identifying exoplanets with deep learning: A five-planet resonant
 chain around kepler-80 and an eighth planet around kepler-90." The Astronomical Journal 155.2 (2018): 94.
@@ -465,10 +465,10 @@ class CNN1dModel(object):
         self.build()
 
     def build_cnn_layers(self):
-        """ Builds the convolutiuonal branches.
+        """ Builds the conv columns/branches.
 
         :return:
-            cnn_layers, dict with the convolutional branches
+            cnn_layers, dict with the different conv columns
         """
 
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
@@ -484,15 +484,11 @@ class CNN1dModel(object):
 
                 # add the different time series for a view as channels in the same convolutional branch
                 input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
-                                if view in feature_name], axis=-1, name='input_{}'.format(view))
+                                if view in feature_name], axis=-1)
 
-                # set number of convolutional blocks for the convolutional branch
                 n_blocks = self.config[config_mapper['blocks'][view]]
-
-                # get pool size for the maxpooling layers for this convolutional branch
                 pool_size = self.config[config_mapper['pool_size'][view]]
 
-                # create convolutional blocks
                 for conv_block_i in range(n_blocks):
 
                     # number of filters in a specific convolutional block
@@ -504,30 +500,29 @@ class CNN1dModel(object):
                               'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
-                    # create convolutional layers for each convolutional block
-                    for seq_conv_block_i in range(self.config['conv_ls_per_block']):
-                        net = tf.keras.layers.Conv1D(dilation_rate=1,
-                                                     activation=None,
-                                                     use_bias=True,
-                                                     bias_initializer='zeros',
-                                                     kernel_regularizer=None,
-                                                     bias_regularizer=None,
-                                                     activity_regularizer=None,
-                                                     kernel_constraint=None,
-                                                     bias_constraint=None,
-                                                     name='conv{}_{}'.format(view, conv_block_i, seq_conv_block_i),
-                                                     **kwargs)(input if conv_block_i == 0 and seq_conv_block_i == 0
-                                                                                             else net)
+                    net = tf.keras.layers.Conv1D(dilation_rate=1,
+                                                 activation=None,
+                                                 use_bias=True,
+                                                 bias_initializer='zeros',
+                                                 kernel_regularizer=None,
+                                                 bias_regularizer=None,
+                                                 activity_regularizer=None,
+                                                 kernel_constraint=None,
+                                                 bias_constraint=None,
+                                                 name='conv{}_{}'.format(conv_block_i, view), **kwargs)(input)
 
-                        # set activation
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                        else tf.keras.layers.ReLU()(net)
+
+                    for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
+                        net = tf.keras.layers.Conv1D(**kwargs)(net)
+
                         net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
                             else tf.keras.layers.ReLU()(net)
 
-                    # create maxpooling layer
                     net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
-                                                       name='maxpooling{}_{}'.format(view, conv_block_i))(net)
+                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
 
-                    # set batch normalization for the output of the convolutional branch
                     if self.config['batch_norm'] and seq_conv_block_i == n_blocks - 1:
                         tf.keras.layers.BatchNormalization(axis=-1,
                                                            momentum=0.99,
@@ -549,35 +544,33 @@ class CNN1dModel(object):
                                                            trainable=self.is_training,
                                                            virtual_batch_size=None,
                                                            adjustment=None,
-                                                           name='batch_norm{}_{}'.format(view, conv_block_i))(net)
+                                                           name='batch_norm{}_{}'.format(conv_block_i, view))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(view))(net)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
 
-            # create dictionary with key/value pairs for each convolutional branch
             cnn_layers[view] = net
 
         return cnn_layers
 
     def connect_segments(self, cnn_layers):
-        """ Connect the different conv branches; also has the option to concatenate additional features
+        """ Connect the different conv columns/branches; also has the option to concatenate additional features
         (stellar params for example)
 
-        :param cnn_layers: dict with the different conv branches
+        :param cnn_layers: dict with the different conv columns
         :return:
             pre_logits_concat: model before logits
         """
 
-        # Sort the hidden layers by dictionary key (name) because the order of dictionary items is
+        # Sort the hidden layers by name because the order of dictionary items is
         # nondeterministic between invocations of Python.
-        # this is now a list of tuples (key, val)
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
 
         # Concatenate the conv hidden layers.
         if len(time_series_hidden_layers) == 1:  # only one column
             pre_logits_concat = time_series_hidden_layers[0][1]  # how to set a name for the layer?
-        else:  # more than one branch
+        else:  # more than one column
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
@@ -597,7 +590,6 @@ class CNN1dModel(object):
 
         with tf.variable_scope('FcNet'):
 
-            # create sequence of FC layers
             for fc_layer_i in range(self.config['num_fc_layers'] - 1):
 
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
@@ -673,12 +665,10 @@ class CNN1dModel(object):
 
         if self.output_size == 1:  # sigmoid CE
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
-                                                                   logits=tf.squeeze(self.logits, [1]),
-                                                                   name='bath_losses')
+                                                                   logits=tf.squeeze(self.logits, [1]))
         else:  # softmax CE
             # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
-            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits,
-                                                                          name='batch_losses')
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
         tf.losses.compute_weighted_loss(losses=batch_losses,
@@ -686,7 +676,7 @@ class CNN1dModel(object):
                                         reduction=tf.losses.Reduction.MEAN)
 
         # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
-        self.total_loss = tf.losses.get_total_loss(name='total_loss')
+        self.total_loss = tf.losses.get_total_loss()
 
         self.batch_losses = batch_losses
 
@@ -757,12 +747,10 @@ class CNN1dPlanetFinderv1(object):
                 if 'oddeven' not in view:
 
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
-                                     if view == feature_name], axis=-1, name='input_{}'.format(view))
+                                     if view == feature_name], -1)
                 else:
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
-                                      if feature_name in ['local_view_odd', 'local_view_even']],
-                                     axis=-1,
-                                     name='input_{}'.format(view))
+                                      if feature_name in ['local_view_odd', 'local_view_even']], -1)
 
                 # get number of conv blocks for the given view
                 n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global_view' in view]]]
@@ -770,6 +758,13 @@ class CNN1dPlanetFinderv1(object):
                 # get pool size for the given view
                 pool_size = self.config[
                     config_mapper['pool_size'][('local_view', 'global_view')['global_view' in view]]]
+
+                # tf.keras.layers.InputLayer(input_shape=None,
+                #                            batch_size=None,
+                #                            dtype=None,
+                #                            input_tensor=input,
+                #                            sparse=False,
+                #                            name='input_{}'.format(view))
 
                 for conv_block_i in range(n_blocks):
 
@@ -782,26 +777,28 @@ class CNN1dPlanetFinderv1(object):
                               'strides': self.config['kernel_stride'],
                               'padding': "same"}
 
-                    for seq_conv_block_i in range(self.config['conv_ls_per_block']):
+                    net = tf.keras.layers.Conv1D(dilation_rate=1,
+                                                 activation=None,
+                                                 use_bias=True,
+                                                 bias_initializer='zeros',
+                                                 kernel_regularizer=None,
+                                                 bias_regularizer=None,
+                                                 activity_regularizer=None,
+                                                 kernel_constraint=None,
+                                                 bias_constraint=None,
+                                                 name='conv{}_{}'.format(conv_block_i, view), **kwargs)(input)
 
-                        net = tf.keras.layers.Conv1D(dilation_rate=1,
-                                                     activation=None,
-                                                     use_bias=True,
-                                                     bias_initializer='zeros',
-                                                     kernel_regularizer=None,
-                                                     bias_regularizer=None,
-                                                     activity_regularizer=None,
-                                                     kernel_constraint=None,
-                                                     bias_constraint=None,
-                                                     name='conv{}_{}_{}'.format(view, conv_block_i, seq_conv_block_i),
-                                                     **kwargs)(input if conv_block_i == 0 and seq_conv_block_i == 0
-                                                                                             else net)
-
-                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
                         else tf.keras.layers.ReLU()(net)
 
+                    for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
+                        net = tf.keras.layers.Conv1D(**kwargs)(net)
+
+                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
+                            else tf.keras.layers.ReLU()(net)
+
                     net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
-                                                       name='maxpooling{}{}'.format(view, conv_block_i))(net)
+                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
 
                     if self.config['batch_norm'] and conv_block_i == n_blocks - 1:
                         tf.keras.layers.BatchNormalization(axis=-1,
@@ -824,11 +821,11 @@ class CNN1dPlanetFinderv1(object):
                                                            trainable=self.is_training,
                                                            virtual_batch_size=None,
                                                            adjustment=None,
-                                                           name='batch_norm{}_{}'.format(view, conv_block_i))(net)
+                                                           name='batch_norm{}_block{}'.format(view, conv_block_i))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(view))(net)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
                 # net_shape = net.get_shape().as_list()
                 # output_dim = net_shape[1] * net_shape[2]
                 # net = tf.reshape(net, [-1, output_dim], name="flatten")
@@ -953,12 +950,10 @@ class CNN1dPlanetFinderv1(object):
 
         if self.output_size == 1:
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
-                                                                   logits=tf.squeeze(self.logits, [1]),
-                                                                   name='batch_losses')
+                                                                   logits=tf.squeeze(self.logits, [1]))
         else:
             # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
-            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits,
-                                                                          name='batch_losses')
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
         tf.losses.compute_weighted_loss(losses=batch_losses,
@@ -966,7 +961,7 @@ class CNN1dPlanetFinderv1(object):
                                         reduction=tf.losses.Reduction.MEAN)
 
         # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
-        self.total_loss = tf.losses.get_total_loss(name='total_loss')
+        self.total_loss = tf.losses.get_total_loss()
 
         self.batch_losses = batch_losses
 
@@ -1034,9 +1029,7 @@ class Exonet(object):
 
                 # add the different time series for a view as channels
                 input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
-                                 if view in feature_name],
-                                 axis=-1,
-                                 name='input_{}'.format(view))
+                                 if view in feature_name], -1)
 
                 for conv_block_i in range(len(num_filters[view])):
 
@@ -1046,29 +1039,31 @@ class Exonet(object):
                               'strides': 1,
                               'padding': "same"}
 
-                    for seq_conv_block_i in range(conv_ls_per_block[view]):
+                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                 bias_initializer='zeros', kernel_regularizer=None,
+                                                 bias_regularizer=None, activity_regularizer=None,
+                                                 kernel_constraint=None, bias_constraint=None,
+                                                 name='conv{}-{}_{}'.format(conv_block_i, 0, view), **kwargs)(input)
 
-                        net = tf.keras.layers.Conv1D(dilation_rate=1,
-                                                     activation=None,
-                                                     use_bias=True,
-                                                     bias_initializer='zeros',
-                                                     kernel_regularizer=None,
-                                                     bias_regularizer=None,
-                                                     activity_regularizer=None,
-                                                     kernel_constraint=None,
-                                                     bias_constraint=None,
-                                                     name='conv{}_{}_{}'.format(conv_block_i, 0, view),
-                                                     **kwargs)(input if seq_conv_block_i == 0 else net)
+                    net = tf.keras.layers.ReLU()(net)
+
+                    for seq_conv_block_i in range(1, conv_ls_per_block[view]):
+
+                        net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                     bias_initializer='zeros', kernel_regularizer=None,
+                                                     bias_regularizer=None, activity_regularizer=None,
+                                                     kernel_constraint=None, bias_constraint=None,
+                                                     name='conv{}-{}_{}'.format(conv_block_i, seq_conv_block_i, view),
+                                                     **kwargs)(net)
 
                         net = tf.keras.layers.ReLU()(net)
 
-                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size[view],
-                                                       strides=2,
-                                                       name='maxpooling{}_{}'.format(view, conv_block_i))(net)
+                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size[view], strides=2,
+                                                       name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(view))(net)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
 
             cnn_layers[view] = net
 
@@ -1187,12 +1182,10 @@ class Exonet(object):
 
         if self.output_size == 1:
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
-                                                                   logits=tf.squeeze(self.logits, [1]),
-                                                                   name='batch_losses')
+                                                                   logits=tf.squeeze(self.logits, [1]))
         else:
             # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
-            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits,
-                                                                          name='batch_losses')
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
         tf.losses.compute_weighted_loss(losses=batch_losses,
@@ -1200,7 +1193,7 @@ class Exonet(object):
                                         reduction=tf.losses.Reduction.MEAN)
 
         # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
-        self.total_loss = tf.losses.get_total_loss(name='total_loss')
+        self.total_loss = tf.losses.get_total_loss()
 
         self.batch_losses = batch_losses
 
@@ -1277,27 +1270,34 @@ class Exonet_XS(object):
                               'strides': 1,
                               'padding': "same"}
 
-                    for seq_conv_block_i in range(conv_ls_per_block[view]):
+                    net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
+                                                 bias_initializer='zeros', kernel_regularizer=None,
+                                                 bias_regularizer=None, activity_regularizer=None,
+                                                 kernel_constraint=None, bias_constraint=None,
+                                                 name='conv{}-{}_{}'.format(conv_block_i, 0, view), **kwargs)(input)
+
+                    net = tf.keras.layers.ReLU()(net)
+
+                    for seq_conv_block_i in range(1, conv_ls_per_block[view]):
 
                         net = tf.keras.layers.Conv1D(dilation_rate=1, activation=None, use_bias=True,
                                                      bias_initializer='zeros', kernel_regularizer=None,
                                                      bias_regularizer=None, activity_regularizer=None,
                                                      kernel_constraint=None, bias_constraint=None,
-                                                     name='conv{}_{}_{}'.format(view, conv_block_i, seq_conv_block_i),
-                                                     **kwargs)(input if conv_block_i == 0 and seq_conv_block_i == 0
-                                                                                             else net)
+                                                     name='conv{}-{}_{}'.format(conv_block_i, seq_conv_block_i, view),
+                                                     **kwargs)(net)
 
                         net = tf.keras.layers.ReLU()(net)
 
                     if conv_block_i < len(num_filters[view]) - 1:
                         net = tf.keras.layers.MaxPooling1D(pool_size=pool_size[view], strides=2,
-                                                           name='maxpooling{}_{}'.format(view, conv_block_i))(net)
+                                                           name='maxpooling{}_block{}'.format(view, conv_block_i))(net)
                     else:
                         net = tf.keras.layers.GlobalMaxPooling1D(name='globalmaxpooling{}}'.format(view))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
-                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(view))(net)
+                net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten')(net)
 
             cnn_layers[view] = net
 
@@ -1416,12 +1416,10 @@ class Exonet_XS(object):
 
         if self.output_size == 1:
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
-                                                                   logits=tf.squeeze(self.logits, [1]),
-                                                                   name='batch_losses')
+                                                                   logits=tf.squeeze(self.logits, [1]))
         else:
             # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
-            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits,
-                                                                          name='batch_losses')
+            batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits)
 
         # Compute the weighted mean cross entropy loss and add it to the LOSSES collection
         tf.losses.compute_weighted_loss(losses=batch_losses,
@@ -1429,7 +1427,7 @@ class Exonet_XS(object):
                                         reduction=tf.losses.Reduction.MEAN)
 
         # Compute the total loss, including any other losses added to the LOSSES collection (e.g. regularization losses)
-        self.total_loss = tf.losses.get_total_loss(name='total_loss')
+        self.total_loss = tf.losses.get_total_loss()
 
         self.batch_losses = batch_losses
 

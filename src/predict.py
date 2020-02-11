@@ -20,18 +20,18 @@ import tensorflow as tf
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve, auc
 import pandas as pd
-import itertools
+# import itertools
 
 # local
 from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord, CNN1dPlanetFinderv1
 # needed for backward compatibility for models created before upgrading the model building function CNN1dModel in
 # estimator_util to use tf.keras layers and different names for the graph nodes
 # from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-import src.config
-import src_hpo.utils_hpo as utils_hpo
+# import src.config
+# import src_hpo.utils_hpo as utils_hpo
 import paths
-import baseline_configs
-import src.utils_data as utils_data
+# import baseline_configs
+# import src.utils_data as utils_data
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
@@ -122,7 +122,7 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
+def main(model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
          filter_data=None, inference_only=False, generate_csv_pred=False):
     """ Test single model/ensemble of models.
 
@@ -171,7 +171,8 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, config['label_map'],
+        label_map = np.load('{}/config.npy'.format(model_filenames[0]), allow_pickle=True).item()['label_map']
+        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, label_map,
                                      filt=filter_data[dataset], coupled=True)
 
         for field in aux:
@@ -189,8 +190,8 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
 
-            config = np.load('{}/config.npy'.format(model_filename)).item()
-            features_set = np.load('{}/features_set.npy'.format(model_filename)).item()
+            config = np.load('{}/config.npy'.format(model_filename), allow_pickle=True).item()
+            features_set = np.load('{}/features_set.npy'.format(model_filename), allow_pickle=True).item()
 
             # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
             #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
@@ -201,9 +202,9 @@ def main(config, model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5,
 
             config_sess = tf.ConfigProto(log_device_placement=False)
 
-            estimator = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
-                                               config=tf.estimator.RunConfig(keep_checkpoint_max=1,
-                                                                             session_config=config_sess),
+            estimator = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
+                                               config=tf.estimator.RunConfig(session_config=config_sess,
+                                                                             tf_random_seed=1234),
                                                model_dir=model_filename)
 
             prediction_lst = []
@@ -348,14 +349,15 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
-    # set configuration manually, None to load it from a HPO study
-    # check baseline_configs.py for some baseline/default configurations
-    config = None
+    study = 'dr25tcert_spline_gapped_glflux_fluxconfig2'
+
+    # # set configuration manually, None to load it from a HPO study
+    # # check baseline_configs.py for some baseline/default configurations
+    # config = None
 
     # load preprocessed data
     tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordkeplerdr25_flux-centroid_selfnormalized_nonwhitened_gapped_2001-201'
+                'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201'
 
     # # path to directory with fits files with PDC data
     # # 34k labeled TCEs
@@ -405,22 +407,22 @@ if __name__ == "__main__":
     # set to None to not filter any data in the datasets
     filter_data = None  # np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
 
-    # load best config from HPO study
-    if config is None:
-        # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
-        res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
-                                                     'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized',
-                                                     '_bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized'
-                                                     )
-        # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
-
-        id2config = res.get_id2config_mapping()
-        incumbent = res.get_incumbent_id()
-        config = id2config[incumbent]['config']
-        # select a specific config based on its ID
-        # config = id2config[(41, 0, 0)]['config']
-
-    print('Configuration loaded:', config)
+    # # load best config from HPO study
+    # if config is None:
+    #     # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
+    #     res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
+    #                                                  'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized',
+    #                                                  '_bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
+    #                                                  )
+    #     # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
+    #
+    #     id2config = res.get_id2config_mapping()
+    #     incumbent = res.get_incumbent_id()
+    #     config = id2config[incumbent]['config']
+    #     # select a specific config based on its ID
+    #     # config = id2config[(41, 0, 0)]['config']
+    #
+    # print('Configuration loaded:', config)
 
     ######### SCRIPT PARAMETERS ###############################################
 
@@ -433,15 +435,14 @@ if __name__ == "__main__":
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 
-    # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, use_kepler_ce, config)
+    # # add dataset parameters
+    # config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, use_kepler_ce, config)
 
-    # add missing parameters in hpo with default values
-    config = src.config.add_default_missing_params(config=config)
-    print('Configuration used: ', config)
+    # # add missing parameters in hpo with default values
+    # config = src.config.add_default_missing_params(config=config)
+    # print('Configuration used: ', config)
 
-    main(config=config,
-         model_dir=models_path,
+    main(model_dir=models_path,
          data_dir=tfrec_dir,
          kp_dict=kp_dict,
          res_dir=pathsaveres,

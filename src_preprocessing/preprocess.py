@@ -27,7 +27,7 @@ Authors:
 # 3rd party
 import numpy as np
 import tensorflow as tf
-import paths
+# import paths
 # if 'home6' in paths.path_hpoconfigs:
 import matplotlib; matplotlib.use('agg')
 import os
@@ -123,7 +123,6 @@ def read_light_curve(tce, config):
     Raises:
       IOError: If the light curve files for this target cannot be found.
     """
-
     # gets all filepaths for the FITS files for this target
     if config.satellite == 'kepler':
 
@@ -148,7 +147,7 @@ def read_light_curve(tce, config):
                 report_exclusion(config, tce, 'No available lightcurve .fits files')
                 return None, None, None, None
 
-        return tess_io.read_tess_light_curve(file_names)
+        return tess_io.read_tess_light_curve(file_names, centroid_radec=not config.px_coordinates)
 
 
 def get_gap_indices(flux, checkfuncs=None):
@@ -386,13 +385,13 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
     #     print(tce[['kepid', 'tce_plnt_num', 'ra', 'dec', 'av_training_set']])
     # else:
     #     return None
-    # if tce['disposition'] == 'PC' and tce['tic'] == 100608026 and tce['tce_plnt_num'] == 1:  # what about sector?
-    #     print(tce[['tic', 'tce_plnt_num', 'disposition']])
-    # else:
-    #     return None
+    if tce['disposition'] == 'PC' and tce['tic'] == 100608026 and tce['tce_plnt_num'] == 1:  # what about sector?
+        print(tce[['tic', 'tce_plnt_num', 'disposition']])
+    else:
+        return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False
+    plot_preprocessing_tce = True
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
@@ -524,12 +523,14 @@ def process_light_curve(all_time, all_flux, all_centroids, gap_time, config, add
                                                    '2_rawaftertransformation', add_info=add_info)
 
     # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
-    if config.satellite == 'kepler':
-        period, duration, t0, transit_depth = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"], \
-                                              tce['tce_depth']
-    else:
-        period, duration, t0, transit_depth = tce["orbitalPeriodDays"], tce["transitDurationHours"], \
-                                              tce["transitEpochBtjd"], tce['transitDepthPpm']
+    # if config.satellite == 'kepler':
+    #     period, duration, t0, transit_depth = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"], \
+    #                                           tce['tce_depth']
+    # else:
+    #     period, duration, t0, transit_depth = tce["orbitalPeriodDays"], tce["transitDurationHours"], \
+    #                                           tce["transitEpochBtjd"], tce['transitDepthPpm']
+    period, duration, t0, transit_depth = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"], \
+                                          tce['transit_depth']
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(t0, period, time[0])
@@ -1019,10 +1020,11 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
     # get ephemeris
     # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
-    if config.satellite == 'kepler':
-        period, duration, t0 = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"]
-    else:
-        period, duration, t0 = tce["orbitalPeriodDays"], tce["transitDurationHours"], tce["transitEpochBtjd"]
+    # if config.satellite == 'kepler':
+    #     period, duration, t0 = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"]
+    # else:
+    #     period, duration, t0 = tce["orbitalPeriodDays"], tce["transitDurationHours"], tce["transitEpochBtjd"]
+    period, duration, t0 = tce["tce_period"], tce["tce_duration"], tce["tce_time0bk"]
 
     # phase folding for odd and even time series
     (odd_time, odd_flux, odd_centroid), \

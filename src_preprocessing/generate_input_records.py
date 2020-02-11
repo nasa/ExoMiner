@@ -25,7 +25,7 @@ class Config:
     Config class to specify time series to be processed into tfrecords
     """
 
-    satellite = 'kepler'  # choose from: ['kepler', 'tess']
+    satellite = 'tess'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
 
     training = True  # choose from: 'training' or 'predict'

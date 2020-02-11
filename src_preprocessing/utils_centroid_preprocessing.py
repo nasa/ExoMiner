@@ -181,6 +181,7 @@ def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_a
 
     px_coords = np.reshape(np.concatenate((centroid_x, centroid_y)), (2, len(centroid_x)))
 
+    # offset in the aperture of [1, 1]
     ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert + np.array([[1], [1]])) + ref_angcoord
 
     return ra, dec

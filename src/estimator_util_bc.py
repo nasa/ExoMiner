@@ -410,7 +410,7 @@ class CNN1dModel(object):
 
                     for seq_conv_block_i in range(self.config['conv_ls_per_block'] - 1):
                         net = tf.layers.conv1d(**kwargs)
-                        net = tf.nn.leaky_relu(net, alpha=0.01)
+                        # net = tf.nn.leaky_relu(net, alpha=0.01)
                         net = tf.nn.leaky_relu(net, alpha=0.01) if self.config['non_lin_fn'] == 'prelu' else tf.nn.relu(net)
                         # net = tf.nn.relu(net)
 

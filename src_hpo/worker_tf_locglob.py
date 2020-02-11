@@ -131,7 +131,8 @@ class TransitClassifier(Worker):
 
             classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
                                                 config=tf.estimator.RunConfig(keep_checkpoint_max=1,
-                                                                              session_config=sess_config),
+                                                                              session_config=sess_config,
+                                                                              tf_random_seed=1234),
                                                 model_dir=model_dir_custom)
 
             for epoch_i in range(int(budget)):  # train model
@@ -195,11 +196,11 @@ class TransitClassifier(Worker):
         print('#' * 100)
         sys.stdout.flush()
 
-        # save features and config used for this model
-        np.save('{}/features_set'.format(classifier.model_dir), self.features_set)
-        np.save('{}/config'.format(classifier.model_dir), config)
+        # # save features and config used for this model
+        # np.save('{}/features_set'.format(classifier.model_dir), self.features_set)
+        # np.save('{}/config'.format(classifier.model_dir), config)
 
-        return (res_hpo)
+        return res_hpo
 
     @staticmethod
     def del_savedmodel(savedir):
