@@ -5,8 +5,9 @@ for classifying Threshold Crossing Events.
 
 # 3rd party
 import sys
-sys.path.append('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/')
+# sys.path.append('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/')
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import tensorflow as tf
 import pickle
 from mpi4py import MPI

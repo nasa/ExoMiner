@@ -4,12 +4,14 @@ Train models using a given configuration obtained on a hyperparameter optimizati
 TODO: allocate several models to the same GPU
       figure out the logging
       add argument to choose model used
+      make draw_plots function compatible with TESS
 """
 
 # 3rd party
 import sys
-sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
+# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # import logging
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
@@ -20,7 +22,7 @@ import tensorflow as tf
 import numpy as np
 from mpi4py import MPI
 import time
-import itertools
+# import itertools
 
 # local
 import paths
@@ -177,8 +179,8 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False, last_
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_optmetric, patience, features_set=None,
-             filter_data=None, mpi_rank=None, ngpus_per_node=1, sess_config=None):
+def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_metric, min_optmetric, patience,
+             features_set=None, filter_data=None, mpi_rank=None, ngpus_per_node=1, sess_config=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -202,7 +204,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     :return:
     """
 
-    # datasets - same name convetion as used for the TFRecords
+    # datasets - same name convention as used for the TFRecords
     datasets = ['train', 'val', 'test']
 
     if filter_data is None:
@@ -227,11 +229,11 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     if mpi_rank is not None:
         sess_config.gpu_options.visible_device_list = str(mpi_rank % ngpus_per_node)
 
-    classifier = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
+    classifier = tf.estimator.Estimator(ModelFn(base_model, config),
                                         config=tf.estimator.RunConfig(keep_checkpoint_max=1 if patience == -1
                                         else patience + 1,
                                                                       session_config=sess_config,
-                                                                      tf_random_seed=1234),
+                                                                      tf_random_seed=None),
                                         model_dir=get_model_dir(model_dir)
                                         )
 
@@ -242,6 +244,11 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     # FIXME: should we have another input function for evaluating the training set?
     #        how does the evaluation step differ from the training step? - compute metrics for both, but not train for
     #        eval
+    traineval_input_fn = InputFn(file_pattern=data_dir + '/train*', batch_size=config['batch_size'],
+                                 mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
+                                 filter_data=filter_data['train'],
+                                 features_set=features_set)
+
     val_input_fn = InputFn(file_pattern=data_dir + '/val*', batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL, label_map=config['label_map'],
                            filter_data=filter_data['val'], features_set=features_set)
@@ -274,7 +281,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
 
         # evaluate model on given datasets
         print('\n\x1b[0;33;33m' + "Evaluating" + '\x1b[0m\n')
-        res_i = {'training': classifier.evaluate(train_input_fn, name='training set'),
+        res_i = {'training': classifier.evaluate(traineval_input_fn, name='training set'),
                  'validation': classifier.evaluate(val_input_fn, name='validation set'),
                  'test': classifier.evaluate(test_input_fn, name='test set')}
 
@@ -399,35 +406,43 @@ if __name__ == '__main__':
     # tf.logging.set_verbosity(tf.logging.ERROR)
     tf.logging.set_verbosity(tf.logging.INFO)
 
-    sess_config = tf.ConfigProto(log_device_placement=False)
-    ngpus_per_node = 1
-
     ######### SCRIPT PARAMETERS #############################################
 
+    # name of the study
     study = 'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalizedtest'
+
+    # base model used - check estimator_util.py to see which models are implemented
+    BaseModel = CNN1dPlanetFinderv1
+
+    sess_config = tf.ConfigProto(log_device_placement=False)
+    ngpus_per_node = 1  # number of GPUs per node
+
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
-    config = {'batch_size': 32,
-              'conv_ls_per_block': 2,
-              'dropout_rate': 0.0053145468133186415,
-              'init_conv_filters': 3,
-              'init_fc_neurons': 128,
-              'kernel_size': 8,
-              'kernel_stride': 2,
-              'lr': 0.015878640426114688,
-              'num_fc_layers': 3,
-              'num_glob_conv_blocks': 2,
-              'num_loc_conv_blocks': 2,
-              'optimizer': 'SGD',
-              'pool_size_glob': 2,
-              'pool_size_loc': 2,
-              'pool_stride': 1,
-              'sgd_momentum': 0.024701642898564722}
+
+    # example of configuration
+    # config = {'batch_size': 32,
+    #           'conv_ls_per_block': 2,
+    #           'dropout_rate': 0.0053145468133186415,
+    #           'init_conv_filters': 3,
+    #           'init_fc_neurons': 128,
+    #           'kernel_size': 8,
+    #           'kernel_stride': 2,
+    #           'lr': 0.015878640426114688,
+    #           'num_fc_layers': 3,
+    #           'num_glob_conv_blocks': 2,
+    #           'num_loc_conv_blocks': 2,
+    #           'optimizer': 'SGD',
+    #           'pool_size_glob': 2,
+    #           'pool_size_loc': 2,
+    #           'pool_stride': 1,
+    #           'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201'
+    tfrec_dir = os.path.join(paths.path_tfrecs,
+                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
+                             '_nonwhitened_gapped_2001-201')
 
     # features to be extracted from the dataset
     # views = ['global_view', 'local_view']
@@ -449,9 +464,9 @@ if __name__ == '__main__':
     # cmmn_kepids_spline-whitened.npy').item()
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 300
-    multi_class = False
-    use_kepler_ce = False
+    n_epochs = 300  # number of epochs used to train each model
+    multi_class = False  # multiclass classification
+    use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
@@ -472,6 +487,7 @@ if __name__ == '__main__':
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config = id2config[incumbent]['config']
+
         # select a specific config based on its ID
         # example - check config.json
         # config = id2config[(8, 0, 3)]['config']
@@ -481,7 +497,7 @@ if __name__ == '__main__':
     ######### SCRIPT PARAMETERS #############################################
 
     # results directory
-    save_path = paths.pathtrainedmodels + study
+    save_path = os.path.join(paths.pathtrainedmodels, study)
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
         os.mkdir(save_path + '/models/')
@@ -499,6 +515,7 @@ if __name__ == '__main__':
         run_main(config=config,
                  n_epochs=n_epochs,
                  data_dir=tfrec_dir,
+                 base_model=BaseModel,
                  model_dir=save_path + '/models/',
                  res_dir=save_path + '/model%i' % (item + 1),
                  opt_metric=opt_metric,

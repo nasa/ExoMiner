@@ -4,9 +4,10 @@ Generate preprocessed tfrecords locally.
 
 # 3rd party
 import sys
-sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
-import multiprocessing
+# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import multiprocessing
 import numpy as np
 import tensorflow as tf
 import pickle

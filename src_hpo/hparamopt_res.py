@@ -472,10 +472,6 @@ if model_based_optimizer:
 
 #%% Compare different HPO studies
 
-# paths.path_hpoconfigs = ['/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven/hpo_confs/bohb_dr25tcert_spline_gapped_oddeven_only',
-#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_Centroid/hpo_confs/bohb_dr25tcert_spline_gapped_centroid',
-#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/bohb_dr25tcert_spline_gapped',
-#                          '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/bohb_dr25tcert_spline_oddeven']
 paths.path_hpoconfigs = ['/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair_ncoe',
                          '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid_oddeven',
                          '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped']

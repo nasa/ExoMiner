@@ -23,7 +23,7 @@ import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
 
 # local
-from src.estimator_util import CNN1dModel, ModelFn, InputFn
+from src.estimator_util import ModelFn, InputFn, CNN1dModel, CNN1dPlanetFinderv1, Exonet_XS, Exonet
 from src.config import add_default_missing_params
 import paths
 
@@ -45,7 +45,7 @@ class TransitClassifier(Worker):
 
         self.satellite = config_args.satellite  # kepler or tess
         self.label_map = config_args.label_map  # maps between class and integer index
-        self.centr_flag = config_args.centr_flag  # bool, True if centroid data is being used
+        # self.centr_flag = config_args.centr_flag  # bool, True if centroid data is being used
 
         self.multi_class = config_args.multi_class  # bool, True for multiclassification
         # self.n_train = config_args.n_train
@@ -69,6 +69,8 @@ class TransitClassifier(Worker):
         self.features_set = config_args.features_set
 
         self.num_gpus = config_args.num_gpus  # number of GPUs per node; each worker (configuration) is assigned one GPU
+
+        self.BaseModel = config_args.BaseModel
 
     @staticmethod
     def get_model_dir(path):
@@ -110,15 +112,19 @@ class TransitClassifier(Worker):
         config = add_default_missing_params(config=config)
 
         input_fn_train = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
-                                 mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map, centr_flag=self.centr_flag,
+                                 mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map,
                                  filter_data=self.filter_data['train'], features_set=self.features_set)
 
+        input_fn_traineval = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
+                                     mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
+                                     filter_data=self.filter_data['train'], features_set=self.features_set)
+
         input_fn_val = InputFn(file_pattern=self.tfrec_dir + '/val*', batch_size=config['batch_size'],
-                               mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
+                               mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
                                filter_data=self.filter_data['val'], features_set=self.features_set)
 
         input_fn_test = InputFn(file_pattern=self.tfrec_dir + '/test*', batch_size=config['batch_size'],
-                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map, centr_flag=self.centr_flag,
+                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
                                 filter_data=self.filter_data['test'], features_set=self.features_set)
 
         metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
@@ -129,10 +135,10 @@ class TransitClassifier(Worker):
         for model_i in range(self.ensemble_n):
             model_dir_custom = self.get_model_dir(self.models_directory)
 
-            classifier = tf.estimator.Estimator(ModelFn(CNN1dModel, config),
+            classifier = tf.estimator.Estimator(ModelFn(self.BaseModel, config),
                                                 config=tf.estimator.RunConfig(keep_checkpoint_max=1,
                                                                               session_config=sess_config,
-                                                                              tf_random_seed=1234),
+                                                                              tf_random_seed=None),
                                                 model_dir=model_dir_custom)
 
             for epoch_i in range(int(budget)):  # train model
@@ -145,7 +151,7 @@ class TransitClassifier(Worker):
                 _ = classifier.train(input_fn_train)
 
                 # evaluate model on the training, validation and test sets
-                res_i = {'training': classifier.evaluate(input_fn_train, name='training set'),
+                res_i = {'training': classifier.evaluate(input_fn_traineval, name='training set'),
                          'validation': classifier.evaluate(input_fn_val, name='validation set'),
                          'test': classifier.evaluate(input_fn_test, name='test set')}
 
@@ -373,7 +379,8 @@ class TransitClassifier(Worker):
                                           # non_lin_fn, weight_initializer
                                           ])
 
-        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5, default_value=3)
+        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5,
+                                                                default_value=3)
         num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=0, upper=4, default_value=2)
         conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
 

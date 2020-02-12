@@ -6,13 +6,15 @@ TODO: add multiprocessing option, maybe from inside Python, but that would only 
     predictions into the ensemble and generates the results for it.
     add argument to choose model general architecture used, either find a way to save this or also add this argument to
     predict
+    make draw_plots function compatible with TESS
 """
 
 # 3rd party
 import sys
-sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
+# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # import logging
 # logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import numpy as np
@@ -122,8 +124,8 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
-         filter_data=None, inference_only=False, generate_csv_pred=False):
+def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
+         filter_data=None, inference_only=False, generate_csv_pred=False, sess_config=None):
     """ Test single model/ensemble of models.
 
     :param config: dict, model and dataset configurations
@@ -193,17 +195,12 @@ def main(model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=
             config = np.load('{}/config.npy'.format(model_filename), allow_pickle=True).item()
             features_set = np.load('{}/features_set.npy'.format(model_filename), allow_pickle=True).item()
 
-            # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
-            #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-            #                            centr_flag=config['centr_flag'], features_set=features_set)
             predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                        mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                        features_set=features_set)
 
-            config_sess = tf.ConfigProto(log_device_placement=False)
-
-            estimator = tf.estimator.Estimator(ModelFn(CNN1dPlanetFinderv1, config),
-                                               config=tf.estimator.RunConfig(session_config=config_sess,
+            estimator = tf.estimator.Estimator(ModelFn(base_model, config),
+                                               config=tf.estimator.RunConfig(session_config=sess_config,
                                                                              tf_random_seed=1234),
                                                model_dir=model_filename)
 
@@ -228,6 +225,7 @@ def main(model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=
     print('Saving predicted output to a numpy file {}...'.format(res_dir + 'predictions_per_dataset'))
     np.save(res_dir + 'predictions_per_dataset', predictions_dataset)
 
+    # TODO: implemented only for Kepler...
     # sort predictions per class based on ground truth labels
     if 'label' in fields:
         output_cl = {dataset: {} for dataset in datasets}
@@ -344,6 +342,7 @@ def main(model_dir, data_dir, kp_dict, res_dir, datasets, threshold=0.5, fields=
 
 if __name__ == "__main__":
 
+    # tf.logging.set_verbosity(tf.logging.INFO)
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     ######### SCRIPT PARAMETERS #############################################
@@ -351,38 +350,17 @@ if __name__ == "__main__":
     # study folder name
     study = 'dr25tcert_spline_gapped_glflux_fluxconfig2'
 
-    # # set configuration manually, None to load it from a HPO study
-    # # check baseline_configs.py for some baseline/default configurations
-    # config = None
+    # base model used - check estimator_util.py to see which models are implemented
+    BaseModel = CNN1dPlanetFinderv1
 
-    # load preprocessed data
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201'
+    config_sess = tf.ConfigProto(log_device_placement=False)
 
-    # # path to directory with fits files with PDC data
-    # # 34k labeled TCEs
-    # # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits/'
-    # # 180k unlabeled TCEs
-    # fitsfiles_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final/'
+    # tfrecord files directory
+    tfrec_dir = os.path.join(paths.path_tfrecs,
+                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
+                             '_nonwhitened_gapped_2001-201')
+
     kp_dict = None  # np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
-
-    # features to be extracted from the dataset
-    # views = ['local_view', 'global_view']
-    # views = ['global_view']
-    # channels_centr = ['']
-    # channels_oddeven = ['', '_odd', '_even']
-    # features_names = [''.join(feature_name_tuple)
-    #                   for feature_name_tuple in itertools.product(views, channels_centr)]
-    # features_names.append('global_view')
-    # features_names = ['global_view', 'local_view', 'local_view_centr', 'local_view_odd', 'local_view_even']
-    # features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-    #                 for feature_name in features_names}
-
-    # # example
-    # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-    #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
     # datasets used; choose from 'train', 'val', 'test', 'predict'
     datasets = ['train', 'val', 'test']
@@ -400,50 +378,27 @@ if __name__ == "__main__":
     generate_csv_pred = True
 
     threshold = 0.5  # threshold on binary classification
-    multi_class = False
-    use_kepler_ce = False
+    multi_class = False  # multiclass classification
+    use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # set to None to not filter any data in the datasets
     filter_data = None  # np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
 
-    # # load best config from HPO study
-    # if config is None:
-    #     # res = utils_hpo.logged_results_to_HBS_result('/data5/tess_project/pedro/HPO/Run_3', '')
-    #     res = utils_hpo.logged_results_to_HBS_result(paths.path_hpoconfigs +
-    #                                                  'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized',
-    #                                                  '_bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
-    #                                                  )
-    #     # res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + 'study_rs')
-    #
-    #     id2config = res.get_id2config_mapping()
-    #     incumbent = res.get_incumbent_id()
-    #     config = id2config[incumbent]['config']
-    #     # select a specific config based on its ID
-    #     # config = id2config[(41, 0, 0)]['config']
-    #
-    # print('Configuration loaded:', config)
-
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
-    models_path = paths.pathtrainedmodels + study + '/models'
+    models_path = os.path.join(paths.pathtrainedmodels, study, 'models')
 
     # path to save results
-    pathsaveres = paths.pathsaveres_get_pcprobs + study + '/'
+    pathsaveres = os.path.join(paths.pathsaveres_get_pcprobs, study)
 
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 
-    # # add dataset parameters
-    # config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, use_kepler_ce, config)
-
-    # # add missing parameters in hpo with default values
-    # config = src.config.add_default_missing_params(config=config)
-    # print('Configuration used: ', config)
-
     main(model_dir=models_path,
          data_dir=tfrec_dir,
+         base_model=BaseModel,
          kp_dict=kp_dict,
          res_dir=pathsaveres,
          datasets=datasets,
@@ -451,4 +406,5 @@ if __name__ == "__main__":
          fields=fields,
          filter_data=filter_data,
          inference_only=inference_only,
-         generate_csv_pred=generate_csv_pred)
+         generate_csv_pred=generate_csv_pred,
+         sess_config=config_sess)
