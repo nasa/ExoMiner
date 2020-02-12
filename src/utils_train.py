@@ -84,7 +84,7 @@ def phase_inversion(timeseries_tensor, should_reverse):
 
     return tf.cond(should_reverse,
                    lambda: tf.reverse(timeseries_tensor, axis=[0]),
-                   lambda: tf.identity(timeseries_tensor))
+                   lambda: tf.identity(timeseries_tensor), name='inversion')
 
 
 def add_whitegaussiannoise(timeseries_tensor, mean, rms_oot):
@@ -102,7 +102,8 @@ def add_whitegaussiannoise(timeseries_tensor, mean, rms_oot):
                                                 tf.random.uniform(shape=(),
                                                                   minval=0,
                                                                   maxval=rms_oot,
-                                                                  dtype=tf.dtypes.float32))
+                                                                  dtype=tf.dtypes.float32),
+                                                name='gaussiannoise')
 
 
 def phase_shift(timeseries_tensor, bin_shift):
@@ -118,15 +119,15 @@ def phase_shift(timeseries_tensor, bin_shift):
     shift = tf.random.uniform(shape=(),
                       minval=bin_shift[0],
                       maxval=bin_shift[1],
-                      dtype=tf.dtypes.int32)
+                      dtype=tf.dtypes.int32, name='randuniform')
 
     if shift == 0:
         return timeseries_tensor
     elif shift > 0:
         return tf.concat([tf.slice(timeseries_tensor, (shift,), (timeseries_tensor.get_shape()[0] - shift,)),
                           tf.slice(timeseries_tensor, (0,), (shift,))],
-                         axis=0)
+                         axis=0, name='pos_shift')
     else:
         return tf.concat([tf.slice(timeseries_tensor, timeseries_tensor.get_shape() - tf.constant(shift), (shift,)),
                           tf.slice(timeseries_tensor, (0,), (timeseries_tensor.get_shape()[0] - shift,))],
-                         axis=0)
+                         axis=0, name='neg_shift')

@@ -322,10 +322,7 @@ def run_main(config, n_epochs, data_dir, model_dir, res_dir, opt_metric, min_opt
     for dataset in predictions_dataset:
 
         print('Predicting on dataset {}...'.format(dataset))
-        # predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
-        #                            mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-        #                            centr_flag=config['centr_flag'], filter_data=filter_data[dataset],
-        #                            features_set=features_set)
+
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
                                    filter_data=filter_data[dataset], features_set=features_set)
@@ -411,6 +408,22 @@ if __name__ == '__main__':
     # set configuration manually. Set to None to use a configuration from a HPO study
     # check baseline_configs.py for some baseline/default configurations
     config = None
+    config = {'batch_size': 32,
+              'conv_ls_per_block': 2,
+              'dropout_rate': 0.0053145468133186415,
+              'init_conv_filters': 3,
+              'init_fc_neurons': 128,
+              'kernel_size': 8,
+              'kernel_stride': 2,
+              'lr': 0.015878640426114688,
+              'num_fc_layers': 3,
+              'num_glob_conv_blocks': 2,
+              'num_loc_conv_blocks': 2,
+              'optimizer': 'SGD',
+              'pool_size_glob': 2,
+              'pool_size_loc': 2,
+              'pool_stride': 1,
+              'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
     tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \

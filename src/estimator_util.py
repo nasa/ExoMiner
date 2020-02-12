@@ -1,8 +1,6 @@
 """
 Custom estimator built using the estimator API from TensorFlow.
 
-#TODO: remove centr_flag (only there for backward compatibility)
-
 [1] Shallue, Christopher J., and Andrew Vanderburg. "Identifying exoplanets with deep learning: A five-planet resonant
 chain around kepler-80 and an eighth planet around kepler-90." The Astronomical Journal 155.2 (2018): 94.
 [2] Ansdell, Megan, et al. "Scientific Domain Knowledge Improves Exoplanet Transit Classification with Deep Learning."
@@ -108,7 +106,7 @@ class InputFn(object):
             if self.filter_data is not None:
                 output['filt_features'] = {}
 
-            label_id = tf.cast(0, dtype=tf.int32)
+            label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
 
             for feature_name, value in parsed_features.items():
 
@@ -120,11 +118,12 @@ class InputFn(object):
                 #  av_training_set
                 elif include_labels and feature_name == 'av_training_set':
 
+                    # map label to integer
                     label_id = label_to_id.lookup(value)
 
                     # Ensure that the label_id is non negative to verify a successful hash map lookup.
                     assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
-                                                   ["Unknown label string:", value])
+                                                   ["Unknown label string:", value], name='assert_non-negativity')
 
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
@@ -144,10 +143,8 @@ class InputFn(object):
 
                     # data augmentation
                     if self.data_augmentation:
-                        # # Possibly reverse.
-                        # if reverse_time_series_prob > 0:
-                        #     # pylint:disable=cell-var-from-loop
-                        #     value = tf.cond(should_reverse, lambda: tf.reverse(value, axis=[0]), lambda: tf.identity(value))
+
+                        # with tf.variable_scope('input_data/data_augmentation'):
 
                         # invert phase
                         value = phase_inversion(value, should_reverse)
@@ -191,65 +188,65 @@ class InputFn(object):
 
             return {'time_series_features': x['time_series_features']}, y
 
-        # reverse_time_series_prob = 0.5 if self._mode == tf.estimator.ModeKeys.TRAIN else 0
+        with tf.variable_scope('input_data'):
 
-        # Create a HashTable mapping label strings to integer ids.
-        table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
-            keys=list(self.label_map.keys()),
-            values=list(self.label_map.values()),
-            key_dtype=tf.string,
-            value_dtype=tf.int32)
+            # Create a HashTable mapping label strings to integer ids.
+            table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
+                keys=list(self.label_map.keys()),
+                values=list(self.label_map.values()),
+                key_dtype=tf.string,
+                value_dtype=tf.int32)
 
-        label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
+            label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
 
-        include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
+            include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
 
-        file_patterns = self._file_pattern.split(",")
-        filenames = []
-        for p in file_patterns:
-            matches = tf.gfile.Glob(p)
-            if not matches:
-                raise ValueError("Found no input files matching {}".format(p))
-            filenames.extend(matches)
+            file_patterns = self._file_pattern.split(",")
+            filenames = []
+            for p in file_patterns:
+                matches = tf.gfile.Glob(p)
+                if not matches:
+                    raise ValueError("Found no input files matching {}".format(p))
+                filenames.extend(matches)
 
-        tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
+            tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
-        # create filename dataset based on the list of tfrecords filepaths
-        filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
+            # create filename dataset based on the list of tfrecords filepaths
+            filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
 
-        # map a TFRecordDataset object to each tfrecord filepath
-        dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
+            # map a TFRecordDataset object to each tfrecord filepath
+            dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
 
-        # shuffle the dataset if training or evaluating
-        # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
-        #        set variables for buffer size and shuffle seed?
-        # if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        if self._mode == tf.estimator.ModeKeys.TRAIN:
-            dataset = dataset.shuffle(27000, seed=None)
+            # shuffle the dataset if training or evaluating
+            # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
+            #        set variables for buffer size and shuffle seed?
+            # if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+            if self._mode == tf.estimator.ModeKeys.TRAIN:
+                dataset = dataset.shuffle(27000, seed=None)
 
-        # do not repeat the dataset
-        dataset = dataset.repeat(1)
+            # do not repeat the dataset
+            dataset = dataset.repeat(1)
 
-        # map the example parser across the tfrecords dataset to extract the examples and manipulate them
-        # (e.g., real-time data augmentation, shuffling, ...)
-        # dataset = dataset.map(_example_parser, num_parallel_calls=4)
-        # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
-        # process asynchronously
-        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+            # map the example parser across the tfrecords dataset to extract the examples and manipulate them
+            # (e.g., real-time data augmentation, shuffling, ...)
+            # dataset = dataset.map(_example_parser, num_parallel_calls=4)
+            # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
+            # process asynchronously
+            dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-        # filter the dataset based on the filtering features
-        if self.filter_data is not None:
-            dataset = dataset.filter(filt_func)
+            # filter the dataset based on the filtering features
+            if self.filter_data is not None:
+                dataset = dataset.filter(filt_func)
 
-            # remove the filtering features from the dataset
-            dataset = dataset.map(get_features_and_labels)
+                # remove the filtering features from the dataset
+                dataset = dataset.map(get_features_and_labels)
 
-        # creates batches by combining consecutive elements
-        dataset = dataset.batch(self.batch_size)
+            # creates batches by combining consecutive elements
+            dataset = dataset.batch(self.batch_size)
 
-        # prefetches batches determined by the buffer size chosen
-        # parallelized processing in the CPU with model computations in the GPU
-        dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
+            # prefetches batches determined by the buffer size chosen
+            # parallelized processing in the CPU with model computations in the GPU
+            dataset = dataset.prefetch(max(1, int(256 / self.batch_size)))
 
         return dataset
 
@@ -310,54 +307,86 @@ class ModelFn(object):
         """Builds TensorFlow operations to compute model evaluation metrics.
 
         Args:
-        labels: Tensor with shape [batch_size].
-        predictions: Tensor with shape [batch_size, output_dim].
-        weights: Tensor with shape [batch_size].
-        batch_losses: Tensor with shape [batch_size].
-        output_dim: Dimension of model output
+            model
+        # labels: Tensor with shape [batch_size].
+        # predictions: Tensor with shape [batch_size, output_dim].
+        # weights: Tensor with shape [batch_size].
+        # batch_losses: Tensor with shape [batch_size].
+        # output_dim: Dimension of model output
 
         Returns:
         A dictionary {metric_name: (metric_value, update_op).
         """
+
+        # initialize dictionary to save metrics
         metrics = {}
 
-        assert len(model.predictions.shape) == 2
+        if model.output_size == 1:  # 1 output
 
-        if model.output_size == 1:  # binary classification
             assert model.predictions.shape[1] == 1
-            predictions = tf.squeeze(model.predictions, axis=[1])
-            predicted_labels = tf.cast(tf.greater(predictions, 0.5), name="predicted_labels", dtype=tf.int32)
-        else:  # multiclassification
+
+            # removes dimensions of size 1 from the shape of a tensor.
+            predictions = tf.squeeze(model.predictions, axis=[1], name='squeezed_predictions')
+
+            # thresholding scores at 0.5
+            predicted_labels = tf.cast(tf.greater(predictions, 0.5, name='thresholding'), name="predicted_labels",
+                                       dtype=tf.int32)
+
+        else:  # 2 or more outputs
+
+            # num_samples x num_classes, 2 dimensions
+            assert len(model.predictions.shape) == 2
+
             predictions = model.predictions
-            predicted_labels = tf.argmax(model.predictions, 1, name="predicted_labels", output_type=tf.int32)
-            # labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)  # if using one-hot encoding
 
-        if model.config['force_softmax']:
-            labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
-        else:
-            labels = model.labels
+            # index with the largest score across the output (class) axis
+            # num_samples x 1
+            predicted_labels = tf.argmax(model.predictions, axis=1, name="predicted_labels", output_type=tf.int32)
 
-        # compute metrics for the given threshold
-        metrics['accuracy'] = tf.metrics.accuracy(labels=labels, predictions=predicted_labels)
-        metrics['precision'] = tf.metrics.precision(labels=labels, predictions=predicted_labels)
-        metrics['recall'] = tf.metrics.recall(labels=labels, predictions=predicted_labels)
+            # TODO: implement one-hot encoding
+            # one_hot_labels = tf.argmax(model.labels, 1, name="true_labels", output_type=tf.int32)
 
-        # compute precision-recall curve
-        # define the number of thresholds used
-        metrics['prec thr'] = tf.metrics.precision_at_thresholds(model.labels, predictions,
-                                                         np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
-        metrics['rec thr'] = tf.metrics.recall_at_thresholds(model.labels, predictions,
-                                                     np.linspace(0, 1, num=1000, endpoint=True, dtype='float32'))
+        labels = model.labels
 
-        # if not model.config['multi_class']:
-        # labels = tf.cast(labels, dtype=tf.bool)
-        metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                            summation_method='careful_interpolation', curve='ROC')
-        metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
-                                           summation_method='careful_interpolation', curve='PR')
+        num_classes = max(model.config['label_map'].values()) + 1
 
+        # compute metrics
+
+        # across-class accuracy
+        metrics['accuracy'] = tf.metrics.accuracy(labels=labels, predictions=predicted_labels, name='accuracy')
+        metrics['mean_per_class_accuracy'] = tf.metrics.mean_per_class_accuracy(labels=labels,
+                                                                                predictions=predicted_labels,
+                                                                                num_classes=num_classes,
+                                                                                name='mean_per_class_accuracy')
+
+        # TODO: implement these metrics for multiclass classification
+        if model.output_size == 1:  # metrics that can only be computed for binary classification
+
+            metrics['precision'] = tf.metrics.precision(labels=labels, predictions=predicted_labels, name='precision')
+            metrics['recall'] = tf.metrics.recall(labels=labels, predictions=predicted_labels, name='recall')
+
+            # define the number of thresholds used
+            metrics['prec thr'] = tf.metrics.precision_at_thresholds(labels, predictions,
+                                                                     np.linspace(0, 1, num=1000, endpoint=True,
+                                                                                 dtype='float32'),
+                                                                     name='precision_at_thresholds')
+            metrics['rec thr'] = tf.metrics.recall_at_thresholds(labels, predictions,
+                                                                 np.linspace(0, 1, num=1000, endpoint=True,
+                                                                             dtype='float32'),
+                                                                 name='recall_at_thresholds')
+
+            metrics["roc auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                                summation_method='careful_interpolation', curve='ROC', name='roc_auc')
+            metrics["pr auc"] = tf.metrics.auc(labels, predictions, num_thresholds=1000,
+                                               summation_method='careful_interpolation', curve='PR', name='pr_auc')
+
+            # TODO: make mean avg precision work
+            # metrics['avg prec'] = tf.metrics.average_precision_at_k(labels, predictions,
+            #                                                         labels.get_shape().as_list()[1])
+
+        # auxiliary functions for computing confusion matrix
         def _metric_variable(name, shape, dtype):
-            """Creates a Variable in LOCAL_VARIABLES and METRIC_VARIABLES collections."""
+            """ Creates a Variable in LOCAL_VARIABLES and METRIC_VARIABLES collections."""
             return tf.get_variable(
                 name,
                 initializer=tf.zeros(shape, dtype),
@@ -365,15 +394,15 @@ class ModelFn(object):
                 collections=[tf.GraphKeys.LOCAL_VARIABLES, tf.GraphKeys.METRIC_VARIABLES])
 
         def _count_condition(name, labels_value, predicted_value):
-            """Creates a counter for given values of predictions and labels."""
+            """ Creates a counter for given values of predictions and labels. """
             count = _metric_variable(name, [], tf.float32)
             is_equal = tf.cast(tf.logical_and(tf.equal(labels, labels_value),
                                                   tf.equal(predicted_labels, predicted_value)), dtype=tf.float32)
             update_op = tf.assign_add(count, tf.reduce_sum(tf.ones_like(model.labels, dtype=tf.float32) * is_equal))
             return count.read_value(), update_op
 
-        # Confusion matrix metrics.
-        num_labels = 2 if not model.config['multi_class'] else max(model.config['label_map'].values()) + 1
+        # confusion matrix metrics
+        num_labels = 2 if not model.config['multi_class'] else num_classes
         for label in range(num_labels):
             for pred_label in range(num_labels):
                 metric_name = "label_{}_pred_{}".format(label, pred_label)
@@ -433,7 +462,13 @@ class CNN1dModel(object):
         self.config = config
         self.mode = mode  # TRAIN, EVAL or PREDICT
 
-        self.time_series_features = features['time_series_features']  # features
+        # features
+        self.time_series_features = features['time_series_features']
+        if 'scalar_params' in features:
+            self.scalar_params = features['scalar_params']
+        else:
+            self.scalar_params = None
+
         self.labels = labels  # labels
 
         # self.is_training = None
@@ -668,13 +703,14 @@ class CNN1dModel(object):
         :return:
         """
 
+        # map class weights to samples
         weights = (1.0 if self.config['satellite'] == 'kepler' and not self.config['use_kepler_ce']
                    else tf.gather(self.ce_weights, tf.cast(self.labels, dtype=tf.int32)))
 
         if self.output_size == 1:  # sigmoid CE
             batch_losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(self.labels, dtype=tf.float32),
                                                                    logits=tf.squeeze(self.logits, [1]),
-                                                                   name='bath_losses')
+                                                                   name='batch_losses')
         else:  # softmax CE
             # the sparse version does not use the one-hot encoding; the probability of a given label is exclusive
             batch_losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels, logits=self.logits,
@@ -707,7 +743,13 @@ class CNN1dPlanetFinderv1(object):
         self.config = config
         self.mode = mode  # TRAIN, EVAL or PREDICT
 
-        self.time_series_features = features['time_series_features']  # features
+        # features
+        self.time_series_features = features['time_series_features']
+        if 'scalar_params' in features:
+            self.scalar_params = features['scalar_params']
+        else:
+            self.scalar_params = None
+
         self.labels = labels  # labels
 
         self.is_training = None
@@ -803,28 +845,28 @@ class CNN1dPlanetFinderv1(object):
                     net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
                                                        name='maxpooling{}{}'.format(view, conv_block_i))(net)
 
-                    if self.config['batch_norm'] and conv_block_i == n_blocks - 1:
-                        tf.keras.layers.BatchNormalization(axis=-1,
-                                                           momentum=0.99,
-                                                           epsilon=1e-3,
-                                                           center=True,
-                                                           scale=True,
-                                                           beta_initializer='zeros',
-                                                           gamma_initializer='ones',
-                                                           moving_mean_initializer='zeros',
-                                                           moving_variance_initializer='ones',
-                                                           beta_regularizer=None,
-                                                           gamma_regularizer=None,
-                                                           beta_constraint=None,
-                                                           gamma_constraint=None,
-                                                           renorm=False,
-                                                           renorm_clipping=None,
-                                                           renorm_momentum=0.99,
-                                                           fused=None,
-                                                           trainable=self.is_training,
-                                                           virtual_batch_size=None,
-                                                           adjustment=None,
-                                                           name='batch_norm{}_{}'.format(view, conv_block_i))(net)
+                    # if self.config['batch_norm'] and conv_block_i == n_blocks - 1:
+                    #     tf.keras.layers.BatchNormalization(axis=-1,
+                    #                                        momentum=0.99,
+                    #                                        epsilon=1e-3,
+                    #                                        center=True,
+                    #                                        scale=True,
+                    #                                        beta_initializer='zeros',
+                    #                                        gamma_initializer='ones',
+                    #                                        moving_mean_initializer='zeros',
+                    #                                        moving_variance_initializer='ones',
+                    #                                        beta_regularizer=None,
+                    #                                        gamma_regularizer=None,
+                    #                                        beta_constraint=None,
+                    #                                        gamma_constraint=None,
+                    #                                        renorm=False,
+                    #                                        renorm_clipping=None,
+                    #                                        renorm_momentum=0.99,
+                    #                                        fused=None,
+                    #                                        trainable=self.is_training,
+                    #                                        virtual_batch_size=None,
+                    #                                        adjustment=None,
+                    #                                        name='batch_norm{}_{}'.format(view, conv_block_i))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
@@ -988,7 +1030,13 @@ class Exonet(object):
         self.config = config
         self.mode = mode  # TRAIN, EVAL or PREDICT
 
-        self.time_series_features = features['time_series_features']  # features
+        # features
+        self.time_series_features = features['time_series_features']
+        if 'scalar_params' in features:
+            self.scalar_params = features['scalar_params']
+        else:
+            self.scalar_params = None
+
         self.labels = labels  # labels
 
         self.is_training = None
@@ -1221,7 +1269,13 @@ class Exonet_XS(object):
         self.config = config
         self.mode = mode  # TRAIN, EVAL or PREDICT
 
-        self.time_series_features = features['time_series_features']  # features
+        # features
+        self.time_series_features = features['time_series_features']
+        if 'scalar_params' in features:
+            self.scalar_params = features['scalar_params']
+        else:
+            self.scalar_params = None
+
         self.labels = labels  # labels
 
         self.is_training = None
