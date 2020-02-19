@@ -176,7 +176,7 @@ if __name__ == '__main__':
     features_names = ['global_view', 'local_view']
     # features dimension
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    # features types
+    # features data types
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -192,8 +192,7 @@ if __name__ == '__main__':
                                                 'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
 
     multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'av_training_set',
-                       'verbose': False}
+    ce_weights_args = {'datasets': ['train'], 'label_fieldname': 'av_training_set', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
     label_map = config.label_map[satellite][multi_class]
@@ -273,5 +272,7 @@ if __name__ == '__main__':
     args.BaseModel = BaseModel
 
     args.ce_weights = ce_weights
+
+    args.label_map = label_map
 
     run_main(args, bohb_params)

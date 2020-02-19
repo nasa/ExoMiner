@@ -17,9 +17,9 @@ import paths
 
 #%% check number of iterations per Successive Halving and per budget
 
-num_iterations = 300
+num_iterations = 10
 eta = 2
-bmin, bmax = 5, 120
+bmin, bmax = 15, 120
 nmodels = 3
 nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
