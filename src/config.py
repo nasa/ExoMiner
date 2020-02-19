@@ -37,7 +37,7 @@ def add_default_missing_params(config):
                           'force_softmax': False,
                           'use_kepler_ce': False,
                           'decay_rate': None,
-                          'batch_config': 32,
+                          'batch_size': 32,
                           'optimizer': 'SGD',
                           'lr': 1e-5}
 
