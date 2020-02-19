@@ -26,7 +26,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline_gapped_g-lflux_lcentr_selfnormalized_loddeven_4convbranches'
+study = 'bohb_dr25tcert_spline_gapped_glflux-lcentr-loe_20-100budget72hours'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -378,7 +378,7 @@ for run_i, run in enumerate(timesorted_allruns):
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
                                                                                                     run.budget))
 
-            ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
+            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
             mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
 

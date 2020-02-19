@@ -158,23 +158,25 @@ for i, row in tceTbl.iterrows():
 
 tceTbl.to_csv('/home/msaragoc/Downloads/qqqqq.csv', index=False)
 
-#%% Update fields in TEV MIT TOI disposition lists to standardized fields; remove TCEs with no value for the required
+#%% Update fields in TEV MIT TOI disposition lists to standardized fields; removed TCEs with no value for the required
 # parameters
 
 rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
                           'toi-plus-tev.mit.edu_2020-01-15.csv', header=4)
 print(len(rawTceTable))
 
+disposition_src = 'Group Disposition'  # 'Group Disposition or 'TOI disposition'
 # Create Group or TOI disposition table by changing the field name in rawFields
-rawFields = ['TIC', 'Full TOI ID', 'Group Disposition', 'TIC Right Ascension', 'TIC Declination', 'TMag Value',
+rawFields = ['TIC', 'Full TOI ID', disposition_src, 'TIC Right Ascension', 'TIC Declination', 'TMag Value',
              'TMag Uncertainty', 'Orbital Epoch Value', 'Orbital Epoch Error', 'Orbital Period Value',
              'Orbital Period Error', 'Transit Duration Value', 'Transit Duration Error', 'Transit Depth Value',
              'Transit Depth Error', 'Sectors']
-newFields = ['target_id', 'label', 'ra', 'dec', 'mag', 'mag_uncert', 'tce_time0bk', 'tce_time0bk_err', 'tce_period',
-             'tce_period_err', 'tce_duration', 'tce_duration_err', 'transit_depth', 'transit_depth_err', 'sectors']
+newFields = ['target_id', 'oi', 'label', 'ra', 'dec', 'mag', 'mag_uncert', 'tce_time0bk', 'tce_time0bk_err',
+             'tce_period', 'tce_period_err', 'tce_duration', 'tce_duration_err', 'transit_depth', 'transit_depth_err',
+             'sectors']
 
 # remove TCEs with any NaN in the required fields
-rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 5, 7, 9, 11]], inplace=True)
+rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 3, 4, 7, 9, 11, 13]], inplace=True)
 print(len(rawTceTable))
 
 # rename fields to standardize fieldnames
@@ -183,5 +185,64 @@ for i in range(len(rawFields)):
     renameDict[rawFields[i]] = newFields[i]
 rawTceTable.rename(columns=renameDict, inplace=True)
 
-rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
-                   'toi-plus-tev.mit.edu_2020-01-15_Groupdisposition_processed.csv', index=False)
+# Group disposition: 1604 to 1326 TCEs; TOI disposition: 1604 to 1571 TCEs
+rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/'
+                   'toi-plus-tev.mit.edu_2020-01-15_{}_processed.csv'.format(disposition_src), index=False)
+
+#%% Update fields in NASA Exoplanet Archive disposition list to standardized fields; removed TCEs with no value for the
+# required parameters
+
+rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/'
+                          'TOI_2020.01.21_13.55.10.csv', header=72)
+print(len(rawTceTable))
+
+# Create Group or TOI disposition table by changing the field name in rawFields
+rawFields = ['toi', 'tid', 'tfopwg_disp', 'ra', 'dec', 'st_tmag', 'st_tmagerr1', 'st_tmagerr2', 'pl_tranmid',
+             'pl_tranmiderr1', 'pl_tranmiderr2', 'pl_orbper',
+             'pl_orbpererr1', 'pl_orbpererr2', 'pl_trandurh', 'pl_trandurherr1', 'pl_trandurherr2', 'pl_trandep',
+             'pl_trandeperr1', 'pl_trandeperr2']
+newFields = ['oi', 'target_id', 'label', 'ra', 'dec', 'mag', 'mag_uncert', 'mag_uncert2', 'tce_time0bk',
+             'tce_time0bk_err', 'tce_time0bk_err2', 'tce_period', 'tce_period_err', 'tce_period_err2', 'tce_duration',
+             'tce_duration_err', 'tce_duration_err2', 'transit_depth', 'transit_depth_err', 'transit_depth_err2']
+
+# remove TCEs with any NaN in the required fields
+rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 3, 4, 8, 11, 14, 17]], inplace=True)
+print(len(rawTceTable))
+
+# rename fields to standardize fieldnames
+renameDict = {}
+for i in range(len(rawFields)):
+    renameDict[rawFields[i]] = newFields[i]
+rawTceTable.rename(columns=renameDict, inplace=True)
+
+# 1604 to 536 TCEs
+rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/final_tce_tables/'
+                   'TOI_2020.01.21_13.55.10.csv_TFOPWG_processed.csv', index=False)
+
+#%% Update fields in EXOFOP Community disposition list to standardized fields; removed TCEs with no value for the
+# required parameters
+
+rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/exofop_ctoilists.csv',
+                          header=0)
+print(len(rawTceTable))
+
+# Create Group or TOI disposition table by changing the field name in rawFields
+rawFields = ['CTOI', 'TIC ID', 'User Disposition', 'RA', 'Dec', 'TESS Mag', 'TESS Mag err', 'Midpoint (BJD)',
+             'Midpoint err', 'Period (days)', 'Period (days) Error', 'Duration (hrs)', 'Duration (hrs) Error',
+             'Depth ppm', 'Depth ppm Error']
+newFields = ['oi', 'target_id', 'label', 'ra', 'dec', 'mag', 'mag_uncert', 'tce_time0bk', 'tce_time0bk_err',
+             'tce_period', 'tce_period_err', 'tce_duration', 'tce_duration_err', 'transit_depth', 'transit_depth_err']
+
+# remove TCEs with any NaN in the required fields
+rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 3, 4, 7, 9, 11, 13]], inplace=True)
+print(len(rawTceTable))
+
+# rename fields to standardize fieldnames
+renameDict = {}
+for i in range(len(rawFields)):
+    renameDict[rawFields[i]] = newFields[i]
+rawTceTable.rename(columns=renameDict, inplace=True)
+
+# 321 to 275 TCEs
+rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/'
+                   'exofop_ctoilists_Community_processed.csv', index=False)

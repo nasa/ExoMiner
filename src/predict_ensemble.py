@@ -1,38 +1,23 @@
 """
-Test ensemble of models trained using the best configuration obtained in a hyperparameter optimization study.
+Perform inference using an ensemble of models. Set up for single model inference in parallel.
 
-TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
-    option would be to have two scripts: one that tests the models individually, the other that gathers their
-    predictions into the ensemble and generates the results for it.
-    make draw_plots function compatible with inference
+TODO: make draw_plots function compatible with inference
 """
 
 # 3rd party
-import sys
-# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# import logging
-# logging.getLogger("tensorflow").setLevel(logging.ERROR)
-import numpy as np
+import multiprocessing
 import tensorflow as tf
+import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, average_precision_score, \
     roc_curve, precision_recall_curve, auc
 import pandas as pd
-# import itertools
 
 # local
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, Exonet, Exonet_XS, \
-    get_data_from_tfrecord, get_data_from_tfrecord_kepler
-# needed for backward compatibility for models created before upgrading the model building function CNN1dModel in
-# estimator_util to use tf.keras layers and different names for the graph nodes
-# from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-# import src.config
-# import src_hpo.utils_hpo as utils_hpo
 import paths
-# import baseline_configs
-# import src.utils_data as utils_data
+from src.estimator_util import get_data_from_tfrecord_kepler, get_data_from_tfrecord, CNN1dModel, CNN1dPlanetFinderv1, \
+    Exonet, Exonet_XS
+from src import predict_single_model
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
@@ -123,13 +108,13 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
-         scalar_params_idxs=None, filter_data=None, inference_only=False, generate_csv_pred=False, sess_config=None):
+def main(model_dir, data_dir, num_processes, base_model, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
+         filter_data=None, inference_only=False, generate_csv_pred=False, sess_config=None, proc_to_gpu_mapping=None):
     """ Test single model/ensemble of models.
 
-    :param config: dict, model and dataset configurations
     :param model_dir: str, directory with saved models
     :param data_dir: str, data directory with tfrecords
+    :param num_processes: int, number of processes spawn in parallel
     :param kp_dict: dict, each key is a Kepler ID and the value is the Kepler magnitude (Kp) of the star
     :param res_dir: str, save directory
     :param datasets: list, datasets in which the model(s) is(are) applied to. The datasets names should be strings that
@@ -137,8 +122,6 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
     :param threshold: float, classification threshold
     :param fields: additional fields to be extracted from the tfrecords. If generate_csv_pred is True, these fields
     are also written to the csv file
-    # :param features_set: dict, each key is a type of feature that is given as input to the model and the values are
-    dicts with information about the dimension and type of these features
     :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
     elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
     values should be a list; for the other data_fields, it should be a two element list that defines the interval of
@@ -147,6 +130,8 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
     :param generate_csv_pred: bool, if True a csv file is generated per dataset containing the ranked model(ensemble)
     outputs and predicted classes for each example in the dataset. If fields is not None, then the values for those
     fields will also be written to the csv file
+    :param sess_config:
+    :param proc_to_gpu_mapping: list, maps processes to GPUs
     :return:
     """
 
@@ -168,7 +153,7 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
 
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
 
-    tfrec_files = [file for file in os.listdir(data_dir) if file.split('-')[0] in datasets]
+    tfrec_files = [file for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
     for tfrec_file in tfrec_files:
 
         # find which dataset the TFRecord is from
@@ -185,46 +170,36 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         for dataset in datasets:
             data[dataset]['label'] = np.array(data[dataset]['label'], dtype='uint8')
 
-    # predict on given datasets
-    predictions_dataset = {dataset: [] for dataset in datasets}
-    for dataset in predictions_dataset:
+    args_predict = (data_dir, base_model, datasets, sess_config, proc_to_gpu_mapping)
 
-        for i, model_filename in enumerate(model_filenames):
-            print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
+    tf.logging.info("Launching {} processes".format(num_processes))
 
-            config = np.load('{}/config.npy'.format(model_filename), allow_pickle=True).item()
-            features_set = np.load('{}/features_set.npy'.format(model_filename), allow_pickle=True).item()
+    # create a pool of runConfig.numProcesses child processes
+    pool = multiprocessing.Pool(num_processes)
+    # run each one in parallel in a different CPU
+    async_results = [pool.apply_async(predict_single_model.predict, (model_i, model_filename) + args_predict)
+                     for model_i, model_filename in enumerate(model_filenames)]
+    pool.close()
 
-            predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
-                                       mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
-                                       features_set=features_set, scalar_params_idxs=scalar_params_idxs)
+    # get output from each child process
+    # instead of pool.join(), async_result.get() to ensure any exceptions raised by the worker processes are raised here
+    predictions_models = [async_result.get() for async_result in async_results]
 
-            estimator = tf.estimator.Estimator(ModelFn(base_model, config),
-                                               config=tf.estimator.RunConfig(session_config=sess_config,
-                                                                             tf_random_seed=None),
-                                               model_dir=model_filename)
-
-            prediction_lst = []
-            for predictions in estimator.predict(predict_input_fn, yield_single_examples=True):
-                assert len(predictions) == 1
-                prediction_lst.append(predictions[0])
-
-            predictions_dataset[dataset].append(prediction_lst)
-
-        # average across models
-        # TODO: check if this is ready for multiclass classification and more than one output (softmax)
-        predictions_dataset[dataset] = np.mean(predictions_dataset[dataset], axis=0)
+    # TODO: make it compatible with multiclass classification case or output size greater than 1
+    predictions_ensemble = {dataset: None for dataset in datasets}
+    for dataset in datasets:
+        predictions_models_for_dataset = [prediction_model[dataset] for prediction_model in predictions_models]
+        predictions_ensemble[dataset] = np.mean(predictions_models_for_dataset, axis=0)
 
     # select only indexes of interest that were not filtered out
-    for dataset in predictions_dataset:
+    for dataset in predictions_ensemble:
         if 'selected_idxs' in data[dataset]:
             print('Filtering predictions for dataset {}'.format(dataset))
-            predictions_dataset[dataset] = predictions_dataset[dataset][data[dataset]['selected_idxs']]
-            # print(predictions_dataset[dataset].shape, dataset)
+            predictions_ensemble[dataset] = predictions_ensemble[dataset][data[dataset]['selected_idxs']]
 
     # save results in a numpy file
-    print('Saving predicted output to a numpy file {}...'.format(res_dir + '/predictions_per_dataset'))
-    np.save(os.path.join(res_dir, 'predictions_per_dataset'), predictions_dataset)
+    print('Saving predicted output to a numpy file {}...'.format(res_dir + 'predictions_per_dataset'))
+    np.save(res_dir + 'predictions_per_dataset', predictions_ensemble)
 
     # TODO: implemented only for labeled data
     # sort predictions per class based on ground truth labels
@@ -232,10 +207,10 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         output_cl = {dataset: {} for dataset in datasets}
         for dataset in output_cl:
             # map_labels
-            for class_label in config['label_map']:
+            for class_label in label_map:
 
-                output_cl[dataset][class_label] = predictions_dataset[dataset][
-                    np.where(data[dataset]['label'] == config['label_map'][class_label])]
+                output_cl[dataset][class_label] = predictions_ensemble[dataset][
+                    np.where(data[dataset]['label'] == label_map[class_label])]
 
                 # if class_label == 'AFP':
                 #     continue
@@ -251,12 +226,12 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
     # dict with performance metrics
     res = {dataset: None for dataset in datasets if dataset != 'predict'}
     # dict with classification predictions
-    pred_classification = {dataset: np.zeros(predictions_dataset[dataset].shape, dtype='uint8') for dataset in datasets}
+    pred_classification = {dataset: np.zeros(predictions_ensemble[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in res:
 
         # threshold for classification
         # TODO: again, not suited for output size larger than 1 or multiclass classification
-        pred_classification[dataset][predictions_dataset[dataset] >= threshold] = 1
+        pred_classification[dataset][predictions_ensemble[dataset] >= threshold] = 1
 
         if not inference_only:
 
@@ -273,8 +248,8 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
             avg_prec = average_precision_score(data[dataset]['label'], pred_classification[dataset], average='macro')
 
             # functions only implemented for the binary classification task
-            fpr, tpr, _ = roc_curve(data[dataset]['label'], predictions_dataset[dataset])
-            preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_dataset[dataset])
+            fpr, tpr, _ = roc_curve(data[dataset]['label'], predictions_ensemble[dataset])
+            preroc, recroc, _ = precision_recall_curve(data[dataset]['label'], predictions_ensemble[dataset])
 
             # general function used to compute an AUC
             pr_auc = auc(recroc, preroc)
@@ -285,8 +260,8 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
 
     # save results in a numpy file
     if not inference_only:
-        print('Saving metrics to a numpy file {}...'.format(res_dir + '/res_eval.npy'))
-        np.save(os.path.join(res_dir, 'res_eval'), res)
+        print('Saving metrics to a numpy file {}...'.format(res_dir + 'res_eval.npy'))
+        np.save(res_dir + 'res_eval', res)
 
         print('Plotting ROC and PR AUCs...')
         # draw evaluation plots
@@ -294,7 +269,7 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
 
         print('Saving metrics to a {}...'.format(res_dir + "res_eval.txt"))
         # write results to a txt file
-        with open(os.path.join(res_dir, "res_eval.txt"), "a") as res_file:
+        with open(res_dir + "res_eval.txt", "a") as res_file:
             res_file.write('{} Performance ensemble (nmodels={}) {}\n'.format('#' * 10, len(model_filenames), '#' * 10))
             for dataset in res:
                 res_file.write('Dataset: {}\n'.format(dataset))
@@ -319,7 +294,7 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         # add predictions to the data dict
         # TODO: make this compatible with multiclass classification
         for dataset in datasets:
-            data[dataset]['output'] = predictions_dataset[dataset]
+            data[dataset]['output'] = predictions_ensemble[dataset]
             data[dataset]['predicted class'] = pred_classification[dataset]
 
             # # add Kepler magnitude of the target star
@@ -329,28 +304,40 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         # write results to a txt file
         for dataset in datasets:
             print('Saving ranked predictions in dataset {}'
-                  ' to {}...'.format(dataset, res_dir + "/ranked_predictions_{}".format(dataset)))
+                  ' to {}...'.format(dataset, res_dir + "ranked_predictions_{}".format(dataset)))
             data_df = pd.DataFrame(data[dataset])
 
             # sort in descending order of output
             data_df.sort_values(by='output', ascending=False, inplace=True)
-            data_df.to_csv(os.path.join(res_dir, "ranked_predictions_{}set".format(dataset)), index=False)
+            data_df.to_csv(res_dir + "ranked_predictions_{}set".format(dataset), index=False)
 
 
 if __name__ == "__main__":
 
     # tf.logging.set_verbosity(tf.logging.INFO)
-    # tf.logging.set_verbosity(tf.logging.ERROR)
+    tf.logging.set_verbosity(tf.logging.ERROR)
 
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'dr25tcert_spline_gapped_glflux-2stellar_glfluxconfig'
+    study = ''
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
 
-    config_sess = tf.ConfigProto(log_device_placement=False)
+    # assuming 1 model per process; if None, number of processes equals number of models in the model root directory
+    num_processes = None
+
+    # GPU options
+    config_sess = tf.ConfigProto(log_device_placement=False, gpu_options=None)
+    # if true, the allocator does not pre - allocate the entire specified GPU memory region, instead starting small and
+    # growing as needed.
+    config_sess.gpu_options.allow_growth = True
+    # A value between 0 and 1 that indicates what fraction of the available GPU memory to pre-allocate for each process.
+    # 1 means to pre-allocate all of the GPU memory, 0.5 means the process allocates ~50% of the available GPU memory.
+    config_sess.gpu_options.per_process_gpu_memory_fraction = 0.2
+    number_models_per_gpu = np.floor(1 / config_sess.gpu_options.per_process_gpu_memory_fraction)
+    num_gpus = [1]  # number of GPUs in each node; none to run models on the CPU(s)
 
     # tfrecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
@@ -382,8 +369,6 @@ if __name__ == "__main__":
     # set to None to not filter any data in the datasets
     filter_data = None  # np.load('/data5/tess_project/Data/tfrecords/filter_datasets/cmmn_kepids_spline-whitened.npy').item()
 
-    scalar_params_idxs = None  # [1, 2]
-
     ######### SCRIPT PARAMETERS ###############################################
 
     # path to trained models' weights for the selected config
@@ -395,8 +380,19 @@ if __name__ == "__main__":
     if not os.path.isdir(pathsaveres):
         os.mkdir(pathsaveres)
 
+    if num_processes is None:  # it is set to the number of models in the model root directory; 1 model per process
+        num_processes = len(os.listdir(models_path))
+
+    if num_gpus is None:
+        proc_to_gpu_mapping = None
+    else:
+        proc_to_gpu_mapping = []
+        for proc_i in range(num_processes):
+            proc_to_gpu_mapping += [str(gpu_id) for gpu_id in np.repeat(np.arange(num_gpus[proc_i]), number_models_per_gpu)]
+
     main(model_dir=models_path,
          data_dir=tfrec_dir,
+         num_processes=num_processes,
          base_model=BaseModel,
          kp_dict=kp_dict,
          res_dir=pathsaveres,
@@ -406,4 +402,5 @@ if __name__ == "__main__":
          filter_data=filter_data,
          inference_only=inference_only,
          generate_csv_pred=generate_csv_pred,
-         sess_config=config_sess)
+         sess_config=config_sess,
+         proc_to_gpu_mapping=proc_to_gpu_mapping)

@@ -68,6 +68,8 @@ class TransitClassifier(Worker):
 
         self.features_set = config_args.features_set
 
+        self.scalar_params_idxs = config_args.scalar_params_idxs
+
         self.num_gpus = config_args.num_gpus  # number of GPUs per node; each worker (configuration) is assigned one GPU
 
         self.BaseModel = config_args.BaseModel
@@ -113,19 +115,23 @@ class TransitClassifier(Worker):
 
         input_fn_train = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
                                  mode=tf.estimator.ModeKeys.TRAIN, label_map=self.label_map,
-                                 filter_data=self.filter_data['train'], features_set=self.features_set)
+                                 filter_data=self.filter_data['train'], features_set=self.features_set,
+                                 scalar_params_idxs=self.scalar_params_idxs)
 
         input_fn_traineval = InputFn(file_pattern=self.tfrec_dir + '/train*', batch_size=config['batch_size'],
                                      mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
-                                     filter_data=self.filter_data['train'], features_set=self.features_set)
+                                     filter_data=self.filter_data['train'], features_set=self.features_set,
+                                     scalar_params_idxs=self.scalar_params_idxs)
 
         input_fn_val = InputFn(file_pattern=self.tfrec_dir + '/val*', batch_size=config['batch_size'],
                                mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
-                               filter_data=self.filter_data['val'], features_set=self.features_set)
+                               filter_data=self.filter_data['val'], features_set=self.features_set,
+                               scalar_params_idxs=self.scalar_params_idxs)
 
         input_fn_test = InputFn(file_pattern=self.tfrec_dir + '/test*', batch_size=config['batch_size'],
                                 mode=tf.estimator.ModeKeys.EVAL, label_map=self.label_map,
-                                filter_data=self.filter_data['test'], features_set=self.features_set)
+                                filter_data=self.filter_data['test'], features_set=self.features_set,
+                                scalar_params_idxs=self.scalar_params_idxs)
 
         metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
         dataset_ids = ['training', 'validation', 'test']
@@ -356,10 +362,11 @@ class TransitClassifier(Worker):
 
         # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
 
-        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
-
-        optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
+        # lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
         # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp_fast', 'inv_exp_slow'])
+
+        # optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
+
         sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, default_value=0.9,
                                                       log=True)
 
@@ -367,47 +374,52 @@ class TransitClassifier(Worker):
         # non_lin_fn = CSH.CategoricalHyperparameter('non_lin_fn', ['relu', 'prelu'])
         # weight_initializer = CSH.CategoricalHyperparameter('weight_initializer', ['he', 'glorot'])
 
-        batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
-        dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.7, default_value=0.2,
+        # batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
+        # previous values: 0.001 to 0.7
+        dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.2, default_value=0.2,
                                                       log=True)
         # l2_regularizer = CSH.CategoricalHyperparameter('l2_regularizer', [True, False])
         # l2_decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2,
         #                                                log=True)
 
-        config_space.add_hyperparameters([lr, optimizer, sgd_momentum, batch_size, dropout_rate,
-                                          # l2_regularizer, l2_decay_rate, use_softmax, lr_scheduler, batch_norm,
-                                          # non_lin_fn, weight_initializer
+        config_space.add_hyperparameters([sgd_momentum, dropout_rate,
+                                          # lr, optimizer, batch_size, l2_regularizer, l2_decay_rate, use_softmax, lr_scheduler,
+                                          # batch_norm, non_lin_fn, weight_initializer
                                           ])
 
-        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5,
-                                                                default_value=3)
-        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=0, upper=4, default_value=2)
-        conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
+        # cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
+        # config_space.add_condition(cond)
+        # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
+        # config_space.add_condition(cond)
 
-        # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
-        init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
         init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=7, default_value=4)
-
         kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=8, default_value=2)
         kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2, default_value=1)
+        conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
 
+        pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8, default_value=2)
         pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8, default_value=2)
         pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2, default_value=1)
 
-        pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8, default_value=2)
         num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=3, default_value=2)
+        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5,
+                                                                default_value=3)
+
+        init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
+        # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
+
+        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=0, upper=4, default_value=2)
 
         config_space.add_hyperparameters([num_glob_conv_blocks,
                                           num_fc_layers,
-                                          conv_ls_per_block, kernel_size, kernel_stride,
-                                          pool_size_glob, pool_stride,
-                                          pool_size_loc, num_loc_conv_blocks,
+                                          conv_ls_per_block,
+                                          kernel_size,
+                                          kernel_stride,
+                                          pool_size_glob,
+                                          pool_stride,
+                                          pool_size_loc,
+                                          num_loc_conv_blocks,
                                           init_fc_neurons,
                                           init_conv_filters])
-
-        cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
-        config_space.add_condition(cond)
-        # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
-        # config_space.add_condition(cond)
 
         return config_space

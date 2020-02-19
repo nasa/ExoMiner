@@ -26,7 +26,7 @@ class InputFn(object):
     """Class that acts as a callable input function for the Estimator."""
 
     def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 filter_data=None):
+                 filter_data=None, scalar_params_idxs=None):
         """Initializes the input function.
 
         :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
@@ -39,6 +39,7 @@ class InputFn(object):
         (can the dimension and data type be inferred from the tensors in the dataset?)
         :param data_augmentation: bool, if True data augmentation is performed
         :param filter_data:
+        :param scalar_params_idxs: list, indexes of features to extract from the scalar features Tensor
         :return:
         """
 
@@ -48,6 +49,7 @@ class InputFn(object):
         self.label_map = label_map
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
+        self.scalar_params_idxs = scalar_params_idxs
 
         self.filter_data = filter_data
 
@@ -98,8 +100,12 @@ class InputFn(object):
             # data augmentation - time axis flipping
             # TODO: do we need this check?
             # if reverse_time_series_prob > 0:
-            # Randomly reverse time series features with probability reverse_time_series_prob.
-            should_reverse = tf.less(tf.random_uniform([], 0, 1), 0.5, name="should_reverse")
+            if self.data_augmentation:
+                # Randomly reverse time series features with probability reverse_time_series_prob.
+                should_reverse = tf.less(tf.random_uniform([], 0, 1), 0.5, name="should_reverse")
+                bin_shift = [-5, 5]
+                shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
+                                          dtype=tf.dtypes.int32, name='randuniform')
 
             # initialize feature output
             output = {'time_series_features': {}}
@@ -136,7 +142,10 @@ class InputFn(object):
 
                 # scalar features (e.g, stellar, TCE, transit fit parameters)
                 elif feature_name == 'scalar_params':
-                    output['scalar_params'] = value
+                    if self.scalar_params_idxs is None:
+                        output['scalar_params'] = value
+                    else:  # choose only some of the scalar_params based on their indexes
+                        output['scalar_params'] = tf.gather(value, indices=self.scalar_params_idxs, axis=0)
 
                 # time-series features
                 else:  # input_config.features[feature_name].is_time_series:
@@ -149,12 +158,12 @@ class InputFn(object):
                         # invert phase
                         value = phase_inversion(value, should_reverse)
 
-                        # # phase shift some bins
-                        # value = phase_shift(value, [-5, 5])
+                        # phase shift some bins
+                        value = phase_shift(value, shift)
 
-                        # # add white gaussian noise
-                        # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
-                        #                                parsed_features[feature_name + '_stdoot'])
+                        # add white gaussian noise
+                        value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
+                                                       parsed_features[feature_name + '_stdoot'])
 
                     output['time_series_features'][feature_name] = value
 
@@ -162,7 +171,7 @@ class InputFn(object):
             return output, label_id
 
         def filt_func(x, y):
-            """ Utility function used to filter examples from the dataset based on their Kepler ID + TCE planet number
+            """ Utility function used to filter examples from the dataset based on their target ID + TCE planet number
 
             :param x: feature tensor
             :param y: label tensor
@@ -170,12 +179,13 @@ class InputFn(object):
                 boolean tensor, True for valid examples, False otherwise
             """
 
-            z1 = tf.as_string(x['filt_features']['kepid'])
+            z1 = tf.as_string(x['filt_features']['target_id'])
             z_ = tf.convert_to_tensor('_')
-            z2 = tf.as_string(x['filt_features']['tce_n'])
+            z2 = tf.as_string(x['filt_features']['tce_plnt_num'])
             zj = tf.strings.join([z1, z_, z2])
 
-            return tf.math.reduce_any(tf.math.equal(zj, tf.convert_to_tensor(self.filter_data['kepid+tce_n'])))
+            return tf.math.reduce_any(tf.math.equal(zj,
+                                                    tf.convert_to_tensor(self.filter_data['target_id+tce_plnt_num'])))
 
         def get_features_and_labels(x, y):
             """ Utility function used to remove the features used to filter the dataset.
@@ -199,7 +209,7 @@ class InputFn(object):
 
             label_to_id = tf.contrib.lookup.HashTable(table_initializer, default_value=-1)
 
-            include_labels = (self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL])
+            include_labels = self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]
 
             file_patterns = self._file_pattern.split(",")
             filenames = []
@@ -562,29 +572,29 @@ class CNN1dModel(object):
                     net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
                                                        name='maxpooling{}_{}'.format(view, conv_block_i))(net)
 
-                    # set batch normalization for the output of the convolutional branch
-                    if self.config['batch_norm'] and seq_conv_block_i == n_blocks - 1:
-                        tf.keras.layers.BatchNormalization(axis=-1,
-                                                           momentum=0.99,
-                                                           epsilon=1e-3,
-                                                           center=True,
-                                                           scale=True,
-                                                           beta_initializer='zeros',
-                                                           gamma_initializer='ones',
-                                                           moving_mean_initializer='zeros',
-                                                           moving_variance_initializer='ones',
-                                                           beta_regularizer=None,
-                                                           gamma_regularizer=None,
-                                                           beta_constraint=None,
-                                                           gamma_constraint=None,
-                                                           renorm=False,
-                                                           renorm_clipping=None,
-                                                           renorm_momentum=0.99,
-                                                           fused=None,
-                                                           trainable=self.is_training,
-                                                           virtual_batch_size=None,
-                                                           adjustment=None,
-                                                           name='batch_norm{}_{}'.format(view, conv_block_i))(net)
+                    # # set batch normalization for the output of the convolutional branch
+                    # if self.config['batch_norm'] and seq_conv_block_i == n_blocks - 1:
+                    #     tf.keras.layers.BatchNormalization(axis=-1,
+                    #                                        momentum=0.99,
+                    #                                        epsilon=1e-3,
+                    #                                        center=True,
+                    #                                        scale=True,
+                    #                                        beta_initializer='zeros',
+                    #                                        gamma_initializer='ones',
+                    #                                        moving_mean_initializer='zeros',
+                    #                                        moving_variance_initializer='ones',
+                    #                                        beta_regularizer=None,
+                    #                                        gamma_regularizer=None,
+                    #                                        beta_constraint=None,
+                    #                                        gamma_constraint=None,
+                    #                                        renorm=False,
+                    #                                        renorm_clipping=None,
+                    #                                        renorm_momentum=0.99,
+                    #                                        fused=None,
+                    #                                        trainable=self.is_training,
+                    #                                        virtual_batch_size=None,
+                    #                                        adjustment=None,
+                    #                                        name='batch_norm{}_{}'.format(view, conv_block_i))(net)
 
                 # Flatten
                 net.get_shape().assert_has_rank(3)
@@ -617,9 +627,9 @@ class CNN1dModel(object):
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
         # concatenate scalar params
-        if 'scalar_params' in self.time_series_features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [pre_logits_concat, self.time_series_features['scalar_params']])
+        if self.scalar_params is not None:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)(
+                [pre_logits_concat, self.scalar_params])
 
         return pre_logits_concat
 
@@ -633,7 +643,7 @@ class CNN1dModel(object):
         with tf.variable_scope('FcNet'):
 
             # create sequence of FC layers
-            for fc_layer_i in range(self.config['num_fc_layers'] - 1):
+            for fc_layer_i in range(self.config['num_fc_layers']):
 
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
@@ -653,6 +663,15 @@ class CNN1dModel(object):
                                                 name='fc{}'.format(fc_layer_i))(net)
                 else:
                     net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=None,
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
                                                 name='fc{}'.format(fc_layer_i))(net)
 
                 net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
@@ -791,18 +810,24 @@ class CNN1dPlanetFinderv1(object):
 
         cnn_layers = {}
         # TODO: NEED TO CHANGE THIS MANUALLY...
-        # for view in ['global_view', 'local_view', 'local_view_oddeven', 'local_view_centr']:
+        # for view in ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_oddeven',
+        # 'local_view_oddeven']:
         for view in ['global_view', 'local_view']:
+
             with tf.variable_scope('ConvNet_%s' % view):
 
                 # add the different time series for a view as channels
-                if 'oddeven' not in view:
-
+                if 'oddeven' not in view:  # for branches that do not involve odd-even views
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
                                      if view == feature_name], axis=-1, name='input_{}'.format(view))
-                else:
+                elif view == 'local_oddeven':  # local odd-even view
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
                                       if feature_name in ['local_view_odd', 'local_view_even']],
+                                     axis=-1,
+                                     name='input_{}'.format(view))
+                else:  # 'global_oddeven'
+                    input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
+                                      if feature_name in ['global_view_odd', 'global_view_even']],
                                      axis=-1,
                                      name='input_{}'.format(view))
 
@@ -902,11 +927,9 @@ class CNN1dPlanetFinderv1(object):
             #                               axis=1, name="pre_logits_concat")
 
         # concatenate scalar params
-        if 'scalar_params' in self.time_series_features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [pre_logits_concat, self.time_series_features['scalar_params']])
-        # pre_logits_concat = tf.concat([pre_logits_concat, self.time_series_features['stellar_params']], axis=1,
-        #                               name="pre_logits_concat")
+        if self.scalar_params is not None:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)(
+                [pre_logits_concat, self.scalar_params])
 
         return pre_logits_concat
 
@@ -919,7 +942,7 @@ class CNN1dPlanetFinderv1(object):
 
         with tf.variable_scope('FcNet'):
 
-            for fc_layer_i in range(self.config['num_fc_layers'] - 1):
+            for fc_layer_i in range(self.config['num_fc_layers']):
 
                 # fc_neurons = self.config.init_fc_neurons / (2 ** fc_layer_i)
                 fc_neurons = self.config['init_fc_neurons']
@@ -937,11 +960,17 @@ class CNN1dPlanetFinderv1(object):
                                                 kernel_constraint=None,
                                                 bias_constraint=None,
                                                 name='fc{}'.format(fc_layer_i))(net)
-                    # net = tf.layers.dense(inputs=net, units=fc_neurons,
-                    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(
-                    #                                 self.config['decay_rate']))
                 else:
                     net = tf.keras.layers.Dense(units=fc_neurons,
+                                                kernel_regularizer=None,
+                                                activation=None,
+                                                use_bias=True,
+                                                kernel_initializer='glorot_uniform',
+                                                bias_initializer='zeros',
+                                                bias_regularizer=None,
+                                                activity_regularizer=None,
+                                                kernel_constraint=None,
+                                                bias_constraint=None,
                                                 name='fc{}'.format(fc_layer_i))(net)
 
                 net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
@@ -951,7 +980,6 @@ class CNN1dPlanetFinderv1(object):
 
             # create output FC layer
             logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
-            # logits = tf.layers.dense(inputs=net, units=self.output_size, name="logits")
 
         self.logits = logits
 
@@ -1143,9 +1171,9 @@ class Exonet(object):
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
         # concatenate scalar params
-        if 'scalar_params' in self.time_series_features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [pre_logits_concat, self.time_series_features['scalar_params']])
+        if self.scalar_params is not None:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)(
+                [pre_logits_concat, self.scalar_params])
 
         return pre_logits_concat
 
@@ -1378,9 +1406,9 @@ class Exonet_XS(object):
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
         # concatenate scalar params
-        if 'scalar_params' in self.time_series_features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
-                [pre_logits_concat, self.time_series_features['scalar_params']])
+        if self.scalar_params is not None:
+            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)(
+                [pre_logits_concat, self.scalar_params])
 
         return pre_logits_concat
 
@@ -1507,39 +1535,29 @@ def get_model_dir(path):
     return model_dir_custom
 
 
-def get_ce_weights(label_map, tfrec_dir):
+def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='label', verbose=False):
     """ Compute class cross-entropy weights based on the amount of labels for each class.
 
     :param label_map: dict, map between class name and integer value
     :param tfrec_dir: str, filepath to directory with the tfrecords
+    :param datasets: list, datasets used to compute the CE weights
+    :param label_fieldname: str, name of the label field in the TFRecords
+    :param verbose: bool
     :return:
         ce_weights: list, weight for each class (class 0, class 1, ...)
-        n_train: int, number of training samples
     """
 
     max_label_val = max(label_map.values())
 
-    # takes into account samples from the validation and train tfrecords???
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if not (file.startswith('test') or file.startswith('predict'))]
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir)
-                 if file.startswith('train')]
+    # assumes TFRecords filenames (train, val, test)-xxxxx
+    filenames = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
 
     label_vec, example = [], tf.train.Example()
-    # n_train = 0
-    # n_samples = {'train': 0, 'val': 0, 'test': 0, 'predict': 0}
-    n_samples = {'train': 0, 'val': 0}
+
+    n_samples = {dataset: 0 for dataset in datasets}
     for file in filenames:
-        # upd_c = True if file.split('/')[-1].startswith('train') else False  # update counter only if train files
-        file_dataset = file.split('/')[-1]
-        if 'train' in file_dataset:
-            dataset = 'train'
-        elif 'val' in file_dataset:
-            dataset = 'val'
-        # elif 'test' in file_dataset:
-        #     dataset = 'test'
-        # elif 'predict' in file_dataset:
-        #     dataset = 'predict'
+
+        file_dataset = file.split('/')[-1].split('-')[0]
 
         record_iterator = tf.python_io.tf_record_iterator(path=file)
         try:
@@ -1547,12 +1565,10 @@ def get_ce_weights(label_map, tfrec_dir):
 
                 example = tf.train.Example()
                 example.ParseFromString(string_record)
-                label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+                label = example.features.feature[label_fieldname].bytes_list.value[0].decode("utf-8")
                 label_vec.append(label_map[label])
 
-                n_samples[dataset] += 1
-                # if upd_c:
-                #     n_train += 1
+                n_samples[file_dataset] += 1
 
         except tf.errors.DataLossError as err:
             print("Oops: " + str(err))
@@ -1563,19 +1579,29 @@ def get_ce_weights(label_map, tfrec_dir):
     # give more weight to classes with less instances
     ce_weights = [max(label_counts) / max(count_i, 1e-7) for count_i in label_counts]
 
-    print('Train and validation samples: {}, {}'.format(n_samples['train'], n_samples['val']))
+    if verbose:
+        for dataset in datasets:
+            print('Number of examples for dataset {}: {}'.format(dataset, label_counts))
+        print('CE weights: {}'.format(ce_weights))
 
-    return ce_weights, n_samples['train']  # n_train  # , 'global_view_centr' in example.features.feature
+    return ce_weights
 
 
+# TODO: do we need this function at all?
 def picklesave(path, savedict):
+    """
+
+    :param path:
+    :param savedict:
+    :return:
+    """
 
     p = pickle.Pickler(open(path, "wb+"))
     p.fast = True
     p.dump(savedict)
 
 
-def get_num_samples(label_map, tfrec_dir, datasets):
+def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
     """ Compute number of samples in the datasets for each class.
 
     :param label_map: dict, map between class name and integer value
@@ -1591,8 +1617,6 @@ def get_num_samples(label_map, tfrec_dir, datasets):
     filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if
                  any([dataset in file for dataset in datasets])]
 
-    # label_vec, example = [], tf.train.Example()
-
     for file in filenames:
 
         file_dataset = file.split('/')[-1]
@@ -1605,10 +1629,11 @@ def get_num_samples(label_map, tfrec_dir, datasets):
                 example = tf.train.Example()
                 example.ParseFromString(string_record)
                 try:
-                    label = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+                    label = example.features.feature[label_fieldname].bytes_list.value[0].decode("utf-8")
                 except ValueError as e:
                     print('No label field found on the example. Ignoring it.')
                     print('Error output:', e)
+                    continue
 
                 n_samples[curr_dataset][label_map[label]] += 1
 
@@ -1632,15 +1657,136 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         data: dict, each key value pair is a list of values for a specific data field
 
     # TODO: add lookup table
+    #       deal with errors
+    """
+
+    # valid fields and features in the TFRecords
+    # main fields: ['target_id', 'tce_plnt_num', 'label']
+    FIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'mes', 'ra', 'dec', 'mag', 'mag_uncert', 'tce_time0bk_err',
+              'tce_period_err', 'tce_duration_err', 'transit_depth', 'transit_depth_err', 'sectors']
+    TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
+                  'local_view_odd']
+
+    if filt is not None:
+        union_fields = np.union1d(data_fields, list(filt.keys()))  # get fields that are in both
+        if 'target_id+tce_plnt_num' in list(filt.keys()):  # add target_id and tce_plnt_num
+            union_fields = np.concatenate((union_fields, ['target_id', 'tce_plnt_num']))
+    else:
+        union_fields = data_fields
+
+    # initialize data dict
+    data = {field: [] for field in union_fields}
+
+    if filt is not None:
+        data['selected_idxs'] = []
+
+    record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
+    try:
+        for string_record in record_iterator:
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            if filt is not None:
+                data['selected_idxs'].append(False)
+
+            # extracting data fields
+            datum = {}
+            if 'label' in union_fields:
+                label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+                if label_map is not None:  # map from label to respective integer
+                    datum['label'] = label_map[label]
+
+            if 'original_label' in union_fields:
+                datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+            if 'target_id' in union_fields:
+                datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
+
+            if 'tce_plnt_num' in union_fields:
+                datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+
+            if 'sectors' in union_fields:  # for TESS data
+                datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
+
+            # float parameters
+            for field in FIELDS:
+                if field in union_fields:
+                    datum[field] = example.features.feature[field].float_list.value[0]
+
+            # time-series features
+            for timeseries in TIMESERIES:
+                if timeseries in union_fields:
+                    datum[timeseries] = example.features.feature[timeseries].float_list.value
+
+            # filtering
+            if filt is not None:
+
+                if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+                    continue
+
+                if 'original label' in filt.keys() and datum['original label'] not in filt['original label'].values:
+                    continue
+
+                if coupled:
+                    if 'target_id+tce_plnt_num' in filt.keys() and \
+                            '{}_{}'.format(datum['target_id'], datum['tce_plnt_num']) not in filt['target_id+tce_plnt']:
+                        continue
+                else:
+                    if 'target_id' in filt.keys() and datum['target_id'] not in filt['target_id']:
+                        continue
+                    if 'tce_plnt_num' in filt.keys() and datum['tce_plnt_num'] not in filt['tce_plnt_num']:
+                        continue
+
+                if 'tce_period' in filt.keys() and \
+                        not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
+                    continue
+
+                if 'tce_duration' in filt.keys() and \
+                        not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
+                    continue
+
+                if 'tce_time0bk' in filt.keys() and \
+                        not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
+                    continue
+
+                if 'MES' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
+                    continue
+
+                data['selected_idxs'][-1] = True
+
+            # add example
+            for field in data_fields:
+                data[field].append(datum[field])
+
+    except:
+        print('Corrupted TFRecord: {}'.format(tfrecord))
+
+    return data
+
+
+def get_data_from_tfrecord_kepler(tfrecord, data_fields, label_map=None, filt=None, coupled=False):
+    """ Extract data from a tfrecord file.
+
+    :param tfrecord: str, tfrecord filepath
+    :param data_fields: list of data fields to be extracted from the tfrecords.
+    :param label_map: dict, map between class name and integer value
+    :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
+    examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
+    two element list that defines the interval of acceptable values
+    :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
+    :return:
+        data: dict, each key value pair is a list of values for a specific data field
+
+    # TODO: add lookup table
     #       right now, it assumes that all examples have the same fields
     #       deal with errors
     """
 
     EPHEMERIS = {'tce_period': 'tce_period', 'tce_duration': 'tce_duration', 'epoch': 'tce_time0bk', 'MES': 'mes'}
-    VIEWS = ['global_view', 'local_view']
-    ODDEVEN = ['_odd', '_even', '']
-    CENTR = ['', '_centr']
-    TIMESERIES = [''.join(timeseries_name) for timeseries_name in itertools.product(VIEWS, ODDEVEN, CENTR)]
+    TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
+                  'local_view_odd']
 
     if filt is not None:
         union_fields = np.union1d(data_fields, list(filt.keys()))
@@ -1685,34 +1831,10 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
                 if ephem in union_fields:
                     datum[ephem] = example.features.feature[EPHEMERIS[ephem]].float_list.value[0]
 
-            # if 'tce_period' in union_fields:
-            #     datum['tce_period'] = example.features.feature['tce_period'].float_list.value[0]
-            #
-            # if 'tce_duration' in union_fields:
-            #     datum['tce_duration'] = example.features.feature['tce_duration'].float_list.value[0]
-            #
-            # if 'epoch' in union_fields:
-            #     datum['epoch'] = example.features.feature['tce_time0bk'].float_list.value[0]
-            #
-            # if 'MES' in union_fields:
-            #     datum['MES'] = example.features.feature['mes'].float_list.value[0]
-
             # time series
             for timeseries in TIMESERIES:
                 if timeseries in union_fields:
                     datum[timeseries] = example.features.feature[timeseries].float_list.value
-
-            # if 'global_view' in union_fields:
-            #     datum['global_view'] = example.features.feature['global_view'].float_list.value
-            #
-            # if 'local_view' in union_fields:
-            #     datum['local_view'] = example.features.feature['local_view'].float_list.value
-            #
-            # if 'global_view_centr' in union_fields:
-            #     datum['global_view_centr'] = example.features.feature['global_view_centr'].float_list.value
-            #
-            # if 'local_view_centr' in union_fields:
-            #     datum['local_view_centr'] = example.features.feature['local_view_centr'].float_list.value
 
             # filtering
             if filt is not None:

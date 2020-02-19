@@ -9,7 +9,6 @@ arXiv preprint arXiv:1807.01774 (2018).
 # 3rd party
 import os
 import sys
-# sys.path.append('/home6/msaragoc/work_dir/HPO_Kepler_TESS/')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import time
@@ -28,6 +27,7 @@ if 'home6' in paths.path_hpoconfigs:
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
+from src import config
 
 # local
 from src.estimator_util import get_ce_weights, CNN1dPlanetFinderv1, CNN1dModel, Exonet, Exonet_XS
@@ -37,24 +37,22 @@ import paths
 
 
 def run_main(args, bohb_params=None):
+    """ Run HPO study.
 
-    if 'tess' in args.satellite:
-        args.label_map = {"PC": 1, "NTP": 0, "EB": 2, "BEB": 2} if args.multi_class else {"PC": 1, "NTP": 0, "EB": 0,
-                                                                                          "BEB": 0}
-    else:
-        args.label_map = {"PC": 1, "NTP": 0, "AFP": 2} if args.multi_class else {"PC": 1, "NTP": 0, "AFP": 0}
+    :param args:
+    :param bohb_params: HPO parameters
+    :return:
+    """
 
-    if not args.worker:
+    if not args.worker:  # create required folders if master node
         if not os.path.isdir(args.results_directory):
             os.mkdir(args.results_directory)
         if not os.path.isdir(args.models_directory):
             os.mkdir(args.models_directory)
 
-    args.ce_weights, args.n_train = get_ce_weights(args.label_map, args.tfrec_dir)
-
     host = hpns.nic_name_to_host(args.nic_name)
 
-    if args.worker:
+    if args.worker:  # workers go here
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
         time.sleep(2 * rank)
         args.studyid = check_run_id(args.studyid, args.results_directory, worker=True)
@@ -107,7 +105,7 @@ def run_main(args, bohb_params=None):
                    previous_result=previous_run,
                    **bohb_params)
 
-        # run BOHB study
+        # run BOHB/BO study
         res = hpo.run(n_iterations=args.n_iterations)
 
         # save kde parameters
@@ -139,7 +137,7 @@ def run_main(args, bohb_params=None):
     hpo.shutdown(shutdown_workers=True)
     name_server.shutdown()
 
-    # Analyse and save results
+    # analyse and save results
     analyze_results(res, args, args.results_directory, args.studyid)
 
 
@@ -162,7 +160,6 @@ if __name__ == '__main__':
     # BOHB and BO parameters; check [1]
     bohb_params = {'top_n_percent': 15, 'num_samples': 64, 'random_fraction': 1/3, 'bandwidth_factor': 3,
                    'min_bandwidth': 1e-3}
-
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
     study = ''  # name of the HPO study
@@ -172,28 +169,14 @@ if __name__ == '__main__':
 
     num_gpus = 1  # numper of GPUs per node
 
-    # directory in which the models are saved
-    models_directory = os.path.join(paths.path_hpomodels, study)
+    nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
-    # directory in which the results are saved
-    results_directory = os.path.join(paths.path_hpoconfigs, study)
-
-    # previous run directory; used to warmup start model based optimizers
-    prev_run_study = ''
-    prev_run_dir = None  # os.path.join(paths.path_hpoconfigs, prev_run_study)
-
-    # data directory
-    tfrec_dir = os.path.join(paths.path_tfrecs, 'Kepler/tfrecordkeplerdr25_'
-                                                'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
-
-    # features to be extracted from the dataset - keywords used in the TFRecords
-    # views = ['global_view', 'local_view']
-    # #channels_centr = ['', '_centr']
-    # channels_oddeven = ['', '_odd', '_even']
-    # features_names = [''.join(feature_name_tuple)
-    #                   for feature_name_tuple in itertools.product(views, channels_oddeven)]
+    # features to be extracted from the dataset
+    # features names - keywords used in the TFRecords
     features_names = ['global_view', 'local_view']
+    # features dimension
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    # features types
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -201,10 +184,34 @@ if __name__ == '__main__':
     # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
     #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
-    nic_name = 'lo'  # 'ib0' or 'lo'
+    # extract from the scalar features Tensor only the features matching these indexes; if None uses all of them
+    scalar_params_idxs = None  # [1, 2]
+
+    # data directory
+    tfrec_dir = os.path.join(paths.path_tfrecs, 'Kepler/tfrecordkeplerdr25_'
+                                                'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
+
+    multi_class = False  # multiclass classification
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'av_training_set',
+                       'verbose': False}
+    use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
+    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
+    label_map = config.label_map[satellite][multi_class]
+
+    ce_weights = get_ce_weights(label_map, tfrec_dir, **ce_weights_args)
+
+    # previous run directory; used to warmup start model based optimizers
+    prev_run_study = ''
+    prev_run_dir = None  # os.path.join(paths.path_hpoconfigs, prev_run_study)
+
+    # directory in which the models are saved
+    models_directory = os.path.join(paths.path_hpomodels, study)
+
+    # directory in which the results are saved
+    results_directory = os.path.join(paths.path_hpoconfigs, study)
 
     rank = MPI.COMM_WORLD.rank
-    # size = MPI.COMM_WORLD.size    
+    # size = MPI.COMM_WORLD.size
     print('Rank = ', rank)
     sys.stdout.flush()
 
@@ -261,6 +268,10 @@ if __name__ == '__main__':
 
     args.features_set = features_set
 
+    args.scalar_params_idxs = scalar_params_idxs
+
     args.BaseModel = BaseModel
+
+    args.ce_weights = ce_weights
 
     run_main(args, bohb_params)

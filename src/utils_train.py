@@ -111,23 +111,24 @@ def phase_shift(timeseries_tensor, bin_shift):
     shifted end parts move from one end to the other.
 
     :param timeseries_tensor: time-series tensor; shape (N,) in which N is the length of the time-series; dtype float32
-    :param bin_shift: list, minimum and maximum shift interval
+    :param bin_shift: shift, int number of bins to shift the time-series
     :return:
         original time-series phase-shifted
     """
 
-    shift = tf.random.uniform(shape=(),
-                      minval=bin_shift[0],
-                      maxval=bin_shift[1],
-                      dtype=tf.dtypes.int32, name='randuniform')
+    # shift = tf.random.uniform(shape=(),
+    #                   minval=bin_shift[0],
+    #                   maxval=bin_shift[1],
+    #                   dtype=tf.dtypes.int32, name='randuniform')
 
-    if shift == 0:
+    if bin_shift == 0:
         return timeseries_tensor
-    elif shift > 0:
-        return tf.concat([tf.slice(timeseries_tensor, (shift,), (timeseries_tensor.get_shape()[0] - shift,)),
-                          tf.slice(timeseries_tensor, (0,), (shift,))],
+    elif bin_shift > 0:
+        return tf.concat([tf.slice(timeseries_tensor, (bin_shift,), (timeseries_tensor.get_shape()[0] - bin_shift,)),
+                          tf.slice(timeseries_tensor, (0,), (bin_shift,))],
                          axis=0, name='pos_shift')
     else:
-        return tf.concat([tf.slice(timeseries_tensor, timeseries_tensor.get_shape() - tf.constant(shift), (shift,)),
-                          tf.slice(timeseries_tensor, (0,), (timeseries_tensor.get_shape()[0] - shift,))],
+        return tf.concat([tf.slice(timeseries_tensor,
+                                   timeseries_tensor.get_shape() - tf.constant(bin_shift), (bin_shift,)),
+                          tf.slice(timeseries_tensor, (0,), (timeseries_tensor.get_shape()[0] - bin_shift,))],
                          axis=0, name='neg_shift')
