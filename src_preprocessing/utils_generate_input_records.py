@@ -154,10 +154,11 @@ def get_tess_tce_table(config):
     """
 
     # name of the column in the TCE table with the label/disposition
-    _LABEL_COLUMN = "disposition"
+    # _LABEL_COLUMN = "disposition"
+    _LABEL_COLUMN = "label"
     # labels used to filter TCEs in the TCE table
     # KP, CP, PC, EB, IS, V, O, FP
-    _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O"}
+    _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O", "FP", "CP"}
 
     # map from fields' names in the TCE table to fields' names in the TCE TPS table for TESS that we want to extract
     # if fields is None:
@@ -173,7 +174,8 @@ def get_tess_tce_table(config):
     # Read the CSV file of TESS TOIs.
     # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
     tce_table = pd.read_csv(config.input_tce_csv_file, comment="#")
-    tce_table["transitDurationHours"] /= 24  # convert hours to days.
+    # tce_table["transitDurationHours"] /= 24  # convert hours to days.
+    tce_table["tce_duration"] /= 24  # convert hours to days.
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
 
     # Filter TCE table to allowed labels.
@@ -262,7 +264,6 @@ def shuffle_tce(tce_table, seed=123):
     np.random.seed(seed)
 
     tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
-    #tce_table = tce_table.iloc[np.arange(4674,0,-1)]
 
     tf.logging.info("Randomly shuffled TCEs.")
 

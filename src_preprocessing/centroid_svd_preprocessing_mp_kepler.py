@@ -271,11 +271,14 @@ def kepler_svdcentroidprocessing(channels, lc_data_dir, kepids, save_dir, num_si
 
 if __name__ == '__main__':
 
-    save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/Kepler/'
+    # save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_svd_processing/Kepler/'
+    save_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/centroid_pca_denoising/Kepler/'
     lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
 
-    kepid_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/Kepler/'
-                            'q1_q17_dr25_stellar_gaiadr2.csv')['kepid']
+    # get list of unique targets
+    # kepid_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/Kepler/'
+    #                         'q1_q17_dr25_stellar_gaiadr2.csv')['kepid']
+
     kepids = kepid_tbl.unique()
 
     num_singularvalues = 6

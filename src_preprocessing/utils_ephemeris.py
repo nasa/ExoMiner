@@ -63,9 +63,86 @@ def create_binary_time_series(time, epoch, duration, period):
     # set to 1 the in-transit timestamps
     for sTransit, eTransit in zip(startTransitTimes, endTransitTimes):
 
+        # warning value when the array has NaN values; they are considered False, so not in the interval defined
         transit_idxs = np.where(np.logical_and(time >= sTransit, time < eTransit))[0]
         # transit_idxs = np.where(time >= sTransit)[0]
         # transit_idxs = np.intersect1d(transit_idxs, np.where(time < eTransit)[0])
         binary_time_series[transit_idxs] = 1
 
     return binary_time_series
+
+
+def lininterp_transits(timeseries, transit_pulse_train, idxs_it, start_idxs, end_idxs):
+    """ Linearly interpolate the timeseries across the in-transit cadences.
+
+    :param timeseries: list of numpy arrays, time-series; if centroid is True, then it is a dictionary with a list of
+    numpy arrays for each coordinate ('x' and 'y')
+    :param transit_pulse_train: list of numpy arrays, binary arrays that are 1's for in-transit cadences and 0 otherwise
+    :param idxs_it: list of numpy arrays indicating the indexes of in-transit cadences in transit_pulse_train
+    :param start_idxs: list of numpy arrays indicating the starting index for each transit
+    :param end_idxs: list of numpy arrays indicating the last index for each transit
+    :return:
+        timeseries_interp: list of numpy arrays, time-series linearly interpolated at the transits
+    """
+
+    # initialize variables
+    timeseries_interp = []
+
+    for i in range(len(timeseries)):
+
+        timeseries_interp.append(np.array(timeseries[i]))
+
+        if len(idxs_it[i]) == 0:  # no transits in the array
+            continue
+
+        for start_idx, end_idx in zip(start_idxs[i], end_idxs[i]):
+
+            # boundary issue - do nothing, since the whole array is a transit; does this happen?
+            if idxs_it[start_idx] == 0 and idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:
+                continue
+
+            if idxs_it[start_idx] == 0:  # boundary issue start - give constant value at the end
+                timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                    timeseries[i][idxs_it[end_idx - 1] + 1]
+
+            elif idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
+                timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                    timeseries[i][idxs_it[start_idx] - 1]
+
+            else:  # linear interpolation
+                idxs_interp = np.array([idxs_it[start_idx] - 1, idxs_it[end_idx - 1] + 1])
+                idxs_to_interp = np.arange(idxs_it[start_idx], idxs_it[end_idx - 1] + 1)
+
+                timeseries_interp[i][idxs_to_interp] = np.interp(idxs_to_interp,
+                                                                 idxs_interp,
+                                                                 timeseries[i][idxs_interp])
+
+    return timeseries_interp
+
+
+def get_startend_idxs_inter(transit_pulse_train):
+    """ Get in-transit indexes and the respective start and end indexes based on a transit pulse train of 0's for the
+    out-of-transit cadences and 1's for the in-transit cadences.
+
+    :param transit_pulse_train: list of numpy arrays, binary arrays that are 1's for in-transit cadences and 0 otherwise
+    :return:
+        idxs_it: list of numpy arrays indicating the indexes of in-transit cadences in transit_pulse_train
+        start_idxs: list of numpy arrays indicating the starting index for each transit
+        end_idxs: list of numpy arrays indicating the last index for each transit
+    """
+
+    idxs_it, start_idxs, end_idxs = [], [], []
+    for i in range(len(transit_pulse_train)):
+
+        idxs_it.append(np.where(transit_pulse_train[i] == 1)[0])
+
+        if len(idxs_it[-1]) == 0:  # no transits in the array
+            start_idxs.append([])
+            end_idxs.append([])
+        else:
+            idxs_lim = np.where(np.diff(idxs_it[-1]) > 1)[0] + 1
+
+            start_idxs.append(np.insert(idxs_lim, 0, 0))
+            end_idxs.append(np.insert(idxs_lim, -1, len(idxs_it[-1])))
+
+    return idxs_it, start_idxs, end_idxs

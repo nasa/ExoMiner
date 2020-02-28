@@ -9,7 +9,6 @@ TODO: add multiprocessing option, maybe from inside Python, but that would only 
 
 # 3rd party
 import sys
-# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -345,7 +344,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'dr25tcert_spline_gapped_glflux-2stellar_glfluxconfig'
+    study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
@@ -366,7 +365,8 @@ if __name__ == "__main__":
     # fields to be extracted from the tfrecords
     # set to None if not adding other fields to
     # fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
-    fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
+    fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']  # backward compatibility
+    # fields = ['target_id', 'tce_plnt_num', 'label', 'original label', 'tce_period', 'tce_duration', 'tce_time0bk']
 
     # perform only inference
     inference_only = False

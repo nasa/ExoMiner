@@ -86,7 +86,7 @@ def report_exclusion(config, tce, id_str, stderr=None):
     if config.satellite == 'kepler':
         main_str = 'KepID {} TCE {}'.format(tce.kepid, tce.tce_plnt_num)
     else:  # 'tess'
-        main_str = 'TICID {} TCE {} Sector {}'.format(tce.ticid, tce.tce_plnt_num, tce.sector)
+        main_str = 'TICID {} TCE {} Sector {}'.format(tce.target_id, tce[config.tce_identifier], tce.sector)
 
     if is_pfe():
 
@@ -123,6 +123,7 @@ def read_light_curve(tce, config):
     Raises:
       IOError: If the light curve files for this target cannot be found.
     """
+
     # gets all filepaths for the FITS files for this target
     if config.satellite == 'kepler':
 
@@ -138,11 +139,31 @@ def read_light_curve(tce, config):
         return kepler_io.read_kepler_light_curve(file_names, centroid_radec=not config.px_coordinates)
 
     else:
-        file_names = tess_io.tess_filenames(config.lc_data_dir, tce.tic, tce.sector, config.multisector)
+        # file_names = tess_io.tess_filenames(config.lc_data_dir, tce.tic, tce.sector, config.multisector)
+
+        # the sector field decides which sectors to look for the TCE
+        # can be single- or multi-sector run
+        if 'sector' in tce:  # if there is a 'sector' field in the TCE table
+            # overlap between sectors defined in the config and sector in the TCE table for the TCE
+            if config.sectors is not None:
+                sectors = [int(sector) for sector in tce.sector if int(sector) in config.sectors]
+            # get sectors in the TCE table for the TCE
+            else:
+                sectors = [int(sector) for sector in tce.sector]
+            # multisector = 'table'
+        else:  # get sectors defined in the config
+            sectors = config.sectors
+            # multisector = 'no-table'
+
+        file_names, tce_sectors = tess_io.tess_filenames(config.lc_data_dir, tce.target_id, sectors)
+
+        if 'sector' not in tce:
+            tce.sector = tce_sectors
 
         if not file_names:
             if not config.omit_missing:
-                raise IOError("Failed to find .fits files in {} for TESS ID {}".format(config.lc_data_dir, tce.kepid))
+                raise IOError("Failed to find .fits files in {} for TESS ID {}".format(config.lc_data_dir,
+                                                                                       tce.target_id))
             else:
                 report_exclusion(config, tce, 'No available lightcurve .fits files')
                 return None, None, None, None
@@ -287,7 +308,7 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
     return timeseries_interp
 
 
-def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_dict, gap_pad=0):
+def gap_other_tces(all_time, all_flux, all_centroids, add_info, tce, table, config, conf_dict, gap_pad=0):
     """ Remove from the time series the cadences that belong to other TCEs in the light curve. These values are set to
     NaN.
 
@@ -308,48 +329,106 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
     """
 
     # get gapped TCEs ephemeris
-    # TODO: standardize keywords in the TCE tables for TESS and Kepler so that we do not need to do this check..
     if config.satellite == 'kepler':
-        gap_ephems = table.loc[(table['kepid'] == tce.kepid) &
-                               (table['tce_plnt_num'] != tce.tce_plnt_num)][['tce_period', 'tce_duration',
-                                                                             'tce_time0bk']]
-    else:
-        gap_ephems = table.loc[(table['tic'] == tce.tic) &
-                                  (table['sector'] == tce.sector) &
-                                  (table['tce_plnt_num'] != tce.tce_plnt_num)]
+        # gap_ephems = table.loc[(table['kepid'] == tce.kepid) &
+        #                        (table['tce_plnt_num'] != tce.tce_plnt_num)][['tce_period', 'tce_duration',
+        #                                                                      'tce_time0bk']]
+        gap_ephems = table.loc[(table['target_id'] == tce.target_id) &
+                               (table[config.tce_identifier] != tce[config.tce_identifier])][['tce_period',
+                                                                                              'tce_duration',
+                                                                                              'tce_time0bk']]
+    else:  # TESS
+        # gap_ephems = table.loc[(table['tic'] == tce.tic) &
+        #                           (table['sector'] == tce.sector) &
+        #                           (table[config.tce_identifier] != tce[config.tce_identifier])]
+        # gap_ephems = table.loc[(table['target_id'] == tce.tic) &
+        #                        (table['sector'] == tce.sector) &
+        #                        (table[config.tce_identifier] != tce[config.tce_identifier])]
 
-    # rename column names to same as Kepler - it would be easier if the uniformization was done in the TCE tables
-    if config.satellite == 'tess':
-        gap_ephems = gap_ephems.rename(columns={'transitDurationHours': 'tce_duration', 'orbitalPeriodDays':
-            'tce_period', 'transitEpochBtjd': 'tce_time0bk'})
+        # if sector column exists in the TCE table
+        if 'sector' in table:
+
+            # get observed sectors for the current TCE
+            sectors = tce.sector.split(' ')
+
+            # get ephemeris for the TCEs which belong to the same target star
+            candidateGapTceTable = table.loc[(table['target_id'] == tce.target_id) &
+                                             (table[config.tce_identifier] !=
+                                              tce[config.tce_identifier])][['tce_period',
+                                                                            'tce_duration',
+                                                                            'tce_time0bk']]
+
+            # get TCEs whose observed sectors overlap with the observed sectors for the current TCE
+            candidatesRemoved = []
+            gapSectors = {}
+            for i, candidate in candidateGapTceTable.iterrows():
+                candidateSectors = candidate.sector.split(' ')
+                # get only overlapping sectors
+                sectorsIntersection = np.intersect1d(sectors, candidateSectors)
+                if len(sectorsIntersection) > 0:
+                    gapSectors[len(gapSectors)] = sectorsIntersection
+                else:
+                    candidatesRemoved.append(i)
+            # remove candidates that do not have any overlapping sectors
+            gap_ephems = candidateGapTceTable.drop(candidateGapTceTable.index[candidatesRemoved], inplace=False)
+
+        else:  # if not, gap all TCEs that belong to the same target star
+
+            gap_ephems = table.loc[(table['target_id'] == tce.target_id) &
+                                   (table[config.tce_identifier] != tce[config.tce_identifier])][['tce_period',
+                                                                                                  'tce_duration',
+                                                                                                  'tce_time0bk']]
+
+            gapSectors = {gtce_i: add_info['sector'] for gtce_i in range(len(gap_ephems))}
+
+            print('#####' * 50)
+            print('1', len(gap_ephems), print(gapSectors))
+
+    # # rename column names to same as Kepler - it would be easier if the uniformization was done in the TCE tables
+    # if config.satellite == 'tess':
+    #     gap_ephems = gap_ephems.rename(columns={'transitDurationHours': 'tce_duration', 'orbitalPeriodDays':
+    #         'tce_period', 'transitEpochBtjd': 'tce_time0bk'})
 
     # if gapping with confidence level, remove those gapped TCEs that are not in the confidence dict
-    if config.gap_with_confidence_level:
+    # TODO: currently only implemented for Kepler
+    if config.gap_with_confidence_level and config.satellite == 'kepler':
         poplist = []
         for index, gapped_tce in gap_ephems.iterrows():
-            if (tce.kepid, gapped_tce.tce_plnt_num) not in conf_dict or \
-                    conf_dict[(tce.kepid, gapped_tce.tce_plnt_num)] < config.gap_confidence_level:
-                poplist += [gapped_tce.tce_plnt_num]
+            if (tce.kepid, gapped_tce[config.tce_identifier]) not in conf_dict or \
+                    conf_dict[(tce.target_id, gapped_tce[config.tce_identifier])] < config.gap_confidence_level:
+                poplist += [gapped_tce[config.tce_identifier]]
 
-        gap_ephems = gap_ephems.loc[gap_ephems['tce_plnt_num'].isin(poplist)]
+        gap_ephems = gap_ephems.loc[gap_ephems[config.tce_identifier].isin(poplist)]
+    elif config.gap_with_confidence_level and config.satellite == 'tess':
+        raise NotImplementedError('Using confidence level for gapping TCEs not implemented for TESS.')
 
+    # initialize array to get timestamps for imputing
     imputed_time = [] if config.gap_imputed else None
 
     # begin_time, end_time = all_time[0][0], all_time[-1][-1]
 
     # find gapped cadences for each TCE
+    real_ephem_i = 0
     for ephem_i, ephem in gap_ephems.iterrows():
 
         ephem['tce_duration'] = ephem['tce_duration'] * (1 + 2 * gap_pad)
 
         for i in range(len(all_time)):
 
+            print('2', real_ephem_i, gapSectors)
+            # for TESS, check if this time array belongs to one of the overlapping sectors
+            if config.satellite != 'kepler' and add_info['sector'][i] not in gapSectors[real_ephem_i]:
+                continue
+
             begin_time, end_time = all_time[i][0], all_time[i][-1]
 
+            # get timestamp of the first transit of the gapped TCE in the current time array
             epoch = find_first_epoch_after_this_time(ephem['tce_time0bk'], ephem['tce_period'], begin_time)
 
+            # create binary time-series for this time interval based on the ephemeris of the gapped TCE
             bintransit_ts = create_binary_time_series(all_time[i], epoch, ephem['tce_duration'], ephem['tce_period'])
 
+            # get indexes of in-transit cadences for the gapped TCE in this time array
             transit_idxs = np.where(bintransit_ts == 1)
 
             # get gapped cadences to be imputed
@@ -360,6 +439,8 @@ def gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_d
             all_flux[i][transit_idxs] = np.nan
             all_centroids['x'][i][transit_idxs] = np.nan
             all_centroids['y'][i][transit_idxs] = np.nan
+
+        real_ephem_i += 1
 
     return all_time, all_flux, all_centroids, imputed_time
 
@@ -385,10 +466,15 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
     #     print(tce[['kepid', 'tce_plnt_num', 'ra', 'dec', 'av_training_set']])
     # else:
     #     return None
-    if tce['disposition'] == 'PC' and tce['tic'] == 100608026 and tce['tce_plnt_num'] == 1:  # what about sector?
-        print(tce[['tic', 'tce_plnt_num', 'disposition']])
-    else:
-        return None
+    # if tce['disposition'] == 'PC' and tce['tic'] == 100608026 and tce['tce_plnt_num'] == 1:  # what about sector?
+    #     print(tce[['tic', 'tce_plnt_num', 'disposition']])
+    # else:
+    #     return None
+
+    # if tce['label'] == 'KP' and tce['target_id'] == 238176110:  #  and tce['tce_plnt_num'] == 1:  # what about sector?
+    #     print(tce[['target_id', 'label']])
+    # else:
+    #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = True
@@ -401,6 +487,9 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
 
         # get cadence, flux and centroid data for the tce
         all_time, all_flux, all_centroids, add_info = read_light_curve(tce, config)
+
+        if all_time is None:
+            return None
 
         if plot_preprocessing_tce:
             utils_visualization.plot_centroids(all_time, all_centroids, None, tce, config,
@@ -450,13 +539,11 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
         all_time, all_flux, all_centroids['x'], all_centroids['y'] = \
             [all_time], [all_flux], [all_centroids['x']], [all_centroids['y']]
 
-    # oot_rms = get_centr_oot_rms(all_centroids, all_time, tce, table, config)  # centroid Out Of transit (oot) RMS
-
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
     # gap other TCEs in the light curve
     if config.gapped:
         all_time, all_flux, all_centroids, gap_time = \
-            gap_other_tces(all_time, all_flux, all_centroids, tce, table, config, conf_dict, gap_pad=0)
+            gap_other_tces(all_time, all_flux, all_centroids, add_info, tce, table, config, conf_dict, gap_pad=0)
 
     # remove timestamps with NaN or infinite time, flux or centroid values in each quarter
     # at least some of these NaNs come from gapping the time series

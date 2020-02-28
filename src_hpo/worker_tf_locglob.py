@@ -208,10 +208,6 @@ class TransitClassifier(Worker):
         print('#' * 100)
         sys.stdout.flush()
 
-        # # save features and config used for this model
-        # np.save('{}/features_set'.format(classifier.model_dir), self.features_set)
-        # np.save('{}/config'.format(classifier.model_dir), config)
-
         return res_hpo
 
     @staticmethod
@@ -362,10 +358,10 @@ class TransitClassifier(Worker):
 
         # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
 
-        # lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
+        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
         # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp_fast', 'inv_exp_slow'])
 
-        # optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
+        optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
 
         sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, default_value=0.9,
                                                       log=True)
@@ -375,20 +371,23 @@ class TransitClassifier(Worker):
         # weight_initializer = CSH.CategoricalHyperparameter('weight_initializer', ['he', 'glorot'])
 
         # batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
+
         # previous values: 0.001 to 0.7
         dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.2, default_value=0.2,
                                                       log=True)
+
         # l2_regularizer = CSH.CategoricalHyperparameter('l2_regularizer', [True, False])
         # l2_decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2,
         #                                                log=True)
 
-        config_space.add_hyperparameters([sgd_momentum, dropout_rate,
+        config_space.add_hyperparameters([sgd_momentum, dropout_rate, optimizer, lr
                                           # lr, optimizer, batch_size, l2_regularizer, l2_decay_rate, use_softmax, lr_scheduler,
                                           # batch_norm, non_lin_fn, weight_initializer
                                           ])
 
-        # cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
-        # config_space.add_condition(cond)
+        cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
+        config_space.add_condition(cond)
+
         # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
         # config_space.add_condition(cond)
 

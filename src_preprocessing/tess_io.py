@@ -36,7 +36,6 @@ SECTOR_ID = {1: ("2018206045859", "120"),
 def tess_filenames(base_dir,
                    ticid,
                    sectors,
-                   multisector,
                    check_existence=True):
     """ Returns the light curve filenames for a TESS target star.
 
@@ -56,25 +55,27 @@ def tess_filenames(base_dir,
     Args:
     base_dir: Base directory containing Kepler data
     ticid: Id of the TESS target star. May be an int or a possibly zero-padded string
-    sectors: observation sector(s). If single-sector run, integer, if multi-sector run, string in which sectors are
-    separated by spaces
-    multisector: bool, if True assumes FITS files for the target star are to be read from more than one observation
-    sector
+    sectors: list of observation sector(s)
+    # multisector: str, either 'table' or 'no-table'; if 'table', the sectors list defines from which sectors to extract
+    the TCE; if 'no-table', then looks for the target star in all the sectors in `sectors`.
     check_existence: If True, only return filenames corresponding to files that exist
 
     Returns:
     A list of filepaths to the FITS files for a given TIC and observation sector(s)
+    A string containing all the sectors in which the TCE was observed separated by a space
     """
 
+    # initialize variables
     filenames = []
+    tce_sectors = ''
 
     # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
     tess_id = str(ticid).zfill(16)
 
-    if multisector:  # multi-sector run
-        sectors = [int(sector) for sector in sectors.split(' ')]
-    else:  # single-sector run
-        sectors = [sectors]
+    # if multisector:  # multi-sector run
+    #     sectors = [int(sector) for sector in sectors.split(' ')]
+    # else:  # single-sector run
+    #     sectors = [sectors]
 
     for sector in sectors:
 
@@ -89,12 +90,14 @@ def tess_filenames(base_dir,
         base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
         filename = os.path.join(base_dir, base_name)
 
+        # TODO: why do we want the check_existence flag?
         if not check_existence or gfile.Exists(filename):
             filenames.append(filename)
+            tce_sectors += '{} '.format(sector)
     # else:
     #     print("File {} does not exist.".format(filename))
 
-    return filenames
+    return filenames, tce_sectors[:-1]
 
 
 def read_tess_light_curve(filenames,
@@ -127,7 +130,7 @@ def read_tess_light_curve(filenames,
     all_time = []
     all_flux = []
     all_centroid = {'x': [], 'y': []}
-    add_info = {'camera-ccd': [], 'target position': []}
+    add_info = {'camera': [], 'ccd': [], 'sector': [], 'target position': []}
 
     def _has_finite(array):
         for i in array:
@@ -140,12 +143,13 @@ def read_tess_light_curve(filenames,
     for filename in filenames:
         with fits.open(gfile.Open(filename, "rb")) as hdu_list:
 
-            camera, ccd = hdu_list["PRIMARY"].header["CAMERA"], hdu_list["PRIMARY"].header["CCD"]
-
-            ticid_coord1, ticid_coord2 = hdu_list["PRIMARY"].header["RA_OBJ"], hdu_list["PRIMARY"].header["DEC_OBJ"]
+            add_info['camera'].append(hdu_list["PRIMARY"].header["CAMERA"])
+            add_info['ccd'].append(hdu_list["PRIMARY"].header["CCD"])
+            add_info['sector'].append(hdu_list["PRIMARY"].header["SECTOR"])
 
             if len(add_info['target position']) == 0:
-                add_info['target position'] = [ticid_coord1, ticid_coord2]
+                add_info['target position'] = [hdu_list["PRIMARY"].header["RA_OBJ"],
+                                               hdu_list["PRIMARY"].header["DEC_OBJ"]]
 
                 # TODO: convert target position from RA and Dec to local CCD pixel coordinates
                 if not centroid_radec:
@@ -189,7 +193,7 @@ def read_tess_light_curve(filenames,
         if centroid_radec:
             centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix,
                                                             ref_px_apert,
-                                                            ref_angcoord)
+                                                            ref_angcoord, 'tess')
 
         all_centroid['x'].append(centroid_x)
         all_centroid['y'].append(centroid_y)
@@ -205,8 +209,6 @@ def read_tess_light_curve(filenames,
 
         all_time.append(time)
         all_flux.append(flux)
-
-        add_info['camera-ccd'].append((camera, ccd))
 
     # TODO: adapt this to the centroid time series as well?
     #if scramble_type:

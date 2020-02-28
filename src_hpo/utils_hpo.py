@@ -65,7 +65,7 @@ def estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1, verbose=True)
     print('Budgets: {}'.format(budgets))
 
     nruns, total_budget = np.sum([compute_nSH(budgets, s, smax - s % (smax + 1), smax, eta, nmodels=nmodels,
-                                              verbose=True)
+                                              verbose=verbose)
                                   for s in range(0, num_iterations, 1)], axis=0)
 
     return nruns, total_budget

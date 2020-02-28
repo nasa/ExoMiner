@@ -22,10 +22,12 @@ class Config:
     """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
     satellite = 'tess'  # choose from: ['kepler', 'tess']
-    multisector = False  # True for TESS multi-sector runs
+    multisector = True  # True for TESS multi-sector runs
+    sectors = np.arange(1, 19)
+    tce_identifier = 'oi'
 
     training = True  # choose from: 'training' or 'predict'
-    # partition the data set
+    # partition the data set; only used with training set to True
     datasets_frac = {'training': 0.8, 'validation': 0.1, 'test': 0.1}
 
     assert np.sum(list(datasets_frac.values())) <= 1
@@ -35,7 +37,8 @@ class Config:
     # minimum gap size(in time units - day) for a split
     gapWidth = 0.75
 
-    # gapping - remove other TCEs belonging to the same target
+    # gapping - remove other TCEs belonging to the same target; if conducting a multi-sector run, check only for TCEs
+    # in the same sector
     gapped = True
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
@@ -73,7 +76,7 @@ class Config:
 
     # output directory
     # output_dir = "tfrecords/tfrecord{}dr25_centroidnormalized_test".format(satellite)
-    output_dir = "tfrecords/tfrecord{}_convertrowcolpixtoradec".format(satellite)
+    output_dir = "tfrecords/tfrecord{}_testmulisector".format(satellite)
     # working directory
     w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)
@@ -107,8 +110,11 @@ class Config:
         dict_savedir = ''  # '/home/lswilken/Documents/Astronet_Simplified/pc_confidence_kepler_q1q17'
 
     elif satellite == 'tess':
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/' \
-                             'toi_list_ssectors_dvephemeris_ephmatchnoepochthr0,25.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/' \
+        #                      'toi_list_ssectors_dvephemeris_ephmatchnoepochthr0,25.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/final_tce_tables/TOI_2020.01.21_13.55.10.csv_TFOPWG_processed.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/exofop_ctoilists_Community_processed.csv'
 
         lc_data_dir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
@@ -295,41 +301,10 @@ def main(_):
         tce_table = shuffle_tce(tce_table, seed=123)
         print('Shuffled TCE Table')
 
-    # num_tces = len(tce_table)
-
     if config.whitened:  # get flux and cadence time series for the whitened data
         load_whitened_data(config)
 
     file_shards = create_shards(config, tce_table)
-    # # Partition the TCE table as follows:
-    # # pred_tces = tce_table
-    # train_cutoff = int(0.80 * num_tces)
-    # val_cutoff = int(0.90 * num_tces)
-    #
-    # train_tces = tce_table[0:train_cutoff]
-    # val_tces = tce_table[train_cutoff:val_cutoff]
-    # test_tces = tce_table[val_cutoff:]
-    #
-    # tf.logging.info("Partitioned %d TCEs into training (%d), validation (%d) and test (%d)",
-    #               num_tces, len(train_tces), len(val_tces), len(test_tces))
-    # # tf.logging.info("Partitioned %d TCEs into predict (%d)", num_tces, len(pred_tces))
-    #
-    # # Further split training TCEs into file shards.
-    # file_shards = []  # List of (tce_table_shard, file_name, full ephemeris table)
-    # boundaries = np.linspace(0, len(train_tces), config.num_train_shards + 1).astype(np.int)
-    # # boundaries = np.linspace(0, len(pred_tces), config.num_train_shards + 1).astype(np.int)
-    #
-    # for i in range(config.num_train_shards):
-    #     start = boundaries[i]
-    #     end = boundaries[i + 1]
-    #     filename = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
-    #     file_shards.append((train_tces[start:end], filename, tce_table))
-    #     # filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
-    #     # file_shards.append((pred_tces[start:end], filename, eph_table))
-    #
-    # # Validation and test sets each have a single shard
-    # file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00000"), tce_table))
-    # file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00000"), tce_table))
 
     num_file_shards = len(file_shards)
 

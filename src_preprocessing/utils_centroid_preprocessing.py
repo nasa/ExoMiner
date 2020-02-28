@@ -161,7 +161,7 @@ def synchronize_centroids_with_flux(all_time, centroid_time, all_centroids, thre
     return {'x': a[:, 2], 'y': a[:, 3]}
 
 
-def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert, ref_angcoord):
+def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert, ref_angcoord, satellite):
     """ Convert the centroid time series from pixel coordinates to world coordinates right ascension (RA) and
     declination (Dec).
 
@@ -169,11 +169,12 @@ def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_a
     :param centroid_y: list, row centroid position time series [pixel] in the CCD frame
     :param cd_transform_matrix: numpy array [2x2], coordinates transformation matrix from col, row aperture frame
     to world coordinates RA and Dec
-    :param ref_px:  numpy array [2x1], reference pixel [pixel] coordinates in the aperture frame of the target star
-    frame
+    # :param ref_px:  numpy array [2x1], reference pixel [pixel] coordinates in the aperture frame of the target star
+    # frame
     :param ref_px_apert: numpy array [2x1], reference pixel [pixel] coordinates of the origin of the aperture frame in
     the CCD frame
     :param ref_angcoord: numpy array [2x1], RA and Dec at reference pixel [RA, Dec]
+    :param satellite: str, either 'kepler' or 'tess'
     :return:
         ra: numpy array [num cadences], right ascension coordinate centroid time series
         dec: numpy array [num cadences], declination coordinate centroid time series
@@ -181,7 +182,10 @@ def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_a
 
     px_coords = np.reshape(np.concatenate((centroid_x, centroid_y)), (2, len(centroid_x)))
 
-    # offset in the aperture of [1, 1]
-    ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert + np.array([[1], [1]])) + ref_angcoord
+    if satellite == 'kepler':
+        # offset in the aperture of [1, 1]
+        ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert + np.array([[1], [1]])) + ref_angcoord
+    else:
+        ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert) + ref_angcoord
 
     return ra, dec

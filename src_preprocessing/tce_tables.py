@@ -165,7 +165,7 @@ rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MI
                           'toi-plus-tev.mit.edu_2020-01-15.csv', header=4)
 print(len(rawTceTable))
 
-disposition_src = 'Group Disposition'  # 'Group Disposition or 'TOI disposition'
+disposition_src = 'TOI Disposition'  # 'Group Disposition or 'TOI disposition'
 # Create Group or TOI disposition table by changing the field name in rawFields
 rawFields = ['TIC', 'Full TOI ID', disposition_src, 'TIC Right Ascension', 'TIC Declination', 'TMag Value',
              'TMag Uncertainty', 'Orbital Epoch Value', 'Orbital Epoch Error', 'Orbital Period Value',
@@ -184,6 +184,10 @@ renameDict = {}
 for i in range(len(rawFields)):
     renameDict[rawFields[i]] = newFields[i]
 rawTceTable.rename(columns=renameDict, inplace=True)
+
+# remove TCEs with zero period or transit duration
+rawTceTable = rawTceTable.loc[(rawTceTable['tce_period'] > 0) & (rawTceTable['tce_duration'] > 0)]
+print(len(rawTceTable))
 
 # Group disposition: 1604 to 1326 TCEs; TOI disposition: 1604 to 1571 TCEs
 rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/'
@@ -215,6 +219,13 @@ for i in range(len(rawFields)):
     renameDict[rawFields[i]] = newFields[i]
 rawTceTable.rename(columns=renameDict, inplace=True)
 
+# remove TCEs with zero period or transit duration
+rawTceTable = rawTceTable.loc[(rawTceTable['tce_period'] > 0) & (rawTceTable['tce_duration'] > 0)]
+print(len(rawTceTable))
+
+# convert epoch value from BJD to TBJD
+rawTceTable['tce_time0bk'] -= 2457000
+
 # 1604 to 536 TCEs
 rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/final_tce_tables/'
                    'TOI_2020.01.21_13.55.10.csv_TFOPWG_processed.csv', index=False)
@@ -226,7 +237,6 @@ rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP
                           header=0)
 print(len(rawTceTable))
 
-# Create Group or TOI disposition table by changing the field name in rawFields
 rawFields = ['CTOI', 'TIC ID', 'User Disposition', 'RA', 'Dec', 'TESS Mag', 'TESS Mag err', 'Midpoint (BJD)',
              'Midpoint err', 'Period (days)', 'Period (days) Error', 'Duration (hrs)', 'Duration (hrs) Error',
              'Depth ppm', 'Depth ppm Error']
@@ -243,6 +253,73 @@ for i in range(len(rawFields)):
     renameDict[rawFields[i]] = newFields[i]
 rawTceTable.rename(columns=renameDict, inplace=True)
 
-# 321 to 275 TCEs
+# remove TCEs with zero period or transit duration
+rawTceTable = rawTceTable.loc[(rawTceTable['tce_period'] > 0) & (rawTceTable['tce_duration'] > 0)]
+print(len(rawTceTable))
+
+# convert epoch value from BJD to TBJD
+rawTceTable['tce_time0bk'] -= 2457000
+
+# 321 to 273 TCEs
 rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/'
                    'exofop_ctoilists_Community_processed.csv', index=False)
+
+#%% Update fields in the Kepler DR25 TCERT disposition list to standardized fields; removed TCEs with no value for the
+# required parameters
+
+rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors.csv',
+                          header=0)
+print(len(rawTceTable))
+
+rawFields = ['kepid', 'av_training_set', 'tce_plnt_num', 'ra', 'dec', 'kepmag', 'tce_time0bk', 'tce_time0bk_err',
+             'tce_period', 'tce_period_err', 'tce_duration', 'tce_duration_err',
+             'tce_depth', 'tce_depth_err']
+newFields = ['target_id', 'label', 'tce_plnt_num', 'ra', 'dec', 'mag', 'tce_time0bk', 'tce_time0bk_err',
+             'tce_period', 'tce_period_err', 'tce_duration', 'tce_duration_err', 'transit_depth', 'transit_depth_err']
+
+# remove TCEs with any NaN in the required fields
+rawTceTable.dropna(axis=0, subset=np.array(rawFields)[[0, 1, 2, 3, 4, 6, 8, 10, 12]], inplace=True)
+print(len(rawTceTable))
+
+# rename fields to standardize fieldnames
+renameDict = {}
+for i in range(len(rawFields)):
+    renameDict[rawFields[i]] = newFields[i]
+rawTceTable.rename(columns=renameDict, inplace=True)
+
+# remove TCEs with zero period or transit duration
+rawTceTable = rawTceTable.loc[(rawTceTable['tce_period'] > 0) & (rawTceTable['tce_duration'] > 0)]
+print(len(rawTceTable))
+
+# remove 'rowid' column
+rawTceTable.drop(columns='rowid', inplace=True)
+
+# 34032 to 34032 TCEs
+rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
+                   'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_processed.csv',
+                   index=False)
+
+#%% Add KOI fields to ranking
+
+rankingTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                            'dr25tcert_spline_gapped_glflux-lcentr-loe-6stellar_glfluxconfig/ranked_predictions_testset',
+                            header=0)
+
+keplerTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
+                           'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koi_processed.csv',
+                           header=0)
+
+# fields to be added to the ranking table
+addedFields = ['kepoi_name', 'kepler_name', 'koi_disposition', 'koi_fpflag_nt', 'koi_fpflag_ss', 'koi_fpflag_co',
+               'koi_fpflag_ec', 'koi_comment', 'koi_datalink_dvr', 'koi_datalink_dvs']
+
+# instantiate these fields as NaN for all TCEs
+rankingTceTbl = pd.concat([rankingTceTbl, pd.DataFrame(columns=addedFields)])
+
+for tce_i, tce in rankingTceTbl.iterrows():
+    rankingTceTbl.iloc[tce_i, addedFields] = keplerTceTbl.loc[(keplerTceTbl['target_id'] == tce.kepid) &
+                                                              (keplerTceTbl['tce_plnt_num'] == tce.tce_n)][addedFields]
+
+rankingTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                     'dr25tcert_spline_gapped_glflux-lcentr-loe-6stellar_glfluxconfig/ranked_predictions_testset_koi',
+                     index=False)

@@ -812,7 +812,7 @@ class CNN1dPlanetFinderv1(object):
         # TODO: NEED TO CHANGE THIS MANUALLY...
         # for view in ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_oddeven',
         # 'local_view_oddeven']:
-        for view in ['global_view', 'local_view']:
+        for view in ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'local_view_oddeven']:
 
             with tf.variable_scope('ConvNet_%s' % view):
 
@@ -820,7 +820,7 @@ class CNN1dPlanetFinderv1(object):
                 if 'oddeven' not in view:  # for branches that do not involve odd-even views
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
                                      if view == feature_name], axis=-1, name='input_{}'.format(view))
-                elif view == 'local_oddeven':  # local odd-even view
+                elif view == 'local_view_oddeven':  # local odd-even view
                     input = tf.stack([feature for feature_name, feature in self.time_series_features.items()
                                       if feature_name in ['local_view_odd', 'local_view_even']],
                                      axis=-1,
@@ -1638,7 +1638,7 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
                 n_samples[curr_dataset][label_map[label]] += 1
 
         except tf.errors.DataLossError as err:
-            print("Oops: " + str(err))
+            print("{}".format(err))
 
     return n_samples
 
@@ -1704,6 +1704,9 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             if 'target_id' in union_fields:
                 datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
 
+            if 'oi' in union_fields:
+                datum['oi'] = example.features.feature['oi'].int64_list.value[0]
+
             if 'tce_plnt_num' in union_fields:
                 datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
@@ -1726,7 +1729,7 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
                 if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
                     continue
 
-                if 'original label' in filt.keys() and datum['original label'] not in filt['original label'].values:
+                if 'original_label' in filt.keys() and datum['original_label'] not in filt['original_label'].values:
                     continue
 
                 if coupled:
@@ -1751,7 +1754,7 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
                         not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
                     continue
 
-                if 'MES' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
+                if 'mes' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
                     continue
 
                 data['selected_idxs'][-1] = True

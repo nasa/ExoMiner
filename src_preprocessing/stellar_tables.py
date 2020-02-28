@@ -4,6 +4,7 @@ import numpy as np
 from astropy.io import fits
 from tensorflow import gfile
 import os
+import logging
 
 # TODO: do the same for the targets of the 180k Kepler non-TCEs and for TESS
 #%% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
@@ -277,7 +278,7 @@ for row_star_i, row_star in stellar_tbl.iterrows():
 print('Number of TCEs updated: {}'.format(count))
 tce_tbl.to_csv('/home/msaragoc/Downloads/newtcetbl180k_test.csv', index=False)
 
-#%% Create stellar parameters table based on info from the FITS files
+#%% Create TESS target list based on which targets were observed in sectors 1-19
 
 # list of targets
 ticIdsVisited2 = []
@@ -309,12 +310,16 @@ for sector in sectors:
 
     # for i in range(len(sectorTicIds)):
     #     if sectorTicIds[i] not in ticIdsVisited:
-            with fits.open(gfile.Open(os.path.join(fitsDir, os.path.join('sector_{}'.format(sector), fitsFilename)), "rb")) as hdu_list:
+            with fits.open(gfile.Open(os.path.join(fitsDir, os.path.join('sector_{}'.format(sector), fitsFilename)), "rb")) \
+                    as hdu_list:
                 ticIdsVisited2.append(hdu_list['PRIMARY'].header['TICID'])
     #         ticIdsVisited.append(ticId)
 
 # 182939 targets
 np.save('/data5/tess_project/Data/Ephemeris_tables/Stellar_parameters/TESS/final_target_list_s1-s19.npy', ticIdsVisited)
+
+#%% Create TESS stellar parameters table based on info from the FITS files and using the CTL list for sectors 1-19
+
 headerList = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/tic_column_description.txt',
                          skiprows=1, header=None, sep='\t', usecols=[1]).values.ravel()
 
@@ -370,3 +375,91 @@ dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar_parameters/T
 #         aaaaa
 #
 #     j += len(chunk2)
+
+#%% Create TESS stellar parameters table based on info from the FITS files and using the TIC-8 list for sectors 1-19
+
+logging.basicConfig(filename='/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/tic8.log',
+                    filemode='a', format='%(message)s', level=logging.INFO)
+
+# column descriptions
+headerList = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/tic_column_description.txt',
+                         skiprows=1, header=None, sep='\t', usecols=[1]).values.ravel()
+
+# root directory with TIC-8 csv files
+ticDir = '/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/TIC-8'
+ticQuadTbls = [os.path.join(ticDir, ticQuadTbl) for ticQuadTbl in os.listdir(ticDir)]
+
+# targets observed in sectors 1-19; look for parameters for these
+ticsFits = np.load('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/final_target_list_s1-s19.npy')
+
+# define number of rows to read from a table in one iteration
+chunksize = 10000
+
+# initialize target table variable
+dfTicList = None
+
+# iterate through TIC-8 csv files
+for tbl_i, ticQuadTbl in enumerate(ticQuadTbls):
+
+    # create an iterator that reads chunksize rows each time
+    dfCtlReader = pd.read_csv(ticQuadTbl, chunksize=chunksize, header=None, names=headerList)
+
+    i = 1
+    for chunk in dfCtlReader:
+
+        # print('Reading TICs {}-{} from table {} ({} %)'.format(i, i + len(chunk) - 1, ticQuadTbl.split('/')[-1],
+        #                                                        tbl_i / len(ticQuadTbls) * 100))
+        logging.info('Reading TICs {}-{} from table {} ({} %)'.format(i, i + len(chunk) - 1, ticQuadTbl.split('/')[-1],
+                                                                      tbl_i / len(ticQuadTbls) * 100))
+
+        validTics = chunk.loc[chunk['[ID] [bigint]'].isin(ticsFits)]
+
+        if dfTicList is None:
+            dfTicList = validTics
+        else:
+            dfTicList = pd.concat([dfTicList, validTics])
+
+        i += len(chunk)
+        # print('Number of valid TICs added: {}\nTotal: {}'.format(len(validTics), len(dfTicList)))
+        logging.info('Number of valid TICs added: {}\nTotal: {}'.format(len(validTics), len(dfTicList)))
+
+# 182939 targets
+dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/final_target_list_s1-s19-tic8.csv',
+                 index=False)
+
+#%% Update TESS TCE table with stellar parameters with standardized column names
+
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/....csv')
+
+stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/'
+                          'final_target_list_s1-s19-tic8.csv')
+
+stellar_fields_out = ['tessmag', 'tce_steff', 'tce_steff_err', 'tce_slogg', 'tce_slogg_err',
+                      'tce_smet', 'tce_smet_err', 'tce_sradius', 'tce_sradius_err',
+                      'tce_smass', 'tce_smass_err', 'tce_sdens', 'tce_sdens_err', 'ra', 'dec']
+stellar_fields_in = ['[Tmag] [real]', '[e_Tmag] [real]', '[Teff][real]', '[e_Teff][real]', '[logg][real]',
+                     '[e_logg][real]', '[MH][real]', '[e_MH][real]', '[rad][real]', '[e_rad][real]', '[mass][real]',
+                     '[e_mass][real]', '[rho][real]', '[e_rho][real]', '[ra] [float]', '[dec] [float]']
+
+tce_tbl_cols = list(tce_tbl.columns)
+
+for stellar_param in stellar_fields_out:
+    if stellar_param not in tce_tbl_cols:
+        tce_tbl[stellar_param] = np.nan
+
+count = 0
+for row_star_i, row_star in stellar_tbl.iterrows():
+
+    if row_star_i % 100 == 0:
+        print('Star {} out of {} ({} %)\n Number of TCEs updated: {}'.format(row_star_i,
+                                                                             len(stellar_tbl),
+                                                                             row_star_i / len(stellar_tbl) * 100,
+                                                                             count))
+    target_cond = tce_tbl['kepid'] == row_star['kepid']
+
+    count += target_cond.sum()
+
+    tce_tbl.loc[target_cond, stellar_fields_out] = row_star[stellar_fields_in].values
+
+print('Number of TCEs updated: {}'.format(count))
+tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/final_tce_tables/....csv', index=False)

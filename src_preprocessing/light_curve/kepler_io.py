@@ -276,7 +276,7 @@ def read_kepler_light_curve(filenames,
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
             centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert,
-                                                            ref_angcoord)
+                                                            ref_angcoord, 'kepler')
 
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME

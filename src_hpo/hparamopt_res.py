@@ -19,14 +19,14 @@ import paths
 
 num_iterations = 10
 eta = 2
-bmin, bmax = 15, 120
+bmin, bmax = 5, 50
 nmodels = 3
 nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
 print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline_gapped_glflux-lcentr-loe_20-100budget72hours'
+study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -379,7 +379,7 @@ for run_i, run in enumerate(timesorted_allruns):
                                                                                                     run.budget))
 
             ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
-            mu_hpoloss = 1 - np.median(ensmetrics[:, -1])
+            mu_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
 
             if run.loss < bconfig_loss:
@@ -545,8 +545,8 @@ for study_i in range(len(studies)):
                                                                                                         run.budget))
 
                 ensmetrics = np.array(np.load(censemetrics).item()['validation'][hpo_loss]['all scores'])
-                mu_hpoloss = 1 - np.median(ensmetrics[:, -1])  # compute mean loss
-                sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])  # compute std
+                mu_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])  # compute mean loss
+                sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])  # compute standard error of the mean
 
                 if run.loss < bconfig_loss:
                     bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss

@@ -25,10 +25,12 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
 
     f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
 
-    if config.satellite == 'kepler':
-        plt.suptitle('Kepler ID {} | TCE {} | {}'.format(tce['kepid'], tce['tce_plnt_num'], tce['av_training_set']))
-    else:
-        plt.suptitle('TIC ID {} | TCE {} | {}'.format(tce['tic'], tce['tce_plnt_num'], tce['disposition']))
+    # if config.satellite == 'kepler':
+    #     plt.suptitle('Kepler ID {} | TCE {} | {}'.format(tce['kepid'], tce['tce_plnt_num'], tce['av_training_set']))
+    # else:
+    #     plt.suptitle('TIC ID {} | TCE {} | {}'.format(tce['tic'], tce['tce_plnt_num'], tce['disposition']))
+
+    plt.suptitle('TIC ID {} | TCE {} | {}'.format(tce['target_id'], tce[config.tce_identifier], tce['label']))
 
     ax[0].plot(np.concatenate(all_time), np.concatenate(binary_time_all))
     for time in all_time:
@@ -43,10 +45,12 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     ax[1].set_ylabel('Amplitude')
     ax[1].set_xlabel('Time [day]')
 
-    if config.satellite == 'kepler':
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-    else:
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+    # if config.satellite == 'kepler':
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+    # else:
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -96,22 +100,26 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
         #     ax[0].title.set_fontsize(10)
         # else:
         if config.satellite == 'kepler':
-            # ax[0].set_title('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-            ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+            # # ax[0].set_title('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+            # ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
 
             if add_info is not None:
                 f.suptitle('Quarters: {}\nModules: {}'.format(add_info['quarter'], add_info['module']))
 
-            # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
-        else:
-            # ax[0].set_title('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-            # ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
-            ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce['Full TOI ID'], tce.label))
+        #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+        # else:
+        #     # ax[0].set_title('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+        #     # ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+        #     ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        #
+        #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+        #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
-            # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
-            # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['Full TOI ID'], tce.label, basename))
+        ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+
+        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
         plt.close()
 
@@ -149,25 +157,29 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
         ax[0, 0].set_title('Non-normalized centroid time-series')
         ax[0, 1].set_title('Normalized centroid time-series')
 
-        if config.satellite == 'kepler':
-            if add_info is not None:
-                # f.suptitle('Quarters: {}\nModules: {}\nKepler ID {}'.format(add_info['quarter'], add_info['module'],
-                #                                                             tce.kepid))
-                f.suptitle('Quarters: {}\nModules: {}\nKepler ID {}'.format(add_info['quarter'], add_info['module'],
-                                                                            tce.target_id))
-            else:
-                # f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-                f.suptitle('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+        # if config.satellite == 'kepler':
+        #     if add_info is not None:
+        #         # f.suptitle('Quarters: {}\nModules: {}\nKepler ID {}'.format(add_info['quarter'], add_info['module'],
+        #         #                                                             tce.kepid))
+        #         f.suptitle('Quarters: {}\nModules: {}\nKepler ID {}'.format(add_info['quarter'], add_info['module'],
+        #                                                                     tce.target_id))
+        #     else:
+        #         # f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+        #         f.suptitle('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+        #
+        #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
+        #     #                                        tce.av_training_set, basename))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+        # else:
+        #     # f.suptitle('TCE {} {} {}'.format(tce.disposition, tce.tce_plnt_num, tce.disposition))
+        #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        #
+        #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
-            # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
-            #                                        tce.av_training_set, basename))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
-        else:
-            # f.suptitle('TCE {} {} {}'.format(tce.disposition, tce.tce_plnt_num, tce.disposition))
-            f.suptitle('TCE {} {} {}'.format(tce.target_id, tce['Full TOI ID'], tce.label))
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
 
-            # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['Full TOI ID'], tce.label, basename))
+        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
         plt.close()
 
@@ -201,23 +213,27 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
     ax[1].set_title('Spline normalized flux time-series')
     ax[0].set_title('Non-normalized flux time-series')
 
-    if config.satellite == 'kepler':
-        # f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-        #
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
-        #                                        tce.av_training_set, basename))
+    # if config.satellite == 'kepler':
+    #     # f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+    #     #
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
+    #     #                                        tce.av_training_set, basename))
+    #
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+    #
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+    # else:
+    #     # f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+    #     #
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+    #
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    #
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce.tce_plnt_num, tce.label))
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
 
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
-    else:
-        # f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-        #
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
-
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce['Full TOI ID'], tce.label))
-
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['Full TOI ID'], tce.label, basename))
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -261,23 +277,28 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
 
     plt.figure(figsize=(18, 8))
 
-    if config.satellite == 'kepler':
-        # plt.suptitle('Centroid time-series\n'
-        #              'Kepler ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['kepid'], tce['tce_plnt_num'],
-        #                                                                       tce['av_training_set'], target_coords))
-        plt.suptitle('Centroid time-series\n'
-                     'Kepler ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['tce_plnt_num'],
-                                                                              tce['label'], target_coords))
-    else:
-        # plt.suptitle('Centroid time-series\nTIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['tic'],
-        #                                                                                         tce['tce_plnt_num'],
-        #                                                                                         tce['disposition'],
-        #                                                                                         target_coords))
+    # if config.satellite == 'kepler':
+    #     # plt.suptitle('Centroid time-series\n'
+    #     #              'Kepler ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['kepid'], tce['tce_plnt_num'],
+    #     #                                                                       tce['av_training_set'], target_coords))
+    #     plt.suptitle('Centroid time-series\n'
+    #                  'Kepler ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['tce_plnt_num'],
+    #                                                                           tce['label'], target_coords))
+    # else:
+    #     # plt.suptitle('Centroid time-series\nTIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['tic'],
+    #     #                                                                                         tce['tce_plnt_num'],
+    #     #                                                                                         tce['disposition'],
+    #     #                                                                                         target_coords))
+    #
+    #     plt.suptitle('Centroid time-series\nTIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'],
+    #                                                                                              tce['Full TOI ID'],
+    #                                                                                              tce['label'],
+    #                                                                                              target_coords))
 
-        plt.suptitle('Centroid time-series\nTIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'],
-                                                                                                 tce['Full TOI ID'],
-                                                                                                 tce['label'],
-                                                                                                 target_coords))
+    plt.suptitle('Centroid time-series\n {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'],
+                                                                                             tce[config.tce_identifier],
+                                                                                             tce['label'],
+                                                                                             target_coords))
 
     plt.subplot(221)
     # plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['x']))
@@ -332,13 +353,15 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     # plt.plot(np.concatenate(all_time), target_coords[1] * np.ones(len(np.concatenate(all_time))), c='y', label='target')
     # plt.xlabel('Time [day]')
 
-    if config.satellite == 'kepler':
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+    # if config.satellite == 'kepler':
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+    #
+    # else:
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
 
-    else:
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -368,16 +391,21 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
         target_coords = [coord * 3600 for coord in target_coords]
 
     plt.figure(figsize=(20, 8))
-    if config.satellite == 'kepler':
-        # plt.suptitle('Kepid {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['kepid'], tce['tce_plnt_num'],
-        #                                                                   tce['av_training_set'], target_coords))
-        plt.suptitle('Kepid {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['tce_plnt_num'],
-                                                                          tce['label'], target_coords))
-    else:
-        # plt.suptitle('TIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['tic'], tce['tce_plnt_num'],
-        #                                                                   tce['disposition'], target_coords))
-        plt.suptitle('TIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['toi_id'],
-                                                                           tce['label'], target_coords))
+
+    # if config.satellite == 'kepler':
+    #     # plt.suptitle('Kepid {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['kepid'], tce['tce_plnt_num'],
+    #     #                                                                   tce['av_training_set'], target_coords))
+    #     plt.suptitle('Kepid {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['tce_plnt_num'],
+    #                                                                       tce['label'], target_coords))
+    # else:
+    #     # plt.suptitle('TIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['tic'], tce['tce_plnt_num'],
+    #     #                                                                   tce['disposition'], target_coords))
+    #     plt.suptitle('TIC ID {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce['toi_id'],
+    #                                                                        tce['label'], target_coords))
+
+    plt.suptitle('{} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config.tce_identifier],
+                                                                       tce['label'], target_coords))
+
     plt.subplot(211)
     plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['x']), zorder=0)
     plt.plot(np.concatenate(all_time), avg_centroid_oot['x'] * np.ones(len(np.concatenate(all_time))), 'r--',
@@ -414,12 +442,14 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     # plt.plot(np.concatenate(all_time), target_coords[1] * np.ones(len(np.concatenate(all_time))), c='y')
     # plt.xlabel('Time [day]')
 
-    if config.satellite == 'kepler':
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
-    else:
-        # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
+    # if config.satellite == 'kepler':
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce.tce_plnt_num, tce.label, basename))
+    # else:
+    #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
+
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -453,12 +483,16 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         ax.set_title('Centroid-to-target distance time-series')
         ax.set_xlabel('Time [day]')
 
-        if config.satellite == 'kepler':
-            f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-        else:
-            f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+        # if config.satellite == 'kepler':
+        #     f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+        # else:
+        #     f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+
         plt.close()
 
     else:
@@ -482,12 +516,15 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         ax[1].set_xlabel('Time [day]')
         ax[1].set_title('Spline normalized centroid-to-target distance time-series')
 
-        if config.satellite == 'kepler':
-            f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
-        else:
-            f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-            plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+        # if config.satellite == 'kepler':
+        #     f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num, tce.av_training_set, basename))
+        # else:
+        #     f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+        #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
+
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
         plt.close()
 
@@ -514,14 +551,17 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
     ax[1].set_xlabel('Bin number')
     ax[1].set_title('Local view')
 
-    if config.satellite:
-        f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
-                                               tce.av_training_set, basename))
-    else:
-        f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
-                                               tce.disposition, basename))
+    # if config.satellite:
+    #     f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
+    #                                            tce.av_training_set, basename))
+    # else:
+    #     f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
+    #                                            tce.disposition, basename))
+
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -553,14 +593,17 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     ax[1, 1].plot(loc_view_centr)
     ax[1, 1].set_xlabel('Bin number')
 
-    if config.satellite == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
-                                               tce.av_training_set, basename))
-    else:
-        f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
-                                               tce.disposition, basename))
+    # if config.satellite == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
+    #                                            tce.av_training_set, basename))
+    # else:
+    #     f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
+    #                                            tce.disposition, basename))
+
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     plt.close()
 
@@ -591,16 +634,19 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
                 ax[i, j].set_ylabel('Amplitude')
             k += 1
 
-    if config.satellite == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+    # if config.satellite == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.kepid, tce.tce_plnt_num, tce.av_training_set))
+    #
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
+    #                                        tce.av_training_set, basename))
+    # else:
+    #     f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
+    #
+    #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
+    #                                            tce.disposition, basename))
 
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.kepid, tce.tce_plnt_num,
-                                           tce.av_training_set, basename))
-    else:
-        f.suptitle('TCE {} {} {}'.format(tce.tic, tce.tce_plnt_num, tce.disposition))
-
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num,
-                                               tce.disposition, basename))
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
 
     f.tight_layout(rect=[0, 0.03, 1, 0.95])
 

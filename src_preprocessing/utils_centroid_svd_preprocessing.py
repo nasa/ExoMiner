@@ -2,6 +2,14 @@ import numpy as np
 import os
 
 
+def _has_finite(array):
+    for i in array:
+        if np.isfinite(i):
+            return True
+
+    return False
+
+
 def minimizer(x, design_matrix_col, u_trunc, lambda_reg, reg_func):
     # print(np.linalg.norm(design_matrix_col - np.dot(u_trunc, x), ord=2))
 
