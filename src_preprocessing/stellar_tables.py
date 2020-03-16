@@ -429,17 +429,51 @@ dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/T
 
 #%% Update TESS TCE table with stellar parameters with standardized column names
 
-tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/....csv')
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/'
+                      'toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed.csv')
 
 stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/'
                           'final_target_list_s1-s19-tic8.csv')
 
-stellar_fields_out = ['tessmag', 'tce_steff', 'tce_steff_err', 'tce_slogg', 'tce_slogg_err',
+stellar_fields_out = ['tessmag', 'tessmag_err', 'tce_steff', 'tce_steff_err', 'tce_slogg', 'tce_slogg_err',
                       'tce_smet', 'tce_smet_err', 'tce_sradius', 'tce_sradius_err',
                       'tce_smass', 'tce_smass_err', 'tce_sdens', 'tce_sdens_err', 'ra', 'dec']
-stellar_fields_in = ['[Tmag] [real]', '[e_Tmag] [real]', '[Teff][real]', '[e_Teff][real]', '[logg][real]',
-                     '[e_logg][real]', '[MH][real]', '[e_MH][real]', '[rad][real]', '[e_rad][real]', '[mass][real]',
-                     '[e_mass][real]', '[rho][real]', '[e_rho][real]', '[ra] [float]', '[dec] [float]']
+stellar_fields_in = ['[Tmag] [real]', '[e_Tmag] [real]', '[Teff] [real]', '[e_Teff] [real]', '[logg] [real]',
+                     '[e_logg] [real]', '[MH] [real]', '[e_MH] [real]', '[rad] [real]', '[e_rad] [real]',
+                     '[mass] [real]', '[e_mass] [real]', '[rho] [real]', '[e_rho] [real]', '[ra] [float]',
+                     '[dec] [float]']
+
+tce_tbl_cols = list(tce_tbl.columns)
+
+for stellar_param in stellar_fields_out:
+    if stellar_param not in tce_tbl_cols:
+        tce_tbl[stellar_param] = np.nan
+
+for tce_i, tce in tce_tbl.iterrows():
+
+    target_params = stellar_tbl.loc[stellar_tbl['[ID] [bigint]'] == tce.target_id][stellar_fields_in].values
+    if len(target_params) > 0:
+        tce_tbl.loc[tce_i, stellar_fields_out] = target_params[0]
+
+print('Number of TCEs updated: {}'.format(count))
+tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/'
+               'toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed_stellar.csv', index=False)
+
+#%% Update Kepler Q1-Q17 DR24 TCE table with the latest stellar parameters
+
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR24/'
+                      'q1_q17_dr24_tce_2020.03.02_17.51.43.csv', header=53)
+
+stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/Kepler/'
+                          'q1_q17_dr25_stellar_gaiadr2.csv')
+
+stellar_fields_out = ['kepmag', 'tce_steff', 'tce_steff_err1', 'tce_steff_err2', 'tce_slogg', 'tce_slogg_err1',
+                      'tce_slogg_err2', 'tce_smet', 'tce_smet_err1', 'tce_smet_err2', 'tce_sradius', 'tce_sradius_err1',
+                      'tce_sradius_err2', 'tce_smass', 'tce_smass_err1', 'tce_smass_err2', 'tce_sdens',
+                      'tce_sdens_err1', 'tce_dens_serr2', 'ra', 'dec']
+stellar_fields_in = ['kepmag', 'teff', 'teff_err1', 'teff_err2', 'logg', 'logg_err1', 'logg_err2', 'feh', 'feh_err1',
+                     'feh_err2', 'radius', 'radius_err1', 'radius_err2', 'mass', 'mass_err1', 'mass_err2', 'dens',
+                     'dens_err1', 'dens_err2', 'ra', 'dec']
 
 tce_tbl_cols = list(tce_tbl.columns)
 
@@ -462,4 +496,5 @@ for row_star_i, row_star in stellar_tbl.iterrows():
     tce_tbl.loc[target_cond, stellar_fields_out] = row_star[stellar_fields_in].values
 
 print('Number of TCEs updated: {}'.format(count))
-tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/final_tce_tables/....csv', index=False)
+tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR24/'
+               'q1_q17_dr24_tce_2020.03.02_17.51.43_stellarparams.csv', index=False)

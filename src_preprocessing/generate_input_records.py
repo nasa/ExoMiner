@@ -26,7 +26,7 @@ class Config:
     Config class to specify time series to be processed into tfrecords
     """
 
-    satellite = 'tess'  # choose from: ['kepler', 'tess']
+    satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
 
     training = True  # choose from: 'training' or 'predict'
@@ -93,15 +93,18 @@ class Config:
 
     if satellite.startswith('kepler'):
         # Ephemeris and labels for the 34k TCEs Kepler DR25 with TCERT labels
+        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
+        #                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_' \
+        #                      'updt_normstellarparamswitherrors.csv'
         input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_' \
-                             'updt_normstellarparamswitherrors.csv'
+                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_' \
+                             'koidatalink_processed'
         # 34k TCEs Kepler DR25
         lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/PDC_timeseries/DR25/pdc-tce-time-series-fits'
     elif satellite == 'tess':
         input_tce_csv_file = ''
 
-        lc_data_dir = ""
+        lc_data_dir = ''
 
     # shuffle TCE table
     shuffle = False
@@ -113,8 +116,6 @@ class Config:
         output_dir += '_imputed'
     if gap_with_confidence_level:
         output_dir += '_conf%d' % int(gap_confidence_level * 100)
-    # if use_ground_truth:
-    #     output_dir += '_groundtruth'
     if use_tps_ephem:
         output_dir += '_tps'
     output_dir += '_%d-%d' % (num_bins_glob, num_bins_loc)
@@ -127,9 +128,6 @@ class Config:
     #
     # if gap_with_confidence_level:
     #     assert gapped
-
-    # if use_ground_truth:
-    #     assert satellite == 'tess'
 
     # multiprocessing parameters
     using_mpi = True

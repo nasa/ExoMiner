@@ -406,7 +406,7 @@ old_eph_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/toi_li
 
 print(old_eph_tbl['disposition'].value_counts())
 
-#%% Matching KOI with TCEs to add KOI fields such as FP flags
+#%% Matching KOI with TCEs to add KOI fields such as FP flags - sequential match
 
 logging.basicConfig(filename='/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
                              'koi_ephemeris_matching/koi_ephemeris_matching.log', filemode='a', format='%(message)s',
@@ -548,7 +548,7 @@ keplerTceTable.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_plan
                       'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koinoepochmatch_processed.csv',
                       index=False)
 
-#%% Matching KOI with TCEs to add KOI fields such as FP flags using the ephemerides
+#%% Matching KOI with TCEs to add KOI fields such as FP flags using the ephemerides - optimal match
 
 logging.basicConfig(filename='/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
                              'koi_ephemeris_matching/koi_ephemeris_matching.log', filemode='a', format='%(message)s',
@@ -733,178 +733,3 @@ keplerTceTable.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_plan
                       'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
                       'koioldKOIlist_processed.csv',
                       index=False)
-
-#%% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the
-# 'koi_datalink_dvs' field
-
-# logging.basicConfig(filename='/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-#                              'koi_ephemeris_matching/koi_ephemeris_matching.log', filemode='a', format='%(message)s',
-#                     level=logging.INFO)
-
-# Q1-Q17 DR25 TCE list
-keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_processed.csv',
-                             header=0)
-
-# Cumulative KOI list
-koiCumTable = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
-                          'oldvsnewkoidispositions.csv', header=0)
-# koiCumTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/koi_table/'
-#                           'cumulative_2020.02.21_10.29.22.csv', header=90)
-
-# # filter KOIs that do not come from Q1-Q17 DR25 TCE list
-# koiCumTable = koiCumTable.loc[koiCumTable['koi_tce_delivname'] == 'q1_q17_dr25_tce']
-
-# koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -25, -24, -21,
-#                                                                 -20]]
-koiColumnNames = koiCumTable.columns.values.tolist()
-
-# initialize new columns
-keplerTceTable = pd.concat([keplerTceTable, pd.DataFrame(columns=koiColumnNames)])
-
-numKois = len(koiCumTable)
-
-koiNotMatched, koiNoTceInTarget = [], []
-
-# iterate through the Kepler IDs in the KOI table
-for koi_i, koi in koiCumTable.iterrows():
-
-    # add KOI parameters to the matched TCE
-    keplerTceTable.loc[(keplerTceTable['target_id'] == koi.kepid) &
-                       (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
-                       koiColumnNames] = koi[koiColumnNames].values
-
-# # print('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
-# logging.info('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
-# logging.info('Number of KOI not matched to any TCE in the same Kepler ID = {}'.format(len(koiNotMatched) -
-#                                                                                       len(koiNoTceInTarget)))
-# logging.info('Number of KOI without any TCE in the same Kepler ID = {}'.format(len(koiNoTceInTarget)))
-
-# save updated TCE table with KOI parameters
-keplerTceTable.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
-                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
-                      'koidatalinkoldKOIlist_processed.csv',
-                      index=False)
-
-#%% Check label of KOIs matched against labels of the TCEs in the Q1-Q17 DR25 TCE list (updated by Laurent on March 2019)
-
-keplerTceTable = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                             'koi_ephemeris_matching/'
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
-                             'koidatalinkoldKOIlist_processed.csv')
-
-keplerTceTable = keplerTceTable[['tce_period', 'tce_time0bk', 'tce_duration', 'target_id', 'tce_plnt_num', 'label',
-                                 'kepoi_name', 'koi_disposition']]
-
-# keplerTceTable.dropna(axis=0, subset=['koi_disposition'], inplace=True)
-
-afp_matched = 0
-pc_matched = 0
-ntp_matched = 0
-nonpc_matched = 0
-notMatched = {}
-for tce_i, tce in keplerTceTable.iterrows():
-
-    # count PC matches to CONFIRMED and CANDIDATE
-    if tce.label == 'PC' and tce.koi_disposition in ['CONFIRMED', 'CANDIDATE']:
-    # if tce.label == 'PC' and tce.koi_disposition in ['CONFIRMED']:
-        pc_matched += 1
-        continue
-
-    # count AFP matches to FALSE POSITIVE
-    if tce.label == 'AFP' and tce.koi_disposition == 'FALSE POSITIVE':
-        afp_matched += 1
-        nonpc_matched += 1
-        continue
-
-    # count NTP matches to empty (NaN)
-    if tce.label == 'NTP' and pd.isna(tce.koi_disposition):
-    # if tce.label == 'NTP' and (pd.isna(tce.koi_disposition) or tce.koi_disposition == 'CANDIDATE'):
-        ntp_matched += 1
-        nonpc_matched += 1
-        continue
-
-    # count non-PC matches to FALSE POSITIVE or empty (NaN)
-    if tce.label in ['AFP', 'NTP'] and (pd.isna(tce.koi_disposition) or tce.koi_disposition == 'FALSE POSITIVE'):
-    # if tce.label in ['AFP', 'NTP'] and (pd.isna(tce.koi_disposition) or tce.koi_disposition == 'FALSE POSITIVE' or tce.koi_disposition == 'CANDIDATE'):
-        nonpc_matched += 1
-
-    else:
-        notMatched[(tce.target_id, tce.tce_plnt_num)] = {'ephemeris': [tce.tce_period, tce.tce_time0bk,
-                                                                       tce.tce_duration],
-                                                         'label': tce.label,
-                                                         'koi_label': tce.koi_disposition}
-
-print('Number of labels matched: {} out of {}'.format(pc_matched + nonpc_matched, len(keplerTceTable)))
-print('Number of PC matched: {} out of {}'.format(pc_matched, len(keplerTceTable.loc[keplerTceTable['label'] == 'PC'])))
-print('Number of non-PC matched: {} out of {}'.format(nonpc_matched, len(keplerTceTable.loc[keplerTceTable['label'] !=
-                                                                                            'PC'])))
-print('Number of AFP matched: {} out of {}'.format(afp_matched, len(keplerTceTable.loc[keplerTceTable['label'] ==
-                                                                                       'AFP'])))
-print('Number of NTP matched: {} out of {}'.format(ntp_matched, len(keplerTceTable.loc[keplerTceTable['label'] ==
-                                                                                       'NTP'])))
-
-#%% Compare KOI dispositions between the KOI cumulative list used by Laurent to update the TCE list on March 2019 and
-# the one I downloaded on February 2020
-
-oldKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/dr25_koi.csv', header=18)
-newKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/koi_table/cumulative_2020.02.21_10.29.22.csv',
-                        header=90)
-
-# filter KOIs that do not come from Q1-Q17 DR25 TCE list
-newKoiTbl = newKoiTbl.loc[newKoiTbl['koi_tce_delivname'] == 'q1_q17_dr25_tce']
-
-oldKoiTbl['new_koi_disposition'] = np.nan
-oldKoiTbl['kepoi_name'] = np.nan
-oldKoiTbl['koi_datalink_dvs'] = np.nan
-for oldKoi_i, oldKoi in oldKoiTbl.iterrows():
-
-    newKoi = newKoiTbl.loc[(newKoiTbl['kepid'] == oldKoi.kepid) & (newKoiTbl['koi_tce_plnt_num'] == oldKoi.koi_tce_plnt_num)]
-    oldKoiTbl.loc[oldKoi_i, ['new_koi_disposition']] = newKoi.koi_disposition.values
-    oldKoiTbl.loc[oldKoi_i, ['kepoi_name']] = newKoi.kepoi_name.values
-    oldKoiTbl.loc[oldKoi_i, ['koi_datalink_dvs']] = newKoi.koi_datalink_dvs.values
-
-oldKoiTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
-                 'oldvsnewkoidispositions.csv', index=False)
-
-
-confirmed_matched = 0
-candidate_matched = 0
-c_matched = 0
-fp_matched = 0
-notMatched = {}
-for koi_i, koi in oldKoiTbl.iterrows():
-
-    # count CONFIRMED matches
-    if koi.koi_disposition == 'CONFIRMED' and koi.new_koi_disposition == 'CONFIRMED':
-        confirmed_matched += 1
-        continue
-
-    # count CANDIDATE matches
-    if koi.koi_disposition == 'CANDIDATE' and koi.new_koi_disposition == 'CANDIDATE':
-        candidate_matched += 1
-        continue
-
-    # count FALSE POSITIVE matches
-    if koi.koi_disposition == 'FALSE POSITIVE' and koi.new_koi_disposition == 'FALSE POSITIVE':
-        fp_matched += 1
-        continue
-
-    # count non-PC matches to FALSE POSITIVE or empty (NaN)
-    if koi.koi_disposition in ['CANDIDATE', 'CONFIRMED'] and koi.new_koi_disposition in ['CANDIDATE', 'CONFIRMED']:
-        c_matched += 1
-
-    else:
-        notMatched[(koi.kepid, koi.koi_tce_plnt_num)] = {'ephemeris': [koi.koi_period, koi.koi_time0bk, koi.koi_duration],
-                                                         'label': koi.koi_disposition,
-                                                         'koi_label': koi.new_koi_disposition}
-
-print('Number of labels matched: {} out of {}'.format(c_matched + confirmed_matched + candidate_matched + fp_matched, len(oldKoiTbl)))
-print('Number of CONFIRMED matched: {} out of {}'.format(confirmed_matched,
-                                                  len(oldKoiTbl.loc[oldKoiTbl['koi_disposition'] == 'CONFIRMED'])))
-print('Number of CANDIDATE matched: {} out of {}'.format(candidate_matched,
-                                                      len(oldKoiTbl.loc[oldKoiTbl['koi_disposition'] == 'CANDIDATE'])))
-print('Number of CANDIDATE-CONFIRMED matched: {} out of {}'.format(c_matched + candidate_matched + confirmed_matched,
-                                                   len(oldKoiTbl.loc[oldKoiTbl['koi_disposition'].isin(['CONFIRMED', 'CANDIDATE'])])))
-print('Number of FALSE POSITIVE matched: {} out of {}'.format(fp_matched,
-                                                   len(oldKoiTbl.loc[oldKoiTbl['koi_disposition'] == 'FALSE POSITIVE'])))

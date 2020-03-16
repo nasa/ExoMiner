@@ -52,22 +52,24 @@ def get_kepler_tce_table(config):
     #     with open(config.eph_tbl_fp, 'rb') as fp:
     #         eph_table = pickle.load(fp)
 
-    # name of the column in the TCE table with the label/disposition
-    _LABEL_COLUMN = "av_training_set"
-    # labels used to filter TCEs in the TCE table
-    _ALLOWED_LABELS = {"PC", "AFP", "NTP"}
+    # # name of the column in the TCE table with the label/disposition
+    # # _LABEL_COLUMN = "av_training_set"
+    # _LABEL_COLUMN = "label"
+    # # labels used to filter TCEs in the TCE table
+    # _ALLOWED_LABELS = {"PC", "AFP", "NTP"}
 
     # extract these fields from the TPS mat file
     fields = ['kepid', 'tce_plnt_num', 'tce_period', 'tce_time0bk', 'tce_duration', 'av_training_set']
 
     # Read the CSV file of Kepler KOIs.
-    tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
+    # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
+    tce_table = pd.read_csv(config.input_tce_csv_file)
     tce_table["tce_duration"] /= 24  # Convert hours to days.
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
 
-    # Filter TCE table to allowed labels.
-    allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
-    tce_table = tce_table[allowed_tces]
+    # # Filter TCE table to allowed labels.
+    # allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
+    # tce_table = tce_table[allowed_tces]
 
     # print('len before filter by kepids: {}'.format(len(tce_table)))
     # # FILTER TCE TABLE FOR A SET OF KEPIDS
@@ -153,12 +155,12 @@ def get_tess_tce_table(config):
         tce_table: pandas DataFrame, table with ephemeris table
     """
 
-    # name of the column in the TCE table with the label/disposition
-    # _LABEL_COLUMN = "disposition"
-    _LABEL_COLUMN = "label"
-    # labels used to filter TCEs in the TCE table
-    # KP, CP, PC, EB, IS, V, O, FP
-    _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O", "FP", "CP"}
+    # # name of the column in the TCE table with the label/disposition
+    # # _LABEL_COLUMN = "disposition"
+    # _LABEL_COLUMN = "label"
+    # # labels used to filter TCEs in the TCE table
+    # # KP, CP, PC, EB, IS, V, O, FP
+    # _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O", "FP", "CP"}
 
     # map from fields' names in the TCE table to fields' names in the TCE TPS table for TESS that we want to extract
     # if fields is None:
@@ -178,9 +180,9 @@ def get_tess_tce_table(config):
     tce_table["tce_duration"] /= 24  # convert hours to days.
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
 
-    # Filter TCE table to allowed labels.
-    allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
-    tce_table = tce_table[allowed_tces]
+    # # Filter TCE table to allowed labels.
+    # allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
+    # tce_table = tce_table[allowed_tces]
 
     # use TPS ephemeris from the TPS TCE struct MATLAB file
     if config.use_tps_ephem:

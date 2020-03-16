@@ -16,7 +16,7 @@ import os
 import tempfile
 import _pickle as pickle
 import numpy as np
-import itertools
+# import itertools
 
 # local
 from src.utils_train import phase_inversion, phase_shift, add_whitegaussiannoise
@@ -1559,7 +1559,10 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
 
         file_dataset = file.split('/')[-1].split('-')[0]
 
-        record_iterator = tf.python_io.tf_record_iterator(path=file)
+        # TODO: update this
+        # record_iterator = tf.python_io.tf_record_iterator(path=file)
+        record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=file)
+
         try:
             for string_record in record_iterator:
 

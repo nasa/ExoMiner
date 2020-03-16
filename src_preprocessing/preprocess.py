@@ -27,10 +27,9 @@ Authors:
 # 3rd party
 import numpy as np
 import tensorflow as tf
-# import paths
-# if 'home6' in paths.path_hpoconfigs:
-import matplotlib; matplotlib.use('agg')
 import os
+if 'home6' in os.path.dirname(os.path.dirname(os.path.abspath(__file__))):
+    import matplotlib; matplotlib.use('agg')
 import socket
 
 # local
@@ -127,7 +126,8 @@ def read_light_curve(tce, config):
     # gets all filepaths for the FITS files for this target
     if config.satellite == 'kepler':
 
-        file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.kepid)
+        # file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.kepid)
+        file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.target_id)
 
         if not file_names:
             if not config.omit_missing:
@@ -415,7 +415,6 @@ def gap_other_tces(all_time, all_flux, all_centroids, add_info, tce, table, conf
 
         for i in range(len(all_time)):
 
-            print('2', real_ephem_i, gapSectors)
             # for TESS, check if this time array belongs to one of the overlapping sectors
             if config.satellite != 'kepler' and add_info['sector'][i] not in gapSectors[real_ephem_i]:
                 continue
@@ -471,10 +470,12 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
     # else:
     #     return None
 
-    # if tce['label'] == 'KP' and tce['target_id'] == 238176110:  #  and tce['tce_plnt_num'] == 1:  # what about sector?
-    #     print(tce[['target_id', 'label']])
-    # else:
-    #     return None
+    if [tce['target_id'], tce['tce_plnt_num']] in [[11017901, 1], [10358759, 2], [11037818, 1], [10863608, 1],
+                                                   [10777591, 1], [10975146, 1], [10904857, 1], [10028792, 2],
+                                                   [10585738, 1], [10717220, 1]]:  #  and tce['tce_plnt_num'] == 1:  # what about sector?
+        print(tce[['target_id', 'label']])
+    else:
+        return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = True

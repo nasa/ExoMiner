@@ -344,7 +344,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar'
+    study = 'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     # tfrecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-                             '_nonwhitened_gapped_2001-201')
+                             '_nonwhitened_gapped_2001-201_updtKOIs')
 
     kp_dict = None  # np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
 

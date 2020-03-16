@@ -21,10 +21,10 @@ from src_preprocessing.utils_generate_input_records import get_kepler_tce_table,
 class Config:
     """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
-    satellite = 'tess'  # choose from: ['kepler', 'tess']
+    satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = True  # True for TESS multi-sector runs
-    sectors = np.arange(1, 19)
-    tce_identifier = 'oi'
+    sectors = np.arange(1, 19)  # only for TESS
+    tce_identifier = 'tce_plnt_num'
 
     training = True  # choose from: 'training' or 'predict'
     # partition the data set; only used with training set to True
@@ -76,7 +76,7 @@ class Config:
 
     # output directory
     # output_dir = "tfrecords/tfrecord{}dr25_centroidnormalized_test".format(satellite)
-    output_dir = "tfrecords/tfrecord{}_testmulisector".format(satellite)
+    output_dir = 'tfrecords/tfrecord{}_plottce'.format(satellite)
     # working directory
     w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
     output_dir = os.path.join(w_dir, output_dir)
@@ -98,9 +98,9 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/' \
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_' \
-                             'updt_normstellarparamswitherrors.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/' \
+                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_' \
+                             'normstellarparamswitherrors_koidatalink_processedlinks.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
         # FITS files directory
@@ -257,7 +257,7 @@ def create_shards(config, tce_table):
             start = boundaries[i]
             end = boundaries[i + 1]
             filename = os.path.join(config.output_dir, "val-{:05d}-of-{:05d}".format(i, config.num_test_shards))
-            file_shards.append((test_tces[start:end], filename, tce_table))
+            file_shards.append((val_tces[start:end], filename, tce_table))
 
         # # Validation has a single shard
         # file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00000"), tce_table))
