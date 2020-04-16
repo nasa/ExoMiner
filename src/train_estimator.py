@@ -12,7 +12,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # import logging
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 # tf.logging.set_verbosity(tf.logging.ERROR)
@@ -22,19 +22,20 @@ import numpy as np
 from mpi4py import MPI
 import time
 # import itertools
-import argparse
+from tensorflow.estimator.experimental import stop_if_no_increase_hook
 
 # local
 import paths
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir, \
-    get_data_from_tfrecord, get_data_from_tfrecord_kepler
+# from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir, \
+#     get_data_from_tfrecord, get_data_from_tfrecord_kepler
+from src.estimator_util import ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir
+from src.utils_dataio import get_data_from_tfrecord, get_data_from_tfrecord_kepler, InputFn
 import src.config
 from src_hpo import utils_hpo
 from src import utils_train
-# import baseline_configs
 
 
 def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False, last_best=0):
@@ -180,7 +181,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, min_optmetric=False, last_
         plt.close()
 
 
-def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_metric, min_optmetric, patience,
+def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_metric, min_optmetric, hooks_dict,
              features_set, data_augmentation=False, scalar_params_idxs=None, filter_data=None, mpi_rank=None,
              ngpus_per_node=1, sess_config=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
@@ -225,9 +226,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_met
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        # labels[dataset] += get_data_from_tfrecord_kepler(os.path.join(data_dir, tfrec_file), ['label'],
-        #                                           config['label_map'], filt=filter_data[dataset])['label']
-        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
+        labels[dataset] += get_data_from_tfrecord_kepler(os.path.join(data_dir, tfrec_file), ['label'],
                                                   config['label_map'], filt=filter_data[dataset])['label']
 
     # convert from list to numpy array
@@ -302,18 +301,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_met
             for metric in metrics_list:
                 res[dataset][metric].append(res_i[dataset][metric])
 
-        # early stopping
-        if patience != -1:
-            early_stop, last_best, best_value = utils_train.early_stopping(best_value, res_i['validation'][opt_metric],
-                                                                           last_best, patience, min_optmetric)
 
-            if early_stop:
-                print('Early Stopping at epoch {}. Best value for {}: {} | Current value: {}'.format(epoch_i - patience,
-                                                                                                     opt_metric,
-                                                                                                     best_value,
-                                                                                                     res_i['validation']
-                                                                                                     [opt_metric]))
-                break
 
         # tf.logging.info('After epoch: {:d}: val acc: {:.6f}, val prec: {:.6f}'.format(epoch_i, res_i['val acc'],
         #                                                                               res_i['val prec']))
@@ -365,7 +353,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_met
 
     # save results in a numpy file
     print('Saving metrics to a numpy file...')
-    np.save(os.path.join(res_dir, 'res_eval.npy'), res_es)
+    np.save(res_dir + 'res_eval.npy', res_es)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
@@ -373,7 +361,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_met
 
     print('Saving metrics to a txt file...')
     # write results to a txt file
-    with open(res_dir + 'res_eval.txt', 'a') as res_file:
+    with open(res_dir + "res_eval.txt", "a") as res_file:
         res_file.write('{} {} - Epoch {} {}\n'.format('#' * 10, res_dir.split('/')[-1], len(res_es['training']['loss']),
                                                       '#' * 10))
         for dataset in dataset_ids:
@@ -396,27 +384,19 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, opt_met
 
     # save features and config used for training this model - they can (and should) be used when running predict.py for
     # this model
-    np.save(os.path.join(classifier.model_dir, 'features_set'), features_set)
-    np.save(os.path.join(classifier.model_dir, 'config'), config)
+    np.save('{}/features_set'.format(classifier.model_dir), features_set)
+    np.save('{}/config'.format(classifier.model_dir), config)
 
 
 if __name__ == '__main__':
 
-    # used in job arrays
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    args = parser.parse_args()
-
-    ngpus_per_node = 1  # number of GPUs per node
-
-    # # uncomment for MPI multiprocessing
-    # rank = MPI.COMM_WORLD.rank
-    # rank = ngpus_per_node * args.job_idx + rank
-    # size = MPI.COMM_WORLD.size
-    # print('Rank = {}/{}'.format(rank, size - 1))
-    # sys.stdout.flush()
-    # if rank != 0:
-    #     time.sleep(2)
+    # uncomment for MPI multiprocessing
+    rank = MPI.COMM_WORLD.rank
+    size = MPI.COMM_WORLD.size
+    print('Rank = {}/{}'.format(rank, size - 1))
+    sys.stdout.flush()
+    if rank != 0:
+        time.sleep(2)
 
     # tf.logging.set_verbosity(tf.logging.ERROR)
     # tf.logging.set_verbosity(tf.logging.INFO)
@@ -424,15 +404,16 @@ if __name__ == '__main__':
     ######### SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'test'
+    study = 'dr25tcert_spline_gapped_glflux-gloe_glfluxconfig'
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux'
+    hpo_study = 'bohb_dr25tcert_spline_gapped_g-lflux_selfnormalized'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
 
     sess_config = tf.ConfigProto(log_device_placement=False)
+    ngpus_per_node = 1  # number of GPUs per node
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
@@ -456,21 +437,15 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
-    # tfrec_dir = os.path.join(paths.path_tfrecs,
-    #                          'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-    #                          '_nonwhitened_gapped_2001-201')
-    # tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/' \
-    #             'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_updtKOIs'
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled_' \
-                'nonwhitened_gapped_2001-201_old_errortceduration'
+    tfrec_dir = os.path.join(paths.path_tfrecs,
+                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
+                             '_nonwhitened_gapped_2001-201')
 
     # features to be extracted from the dataset
-    features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_even',
-                      'local_view_odd']
+    features_names = ['global_view', 'local_view']
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    features_dim['scalar_params'] = 6
-    scalar_params_idxs = None  # [1, 2]
+    # features_dim['scalar_params'] = 6
+    scalar_params_idxs = [1, 2]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -489,19 +464,24 @@ if __name__ == '__main__':
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 300  # number of epochs used to train each model
+
     multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label',
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'av_training_set',
                        'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
+
+    hooks_dict = {}
+
+    patience = 20
     opt_metric = 'pr auc'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
-    # number of epochs without improvement before performing early stopping. Set to -1 to deactivate early stopping and
-    # save just the latest model
-    patience = 20
-    if patience > n_epochs:
-        print('Setting patience to maximum number of epochs ({})'.format(n_epochs))
-        patience = n_epochs
+    if not min_optmetric:
+        hooks_dict['stop_if_no_increase_hook'] = {'metric_name': opt_metric,
+                                                  'max_steps_without_increase': patience}
+    else:
+        hooks_dict['stop_if_no_decrease_hook'] = {'metric_name': opt_metric,
+                                                  'max_steps_without_decrease': patience}
 
     # set the configuration from a HPO study
     if config is None:
@@ -522,8 +502,8 @@ if __name__ == '__main__':
     # results directory
     save_path = os.path.join(paths.pathtrainedmodels, study)
     if not os.path.isdir(save_path):
-        os.makedirs(save_path, exist_ok=True)
-        os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
+        os.mkdir(save_path)
+        os.mkdir(save_path + '/models/')
 
     # add dataset parameters
     config = src.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
@@ -531,40 +511,40 @@ if __name__ == '__main__':
     # add missing parameters in hpo with default values
     config = src.config.add_default_missing_params(config=config)
 
-    # comment for multiprocessing using MPI
-    for item in range(n_models):
-        print('Training model %i out of %i on %i epochs...' % (item + 1, n_models, n_epochs))
-        run_main(config=config,
-                 n_epochs=n_epochs,
-                 data_dir=tfrec_dir,
-                 base_model=BaseModel,
-                 model_dir=os.path.join(save_path, 'models'),
-                 res_dir=os.path.join(save_path, 'model%i' % (item + 1)),
-                 opt_metric=opt_metric,
-                 min_optmetric=min_optmetric,
-                 patience=patience,
-                 features_set=features_set,
-                 scalar_params_idxs=scalar_params_idxs,
-                 data_augmentation=data_augmentation,
-                 filter_data=filter_data,
-                 sess_config=sess_config)
-
-    # # uncomment for multiprocessing using MPI
-    # if rank < n_models:
-    #     print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
-    #     sys.stdout.flush()
+    # # comment for multiprocessing using MPI
+    # for item in range(n_models):
+    #     print('Training model %i out of %i on %i epochs...' % (item + 1, n_models, n_epochs))
     #     run_main(config=config,
     #              n_epochs=n_epochs,
     #              data_dir=tfrec_dir,
     #              base_model=BaseModel,
-    #              model_dir=os.path.join(save_path, 'models'),
-    #              res_dir=os.path.join(save_path, 'model%i' % (item + 1)),
+    #              model_dir=save_path + '/models/',
+    #              res_dir=save_path + '/model%i' % (item + 1),
     #              opt_metric=opt_metric,
     #              min_optmetric=min_optmetric,
     #              patience=patience,
     #              features_set=features_set,
     #              scalar_params_idxs=scalar_params_idxs,
+    #              data_augmentation=data_augmentation,
     #              filter_data=filter_data,
-    #              sess_config=sess_config,
-    #              mpi_rank=rank,
-    #              ngpus_per_node=ngpus_per_node)
+    #              sess_config=sess_config)
+
+    # uncomment for multiprocessing using MPI
+    if rank < n_models:
+        print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
+        sys.stdout.flush()
+        run_main(config=config,
+                 n_epochs=n_epochs,
+                 data_dir=tfrec_dir,
+                 base_model=BaseModel,
+                 model_dir=save_path + '/models/',
+                 res_dir=save_path + '/model%i' % (rank + 1),
+                 opt_metric=opt_metric,
+                 min_optmetric=min_optmetric,
+                 hooks_dict=hooks_dict,
+                 features_set=features_set,
+                 scalar_params_idxs=scalar_params_idxs,
+                 filter_data=filter_data,
+                 sess_config=sess_config,
+                 mpi_rank=rank,
+                 ngpus_per_node=ngpus_per_node)

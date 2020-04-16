@@ -22,7 +22,8 @@ import numpy as np
 # from mpi4py import MPI
 import time
 from tensorflow import keras
-from tensorflow.keras import metrics, callbacks, losses, optimizers
+from tensorflow.keras import callbacks, losses, optimizers
+import argparse
 
 # local
 import paths
@@ -31,11 +32,10 @@ if 'home6' in paths.path_hpoconfigs:
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from src.utils_dataio import InputFn, get_data_from_tfrecord, get_data_from_tfrecord_kepler
-from src.models_keras import CNN1dPlanetFinderv1  # ModelFn, CNN1dModel
-# from src.utils_metrics import mean_per_class_accuracy, auc_pr, auc_roc
+from src.models_keras import CNN1dPlanetFinderv1
 import src.config_keras
+from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
-# from src import utils_train
 
 
 def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, earlystopping):
@@ -67,7 +67,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
 
     # plot loss and optimization metric as function of the epochs
     f, ax = plt.subplots(1, 2)
-    ax[0].plot(epochs, res['loss'], label='Training')
+    ax[0].plot(epochs, res['loss'], label='Training', color='b')
     ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
 
     # ax[0].scatter(epochs[ep_idx], res['validation']['loss'][ep_idx], c='r')
@@ -103,10 +103,6 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     ax.plot(epochs, res['val_recall'], label='Val Recall')
     ax.plot(epochs, res['val_auc_roc'], label='Val ROC AUC')
     ax.plot(epochs, res['val_auc_pr'], label='Val PR AUC')
-    # ax.plot(epochs, res['test_precision'], label='Test Precision')
-    # ax.plot(epochs, res['test_recall'], label='Test Recall')
-    # ax.plot(epochs, res['test_auc_roc'], label='Test ROC AUC')
-    # ax.plot(epochs, res['test_auc_pr'], label='Test PR AUC')
     ax.scatter(epochs[ep_idx], res['test_precision'], label='Test Precision')
     ax.scatter(epochs[ep_idx], res['test_recall'], label='Test Recall')
     ax.scatter(epochs[ep_idx], res['test_auc_roc'], label='Test ROC AUC')
@@ -133,17 +129,17 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     ax.plot(res['val_rec_thr'][ep_idx], res['val_prec_thr'][ep_idx],
             label='Val (AUC={:.3f})'.format(res['val_auc_pr'][ep_idx]), color='r')
     ax.plot(res['test_rec_thr'], res['test_prec_thr'],
-            label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='b')
+            label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='k')
     ax.plot(res['rec_thr'][ep_idx], res['prec_thr'][ep_idx],
-            label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='k')
+            label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='b')
     # # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
     # threshold_range = np.linspace(0, num_thresholds - 1, 11, endpoint=True, dtype='int')
     ax.scatter(res['val_rec_thr'][ep_idx],
                res['val_prec_thr'][ep_idx], c='r')
     ax.scatter(res['test_rec_thr'],
-               res['test_prec_thr'], c='b')
+               res['test_prec_thr'], c='k')
     ax.scatter(res['rec_thr'][ep_idx],
-               res['prec_thr'][ep_idx], c='k')
+               res['prec_thr'][ep_idx], c='b')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
@@ -189,7 +185,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
 
 
 def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_id, opt_metric, min_optmetric,
-             earlystoppingparams, features_set, data_augmentation=False, scalar_params_idxs=None, filter_data=None,
+             callbacks_list, features_set, data_augmentation=False, scalar_params_idxs=None, filter_data=None,
              mpi_rank=None, ngpus_per_node=1):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
@@ -201,7 +197,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch
     If False, gets the maximum value
-    :param earlystoppingparams: dict, Early Stopping parameters
+    :param callbacks_list: list, callbacks
     :param features_set: dict, each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
     :param data_augmentation: bool, whether to use or not data augmentation
     # :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
@@ -213,6 +209,9 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     :param ngpus_per_node: int, number of GPUs per node when training/evaluating multiple models in parallel
     :return:
     """
+
+    if mpi_rank is None or mpi_rank == 0:
+        print('Configuration used: ', config)
 
     # create directory for the model
     model_dir_sub = os.path.join(model_dir, 'model{}'.format(model_id))
@@ -233,13 +232,16 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        labels[dataset] += get_data_from_tfrecord_kepler(os.path.join(data_dir, tfrec_file), ['label'],
+        # labels[dataset] += get_data_from_tfrecord_kepler(os.path.join(data_dir, tfrec_file), ['label'],
+        #                                                  config['label_map'], filt=filter_data[dataset])['label']
+        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
                                                          config['label_map'], filt=filter_data[dataset])['label']
 
     # convert from list to numpy array
     # TODO: should make this a numpy array from the beginning
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in datasets}
 
+    # set visible GPU as function of the MPI rank and number of GPUs per node
     if mpi_rank is not None:
         gpu_id = mpi_rank % ngpus_per_node
     else:
@@ -247,31 +249,15 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
 
+    # instantiate Keras model
     model = base_model(config, features_set).kerasModel
 
-    model.summary()
+    # print model summary
+    if mpi_rank is None or mpi_rank == 0:
+        model.summary()
 
-    # metrics_list = ['loss', 'accuracy', 'pr auc', 'precision', 'recall', 'roc auc', 'prec thr', 'rec thr']
-
-    num_thresholds = 1000
-    threshold = 0.5
-    threshold_range = list(np.linspace(0, 1, num=num_thresholds))
-
-    auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
-                               summation_method='interpolation',
-                               curve='PR',
-                               name='auc_pr')
-    auc_roc = keras.metrics.AUC(num_thresholds=num_thresholds,
-                                summation_method='interpolation',
-                                curve='ROC',
-                                name='auc_roc')
-    binary_acc = keras.metrics.BinaryAccuracy(name='binary_accuracy', threshold=threshold)
-    precision = keras.metrics.Precision(thresholds=threshold, name='precision')
-    recall = keras.metrics.Recall(thresholds=threshold, name='recall')
-    precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
-    recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
-
-    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc]
+    # setup metrics to be monitored
+    metrics_list = get_metrics()
 
     if config['optimizer'] == 'Adam':
         model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
@@ -332,16 +318,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                             features_set=features_set,
                             scalar_params_idxs=scalar_params_idxs)
 
-    # instantiate callbacks list
-    callbacks_list = []
-
-    # add early stopping to the callbacks
-    if earlystoppingparams is not None:
-        earlyStopping = callbacks.EarlyStopping(**earlystoppingparams)
-        callbacks_list.append(earlyStopping)
-
-
-
+    # fit the model to the training data
     history = model.fit(x=train_input_fn(),
                         y=None,
                         batch_size=None,
@@ -350,15 +327,16 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                         callbacks=callbacks_list,
                         validation_split=0.,
                         validation_data=val_input_fn(),
-                        shuffle=False,  # does the input function shuffle for every epoch?
+                        shuffle=True,  # does the input function shuffle for every epoch?
                         class_weight=None,
                         sample_weight=None,
                         initial_epoch=0,
                         steps_per_epoch=None,
                         validation_steps=None,
-                        max_queue_size=10,
-                        workers=1,
-                        use_multiprocessing=False)
+                        max_queue_size=10,  # does not matter when using input function with tf.data API
+                        workers=1,  # same
+                        use_multiprocessing=False  # same
+                        )
 
     res = history.history
 
@@ -417,7 +395,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     print('Plotting evaluation results...')
     # draw evaluation plots
-    draw_plots(res, res_dir, opt_metric, output_cl, model_id, min_optmetric, earlystopping=earlystoppingparams)
+    draw_plots(res, res_dir, opt_metric, output_cl, model_id, min_optmetric, earlystopping=None)
 
     print('Saving metrics to a txt file...')
     # write results to a txt file
@@ -468,8 +446,16 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
 if __name__ == '__main__':
 
+    # used in job arrays
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    args = parser.parse_args()
+
+    ngpus_per_node = 1  # number of GPUs per node
+
     # # uncomment for MPI multiprocessing
     # rank = MPI.COMM_WORLD.rank
+    # rank = ngpus_per_node * args.job_idx + rank
     # size = MPI.COMM_WORLD.size
     # print('Rank={}/{}'.format(rank, size - 1))
     # sys.stdout.flush()
@@ -484,13 +470,18 @@ if __name__ == '__main__':
     # name of the study
     study = 'keras_test'
 
+    # results directory
+    save_path = os.path.join(paths.pathtrainedmodels, study)
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
+        os.mkdir(os.path.join(save_path, 'models'))
+
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_3days'
+    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
 
-    sess_config = None  # tf.ConfigProto(log_device_placement=False)
     ngpus_per_node = 1  # number of GPUs per node
 
     # set configuration manually. Set to None to use a configuration from a HPO study
@@ -515,9 +506,13 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
+    # tfrec_dir = os.path.join(paths.path_tfrecs,
+    #                          'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
+    #                          '_nonwhitened_gapped_2001-201_updtKOIs')
     tfrec_dir = os.path.join(paths.path_tfrecs,
-                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-                             '_nonwhitened_gapped_2001-201_updtKOIs')
+                             'Kepler',
+                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven'
+                             '_updtkois_shuffledtces_noroguetces')
 
     # features to be extracted from the dataset(s)
     features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
@@ -541,25 +536,36 @@ if __name__ == '__main__':
     # args_inputfn = {'features_set': features_set, 'data_augmentation': data_augmentation,
     #                 'scalar_params_idxs': scalar_params_idxs}
 
-    n_models = 2  # number of models in the ensemble
-    n_epochs = 2  # number of epochs used to train each model
+    n_models = 10  # number of models in the ensemble
+    n_epochs = 300  # number of epochs used to train each model
     multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'av_training_set',
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label',
                        'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     opt_metric = 'auc_pr'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
-    # number of epochs without improvement before performing early stopping. Set to None to deactivate early stopping
-    # and save just the latest model
-    earlystoppingparams = {'monitor': 'val_{}'.format(opt_metric),
-                           'min_delta': 0,
-                           'patience': 2,
-                           'verbose': 1,
-                           'mode': 'max',
-                           'baseline': None,
-                           'restore_best_weights': True}
+
+    # callbacks list
+    callbacks_list = []
+
+    # early stopping callback
+    callbacks_list.append(callbacks.EarlyStopping(monitor='val_{}'.format(opt_metric), min_delta=0,
+                                                  patience=20,
+                                                  verbose=1,
+                                                  mode='max',
+                                                  baseline=None,
+                                                  restore_best_weights=True))
+
+    # TensorBoard callback
+    callbacks_list.append(callbacks.TensorBoard(log_dir=os.path.join(save_path, 'models'),
+                                                histogram_freq=0,
+                                                write_graph=False,
+                                                write_images=True,
+                                                update_freq='epoch',
+                                                profile_batch=2,
+                                                ))
 
     # set the configuration from a HPO study
     if config is None:
@@ -575,22 +581,13 @@ if __name__ == '__main__':
         # example - check config.json
         # config = id2config[(8, 0, 3)]['config']
 
-    print('Selected configuration: ', config)
-
     # SCRIPT PARAMETERS #############################################
 
-    # results directory
-    save_path = os.path.join(paths.pathtrainedmodels, study)
-    if not os.path.isdir(save_path):
-        os.mkdir(save_path)
-        os.mkdir(os.path.join(save_path, 'models'))
-
     # add dataset parameters
-    config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
+    config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
     config = src.config_keras.add_default_missing_params(config=config)
-    print('Configuration used: ', config)
 
     # comment for multiprocessing using MPI
     for model_i in range(n_models):
@@ -604,7 +601,7 @@ if __name__ == '__main__':
                  model_id=model_i + 1,
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
-                 earlystoppingparams=earlystoppingparams,
+                 callbacks_list=callbacks_list,
                  features_set=features_set,
                  scalar_params_idxs=scalar_params_idxs,
                  data_augmentation=data_augmentation)
@@ -622,7 +619,7 @@ if __name__ == '__main__':
     #              model_id = rank + 1,
     #              opt_metric=opt_metric,
     #              min_optmetric=min_optmetric,
-    #              earlystoppingparams=earlystoppingparams,
+    #              callbacks_list=callbacks_list,
     #              features_set=features_set,
     #              scalar_params_idxs=scalar_params_idxs,
     #              mpi_rank=rank,

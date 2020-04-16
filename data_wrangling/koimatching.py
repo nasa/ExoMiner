@@ -3,7 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-from src_preprocessing.get_dv_files import get_dv_files
+from data_wrangling.get_dv_files import get_dv_files
 
 #%% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the
 # 'koi_datalink_dvs' field
@@ -17,13 +17,15 @@ from src_preprocessing.get_dv_files import get_dv_files
 #                              'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
 #                              'processed.csv',
 #                              header=0)
-keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koidatalink_processedlinks.csv', header=0)
+# keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
+#                              'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koidatalink_processedlinks.csv', header=0)
+keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                             'q1_q17_dr25_tce_2020.04.15_23.19.10_stellar.csv')
 
 # Cumulative KOI list
 # koiCumTable = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
 #                           'oldvsnewkoidispositions.csv', header=0)
-koiCumTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/koi_table/'
+koiCumTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
                           'cumulative_2020.02.21_10.29.22.csv', header=90)
 
 # # filter KOIs that do not come from Q1-Q17 DR25 TCE list
@@ -32,7 +34,8 @@ koiCumTable = koiCumTable.loc[koiCumTable['koi_tce_delivname'] == 'q1_q17_dr25_t
 
 # koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -25, -24, -21,
 #                                                                 -20]]
-koiColumnNames = koiCumTable.columns.values.tolist()
+# koiColumnNames = koiCumTable.columns.values.tolist()
+koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 6, 7, 8, 9, 10, 11, 12]]
 
 # initialize new columns
 keplerTceTable = pd.concat([keplerTceTable, pd.DataFrame(columns=koiColumnNames)])
@@ -41,13 +44,25 @@ numKois = len(koiCumTable)
 
 koiNotMatched, koiNoTceInTarget = [], []
 
+# initialize label column with NTPs
+keplerTceTable['label'] = 'NTP'
+
 # iterate through the Kepler IDs in the KOI table
 for koi_i, koi in koiCumTable.iterrows():
 
     # add KOI parameters to the matched TCE
-    keplerTceTable.loc[(keplerTceTable['target_id'] == koi.kepid) &
+    keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
                        (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
                        koiColumnNames] = koi[koiColumnNames].values
+
+    if koi['koi_disposition'] == 'FALSE POSITIVE':
+        keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
+                           (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
+                           'label'] = 'AFP'
+    else:
+        keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
+                           (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
+                           'label'] = 'PC'
 
 # # print('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
 # logging.info('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
@@ -55,10 +70,13 @@ for koi_i, koi in koiCumTable.iterrows():
 #                                                                                       len(koiNoTceInTarget)))
 # logging.info('Number of KOI without any TCE in the same Kepler ID = {}'.format(len(koiNoTceInTarget)))
 
+keplerTceTable[['kepid', 'tce_plnt_num', 'tce_rogue_flag', 'tce_nkoi']] = keplerTceTable[['kepid', 'tce_plnt_num',
+                                                                                          'tce_rogue_flag',
+                                                                                          'tce_nkoi']].astype('int32')
+
 # save updated TCE table with KOI parameters
-keplerTceTable.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
-                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
-                      'koi_processed.csv',
+keplerTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21.csv',
                       index=False)
 
 #%% Check label of KOIs matched against labels of the TCEs in the Q1-Q17 DR25 TCE list (updated by Laurent on March

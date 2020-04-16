@@ -30,7 +30,10 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              15: ("2019226182529", "151"),
              16: ("2019253231442", "152"),
              17: ("2019279210107", "161"),
-             18: ("2019306063752", "162")}
+             18: ("2019306063752", "162"),
+             19: ("2019331140908", "164"),
+             20: ("2019357164649", "165"),
+             21: ("2020020091053", "167")}
 
 
 def tess_filenames(base_dir,
@@ -53,11 +56,11 @@ def tess_filenames(base_dir,
     s denotes the cosmic ray mitigation procedure performed on the spacecraft
 
     Args:
-    base_dir: Base directory containing Kepler data
+    base_dir: Base directory containing TESS data
     ticid: Id of the TESS target star. May be an int or a possibly zero-padded string
     sectors: list of observation sector(s)
     # multisector: str, either 'table' or 'no-table'; if 'table', the sectors list defines from which sectors to extract
-    the TCE; if 'no-table', then looks for the target star in all the sectors in `sectors`.
+    # the TCE; if 'no-table', then looks for the target star in all the sectors in `sectors`.
     check_existence: If True, only return filenames corresponding to files that exist
 
     Returns:
@@ -90,7 +93,6 @@ def tess_filenames(base_dir,
         base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
         filename = os.path.join(base_dir, base_name)
 
-        # TODO: why do we want the check_existence flag?
         if not check_existence or gfile.Exists(filename):
             filenames.append(filename)
             tce_sectors += '{} '.format(sector)
@@ -191,9 +193,12 @@ def read_tess_light_curve(filenames,
 
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
-            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix,
+            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x,
+                                                            centroid_y,
+                                                            cd_transform_matrix,
                                                             ref_px_apert,
-                                                            ref_angcoord, 'tess')
+                                                            ref_angcoord,
+                                                            satellite='tess')
 
         all_centroid['x'].append(centroid_x)
         all_centroid['y'].append(centroid_y)
@@ -211,7 +216,7 @@ def read_tess_light_curve(filenames,
         all_flux.append(flux)
 
     # TODO: adapt this to the centroid time series as well?
-    #if scramble_type:
-     #   all_time, all_flux = scramble_light_curve(all_time, all_flux, all_quarters, scramble_type)
+    # if scramble_type:
+    #    all_time, all_flux = scramble_light_curve(all_time, all_flux, all_quarters, scramble_type)
 
     return all_time, all_flux, all_centroid, add_info

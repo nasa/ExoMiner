@@ -5,8 +5,11 @@ Auxiliary functions used to plot outcome from different steps along the preproce
 """
 
 # 3rd party
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+if 'nobackup' in os.path.abspath(__file__):
+    plt.switch_backend('agg')
 
 
 def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedir, basename):
@@ -30,7 +33,7 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     # else:
     #     plt.suptitle('TIC ID {} | TCE {} | {}'.format(tce['tic'], tce['tce_plnt_num'], tce['disposition']))
 
-    plt.suptitle('TIC ID {} | TCE {} | {}'.format(tce['target_id'], tce[config.tce_identifier], tce['label']))
+    plt.suptitle('TCE {} | {} | {}'.format(tce['target_id'], tce[config.tce_identifier], tce['label']))
 
     ax[0].plot(np.concatenate(all_time), np.concatenate(binary_time_all))
     for time in all_time:

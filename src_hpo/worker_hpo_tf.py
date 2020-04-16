@@ -1,5 +1,5 @@
 """
-Custom worker for the optimizer.
+Custom TensorFlow Estimator API worker for the hyperparameter optimizer.
 
 TODO: add sess_config as parameter for the worker
       add additional default parameters to the configs file
@@ -181,7 +181,7 @@ class TransitClassifier(Worker):
                                                      np.sqrt(self.ensemble_n)}
 
         # save metrics
-        np.save(self.results_directory + '/ensemblemetrics_{}budget{:.0f}'.format(config_id, budget), res)
+        np.save(os.path.join(self.results_directory, 'ensemblemetrics_{}budget{:.0f}'.format(config_id, budget)), res)
 
         # draw loss and evaluation metric plots for the model on this given budget
         self.draw_plots(res, config_id)
@@ -286,9 +286,9 @@ class TransitClassifier(Worker):
 
         # Precision and Recall plots
         f, ax = plt.subplots()
-        for val_prec_i in res['validation']['precision']['all scores']:
-            ax.plot(epochs, val_prec_i, color='r', alpha=alpha)
-        ax.plot(epochs, res['validation']['precision']['central tendency'], color='r', label='Val Prec')
+        for train_prec_i in res['train']['precision']['all scores']:
+            ax.plot(epochs, train_prec_i, color='r', alpha=alpha)
+        ax.plot(epochs, res['train']['precision']['central tendency'], color='r', label='Train Prec')
 
         for val_rec_i in res['validation']['recall']['all scores']:
             ax.plot(epochs, val_rec_i, color='r', alpha=alpha, linestyle='--')

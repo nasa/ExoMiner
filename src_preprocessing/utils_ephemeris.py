@@ -79,8 +79,8 @@ def lininterp_transits(timeseries, transit_pulse_train, idxs_it, start_idxs, end
     numpy arrays for each coordinate ('x' and 'y')
     :param transit_pulse_train: list of numpy arrays, binary arrays that are 1's for in-transit cadences and 0 otherwise
     :param idxs_it: list of numpy arrays indicating the indexes of in-transit cadences in transit_pulse_train
-    :param start_idxs: list of numpy arrays indicating the starting index for each transit
-    :param end_idxs: list of numpy arrays indicating the last index for each transit
+    :param start_idxs: list of numpy arrays indicating the starting index for each transit in idxs_it
+    :param end_idxs: list of numpy arrays indicating the last index for each transit in idxs_it
     :return:
         timeseries_interp: list of numpy arrays, time-series linearly interpolated at the transits
     """
@@ -98,20 +98,20 @@ def lininterp_transits(timeseries, transit_pulse_train, idxs_it, start_idxs, end
         for start_idx, end_idx in zip(start_idxs[i], end_idxs[i]):
 
             # boundary issue - do nothing, since the whole array is a transit; does this happen?
-            if idxs_it[start_idx] == 0 and idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:
+            if idxs_it[i][start_idx] == 0 and idxs_it[i][end_idx - 1] == len(transit_pulse_train[i]) - 1:
                 continue
 
-            if idxs_it[start_idx] == 0:  # boundary issue start - give constant value at the end
-                timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
-                    timeseries[i][idxs_it[end_idx - 1] + 1]
+            if idxs_it[i][start_idx] == 0:  # boundary issue start - give constant value at the end
+                timeseries_interp[i][idxs_it[i][start_idx]:idxs_it[i][end_idx - 1] + 1] = \
+                    timeseries[i][idxs_it[i][end_idx - 1] + 1]
 
-            elif idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
-                timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
-                    timeseries[i][idxs_it[start_idx] - 1]
+            elif idxs_it[i][end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
+                timeseries_interp[i][idxs_it[i][start_idx]:idxs_it[i][end_idx - 1] + 1] = \
+                    timeseries[i][idxs_it[i][start_idx] - 1]
 
             else:  # linear interpolation
-                idxs_interp = np.array([idxs_it[start_idx] - 1, idxs_it[end_idx - 1] + 1])
-                idxs_to_interp = np.arange(idxs_it[start_idx], idxs_it[end_idx - 1] + 1)
+                idxs_interp = np.array([idxs_it[i][start_idx] - 1, idxs_it[i][end_idx - 1] + 1])
+                idxs_to_interp = np.arange(idxs_it[i][start_idx], idxs_it[i][end_idx - 1] + 1)
 
                 timeseries_interp[i][idxs_to_interp] = np.interp(idxs_to_interp,
                                                                  idxs_interp,
@@ -134,15 +134,19 @@ def get_startend_idxs_inter(transit_pulse_train):
     idxs_it, start_idxs, end_idxs = [], [], []
     for i in range(len(transit_pulse_train)):
 
+        # get in-transit indexes
         idxs_it.append(np.where(transit_pulse_train[i] == 1)[0])
 
         if len(idxs_it[-1]) == 0:  # no transits in the array
             start_idxs.append([])
             end_idxs.append([])
         else:
+            # get indexes in idxs_it that correspond to the edges of the transits
             idxs_lim = np.where(np.diff(idxs_it[-1]) > 1)[0] + 1
 
+            # add first index
             start_idxs.append(np.insert(idxs_lim, 0, 0))
-            end_idxs.append(np.insert(idxs_lim, -1, len(idxs_it[-1])))
+            # add last index
+            end_idxs.append(np.append(idxs_lim, len(idxs_it[-1])))
 
     return idxs_it, start_idxs, end_idxs

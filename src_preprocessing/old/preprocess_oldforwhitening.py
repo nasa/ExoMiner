@@ -28,6 +28,8 @@ Authors:
 import numpy as np
 import tensorflow as tf
 import os
+if 'home6' in os.path.dirname(os.path.dirname(os.path.abspath(__file__))):
+    import matplotlib; matplotlib.use('agg')
 import socket
 
 # local
@@ -38,7 +40,7 @@ from src_preprocessing.tf_util import example_util
 from src_preprocessing.third_party.kepler_spline import kepler_spline
 from src_preprocessing import utils_visualization
 from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13, \
-    synchronize_centroids_with_flux, get_denoised_centroids_kepler
+    synchronize_centroids_with_flux
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 from src_preprocessing import tess_io
 
@@ -81,8 +83,8 @@ def report_exclusion(config, tce, id_str, stderr=None):
 
     # TODO: what if TESS changes to multi-sector analysis; sector becomes irrelevant...
     if config.satellite == 'kepler':
-        # main_str = 'KepID {} TCE {}'.format(tce.kepid, tce.tce_plnt_num)
-        main_str = 'KeplerID {} TCE {}'.format(tce.target_id, tce[config.tce_identifier])
+        main_str = 'KepID {} TCE {}'.format(tce.kepid, tce.tce_plnt_num)
+        # main_str = 'KeplerID {} TCE {}'.format(tce.target_id, tce[config.tce_identifier])
     else:  # 'tess'
         main_str = 'TICID {} TCE {} Sector {}'.format(tce.target_id, tce[config.tce_identifier], tce.sector)
 
@@ -130,8 +132,7 @@ def read_light_curve(tce, config):
 
         if not file_names:
             if not config.omit_missing:
-                # raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.kepid))
-                raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.target_id))
+                raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.kepid))
             else:
                 report_exclusion(config, tce, 'No available lightcurve .fits files')
                 return None, None, None, None
@@ -381,6 +382,9 @@ def gap_other_tces(all_time, all_flux, all_centroids, add_info, tce, table, conf
 
             gapSectors = {gtce_i: add_info['sector'] for gtce_i in range(len(gap_ephems))}
 
+            print('#####' * 50)
+            print('1', len(gap_ephems), print(gapSectors))
+
     # # rename column names to same as Kepler - it would be easier if the uniformization was done in the TCE tables
     # if config.satellite == 'tess':
     #     gap_ephems = gap_ephems.rename(columns={'transitDurationHours': 'tce_duration', 'orbitalPeriodDays':
@@ -475,30 +479,67 @@ def _process_tce(tce, table, all_flux, all_time, config, conf_dict, gap_time=Non
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False
+    plot_preprocessing_tce = True
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
     centroid_time = None  # pre-fill
 
-    # get cadence, flux and centroid data for the tce
-    all_time, all_flux, all_centroids, add_info = read_light_curve(tce, config)
+    if all_flux is None:  # all_flux = None if satellite = kepler and non-whitened light curves
 
-    # TODO: do the same thing for TESS
-    if config.get_denoised_centroids:
-        all_centroids, idxs_nan_centroids = get_denoised_centroids_kepler(tce.target_id, config.denoised_centroids_dir)
+        # get cadence, flux and centroid data for the tce
+        all_time, all_flux, all_centroids, add_info = read_light_curve(tce, config)
 
-    if all_time is None:
-        return None
+        if all_time is None:
+            return None
 
-    if plot_preprocessing_tce:
-        utils_visualization.plot_centroids(all_time, all_centroids, None, tce, config,
-                                           os.path.join(config.output_dir, 'plots/'), '1_raw',
-                                           add_info=add_info)
+        if plot_preprocessing_tce:
+            utils_visualization.plot_centroids(all_time, all_centroids, None, tce, config,
+                                               os.path.join(config.output_dir, 'plots/'), '1_raw',
+                                               add_info=add_info)
+
+    else:  # only keep centroids as whitened source does not have centroid information
+        centroid_time, _, all_centroids, add_info = read_light_curve(tce, config)
 
     if all_time is None:
         report_exclusion(config, tce, 'Empty arrays')
         return None
+
+    # for the whitened data series we need to do some extra data manipulation and processing
+    if config.whitened:
+
+        # FIXME does it give the expected structure in terms of centroids?
+        all_centroids['x'] = np.concatenate(all_centroids['x'])
+        all_centroids['y'] = np.concatenate(all_centroids['y'])
+        centroid_time = np.concatenate(centroid_time)
+
+        all_flux = np.array(all_flux)
+        all_time = np.array(all_time)
+
+        if np.max(all_flux) == 0:
+            report_exclusion(config, tce, 'All whitened flux import values are 0')
+            return None
+
+        # remove patches of 0's (whitened time series are filled with 0's instead of nan's)
+        zero_gaps = get_gap_indices(all_flux, checkfuncs=[0])[0]
+        # if removing different valued gaps, we would need an additional step to order the gaps
+        # starting from the last gap to the first one in order to not mess with the indexing
+        for gap_n in range(len(zero_gaps) - 1, -1, -1):
+            gap = zero_gaps[gap_n]
+            gap_length = gap[-1] - gap[0] + 1
+            if gap_length > 2:  # avoiding gaps smaller than 3 cadences
+                all_flux = np.concatenate((all_flux[:gap[0]], all_flux[gap[-1]:]))
+                all_time = np.concatenate((all_time[:gap[0]], all_time[gap[-1]:]))
+
+        # align cadences of centroid and time
+        all_centroids = synchronize_centroids_with_flux(all_time, centroid_time, all_centroids)
+        if len(all_centroids['x']) != len(all_flux):
+            report_exclusion(config, tce, 'after sychronizing the centroid with the flux time series, the two time '
+                                          'series do not have the same length.')
+
+        # if not config.gapped:
+        all_time, all_flux, all_centroids['x'], all_centroids['y'] = \
+            [all_time], [all_flux], [all_centroids['x']], [all_centroids['y']]
 
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
     # gap other TCEs in the light curve
@@ -1048,6 +1089,7 @@ def local_view(time,
         eps=eps)
 
 
+# def generate_example_for_tce(time, flux, centroids, tce, config, transit_times):
 def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocessing_tce=False):
     """ Generates a tf.train.Example representing an input TCE.
 
@@ -1260,10 +1302,8 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
     # TODO: exclude TCEs that have at least one view with at least a NaN/infinite value? Right now is checking just for
     #  one finite value...
     for view in views:
-        # if not np.any(np.isfinite(views[view])):  # at least one point is not infinite or NaN
-        if np.any(~np.isfinite(views[view])):  # at least one point is infinite or NaN
-            # report_exclusion(config, tce, 'Views are NaNs.')
-            report_exclusion(config, tce, 'View has at least one non-finite data point in view {}.'.format(view))
+        if not np.any(np.isfinite(views[view])):  # at least one point is not infinite or NaN
+            report_exclusion(config, tce, 'Views are NaNs.')
             return None
 
     # set time series features in the tfrecord

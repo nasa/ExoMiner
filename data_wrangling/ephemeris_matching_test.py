@@ -11,7 +11,7 @@ import pandas as pd
 import os
 from scipy.spatial import distance
 
-from src_preprocessing.ephemeris_matching import create_binary_time_series, find_first_epoch_after_this_time
+from data_wrangling.ephemeris_matching import create_binary_time_series, find_first_epoch_after_this_time
 
 #%%
 tic_id = 19271382

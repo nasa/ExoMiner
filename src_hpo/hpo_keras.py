@@ -3,7 +3,6 @@ Main script used to run hyperparameter optimization studies using BOHB, BO and R
 
 [1] Falkner, Stefan, Aaron Klein, and Frank Hutter. "BOHB: Robust and efficient hyperparameter optimization at scale."
 arXiv preprint arXiv:1807.01774 (2018).
-
 """
 
 # 3rd party
@@ -18,7 +17,6 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 # logging.propagate = False
 import tensorflow as tf
-# import itertools
 
 import paths
 if 'home6' in paths.path_hpoconfigs:
@@ -27,11 +25,11 @@ if 'home6' in paths.path_hpoconfigs:
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
-from src import config
 
 # local
-from src.estimator_util import get_ce_weights, CNN1dPlanetFinderv1, CNN1dModel, Exonet, Exonet_XS
-from src_hpo.worker_tf_locglob import TransitClassifier
+from src.models_keras import CNN1dPlanetFinderv1
+from src import config_keras
+from src_hpo.worker_hpo_keras import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
 
@@ -173,14 +171,17 @@ if __name__ == '__main__':
 
     # features to be extracted from the dataset
     # features names - keywords used in the TFRecords
-    features_names = ['global_view', 'local_view']
+    features_names = ['global_view', 'local_view']  # time-series features names
     # features dimension
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    features_names.append('scalar_params')  # add scalar features
+    features_dim['scalar_params'] = (6,)
     # features data types
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
-    # # example
+
+    # example
     # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
     #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
@@ -192,12 +193,21 @@ if __name__ == '__main__':
                                                 'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
 
     multi_class = False  # multiclass classification
-    ce_weights_args = {'datasets': ['train'], 'label_fieldname': 'av_training_set', 'verbose': False}
+    ce_weights_args = {'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
-    label_map = config.label_map[satellite][multi_class]
 
-    ce_weights = get_ce_weights(label_map, tfrec_dir, **ce_weights_args)
+    # add dataset parameters
+    config = config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args)
+
+    # add fit parameters
+    config['callbacks_list'] = []
+    config['data_augmentation'] = False
+
+    # add missing architecture parameters in hpo with default values
+    config = config_keras.add_default_missing_params(config=config)
+
+    print('Base configuration used: ', config)
 
     # previous run directory; used to warmup start model based optimizers
     prev_run_study = ''
@@ -270,9 +280,5 @@ if __name__ == '__main__':
     args.scalar_params_idxs = scalar_params_idxs
 
     args.BaseModel = BaseModel
-
-    args.ce_weights = ce_weights
-
-    args.label_map = label_map
 
     run_main(args, bohb_params)

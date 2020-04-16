@@ -47,17 +47,21 @@ def add_default_missing_params(config):
     return config
 
 
-def add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args):
+def add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config=None):
     """ Adds parameters related to the dataset used - kepler/tess, binary/multi class., labels' map, centroid data,
     CE weights,...
 
     :param satellite: str, satellite used. Either 'kepler' or 'tess'
     :param multi_class: bool, True for multiclass, binary classification otherwise (PC vs Non-PC)
     :param use_kepler_ce: bool, if True, uses weighted CE
+    :param ce_weights_args: dict, CE weights parameters
     :param config: dict, model parameters and hyperparameters
     :return:
         config: dict, now with parameters related to the dataset used
     """
+
+    if config is None:
+        config = {}
 
     config['satellite'] = satellite
     config['multi_class'] = multi_class

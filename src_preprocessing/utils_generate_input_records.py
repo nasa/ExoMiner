@@ -1,5 +1,5 @@
 """
-Utility functions used for generating input TFRecords: manipulate TCE tables, load whitened data.
+Utility functions used for generating input TFRecords.
 """
 
 # 3rd party
@@ -65,6 +65,7 @@ def get_kepler_tce_table(config):
     # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
     tce_table = pd.read_csv(config.input_tce_csv_file)
     tce_table["tce_duration"] /= 24  # Convert hours to days.
+
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
 
     # # Filter TCE table to allowed labels.
@@ -270,3 +271,42 @@ def shuffle_tce(tce_table, seed=123):
     tf.logging.info("Randomly shuffled TCEs.")
 
     return tce_table
+
+
+def normalize_params_tce_table(config):
+    """ Normalize parameters in the TCE table.
+
+    :param config: Config, object with preprocessing configuration parameters
+    :return:
+        tce_tbl_norm_fp: str, filepath to TCE table with normalized parameters
+    """
+
+    # load the TCE table
+    tce_tbl = pd.read_csv(config.input_tce_csv_file)
+
+    # get last index of training set in the TCE table
+    trainingset_idx = int(len(tce_tbl) * config.datasets_frac['training'])
+
+    # compute normalization stats
+    if config.compute_norm_stats == '':
+        scalar_params_med = tce_tbl[config.scalar_params][:trainingset_idx].median(axis=0, skipna=False)
+        scalar_params_std = tce_tbl[config.scalar_params][:trainingset_idx].std(axis=0, skipna=False)
+
+        # save computed stats
+        scalar_params_stats = {'med': scalar_params_med, 'std': scalar_params_std}
+        np.save('{}_stats_norm.npy'.format(config.input_tce_csv_file.replace('.csv', '')), scalar_params_stats)
+    else:  # load normalization stats
+        scalar_params_stats = np.load(config.compute_norm_stats).item()
+        scalar_params_med = scalar_params_stats['med']
+        scalar_params_std = scalar_params_stats['std']
+
+    # normalize using median and std
+    tce_tbl[config.scalar_params] = (tce_tbl[config.scalar_params] - scalar_params_med) / scalar_params_std
+
+    # filepath to normalized TCE table
+    tce_tbl_norm_fp = '{}_normalized.csv'.format(config.input_tce_csv_file.replace('.csv', ''))
+
+    # save TCE table with normalized parameters
+    tce_tbl.to_csv(tce_tbl_norm_fp, index=False)
+
+    return tce_tbl_norm_fp

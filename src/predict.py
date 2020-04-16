@@ -1,10 +1,8 @@
 """
-Test ensemble of models trained using the best configuration obtained in a hyperparameter optimization study.
+Perform sequential inference using an ensemble of TensorFlow Estimator models trained using the best configuration
+obtained in a hyperparameter optimization study.
 
-TODO: add multiprocessing option, maybe from inside Python, but that would only work internally to the node; other
-    option would be to have two scripts: one that tests the models individually, the other that gathers their
-    predictions into the ensemble and generates the results for it.
-    make draw_plots function compatible with inference
+TODO: make draw_plots function compatible with inference
 """
 
 # 3rd party
@@ -83,7 +81,7 @@ def draw_plots(res, save_path, output_cl):
         ax2.legend(loc="lower left")
 
         f.suptitle('PR/ROC Curves - {}'.format(dataset_names[dataset]))
-        f.savefig(os.path.join(pathsaveres, 'pr_roc_{}.svg'.format(dataset)))
+        f.savefig(os.path.join(save_path, 'pr_roc_{}.svg'.format(dataset)))
         plt.close()
 
     # plot histogram of the class distribution as a function of the predicted output
@@ -173,8 +171,10 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        aux = get_data_from_tfrecord_kepler(os.path.join(tfrec_dir, tfrec_file), fields, label_map,
-                                            filt=filter_data[dataset], coupled=True)
+        # aux = get_data_from_tfrecord_kepler(os.path.join(tfrec_dir, tfrec_file), fields, label_map,
+        #                                     filt=filter_data[dataset], coupled=True)
+        aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields, label_map,
+                                     filt=filter_data[dataset], coupled=False)
 
         for field in aux:
             data[dataset][field].extend(aux[field])
@@ -191,8 +191,8 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         for i, model_filename in enumerate(model_filenames):
             print('Predicting in dataset %s for model %i in %s' % (dataset, i + 1, model_filename))
 
-            config = np.load('{}/config.npy'.format(model_filename), allow_pickle=True).item()
-            features_set = np.load('{}/features_set.npy'.format(model_filename), allow_pickle=True).item()
+            config = np.load(os.path.join(model_filename, 'config.npy'), allow_pickle=True).item()
+            features_set = np.load(os.path.join(model_filename, 'features_set.npy'), allow_pickle=True).item()
 
             predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*', batch_size=config['batch_size'],
                                        mode=tf.estimator.ModeKeys.PREDICT, label_map=config['label_map'],
@@ -223,7 +223,7 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
 
     # save results in a numpy file
     print('Saving predicted output to a numpy file {}...'.format(res_dir + '/predictions_per_dataset'))
-    np.save(os.path.join(res_dir, 'predictions_per_dataset'), predictions_dataset)
+    np.save(os.path.join(res_dir, 'predictions_per_dataset.npy'), predictions_dataset)
 
     # TODO: implemented only for labeled data
     # sort predictions per class based on ground truth labels
@@ -344,7 +344,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs'
+    study = 'test'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
@@ -352,9 +352,13 @@ if __name__ == "__main__":
     config_sess = tf.ConfigProto(log_device_placement=False)
 
     # tfrecord files directory
-    tfrec_dir = os.path.join(paths.path_tfrecs,
-                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-                             '_nonwhitened_gapped_2001-201_updtKOIs')
+    # tfrec_dir = os.path.join(paths.path_tfrecs,
+    #                          'Kepler',
+    #                          'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_'
+    #                          'updtKOIs')
+    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
+                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled_' \
+                'nonwhitened_gapped_2001-201_old_errortceduration'
 
     kp_dict = None  # np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
 
@@ -363,10 +367,10 @@ if __name__ == "__main__":
     # datasets = ['predict']
 
     # fields to be extracted from the tfrecords
-    # set to None if not adding other fields to
-    # fields = ['kepid', 'label', 'MES', 'tce_period', 'tce_duration', 'epoch']
-    fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']  # backward compatibility
-    # fields = ['target_id', 'tce_plnt_num', 'label', 'original label', 'tce_period', 'tce_duration', 'tce_time0bk']
+    # set to None if not adding other fields to the ranking
+    # fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']  # backward compatibility
+    fields = ['target_id', 'tce_plnt_num', 'label', 'original_label', 'tce_period', 'tce_duration', 'tce_time0bk',
+              'transit_depth', 'mag', 'ra', 'dec']
 
     # perform only inference
     inference_only = False

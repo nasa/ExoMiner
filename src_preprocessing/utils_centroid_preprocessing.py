@@ -3,6 +3,7 @@ Auxiliary functions used preprocess the centroid time-series
 """
 
 # 3rd party
+import os
 import numpy as np
 
 
@@ -189,3 +190,62 @@ def convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_a
         ra, dec = np.matmul(cd_transform_matrix, px_coords - ref_px_apert) + ref_angcoord
 
     return ra, dec
+
+
+def get_denoised_centroids_kepler(keplerid, denoised_centroids_dir):
+    """ Get denoised centroid time-series for Kepler data.
+
+    :param keplerid: int, Kepler ID of the target star
+    :param denoised_centroids_dir: str, denoised centroids directory
+    :return:
+        denoised_centroids: dict, key-value pair is a coordinate ('x', 'y') that maps to a list of numpy arrays, which
+        are the denoised centroid time-series for each quarter for the given target star
+        idxs_nan_centroids: list, indexes of NaN values in the original centroid time-series; each subarray (numpy
+        array) is for a given quarter
+    """
+
+    # initialize variables
+    denoised_centroids = {'x': [], 'y': []}
+    idxs_nan_centroids = []
+
+    # get filepaths for the kepids dictionaries that map from Kepler ID to quarters in a given channel
+    kepids_ch_fp = [os.path.join(denoised_centroids_dir, filename) for filename in os.listdir(denoised_centroids_dir)
+                    if 'kepids_ch' in filename]
+
+    # initialize quarters' list
+    quarters = []
+
+    # iterate through the channel kepids
+    for filepath in kepids_ch_fp:
+
+        # load kepids for a channel
+        kepids_ch = np.load(filepath, allow_pickle=True).item()
+
+        # check if Kepler ID is in this channel
+        if keplerid in kepids_ch:
+
+            # get the channel
+            channel = filepath.split('_')[-1]
+
+            # load the denoised centroids for that channel
+            denoised_centroids_ch = np.load(os.path.join(denoised_centroids_dir,
+                                                         'denoisedcentroidtimeseries_{}.npy'.format(channel)),
+                                            allow_pickle=True).item()
+            # load NaN indexes for that channel
+            idxs_nan_ch = np.load(os.path.join(denoised_centroids_dir, 'idxsnotnan_{}.npy'.format(channel)),
+                                  allow_pickle=True).item()
+
+            # iterate through the quarters in this channel for these Kepler ID
+            for quarter in denoised_centroids_ch[keplerid]:
+                quarters.append(quarter)
+                idxs_nan_centroids.append(idxs_nan_ch[quarter])
+                denoised_centroids['x'].append(denoised_centroids_ch[keplerid][quarter]['x'])
+                denoised_centroids['y'].append(denoised_centroids_ch[keplerid][quarter]['y'])
+
+    # sort arrays by quarters
+    quarters_idxs = np.argsort(quarters)
+    idxs_nan_centroids = [idxs_nan_centroids[idx] for idx in quarters_idxs]
+    denoised_centroids['x'] = [denoised_centroids['x'][idx] for idx in quarters_idxs]
+    denoised_centroids['y'] = [denoised_centroids['y'][idx] for idx in quarters_idxs]
+
+    return denoised_centroids, idxs_nan_centroids

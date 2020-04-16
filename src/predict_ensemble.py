@@ -1,5 +1,5 @@
 """
-Perform inference using an ensemble of models. Set up for single model inference in parallel.
+Perform inference using an ensemble of TensorFlow Estimator models. Set up for single model inference in parallel.
 
 TODO: make draw_plots function compatible with inference
 """

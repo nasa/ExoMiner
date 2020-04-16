@@ -1,11 +1,10 @@
 """"
-Main script usec to generate tfrecords --on the supercomputer cluster-- used as input to deep learning model
+Main script used to generate TFRecords --on the supercomputer cluster-- used as input to deep learning model
 for classifying Threshold Crossing Events.
 """
 
 # 3rd party
 import sys
-# sys.path.append('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/')
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import tensorflow as tf
@@ -14,26 +13,38 @@ from mpi4py import MPI
 import datetime
 import socket
 import numpy as np
+import time
 
 # local
 from src_preprocessing.preprocess import _process_tce
 from src_preprocessing.utils_generate_input_records import get_tess_tce_table, get_kepler_tce_table, \
-    load_whitened_data, shuffle_tce
+    load_whitened_data, shuffle_tce, normalize_params_tce_table
 
 
 class Config:
     """"
-    Config class to specify time series to be processed into tfrecords
+    Config class to specify time series to be processed into TFRecords
     """
+
+    # TFRecords base name
+    tfrecords_base_name = 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_' \
+                          'updtkois_shuffled'
+
+    # TFRecords root directory
+    tfrecords_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords'
+
+    # output directory
+    output_dir = os.path.join(tfrecords_dir, 'Kepler', tfrecords_base_name)
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
+    tce_identifier = 'tce_plnt_num'
 
     training = True  # choose from: 'training' or 'predict'
     # partition the data set
     datasets_frac = {'training': 0.8, 'validation': 0.1, 'test': 0.1}
 
-    assert np.sum(list(datasets_frac.values())) <= 1
+    assert np.sum(list(datasets_frac.values())) <= 1  # check that datasets fraction sum up to 1
 
     whitened = False  # use whitened data (currently only available for Kepler DR25 34k TCEs dataset)
 
@@ -69,16 +80,16 @@ class Config:
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
 
+    # True to load denoised centroid time-series instead of the raw from the FITS files
+    get_denoised_centroids = False
+
+    # normalization = True  # if True, performs normalization of TCE table parameters such as the stellar parameters
+    # compute_norm_stats = ''  # loads normalization statistics from this file; if empty, computes them using the training set
+
     # save_stats = False
 
     # filepath to numpy file with stats used to preprocess the data
     stats_preproc_filepath = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/stats_trainingset.npy'
-
-    # output directory
-    output_dir = "tfrecords/tfrecord{}dr25_flux-centroid_selfnormalized-oddeven".format(satellite)
-    # working directory
-    w_dir = '/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/src_preprocessing'  # os.path.dirname(__file__)
-    output_dir = os.path.join(w_dir, output_dir)
 
     # Ephemeris table (complete with the gapped TCEs) for the 34k TCEs Kepler
     # eph_tbl_fp = '/home6/msaragoc/work_dir/data/EXOPLNT_Kepler-TESS/Ephemeris_tables/Kepler/DR25_readout_table'
@@ -97,10 +108,10 @@ class Config:
         #                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_' \
         #                      'updt_normstellarparamswitherrors.csv'
         input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_' \
-                             'koidatalink_processed'
+                             'DR25/q1_q17_dr25_tce_cumkoi2020.02.21_stellar_shuffled.csv'
         # 34k TCEs Kepler DR25
-        lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/PDC_timeseries/DR25/pdc-tce-time-series-fits'
+        lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
+                      'pdc-tce-time-series-fits'
     elif satellite == 'tess':
         input_tce_csv_file = ''
 
@@ -109,16 +120,16 @@ class Config:
     # shuffle TCE table
     shuffle = False
 
-    output_dir += '_whitened' if whitened else '_nonwhitened'
-    if gapped:
-        output_dir += '_gapped'
-    if gap_imputed:
-        output_dir += '_imputed'
-    if gap_with_confidence_level:
-        output_dir += '_conf%d' % int(gap_confidence_level * 100)
-    if use_tps_ephem:
-        output_dir += '_tps'
-    output_dir += '_%d-%d' % (num_bins_glob, num_bins_loc)
+    # output_dir += '_whitened' if whitened else '_nonwhitened'
+    # if gapped:
+    #     output_dir += '_gapped'
+    # if gap_imputed:
+    #     output_dir += '_imputed'
+    # if gap_with_confidence_level:
+    #     output_dir += '_conf%d' % int(gap_confidence_level * 100)
+    # if use_tps_ephem:
+    #     output_dir += '_tps'
+    # output_dir += '_%d-%d' % (num_bins_glob, num_bins_loc)
 
     # # input checks
     # assert(satellite in ['kepler', 'tess'])
@@ -143,9 +154,9 @@ class Config:
     # assert (n_processes % (1 / test_frac) == 0)
     # assert (n_processes % (1 / val_frac) == 0)
 
-    if process_i == 0:
-        print('Pre processing the following time series:\nGapped: %s\nWhitened: %s\nnum_bins_glob: %d\nnum_bins_loc: %d'
-              % ('True' if gapped else 'False', 'True' if whitened else 'False', num_bins_glob, num_bins_loc))
+    # if process_i == 0:
+    #     print('Pre processing the following time series:\nGapped: %s\nWhitened: %s\nnum_bins_glob: %d\nnum_bins_loc: %d'
+    #           % ('True' if gapped else 'False', 'True' if whitened else 'False', num_bins_glob, num_bins_loc))
 
 
 def _process_file_shard(tce_table, file_name, eph_table):
@@ -213,8 +224,6 @@ def main(_):
     # get the configuration parameters
     config = Config()
 
-    rank_frac = config.process_i / config.n_processes
-
     # make the output directory if it doesn't already exist
     tf.gfile.MakeDirs(config.output_dir)
 
@@ -225,12 +234,21 @@ def main(_):
     # if config.save_stats:
     #     tf.gfile.MakeDirs(os.path.join(config.output_dir, 'stats'))
 
+    # if config.normalization:
+    #     if config.process_i == 0:
+    #         config.input_tce_csv_file = normalize_params_tce_table(config)
+    #     else:
+    #         config.input_tce_csv_file = '{}_normalized.csv'.format(config.input_tce_csv_file.replace('.csv', ''))
+
+    rank_frac = config.process_i / config.n_processes
+
     # if rank_frac < (1 - config.test_frac - config.val_frac):
 
     # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
                             else get_tess_tce_table(config))
 
+    # TODO: does this ensure that all processes shuffle the same way? it does call np.random.seed inside the function
     # shuffle tce table
     if config.shuffle:
         tce_table = shuffle_tce(tce_table, seed=123)

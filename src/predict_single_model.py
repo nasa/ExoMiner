@@ -1,5 +1,5 @@
 """
-Perform inference using a single model.
+Perform inference using a single TensorFlow Estimator model.
 """
 
 # 3rd party
@@ -21,7 +21,7 @@ from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1
 # from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
 # import src.config
 # import src_hpo.utils_hpo as utils_hpo
-import paths
+# import paths
 # import baseline_configs
 # import src.utils_data as utils_data
 

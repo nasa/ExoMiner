@@ -1,8 +1,14 @@
+"""
+Utilty functions for data I/O.
+"""
+
+# 3rd party
 import os
 import tensorflow as tf
 import numpy as np
 import tempfile
 
+# local
 from src.utils_train import phase_shift, phase_inversion, add_whitegaussiannoise
 
 
@@ -68,12 +74,13 @@ class InputFn(object):
             #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
             #  av_training_set
             if include_labels:
-                data_fields['av_training_set'] = tf.io.FixedLenFeature([], tf.string)
+                # data_fields['av_training_set'] = tf.io.FixedLenFeature([], tf.string)
+                data_fields['label'] = tf.io.FixedLenFeature([], tf.string)
 
-            # initialize filtering data fields
-            if self.filter_data is not None:
-                data_fields['kepid'] = tf.io.FixedLenFeature([], tf.int64)
-                data_fields['tce_plnt_num'] = tf.io.FixedLenFeature([], tf.int64)
+            # # initialize filtering data fields
+            # if self.filter_data is not None:
+            #     data_fields['kepid'] = tf.io.FixedLenFeature([], tf.int64)
+            #     data_fields['tce_plnt_num'] = tf.io.FixedLenFeature([], tf.int64)
 
             # Parse the features.
             parsed_features = tf.io.parse_single_example(serialized=serialized_example, features=data_fields)
@@ -88,8 +95,8 @@ class InputFn(object):
 
             # initialize feature output
             output = {}
-            if self.filter_data is not None:
-                output['filt_features'] = {}
+            # if self.filter_data is not None:
+            #     output['filt_features'] = {}
 
             label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
 
@@ -101,7 +108,7 @@ class InputFn(object):
                 # FIXME: change the feature name to 'label' - standardization of TCE feature names across different
                 #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
                 #  av_training_set
-                elif include_labels and feature_name == 'av_training_set':
+                elif include_labels and feature_name == 'label':  # either 'label' or 'av_training_set'
 
                     # map label to integer
                     label_id = label_to_id.lookup(value)
@@ -113,11 +120,11 @@ class InputFn(object):
                     with tf.control_dependencies([assert_known_label]):
                         label_id = tf.identity(label_id)
 
-                # filtering features
-                elif self.filter_data is not None and feature_name == 'kepid':
-                    output['filt_features']['kepid'] = value
-                elif self.filter_data is not None and feature_name == 'tce_plnt_num':
-                    output['filt_features']['tce_n'] = value
+                # # filtering features
+                # elif self.filter_data is not None and feature_name == 'kepid':
+                #     output['filt_features']['kepid'] = value
+                # elif self.filter_data is not None and feature_name == 'tce_plnt_num':
+                #     output['filt_features']['tce_n'] = value
 
                 # scalar features (e.g, stellar, TCE, transit fit parameters)
                 elif feature_name == 'scalar_params':
@@ -269,36 +276,36 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     :param verbose: bool
     :return:
         ce_weights: list, weight for each class (class 0, class 1, ...)
+        TODO: ce_weights should be a dictionary
     """
 
-    max_label_val = max(label_map.values())
+    # get labels ids
+    label_ids = label_map.values()
 
     # assumes TFRecords filenames (train, val, test)-xxxxx
+    # only gets TFRecords filenames for the given datasets
     filenames = [os.path.join(tfrec_dir, file) for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
 
-    label_vec, example = [], tf.train.Example()
+    # instantiate list of labels
+    label_vec = []
 
-    n_samples = {dataset: 0 for dataset in datasets}
+    # iterate throught the TFRecords files
     for file in filenames:
 
-        file_dataset = file.split('/')[-1].split('-')[0]
-
-        record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=file)
+        tfrecord_dataset = tf.data.TFRecordDataset(file)
         try:
-            for string_record in record_iterator:
+            for string_record in tfrecord_dataset.as_numpy_iterator():  # parse the label
 
                 example = tf.train.Example()
                 example.ParseFromString(string_record)
                 label = example.features.feature[label_fieldname].bytes_list.value[0].decode("utf-8")
                 label_vec.append(label_map[label])
 
-                n_samples[file_dataset] += 1
-
         except tf.errors.DataLossError as err:
-            print("Oops: " + str(err))
+            print("Data Loss Error: " + str(err))
 
-    # count instances for each class based on their indexes
-    label_counts = [label_vec.count(category) for category in range(max_label_val + 1)]
+    # count instances for each class
+    label_counts = [label_vec.count(label_id) for label_id in label_ids]
 
     # give more weight to classes with less instances
     ce_weights = [max(label_counts) / max(count_i, 1e-7) for count_i in label_counts]
@@ -332,9 +339,9 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
         file_dataset = file.split('/')[-1]
         curr_dataset = datasets[np.where([dataset in file_dataset for dataset in datasets])[0][0]]
 
-        record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=file)
+        tfrecord_dataset = tf.data.TFRecordDataset(file)
         try:
-            for string_record in record_iterator:
+            for string_record in tfrecord_dataset.as_numpy_iterator():
 
                 example = tf.train.Example()
                 example.ParseFromString(string_record)
@@ -390,9 +397,10 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     if filt is not None:
         data['selected_idxs'] = []
 
-    record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
+    # record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
+    tfrecord_dataset = tf.data.TFRecordDataset(tfrecord)
     try:
-        for string_record in record_iterator:
+        for string_record in tfrecord_dataset.as_numpy_iterator():
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
@@ -513,15 +521,10 @@ def get_data_from_tfrecord_kepler(tfrecord, data_fields, label_map=None, filt=No
     if filt is not None:
         data['selected_idxs'] = []
 
-    # TODO: use TFRecordDataset
-    record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
-    # record_iterator = tf.python.python_io.tf_record_iterator(path=tfrecord)
-    # record_iterator = tf.data.TFRecordDataset(filenames=[tfrecord],
-    #                                           compression_type=None,
-    #                                           buffer_size=None,
-    #                                           num_parallel_reads=None)
+    # record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
+    tfrecord_dataset = tf.data.TFRecordDataset(tfrecord)
     try:
-        for string_record in record_iterator:
+        for string_record in tfrecord_dataset.as_numpy_iterator():
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
@@ -666,3 +669,21 @@ def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_fi
                 writer.write(example.SerializeToString())
 
 
+if __name__ == '__main__':
+
+    # check features, labels and other parameters stored in the TFRecords
+    tfrec_dir = ''
+    datasets = ['train', 'val', 'test']
+    features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr',
+                                 'local_view_even', 'local_view_odd', 'scalar_params']
+    tfrec_files = [file for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
+    for file in tfrec_files:
+        record_iterator = tf.python_io.tf_record_iterator(path=os.path.join(tfrec_dir, file))
+        for i, string_record in enumerate(record_iterator):
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+            # label_map['kepler'][False][example.features.feature['label'].bytes_list.value[0].decode('utf-8')]
+            for feature_name in features_names:
+                value = example.features.feature[feature_name].float_list.value
+                if not np.all(np.isfinite(value)):  # or value <= 0:
+                    print(example.features.feature['target_id'])

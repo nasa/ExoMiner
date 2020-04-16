@@ -1,8 +1,7 @@
 """
-Train models using a given configuration obtained on a hyperparameter optimization study.
+Perform inference using an ensemble of Tensorflow Keras models.
 
 TODO: make draw plots workable when in inference only mode
-
 """
 
 # 3rd party

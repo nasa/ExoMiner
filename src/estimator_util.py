@@ -14,7 +14,7 @@ import copy
 import operator
 import os
 import tempfile
-import _pickle as pickle
+# import _pickle as pickle
 import numpy as np
 # import itertools
 
@@ -54,7 +54,7 @@ class InputFn(object):
         self.filter_data = filter_data
 
     def __call__(self, config, params):
-        """ Builds the input pipeline.
+        """ Builds the input pipeline.:q
 
         :param config: dict, parameters and hyperparameters for the model
         :param params:
@@ -87,7 +87,8 @@ class InputFn(object):
             #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
             #  av_training_set
             if include_labels:
-                data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
+                # data_fields['av_training_set'] = tf.FixedLenFeature([], tf.string)
+                data_fields['label'] = tf.FixedLenFeature([], tf.string)
 
             # initialize filtering data fields
             if self.filter_data is not None:
@@ -122,7 +123,7 @@ class InputFn(object):
                 # FIXME: change the feature name to 'label' - standardization of TCE feature names across different
                 #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
                 #  av_training_set
-                elif include_labels and feature_name == 'av_training_set':
+                elif include_labels and feature_name == 'label':  # either 'label' or 'av_training_set'
 
                     # map label to integer
                     label_id = label_to_id.lookup(value)
@@ -219,7 +220,8 @@ class InputFn(object):
                     raise ValueError("Found no input files matching {}".format(p))
                 filenames.extend(matches)
 
-            tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
+            tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames),
+                            file_patterns)
 
             # create filename dataset based on the list of tfrecords filepaths
             filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
@@ -1559,10 +1561,9 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
 
         file_dataset = file.split('/')[-1].split('-')[0]
 
-        # TODO: update this
         # record_iterator = tf.python_io.tf_record_iterator(path=file)
         record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=file)
-
+        # tfrecord_dataset = tf.data.TFRecordDataset(file)
         try:
             for string_record in record_iterator:
 
@@ -1590,20 +1591,6 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     return ce_weights
 
 
-# TODO: do we need this function at all?
-def picklesave(path, savedict):
-    """
-
-    :param path:
-    :param savedict:
-    :return:
-    """
-
-    p = pickle.Pickler(open(path, "wb+"))
-    p.fast = True
-    p.dump(savedict)
-
-
 def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
     """ Compute number of samples in the datasets for each class.
 
@@ -1626,6 +1613,7 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
         curr_dataset = datasets[np.where([dataset in file_dataset for dataset in datasets])[0][0]]
 
         record_iterator = tf.python_io.tf_record_iterator(path=file)
+        # tfrecord_dataset = tf.data.TFRecordDataset(file)
         try:
             for string_record in record_iterator:
 
@@ -1684,90 +1672,93 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         data['selected_idxs'] = []
 
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
-    try:
-        for string_record in record_iterator:
+    # tfrecord_dataset = tf.data.TFRecordDataset(tfrecord)
+    # try:
+    for string_record in record_iterator:
 
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
 
-            if filt is not None:
-                data['selected_idxs'].append(False)
+        if filt is not None:
+            data['selected_idxs'].append(False)
 
-            # extracting data fields
-            datum = {}
-            if 'label' in union_fields:
-                label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+        # extracting data fields
+        datum = {}
+        if 'label' in union_fields:
+            label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-                if label_map is not None:  # map from label to respective integer
-                    datum['label'] = label_map[label]
+            if label_map is not None:  # map from label to respective integer
+                datum['label'] = label_map[label]
 
-            if 'original_label' in union_fields:
-                datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+        if 'original_label' in union_fields:
+            datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-            if 'target_id' in union_fields:
-                datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
+        if 'target_id' in union_fields:
+            # datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
+            datum['target_id'] = int(example.features.feature['target_id'].float_list.value[0])
 
-            if 'oi' in union_fields:
-                datum['oi'] = example.features.feature['oi'].int64_list.value[0]
+        if 'oi' in union_fields:
+            datum['oi'] = example.features.feature['oi'].int64_list.value[0]
 
-            if 'tce_plnt_num' in union_fields:
-                datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+        if 'tce_plnt_num' in union_fields:
+            # datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+            datum['tce_plnt_num'] = int(example.features.feature['tce_plnt_num'].float_list.value[0])
 
-            if 'sectors' in union_fields:  # for TESS data
-                datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
+        if 'sectors' in union_fields:  # for TESS data
+            datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
 
-            # float parameters
-            for field in FIELDS:
-                if field in union_fields:
-                    datum[field] = example.features.feature[field].float_list.value[0]
+        # float parameters
+        for field in FIELDS:
+            if field in union_fields:
+                datum[field] = example.features.feature[field].float_list.value[0]
 
-            # time-series features
-            for timeseries in TIMESERIES:
-                if timeseries in union_fields:
-                    datum[timeseries] = example.features.feature[timeseries].float_list.value
+        # time-series features
+        for timeseries in TIMESERIES:
+            if timeseries in union_fields:
+                datum[timeseries] = example.features.feature[timeseries].float_list.value
 
-            # filtering
-            if filt is not None:
+        # filtering
+        if filt is not None:
 
-                if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+            if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+                continue
+
+            if 'original_label' in filt.keys() and datum['original_label'] not in filt['original_label'].values:
+                continue
+
+            if coupled:
+                if 'target_id+tce_plnt_num' in filt.keys() and \
+                        '{}_{}'.format(datum['target_id'], datum['tce_plnt_num']) not in filt['target_id+tce_plnt']:
+                    continue
+            else:
+                if 'target_id' in filt.keys() and datum['target_id'] not in filt['target_id']:
+                    continue
+                if 'tce_plnt_num' in filt.keys() and datum['tce_plnt_num'] not in filt['tce_plnt_num']:
                     continue
 
-                if 'original_label' in filt.keys() and datum['original_label'] not in filt['original_label'].values:
-                    continue
+            if 'tce_period' in filt.keys() and \
+                    not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
+                continue
 
-                if coupled:
-                    if 'target_id+tce_plnt_num' in filt.keys() and \
-                            '{}_{}'.format(datum['target_id'], datum['tce_plnt_num']) not in filt['target_id+tce_plnt']:
-                        continue
-                else:
-                    if 'target_id' in filt.keys() and datum['target_id'] not in filt['target_id']:
-                        continue
-                    if 'tce_plnt_num' in filt.keys() and datum['tce_plnt_num'] not in filt['tce_plnt_num']:
-                        continue
+            if 'tce_duration' in filt.keys() and \
+                    not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
+                continue
 
-                if 'tce_period' in filt.keys() and \
-                        not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
-                    continue
+            if 'tce_time0bk' in filt.keys() and \
+                    not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
+                continue
 
-                if 'tce_duration' in filt.keys() and \
-                        not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
-                    continue
+            if 'mes' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
+                continue
 
-                if 'tce_time0bk' in filt.keys() and \
-                        not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
-                    continue
+            data['selected_idxs'][-1] = True
 
-                if 'mes' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
-                    continue
+        # add example
+        for field in data_fields:
+            data[field].append(datum[field])
 
-                data['selected_idxs'][-1] = True
-
-            # add example
-            for field in data_fields:
-                data[field].append(datum[field])
-
-    except:
-        print('Corrupted TFRecord: {}'.format(tfrecord))
+    # except:
+    #     print('Corrupted TFRecord: {}'.format(tfrecord))
 
     return data
 
@@ -1790,7 +1781,8 @@ def get_data_from_tfrecord_kepler(tfrecord, data_fields, label_map=None, filt=No
     #       deal with errors
     """
 
-    EPHEMERIS = {'tce_period': 'tce_period', 'tce_duration': 'tce_duration', 'epoch': 'tce_time0bk', 'MES': 'mes'}
+    # EPHEMERIS = {'tce_period': 'tce_period', 'tce_duration': 'tce_duration', 'epoch': 'tce_time0bk', 'MES': 'mes'}
+    EPHEMERIS = ['tce_period', 'tce_duration', 'tce_time0bk']
     TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
                   'local_view_odd']
 
@@ -1807,81 +1799,83 @@ def get_data_from_tfrecord_kepler(tfrecord, data_fields, label_map=None, filt=No
         data['selected_idxs'] = []
 
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecord)
-    try:
-        for string_record in record_iterator:
+    # tfrecord_dataset = tf.data.TFRecordDataset(tfrecord)
+    # try:
+    for string_record in record_iterator:
 
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
 
-            if filt is not None:
-                data['selected_idxs'].append(False)
+        if filt is not None:
+            data['selected_idxs'].append(False)
 
-            # extracting data fields
-            datum = {}
-            if 'label' in union_fields:
-                datum['label'] = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
-                if label_map is not None:
-                    datum['label'] = label_map[datum['label']]
-                    if 'original label' in union_fields:
-                        datum['original label'] = example.features.feature['av_training_set'].bytes_list.value[0].\
-                            decode("utf-8")
+        # extracting data fields
+        datum = {}
+        if 'label' in union_fields:
+            datum['label'] = example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8")
+            if label_map is not None:
+                datum['label'] = label_map[datum['label']]
+                if 'original label' in union_fields:
+                    datum['original label'] = example.features.feature['av_training_set'].bytes_list.value[0]. \
+                        decode("utf-8")
 
-            if 'kepid' in union_fields:
-                datum['kepid'] = example.features.feature['kepid'].int64_list.value[0]
+        if 'kepid' in union_fields:
+            datum['kepid'] = example.features.feature['kepid'].int64_list.value[0]
 
-            if 'tce_n' in union_fields:
-                datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+        if 'tce_n' in union_fields:
+            datum['tce_n'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
 
-            # ephemeris data
-            for ephem in EPHEMERIS:
-                if ephem in union_fields:
-                    datum[ephem] = example.features.feature[EPHEMERIS[ephem]].float_list.value[0]
+        # ephemeris data
+        for ephem in EPHEMERIS:
+            if ephem in union_fields:
+                datum[ephem] = example.features.feature[EPHEMERIS[ephem]].float_list.value[0]
 
-            # time series
-            for timeseries in TIMESERIES:
-                if timeseries in union_fields:
-                    datum[timeseries] = example.features.feature[timeseries].float_list.value
+        # time series
+        for timeseries in TIMESERIES:
+            if timeseries in union_fields:
+                datum[timeseries] = example.features.feature[timeseries].float_list.value
 
-            # filtering
-            if filt is not None:
+        # filtering
+        if filt is not None:
 
-                if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+            if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+                continue
+
+            if 'original label' in filt.keys() and datum['original label'] not in filt['original label'].values:
+                continue
+
+            if coupled:
+                if 'kepid+tce_n' in filt.keys() and '{}_{}'.format(datum['kepid'], datum['tce_n']) \
+                        not in filt['kepid+tce_n']:
+                    continue
+            else:
+                if 'kepid' in filt.keys() and datum['kepid'] not in filt['kepid']:
+                    continue
+                if 'tce_n' in filt.keys() and datum['tce_n'] not in filt['tce_n']:
                     continue
 
-                if 'original label' in filt.keys() and datum['original label'] not in filt['original label'].values:
-                    continue
+            if 'tce_period' in filt.keys() and not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][
+                1]:
+                continue
 
-                if coupled:
-                    if 'kepid+tce_n' in filt.keys() and '{}_{}'.format(datum['kepid'], datum['tce_n']) \
-                            not in filt['kepid+tce_n']:
-                        continue
-                else:
-                    if 'kepid' in filt.keys() and datum['kepid'] not in filt['kepid']:
-                        continue
-                    if 'tce_n' in filt.keys() and datum['tce_n'] not in filt['tce_n']:
-                        continue
+            if 'tce_duration' in filt.keys() and not filt['tce_duration'][0] <= datum['tce_duration'] <= \
+                                                     filt['tce_duration'][1]:
+                continue
 
-                if 'tce_period' in filt.keys() and not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
-                    continue
+            if 'epoch' in filt.keys() and not filt['epoch'][0] <= datum['epoch'] <= filt['epoch'][1]:
+                continue
 
-                if 'tce_duration' in filt.keys() and not filt['tce_duration'][0] <= datum['tce_duration'] <= \
-                                                         filt['tce_duration'][1]:
-                    continue
+            if 'MES' in filt.keys() and not filt['MES'][0] <= datum['MES'] <= filt['MES'][1]:
+                continue
 
-                if 'epoch' in filt.keys() and not filt['epoch'][0] <= datum['epoch'] <= filt['epoch'][1]:
-                    continue
+            data['selected_idxs'][-1] = True
 
-                if 'MES' in filt.keys() and not filt['MES'][0] <= datum['MES'] <= filt['MES'][1]:
-                    continue
+        # add example
+        for field in data_fields:
+            data[field].append(datum[field])
 
-                data['selected_idxs'][-1] = True
-
-            # add example
-            for field in data_fields:
-                data[field].append(datum[field])
-
-    except:
-        print('Corrupted TFRecord: {}'.format(tfrecord))
+    # except:
+    #     print('Corrupted TFRecord: {}'.format(tfrecord))
 
     return data
 

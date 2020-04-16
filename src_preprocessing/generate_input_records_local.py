@@ -4,7 +4,6 @@ Generate preprocessed tfrecords locally.
 
 # 3rd party
 import sys
-# sys.path.append('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/')
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import multiprocessing
@@ -15,11 +14,20 @@ import pickle
 # local
 from src_preprocessing.preprocess import _process_tce
 from src_preprocessing.utils_generate_input_records import get_kepler_tce_table, get_tess_tce_table, \
-    load_whitened_data, shuffle_tce
+    load_whitened_data, shuffle_tce, normalize_params_tce_table
 
 
 class Config:
     """ Class that creates configuration objects that hold parameters required for the preprocessing."""
+
+    # TFRecords base name
+    tfrecords_base_name = 'test'  # 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled'
+
+    # TFRecords root directory
+    tfrecords_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords'
+
+    # output directory
+    output_dir = os.path.join(tfrecords_dir, 'Kepler', tfrecords_base_name)
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = True  # True for TESS multi-sector runs
@@ -53,6 +61,12 @@ class Config:
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
 
+    # True to load denoised centroid time-series instead of the raw from the FITS files
+    get_denoised_centroids = False
+
+    # normalization = True  # if True, performs normalization of TCE table parameters such as the stellar parameters
+    # compute_norm_stats = ''  # loads normalization statistics from this file; if empty, computes them using the training set
+
     # if True, CCD module pixel coordinates are used. If False, local CCD pixel coordinates are transformed into RA and
     # Dec (world coordinates)
     px_coordinates = False
@@ -65,7 +79,7 @@ class Config:
     # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
     # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
     # These parameters are added to the example in the TFRecord as a list of float values.
-    scalar_params = []
+    scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
 
     # save_stats = True
 
@@ -73,13 +87,6 @@ class Config:
     stats_preproc_filepath = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/' \
                              'tfrecords/tfrecord_keplerdr25_centroidnonnormalized_radec_nonwhitened_gapped_2001-201/' \
                              'stats_trainingset.npy'
-
-    # output directory
-    # output_dir = "tfrecords/tfrecord{}dr25_centroidnormalized_test".format(satellite)
-    output_dir = 'tfrecords/tfrecord{}_plottce'.format(satellite)
-    # working directory
-    w_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/src_preprocessing'
-    output_dir = os.path.join(w_dir, output_dir)
 
     # Ephemeris table (complete with the gapped TCEs)
     # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'
@@ -98,9 +105,8 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/' \
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_' \
-                             'normstellarparamswitherrors_koidatalink_processedlinks.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/' \
+                             'q1_q17_dr25_tce_cumkoi2020.02.21_stellar_shuffled.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
         # FITS files directory
@@ -114,7 +120,8 @@ class Config:
         #                      'toi_list_ssectors_dvephemeris_ephmatchnoepochthr0,25.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/final_tce_tables/TOI_2020.01.21_13.55.10.csv_TFOPWG_processed.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed.csv'
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/exofop_ctoilists_Community_processed.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/' \
+                             'exofop_ctoilists_Community_processed.csv'
 
         lc_data_dir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
@@ -123,14 +130,14 @@ class Config:
 
     output_dir += 'whitened' if whitened else 'nonwhitened'
 
-    if gapped:
-        output_dir += '_gapped'
-    if gap_imputed:
-        output_dir += '_imputed'
-    if gap_with_confidence_level:
-        output_dir += '_conf%d' % int(gap_confidence_level * 100)
-    if use_tps_ephem:
-        output_dir += '_tps'
+    # if gapped:
+    #     output_dir += '_gapped'
+    # if gap_imputed:
+    #     output_dir += '_imputed'
+    # if gap_with_confidence_level:
+    #     output_dir += '_conf%d' % int(gap_confidence_level * 100)
+    # if use_tps_ephem:
+    #     output_dir += '_tps'
 
     # # input checks
     # assert(satellite in ['kepler', 'tess'])
@@ -288,6 +295,9 @@ def main(_):
     # make directory to save figures in different steps of the preprocessing pipeline
     if config.plot_figures:
         tf.gfile.MakeDirs(os.path.join(config.output_dir, 'plots'))
+
+    # if config.normalization:
+    #     config.input_tce_csv_file = normalize_params_tce_table(config)
 
     # if config.save_stats:
     #     tf.gfile.MakeDirs(os.path.join(config.output_dir, 'stats'))
