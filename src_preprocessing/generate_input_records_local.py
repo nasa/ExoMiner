@@ -105,8 +105,9 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/' \
-                             'q1_q17_dr25_tce_cumkoi2020.02.21_stellar_shuffled.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/old/' \
+                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_' \
+                             'normstellarparamswitherrors_copy.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
         # FITS files directory

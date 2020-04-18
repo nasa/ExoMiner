@@ -903,7 +903,7 @@ def phase_fold_and_sort_light_curve_odd_even(time, flux, centroids, period, t0):
 
 
 def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
-                  centering=True, normalize=True, centroid=False, eps=1e-32):
+                  centering=True, normalize=True, centroid=False, **kwargs):
     """Generates a view of a phase-folded light curve using a median filter.
 
     Args:
@@ -916,7 +916,6 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
       centering: bool, whether to center the view by subtracting the median
       normalize: Whether to perform normalization
       centroid: bool, if True considers these view a centroid time series
-      eps: float, non-zero normalization term
 
     Returns:
       1D NumPy array of size num_bins containing the median flux values of
@@ -932,18 +931,18 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max,
 
     # normalization
     if normalize:
-        view = normalize_view(view, val=None, centroid=centroid, eps=eps)
+        view = normalize_view(view, val=None, centroid=centroid, **kwargs)
 
     return view
 
 
-def normalize_view(view, val=None, centroid=False, eps=1e-32):
+def normalize_view(view, val=None, centroid=False, **kwargs):
     """ Normalize the phase-folded time series.
 
     :param view: array, phase-folded time series
     :param val: float, value used to normalize the time series
     :param centroid: bool, True for centroid time series
-    :param eps: float, non-zero normalization term
+    :param kwargs: dict, extra keyword parameters
     :return:
         array, normalized phase-folded time series
     """
@@ -956,18 +955,18 @@ def normalize_view(view, val=None, centroid=False, eps=1e-32):
     if val is None:
         val = np.abs(np.max(view)) if centroid else np.abs(np.min(view))
 
-    # if val == 0:
-    #     print('Dividing view by 0. Returning the non-normalized view.')
-    #     return view
-    # else:
-    #     view = view / val
-    #     # view /= val
+    if val == 0:
+        print('Dividing view by 0. Returning the non-normalized view.')
+        report_exclusion(kwargs['report']['config'], kwargs['report']['tce'],
+                         'Dividing view by 0. Returning the non-normalized view {}.'.format(kwargs['report']['view']))
 
-    return view / (val + eps)
+        return view
+
+    return view / val
 
 
 def global_view(time, flux, period, num_bins=2001, bin_width_factor=1/2001, centroid=False, normalize=True,
-                centering=True, eps=1e-32):
+                centering=True, **kwargs):
     """Generates a 'global view' of a phase folded light curve.
 
     See Section 3.3 of Shallue & Vanderburg, 2018, The Astronomical Journal.
@@ -982,7 +981,6 @@ def global_view(time, flux, period, num_bins=2001, bin_width_factor=1/2001, cent
       centering: bool, whether to center the view by subtracting the median
       normalize: Whether to perform normalization
       centroid: bool, if True considers these view a centroid time series
-      eps: float, non-zero normalization term
 
 
     Returns:
@@ -999,7 +997,7 @@ def global_view(time, flux, period, num_bins=2001, bin_width_factor=1/2001, cent
         centroid=centroid,
         normalize=normalize,
         centering=centering,
-        eps=eps)
+        **kwargs)
 
 
 def local_view(time,
@@ -1012,7 +1010,7 @@ def local_view(time,
                centroid=False,
                normalize=True,
                centering=True,
-               eps=1e-32):
+               **kwargs):
     """Generates a 'local view' of a phase folded light curve.
 
     See Section 3.3 of Shallue & Vanderburg, 2018, The Astronomical Journal.
@@ -1045,7 +1043,7 @@ def local_view(time,
         centroid=centroid,
         normalize=normalize,
         centering=centering,
-        eps=eps)
+        **kwargs)
 
 
 def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocessing_tce=False):
@@ -1089,28 +1087,26 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
     # set time series features
     try:
-        # TODO: take into account that eps value depends on the kind of data and preprocessing done previously
 
         # get flux views
         glob_view = global_view(time, flux, period, normalize=True, centering=True,
-                                num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob, eps=1e-32)
+                                num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
+                                report={'config': config, 'tce': tce, 'view':'glob_view'})
         loc_view = local_view(time, flux, period, duration, normalize=True, centering=True,
-                              num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc, eps=1e-32)
+                              num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
+                              report={'config': config, 'tce': tce, 'view':'loc_view'})
 
         # get centroid views
         glob_view_centr = global_view(time, centroid, period, centroid=True, normalize=False, centering=False,
-                                      num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
-                                      eps=1e-32)
+                                      num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
         loc_view_centr = local_view(time, centroid, period, duration, centroid=True, normalize=False, centering=False,
-                                    num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
-                                    eps=1e-32)
+                                    num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
 
         # get odd views (flux and centroid)
         glob_view_odd = global_view(odd_time, odd_flux, period, normalize=False, centering=True,
-                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
-                                    eps=1e-32)
+                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
         loc_view_odd = local_view(odd_time, odd_flux, period, duration, normalize=False, centering=True,
-                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc, eps=1e-32)
+                                  num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
 
         # glob_view_odd_centr = global_view(odd_time, odd_centroid, period, centroid=True, normalize=False,
         #                                   num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
@@ -1119,11 +1115,9 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
         # get even views (flux and centroid)
         glob_view_even = global_view(even_time, even_flux, period, normalize=False, centering=True,
-                                     num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob,
-                                     eps=1e-32)
+                                     num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
         loc_view_even = local_view(even_time, even_flux, period, duration, normalize=False, centering=True,
-                                   num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc,
-                                   eps=1e-32)
+                                   num_bins=config.num_bins_loc, bin_width_factor=config.bin_width_factor_loc)
 
         # glob_view_even_centr = global_view(even_time, even_centroid, period, centroid=True, normalize=False,
         #                                    num_bins=config.num_bins_glob, bin_width_factor=config.bin_width_factor_glob)
@@ -1132,12 +1126,16 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
 
         # normalize odd and even views by their joint minimum (flux)/maximum (centroid)
         val_norm = np.abs(min(np.min(glob_view_even), np.min(glob_view_odd)))
-        glob_view_even = normalize_view(glob_view_even, val=val_norm, eps=1e-32)
-        glob_view_odd = normalize_view(glob_view_odd, val=val_norm, eps=1e-32)
+        glob_view_even = normalize_view(glob_view_even, val=val_norm,
+                                        report={'config': config, 'tce': tce, 'view':'glob_view_even'})
+        glob_view_odd = normalize_view(glob_view_odd, val=val_norm,
+                                       report={'config': config, 'tce': tce, 'view':'glob_view_odd'})
 
         val_norm = np.abs(min(np.min(loc_view_even), np.min(loc_view_odd)))
-        loc_view_even = normalize_view(loc_view_even, val=val_norm, eps=1e-32)
-        loc_view_odd = normalize_view(loc_view_odd, val=val_norm, eps=1e-32)
+        loc_view_even = normalize_view(loc_view_even, val=val_norm,
+                                       report={'config': config, 'tce': tce, 'view':'loc_view_even'})
+        loc_view_odd = normalize_view(loc_view_odd, val=val_norm,
+                                      report={'config': config, 'tce': tce, 'view':'loc_view_odd'})
 
         # # TODO: should we normalize the odd and even centroid jointly or use the normalization factor used for the
         #  main centroid time series?
@@ -1223,8 +1221,12 @@ def generate_example_for_tce(time, flux, centroids, tce, config, plot_preprocess
         glob_avg_oot_centr = np.median(glob_view_centr[idxs_nontransitcadences_glob])
         loc_avg_oot_centr = np.median(loc_view_centr[idxs_nontransitcadences_loc])
 
-        glob_view_centr /= glob_avg_oot_centr
-        loc_view_centr /= loc_avg_oot_centr
+        # glob_view_centr /= glob_avg_oot_centr
+        # loc_view_centr /= loc_avg_oot_centr
+        glob_view_centr = normalize_view(glob_view_centr, val=glob_avg_oot_centr,
+                                         report={'config': config, 'tce': tce, 'view':'glob_view_centr'})
+        loc_view_centr = normalize_view(loc_view_centr, val=loc_avg_oot_centr,
+                                        report={'config': config, 'tce': tce, 'view':'loc_view_centr'})
 
         # views = {'global_view': glob_view, 'local_view': loc_view, 'global_view_centr_fdl': glob_view_centr1,
         #          'local_view_centr_fdl': loc_view_centr1, 'global_view_centr': glob_view_centr2,

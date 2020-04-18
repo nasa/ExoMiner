@@ -5,6 +5,7 @@ from astropy.io import fits
 from tensorflow import gfile
 import os
 import logging
+import multiprocessing
 
 # TODO: do the same for the targets of the 180k Kepler non-TCEs and for TESS
 #%% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
@@ -741,3 +742,89 @@ for row_star_i, row_star in stellar_tbl.iterrows():
 print('Number of TCEs updated: {}'.format(count))
 tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR24/'
                'q1_q17_dr24_tce_2020.03.02_17.51.43_stellar.csv', index=False)
+
+#%% Get stellar parameters from the TESS fits files
+
+
+def get_stellarparams_fits(sectors, fitsDir, fitsFields, saveDir):
+
+    fitsStellarTbl = pd.DataFrame(columns=fitsFields)
+
+    for sector in sectors:
+
+        # get list of FITS files in that sector
+        fitsFilenames = [os.path.join(fitsDir, 'sector_{}'.format(sector), file)
+                     for file in os.listdir(os.path.join(fitsDir, 'sector_{}'.format(sector)))
+                     if 'tesscurl' not in file]
+
+        # iterate through each FITS file
+        for i, fitsFilename in enumerate(fitsFilenames):
+            print('Sector {} - {} % complete | Number of TIC IDs added: {}'.format(sector, i / len(fitsFilenames) * 100,
+                                                                               len(fitsStellarTbl)))
+
+            # grab fields from the FITS file header
+            fits_header = fits.getheader(fitsFilename)
+
+            targetRow = []
+            for fitsField in fitsFields:
+                targetRow.append(fits_header[fitsField])
+
+            targetDf = pd.DataFrame([targetRow], columns=fitsFields)
+
+            fitsStellarTbl = pd.concat([fitsStellarTbl, targetDf], ignore_index=True)
+
+    fitsStellarTbl.to_csv(os.path.join(saveDir, 'fitsStellarTbl_s{}-s{}.csv'.format(sectors[0], sectors[-1])),
+                          index=False)
+
+# observed sectors
+sectors = np.arange(1, 21)
+
+# FITS base directory
+fitsDir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
+
+saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/stellar_parameters_analysis/' \
+           'stellar_parameters_fits'
+
+fitsFields = ['TICID', 'SECTOR', 'CAMERA', 'CCD', 'RA_OBJ', 'DEC_OBJ', 'TESSMAG', 'TEFF', 'LOGG', 'MH', 'RADIUS',
+              'TICVER']
+
+n_procs = 10  # number of processes to span
+jobs = []
+
+print('Number of sectors = {}'.format(len(sectors)))
+print('Number of processes = {}'.format(n_procs))
+print('Number of sectors per process = ~{}'.format(int(len(sectors) / n_procs)))
+
+# distribute channels across the channels
+boundaries = [int(i) for i in np.linspace(0, len(sectors), n_procs + 1)]
+
+# each process handles a subset of the channels
+for proc_i in range(n_procs):
+    indices = [(boundaries[i], boundaries[i + 1]) for i in range(n_procs)][proc_i]
+    sectors_proc = sectors[indices[0]:indices[1]]
+    p = multiprocessing.Process(target=get_stellarparams_fits, args=(sectors_proc, fitsDir, fitsFields, saveDir))
+    jobs.append(p)
+    p.start()
+
+map(lambda p: p.join(), jobs)
+
+#%% Merge TESS FITS Stellar tables
+
+tblDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/stellar_parameters_analysis/' \
+         'tess_stellar_parameters_fits/'
+
+fitsStellarTbl = pd.DataFrame(columns=fitsFields)
+
+for file in os.listdir(tblDir):
+
+    fitsStellarTbl = pd.concat([fitsStellarTbl, pd.read_csv(os.path.join(tblDir, file))])
+
+fitsStellarTbl.to_csv(os.path.join(tblDir, 'fitsStellarTbl_s1-s20.csv'), index=False)
+
+fitsStellarTbl.drop(columns=['SECTOR', 'CAMERA', 'CCD'], inplace=True)
+
+# remove duplicate TIC IDs
+fitsStellarTbl.drop_duplicates(subset=['TICID'], inplace=True)
+
+fitsStellarTbl.to_csv(os.path.join(tblDir, 'fitsStellarTbl_s1-s20_unique.csv'), index=False)
+

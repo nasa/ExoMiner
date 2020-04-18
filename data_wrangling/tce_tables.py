@@ -543,3 +543,75 @@ print(tceTbl[stellarColumns].isna().sum())
 
 targetsTbl = tceTbl.drop_duplicates(subset=['target_id'])
 print(targetsTbl[stellarColumns].isna().sum())
+
+#%% Updated stellar parameters in TESS TCE using the values found in the TESS FITS files
+
+fitsTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/stellar_parameters_analysis/'
+                      'tess_stellar_parameters_fits/fitsStellarTbl_s1-s20_unique.csv')
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
+                     'toi-plus-tev.mit.edu_2020-04-15_TOIdisposition.csv')
+
+count = 0
+stellarColumnsTceTbl = np.array(['mag', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius'])
+stellarColumnsFitsTbl = np.array(['TESSMAG', 'TEFF', 'LOGG', 'MH', 'RADIUS'])
+print(tceTbl[stellarColumnsTceTbl].isna().sum())
+for tce_i, tce in tceTbl.iterrows():
+
+    targetInFitsTbl = fitsTbl.loc[fitsTbl['TICID'] == tce.target_id]
+
+    if len(targetInFitsTbl) == 0:
+        # print('TIC ID {} not found in FITS files'.format(tce.target_id))
+        count += 1
+        continue
+
+    targetInTceTbl = tceTbl.loc[tce_i, stellarColumnsTceTbl].values
+
+    targetInTceTbl = targetInTceTbl.astype('float')
+    idxsParamsNan = np.where(np.isnan(targetInTceTbl))[0]
+
+    if len(idxsParamsNan) == 0:
+        continue  # no missing values
+
+    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
+
+    # aaaa
+print(tceTbl[stellarColumnsTceTbl].isna().sum())
+
+#%% Updated stellar parameters in TESS TCE lists using the values found in the EXOFOP TOI list
+
+fitsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/raw/'
+                      'exofop_toilists_4-17-2020.csv')
+
+fitsTbl.drop_duplicates(subset=['TIC ID'], inplace=True)
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/'
+                     'toi-plus-tev.mit.edu_2020-04-15_TOIdisposition.csv')
+
+count = 0
+stellarColumnsTceTbl = np.array(['mag', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius'])
+stellarColumnsFitsTbl = np.array(['TESS Mag', 'Stellar Eff Temp (K)', 'Stellar log(g) (cm/s^2)', 'Stellar Metallicity',
+                                  'Stellar Radius (R_Sun)'])
+print(tceTbl[stellarColumnsTceTbl].isna().sum())
+print(fitsTbl[stellarColumnsFitsTbl].isna().sum())
+for tce_i, tce in tceTbl.iterrows():
+
+    targetInFitsTbl = fitsTbl.loc[fitsTbl['TIC ID'] == tce.target_id]
+
+    if len(targetInFitsTbl) == 0:
+        # print('TIC ID {} not found in FITS files'.format(tce.target_id))
+        count += 1
+        continue
+
+    targetInTceTbl = tceTbl.loc[tce_i, stellarColumnsTceTbl].values
+
+    targetInTceTbl = targetInTceTbl.astype('float')
+    idxsParamsNan = np.where(np.isnan(targetInTceTbl))[0]
+
+    if len(idxsParamsNan) == 0:
+        continue  # no missing values
+
+    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
+
+    # aaaa
+print(tceTbl[stellarColumnsTceTbl].isna().sum())
