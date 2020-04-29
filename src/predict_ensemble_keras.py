@@ -33,6 +33,7 @@ from src.utils_dataio import InputFn, get_data_from_tfrecord, get_data_from_tfre
 from src.models_keras import create_ensemble
 import src.config_keras
 from src_hpo import utils_hpo
+from src.utils_metrics import get_metrics
 
 
 def draw_plots_auc(res, save_path, dataset):
@@ -132,7 +133,7 @@ def draw_plots_scores_distribution(output_cl, save_path):
         plt.close()
 
 
-def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
+def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
              scalar_params_idxs=None, mpi_rank=None, ngpus_per_node=1):
     """ Evaluate model on a given configuration in the specified datasets and also predict on them.
 
@@ -166,7 +167,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
         else:
             fields_aux = fields
 
-        data_aux = get_data_from_tfrecord_kepler(os.path.join(tfrec_dir, tfrec_file), fields_aux, config['label_map'])
+        data_aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields_aux, config['label_map'])
 
         for field in data_aux:
             data[dataset][field].extend(data_aux[field])
@@ -199,34 +200,12 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=features_set, models=model_list)
+    ensemble_model = create_ensemble(features=features_set, scalar_params_idxs=scalar_params_idxs, models=model_list)
 
     ensemble_model.summary()
 
-    # set evaluation metrics
-    num_thresholds = 1000
-    threshold = 0.5
-    threshold_range = list(np.linspace(0, 1, num=num_thresholds))
-
-    auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
-                               summation_method='interpolation',
-                               curve='PR',
-                               name='auc_pr')
-    auc_roc = keras.metrics.AUC(num_thresholds=num_thresholds,
-                                summation_method='interpolation',
-                                curve='ROC',
-                                name='auc_roc')
-    binary_acc = keras.metrics.BinaryAccuracy(name='binary_accuracy', threshold=threshold)
-    precision = keras.metrics.Precision(thresholds=threshold, name='precision')
-    recall = keras.metrics.Recall(thresholds=threshold, name='recall')
-    precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
-    recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
-    tp = keras.metrics.TruePositives(thresholds=threshold_range, name='tp')
-    fp = keras.metrics.FalsePositives(thresholds=threshold_range, name='fp')
-    fn = keras.metrics.FalseNegatives(thresholds=threshold_range, name='fn')
-    tn = keras.metrics.TrueNegatives(thresholds=threshold_range, name='tn')
-
-    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, fn, tn]
+    # setup metrics to be monitored
+    metrics_list = get_metrics()
 
     # compile model - set optimizer, loss and metrics
     if config['optimizer'] == 'Adam':
@@ -318,7 +297,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
     for dataset in datasets:
         # threshold for classification
         # TODO: again, not suited for output size larger than 1 or multiclass classification
-        scores_classification[dataset][scores[dataset] >= threshold] = 1
+        scores_classification[dataset][scores[dataset] >= clf_thr] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in datasets}
@@ -418,12 +397,14 @@ if __name__ == '__main__':
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_3days_keras'
+    study = 'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs_shuffled_keras'
 
     # tfrecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
-                             'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-                             '_nonwhitened_gapped_2001-201_updtKOIs')
+                             'Kepler',
+                             'DR25',
+                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_'
+                             'updtkois_shuffled_wks_norm')
 
     print('Selected TFRecord files directory: {}'.format(tfrec_dir))
 
@@ -435,13 +416,15 @@ if __name__ == '__main__':
 
     # fields to be extracted from the TFRecords and that show up in the ranking created for each dataset
     # set to None if not adding other fields
-    fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
-    # fields = ['target_id', 'tce_planet_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original label']
+    # fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
+    fields = ['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
+              'mag', 'ra', 'dec', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr',
+              'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
 
     print('Fields to be extracted from the TFRecords: {}'.format(fields))
 
     multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'av_training_set',
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label',
                        'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess
@@ -473,7 +456,7 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_3days'
+    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux'
 
     # set the configuration from a HPO study
     if config is None:
@@ -492,20 +475,23 @@ if __name__ == '__main__':
     print('Selected configuration: ', config)
 
     # add dataset parameters
-    config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
+    config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
     config = src.config_keras.add_default_missing_params(config=config)
     print('Configuration used: ', config)
+
+    clf_thr = 0.5
 
     # features to be extracted from the dataset
     features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
                       'local_view_even']
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
-    features_names.append('scalar_params')
-    features_dim['scalar_params'] = (6,)
-    scalar_params_idxs = None  # [1, 2]
+    features_names.append('scalar_params')  # use scalar parameters as input features
+    features_dim['scalar_params'] = (12,)  # dimension of the scalar parameter array in the TFRecords
+    # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
+    scalar_params_idxs = [0, 1, 2, 3, 4, 5]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -537,6 +523,7 @@ if __name__ == '__main__':
     run_main(config=config,
              features_set=features_set,
              scalar_params_idxs=scalar_params_idxs,
+             clf_thr=clf_thr,
              data_dir=tfrec_dir,
              res_dir=save_path,
              models_filepaths=models_filepaths,

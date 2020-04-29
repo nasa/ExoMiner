@@ -1694,15 +1694,15 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
         if 'target_id' in union_fields:
-            # datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
-            datum['target_id'] = int(example.features.feature['target_id'].float_list.value[0])
+            datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
+            # datum['target_id'] = int(example.features.feature['target_id'].float_list.value[0])
 
         if 'oi' in union_fields:
             datum['oi'] = example.features.feature['oi'].int64_list.value[0]
 
         if 'tce_plnt_num' in union_fields:
-            # datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
-            datum['tce_plnt_num'] = int(example.features.feature['tce_plnt_num'].float_list.value[0])
+            datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+            # datum['tce_plnt_num'] = int(example.features.feature['tce_plnt_num'].float_list.value[0])
 
         if 'sectors' in union_fields:  # for TESS data
             datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")

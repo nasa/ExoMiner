@@ -53,7 +53,8 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     # else:
     #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
 
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -122,7 +123,8 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
 
         ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
 
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                                   basename)))
 
         plt.close()
 
@@ -182,7 +184,8 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
 
         f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
 
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                                   basename)))
 
         plt.close()
 
@@ -236,7 +239,8 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
 
     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
 
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -364,7 +368,8 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
     #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
 
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -452,7 +457,8 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     #     # plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
     #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce['toi_id'], tce.label, basename))
 
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -494,7 +500,8 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
 
         f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                                   basename)))
 
         plt.close()
 
@@ -527,7 +534,8 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         #     plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.tic, tce.tce_plnt_num, tce.disposition, basename))
 
         f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-        plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                                   basename)))
 
         plt.close()
 
@@ -564,7 +572,8 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
     #                                            tce.disposition, basename))
 
     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -606,7 +615,8 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     #                                            tce.disposition, basename))
 
     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()
 
@@ -624,13 +634,14 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
     :return:
     """
 
-    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(17, 9))
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(17, 11))
     k = 0
     views_list = list(views.keys())
     for i in range(scheme[0]):
         for j in range(scheme[1]):
-            ax[i, j].plot(views[views_list[k]])
-            ax[i, j].set_title(views_list[k], pad=20)
+            if k < len(views_list):
+                ax[i, j].plot(views[views_list[k]])
+                ax[i, j].set_title(views_list[k], pad=20)
             if i == scheme[0] - 1:
                 ax[i, j].set_xlabel('Bin number')
             if j == 0:
@@ -649,8 +660,24 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
     #                                            tce.disposition, basename))
 
     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig('{}{}_{}_{}_{}.png'.format(savedir, tce.target_id, tce[config.tce_identifier], tce.label, basename))
+    plt.subplots_adjust(hspace=0.3)
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
+    plt.close()
+
+
+def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename):
+
+    f, ax = plt.subplots()
+    ax.plot(glob_view, color='b', label='primary')
+    ax.plot(glob_view_weak_secondary, 'r--', label='secondary')
+    ax.set_ylabel('Normalized amplitude')
+    ax.set_xlabel('Bins')
+    ax.legend()
+    ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
     plt.close()

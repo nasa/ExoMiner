@@ -120,14 +120,13 @@ def draw_plots(res, save_path, output_cl):
         plt.close()
 
 
-def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=0.5, fields=None,
+def main(model_dir, data_dir, base_model, res_dir, datasets, threshold=0.5, fields=None,
          scalar_params_idxs=None, filter_data=None, inference_only=False, generate_csv_pred=False, sess_config=None):
     """ Test single model/ensemble of models.
 
     :param config: dict, model and dataset configurations
     :param model_dir: str, directory with saved models
     :param data_dir: str, data directory with tfrecords
-    :param kp_dict: dict, each key is a Kepler ID and the value is the Kepler magnitude (Kp) of the star
     :param res_dir: str, save directory
     :param datasets: list, datasets in which the model(s) is(are) applied to. The datasets names should be strings that
     match a part of the tfrecord filename - 'train', 'val', 'test', 'predict'
@@ -151,9 +150,9 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         filter_data = {dataset: None for dataset in datasets}
 
     # get models' paths
-    model_filenames = [model_dir + '/' + file for file in os.listdir(model_dir)]
+    model_filenames = [os.path.join(model_dir, file) for file in os.listdir(model_dir)]
 
-    label_map = np.load('{}/config.npy'.format(model_filenames[0]), allow_pickle=True).item()['label_map']
+    label_map = np.load(os.path.join(model_filenames[0], 'config.npy'), allow_pickle=True).item()['label_map']
 
     # get labels for each dataset
     if fields is None:
@@ -328,12 +327,12 @@ def main(model_dir, data_dir, base_model, kp_dict, res_dir, datasets, threshold=
         # write results to a txt file
         for dataset in datasets:
             print('Saving ranked predictions in dataset {}'
-                  ' to {}...'.format(dataset, res_dir + "/ranked_predictions_{}".format(dataset)))
+                  ' to {}...'.format(dataset, os.path.join(res_dir, 'ranked_predictions_{}'.format(dataset))))
             data_df = pd.DataFrame(data[dataset])
 
             # sort in descending order of output
             data_df.sort_values(by='output', ascending=False, inplace=True)
-            data_df.to_csv(os.path.join(res_dir, "ranked_predictions_{}set".format(dataset)), index=False)
+            data_df.to_csv(os.path.join(res_dir, 'ranked_predictions_{}set'.format(dataset)), index=False)
 
 
 if __name__ == "__main__":
@@ -344,7 +343,7 @@ if __name__ == "__main__":
     ######### SCRIPT PARAMETERS #############################################
 
     # study folder name
-    study = 'test'
+    study = 'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs_shuffled'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
@@ -356,11 +355,8 @@ if __name__ == "__main__":
     #                          'Kepler',
     #                          'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_'
     #                          'updtKOIs')
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled_' \
-                'nonwhitened_gapped_2001-201_old_errortceduration'
-
-    kp_dict = None  # np.load('/data5/tess_project/Data/Ephemeris_tables/kp_KSOP2536.npy').item()
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/DR25/' \
+                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled'
 
     # datasets used; choose from 'train', 'val', 'test', 'predict'
     datasets = ['train', 'val', 'test']
@@ -402,7 +398,6 @@ if __name__ == "__main__":
     main(model_dir=models_path,
          data_dir=tfrec_dir,
          base_model=BaseModel,
-         kp_dict=kp_dict,
          res_dir=pathsaveres,
          datasets=datasets,
          threshold=threshold,

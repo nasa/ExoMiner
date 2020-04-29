@@ -27,7 +27,12 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
     recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
 
-    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc]
+    tp = keras.metrics.TruePositives(name='tp', thresholds=threshold_range)
+    fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
+    tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
+    fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+
+    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, tn, fn]
 
     return metrics_list
 

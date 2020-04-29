@@ -401,9 +401,9 @@ def pca_denoising_channels(channels, num_singularvalues, kepids, eph_tbl, lc_dat
     for channel in channels:
         logger_channel.info('--- Channel {} ---'.format(channel))
         # prepare data for denoising
-        # preprocess_centroidtimeseries(channel, kepids, eph_tbl, lc_data_dir, save_dir, logger_channel)
+        preprocess_centroidtimeseries(channel, kepids, eph_tbl, lc_data_dir, save_dir, logger_channel)
         # denoising the centroid time-series
-        pca_denoising(channel, num_singularvalues, save_dir, logger_channel)
+        # pca_denoising(channel, num_singularvalues, save_dir, logger_channel)
 
 
 if __name__ == '__main__':
@@ -421,16 +421,15 @@ if __name__ == '__main__':
 
     # load TCE ephemeris table - needed to get the list of target stars and to gap the transits from the centroid
     # time-series
-    tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
-                          'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
-                          'koidatalink_processedlinks.csv')
+    tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                          'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norm.csv')
 
     # get list of unique targets
     kepids = tce_tbl['target_id'].unique()
     # kepids = kepids[:]
 
     # define save directory for the current study
-    study = 'test'  # + datetime.datetime.now()
+    study = 'test_allchannels'  # + datetime.datetime.now()
     # save_dir = os.path.join(root_save_dir, '{}_{}'.format(study, datetime.datetime.now()))
     save_dir = os.path.join(root_save_dir, study)
 
@@ -443,10 +442,10 @@ if __name__ == '__main__':
     num_singularvalues = 6  # number of top singular components to remove
 
     # channels to be processed
-    # channels = np.arange(1, 85)
-    channels = [5]
+    channels = np.arange(1, 85)
+    # channels = [5]
 
-    n_procs = 1  # number of processes to span
+    n_procs = 15  # number of processes to span
     jobs = []
 
     print('Number of total targets = {}'.format(len(kepids)))

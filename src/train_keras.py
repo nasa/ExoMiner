@@ -250,7 +250,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
 
     # instantiate Keras model
-    model = base_model(config, features_set).kerasModel
+    model = base_model(config, features_set, scalar_params_idxs).kerasModel
 
     # print model summary
     if mpi_rank is None or mpi_rank == 0:
@@ -511,18 +511,19 @@ if __name__ == '__main__':
     #                          '_nonwhitened_gapped_2001-201_updtKOIs')
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven'
-                             '_updtkois_shuffledtces_noroguetces')
+                             'DR25',
+                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_'
+                             'updtkois_shuffled_wks_norm')
 
     # features to be extracted from the dataset(s)
     features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
                       'local_view_even']
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
-    features_names.append('scalar_params')
-    features_dim['scalar_params'] = (6,)
+    features_names.append('scalar_params')  # use scalar parameters as input features
+    features_dim['scalar_params'] = (12,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = None  # [1, 2]
+    scalar_params_idxs = [1, 2]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}

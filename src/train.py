@@ -461,16 +461,16 @@ if __name__ == '__main__':
     #                          '_nonwhitened_gapped_2001-201')
     # tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/' \
     #             'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_updtKOIs'
-    tfrec_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/' \
-                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled_' \
-                'nonwhitened_gapped_2001-201_old_errortceduration'
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled_wks_norm'
 
     # features to be extracted from the dataset
     features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_even',
                       'local_view_odd']
     features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
-    features_dim['scalar_params'] = 6
-    scalar_params_idxs = None  # [1, 2]
+    features_dim['scalar_params'] = 12  # dimension of the scalar parameter array in the TFRecords
+    # either 'None' to use all scalar parameters stored in the TFRecord or a list containing the indices of the scalar
+    # parameters to be use
+    scalar_params_idxs = [1, 2]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}

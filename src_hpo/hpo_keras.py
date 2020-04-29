@@ -153,7 +153,7 @@ if __name__ == '__main__':
     ensemble_n = 3
 
     # metric used to evaluate the performance of a given configuration on the validation set
-    hpo_loss = 'pr auc'
+    hpo_loss = 'auc_pr'
 
     # BOHB and BO parameters; check [1]
     bohb_params = {'top_n_percent': 15, 'num_samples': 64, 'random_fraction': 1/3, 'bandwidth_factor': 3,
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # features names - keywords used in the TFRecords
     features_names = ['global_view', 'local_view']  # time-series features names
     # features dimension
-    features_dim = {feature_name: 2001 if 'global' in feature_name else 201 for feature_name in features_names}
+    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1) for feature_name in features_names}
     features_names.append('scalar_params')  # add scalar features
     features_dim['scalar_params'] = (6,)
     # features data types
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                                                 'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
 
     multi_class = False  # multiclass classification
-    ce_weights_args = {'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
@@ -269,7 +269,6 @@ if __name__ == '__main__':
                         help='Number of GPUs per node. If set to \'0\' the workers (configurations) are not distributed '
                              'by the available GPUs (1 worker/GPU).', default=num_gpus)
 
-
     args = parser.parse_args()
 
     # data used to filer the datasets; use None if not filtering
@@ -280,5 +279,7 @@ if __name__ == '__main__':
     args.scalar_params_idxs = scalar_params_idxs
 
     args.BaseModel = BaseModel
+
+    args.config = config
 
     run_main(args, bohb_params)

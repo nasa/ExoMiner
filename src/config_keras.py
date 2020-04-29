@@ -66,7 +66,7 @@ def add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, c
     config['satellite'] = satellite
     config['multi_class'] = multi_class
     config['label_map'] = label_map[satellite][multi_class]
-    config['ce_weights'], config['n_train_examples'] = get_ce_weights(label_map=config['label_map'], **ce_weights_args)
+    config['ce_weights'] = get_ce_weights(label_map=config['label_map'], **ce_weights_args)
     config['use_kepler_ce'] = use_kepler_ce
 
     return config

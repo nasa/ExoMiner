@@ -24,10 +24,12 @@ class Config:
     tfrecords_base_name = 'test'  # 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled'
 
     # TFRecords root directory
-    tfrecords_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords'
+    tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
+                                 'Kepler',
+                                 'DR25')
 
     # output directory
-    output_dir = os.path.join(tfrecords_dir, 'Kepler', tfrecords_base_name)
+    output_dir = os.path.join(tfrecords_dir, tfrecords_base_name)
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = True  # True for TESS multi-sector runs
@@ -105,9 +107,8 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/old/' \
-                             'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_' \
-                             'normstellarparamswitherrors_copy.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/' \
+                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_bhv.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
         # FITS files directory
@@ -129,7 +130,7 @@ class Config:
     # shuffle TCE table
     shuffle = False
 
-    output_dir += 'whitened' if whitened else 'nonwhitened'
+    # output_dir += 'whitened' if whitened else 'nonwhitened'
 
     # if gapped:
     #     output_dir += '_gapped'

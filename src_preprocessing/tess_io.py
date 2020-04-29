@@ -105,7 +105,8 @@ def tess_filenames(base_dir,
 def read_tess_light_curve(filenames,
                           light_curve_extension="LIGHTCURVE",
                           interpolate_missing_time=False,
-                          centroid_radec=False):
+                          centroid_radec=False,
+                          prefer_psfcentr=False):
     """ Reads data from FITS files for a TESS target star.
 
   Args:
@@ -117,6 +118,7 @@ def read_tess_light_curve(filenames,
       scrambing decouples NaN time values from NaN flux values).
     centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
       and Dec, or not
+    prefer_psfcentr: bool, if True, uses PSF centroids when available
 
   Returns:
     all_time: A list of numpy arrays; the time values of the light curve.
@@ -159,7 +161,7 @@ def read_tess_light_curve(filenames,
 
             light_curve = hdu_list[light_curve_extension].data
 
-            if _has_finite(light_curve.PSF_CENTR1):
+            if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
                 if _has_finite(light_curve.MOM_CENTR1):

@@ -6,17 +6,19 @@ from tensorflow import keras
 
 class CNN1dPlanetFinderv1(object):
 
-    def __init__(self, config, features):
+    def __init__(self, config, features, scalar_params_idxs):
         """ Initializes the CNN 1D Planet Finder v1 model. The core structure consists of separate convolutional
         branches for non-related types of input (flux, centroid, odd and even time series, ...).
 
         :param config: dict, model configuration for its parameters and hyperparameters
         :param features: dict, 'feature_name' : {'dim': tuple, 'dtype': (tf.int, tf.float, ...)}
+        :param scalar_params_idxs: list, containing indices of the scalar parameters that are used
         """
 
         # model configuration (parameters and hyperparameters)
         self.config = config
         self.features = features
+        self.scalar_params_idxs = scalar_params_idxs
 
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
@@ -25,7 +27,7 @@ class CNN1dPlanetFinderv1(object):
 
         # TODO: NEED TO CHANGE THIS MANUALLY...
         # ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_oddeven',
-        # 'local_view_oddeven']:
+        # 'local_view_oddeven', 'global_view_weak_secondary']:
         self.branches = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'local_view_oddeven']
 
         # self.is_training = None
@@ -54,7 +56,12 @@ class CNN1dPlanetFinderv1(object):
 
         for feature in self.features:
 
-            input = tf.keras.Input(shape=self.features[feature]['dim'],
+            if feature == 'scalar_params' and self.scalar_params_idxs is not None:
+                input_feat_shape = len(self.scalar_params_idxs)
+            else:
+                input_feat_shape = self.features[feature]['dim']
+
+            input = tf.keras.Input(shape=input_feat_shape,
                                    batch_size=None,
                                    name='{}'.format(feature),
                                    dtype=self.features[feature]['dtype'],
@@ -289,10 +296,12 @@ class Ensemble(object):
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
 
-def create_inputs(features):
+def create_inputs(features, scalar_params_idxs):
     """ Create input layers for the input features.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
+    :param scalar_param_idxs: list, choose indexes of scalar parameters to be extracted as features. None to get all of
+    them in the TFRecords
     :return:
         inputs: dictionary, each key-value pair is a feature_name: feature
     """
@@ -300,7 +309,12 @@ def create_inputs(features):
 
     for feature in features:
 
-        input = tf.keras.Input(shape=features[feature]['dim'],
+        if feature == 'scalar_params' and scalar_params_idxs is not None:
+            input_feat_shape = len(scalar_params_idxs)
+        else:
+            input_feat_shape = features[feature]['dim']
+
+        input = tf.keras.Input(shape=input_feat_shape,
                                batch_size=None,
                                name='{}'.format(feature),
                                dtype=features[feature]['dtype'],
@@ -313,10 +327,12 @@ def create_inputs(features):
     return inputs
 
 
-def create_ensemble(features, models):
+def create_ensemble(features, scalar_params_idxs, models):
     """ Create a Keras ensemble.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
+    :param scalar_paramss_idxs: list, choose indexes of scalar parameters to be extracted as features. None to get all of
+    them in the TFRecords
     :param models: list, list of Keras models
     :return:
         Keras ensemble
@@ -327,7 +343,7 @@ def create_ensemble(features, models):
     # else:  # binary classification with sigmoid output layer
     #     output_size = 1
 
-    inputs = create_inputs(features=features)
+    inputs = create_inputs(features=features, scalar_params_idxs=scalar_params_idxs)
 
     single_models_outputs = [model(inputs) for model in models]
 

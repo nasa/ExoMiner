@@ -95,7 +95,7 @@ class TransitClassifier(Worker):
         """
 
         # set a specific GPU for training the ensemble
-        gpu_id = self.worker_id_custom % self.num_gpus
+        gpu_id = int(self.worker_id_custom) % self.num_gpus
         os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
 
         # merge sampled and fixed configurations
@@ -148,7 +148,7 @@ class TransitClassifier(Worker):
             sys.stdout.flush()
 
             # instantiate Keras model
-            model = self.BaseModel(config, self.features_set).kerasModel
+            model = self.BaseModel(config, self.features_set, self.scalar_params_idxs).kerasModel
 
             # compile model
             if config['optimizer'] == 'Adam':
@@ -167,7 +167,7 @@ class TransitClassifier(Worker):
 
             else:
                 model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                       momentum=config['momentum'],
+                                                       momentum=config['sgd_momentum'],
                                                        nesterov=False,
                                                        name='SGD'),  # optimizer
                               # loss function to minimize
@@ -186,7 +186,7 @@ class TransitClassifier(Worker):
                                 callbacks=callbacks_list,
                                 validation_split=0.,
                                 validation_data=val_input_fn(),
-                                shuffle=False,  # does the input function shuffle for every epoch?
+                                shuffle=True,  # does the input function shuffle for every epoch?
                                 class_weight=None,
                                 sample_weight=None,
                                 initial_epoch=0,
@@ -218,10 +218,11 @@ class TransitClassifier(Worker):
 
             # add results for this model to the results for the ensemble
             if res is None:
-                res = res_i
+                for metric_name in res_i:
+                    res[metric_name] = [res_i[metric_name]]
             else:
-                for metric in res:
-                    res[metric].append(res_i[metric])
+                for metric_name in res:
+                    res[metric_name].append(res_i[metric_name])
 
         # get ensemble average metrics and loss
         for metric in res:

@@ -38,13 +38,14 @@ for kepid_i in range(len(tps_tce_mat['keplerId'])):
 print('Number of non-TCEs updated: {}'.format(count))
 tce_tbl.to_csv('/home/msaragoc/Downloads/newtcetbl180k_testwithdepth.csv', index=False)
 
-#%% Normalize stellar parameters in Q1-Q17 DR25 TCE table
+#%% Normalize parameters in Q1-Q17 DR25 TCE table
 
 tce_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/' \
              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
-stellar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens']
+norm_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
+               'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
 
 # # fill in NaNs using Solar parameters
 # tce_tbl['tce_smass'] = tce_tbl['tce_smass'].fillna(value=1.0)
@@ -70,13 +71,13 @@ trainingset_idx = int(len(tce_tbl) * 0.8)
 # ax[2, 1].set_xlabel('Bins')
 # plt.suptitle('Stellar parameters')
 
-stellar_params_med = tce_tbl[stellar_params][:trainingset_idx].median(axis=0, skipna=False)
-stellar_params_std = tce_tbl[stellar_params][:trainingset_idx].std(axis=0, skipna=False)
-stats_norm = {'med': stellar_params_med, 'std': stellar_params_std}
+norm_params_med = tce_tbl[norm_params][:trainingset_idx].median(axis=0, skipna=False)
+norm_params_std = tce_tbl[norm_params][:trainingset_idx].std(axis=0, skipna=False)
+stats_norm = {'med': norm_params_med, 'std': norm_params_std}
 
 np.save('{}_stats_norm.npy'.format(tce_tbl_fp.replace('.csv', '')), stats_norm)
 
-tce_tbl[stellar_params] = (tce_tbl[stellar_params] - stellar_params_med) / stellar_params_std
+tce_tbl[norm_params] = (tce_tbl[norm_params] - norm_params_med) / norm_params_std
 
 # ax = tce_tbl[stellar_params].hist(figsize=(15, 8))
 # ax[0, 0].set_title('Stellar density')
@@ -95,11 +96,11 @@ tce_tbl[stellar_params] = (tce_tbl[stellar_params] - stellar_params_med) / stell
 # ax[2, 1].set_xlabel('Bins')
 # plt.suptitle('Normalized stellar parameters')
 
-tce_tbl[stellar_params].median(axis=0, skipna=False)
-tce_tbl[stellar_params].std(axis=0, skipna=False)
+tce_tbl[norm_params].median(axis=0, skipna=False)
+tce_tbl[norm_params].std(axis=0, skipna=False)
 
 tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_stellarnorm.csv',
+               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm.csv',
                index=False)
 
 #%% Check transit depth for Kepler dataset
@@ -450,6 +451,26 @@ tceTbl = tceTbl.iloc[np.random.permutation(len(tceTbl))]
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv', index=False)
+#
+# #%%
+#
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv')
+#
+# addFieldsTbl = pd.read_csv('/home/msaragoc/Downloads/q1_q17_dr25_tce_2020.04.20_14.43.23.csv', header=26)
+#
+# fieldsToAdd = ['tce_maxmesd', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat',
+#                'tce_hap_stat']
+#
+# for field in fieldsToAdd:
+#     tceTbl[field] = np.nan
+#
+# for tce_i, tce in tceTbl.iterrows():
+#     tceFound = addFieldsTbl.loc[(addFieldsTbl['kepid'] == tce.target_id) & (addFieldsTbl['tce_plnt_num'] == tce.tce_plnt_num)]
+#     tceTbl.loc[tce_i, fieldsToAdd] = tceFound[fieldsToAdd].values[0]
+#
+# tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+#               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv', index=False)
 
 #%% Shuffle TCEs in Q1-Q17 DR24 TCE table
 
@@ -615,3 +636,41 @@ for tce_i, tce in tceTbl.iterrows():
 
     # aaaa
 print(tceTbl[stellarColumnsTceTbl].isna().sum())
+
+#%% Update labels using CFP list  PPs, CFPs and CFAs KOIs, and Confirmed KOIs from the Cumulative KOI list
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm.csv')
+
+# reset TCE labels
+tceTbl['label'] = 'NTP'
+
+# load Certified False Positive list
+cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/fpwg_2020.03.13_11.37.49.csv',
+                     header=13)
+
+# initialize column for FPWG disposition
+tceTbl['fpwg_disp_status'] = np.nan
+
+# # filter NOT EXAMINED and DATA INCONCLUSIVE KOIs from the CFP list
+# cfpTbl = cfpTbl.loc[cfpTbl['fpwg_disp_status'].isin(['NOT EXAMINED', 'DATA INCONCLUSIVE'])]
+
+map_cfp_to_bin = {'CERTIFIED FP': 'AFP', 'CERTIFIED FA': 'NTP', 'POSSIBLE PLANET': 'PC'}
+for koi_i, koi in cfpTbl.iterrows():
+    if koi.fpwg_disp_status in list(map_cfp_to_bin.keys()):
+        tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'label'] = map_cfp_to_bin[koi.fpwg_disp_status]
+
+    tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'fpwg_disp_status'] = koi.fpwg_disp_status
+
+# load Cumulative KOI list
+cumKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
+                        'cumulative_2020.02.21_10.29.22.csv', header=90)
+
+# filter CONFIRMED KOIs
+cumKoiTbl = cumKoiTbl.loc[cumKoiTbl['koi_disposition'] == 'CONFIRMED']
+
+for koi_i, koi in cumKoiTbl.iterrows():
+    tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'label'] = 'PC'
+
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_bhv.csv', index=False)
