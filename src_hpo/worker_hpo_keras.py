@@ -134,7 +134,7 @@ class TransitClassifier(Worker):
                                 scalar_params_idxs=self.scalar_params_idxs)
 
         # initialize results variable
-        res = None
+        res = {}
 
         # setup monitoring metrics
         metrics_list = get_metrics()
@@ -217,7 +217,7 @@ class TransitClassifier(Worker):
                 res_i['test_{}'.format(metric_name)] = res_i_eval[metric_name_i]
 
             # add results for this model to the results for the ensemble
-            if res is None:
+            if len(res.keys()) == 0:
                 for metric_name in res_i:
                     res[metric_name] = [res_i[metric_name]]
             else:
@@ -242,10 +242,15 @@ class TransitClassifier(Worker):
         self.draw_plots(res, config_id)
 
         # report HPO loss and additional metrics and loss
-        hpo_loss_val = res['val_{}'.format(self.hpo_loss)]['central tendency']
-        res_hpo = {'loss': 1 - hpo_loss_val,  # HPO loss to be minimized
-                   'info': {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
-                            for metric in metrics_list if 'thr' not in metric}}
+        hpo_loss_val = res['val_{}'.format(self.hpo_loss)]['central tendency'][-1]
+        # add test metrics and loss
+        info_dict = {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
+                     for metric in res if 'test' in metric and len(res[metric]['central tendency'].shape) == 0}
+        # add train and validation metrics and loss and
+        info_dict.update({metric: [float(res[metric]['central tendency'][-1]), float(res[metric]['deviation'][-1])]
+                         for metric in res if 'test' not in metric and len(res[metric]['central tendency'].shape) == 1})
+        res_hpo = {'loss': 1 - float(hpo_loss_val),  # HPO loss to be minimized
+                   'info': info_dict}
 
         print('#' * 100)
         print('Finished evaluating configuration {} on worker {} using a budget of {}'.format(config_id,
@@ -253,10 +258,13 @@ class TransitClassifier(Worker):
                                                                                               budget))
         for k in res_hpo:
             if k != 'info':
-                print(k + ': ', res_hpo[k])
+                print('HPO {}: {}'.format(k, res_hpo[k]))
             else:
                 for l in res_hpo[k]:
-                    print(l + ': ', res_hpo[k][l])
+                    if 'test' in l:
+                        print('{}: {} +- {}'.format(l, *res_hpo[k][l]))
+                    else:
+                        print('{}: {} +- {}'.format(l, res_hpo[k][l][0][-1], res_hpo[k][l][1][-1]))
         print('#' * 100)
         sys.stdout.flush()
 
@@ -299,7 +307,7 @@ class TransitClassifier(Worker):
         for training_hpoloss_i in res[self.hpo_loss]['all scores']:
             ax[1].plot(epochs, training_hpoloss_i, color='b', alpha=alpha)
         ax[1].plot(epochs, res[self.hpo_loss]['central tendency'], label='Training', color='b')
-        for validation_hpoloss_i in res['val_{}']['all scores']:
+        for validation_hpoloss_i in res['val_{}'.format(self.hpo_loss)]['all scores']:
             ax[1].plot(epochs, validation_hpoloss_i, color='r', alpha=alpha)
         ax[1].plot(epochs, res['val_{}'.format(self.hpo_loss)]['central tendency'], label='Validation', color='r')
         for test_hpoloss_i in res['test_{}'.format(self.hpo_loss)]['all scores']:
@@ -310,8 +318,9 @@ class TransitClassifier(Worker):
         ax[1].grid(True)
         ax[1].set_xlabel('Epochs')
         ax[1].set_ylabel(self.hpo_loss)
-        ax[1].set_title('%s\nVal/Test %.4f/%.4f' % (self.hpo_loss, res['val_{}'.format(self.hpo_loss)][-1],
-                                                    res['test_{}'.format(self.hpo_loss)]))
+        ax[1].set_title('%s\nVal/Test %.4f/%.4f' % (self.hpo_loss,
+                                                    res['val_{}'.format(self.hpo_loss)]['central tendency'][-1],
+                                                    res['test_{}'.format(self.hpo_loss)]['central tendency']))
         ax[1].legend(loc="lower right")
         f.suptitle('Config {} | Budget = {:.0f}'.format(config_id, epochs[-1]))
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
@@ -340,7 +349,8 @@ class TransitClassifier(Worker):
         ax.set_title('Precision-Recall-ROC AUC-PR AUC\nVal/Test')
         # ax[1].legend(loc="lower right")
         # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(os.path.join(self.results_directory, 'config{}_budget{}_prec-rec-auc.png'.format(config_id, epochs[-1])))
+        f.savefig(os.path.join(self.results_directory,
+                               'config{}_budget{}_prec-rec-auc.png'.format(config_id, epochs[-1])))
         plt.close()
 
         # plot pr curve
@@ -349,7 +359,7 @@ class TransitClassifier(Worker):
                 label='Val (AUC={:.3f})'.format(res['val_auc_pr']['central tendency'][-1]), color='r')
         ax.plot(res['test_rec_thr']['central tendency'], res['test_prec_thr']['central tendency'],
                 label='Test (AUC={:.3f})'.format(res['test_auc_pr']['central tendency']), color='k')
-        ax.plot(res['rec_thr'][-1], res['prec_thr']['central tendency'][-1],
+        ax.plot(res['rec_thr']['central tendency'][-1], res['prec_thr']['central tendency'][-1],
                 label='Train (AUC={:.3f})'.format(res['auc_pr']['central tendency'][-1]), color='b')
         ax.scatter(res['val_rec_thr']['central tendency'][-1],
                    res['val_prec_thr']['central tendency'][-1], c='r')

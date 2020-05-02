@@ -71,10 +71,15 @@ SHORT_CADENCE_QUARTER_PREFIXES = {
 
 # Quarter order for different scrambling procedures.
 # Page 9: https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20170009549.pdf.
+# SIMULATED_DATA_SCRAMBLE_ORDERS = {
+#     "SCR1": [0, 13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4, 17],
+#     "SCR2": [0, 1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 17],
+#     "SCR3": [0, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 17],
+# }
 SIMULATED_DATA_SCRAMBLE_ORDERS = {
-    "SCR1": [0, 13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4, 17],
-    "SCR2": [0, 1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 17],
-    "SCR3": [0, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 17],
+    "SCR1": [13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4, 17],
+    "SCR2": [1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 17],
+    "SCR3": [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 17],
 }
 
 
@@ -84,37 +89,37 @@ def kepler_filenames(base_dir,
                      quarters=None,
                      injected_group=None,
                      check_existence=True):
-    """Returns the light curve filenames for a Kepler target star.
+    """ Returns the light curve filenames for a Kepler target star.
 
-  This function assumes the directory structure of the Mikulski Archive for
-  Space Telescopes (http://archive.stsci.edu/pub/kepler/lightcurves).
-  Specifically, the filenames for a particular Kepler target star have the
-  following format:
+        This function assumes the directory structure of the Mikulski Archive for
+        Space Telescopes (http://archive.stsci.edu/pub/kepler/lightcurves).
+        Specifically, the filenames for a particular Kepler target star have the
+        following format:
 
-    ${kep_id:0:4}/${kep_id}/kplr${kep_id}-${quarter_prefix}_${type}.fits,
+        ${kep_id:0:4}/${kep_id}/kplr${kep_id}-${quarter_prefix}_${type}.fits,
 
-  where:
-    kep_id is the Kepler id left-padded with zeros to length 9;
-    quarter_prefix is the filename quarter prefix;
-    type is one of "llc" (long cadence light curve) or "slc" (short cadence
-        light curve).
+        where:
+        kep_id is the Kepler id left-padded with zeros to length 9;
+        quarter_prefix is the filename quarter prefix;
+        type is one of "llc" (long cadence light curve) or "slc" (short cadence
+            light curve).
 
-  Args:
-    base_dir: Base directory containing Kepler data.
-    kep_id: Id of the Kepler target star. May be an int or a possibly zero-
-      padded string.
-    long_cadence: Whether to read a long cadence (~29.4 min / measurement) light
-      curve as opposed to a short cadence (~1 min / measurement) light curve.
-    quarters: Optional list of integers in [0, 17]; the quarters of the Kepler
-      mission to return.
-    injected_group: Optional string indicating injected light curves. One of
-      "inj1", "inj2", "inj3".
-    check_existence: If True, only return filenames corresponding to files that
-      exist (not all stars have data for all quarters).
+        Args:
+        base_dir: Base directory containing Kepler data.
+        kep_id: Id of the Kepler target star. May be an int or a possibly zero-
+          padded string.
+        long_cadence: Whether to read a long cadence (~29.4 min / measurement) light
+          curve as opposed to a short cadence (~1 min / measurement) light curve.
+        quarters: Optional list of integers in [0, 17]; the quarters of the Kepler
+          mission to return.
+        injected_group: Optional string indicating injected light curves. One of
+          "inj1", "inj2", "inj3".
+        check_existence: If True, only return filenames corresponding to files that
+          exist (not all stars have data for all quarters).
 
-  Returns:
-    A list of filenames.
-  """
+        Returns:
+        A list of filenames.
+    """
 
     # Pad the Kepler id with zeros to length 9.
     kep_id = "{:09d}".format(int(kep_id))
@@ -147,23 +152,24 @@ def kepler_filenames(base_dir,
 
 
 def scramble_light_curve(all_time, all_flux, all_quarters, scramble_type):
-    """Scrambles a light curve according to a given scrambling procedure.
+    """ Scrambles a light curve according to a given scrambling procedure.
 
-  Args:
-    all_time: List holding arrays of time values, each containing a quarter of
-      time data.
-    all_flux: List holding arrays of flux values, each containing a quarter of
-      flux data.
-    all_quarters: List of integers specifying which quarters are present in
-      the light curve (max is 18: Q0...Q17).
-    scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2',
-      'SCR3'}.
+        Args:
+        all_time: List holding arrays of time values, each containing a quarter of
+          time data.
+        all_flux: List holding arrays of flux values, each containing a quarter of
+          flux data.
+        all_quarters: List of integers specifying which quarters are present in
+          the light curve (max is 18: Q0...Q17).
+        scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2',
+          'SCR3'}.
 
-  Returns:
-    scr_flux: Scrambled flux values; the same list as the input flux in another
-      order.
-    scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
-  """
+        Returns:
+        scr_flux: Scrambled flux values; the same list as the input flux in another
+          order.
+        scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
+    """
+
     order = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
     scr_flux = []
     for quarter in order:
@@ -176,12 +182,50 @@ def scramble_light_curve(all_time, all_flux, all_quarters, scramble_type):
     return scr_time, scr_flux
 
 
+def scramble_light_curve_with_centroids(all_time, all_flux, all_centroids, all_quarters, scramble_type):
+    """ Scrambles a light curve according to a given scrambling procedure.
+
+        Args:
+        all_time: List holding arrays of time values, each containing a quarter of
+          time data.
+        all_flux: List holding arrays of flux values, each containing a quarter of
+          flux data.
+        all_centroids: Dictionary of row and col centroid, each with lists holding arrays of centroid values, each list
+          containing a quarter of centroid data.
+        all_quarters: List of integers specifying which quarters are present in
+          the light curve (max is 18: Q0...Q17).
+        scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2',
+          'SCR3'}.
+
+        Returns:
+        scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
+        scr_flux: Scrambled flux values; the same list as the input flux in another
+          order.
+        scr_centroid: Scrambled centroid values; the same dict as the input centroid in another order.
+    """
+
+    order = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
+    scr_flux = []
+    scr_centroids = {'x': [], 'y': []}
+    for quarter in order:
+        # Ignore missing quarters in the scramble order.
+        if quarter in all_quarters:
+            scr_flux.append(all_flux[all_quarters.index(quarter)])
+            scr_centroids['x'].append((all_centroids['x'][all_quarters.index(quarter)]))
+            scr_centroids['y'].append((all_centroids['y'][all_quarters.index(quarter)]))
+
+    scr_time = util.reshard_arrays(all_time, scr_flux)
+
+    return scr_time, scr_flux, scr_centroids
+
+
 def read_kepler_light_curve(filenames,
                             light_curve_extension="LIGHTCURVE",
                             scramble_type=None,
                             interpolate_missing_time=False,
                             centroid_radec=False,
-                            prefer_psfcentr=False):
+                            prefer_psfcentr=False,
+                            invert=False):
     """ Reads data from FITS files for a Kepler target star.
 
   Args:
@@ -278,8 +322,11 @@ def read_kepler_light_curve(filenames,
 
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
-            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y, cd_transform_matrix, ref_px_apert,
-                                                            ref_angcoord, 'kepler')
+            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y,
+                                                            cd_transform_matrix,
+                                                            ref_px_apert,
+                                                            ref_angcoord,
+                                                            'kepler')
 
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME
@@ -300,8 +347,20 @@ def read_kepler_light_curve(filenames,
         add_info['quarter'].append(quarter)
         add_info['module'].append(module)
 
-    # TODO: adapt this to the centroid time series as well?
+    # scrambles data according to the scramble type selected
     if scramble_type:
-        all_time, all_flux = scramble_light_curve(all_time, all_flux, add_info['quarter'], scramble_type)
+        all_time, all_flux = scramble_light_curve(all_time, all_flux,
+                                                  add_info['quarter'],
+                                                  scramble_type)
+        all_time, all_flux, all_centroid = scramble_light_curve_with_centroids(all_time, all_flux, all_centroid,
+                                                                               add_info['quarter'],
+                                                                               scramble_type)
+        add_info['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
+
+    # inverts light curve
+    if invert:
+        all_flux = [-1 * flux for flux in all_flux]
+        all_centroid['x'] = [-1 * centroid for centroid in all_centroid['x']]
+        all_centroid['y'] = [-1 * centroid for centroid in all_centroid['y']]
 
     return all_time, all_flux, all_centroid, add_info

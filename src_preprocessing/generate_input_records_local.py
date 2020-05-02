@@ -42,6 +42,8 @@ class Config:
 
     assert np.sum(list(datasets_frac.values())) <= 1
 
+    augmentation = False
+
     whitened = False  # use whitened data (currently only available for Kepler DR25 34k TCEs dataset)
 
     # minimum gap size(in time units - day) for a split
@@ -63,6 +65,10 @@ class Config:
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
 
+    # which time-series data to compute additionaly to the flux time-series features
+    # odd-even flux time-series are computed based on the flux time-series, so by default this feature is computed
+    time_series_extracted = ['centroid', 'weak_secondary_flux']
+
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
 
@@ -75,6 +81,15 @@ class Config:
 
     # if True, saves plots of several preprocessing steps
     plot_figures = True
+
+    prefer_psfcentr = False  # if True, PSF centroids are used, when available, instead of MOM centroids
+
+    # simulated data
+    injected_group = False  # either 'False' or inject group name
+    light_curve_extension = 'LIGHT CURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
+    # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
+    scramble_type = None
+    invert = False  # if True, raw light curves are inverted
 
     omit_missing = True  # skips target IDs that are not in the FITS files
 

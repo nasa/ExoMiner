@@ -92,9 +92,9 @@ def get_kepler_tce_table(config):
         # iterate over each row to get the ephemeris for each TCE
         for i in tce_table.iterrows():
             if i[1]['tce_plnt_num'] == 1:
-                tpsStructIndex = np.where(mat['keplerId'] == i[1]['kepid'])[0]
+                tpsStructIndex = np.where(mat['keplerId'] == i[1]['target_id'])[0]
 
-                d['kepid'].append(i[1]['kepid'])
+                d['kepid'].append(i[1]['target_id'])
                 d['tce_plnt_num'].append(1)
 
                 d['tce_duration'].append(float(mat['maxMesPulseDurationHours'][0][tpsStructIndex]) / 24.0)

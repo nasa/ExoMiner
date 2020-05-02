@@ -594,7 +594,8 @@ for tce_i, tce in tceTbl.iterrows():
     if len(idxsParamsNan) == 0:
         continue  # no missing values
 
-    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
+    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = \
+        targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
 
     # aaaa
 print(tceTbl[stellarColumnsTceTbl].isna().sum())
@@ -632,7 +633,8 @@ for tce_i, tce in tceTbl.iterrows():
     if len(idxsParamsNan) == 0:
         continue  # no missing values
 
-    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
+    tceTbl.loc[tce_i, stellarColumnsTceTbl[idxsParamsNan]] = \
+        targetInFitsTbl[stellarColumnsFitsTbl[idxsParamsNan]].values[0]
 
     # aaaa
 print(tceTbl[stellarColumnsTceTbl].isna().sum())

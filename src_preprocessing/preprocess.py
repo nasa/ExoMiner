@@ -124,19 +124,24 @@ def read_light_curve(tce, config):
 
     # gets all filepaths for the FITS files for this target
     if config.satellite == 'kepler':
-
-        # file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.kepid)
-        file_names = kepler_io.kepler_filenames(config.lc_data_dir, tce.target_id)
+        file_names = kepler_io.kepler_filenames(config.lc_data_dir,
+                                                tce.target_id,
+                                                injected_group=config.injected_group)
 
         if not file_names:
             if not config.omit_missing:
-                # raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.kepid))
-                raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir, tce.target_id))
+                raise IOError("Failed to find .fits files in {} for Kepler ID {}".format(config.lc_data_dir,
+                                                                                         tce.target_id))
             else:
                 report_exclusion(config, tce, 'No available lightcurve .fits files')
                 return None, None, None, None
 
-        return kepler_io.read_kepler_light_curve(file_names, centroid_radec=not config.px_coordinates)
+        return kepler_io.read_kepler_light_curve(file_names,
+                                                 centroid_radec=not config.px_coordinates,
+                                                 prefer_psfcentr=config.prefer_psfcentr,
+                                                 light_curve_extension=config.light_curve_extension,
+                                                 scramble_type=config.scramble_type,
+                                                 invert=config.invert)
 
     else:
         # file_names = tess_io.tess_filenames(config.lc_data_dir, tce.tic, tce.sector, config.multisector)
@@ -1247,19 +1252,28 @@ def generate_example_for_tce(time, flux, centroids, time_noprimary, flux_noprima
 
     # phase folding for odd and even time series
     (odd_time, odd_flux, odd_centroid), \
-        (even_time, even_flux, even_centroid) = phase_fold_and_sort_light_curve_odd_even(time,
-                                                                                         flux,
-                                                                                         centroids,
-                                                                                         period,
-                                                                                         t0,
-                                                                                         augmentation=True)
+        (even_time, even_flux, even_centroid) = \
+        phase_fold_and_sort_light_curve_odd_even(time,
+                                                 flux,
+                                                 centroids,
+                                                 period,
+                                                 t0,
+                                                 augmentation=config.augmentation)
 
     # phase folding for flux and centroid time series
-    time, flux, centroid = phase_fold_and_sort_light_curve(time, flux, centroids, period, t0, augmentation=True)
+    time, flux, centroid = phase_fold_and_sort_light_curve(time,
+                                                           flux,
+                                                           centroids,
+                                                           period,
+                                                           t0,
+                                                           augmentation=config.augmentation)
 
     # phase folding for the weak secondary flux time series
-    time_noprimary, flux_noprimary, _ = phase_fold_and_sort_light_curve(time_noprimary, flux_noprimary, None,
-                                                                        period, t0 + tce['tce_maxmesd'], augmentation=True)
+    time_noprimary, flux_noprimary, _ = phase_fold_and_sort_light_curve(time_noprimary,
+                                                                        flux_noprimary,
+                                                                        None,
+                                                                        period, t0 + tce['tce_maxmesd'],
+                                                                        augmentation=config.augmentation)
 
     # make output proto
     ex = tf.train.Example()

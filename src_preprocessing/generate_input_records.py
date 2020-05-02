@@ -44,6 +44,8 @@ class Config:
     # partition the data set
     datasets_frac = {'training': 0.8, 'validation': 0.1, 'test': 0.1}
 
+    augmentation = False
+
     assert np.sum(list(datasets_frac.values())) <= 1  # check that datasets fraction sum up to 1
 
     whitened = False  # use whitened data (currently only available for Kepler DR25 34k TCEs dataset)
@@ -58,9 +60,22 @@ class Config:
     gap_with_confidence_level = False
     gap_confidence_level = 0.75
 
+    # which time-series data to compute additionaly to the flux time-series features
+    # odd-even flux time-series are computed based on the flux time-series, so by default this feature is computed
+    time_series_extracted = ['centroid', 'weak_secondary_flux']
+
     # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
     # (world coordinates)
     px_coordinates = False
+
+    prefer_psfcentr = False  # if True, PSF centroids are used, when available, instead of MOM centroids
+
+    # simulated data
+    injected_group = False  # either 'False' or inject group name
+    light_curve_extension = 'LIGHT CURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
+    # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
+    scramble_type = None
+    invert = False  # if True, raw light curves are inverted
 
     # if True, saves plots of several preprocessing steps
     plot_figures = True
