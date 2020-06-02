@@ -43,44 +43,70 @@ def phase_fold_time(time, period, t0):
   return result
 
 
-def split(all_time, all_flux, gap_width=0.75):
-  """Splits a light curve on discontinuities (gaps).
+def split(all_time, all_time_series, gap_width=0.75, centroid=False, add_info=None):
+    """ Splits a light curve on discontinuities (gaps).
 
-  This function accepts a light curve that is either a single segment, or is
-  piecewise defined (e.g. split by quarter breaks or gaps in the in the data).
+        This function accepts a time-series that is either a single segment, or is
+        piecewise defined (e.g. split by quarter breaks or gaps in the in the data).
 
-  Args:
-    all_time: Numpy array or sequence of numpy arrays; each is a sequence of
-      time values.
-    all_flux: Numpy array or sequence of numpy arrays; each is a sequence of
-      flux values of the corresponding time array.
-    gap_width: Minimum gap size (in time units) for a split.
+        Args:
+        all_time: Numpy array or sequence of numpy arrays; each is a sequence of
+          time values.
+        all_time_series: Numpy array or sequence of numpy arrays; each is a sequence of
+          flux values of the corresponding time array. Or a dictionary in the case of centroid time-series.
+        gap_width: Minimum gap size (in time units) for a split.
+        centroid: if True, assumes all_time_series is a dictionary with one key for each coordinate.
+        add_info: Dict, additional data extracted from the FITS files such as quarter and module arrays for Kepler data
+          and, for both Kepler and TESS, the target position [coord1, coord2]
 
-  Returns:
-    out_time: List of numpy arrays; the split time arrays.
-    out_flux: List of numpy arrays; the split flux arrays.
-  """
+        Returns:
+        out_time: List of numpy arrays; the split time arrays.
+        out_time_series: List of numpy arrays; the split flux arrays. Or a dict in the case of centroid time-series.
+    """
 
-  # Handle single-segment inputs.
-  if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
-    all_time = [all_time]
-    all_flux = [all_flux]
+    # Handle single-segment inputs.
+    if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
+        all_time = [all_time]
+        if not centroid:
+            all_time_series = [all_time_series]
+        else:
+            all_time_series['x'] = [all_time_series['x']]
+            all_time_series['y'] = [all_time_series['y']]
 
-  out_time = []
-  out_flux = []
-  for time, flux in zip(all_time, all_flux):
-    start = 0
-    for end in range(1, len(time) + 1):
-      # Choose the largest endpoint such that time[start:end] has no gaps.
-      if end == len(time) or time[end] - time[end - 1] > gap_width:
-        out_time.append(time[start:end])
-        out_flux.append(flux[start:end])
-        start = end
+    out_time = []
+    out_time_series = [] if not centroid else {'x': [], 'y': []}
 
-  return out_time, out_flux
+    out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info} \
+        if add_info is not None else None
+
+    for arr_i in range(len(all_time)):
+
+        start = 0
+        for end in range(1, len(all_time[arr_i]) + 1):
+
+            # Choose the largest endpoint such that time[start:end] has no gaps.
+            if end == len(all_time[arr_i]) or all_time[arr_i][end] - all_time[arr_i][end - 1] > gap_width:
+
+                out_time.append(all_time[arr_i][start:end])
+
+                if not centroid:
+                    out_time_series.append(all_time_series[arr_i][start:end])
+                else:
+                    out_time_series['x'].append(all_time_series['x'][arr_i][start:end])
+                    out_time_series['y'].append(all_time_series['y'][arr_i][start:end])
+
+                if add_info is not None:
+                    if 'quarter' in out_add_info:
+                        out_add_info['quarter'].append(add_info['quarter'][arr_i])
+                    if 'module' in out_add_info:
+                        out_add_info['module'].append(add_info['module'][arr_i])
+
+                start = end
+
+    return out_time, out_time_series, out_add_info
 
 
-def split_wcentroids(all_time, all_flux, all_centroids, add_info, satellite, gap_width=0.75):
+def split_wcentroids(all_time, all_flux, all_centroids, add_info=None, gap_width=0.75):
     """Splits the time series on discontinuities (gaps) if the time interval between consecutive cadences is larger
     than the gap_width.
 
@@ -115,13 +141,10 @@ def split_wcentroids(all_time, all_flux, all_centroids, add_info, satellite, gap
     out_time = []
     out_flux = []
     out_centroid = {'x': [], 'y': []}
-    # if satellite == 'kepler':
-    out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info}
-    # else:
-    #     out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info}
 
-    # for time, flux, centr_x, centr_y, quarter, module in zip(all_time, all_flux, all_centroids['x'], all_centroids['y'],
-    #                                                          add_info['quarter'], add_info['module']):
+    out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info} \
+        if add_info is not None else None
+
     for i in range(len(all_time)):
 
         start = 0
@@ -137,7 +160,7 @@ def split_wcentroids(all_time, all_flux, all_centroids, add_info, satellite, gap
                 out_centroid['x'].append(all_centroids['x'][i][start:end])
                 out_centroid['y'].append(all_centroids['y'][i][start:end])
 
-                if satellite == 'kepler':
+                if add_info is not None:
                     if 'quarter' in out_add_info:
                         out_add_info['quarter'].append(add_info['quarter'][i])
                     if 'module' in out_add_info:

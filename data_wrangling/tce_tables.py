@@ -3,6 +3,7 @@ import pandas as pd
 from scipy import io
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 #%% Add TPS TCE parameters to the non-TCE (~180k) Kepler table
 
@@ -442,15 +443,23 @@ tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
 
 #%% Shuffle TCEs in Q1-Q17 DR25 TCE table (with and without rogue TCEs)
 
-np.random.seed(24)
+# np.random.seed(24)
+random.seed(24)
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_processed.csv')
 
-tceTbl = tceTbl.iloc[np.random.permutation(len(tceTbl))]
+targetStarGroups = [df for _, df in tceTbl.groupby('target_id')]
 
-tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv', index=False)
+random.shuffle(targetStarGroups)
+
+tceTblShuffled = pd.concat(targetStarGroups).reset_index(drop=True)
+
+# # shuffle at a TCE level
+# tceTblShuffled = tceTbl.iloc[np.random.permutation(len(tceTbl))]
+
+tceTblShuffled.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar.csv', index=False)
 #
 # #%%
 #
@@ -641,8 +650,13 @@ print(tceTbl[stellarColumnsTceTbl].isna().sum())
 
 #%% Update labels using CFP list  PPs, CFPs and CFAs KOIs, and Confirmed KOIs from the Cumulative KOI list
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm.csv')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar.csv')
+print('Original number of TCEs: {}'.format(len(tceTbl)))
+
+# filter out rogue TCEs
+tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] == 0]
+print('Number of TCEs after removing rogue TCEs: {}'.format(len(tceTbl)))
 
 # reset TCE labels
 tceTbl['label'] = 'NTP'
@@ -653,9 +667,6 @@ cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tabl
 
 # initialize column for FPWG disposition
 tceTbl['fpwg_disp_status'] = np.nan
-
-# # filter NOT EXAMINED and DATA INCONCLUSIVE KOIs from the CFP list
-# cfpTbl = cfpTbl.loc[cfpTbl['fpwg_disp_status'].isin(['NOT EXAMINED', 'DATA INCONCLUSIVE'])]
 
 map_cfp_to_bin = {'CERTIFIED FP': 'AFP', 'CERTIFIED FA': 'NTP', 'POSSIBLE PLANET': 'PC'}
 for koi_i, koi in cfpTbl.iterrows():
@@ -668,11 +679,39 @@ for koi_i, koi in cfpTbl.iterrows():
 cumKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
                         'cumulative_2020.02.21_10.29.22.csv', header=90)
 
-# filter CONFIRMED KOIs
+# filter CONFIRMED KOIs in the Cumulative KOI list
 cumKoiTbl = cumKoiTbl.loc[cumKoiTbl['koi_disposition'] == 'CONFIRMED']
 
 for koi_i, koi in cumKoiTbl.iterrows():
     tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'label'] = 'PC'
 
-tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_bhv.csv', index=False)
+# filter out CANDIDATE and FALSE POSITIVE KOIs dispositioned by Robovetter
+# keep only CONFIRMED KOIs, CFP, CFA and POSSIBLE PLANET KOIs, and non-KOI (NTPs)
+tceTbl = tceTbl.loc[(tceTbl['koi_disposition'] == 'CONFIRMED') |
+                    (tceTbl['fpwg_disp_status'].isin(['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET'])) |
+                    tceTbl['kepoi_name'].isna()]
+
+print('Number of TCEs after removing KOIs dispositioned by Robovetter: {}'.format(len(tceTbl)))
+print(tceTbl['label'].value_counts())
+
+# # normalize using statistics computed in the training set
+# trainingset_idx = int(len(tceTbl) * 0.8)
+#
+# norm_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
+#                'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
+#
+# norm_params_med = tceTbl[norm_params][:trainingset_idx].median(axis=0, skipna=False)
+# norm_params_std = tceTbl[norm_params][:trainingset_idx].std(axis=0, skipna=False)
+# stats_norm = {'med': norm_params_med, 'std': norm_params_std}
+#
+# tceTbl[norm_params] = (tceTbl[norm_params] - norm_params_med) / norm_params_std
+#
+# tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+#               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_noRobobvetterKOIs.csv',
+#               index=False)
+# np.save('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+#         'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_noRobobvetterKOIs'
+#         '_stats_norm.npy', stats_norm)
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv',
+              index=False)

@@ -141,6 +141,20 @@ def run_main(args, bohb_params=None):
 
 if __name__ == '__main__':
 
+    rank = MPI.COMM_WORLD.rank
+    # size = MPI.COMM_WORLD.size
+    print('Rank = {}'.format(rank))
+
+    num_gpus = 1  # numper of GPUs per node
+
+    # set a specific GPU for training the ensemble
+    gpu_id = rank % num_gpus
+
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
+
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
+
     optimizer = 'bohb'  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 
     # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
@@ -160,22 +174,21 @@ if __name__ == '__main__':
                    'min_bandwidth': 1e-3}
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = ''  # name of the HPO study
+    study = 'test'  # name of the HPO study
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
-
-    num_gpus = 1  # numper of GPUs per node
 
     nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
     # features to be extracted from the dataset
     # features names - keywords used in the TFRecords
-    features_names = ['global_view', 'local_view']  # time-series features names
+    features_names = ['global_flux_view', 'local_flux_view']  # time-series features names
     # features dimension
-    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1) for feature_name in features_names}
-    features_names.append('scalar_params')  # add scalar features
-    features_dim['scalar_params'] = (6,)
+    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+                    for feature_name in features_names}
+    # features_names.append('scalar_params')  # add scalar features
+    # features_dim['scalar_params'] = (12,)
     # features data types
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -189,8 +202,7 @@ if __name__ == '__main__':
     scalar_params_idxs = None  # [1, 2]
 
     # data directory
-    tfrec_dir = os.path.join(paths.path_tfrecs, 'Kepler/tfrecordkeplerdr25_'
-                                                'flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201')
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
@@ -219,9 +231,6 @@ if __name__ == '__main__':
     # directory in which the results are saved
     results_directory = os.path.join(paths.path_hpoconfigs, study)
 
-    rank = MPI.COMM_WORLD.rank
-    # size = MPI.COMM_WORLD.size
-    print('Rank = ', rank)
     sys.stdout.flush()
 
     parser = argparse.ArgumentParser(description='Transit classifier hyperparameter optimizer')

@@ -26,16 +26,16 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_3days'
+study = 'bohb_keplerdr25_spline_gapped_shuffledhvb_glflux'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
 ensemble_study = True
 nmodels = 3
 # set which metric to be used when ranking configurations evaluated
-rankmetric = 'validation pr auc'
+rankmetric = 'val_auc_pr'  # 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
-metrics_plot = ['test recall', 'test precision']
+metrics_plot = ['test_recall', 'test_precision']  # ['test recall', 'test precision']
 # minimum value of top configurations (used also for Parallel Coordinates Visualization)
 min_val = 0.90
 
@@ -339,7 +339,7 @@ if len(hparams) - 1 == 1:
 
 # returns the best configuration over time/over cumulative budget
 nmodels = 3
-hpo_loss = 'pr auc'
+hpo_loss = 'val_auc_pr'  # 'pr auc'
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
@@ -371,14 +371,16 @@ for run_i, run in enumerate(timesorted_allruns):
 
             # search for the numpy file with the values for the given run
             for ensmetrics in ensmetrics_list:
-                if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
+                # if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
+                if str(run.config_id) + '_budget' + str(int(run.budget)) in ensmetrics:
                     censemetrics = ensmetrics
                     break
             else:  # did not find the file for that run
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
                                                                                                     run.budget))
 
-            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
+            # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
+            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()[hpo_loss]['all scores'])
             mu_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
             sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
 
@@ -429,7 +431,7 @@ ax.grid(True, which='both')
 #%% Study analysis plots
 
 # metric used as optimization loss
-hpo_loss = 'pr auc'
+hpo_loss = 'auc_pr'  # 'pr auc'
 
 # extract best configuration
 inc_id = res.get_incumbent_id()
@@ -444,7 +446,8 @@ for run in inc_runs:
 # optimization, and all the additional information
 inc_run = inc_runs[-1]  # performance in the largest budget
 inc_hpoloss = inc_run.loss
-inc_val_hpoloss, inc_test_hpoloss = inc_run.info['validation ' + hpo_loss], inc_run.info['test ' + hpo_loss]
+# inc_val_hpoloss, inc_test_hpoloss = inc_run.info['validation ' + hpo_loss], inc_run.info['test ' + hpo_loss]
+inc_val_hpoloss, inc_test_hpoloss = inc_run.info['val_{}'.format(hpo_loss)], inc_run.info['test_{}'.format(hpo_loss)]
 print('It achieved optimization loss ({}) of {} (validation) and {} (test).'.format(hpo_loss, inc_val_hpoloss,
                                                                                     inc_test_hpoloss))
 

@@ -1,6 +1,7 @@
 import pandas as pd
 from scipy import io
 import numpy as np
+import random
 
 #%% Get TPS TCE table from mat file
 
@@ -81,7 +82,6 @@ print(tceTpsTbl[stellar_fields_out].isna().any(axis=0))
 
 tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_stellar.csv', index=False)
 
-
 #%% Standardize fields in the TPS TCE table
 
 tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_stellar.csv')
@@ -140,13 +140,15 @@ tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR
 tceTpsTbl['label'] = 'NTP'
 tceTpsTbl['tce_rogue_flag'] = 0
 
-addFields = ['tce_datalink_dvs', 'tce_datalink_dvr']
+tceTpsTbl['tce_datalink_dvs'] = ''
+tceTpsTbl['tce_datalink_dvr'] = ''
 
 for tce_i, tce in tceTpsTbl.iterrows():
 
-    tceTpsTbl.loc[tce_i, ['label', 'tce_rogue_flag']] = \
+    tceTpsTbl.loc[tce_i, ['label', 'tce_rogue_flag', 'tce_datalink_dvs', 'tce_datalink_dvr']] = \
         tceTbl.loc[(tceTbl['target_id'] == tce.target_id) &
-                   (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)]['label', 'tce_rogue_flag']
+                   (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)][['label', 'tce_rogue_flag', 'tce_datalink_dvs',
+                                                                  'tce_datalink_dvr']].values[0]
 
 tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_dr25.csv', index=False)
 
@@ -158,3 +160,97 @@ tceTpsTbl = tceTpsTbl.loc[tceTpsTbl['tce_rogue_flag'] == 0]
 
 tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_dr25_noroguetces.csv',
                  index=False)
+
+#%% Order TPS TCE table following order of the DV TCE table
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar.csv')
+
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/'
+                        'keplerTPS_KSOP2536_dr25.csv')
+
+tceTbl = tceTbl.loc[tceTbl['tce_plnt_num'] == 1]
+
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_tps.csv', index=False)
+
+assert len(tceTbl) == len(tceTpsTbl)
+
+tceTpsTbl.set_index('target_id', drop=False, inplace=True)
+
+tceTpsTbl = tceTpsTbl.reindex(tceTbl['target_id'])
+
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/'
+                 'keplerTPS_KSOP2536_dr25_sameorder.csv', index=False)
+
+#%% Add labels to TPS TCE table based on the DV TCE table no Robovetter KOI dispositions
+
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/'
+                        'keplerTPS_KSOP2536_dr25_sameorder.csv')
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_tps.csv')
+
+# filter out rogue TCEs
+tceTpsTbl = tceTpsTbl.loc[tceTpsTbl['tce_rogue_flag'] == 0]
+tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] == 0]
+
+# reset TCE labels
+tceTpsTbl['label'] = 'NTP'
+tceTbl['label'] = 'NTP'
+
+# load Certified False Positive list
+cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/fpwg_2020.03.13_11.37.49.csv',
+                     header=13)
+
+# initialize column for FPWG disposition
+tceTpsTbl['fpwg_disp_status'] = np.nan
+tceTbl['fpwg_disp_status'] = np.nan
+
+# add kepoi_name column to TPS TCE table
+tceTpsTbl.insert(1, 'kepoi_name', tceTbl['kepoi_name'])
+
+map_cfp_to_bin = {'CERTIFIED FP': 'AFP', 'CERTIFIED FA': 'NTP', 'POSSIBLE PLANET': 'PC'}
+for koi_i, koi in cfpTbl.iterrows():
+    if koi.fpwg_disp_status in list(map_cfp_to_bin.keys()):
+        tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'label'] = map_cfp_to_bin[koi.fpwg_disp_status]
+        tceTpsTbl.loc[tceTpsTbl['kepoi_name'] == koi.kepoi_name, 'label'] = map_cfp_to_bin[koi.fpwg_disp_status]
+
+    tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'fpwg_disp_status'] = koi.fpwg_disp_status
+    tceTpsTbl.loc[tceTpsTbl['kepoi_name'] == koi.kepoi_name, 'fpwg_disp_status'] = koi.fpwg_disp_status
+
+# load Cumulative KOI list
+cumKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
+                        'cumulative_2020.02.21_10.29.22.csv', header=90)
+
+# filter CONFIRMED KOIs in the Cumulative KOI list
+cumKoiTbl = cumKoiTbl.loc[cumKoiTbl['koi_disposition'] == 'CONFIRMED']
+
+for koi_i, koi in cumKoiTbl.iterrows():
+    tceTbl.loc[tceTbl['kepoi_name'] == koi.kepoi_name, 'label'] = 'PC'
+    tceTpsTbl.loc[tceTpsTbl['kepoi_name'] == koi.kepoi_name, 'label'] = 'PC'
+
+# add koi_disposition column to TPS TCE table
+tceTpsTbl.insert(2, 'koi_disposition', tceTbl['koi_disposition'])
+
+# filter out CANDIDATE and FALSE POSITIVE KOIs dispositioned by Robovetter
+# keep only CONFIRMED KOIs, CFP, CFA and POSSIBLE PLANET KOIs, and non-KOI (NTPs)
+tceTbl = tceTbl.loc[(tceTbl['koi_disposition'] == 'CONFIRMED') |
+                    (tceTbl['fpwg_disp_status'].isin(['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET'])) |
+                    tceTbl['kepoi_name'].isna()]
+tceTpsTbl = tceTpsTbl.loc[(tceTpsTbl['koi_disposition'] == 'CONFIRMED') |
+                          (tceTpsTbl['fpwg_disp_status'].isin(['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET'])) |
+                          tceTpsTbl['kepoi_name'].isna()]
+
+print('Number of TCEs after removing KOIs dispositioned by Robovetter: {}'.format(len(tceTbl)))
+print(tceTbl['label'].value_counts())
+
+print('Number of TCEs after removing KOIs dispositioned by Robovetter: {}'.format(len(tceTpsTbl)))
+print(tceTpsTbl['label'].value_counts())
+
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_tps_norobovetterkois.csv',
+              index=False)
+
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/'
+                 'keplerTPS_KSOP2536_dr25_sameorder_norobovetterkois.csv', index=False)

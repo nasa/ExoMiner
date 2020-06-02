@@ -244,9 +244,6 @@ def get_tess_tce_table(config):
 
             shard_tce_table = tce_table[indices[0]:indices[1]]
 
-            # Filter TCE table to allowed labels.
-            # allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
-
             if not config.gapped:
                 tce_table = None
 
@@ -258,7 +255,7 @@ def get_tess_tce_table(config):
 def shuffle_tce(tce_table, seed=123):
     """ Helper function used to shuffle the tce_table if config.shuffle == True
 
-    :param tce_table:   The un-shuffled TCE table
+    :param tce_table:   The non-shuffled TCE table
     :param seed:        Seed used for randomization
     :return:
         tce_table, with rows shuffled

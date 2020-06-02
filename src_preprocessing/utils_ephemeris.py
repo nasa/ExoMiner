@@ -40,7 +40,7 @@ def create_binary_time_series(time, epoch, duration, period):
     """
 
     # initialize binary time series - points with 1's belong to the transit
-    binary_time_series = np.zeros(len(time), dtype='uint8')
+    binary_time_series = np.zeros(len(time), dtype='bool')
 
     # mid-transit timestamps between epoch and reference end time
     midTransitTimes = np.arange(epoch, time[-1], period)

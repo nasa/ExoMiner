@@ -1,5 +1,5 @@
 """
-Generate preprocessed TFRecords locally.
+Generate preprocessed tfrecords locally.
 """
 
 # 3rd party
@@ -10,7 +10,6 @@ import multiprocessing
 import numpy as np
 import tensorflow as tf
 import pickle
-import pandas as pd
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -19,8 +18,7 @@ from src_preprocessing.utils_generate_input_records import get_kepler_tce_table,
 
 
 class Config:
-    """ Class that creates configuration objects that hold parameters required for the preprocessing.
-    """
+    """ Class that creates configuration objects that hold parameters required for the preprocessing."""
 
     # TFRecords base name
     tfrecords_base_name = 'test'  # 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_updtkois_shuffled'
@@ -37,6 +35,12 @@ class Config:
     multisector = True  # True for TESS multi-sector runs
     sectors = np.arange(1, 19)  # only for TESS
     tce_identifier = 'tce_plnt_num'
+
+    training = True  # choose from: 'training' or 'predict'
+    # partition the data set; only used with training set to True
+    datasets_frac = {'training': 0.8, 'validation': 0.1, 'test': 0.1}
+
+    assert np.sum(list(datasets_frac.values())) <= 1
 
     augmentation = False
 
@@ -61,7 +65,6 @@ class Config:
     num_bins_loc = 201  # number of bins in the local view
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
-    num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # which time-series data to compute additionaly to the flux time-series features
     # odd-even flux time-series are computed based on the flux time-series, so by default this feature is computed
@@ -85,7 +88,7 @@ class Config:
 
     # simulated data
     injected_group = False  # either 'False' or inject group name
-    light_curve_extension = 'LIGHTCURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
+    light_curve_extension = 'LIGHT CURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
     # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
     scramble_type = None
     invert = False  # if True, raw light curves are inverted
@@ -98,12 +101,19 @@ class Config:
     scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
                      'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
 
+    # save_stats = True
+
+    # filepath to numpy file with stats used to preprocess the data
+    stats_preproc_filepath = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/' \
+                             'tfrecords/tfrecord_keplerdr25_centroidnonnormalized_radec_nonwhitened_gapped_2001-201/' \
+                             'stats_trainingset.npy'
+
     # Ephemeris table (complete with the gapped TCEs)
     # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/DR25_readout_table'
     # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
-    # # whitened Kepler data directory
-    # whitened_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/DR25_readouts'
+    # whitened Kepler data directory
+    whitened_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/DR25_readouts'
 
     # Ephemeris table from the TPS module
     if satellite == 'kepler':
@@ -115,7 +125,7 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/' \
                              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_bhv.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
 
@@ -135,19 +145,47 @@ class Config:
 
         lc_data_dir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
-        dict_savedir = ''
-
     # shuffle TCE table
     shuffle = False
+
+    # output_dir += 'whitened' if whitened else 'nonwhitened'
+
+    # if gapped:
+    #     output_dir += '_gapped'
+    # if gap_imputed:
+    #     output_dir += '_imputed'
+    # if gap_with_confidence_level:
+    #     output_dir += '_conf%d' % int(gap_confidence_level * 100)
+    # if use_tps_ephem:
+    #     output_dir += '_tps'
+
+    # # input checks
+    # assert(satellite in ['kepler', 'tess'])
+    #
+    # if not gapped:
+    #     assert not gap_imputed
+    #
+    # if gap_with_confidence_level:
+    #     assert gapped
+    #
+    # # if use_ground_truth:
+    # #     assert satellite == 'tess'
 
     # multiprocessing parameters
     using_mpi = False  # parallelization without MPI processes
 
     # number of processes spawned
-    num_worker_processes = 10
+    num_worker_processes = 10  # number of workers
 
-    # number of shards generated
-    num_shards = 10
+    # TODO: do I need to assert that the sum equal the number of worker processes? In one case processes are not used,
+    #       in the other, shards wait for others to be finished, right?
+    # number of shards (tfrecords)
+    if training:
+        num_train_shards, num_test_shards, num_val_shards = 8, 1, 1
+        assert num_train_shards + num_val_shards + num_test_shards == num_worker_processes
+    else:
+        num_pred_shards = 10
+        assert num_pred_shards == num_worker_processes
 
 
 def _process_file_shard(tce_table, file_name, eph_table):
@@ -155,26 +193,21 @@ def _process_file_shard(tce_table, file_name, eph_table):
 
     Args:
     tce_table: A Pandas DataFrame containing the TCEs ephemeris in the shard
-    file_name: The output TFRecord filename
+    file_name: The output TFRecord file
     eph_table: A Pandas DataFrame containing the complete TCEs ephemeris database - needed when gapping TCEs from the
-               data
-    config: The preprocessing config object
+    light curve
     """
 
-    config = Config()
-
+    # (tce_table, file_name) = inputi
+    # tce_table = tce_shard[0]
+    # lcs, times = tce_shard[1], tce_shard[2]
     process_name = multiprocessing.current_process().name
     shard_name = os.path.basename(file_name)
     shard_size = len(tce_table)
+    tf.logging.info("%s: Processing %d items in shard %s", process_name, shard_size, shard_name)
 
-    tceColumns = ['target_id', config.tce_identifier]
-    columnsDf = tceColumns + ['augmentation_idx', 'shard']
-    firstTceInDf = True
-
-    tf.logging.info('{}: Processing {} items in shard {}'.format(process_name, shard_size, shard_name))
-
-    # # get preprocessing configuration parameters
-    # config = Config()
+    # get preprocessing configuration parameters
+    config = Config()
 
     # load confidence dictionary
     confidence_dict = pickle.load(open(config.dict_savedir, 'rb')) if config.gap_with_confidence_level else {}
@@ -182,46 +215,30 @@ def _process_file_shard(tce_table, file_name, eph_table):
     with tf.python_io.TFRecordWriter(file_name) as writer:
         num_processed = 0
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
-            tf.logging.info('{}: Processing TCE {}-{} in shard {}'.format(process_name, tce['target_id'],
-                                                                          tce['tce_plnt_num'],
-                                                                          shard_name))
+
+            lc, time = None, None
+            if config.whitened:
+            # # get flux and cadence data (if using whitened data)
+            # # check if TCE is in the whitened dataset
+            # if config.satellite == 'kepler' and config.whitened and not (tce['kepid'] in flux_import and tce['kepid']
+            #                                                              in time_import):
+            #     lc, time = (flux_import[tce['kepid']][1], time_import[tce['kepid']][1]) \
+            #         if config.whitened else (None, None)
+                raise NotImplementedError('Whitening still not implemented-ish.')
+            # else:
+            #     continue
+
             # preprocess TCE and add it to the tfrecord
-            example = _process_tce(tce, eph_table, config, confidence_dict)
-            tf.logging.info('{}: Finished processing TCE {}-{} in shard {}'.format(process_name, tce['target_id'],
-                                                                                   tce['tce_plnt_num'],
-                                                                                   shard_name))
+            example = _process_tce(tce, eph_table, lc, time, config, confidence_dict)
             if example is not None:
-                tf.logging.info('{}: Writing TCE {}-{} to shard {}'.format(process_name, tce['target_id'],
-                                                                           tce['tce_plnt_num'],
-                                                                           shard_name))
                 writer.write(example.SerializeToString())
-                tf.logging.info('{}: Finished writing TCE {}-{} to shard {}'.format(process_name, tce['target_id'],
-                                                                                    tce['tce_plnt_num'],
-                                                                                    shard_name))
-
-                tceData = {column: [tce[column]] for column in tceColumns}
-                tceData['shard'] = [shard_name]
-                tceData['augmentation_idx'] = [0]
-                exampleDf = pd.DataFrame(data=tceData,
-                                         columns=columnsDf)
-                if firstTceInDf:
-                    tf.logging.info('first TCE in shard {}'.format(shard_name))
-                    examplesDf = exampleDf
-                    firstTceInDf = False
-                else:
-                    tf.logging.info('Not first TCE in shard {}'.format(shard_name))
-                    examplesDf = pd.read_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)))
-                    examplesDf = pd.concat([examplesDf, exampleDf])
-
-                tf.logging.info('Saving TCE info to shard {} csv file'.format(shard_name))
-                examplesDf.to_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)), index=False)
 
             num_processed += 1
-            if not num_processed % 1:
-                tf.logging.info('{}: Processed {}/{} items in shard {}'.format(process_name, num_processed, shard_size,
-                                                                               shard_name))
+            if not num_processed % 10:
+                tf.logging.info("%s: Processed %d/%d items in shard %s",
+                                process_name, num_processed, shard_size, shard_name)
 
-    tf.logging.info('{}: Finished processing {} items in shard {}'.format(process_name, shard_size, shard_name))
+    tf.logging.info("%s: Wrote %d items in shard %s", process_name, shard_size, shard_name)
 
 
 def create_shards(config, tce_table):
@@ -229,20 +246,60 @@ def create_shards(config, tce_table):
 
     :param config:      The config object
     :param tce_table:   TCE table
-    :return:
-       file_shards
+    :param eph_table:   Ephemeris table
+    :return:            shards
     """
 
     file_shards = []
+    num_tces = len(tce_table)
 
-    tf.logging.info('Partitioned {} TCEs into {} shards'.format(len(tce_table), config.num_shards))
-    boundaries = np.linspace(0, len(tce_table), config.num_shards + 1).astype(np.int)
+    if config.training:  # Training/Validation/Test
 
-    for i in range(config.num_shards):
-        start = boundaries[i]
-        end = boundaries[i + 1]
-        filename = os.path.join(config.output_dir, 'shard-{:05d}-of-{:05d}'.format(i, config.num_shards))
-        file_shards.append((tce_table[start:end], filename, tce_table))
+        train_cutoff = int(config.datasets_frac['training'] * num_tces)
+        val_cutoff = int(config.datasets_frac['validation'] * num_tces)
+
+        train_tces = tce_table[:train_cutoff]
+        val_tces = tce_table[train_cutoff:val_cutoff+train_cutoff]
+        test_tces = tce_table[val_cutoff+train_cutoff:]
+
+        tf.logging.info("Partitioned %d TCEs into training (%d), validation (%d) and test (%d)",
+                      num_tces, len(train_tces), len(val_tces), len(test_tces))
+
+        boundaries = np.linspace(0, len(train_tces), config.num_train_shards + 1).astype(np.int)
+        for i in range(config.num_train_shards):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            filename = os.path.join(config.output_dir, "train-{:05d}-of-{:05d}".format(i, config.num_train_shards))
+            file_shards.append((train_tces[start:end], filename, tce_table))
+
+        boundaries = np.linspace(0, len(test_tces), config.num_test_shards + 1).astype(np.int)
+        for i in range(config.num_test_shards):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            filename = os.path.join(config.output_dir, "test-{:05d}-of-{:05d}".format(i, config.num_test_shards))
+            file_shards.append((test_tces[start:end], filename, tce_table))
+
+        boundaries = np.linspace(0, len(val_tces), config.num_val_shards + 1).astype(np.int)
+        for i in range(config.num_test_shards):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            filename = os.path.join(config.output_dir, "val-{:05d}-of-{:05d}".format(i, config.num_test_shards))
+            file_shards.append((val_tces[start:end], filename, tce_table))
+
+        # # Validation has a single shard
+        # file_shards.append((val_tces, os.path.join(config.output_dir, "val-00000-of-00000"), tce_table))
+        # #file_shards.append((test_tces, os.path.join(config.output_dir, "test-00000-of-00000"), eph_table))
+
+    else:  # Predictions
+
+        tf.logging.info("Partitioned %d TCEs into predict (%d)", num_tces, len(tce_table))
+        boundaries = np.linspace(0, len(tce_table), config.num_pred_shards + 1).astype(np.int)
+
+        for i in range(config.num_train_shards):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            filename = os.path.join(config.output_dir, "predict-{:05d}-of-{:05d}".format(i, config.num_train_shards))
+            file_shards.append((tce_table[start:end], filename, tce_table))
 
     return file_shards
 
@@ -259,6 +316,12 @@ def main(_):
     if config.plot_figures:
         tf.gfile.MakeDirs(os.path.join(config.output_dir, 'plots'))
 
+    # if config.normalization:
+    #     config.input_tce_csv_file = normalize_params_tce_table(config)
+
+    # if config.save_stats:
+    #     tf.gfile.MakeDirs(os.path.join(config.output_dir, 'stats'))
+
     # get TCE and gapping ephemeris tables
     tce_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
                  else get_tess_tce_table(config))
@@ -268,14 +331,18 @@ def main(_):
         tce_table = shuffle_tce(tce_table, seed=123)
         print('Shuffled TCE Table')
 
+    if config.whitened:  # get flux and cadence time series for the whitened data
+        load_whitened_data(config)
+
     file_shards = create_shards(config, tce_table)
 
-    # launch subprocesses for the file shards
-    # num_processes = min(config.num_shards, config.num_worker_processes)
-    tf.logging.info('Launching {} subprocesses for {} total file shards'.format(config.num_worker_processes,
-                                                                                config.num_shards))
+    num_file_shards = len(file_shards)
 
-    pool = multiprocessing.Pool(processes=config.num_worker_processes)
+    # launch subprocesses for the file shards
+    num_processes = min(num_file_shards, config.num_worker_processes)
+    tf.logging.info("Launching %d subprocesses for %d total file shards", num_processes, num_file_shards)
+
+    pool = multiprocessing.Pool(processes=num_processes)
     async_results = [pool.apply_async(_process_file_shard, file_shard) for file_shard in file_shards]
     pool.close()
 
@@ -283,7 +350,7 @@ def main(_):
     for async_result in async_results:
         async_result.get()
 
-    tf.logging.info('Finished processing {} total file shards'.format(config.num_shards))
+    tf.logging.info("Finished processing %d total file shards", num_file_shards)
 
 
 if __name__ == "__main__":

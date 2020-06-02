@@ -17,7 +17,7 @@ import pandas as pd
 from src_preprocessing.tf_util import example_util
 
 
-def generate_new_tfrecords_updtlabels(tfrec_file_paths, new_tfrec_file_paths, label_dict):
+def generate_new_tfrecords_updtlabels(tfrec_file_paths, new_tfrec_file_paths, label_dict, write_not_found=True):
     """ Generate tfrecords based on existing tfrecords, with additional pseudo labels.
     The pseudo labels are defined as the product of the tce period and the tce duration.
         :param tfrec_dir: str, path to tfrecords to which pseudo labels are to be added
@@ -39,11 +39,13 @@ def generate_new_tfrecords_updtlabels(tfrec_file_paths, new_tfrec_file_paths, la
 
                 # search through dictionary for the pseudo label corresponding to the current tce
                 tce_plnt_num = new_example.features.feature['tce_plnt_num'].int64_list.value[0]
-                target_id = new_example.features.feature['kepid'].int64_list.value[0]
+                target_id = new_example.features.feature['target_id'].int64_list.value[0]
 
                 if (target_id, tce_plnt_num) in label_dict:
-                    example_util.set_feature(new_example, 'av_training_set', [label_dict[(target_id, tce_plnt_num)]],
+                    example_util.set_feature(new_example, 'label', [label_dict[(target_id, tce_plnt_num)]],
                                              allow_overwrite=True)
+                elif not write_not_found:
+                    continue  # do not write TCE examples that are not found in the dictionary
 
                 writer.write(new_example.SerializeToString())
 
@@ -52,18 +54,17 @@ def generate_new_tfrecords_updtlabels(tfrec_file_paths, new_tfrec_file_paths, la
 
     return
 
+if __name__ == '__main__':
 
-def run_main():
-    """ Script to generate tfrecords with additional pseudo labels, based on existing tfrecords.
-    """
-
-    # specify path to directory holding tfrecords to which the pseudo labels are to be added
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/' \
-                'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201'
+    # specify path to original TFRecord directory
+    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/DR25/' \
+                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_shuffled_noroguetces' \
+                '_bhv'
 
     # specify path to save new tfrecords
-    new_tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/' \
-                    'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_updtKOIs'
+    new_tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/DR25/' \
+                    'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_shuffled_' \
+                    'noroguetces_norobovetterkois'
 
     # make the output directory if it doesn't already exist
     tf.gfile.MakeDirs(new_tfrec_dir)
@@ -73,12 +74,15 @@ def run_main():
     # specify paths to save the corresponding generated tfrecord files
     new_tfrec_file_paths = [os.path.join(new_tfrec_dir, file) for file in os.listdir(tfrec_dir) if 'node' in file]
 
-    updtKoisTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                              'koi_ephemeris_matching/updatedKOIsdisposition.csv')
+    # updtKoisTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
+    #                           'koi_ephemeris_matching/updatedKOIsdisposition.csv')
+    #
+    # labels_dict = {}
+    # for koi_i, koi in updtKoisTbl.iterrows():
+    #     labels_dict[(koi.kepid, koi.tce_plnt_num)] = koi.label
 
-    labels_dict = {}
-    for koi_i, koi in updtKoisTbl.iterrows():
-        labels_dict[(koi.kepid, koi.tce_plnt_num)] = koi.label
+    labels_dict = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
+                          'rewritelabels_hbv_to_norobovetterkois.npy', allow_pickle=True).item()
 
     n_procs = 28
     jobs = []
@@ -100,42 +104,46 @@ def run_main():
 
     map(lambda p: p.join(), jobs)
 
+#%% check if all labels were correctly updated
 
-if __name__ == '__main__':
+new_tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/DR25/' \
+                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_shuffled_' \
+                'noroguetces_norobovetterkois'
 
-    # run_main()
+# specify paths to save the corresponding generated tfrecord files
+new_tfrec_file_paths = [os.path.join(new_tfrec_dir, file) for file in os.listdir(new_tfrec_dir) if 'node' in file]
 
-    # check if all labels were correctly updated
-    new_tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/' \
-                    'tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven_nonwhitened_gapped_2001-201_updtKOIs'
+# updtKoisTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
+#                           'koi_ephemeris_matching/updatedKOIsdisposition.csv')
+#
+# labels_dict = {}
+# for koi_i, koi in updtKoisTbl.iterrows():
+#     labels_dict[(koi.kepid, koi.tce_plnt_num)] = koi.label
 
-    # specify paths to save the corresponding generated tfrecord files
-    new_tfrec_file_paths = [os.path.join(new_tfrec_dir, file) for file in os.listdir(new_tfrec_dir) if 'node' in file]
+labels_dict = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
+                      'rewritelabels_hbv_to_norobovetterkois.npy', allow_pickle=True).item()
 
-    updtKoisTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
-                              'koi_ephemeris_matching/updatedKOIsdisposition.csv')
+labels_matched = 0
+for cnt in range(len(new_tfrec_file_paths)):
+    # try:
+    record_iterator = tf.python_io.tf_record_iterator(path=new_tfrec_file_paths[cnt])
 
-    labels_dict = {}
-    for koi_i, koi in updtKoisTbl.iterrows():
-        labels_dict[(koi.kepid, koi.tce_plnt_num)] = koi.label
+    for string_record in record_iterator:
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
 
-    labels_matched = 0
-    for cnt in range(len(new_tfrec_file_paths)):
-        # try:
-        record_iterator = tf.python_io.tf_record_iterator(path=new_tfrec_file_paths[cnt])
+        # search through dictionary for the pseudo label corresponding to the current tce
+        tce_plnt_num = example.features.feature['tce_plnt_num'].int64_list.value[0]
+        target_id = example.features.feature['target_id'].int64_list.value[0]
 
-        for string_record in record_iterator:
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
+        if (target_id, tce_plnt_num) in labels_dict:
+            if labels_dict[(target_id, tce_plnt_num)] == \
+                    example.features.feature['label'].bytes_list.value[0].decode("utf-8"):
+                labels_matched += 1
+            else:
+                aaaaa
 
-            # search through dictionary for the pseudo label corresponding to the current tce
-            tce_plnt_num = example.features.feature['tce_plnt_num'].int64_list.value[0]
-            target_id = example.features.feature['kepid'].int64_list.value[0]
-
-            if (target_id, tce_plnt_num) in labels_dict:
-                if labels_dict[(target_id, tce_plnt_num)] == \
-                example.features.feature['av_training_set'].bytes_list.value[0].decode("utf-8"):
-                    labels_matched += 1
-
-    print('Number of KOIs updated: {}'.format(len(labels_dict.keys())))
-    print('Number of labels matched to the KOIs updated: {}'.format(labels_matched))
+# print('Number of KOIs updated: {}'.format(len(labels_dict.keys())))
+print('Number of TCEs updated: {}'.format(len(labels_dict.keys())))
+# print('Number of labels matched to the KOIs updated: {}'.format(labels_matched))
+print('Number of labels matched to the TCEs updated: {}'.format(labels_matched))

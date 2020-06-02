@@ -199,8 +199,8 @@ def read_tess_light_curve(filenames,
                                                             centroid_y,
                                                             cd_transform_matrix,
                                                             ref_px_apert,
-                                                            ref_angcoord,
-                                                            satellite='tess')
+                                                            ref_angcoord
+                                                            )
 
         all_centroid['x'].append(centroid_x)
         all_centroid['y'].append(centroid_y)

@@ -37,79 +37,79 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     return metrics_list
 
 
-def mean_per_class_accuracy(labels, predictions):
-
-    num_classes = len(predictions.shape)
-
-    value, update_op = tf.compat.v1.metrics.mean_per_class_accuracy(labels=labels,
-                                                          predictions=predictions,
-                                                          num_classes=num_classes,
-                                                          name='mean_per_class_accuracy')
-
-    # find all variables created for this metric
-    metric_vars = [i for i in tf.compat.v1.local_variables() if 'mean_per_class_accuracy' in i.name.split('/')[1]]
-
-    # Add metric variables to GLOBAL_VARIABLES collection.
-    # They will be initialized for new session.
-    for v in metric_vars:
-        tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
-
-    # force to update metric values
-    with tf.control_dependencies([update_op]):
-        value = tf.identity(value)
-        return value
-
-
-def auc_roc(labels, predictions, num_thresholds=1000, summation_method='careful_interpolation'):
-
-    value, update_op = tf.compat.v1.metrics.auc(labels, predictions,
-                                      num_thresholds=num_thresholds,
-                                      summation_method=summation_method,
-                                      curve='ROC',
-                                      name='auc_roc')
-
-    # find all variables created for this metric
-    metric_vars = [i for i in tf.compat.v1.local_variables() if 'auc_roc' in i.name.split('/')[1]]
-
-    # Add metric variables to GLOBAL_VARIABLES collection.
-    # They will be initialized for new session.
-    for v in metric_vars:
-        tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
-
-    # force to update metric values
-    with tf.control_dependencies([update_op]):
-        value = tf.identity(value)
-        return value
-
-
-def auc_pr(labels, predictions, num_thresholds=1000, summation_method='careful_interpolation'):
-
-    value, update_op = tf.compat.v1.metrics.auc(labels, predictions,
-                                      num_thresholds=num_thresholds,
-                                      summation_method=summation_method,
-                                      curve='PR',
-                                      name='auc_pr')
-
-    # find all variables created for this metric
-    metric_vars = [i for i in tf.compat.v1.local_variables() if 'auc_pr' in i.name.split('/')[1]]
-
-    # Add metric variables to GLOBAL_VARIABLES collection.
-    # They will be initialized for new session.
-    for v in metric_vars:
-        tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
-
-    # force to update metric values
-    with tf.control_dependencies([update_op]):
-        value = tf.identity(value)
-        return value
-
-    # K._get_session().run(tf.compat.v1.local_variables_initializer())
-    # tf.keras.backend._compat.v1.keras.backend.get_session().run(tf.compat.v1.local_variables_initializer())
-    # with tf.control_dependencies([update_op]):
-    #     value = tf.identity(value)
-    # return value
-
-    # return update_op
+# def mean_per_class_accuracy(labels, predictions):
+#
+#     num_classes = len(predictions.shape)
+#
+#     value, update_op = tf.compat.v1.metrics.mean_per_class_accuracy(labels=labels,
+#                                                           predictions=predictions,
+#                                                           num_classes=num_classes,
+#                                                           name='mean_per_class_accuracy')
+#
+#     # find all variables created for this metric
+#     metric_vars = [i for i in tf.compat.v1.local_variables() if 'mean_per_class_accuracy' in i.name.split('/')[1]]
+#
+#     # Add metric variables to GLOBAL_VARIABLES collection.
+#     # They will be initialized for new session.
+#     for v in metric_vars:
+#         tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
+#
+#     # force to update metric values
+#     with tf.control_dependencies([update_op]):
+#         value = tf.identity(value)
+#         return value
+#
+#
+# def auc_roc(labels, predictions, num_thresholds=1000, summation_method='careful_interpolation'):
+#
+#     value, update_op = tf.compat.v1.metrics.auc(labels, predictions,
+#                                       num_thresholds=num_thresholds,
+#                                       summation_method=summation_method,
+#                                       curve='ROC',
+#                                       name='auc_roc')
+#
+#     # find all variables created for this metric
+#     metric_vars = [i for i in tf.compat.v1.local_variables() if 'auc_roc' in i.name.split('/')[1]]
+#
+#     # Add metric variables to GLOBAL_VARIABLES collection.
+#     # They will be initialized for new session.
+#     for v in metric_vars:
+#         tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
+#
+#     # force to update metric values
+#     with tf.control_dependencies([update_op]):
+#         value = tf.identity(value)
+#         return value
+#
+#
+# def auc_pr(labels, predictions, num_thresholds=1000, summation_method='careful_interpolation'):
+#
+#     value, update_op = tf.compat.v1.metrics.auc(labels, predictions,
+#                                       num_thresholds=num_thresholds,
+#                                       summation_method=summation_method,
+#                                       curve='PR',
+#                                       name='auc_pr')
+#
+#     # find all variables created for this metric
+#     metric_vars = [i for i in tf.compat.v1.local_variables() if 'auc_pr' in i.name.split('/')[1]]
+#
+#     # Add metric variables to GLOBAL_VARIABLES collection.
+#     # They will be initialized for new session.
+#     for v in metric_vars:
+#         tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, v)
+#
+#     # force to update metric values
+#     with tf.control_dependencies([update_op]):
+#         value = tf.identity(value)
+#         return value
+#
+#     # K._get_session().run(tf.compat.v1.local_variables_initializer())
+#     # tf.keras.backend._compat.v1.keras.backend.get_session().run(tf.compat.v1.local_variables_initializer())
+#     # with tf.control_dependencies([update_op]):
+#     #     value = tf.identity(value)
+#     # return value
+#
+#     # return update_op
 
 
 def create_metrics(model):

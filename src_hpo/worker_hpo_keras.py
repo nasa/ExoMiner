@@ -9,7 +9,7 @@ TODO: add sess_config as parameter for the worker
 
 # 3rd party
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 import numpy as np
 import tensorflow as tf
@@ -94,9 +94,9 @@ class TransitClassifier(Worker):
                 Due to Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
         """
 
-        # set a specific GPU for training the ensemble
-        gpu_id = int(self.worker_id_custom) % self.num_gpus
-        os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
+        # # set a specific GPU for training the ensemble
+        # gpu_id = int(self.worker_id_custom) % self.num_gpus
+        # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
 
         # merge sampled and fixed configurations
         config.update(self.base_config)
@@ -246,7 +246,7 @@ class TransitClassifier(Worker):
         # add test metrics and loss
         info_dict = {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
                      for metric in res if 'test' in metric and len(res[metric]['central tendency'].shape) == 0}
-        # add train and validation metrics and loss and
+        # add train and validation metrics and loss
         info_dict.update({metric: [float(res[metric]['central tendency'][-1]), float(res[metric]['deviation'][-1])]
                          for metric in res if 'test' not in metric and len(res[metric]['central tendency'].shape) == 1})
         res_hpo = {'loss': 1 - float(hpo_loss_val),  # HPO loss to be minimized
@@ -261,10 +261,10 @@ class TransitClassifier(Worker):
                 print('HPO {}: {}'.format(k, res_hpo[k]))
             else:
                 for l in res_hpo[k]:
-                    if 'test' in l:
-                        print('{}: {} +- {}'.format(l, *res_hpo[k][l]))
-                    else:
-                        print('{}: {} +- {}'.format(l, res_hpo[k][l][0][-1], res_hpo[k][l][1][-1]))
+                    # if 'test' in l:
+                    print('{}: {} +- {}'.format(l, *res_hpo[k][l]))
+                    # else:
+                    #     print('{}: {} +- {}'.format(l, res_hpo[k][l][0][-1], res_hpo[k][l][1][-1]))
         print('#' * 100)
         sys.stdout.flush()
 

@@ -3,10 +3,10 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-from data_wrangling.get_dv_files import get_dv_files
+from src_preprocessing.get_dv_files import get_dv_files
 
 #%% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the
-# 'koi_datalink_dvs' field
+# 'koi_datalink_dvs' field and updating the labels using the KOI dispositions from the Cumulative KOI list
 
 # logging.basicConfig(filename='/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
 #                              'koi_ephemeris_matching/koi_ephemeris_matching.log', filemode='a', format='%(message)s',
@@ -18,24 +18,27 @@ from data_wrangling.get_dv_files import get_dv_files
 #                              'processed.csv',
 #                              header=0)
 # keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
-#                              'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koidatalink_processedlinks.csv', header=0)
-keplerTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-                             'q1_q17_dr25_tce_2020.04.15_23.19.10_stellar.csv')
+#                              'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+#                              'koidatalink_processedlinks.csv', header=0)
+keplerTceTable = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/'
+                             'final_tce_tables/q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_'
+                             'normstellarparamswitherrors_koidatalink_processedlinks.csv', header=0)
 
 # Cumulative KOI list
 # koiCumTable = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
 #                           'oldvsnewkoidispositions.csv', header=0)
-koiCumTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
+# koiCumTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/koi_table/'
+#                           'cumulative_2020.02.21_10.29.22.csv', header=90)
+koiCumTable = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/koi_table/'
                           'cumulative_2020.02.21_10.29.22.csv', header=90)
 
 # # filter KOIs that do not come from Q1-Q17 DR25 TCE list
 koiCumTable = koiCumTable.loc[koiCumTable['koi_tce_delivname'] == 'q1_q17_dr25_tce']
 # koiCumTable = koiCumTable.loc[~koiCumTable['koi_datalink_dvr'].isna()]
 
-# koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -25, -24, -21,
-#                                                                 -20]]
+koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, -25, -24, -21,
+                                                                -20]]
 # koiColumnNames = koiCumTable.columns.values.tolist()
-koiColumnNames = np.array(koiCumTable.columns.values.tolist())[[1, 2, 3, 6, 7, 8, 9, 10, 11, 12]]
 
 # initialize new columns
 keplerTceTable = pd.concat([keplerTceTable, pd.DataFrame(columns=koiColumnNames)])
@@ -44,25 +47,25 @@ numKois = len(koiCumTable)
 
 koiNotMatched, koiNoTceInTarget = [], []
 
-# initialize label column with NTPs
+# reset label column
 keplerTceTable['label'] = 'NTP'
 
 # iterate through the Kepler IDs in the KOI table
 for koi_i, koi in koiCumTable.iterrows():
 
     # add KOI parameters to the matched TCE
-    keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
-                       (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
-                       koiColumnNames] = koi[koiColumnNames].values
+    tce_match = (keplerTceTable['target_id'] == koi.kepid) & \
+                (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1]))
+    keplerTceTable.loc[tce_match, koiColumnNames] = koi[koiColumnNames].values
 
-    if koi['koi_disposition'] == 'FALSE POSITIVE':
-        keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
-                           (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
-                           'label'] = 'AFP'
+    # replace label by new disposition
+    if koi.koi_disposition in ['CONFIRMED', 'CANDIDATE']:
+        keplerTceTable.loc[tce_match, 'label'] = 'PC'
+    elif koi.koi_disposition == 'FALSE POSITIVE':
+        keplerTceTable.loc[tce_match, 'label'] = 'AFP'
     else:
-        keplerTceTable.loc[(keplerTceTable['kepid'] == koi.kepid) &
-                           (keplerTceTable['tce_plnt_num'] == int(koi.koi_datalink_dvs.split('-')[1])),
-                           'label'] = 'PC'
+        print('It is already NTP. This should not be printed.')
+    #     keplerTceTable.loc[tce_match, 'label'] = 'NTP'
 
 # # print('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
 # logging.info('Total number of KOI not matched = {}'.format(len(koiNotMatched)))
@@ -70,13 +73,13 @@ for koi_i, koi in koiCumTable.iterrows():
 #                                                                                       len(koiNoTceInTarget)))
 # logging.info('Number of KOI without any TCE in the same Kepler ID = {}'.format(len(koiNoTceInTarget)))
 
-keplerTceTable[['kepid', 'tce_plnt_num', 'tce_rogue_flag', 'tce_nkoi']] = keplerTceTable[['kepid', 'tce_plnt_num',
-                                                                                          'tce_rogue_flag',
-                                                                                          'tce_nkoi']].astype('int32')
-
 # save updated TCE table with KOI parameters
-keplerTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21.csv',
+# keplerTceTable.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/koi_ephemeris_matching/'
+#                       'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+#                       'koi_processed.csv',
+#                       index=False)
+keplerTceTable.to_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/'
+                      'final_tce_tables/q1_q17_dr25_tce_cumkoi2020.02.21.csv',
                       index=False)
 
 #%% Check label of KOIs matched against labels of the TCEs in the Q1-Q17 DR25 TCE list (updated by Laurent on March
@@ -406,30 +409,43 @@ with open(os.path.join(resultsDir, "res_{}_KOIs.txt".format(rankingSet)), "w") a
 #                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_koidatalink_processedlinks.csv',
 #               index=False)
 
-resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
-             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs/'
+# resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+#              'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs/'
+resultsDir = '/Users/msaragoc/Projects/Kepler-TESS_exoplanet/results_ensemble/' \
+             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs'
 
-rankingSet = 'ranked_predictions_testsetkois.csv'
+rankingSet = 'ranked_predictions_trainset.csv'
 rankingTbl = pd.read_csv(os.path.join(resultsDir, rankingSet))
 
-rankingTbl = rankingTbl.loc[(rankingTbl['original label'] == 'NTP') & (rankingTbl['output'] >= 0.5)]
+# filter misclassified TCEs
+rankingTbl = rankingTbl.loc[(rankingTbl['original label'] == 'PC') & (rankingTbl['output'] < 0.5)]
+
+print(len(rankingTbl))
 
 # tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
 #                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
 #                      'koidatalink_processedlinks.csv')
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/final_tce_tables/'
+#                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+#                      'koidatalink_processedlinks.csv')
+tceTbl = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/final_tce_tables/'
                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
                      'koidatalink_processedlinks.csv')
 
 # add links to DV reports and summaries
 rankingTbl['tce_datalink_dvs'] = np.nan
 rankingTbl['tce_datalink_dvr'] = np.nan
+rankingTbl['koi_disposition'] = np.nan
 for tce_i, tce in rankingTbl.iterrows():
 
-    rankingTbl.loc[tce_i, ['tce_datalink_dvs',
-                           'tce_datalink_dvr']] = tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
-                                                             (tceTbl['tce_plnt_num'] == tce.tce_n)][['tce_datalink_dvs',
-                                                                                                     'tce_datalink_dvr']].values
+    # rankingTbl.loc[tce_i, ['tce_datalink_dvs', 'tce_datalink_dvr']] = \
+    #     tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
+    #                (tceTbl['tce_plnt_num'] == tce.tce_n)][['tce_datalink_dvs', 'tce_datalink_dvr']].values
+
+    rankingTbl.loc[tce_i, ['tce_datalink_dvs', 'tce_datalink_dvr', 'koi_disposition']] = \
+        tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
+                   (tceTbl['tce_plnt_num'] == tce.tce_n)][['tce_datalink_dvs', 'tce_datalink_dvr',
+                                                           'koi_disposition']].values[0]
 
 rankingTbl.to_csv(os.path.join(resultsDir, '{}_NTPabovethr.csv'.format(rankingSet.split('.')[0])), index=False)
 rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}_NTPabovethr.csv'.format(rankingSet.split('.')[0])))
@@ -447,3 +463,687 @@ get_dv_files(downloadUrls, downloadDir)
 downloadUrls = [subUrl[4:-4] for subUrl in list(rankingTbl['tce_datalink_dvs'].values)]
 downloadUrls = [rootUrl + url for url in downloadUrls]
 get_dv_files(downloadUrls, downloadDir)
+
+#%% Check the model performance in the subset of KOIs in the Certified False Positive List
+
+# add certified false positive disposition to the TCE list
+# load TCE list
+tceTbl = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/final_tce_tables/'
+                     'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+                     'koidatalink_processedlinks.csv')
+
+# load FPWG Certified False Positive list
+koiFpTbl = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/koi_table/'
+                       'fpwg_2020.03.13_11.37.49.csv', header=13)
+
+# instantiate column in the TCE list for the FPWG dispositions
+tceTbl['fpwg_disp_status'] = np.nan
+
+for koi_i, koi in koiFpTbl.iterrows():
+    koiInTceTbl = tceTbl['kepoi_name'] == koi.kepoi_name
+    if len(koiInTceTbl) > 0:
+        tceTbl.loc[koiInTceTbl, 'fpwg_disp_status'] = koi.fpwg_disp_status
+
+# save the TCE list with the added CFP list dispositions for the KOIs
+tceTbl.to_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/koi_matching/'
+              'certified_false_positive/q1_q17_dr25_tce_2019.03.12_KOIsDR25_cfp.csv', index=False)
+
+# results directory
+resultsDir = '/Users/msaragoc/Projects/Kepler-TESS_exoplanet/results_ensemble/' \
+             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs/Certified False Positive'
+
+# add to the ranking the cfp dispositions
+rankingSet = 'ranked_predictions_valset'
+rankingTbl = pd.read_csv(os.path.join(os.path.dirname(resultsDir), rankingSet))
+
+# instantiate CFP disposition column in the ranking
+rankingTbl['fpwg_disp_status'] = np.nan
+for tce_i, tce in rankingTbl.iterrows():
+
+    rankingTbl.loc[tce_i, 'fpwg_disp_status'] = \
+        tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
+                   (tceTbl['tce_plnt_num'] == tce.tce_n)]['fpwg_disp_status'].values
+
+# save the ranking with the added CFP disposition column
+rankingTbl.to_csv(os.path.join(resultsDir, '{}cfp.csv'.format(rankingSet)), index=False)
+
+# get score distribution for each disposition in the CFP list
+koiDispositions = ['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET', 'NOT EXAMINED', 'DATA INCONCLUSIVE']
+output_cl = {koiDisposition: rankingTbl.loc[rankingTbl['fpwg_disp_status'] == koiDisposition]['output'].values
+             for koiDisposition in koiDispositions}
+# koiDispositions.append('NOT EXAMINED')
+# output_cl['NOT EXAMINED'] = rankingTbl.loc[rankingTbl['fpwg_disp_status'].isna()]['output'].values
+
+bins = np.linspace(0, 1, 11, True)
+# normalizedToClass = False
+
+for normalizedToClass in [True, False]:
+    hist, bin_edges = {}, {}
+    for class_label in output_cl:
+        counts_cl = list(np.histogram(output_cl[class_label], bins, density=False, range=(0, 1)))
+        if normalizedToClass:
+            counts_cl[0] = counts_cl[0] / max(len(output_cl[class_label]), 1e-7)
+        hist[class_label] = counts_cl[0]
+        bin_edges[class_label] = counts_cl[1]
+
+    bins_multicl = np.linspace(0, 1, len(output_cl) * 10 + 1, True)
+    bin_width = bins_multicl[1] - bins_multicl[0]
+    bins_cl = {}
+    for i, class_label in enumerate(output_cl):
+        bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
+                                for idx in range(i, len(bins_multicl) - 1, len(output_cl))]
+
+    f, ax = plt.subplots()
+    for class_label in output_cl:
+        ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
+    # if dataset == 'predict':
+    #     ax.set_ylabel('Dataset fraction')
+    # else:
+    if normalizedToClass:
+        ax.set_ylabel('Disposition fraction')
+    else:
+        ax.set_ylabel('Number of samples')
+    ax.set_yscale('log')
+    ax.set_xlabel('Predicted output')
+    if normalizedToClass:
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1])
+    ax.set_title('FPWG disposition\nOutput distribution - {}'.format(rankingSet))
+    ax.set_xticks(np.linspace(0, 1, 11, True))
+    # if dataset != 'predict':
+    ax.legend()
+    plt.savefig(os.path.join(resultsDir,
+                             'cfpkoi_predoutput_distribution_{}_{}.png'.format(rankingSet,
+                                                                               ('Relative',
+                                                                                'Normalized')[normalizedToClass])))
+    plt.close()
+
+cl_thr = 0.5
+results = {koiDisposition: {'total': None, 'detected': None, 'accuracy': None} for koiDisposition in
+           ['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET']}
+for koiDisposition in ['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET']:
+
+    results[koiDisposition]['total'] = len(output_cl[koiDisposition])
+    if koiDisposition == 'POSSIBLE PLANET':
+        results[koiDisposition]['detected'] = len(np.where(output_cl[koiDisposition] >= cl_thr)[0])
+    else:
+        results[koiDisposition]['detected'] = len(np.where(output_cl[koiDisposition] < cl_thr)[0])
+
+    results[koiDisposition]['accuracy'] = results[koiDisposition]['detected'] / results[koiDisposition]['total']
+
+with open(os.path.join(resultsDir, "res_{}_cfpKOIs.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for the set of KOIs\n')
+
+    for koiDisposition in ['CERTIFIED FP', 'CERTIFIED FA', 'POSSIBLE PLANET']:
+
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(koiDisposition,
+                                                     results[koiDisposition]['detected'],
+                                                     results[koiDisposition]['total'],
+                                                     results[koiDisposition]['accuracy']))
+
+#%% Check the model performance against the Kepler Names list (Kepler confirmed and validated planets) that show up in
+# the KOI lists
+
+keplerNamesTable = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/'
+                               'kepler_names_tables/keplernames_2020.03.17_11.49.15.csv', header=17)
+
+# filter out Kepler Names that are not in the KOI lists
+keplerNamesTable = keplerNamesTable.loc[keplerNamesTable['koi_list_flag'] == 'YES']
+
+# add certified false positive disposition to the TCE list
+tceTbl = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/final_tce_tables/'
+                     'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+                     'koidatalink_processedlinks.csv')
+
+tceTbl['kepler_name'] = np.nan
+
+for keplerName_i, keplerName in keplerNamesTable.iterrows():
+    keplerNameInTceTbl = tceTbl['kepoi_name'] == keplerName.kepoi_name
+    if len(keplerNameInTceTbl) > 0:
+        tceTbl.loc[keplerNameInTceTbl, 'kepler_name'] = 'YES'
+
+# save the TCE list with the added Kepler Names column
+tceTbl.to_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/koi_matching/'
+              'kepler_names/q1_q17_dr25_tce_2019.03.12_KOIsDR25_keplernames.csv', index=False)
+
+resultsDir = '/Users/msaragoc/Projects/Kepler-TESS_exoplanet/results_ensemble/' \
+             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs'
+
+# add to the ranking the cfp dispositions
+rankingSet = 'ranked_predictions_valset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, rankingSet))
+
+rankingTbl['kepler_name'] = np.nan
+for tce_i, tce in rankingTbl.iterrows():
+
+    rankingTbl.loc[tce_i, 'kepler_name'] = tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
+                                                      (tceTbl['tce_plnt_num'] == tce.tce_n)]['kepler_name'].values
+
+rankingTbl.to_csv(os.path.join(resultsDir, '{}keplernames.csv'.format(rankingSet)), index=False)
+
+
+output_cl = {'Kepler Names': rankingTbl.loc[rankingTbl['kepler_name'] == 'YES']['output'].values}
+
+bins = np.linspace(0, 1, 11, True)
+
+for normalizedToClass in [True, False]:
+    hist, bin_edges = {}, {}
+    for class_label in output_cl:
+        counts_cl = list(np.histogram(output_cl[class_label], bins, density=False, range=(0, 1)))
+        if normalizedToClass:
+            counts_cl[0] = counts_cl[0] / max(len(output_cl[class_label]), 1e-7)
+        hist[class_label] = counts_cl[0]
+        bin_edges[class_label] = counts_cl[1]
+
+    bins_multicl = np.linspace(0, 1, len(output_cl) * 10 + 1, True)
+    bin_width = bins_multicl[1] - bins_multicl[0]
+    bins_cl = {}
+    for i, class_label in enumerate(output_cl):
+        bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
+                                for idx in range(i, len(bins_multicl) - 1, len(output_cl))]
+
+    f, ax = plt.subplots()
+    for class_label in output_cl:
+        ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
+    # if dataset == 'predict':
+    #     ax.set_ylabel('Dataset fraction')
+    # else:
+    if normalizedToClass:
+        ax.set_ylabel('Disposition fraction')
+    else:
+        ax.set_ylabel('Number of samples')
+    ax.set_yscale('log')
+    ax.set_xlabel('Predicted output')
+    if normalizedToClass:
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1])
+    ax.set_title('Kepler Names\nOutput distribution - {}'.format(rankingSet))
+    ax.set_xticks(np.linspace(0, 1, 11, True))
+    # if dataset != 'predict':
+    ax.legend()
+    plt.savefig(os.path.join(resultsDir,
+                             'keplernames_predoutput_distribution_{}_{}.png'.format(rankingSet,
+                                                                                    ('Relative',
+                                                                                     'Normalized')[normalizedToClass])))
+    plt.close()
+
+cl_thr = 0.5
+results = {'Kepler Names': {'total': None, 'detected': None, 'accuracy': None}}
+
+results['Kepler Names']['total'] = len(output_cl['Kepler Names'])
+results['Kepler Names']['detected'] = len(np.where(output_cl['Kepler Names'] >= cl_thr)[0])
+results['Kepler Names']['accuracy'] = results['Kepler Names']['detected'] / results['Kepler Names']['total']
+
+with open(os.path.join(resultsDir, "res_{}_keplernames.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for the set of Kepler Names\n')
+
+    res_file.write('Number of detected {} (Total number of): {} ({}) | '
+                   'Acc = {}\n'.format('Kepler Names',
+                                       results['Kepler Names']['detected'],
+                                       results['Kepler Names']['total'],
+                                       results['Kepler Names']['accuracy']))
+
+#%% Check the model performance in the subset of KOIs in the Certified False Positive List that have disposition of
+# POSSIBLE PLANET against the PC label from the Cumulative KOI list and the overlap between the two dispositions
+
+# results directory
+resultsDir = '/Users/msaragoc/Projects/Kepler-TESS_exoplanet/results_ensemble/' \
+             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs/Certified False Positive'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ranked_predictions_testset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}cfp.csv'.format(rankingSet)))
+
+# get scores for each disposition
+dispositions = ['PC', 'POSSIBLE PLANET', 'PC-POSSIBLE PLANET']
+output_cl = {}
+for disposition in dispositions:
+    if disposition == 'PC':
+        output_cl[disposition] = rankingTbl.loc[rankingTbl['original label'] == disposition]['output'].values
+    elif disposition == 'POSSIBLE PLANET':
+        output_cl[disposition] = rankingTbl.loc[rankingTbl['fpwg_disp_status'] == disposition]['output'].values
+    else:  # scores for overlap
+        output_cl['PC-POSSIBLE PLANET'] = \
+            rankingTbl.loc[(rankingTbl['original label'] == 'PC') &
+                           (rankingTbl['fpwg_disp_status'] == 'POSSIBLE PLANET')]['output'].values
+
+# plot score distribution for each disposition
+bins = np.linspace(0, 1, 11, True)
+# normalizedToClass = False
+
+for normalizedToClass in [True, False]:
+    hist, bin_edges = {}, {}
+    for class_label in output_cl:
+        counts_cl = list(np.histogram(output_cl[class_label], bins, density=False, range=(0, 1)))
+        if normalizedToClass:
+            counts_cl[0] = counts_cl[0] / max(len(output_cl[class_label]), 1e-7)
+        hist[class_label] = counts_cl[0]
+        bin_edges[class_label] = counts_cl[1]
+
+    bins_multicl = np.linspace(0, 1, len(output_cl) * 10 + 1, True)
+    bin_width = bins_multicl[1] - bins_multicl[0]
+    bins_cl = {}
+    for i, class_label in enumerate(output_cl):
+        bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
+                                for idx in range(i, len(bins_multicl) - 1, len(output_cl))]
+
+    f, ax = plt.subplots()
+    for class_label in output_cl:
+        ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
+    # if dataset == 'predict':
+    #     ax.set_ylabel('Dataset fraction')
+    # else:
+    if normalizedToClass:
+        ax.set_ylabel('Disposition fraction')
+    else:
+        ax.set_ylabel('Number of samples')
+    ax.set_yscale('log')
+    ax.set_xlabel('Predicted output')
+    if normalizedToClass:
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1])
+    ax.set_title('FPWG disposition\nOutput distribution - {}'.format(rankingSet))
+    ax.set_xticks(np.linspace(0, 1, 11, True))
+    ax.grid(True)
+    # if dataset != 'predict':
+    ax.legend()
+    plt.savefig(os.path.join(resultsDir,
+                             'pc-pp_predoutput_distribution_{}_{}.png'.format(rankingSet,
+                                                                              ('Relative',
+                                                                               'Normalized')[normalizedToClass])))
+    plt.close()
+
+# compute accuracy for each disposition
+cl_thr = 0.5  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_pc-pp.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for the set of KOIs\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+# table with the PC-POSSIBLE PLANET misclassified
+misclf_pc_pp = rankingTbl.loc[(rankingTbl['original label'] == 'PC') &
+                              (rankingTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') &
+                              (rankingTbl['label'] == 1) &
+                              (rankingTbl['predicted class'] == 0)]
+
+# add the URLs to the misclassfied PC-POSSIBLE PLANET table
+# load the TCE table with those URLs
+tceTbl = pd.read_csv('/Users/msaragoc/Projects/Kepler-TESS_exoplanet/data/ephemeris_tables/Kepler/final_tce_tables/'
+                     'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors_'
+                     'koidatalink_processedlinks.csv')
+misclf_pc_pp['tce_datalink_dvs'] = np.nan
+misclf_pc_pp['tce_datalink_dvr'] = np.nan
+# add them to the misclassified table
+for tce_i, tce in misclf_pc_pp.iterrows():
+    misclf_pc_pp.loc[tce_i, ['tce_datalink_dvs', 'tce_datalink_dvr']] = \
+        tceTbl.loc[(tceTbl['target_id'] == tce.kepid) &
+                   (tceTbl['tce_plnt_num'] == tce.tce_n)][['tce_datalink_dvs', 'tce_datalink_dvr']].values
+
+# download reports for PC-POSSIBLE PLANET that were misclassified
+rootUrl = 'https://exoplanetarchive.ipac.caltech.edu/data/KeplerData/'  # base URL
+downloadDir = os.path.join(resultsDir, 'reports_missclf_pc-pp')  # save directory
+
+# DV report
+downloadUrls = [subUrl[0][2:-2] for subUrl in list(misclf_pc_pp['tce_datalink_dvr'].values)]
+downloadUrls = [rootUrl + url for url in downloadUrls]
+get_dv_files(downloadUrls, downloadDir)
+
+# DV summary
+downloadUrls = [subUrl[0][2:-2] for subUrl in misclf_pc_pp['tce_datalink_dvs'].values]
+downloadUrls = [rootUrl + url for url in downloadUrls]
+get_dv_files(downloadUrls, downloadDir)
+
+#%% Compute accuracy for classes PC, AFP, NTP
+
+# results directory
+resultsDir = '/Users/msaragoc/Projects/Kepler-TESS_exoplanet/results_ensemble/' \
+             'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs/'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ranked_predictions_valset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+# get scores for each disposition
+dispositions = ['PC', 'AFP', 'NTP']
+output_cl = {}
+for disposition in dispositions:
+    output_cl[disposition] = rankingTbl.loc[rankingTbl['original label'] == disposition]['output'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.5  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'PC':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_pc-afp-ntp.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for each category: PC, AFP, NTP\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+#%% Compute accuracy for classes PC, AFP, NTP
+
+# results directory
+resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+             'bohb_dr25_spline_gapped_hvb_glflux/'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ensemble_ranked_predictions_trainset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+# get scores for each disposition
+dispositions = ['PC', 'AFP', 'NTP']
+output_cl = {}
+for disposition in dispositions:
+    output_cl[disposition] = rankingTbl.loc[rankingTbl['original_label'] == disposition]['score'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.5  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'PC':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_pc-afp-ntp.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for each category: PC, AFP, NTP\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+#%% Compute accuracy for TCEs associated with CANDIDATE, FALSE POSITIVE and DATA INCONCLUSIVE KOIs
+
+# results directory
+resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+             'bohb_dr25_spline_gapped_hvb_glflux/'
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm_bhv.csv')
+
+# remove TCEs that do not have any of these dispositions
+tceTbl = tceTbl.loc[(tceTbl['koi_disposition'].isin(['CANDIDATE', 'FALSE POSITIVE'])) |
+                    (tceTbl['fpwg_disp_status'] == 'DATA INCONCLUSIVE')]
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ensemble_ranked_predictions_testset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+# filter out non-NTPs
+rankingTbl = rankingTbl.loc[rankingTbl['original_label'] == 'NTP']
+rankingTbl['koi_disposition'] = ''
+rankingTbl['fpwg_disp_status'] = ''
+
+for tce_i, tce in rankingTbl.iterrows():
+
+    validTces = tceTbl.loc[(tceTbl['target_id'] == tce.target_id) & (tceTbl['tce_plnt_num'] == tce.tce_plnt_num) &
+                           ((tceTbl['koi_disposition'].isin(['FALSE POSITIVE', 'CANDIDATE'])) |
+                           (tceTbl['fpwg_disp_status'] == 'DATA INCONCLUSIVE'))][['koi_disposition',
+                                                                                 'fpwg_disp_status']]
+
+    if len(validTces) == 1:
+        # print('dasd')
+        rankingTbl.loc[tce_i, ['koi_disposition', 'fpwg_disp_status']] = validTces.values[0]
+    # elif len(validTces) > 1:
+    #     print(len(validTces))
+
+# get scores for each disposition
+dispositions = ['CANDIDATE', 'FALSE POSITIVE', 'DATA INCONCLUSIVE']
+output_cl = {}
+for disposition in dispositions:
+    if disposition in ['CANDIDATE', 'FALSE POSITIVE']:
+        output_cl[disposition] = rankingTbl.loc[rankingTbl['koi_disposition'] == disposition]['score'].values
+    else:
+        output_cl[disposition] = rankingTbl.loc[rankingTbl['fpwg_disp_status'] == disposition]['score'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.5  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'CANDIDATE':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_cand-fp-datainconcl.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for each category: CANDIDATE, FALSE POSITIVE, DATA INCONCLUSIVE\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+#%% Compute accuracy for CANDIDATE and FALSE POSITIVE KOIs which are not dispositioned as CFP, CFP or PP in the CFP list
+# compute accuracy for CANDIDATE and FALSE POSITIVE KOIs which were labeled as NTP in the 'hvb' dataset
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_noroguetces_norm.csv')
+
+# add FPWG disposition to the TCE table
+cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
+                     'cumulative_2020.02.21_10.29.22_fpwgdisp.csv')
+
+tceTbl['fpwg_disp_status'] = ''
+for tce_i, tce in tceTbl.iterrows():
+    validKoi = cfpTbl.loc[cfpTbl['kepoi_name'] == tce.kepoi_name]
+
+    assert len(validKoi) <= 1
+
+    if len(validKoi) == 1:
+        tceTbl.loc[tce_i, ['fpwg_disp_status']] = validKoi.fpwg_disp_status.values[0]
+
+# filter out CONFIRMED, CFP, CFA, PP KOIs
+tceTbl = tceTbl.loc[tceTbl['koi_disposition'] != 'CONFIRMED']
+tceTbl = tceTbl.loc[~tceTbl['fpwg_disp_status'].isin(['CERTIFIED FA', 'CERTIFIED FP', 'POSSIBLE PLANET'])]
+
+# remove TCEs that do not have any of these dispositions
+tceTbl = tceTbl.loc[(tceTbl['koi_disposition'].isin(['CANDIDATE', 'FALSE POSITIVE'])) |
+                    (tceTbl['fpwg_disp_status'] == 'DATA INCONCLUSIVE')]
+
+#%% Experiment 3 (Cumulative KOI disposition dataset)
+
+# results directory
+resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+             'dr25_spline_gapped_glflux_cumkoidisp_glfluxhvbconfig'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ensemble_ranked_predictions_testset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+rankingTbl['koi_disposition_og'] = ''
+
+for tce_i, tce in rankingTbl.iterrows():
+
+    validTces = tceTbl.loc[(tceTbl['target_id'] == tce.target_id) &
+                           (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)][['koi_disposition']]
+
+    if len(validTces) == 1:
+        # print('dasd')
+        # aaaa
+        rankingTbl.loc[tce_i, ['koi_disposition_og']] = validTces.values[0]
+    # elif len(validTces) > 1:
+    #     print(len(validTces))
+
+# filter TCEs that did not match
+rankingTbl = rankingTbl.loc[rankingTbl['koi_disposition_og'] != '']
+
+# get scores for each disposition
+dispositions = ['CANDIDATE', 'FALSE POSITIVE']
+output_cl = {}
+for disposition in dispositions:
+    output_cl[disposition] = rankingTbl.loc[rankingTbl['koi_disposition_og'] == disposition]['score'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.5  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'CANDIDATE':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_cand-fp_tontps.txt".format(rankingSet)), "w") as res_file:
+    res_file.write('Performance for each category: CANDIDATE, FALSE POSITIVE\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+#%% Experiment 2 - compute accuracy for CANDIDATE and FALSE POSITIVE KOIs which were labeled as NTP in the 'hvb' dataset
+
+# results directory
+resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+             'dr25_spline_gapped_glflux_norobovetterkois_glfluxhvbconfig_cumkois_cand_fp_added'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ensemble_ranked_predictions_testset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+rankingTbl['koi_disposition_og'] = ''
+
+for tce_i, tce in rankingTbl.iterrows():
+
+    validTces = tceTbl.loc[(tceTbl['target_id'] == tce.target_id) &
+                           (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)][['koi_disposition']]
+
+    if len(validTces) == 1:
+        # print('dasd')
+        # aaaa
+        rankingTbl.loc[tce_i, ['koi_disposition_og']] = validTces.values[0]
+    # elif len(validTces) > 1:
+    #     print(len(validTces))
+
+# filter TCEs that did not match
+rankingTbl = rankingTbl.loc[rankingTbl['koi_disposition_og'] != '']
+
+# get scores for each disposition
+dispositions = ['CANDIDATE', 'FALSE POSITIVE']
+output_cl = {}
+for disposition in dispositions:
+    output_cl[disposition] = rankingTbl.loc[rankingTbl['koi_disposition_og'] == disposition]['score'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.335  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'CANDIDATE':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_cand-fp_tontps_clfthr{}.txt".format(rankingSet, cl_thr)), "w") as res_file:
+    res_file.write('Performance for each category: CANDIDATE, FALSE POSITIVE\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))
+
+#%% Experiment 2 - prediction using classification threshold of 0.35
+# compute accuracy for CANDIDATE and FALSE POSITIVE KOIs which were labeled as NTP in the 'hvb' dataset
+
+# results directory
+resultsDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
+             'dr25_spline_gapped_glflux_norobovetterkois_glfluxhvbconfig_cumkois_cand_fp_added_thr0.35'
+
+# load the ranking with the cfp dispositions for a given dataset
+rankingSet = 'ensemble_ranked_predictions_testset'
+rankingTbl = pd.read_csv(os.path.join(resultsDir, '{}'.format(rankingSet)))
+
+rankingTbl['koi_disposition_og'] = ''
+
+for tce_i, tce in rankingTbl.iterrows():
+
+    validTces = tceTbl.loc[(tceTbl['target_id'] == tce.target_id) &
+                           (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)][['koi_disposition']]
+
+    if len(validTces) == 1:
+        # print('dasd')
+        # aaaa
+        rankingTbl.loc[tce_i, ['koi_disposition_og']] = validTces.values[0]
+    # elif len(validTces) > 1:
+    #     print(len(validTces))
+
+# filter TCEs that did not match
+rankingTbl = rankingTbl.loc[rankingTbl['koi_disposition_og'] != '']
+
+# get scores for each disposition
+dispositions = ['CANDIDATE', 'FALSE POSITIVE']
+output_cl = {}
+for disposition in dispositions:
+    output_cl[disposition] = rankingTbl.loc[rankingTbl['koi_disposition_og'] == disposition]['score'].values
+
+# compute accuracy for each disposition
+cl_thr = 0.35  # classification threshold
+results = {disposition: {'total': None, 'detected': None, 'accuracy': None} for disposition in
+           dispositions}
+for disposition in dispositions:
+    results[disposition]['total'] = len(output_cl[disposition])
+    if disposition == 'CANDIDATE':
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] >= cl_thr)[0])
+    else:
+        results[disposition]['detected'] = len(np.where(output_cl[disposition] < cl_thr)[0])
+    results[disposition]['accuracy'] = results[disposition]['detected'] / results[disposition]['total']
+
+# save results to a file
+with open(os.path.join(resultsDir, "res_{}_cand-fp_tontps_clfthr{}.txt".format(rankingSet, cl_thr)), "w") as res_file:
+    res_file.write('Performance for each category: CANDIDATE, FALSE POSITIVE\n')
+
+    for disposition in results:
+        res_file.write('Number of detected {} (Total number of): '
+                       '{} ({}) | Acc = {}\n'.format(disposition,
+                                                     results[disposition]['detected'],
+                                                     results[disposition]['total'],
+                                                     results[disposition]['accuracy']))

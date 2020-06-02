@@ -609,11 +609,17 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
 
     # valid fields and features in the TFRecords
     # main fields: ['target_id', 'tce_plnt_num', 'label']
-    FIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'tce_max_mult_ev', 'ra', 'dec', 'mag', 'transit_depth',
-              'sectors', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr', 'tce_ingress', 'tce_impact',
-              'tce_incl', 'tce_dor', 'tce_ror']
-    TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
-                  'local_view_odd']
+    FLOATFIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'ra', 'dec', 'mag', 'transit_depth', 'tce_steff',
+                   'tce_slogg', 'tce_smass', 'tce_sdens', 'tce_smet', 'tce_sradius', 'koi_score', 'wst_robstat',
+                   'tce_bin_oedp_stat', 'boot_fap']
+    STRINGFIELDS = ['koi_disposition', 'kepoi_name', 'kepler_name', 'fpwg_disp_status', 'tce_datalink_dvs',
+                    'tce_datalink_dvr']
+
+    # TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
+    #               'local_view_odd']
+    TIMESERIES = ['global_flux_view', 'local_flux_view', 'local_centr_view', 'global_centr_view',
+                  'global_flux_odd_view', 'local_flux_odd_view', 'global_flux_even_view', 'local_flux_even_view',
+                  'local_weak_secondary_view']
 
     if filt is not None:
         union_fields = np.union1d(data_fields, list(filt.keys()))  # get fields that are in both
@@ -663,9 +669,14 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
 
         # float parameters
-        for field in FIELDS:
+        for field in FLOATFIELDS:
             if field in union_fields:
                 datum[field] = example.features.feature[field].float_list.value[0]
+
+        # string parameters
+        for field in STRINGFIELDS:
+            if field in union_fields:
+                datum[field] = example.features.feature[field].bytes_list.value[0].decode('utf-8')
 
         # time-series features
         for timeseries in TIMESERIES:

@@ -19,6 +19,7 @@ import os.path
 from astropy.io import fits
 import numpy as np
 from tensorflow import gfile
+from astropy import wcs
 
 from src_preprocessing.light_curve import util
 from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
@@ -225,7 +226,9 @@ def read_kepler_light_curve(filenames,
                             interpolate_missing_time=False,
                             centroid_radec=False,
                             prefer_psfcentr=False,
-                            invert=False):
+                            invert=False,
+                            #get_px_centr=False
+                            ):
     """ Reads data from FITS files for a Kepler target star.
 
   Args:
@@ -252,11 +255,20 @@ def read_kepler_light_curve(filenames,
     or local CCD (x, y) pixel coordinates
   """
 
-    # initialize variables
-    all_time = []
-    all_flux = []
-    all_centroid = {'x': [], 'y': []}
-    add_info = {'quarter': [], 'module': [], 'target position': []}
+    # initialize data dict
+    data = {'all_time': [],
+            'all_flux': [],
+            'all_centroids': {'x': [], 'y': []},
+            'quarter': [],
+            'module': [],
+            'target_position': []}
+
+    # if get_px_centr:
+        # if get_px_centr and not centroid_radec:
+            # raise ValueError('Duplicated centroid time-series due to setting `get_px_centr` flag to True and '
+            #                  '`centroid_radec` flag to False.')
+    # initialize dict for FDL centroid time-series
+    data['all_centroids_px'] = {'x': [], 'y': []}
 
     def _has_finite(array):
         for i in array:
@@ -277,8 +289,8 @@ def read_kepler_light_curve(filenames,
 
             kepid_coord1, kepid_coord2 = hdu_list["PRIMARY"].header["RA_OBJ"], hdu_list["PRIMARY"].header["DEC_OBJ"]
 
-            if len(add_info['target position']) == 0:
-                add_info['target position'] = [kepid_coord1, kepid_coord2]
+            if len(data['target_position']) == 0:
+                data['target_position'] = [kepid_coord1, kepid_coord2]
 
                 # TODO: convert target position from RA and Dec to local CCD pixel coordinates
                 if not centroid_radec:
@@ -294,8 +306,13 @@ def read_kepler_light_curve(filenames,
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
                 if _has_finite(light_curve.MOM_CENTR1):
+                    # correct centroid time series using the POS_CORR (position correction) time series which take into
+                    # account DVA, pointing drift and thermal transients - based on PSF centroids, so not the best
+                    # approach to correct systematics in the MOM (flux-weighted) centroids
                     centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
                                              light_curve.MOM_CENTR2 - light_curve.POS_CORR2
+
+                    centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
                 else:
                     continue  # no data
 
@@ -310,10 +327,11 @@ def read_kepler_light_curve(filenames,
                                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
 
                 # # reference pixel in the aperture coordinate frame
-                # ref_px = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
+                ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']],
+                                       [hdu_list['APERTURE'].header['CRPIX2']]])
 
                 # reference pixel in CCD coordinate frame
-                ref_px_apert = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
+                ref_px_ccdf = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
                                          [hdu_list['APERTURE'].header['CRVAL2P']]])
 
                 # RA and Dec at reference pixel
@@ -322,11 +340,17 @@ def read_kepler_light_curve(filenames,
 
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
-            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x, centroid_y,
-                                                            cd_transform_matrix,
-                                                            ref_px_apert,
-                                                            ref_angcoord,
-                                                            'kepler')
+            # centroid_ra, centroid_dec = convertpxtoradec_centr(centroid_x, centroid_y,
+            #                                                    cd_transform_matrix,
+            #                                                    ref_px_ccdf,  # np.array([[0], [0]])
+            #                                                    ref_px_apf,  # np.array([[0], [0]])
+            #                                                    ref_angcoord
+            #                                                    )
+
+            w = wcs.WCS(hdu_list['APERTURE'].header)
+            pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
+            world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=False)
+            centroid_ra, centroid_dec = world[:, 0], world[:, 1]
 
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME
@@ -339,28 +363,45 @@ def read_kepler_light_curve(filenames,
         if interpolate_missing_time:
             time = util.interpolate_missing_time(time, light_curve.CADENCENO)
 
-        all_time.append(time)
-        all_flux.append(flux)
-        all_centroid['x'].append(centroid_x)
-        all_centroid['y'].append(centroid_y)
+        data['all_time'].append(time)
+        data['all_flux'].append(flux)
+        if centroid_radec:
+            data['all_centroids']['x'].append(centroid_ra)
+            data['all_centroids']['y'].append(centroid_dec)
+        else:
+            data['all_centroids']['x'].append(centroid_x)
+            data['all_centroids']['y'].append(centroid_y)
 
-        add_info['quarter'].append(quarter)
-        add_info['module'].append(module)
+        # if get_px_centr:
+        # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
+        # aperture
+        data['all_centroids_px']['x'].append(centroid_fdl_x - ref_px_ccdf[0])
+        data['all_centroids_px']['y'].append(centroid_fdl_y - ref_px_ccdf[1])
+
+        data['quarter'].append(quarter)
+        data['module'].append(module)
 
     # scrambles data according to the scramble type selected
+    # TODO: currently only scrambling for the all_centroids variable
     if scramble_type:
-        all_time, all_flux = scramble_light_curve(all_time, all_flux,
-                                                  add_info['quarter'],
-                                                  scramble_type)
-        all_time, all_flux, all_centroid = scramble_light_curve_with_centroids(all_time, all_flux, all_centroid,
-                                                                               add_info['quarter'],
-                                                                               scramble_type)
-        add_info['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
+        # data['all_time'], data['all_flux'] = scramble_light_curve(data['all_time'],
+        #                                                           data['all_flux'],
+        #                                                           data['quarter'],
+        #                                                           scramble_type)
+        data['all_time'], data['all_flux'], data['all_centroids'] = \
+            scramble_light_curve_with_centroids(data['all_time'],
+                                                data['all_flux'],
+                                                data['all_centroids'],
+                                                data['quarter'],
+                                                scramble_type)
+
+        data['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
 
     # inverts light curve
+    # TODO: currently only scrambling for the all_centroids variable
     if invert:
-        all_flux = [-1 * flux for flux in all_flux]
-        all_centroid['x'] = [-1 * centroid for centroid in all_centroid['x']]
-        all_centroid['y'] = [-1 * centroid for centroid in all_centroid['y']]
+        data['all_flux'] = [-1 * flux for flux in data['all_flux']]
+        data['all_centroids']['x'] = [-1 * centroid for centroid in data['all_centroids']['x']]
+        data['all_centroids']['y'] = [-1 * centroid for centroid in data['all_centroids']['y']]
 
-    return all_time, all_flux, all_centroid, add_info
+    return data

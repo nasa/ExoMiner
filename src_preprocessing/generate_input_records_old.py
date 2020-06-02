@@ -12,9 +12,8 @@ import pickle
 from mpi4py import MPI
 import datetime
 import socket
-# import numpy as np
-# import time
-import pandas as pd
+import numpy as np
+import time
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -28,19 +27,28 @@ class Config:
     """
 
     # TFRecords base name
-    tfrecords_base_name = 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar'
+    tfrecords_base_name = 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_' \
+                          'updtkois_shuffled'
 
     # TFRecords root directory
     tfrecords_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords'
 
     # output directory
-    output_dir = os.path.join(tfrecords_dir, 'Kepler', 'DR25', tfrecords_base_name)
+    output_dir = os.path.join(tfrecords_dir, 'Kepler', tfrecords_base_name)
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
     tce_identifier = 'tce_plnt_num'
 
+    training = True  # choose from: 'training' or 'predict'
+    # partition the data set
+    datasets_frac = {'training': 0.8, 'validation': 0.1, 'test': 0.1}
+
     augmentation = False
+
+    assert np.sum(list(datasets_frac.values())) <= 1  # check that datasets fraction sum up to 1
+
+    whitened = False  # use whitened data (currently only available for Kepler DR25 34k TCEs dataset)
 
     # minimum gap size( in time units - day) for a split
     gapWidth = 0.75
@@ -66,7 +74,7 @@ class Config:
 
     # simulated data
     injected_group = False  # either 'False' or inject group name
-    light_curve_extension = 'LIGHTCURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
+    light_curve_extension = 'LIGHT CURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
     # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
     scramble_type = None
     invert = False  # if True, raw light curves are inverted
@@ -89,14 +97,24 @@ class Config:
     num_bins_loc = 201  # number of bins in the local view
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
-    num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
 
+    # normalization = True  # if True, performs normalization of TCE table parameters such as the stellar parameters
+    # compute_norm_stats = ''  # loads normalization statistics from this file; if empty, computes them using the training set
+
+    # save_stats = False
+
+    # filepath to numpy file with stats used to preprocess the data
+    stats_preproc_filepath = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/stats_trainingset.npy'
+
     # Ephemeris table (complete with the gapped TCEs) for the 34k TCEs Kepler
     # eph_tbl_fp = '/home6/msaragoc/work_dir/data/EXOPLNT_Kepler-TESS/Ephemeris_tables/Kepler/DR25_readout_table'
     # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
+
+    # whitened data directory - 34k TCEs Kepler DR25 flux data only
+    whitened_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/DR25_readouts'
 
     # Ephemeris table from the TPS module
     tps_ephem_tbl = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
@@ -112,18 +130,33 @@ class Config:
         # 34k TCEs Kepler DR25
         lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
                       'pdc-tce-time-series-fits'
-
-        dict_savedir = ''
-
     elif satellite == 'tess':
         input_tce_csv_file = ''
 
         lc_data_dir = ''
 
-        dict_savedir = ''
-
     # shuffle TCE table
     shuffle = False
+
+    # output_dir += '_whitened' if whitened else '_nonwhitened'
+    # if gapped:
+    #     output_dir += '_gapped'
+    # if gap_imputed:
+    #     output_dir += '_imputed'
+    # if gap_with_confidence_level:
+    #     output_dir += '_conf%d' % int(gap_confidence_level * 100)
+    # if use_tps_ephem:
+    #     output_dir += '_tps'
+    # output_dir += '_%d-%d' % (num_bins_glob, num_bins_loc)
+
+    # # input checks
+    # assert(satellite in ['kepler', 'tess'])
+    #
+    # if not gapped:
+    #     assert not gap_imputed
+    #
+    # if gap_with_confidence_level:
+    #     assert gapped
 
     # multiprocessing parameters
     using_mpi = True
@@ -134,25 +167,30 @@ class Config:
     print('Process {} ({})'.format(process_i, n_processes))
     sys.stdout.flush()
 
+    # # TODO: what about for TESS?
+    # # Check that the number of tfrecord files for each dataset (train, val, test) falls into an integer number
+    # assert (n_processes % (1 / test_frac) == 0)
+    # assert (n_processes % (1 / val_frac) == 0)
 
-def _process_file_shard(tce_table, file_name, eph_table, config):
-    """ Processes a single file shard.
+    # if process_i == 0:
+    #     print('Pre processing the following time series:\nGapped: %s\nWhitened: %s\nnum_bins_glob: %d\nnum_bins_loc: %d'
+    #           % ('True' if gapped else 'False', 'True' if whitened else 'False', num_bins_glob, num_bins_loc))
+
+
+def _process_file_shard(tce_table, file_name, eph_table):
+    """Processes a single file shard.
 
     Args:
     tce_table: A Pandas DateFrame containing the TCEs in the shard.
     file_name: The output TFRecord file.
     """
 
-    # config = Config()
+    config = Config()
 
     shard_name = os.path.basename(file_name)
     shard_size = len(tce_table)
 
-    tceColumns = ['target_id', config.tce_identifier]
-    columnsDf = tceColumns + ['augmentation_idx', 'shard']
-    firstTceInDf = True
-
-    tf.logging.info('{}: Processing {} items in shard {}'.format(config.process_i, shard_size, shard_name))
+    tf.logging.info("%s: Processing %d items in shard %s", config.process_i, shard_size, shard_name)
 
     confidence_dict = pickle.load(open(config.dict_savedir, 'rb')) if config.gap_with_confidence_level else {}
 
@@ -162,23 +200,23 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
         num_processed = 0
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
-            example = _process_tce(tce, eph_table, config, confidence_dict)
+            lc, time = None, None
+            # get flux and cadence data (if using whitened data)
+            if config.whitened:
+            # # get flux and cadence data (if using whitened data)
+            # # check if TCE is in the whitened dataset
+            # if config.satellite == 'kepler' and config.whitened and not (tce['kepid'] in flux_import and tce['kepid']
+            #                                                              in time_import):
+            #     lc, time = (flux_import[tce['kepid']][1], time_import[tce['kepid']][1]) \
+            #         if config.whitened else (None, None)
+                raise NotImplementedError('Whitening still not implemented-ish.')
+            # else:  # TESS
+            #     # aux_id = (tce['tessid'], 1, tce['sector'])  # tce_n = 1, import non-previous-tce-gapped light curves
+            #   continue
+
+            example = _process_tce(tce, eph_table, lc, time, config, confidence_dict)
             if example is not None:
                 writer.write(example.SerializeToString())
-
-                tceData = {column: [tce[column]] for column in tceColumns}
-                tceData['shard'] = [shard_name]
-                tceData['augmentation_idx'] = [0]
-                exampleDf = pd.DataFrame(data=tceData, columns=columnsDf)
-
-                if firstTceInDf:
-                    examplesDf = exampleDf
-                    firstTceInDf = False
-                else:
-                    examplesDf = pd.read_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)))
-                    examplesDf = pd.concat([examplesDf, exampleDf])
-
-                examplesDf.to_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)), index=False)
 
             num_processed += 1
             if config.n_processes < 50 or config.process_i == 0:
@@ -187,17 +225,16 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                         cur_time = int(datetime.datetime.now().strftime("%s"))
                         eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
                         eta = str(datetime.timedelta(seconds=eta))
-                        printstr = '{}: Processed {}/{} items in shard {}, ' \
-                                   'time remaining (HH:MM:SS): {}'.format(config.process_i, num_processed, shard_size,
-                                                                          shard_name, eta)
+                        printstr = "%s: Processed %d/%d items in shard %s,   time remaining (HH:MM:SS): %s" \
+                                   % (config.process_i, num_processed, shard_size, shard_name, eta)
                     else:
-                        printstr = '{}: Processed {}/{} items in shard {}'.format(config.process_i, num_processed,
-                                                                                  shard_size, shard_name)
+                        printstr = "%s: Processed %d/%d items in shard %s" % (config.process_i, num_processed,
+                                                                              shard_size, shard_name)
 
                     tf.logging.info(printstr)
 
     if config.n_processes < 50:
-        tf.logging.info('{}: Wrote {} items in shard {}', config.process_i, shard_size, shard_name)
+        tf.logging.info("%s: Wrote %d items in shard %s", config.process_i, shard_size, shard_name)
 
 
 def main(_):
@@ -212,6 +249,19 @@ def main(_):
     if config.plot_figures:
         tf.gfile.MakeDirs(os.path.join(config.output_dir, 'plots'))
 
+    # if config.save_stats:
+    #     tf.gfile.MakeDirs(os.path.join(config.output_dir, 'stats'))
+
+    # if config.normalization:
+    #     if config.process_i == 0:
+    #         config.input_tce_csv_file = normalize_params_tce_table(config)
+    #     else:
+    #         config.input_tce_csv_file = '{}_normalized.csv'.format(config.input_tce_csv_file.replace('.csv', ''))
+
+    rank_frac = config.process_i / config.n_processes
+
+    # if rank_frac < (1 - config.test_frac - config.val_frac):
+
     # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
                             else get_tess_tce_table(config))
@@ -222,13 +272,23 @@ def main(_):
         tce_table = shuffle_tce(tce_table, seed=123)
         print('Shuffled TCE Table')
 
+    if config.whitened:  # get flux and cadence time series for the whitened data
+        load_whitened_data(config)
+
+    if config.training:
+        set_id_str = ('train' if rank_frac < (1 - config.datasets_frac['test'] - config.datasets_frac['validation'])
+                      else 'val' if rank_frac >= 1 - config.datasets_frac['test']
+                      else 'test')
+    else:
+        set_id_str = 'predict'
+
     node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
-    filename = 'shard-{:05d}-of-{:05d}-node-{:s}'.format(config.process_i, config.n_processes, node_id)
+    filename = set_id_str + "-{:05d}-of-{:05d}-node-{:s}".format(config.process_i, config.n_processes, node_id)
     file_name_i = os.path.join(config.output_dir, filename)
 
-    _process_file_shard(tce_table, file_name_i, eph_table, config)
+    _process_file_shard(tce_table, file_name_i, eph_table)
 
-    tf.logging.info('Finished processing {} items in shard {}'.format(len(tce_table), filename))
+    tf.logging.info("Finished processing %d total file shards", len(tce_table))
 
 
 if __name__ == "__main__":

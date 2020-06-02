@@ -21,7 +21,7 @@ import tensorflow as tf
 import numpy as np
 # from mpi4py import MPI
 import time
-from tensorflow import keras
+# from tensorflow import keras
 from tensorflow.keras import callbacks, losses, optimizers
 import argparse
 
@@ -213,6 +213,8 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     if mpi_rank is None or mpi_rank == 0:
         print('Configuration used: ', config)
 
+    verbose = False if 'home6' in paths.path_hpoconfigs else True
+
     # create directory for the model
     model_dir_sub = os.path.join(model_dir, 'model{}'.format(model_id))
     os.makedirs(model_dir_sub, exist_ok=True)
@@ -323,7 +325,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                         y=None,
                         batch_size=None,
                         epochs=n_epochs,
-                        verbose=1,
+                        verbose=verbose,
                         callbacks=callbacks_list,
                         validation_split=0.,
                         validation_data=val_input_fn(),
@@ -343,7 +345,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     res_eval = model.evaluate(x=test_input_fn(),
                               y=None,
                               batch_size=None,
-                              verbose=1,
+                              verbose=verbose,
                               sample_weight=None,
                               steps=None,
                               callbacks=None,
@@ -374,7 +376,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
         predictions_dataset[dataset] = model.predict(predict_input_fn(),
                                                      batch_size=None,
-                                                     verbose=1,
+                                                     verbose=verbose,
                                                      steps=None,
                                                      callbacks=None,
                                                      max_queue_size=10,
@@ -404,7 +406,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
         for dataset in datasets:
             res_file.write('Dataset: {}\n'.format(dataset))
             for metric in model.metrics_names:
-                if 'prec_thr' not in metric and 'rec_thr' not in metric:
+                if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
                     if dataset == 'train':
                         res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
                     elif dataset == 'test':
@@ -421,7 +423,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     for dataset in datasets:
         print(dataset)
         for metric in model.metrics_names:
-            if 'prec_thr' not in metric and 'rec_thr' not in metric:
+            if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
                 if dataset == 'train':
                     print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
                 elif dataset == 'test':
@@ -506,9 +508,6 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
-    # tfrec_dir = os.path.join(paths.path_tfrecs,
-    #                          'Kepler/tfrecordkeplerdr25_flux-centroid_selfnormalized-oddeven'
-    #                          '_nonwhitened_gapped_2001-201_updtKOIs')
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'DR25',
@@ -516,7 +515,7 @@ if __name__ == '__main__':
                              'updtkois_shuffled_wks_norm')
 
     # features to be extracted from the dataset(s)
-    features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
+    features_names = ['global_flux_view', 'local_flux_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
                       'local_view_even']
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
