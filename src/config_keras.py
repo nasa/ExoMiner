@@ -18,7 +18,8 @@ label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary clas
                       False: {"PC": 1,
                               "NTP": 0,
                               "EB": 0,
-                              "BEB": 0}}}
+                              "BEB": 0,
+                              "KP": 1}}}
 
 
 def add_default_missing_params(config):
@@ -30,15 +31,16 @@ def add_default_missing_params(config):
     """
 
     # check parameters not optimized by the HPO study
-    default_parameters = {'non_lin_fn': False,
+    default_parameters = {'non_lin_fn': 'relu',
                           'batch_norm': False,
                           'weight_initializer': None,
                           'force_softmax': False,
                           'use_kepler_ce': False,
                           'decay_rate': None,
-                          'batch_size': 32}
+                          'batch_size': 32
                           # 'optimizer': 'SGD',
-                          # 'lr': 1e-5}
+                          # 'lr': 1e-5
+                          }
 
     for default_parameter in default_parameters:
         if default_parameter not in config:
@@ -66,7 +68,10 @@ def add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, c
     config['satellite'] = satellite
     config['multi_class'] = multi_class
     config['label_map'] = label_map[satellite][multi_class]
-    config['ce_weights'] = get_ce_weights(label_map=config['label_map'], **ce_weights_args)
+    if use_kepler_ce:
+        config['ce_weights'] = get_ce_weights(label_map=config['label_map'], **ce_weights_args)
+    else:
+        config['ce_weights'] = None
     config['use_kepler_ce'] = use_kepler_ce
 
     return config

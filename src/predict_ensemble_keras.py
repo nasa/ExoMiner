@@ -8,20 +8,14 @@ TODO: make draw plots workable when in inference only mode
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-# tf.logging.set_verbosity(tf.logging.INFO)
-# tf.logging.set_verbosity(tf.logging.ERROR)
-# logging.getLogger("tensorflow").setLevel(logging.INFO)
-# tf.logging.set_verbosity(tf.logging.INFO)
 import numpy as np
-# from mpi4py import MPI
-# import time
 from tensorflow import keras
 from tensorflow.keras import metrics, callbacks, losses, optimizers
 from tensorflow.keras.models import load_model
 import pandas as pd
+
 
 # local
 import paths
@@ -29,11 +23,66 @@ if 'home6' in paths.path_hpoconfigs:
     import matplotlib
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.utils_dataio import InputFn, get_data_from_tfrecord, get_data_from_tfrecord_kepler
+from src.utils_dataio import InputFn, get_data_from_tfrecord
 from src.models_keras import create_ensemble
 import src.config_keras
 from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics
+
+
+def print_metrics(res, datasets, metrics_names):
+    """
+
+    :param res:
+    :param datasets:
+    :param metrics_names:
+    :return:
+    """
+
+    print('#' * 100)
+    print('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
+    for dataset in datasets:
+        if dataset != 'predict':
+            print(dataset)
+            for metric in metrics_names:
+                if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
+                    print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+    print('#' * 100)
+
+
+def save_metrics_to_file(save_path, res, datasets, metrics_names):
+    """ Write results to a txt file.
+
+    :param model_dir_sub:
+    :param res:
+    :param datasets:
+    :param metrics_names:
+    :return:
+    """
+
+    # write results to a txt file
+    with open(os.path.join(save_path, 'results_ensemble.txt'), 'w') as res_file:
+
+        res_file.write('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
+
+        for dataset in datasets:
+
+            if dataset != 'predict':
+                res_file.write('Dataset: {}\n'.format(dataset))
+                for metric in metrics_names:
+                    if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
+                        res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+
+            res_file.write('\n')
+
+        res_file.write('{}'.format('-' * 100))
+
+        res_file.write('\nModels used to create the ensemble:\n')
+
+        for model_filepath in models_filepaths:
+            res_file.write('{}\n'.format(model_filepath))
+
+        res_file.write('\n')
 
 
 def draw_plots_auc(res, save_path, dataset):
@@ -134,11 +183,12 @@ def draw_plots_scores_distribution(output_cl, save_path):
 
 
 def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
-             scalar_params_idxs=None, mpi_rank=None, ngpus_per_node=1):
+             scalar_params_idxs=None):
     """ Evaluate model on a given configuration in the specified datasets and also predict on them.
 
     :param config: configuration object from the Config class
     :param features_set: dict, each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+    :param clf_thr: float, classification threshold
     :param data_dir: str, path to directory with the tfrecord files
     :param res_dir: str, path to directory to save results
     :param models_filepaths: list, filepaths to models to be integrated in the ensemble
@@ -146,9 +196,9 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     :param fields: list, fields to extract from the TFRecords datasets
     :param generate_csv_pred: bool, if True also generates a prediction ranking for the specified datasets
     :param scalar_params_idxs: list, indexes of scalar parameters in the TFRecords to be used as features
-    :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
-    training multiple models in multiple GPUs in parallel
-    :param ngpus_per_node: int, number of GPUs per node when training/evaluating multiple models in parallel
+    # :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
+    # training multiple models in multiple GPUs in parallel
+    # :param ngpus_per_node: int, number of GPUs per node when training/evaluating multiple models in parallel
     :return:
     """
 
@@ -161,9 +211,12 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         # get dataset of the TFRecord
         dataset = tfrec_file.split('-')[0]
 
-        if dataset == 'predict' and 'label' in fields:
+        if dataset == 'predict':
             fields_aux = list(fields)
-            fields_aux.remove('label')
+            if 'label' in fields:
+                fields_aux.remove('label')
+            if 'original_label' in fields:
+                fields_aux.remove('original_label')
         else:
             fields_aux = fields
 
@@ -176,6 +229,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     # TODO: should make this a numpy array from the beginning
     for dataset in datasets:
         data[dataset]['label'] = np.array(data[dataset]['label'])
+        data[dataset]['original_label'] = np.array(data[dataset]['original_label'])
 
     # if mpi_rank is not None:
     #     # sess_config.gpu_options.visible_device_list = str(mpi_rank % ngpus_per_node)
@@ -205,7 +259,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     ensemble_model.summary()
 
     # setup metrics to be monitored
-    metrics_list = get_metrics()
+    metrics_list = get_metrics(clf_threshold=clf_thr)
 
     # compile model - set optimizer, loss and metrics
     if config['optimizer'] == 'Adam':
@@ -296,16 +350,30 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        # TODO: again, not suited for output size larger than 1 or multiclass classification
         scores_classification[dataset][scores[dataset] >= clf_thr] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in datasets}
     for dataset in output_cl:
-        # map_labels
-        for class_label in config['label_map']:
-            output_cl[dataset][class_label] = scores_classification[dataset][
-                np.where(data[dataset]['label'] == config['label_map'][class_label])]
+        for original_label in config['label_map']:
+            # get predictions for each original class individually to compute histogram
+            output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
+                                                                          original_label)]
+
+    # compute precision at top-k
+    k_arr = [10, 100, 1000]
+    for dataset in datasets:
+        sorted_idxs = np.argsort(scores_classification[dataset], axis=0).squeeze()
+        labels_sorted = data[dataset]['label'][sorted_idxs].squeeze()
+        scores_classification_sorted = scores_classification[dataset][sorted_idxs].squeeze()
+        for k_i in range(len(k_arr)):
+            if len(sorted_idxs) < k_arr[k_i]:
+                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = np.nan
+            else:
+                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = \
+                    np.sum(labels_sorted[-k_arr[k_i]:] * scores_classification_sorted[-k_arr[k_i]:]) / k_arr[k_i]
+    # add precision-at-top-k to the set of metrics computed for the ensemble
+    metrics_names = ensemble_model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
 
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
@@ -318,33 +386,9 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
             draw_plots_auc(res, res_dir, dataset)
 
     print('Saving metrics to a txt file...')
-    # write results to a txt file
-    with open(os.path.join(save_path, 'results_ensemble.txt'), 'w') as res_file:
-        res_file.write('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
-        for dataset in datasets:
-            if dataset != 'predict':
-                res_file.write('Dataset: {}\n'.format(dataset))
-                for metric in ensemble_model.metrics_names:
-                    if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                            res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
-            res_file.write('\n')
-        res_file.write('{}'.format('-' * 100))
-        res_file.write('\nModels used to create the ensemble:\n')
-        for model_filepath in models_filepaths:
-            res_file.write('{}\n'.format(model_filepath))
-        res_file.write('\n')
+    save_metrics_to_file(save_path, res, datasets, metrics_names)
 
-    print('#' * 100)
-
-    print('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
-    for dataset in datasets:
-        if dataset != 'predict':
-            print(dataset)
-            for metric in ensemble_model.metrics_names:
-                if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                    print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
-
-    print('#' * 100)
+    print_metrics(res, datasets, metrics_names)
 
     # generate rankings for each evaluated dataset
     if generate_csv_pred:
@@ -352,7 +396,6 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         print('Generating csv file(s) with ranking(s)...')
 
         # add predictions to the data dict
-        # TODO: make this compatible with multiclass classification
         for dataset in datasets:
             data[dataset]['score'] = scores[dataset].ravel()
             data[dataset]['predicted class'] = scores_classification[dataset].ravel()
@@ -365,7 +408,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
             # sort in descending order of output
             data_df.sort_values(by='score', ascending=False, inplace=True)
-            data_df.to_csv(os.path.join(res_dir, "ensemble_ranked_predictions_{}set".format(dataset)), index=False)
+            data_df.to_csv(os.path.join(res_dir, "ensemble_ranked_predictions_{}set.csv".format(dataset)), index=False)
 
     # save model, features and config used for training this model
     ensemble_model.save(os.path.join(save_path, 'ensemble_model.h5'))
@@ -397,14 +440,13 @@ if __name__ == '__main__':
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'dr25tcert_spline_gapped_glflux-glcentr-loe-6stellar_glfluxconfig_updtKOIs_shuffled_keras'
+    study = 'keras_test'
 
     # tfrecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
-                             'DR25',
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_'
-                             'updtkois_shuffled_wks_norm')
+                             'Q1-Q17_DR25',
+                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
 
     print('Selected TFRecord files directory: {}'.format(tfrec_dir))
 
@@ -431,7 +473,6 @@ if __name__ == '__main__':
 
     generate_csv_pred = True
 
-    sess_config = None  # tf.ConfigProto(log_device_placement=False)
     ngpus_per_node = 1  # number of GPUs per node
 
     # set configuration manually. Set to None to use a configuration from a HPO study
@@ -456,7 +497,7 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux'
+    hpo_study = 'ConfigC-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost'
 
     # set the configuration from a HPO study
     if config is None:
@@ -484,14 +525,14 @@ if __name__ == '__main__':
     clf_thr = 0.5
 
     # features to be extracted from the dataset
-    features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
-                      'local_view_even']
+    features_names = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn', 'local_centr_view_medcmaxn',
+                      'local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
-    features_dim['scalar_params'] = (12,)  # dimension of the scalar parameter array in the TFRecords
+    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [0, 1, 2, 3, 4, 5]
+    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -547,7 +588,4 @@ if __name__ == '__main__':
     #              earlystoppingparams=earlystoppingparams,
     #              features_set=features_set,
     #              scalar_params_idxs=scalar_params_idxs,
-    #              filter_data=filter_data,
-    #              sess_config=sess_config,
-    #              mpi_rank=rank,
-    #              ngpus_per_node=ngpus_per_node)
+    #              filter_data=filter_data)

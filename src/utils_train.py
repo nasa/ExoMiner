@@ -116,19 +116,16 @@ def phase_shift(timeseries_tensor, bin_shift):
         original time-series phase-shifted
     """
 
-    # shift = tf.random.uniform(shape=(),
-    #                   minval=bin_shift[0],
-    #                   maxval=bin_shift[1],
-    #                   dtype=tf.dtypes.int32, name='randuniform')
-
     if bin_shift == 0:
         return timeseries_tensor
     elif bin_shift > 0:
-        return tf.concat([tf.slice(timeseries_tensor, (bin_shift,), (timeseries_tensor.get_shape()[0] - bin_shift,)),
-                          tf.slice(timeseries_tensor, (0,), (bin_shift,))],
+        return tf.concat([tf.slice(timeseries_tensor, (bin_shift, 0),
+                                   (timeseries_tensor.get_shape()[0] - bin_shift, 1)),
+                          tf.slice(timeseries_tensor, (0, 0), (bin_shift, 1))],
                          axis=0, name='pos_shift')
     else:
+        bin_shift = tf.math.abs(bin_shift)
         return tf.concat([tf.slice(timeseries_tensor,
-                                   timeseries_tensor.get_shape() - tf.constant(bin_shift), (bin_shift,)),
-                          tf.slice(timeseries_tensor, (0,), (timeseries_tensor.get_shape()[0] - bin_shift,))],
+                                   (timeseries_tensor.get_shape()[0] - bin_shift, 0), (bin_shift, 1)),
+                          tf.slice(timeseries_tensor, (0, 0), (timeseries_tensor.get_shape()[0] - bin_shift, 1))],
                          axis=0, name='neg_shift')

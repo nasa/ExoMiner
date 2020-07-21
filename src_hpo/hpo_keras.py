@@ -238,9 +238,6 @@ if __name__ == '__main__':
     parser.add_argument('--satellite', type=str, default='kepler')
     parser.add_argument('--use_kepler_ce', type=bool, default=True)
 
-    parser.add_argument('--test_frac', type=float, default=0.1, help='data fraction for model testing')
-    parser.add_argument('--val_frac', type=float, default=0.1, help='model validation data fraction')
-
     parser.add_argument('--tfrec_dir', type=str, default=tfrec_dir)
 
     parser.add_argument('--min_budget', type=float, help='Minimum number of epochs for training.', default=min_budget)

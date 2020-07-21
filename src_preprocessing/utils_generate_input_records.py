@@ -80,35 +80,35 @@ def get_kepler_tce_table(config):
     # tce_table = tce_table[allowed_tces]
     # print('len after filter by kepids: {}'.format(len(tce_table)))
 
-    # use TPS ephemeris from the TPS TCE struct MATLAB file
-    if config.use_tps_ephem:
-
-        tf.logging.info("Using TPS ephemeris from {}.".format(config.use_tps_ephem))
-
-        mat = io.loadmat(config.tps_ephem_tbl)['tpsTceStructV4_KSOP2536'][0][0]
-
-        d = {name: [] for name in fields}
-
-        # iterate over each row to get the ephemeris for each TCE
-        for i in tce_table.iterrows():
-            if i[1]['tce_plnt_num'] == 1:
-                tpsStructIndex = np.where(mat['keplerId'] == i[1]['target_id'])[0]
-
-                d['kepid'].append(i[1]['target_id'])
-                d['tce_plnt_num'].append(1)
-
-                d['tce_duration'].append(float(mat['maxMesPulseDurationHours'][0][tpsStructIndex]) / 24.0)
-                d['tce_period'].append(float(mat['periodDays'][tpsStructIndex][0][0]))
-                d['tce_time0bk'].append(float(mat['epochKjd'][tpsStructIndex][0][0]))
-
-                d['av_training_set'].append(i[1]['av_training_set'])
-
-                # d['av_training_set'].append('PC' if float(mat['isPlanetACandidate'][tpsStructIndex][0][0]) == 1.0 else
-                #                             'AFP' if float(mat['isOnEclipsingBinaryList'][tpsStructIndex][0][0]) == 1.0
-                #                             else 'NTP')
-
-        # convert from dictionary to Pandas DataFrame
-        tce_table = pd.DataFrame(data=d)
+    # # use TPS ephemeris from the TPS TCE struct MATLAB file
+    # if config.use_tps_ephem:
+    #
+    #     tf.logging.info("Using TPS ephemeris from {}.".format(config.use_tps_ephem))
+    #
+    #     mat = io.loadmat(config.tps_ephem_tbl)['tpsTceStructV4_KSOP2536'][0][0]
+    #
+    #     d = {name: [] for name in fields}
+    #
+    #     # iterate over each row to get the ephemeris for each TCE
+    #     for i in tce_table.iterrows():
+    #         if i[1]['tce_plnt_num'] == 1:
+    #             tpsStructIndex = np.where(mat['keplerId'] == i[1]['target_id'])[0]
+    #
+    #             d['kepid'].append(i[1]['target_id'])
+    #             d['tce_plnt_num'].append(1)
+    #
+    #             d['tce_duration'].append(float(mat['maxMesPulseDurationHours'][0][tpsStructIndex]) / 24.0)
+    #             d['tce_period'].append(float(mat['periodDays'][tpsStructIndex][0][0]))
+    #             d['tce_time0bk'].append(float(mat['epochKjd'][tpsStructIndex][0][0]))
+    #
+    #             d['av_training_set'].append(i[1]['av_training_set'])
+    #
+    #             # d['av_training_set'].append('PC' if float(mat['isPlanetACandidate'][tpsStructIndex][0][0]) == 1.0 else
+    #             #                             'AFP' if float(mat['isOnEclipsingBinaryList'][tpsStructIndex][0][0]) == 1.0
+    #             #                             else 'NTP')
+    #
+    #     # convert from dictionary to Pandas DataFrame
+    #     tce_table = pd.DataFrame(data=d)
 
     # else:
     #     if config.whitened:  # get flux and cadence time series for the whitened data
@@ -163,21 +163,20 @@ def get_tess_tce_table(config):
     # # KP, CP, PC, EB, IS, V, O, FP
     # _ALLOWED_LABELS = {"KP", "PC", "EB", "IS", "V", "O", "FP", "CP"}
 
-    # map from fields' names in the TCE table to fields' names in the TCE TPS table for TESS that we want to extract
-    # if fields is None:
-    # extract these fields from the mat file (map from TCE table column fields to TPS fields)
-    # TODO: add other fields besides ephemeris?
-    tpsFields = {'tic': 'catId', 'tce_plnt_num': 1, 'orbitalPeriodDays': 'detectedOrbitalPeriodDays',
-                 'transitEpochBtjd': 'epochTjd', 'transitDurationHours': 'maxMesPulseDurationHours',
-                 'disposition': 'isPlanetACandidate'}
+    # # map from fields' names in the TCE table to fields' names in the TCE TPS table for TESS that we want to extract
+    # # if fields is None:
+    # # extract these fields from the mat file (map from TCE table column fields to TPS fields)
+    # # TODO: add other fields besides ephemeris?
     # tpsFields = {'tic': 'catId', 'tce_plnt_num': 1, 'orbitalPeriodDays': 'detectedOrbitalPeriodDays',
-    #              'transitEpochBtjd': 'epochTjd', 'transitDurationHours': 'maxMesPulseDurationHours', 'tessMag': 'tessMag',
-    #              'disposition': 'isPlanetACandidate', 'mes': 'maxMultipleEventStatistic}
+    #              'transitEpochBtjd': 'epochTjd', 'transitDurationHours': 'maxMesPulseDurationHours',
+    #              'disposition': 'isPlanetACandidate'}
+    # # tpsFields = {'tic': 'catId', 'tce_plnt_num': 1, 'orbitalPeriodDays': 'detectedOrbitalPeriodDays',
+    # #              'transitEpochBtjd': 'epochTjd', 'transitDurationHours': 'maxMesPulseDurationHours', 'tessMag': 'tessMag',
+    # #              'disposition': 'isPlanetACandidate', 'mes': 'maxMultipleEventStatistic}
 
     # Read the CSV file of TESS TOIs.
     # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
     tce_table = pd.read_csv(config.input_tce_csv_file, comment="#")
-    # tce_table["transitDurationHours"] /= 24  # convert hours to days.
     tce_table["tce_duration"] /= 24  # convert hours to days.
     tf.logging.info("Read TCE CSV file with %d rows.", len(tce_table))
 
@@ -185,69 +184,69 @@ def get_tess_tce_table(config):
     # allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
     # tce_table = tce_table[allowed_tces]
 
-    # use TPS ephemeris from the TPS TCE struct MATLAB file
-    if config.use_tps_ephem:
+    # # use TPS ephemeris from the TPS TCE struct MATLAB file
+    # if config.use_tps_ephem:
+    #
+    #     tf.logging.info("Using TPS ephemeris from {}.".format(config.use_tps_ephem))
+    #
+    #     tpsFiles = [os.path.join(config.tps_ephem_tbl, tpsFile) for tpsFile in os.listdir(config.tps_ephem_tbl)]
+    #
+    #     tpsTCEtable = {name: [] for name in tpsFields}
+    #     tpsTCEtable['sector'] = []
+    #
+    #     for tpsFile in tpsFiles:
+    #
+    #         # load TPS mat file
+    #         tpsMat = io.loadmat(tpsFile)['tpsTceStruct'][0][0]
+    #
+    #         sectorTPSFile = int(tpsFile.split('-')[-1][:-4])
+    #
+    #         # iterate over each row to get the ephemeris for each TCE
+    #         for row_i, tce in tce_table.iterrows():
+    #
+    #             # only for TCEs detected by TPS module
+    #             if tce['tce_plnt_num'] == 1:
+    #                 # look for TCE in the TCE table
+    #                 tpsStructIndex = np.where(tpsMat['catId'] == tce['tic'])[0]
+    #
+    #                 tpsTCEtable['sector'].append(sectorTPSFile)
+    #
+    #                 tpsTCEtable['tic'].append(tce['tic'])
+    #                 # by default TPS assigns 1 to the first TCE if finds. DV iterates to find others in the same target
+    #                 tpsTCEtable['tce_plnt_num'].append(1)
+    #
+    #                 # ephemeris
+    #                 # convert from hours to days
+    #                 tpsTCEtable['orbitalPeriodDays'].append(
+    #                     float(tpsMat[tpsFields['orbitalPeriodDays']][0][tpsStructIndex]) / 24.0)
+    #                 tpsTCEtable['transitDurationHours'].append(
+    #                     float(tpsMat[tpsFields['transitDurationHours']][tpsStructIndex][0][0]))
+    #                 tpsTCEtable['transitEpochBtjd'].append(
+    #                     float(tpsMat[tpsFields['transitEpochBtjd']][tpsStructIndex][0][0]))
+    #
+    #                 # dispositions based on DV ephemeris
+    #                 tpsTCEtable['disposition'].append(tce[tpsFields['disposition']])
+    #
+    #                 # TODO: check dispositions when using TPS labels - use 'O' for the rest?
+    #                 # TPS detection - PC, EB or else
+    #                 # d['disposition'].append('PC' if float(mat['isPlanetACandidate'][tpsStructIndex][0][0]) == 1.0 else
+    #                 #                         'EB' if float(mat['isOnEclipsingBinaryList'][tpsStructIndex][0][0]) == 1.0
+    #                 #                         else 'O')
+    #
+    #     # convert from dictionary to Pandas DataFrame
+    #     tce_table = pd.DataFrame(data=tpsTCEtable)
 
-        tf.logging.info("Using TPS ephemeris from {}.".format(config.use_tps_ephem))
+    if config.using_mpi:  # when using MPI processes to preprocess chunks of the TCE table in parallel
 
-        tpsFiles = [os.path.join(config.tps_ephem_tbl, tpsFile) for tpsFile in os.listdir(config.tps_ephem_tbl)]
+        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config.n_processes + 1)]
+        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config.n_processes)][config.process_i]
 
-        tpsTCEtable = {name: [] for name in tpsFields}
-        tpsTCEtable['sector'] = []
+        shard_tce_table = tce_table[indices[0]:indices[1]]
 
-        for tpsFile in tpsFiles:
+        if not config.gapped:
+            tce_table = None
 
-            # load TPS mat file
-            tpsMat = io.loadmat(tpsFile)['tpsTceStruct'][0][0]
-
-            sectorTPSFile = int(tpsFile.split('-')[-1][:-4])
-
-            # iterate over each row to get the ephemeris for each TCE
-            for row_i, tce in tce_table.iterrows():
-
-                # only for TCEs detected by TPS module
-                if tce['tce_plnt_num'] == 1:
-                    # look for TCE in the TCE table
-                    tpsStructIndex = np.where(tpsMat['catId'] == tce['tic'])[0]
-
-                    tpsTCEtable['sector'].append(sectorTPSFile)
-
-                    tpsTCEtable['tic'].append(tce['tic'])
-                    # by default TPS assigns 1 to the first TCE if finds. DV iterates to find others in the same target
-                    tpsTCEtable['tce_plnt_num'].append(1)
-
-                    # ephemeris
-                    # convert from hours to days
-                    tpsTCEtable['orbitalPeriodDays'].append(
-                        float(tpsMat[tpsFields['orbitalPeriodDays']][0][tpsStructIndex]) / 24.0)
-                    tpsTCEtable['transitDurationHours'].append(
-                        float(tpsMat[tpsFields['transitDurationHours']][tpsStructIndex][0][0]))
-                    tpsTCEtable['transitEpochBtjd'].append(
-                        float(tpsMat[tpsFields['transitEpochBtjd']][tpsStructIndex][0][0]))
-
-                    # dispositions based on DV ephemeris
-                    tpsTCEtable['disposition'].append(tce[tpsFields['disposition']])
-
-                    # TODO: check dispositions when using TPS labels - use 'O' for the rest?
-                    # TPS detection - PC, EB or else
-                    # d['disposition'].append('PC' if float(mat['isPlanetACandidate'][tpsStructIndex][0][0]) == 1.0 else
-                    #                         'EB' if float(mat['isOnEclipsingBinaryList'][tpsStructIndex][0][0]) == 1.0
-                    #                         else 'O')
-
-        # convert from dictionary to Pandas DataFrame
-        tce_table = pd.DataFrame(data=tpsTCEtable)
-
-        if config.using_mpi:  # when using MPI processes to preprocess chunks of the TCE table in parallel
-
-            boundaries = [int(i) for i in np.linspace(0, len(tce_table), config.n_processes + 1)]
-            indices = [(boundaries[i], boundaries[i + 1]) for i in range(config.n_processes)][config.process_i]
-
-            shard_tce_table = tce_table[indices[0]:indices[1]]
-
-            if not config.gapped:
-                tce_table = None
-
-            return shard_tce_table, tce_table
+        return shard_tce_table, tce_table
 
     return tce_table
 

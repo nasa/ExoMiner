@@ -24,29 +24,35 @@ from src_preprocessing.utils_generate_input_records import get_tess_tce_table, g
 
 class Config:
     """"
-    Config class to specify time series to be processed into TFRecords
+    Config class to specify time series to be processed into TFRecords.
     """
 
     # TFRecords base name
-    tfrecords_base_name = 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar'
+    tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
 
     # TFRecords root directory
     tfrecords_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords'
 
     # output directory
-    output_dir = os.path.join(tfrecords_dir, 'Kepler', 'DR25', tfrecords_base_name)
+    output_dir = os.path.join(tfrecords_dir, 'TESS', tfrecords_base_name)
 
-    satellite = 'kepler'  # choose from: ['kepler', 'tess']
+    satellite = 'tess'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
-    tce_identifier = 'tce_plnt_num'
+    tce_identifier = 'oi'  # either 'tce_plnt_num' or 'oi'
 
-    augmentation = False
+    # offline data augmentation
+    augmentation = False  # if True, it augments the dataset by applying augmentation techniques to the TCE data
+    num_examples_per_tce = 1 if augmentation else 1  # number of examples created per TCE
+    aug_noise_factor = 0.05
+    # values used to replace ephemerides uncertainties which were not estimated
+    tce_min_err = {'tce_period': 6.39723e-9, 'tce_duration': 0.000385 / 24, 'tce_time0bk': 2.44455e-6}
 
     # minimum gap size( in time units - day) for a split
     gapWidth = 0.75
 
     # gapping - remove other TCEs belonging to the same target
-    gapped = True
+    gapped = False
+    gap_keep_overlap = False
     gap_padding = 1
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
@@ -79,51 +85,48 @@ class Config:
     # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
     # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
     # These parameters are added to the example in the TFRecord as a list of float values.
-    scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
-                     'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
+    # scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
+    #                  'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
+    # # Kepler with DV
+    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
+    #                  'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat']
+    # Kepler with TPS
+    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
     use_tps_ephem = False  # use TPS ephemeris instead of DV
 
     # binning parameters
     num_bins_glob = 2001  # number of bins in the global view
     num_bins_loc = 201  # number of bins in the local view
-    bin_width_factor_glob = 1 / num_bins_glob
+    bin_width_factor_glob = 0.16  # 1 / num_bins_glob
     bin_width_factor_loc = 0.16
     num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
 
-    # Ephemeris table (complete with the gapped TCEs) for the 34k TCEs Kepler
-    # eph_tbl_fp = '/home6/msaragoc/work_dir/data/EXOPLNT_Kepler-TESS/Ephemeris_tables/Kepler/DR25_readout_table'
-    # eph_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/180k_tce.csv'
-
-    # Ephemeris table from the TPS module
-    tps_ephem_tbl = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-                    'tpsTceStructV4_KSOP2536.mat'
-
     if satellite.startswith('kepler'):
-        # Ephemeris and labels for the 34k TCEs Kepler DR25 with TCERT labels
-        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-        #                      'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_' \
-        #                      'updt_normstellarparamswitherrors.csv'
+        # TCE table filepath
         input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
                              'DR25/q1_q17_dr25_tce_cumkoi2020.02.21_stellar_shuffled.csv'
-        # 34k TCEs Kepler DR25
+        # PDC light curve FITS files root directory
         lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
                       'pdc-tce-time-series-fits'
 
         dict_savedir = ''
 
     elif satellite == 'tess':
-        input_tce_csv_file = ''
+        input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/TESS/' \
+                             ''
 
-        lc_data_dir = ''
+        lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/TESS/pdc-lc/' \
+                      'pdc-tce-time-series-fits'
 
         dict_savedir = ''
 
     # shuffle TCE table
     shuffle = False
+    shuffle_seed = 24
 
     # multiprocessing parameters
     using_mpi = True
@@ -139,15 +142,17 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     """ Processes a single file shard.
 
     Args:
-    tce_table: A Pandas DateFrame containing the TCEs in the shard.
+    tce_table: A Pandas DataFrame containing the TCEs in the shard.
     file_name: The output TFRecord file.
+    eph_table: A Pandas DataFrame containing all TCEs in the dataset.
+    config: Config object with preprocessing parameters.
     """
 
-    # config = Config()
-
+    # get shard name and size
     shard_name = os.path.basename(file_name)
     shard_size = len(tce_table)
 
+    # defined columns in the shard table
     tceColumns = ['target_id', config.tce_identifier]
     columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
@@ -159,26 +164,33 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     start_time = int(datetime.datetime.now().strftime("%s"))
 
     with tf.python_io.TFRecordWriter(file_name) as writer:
+
         num_processed = 0
+
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
-            example = _process_tce(tce, eph_table, config, confidence_dict)
-            if example is not None:
-                writer.write(example.SerializeToString())
+            # preprocess TCE and add it to the TFRecord
+            for example_i in range(config.num_examples_per_tce):
 
-                tceData = {column: [tce[column]] for column in tceColumns}
-                tceData['shard'] = [shard_name]
-                tceData['augmentation_idx'] = [0]
-                exampleDf = pd.DataFrame(data=tceData, columns=columnsDf)
+                tce['augmentation_idx'] = example_i
 
-                if firstTceInDf:
-                    examplesDf = exampleDf
-                    firstTceInDf = False
-                else:
-                    examplesDf = pd.read_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)))
-                    examplesDf = pd.concat([examplesDf, exampleDf])
+                example = _process_tce(tce, eph_table, config, confidence_dict)
+                if example is not None:
+                    writer.write(example.SerializeToString())
 
-                examplesDf.to_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)), index=False)
+                    tceData = {column: [tce[column]] for column in tceColumns}
+                    tceData['shard'] = [shard_name]
+                    tceData['augmentation_idx'] = [example_i]
+                    exampleDf = pd.DataFrame(data=tceData, columns=columnsDf)
+
+                    if firstTceInDf:
+                        examplesDf = exampleDf
+                        firstTceInDf = False
+                    else:
+                        examplesDf = pd.read_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)))
+                        examplesDf = pd.concat([examplesDf, exampleDf])
+
+                    examplesDf.to_csv(os.path.join(config.output_dir, '{}.csv'.format(shard_name)), index=False)
 
             num_processed += 1
             if config.n_processes < 50 or config.process_i == 0:
@@ -219,7 +231,7 @@ def main(_):
     # TODO: does this ensure that all processes shuffle the same way? it does call np.random.seed inside the function
     # shuffle tce table
     if config.shuffle:
-        tce_table = shuffle_tce(tce_table, seed=123)
+        tce_table = shuffle_tce(tce_table, seed=config.shuffle_seed)
         print('Shuffled TCE Table')
 
     node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]

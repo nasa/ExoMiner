@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib import ticker, cm
 import glob
 # import random
+import os
 
 # local
 from src_hpo.utils_hpo import estimate_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
@@ -26,7 +27,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'bohb_keplerdr25_spline_gapped_shuffledhvb_glflux'
+study = 'ConfigE-bohb_keplerdr25_g2001-l201_splinenew_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -39,13 +40,9 @@ metrics_plot = ['test_recall', 'test_precision']  # ['test recall', 'test precis
 # minimum value of top configurations (used also for Parallel Coordinates Visualization)
 min_val = 0.90
 
-# res = hpres.logged_results_to_HBS_result(paths.path_hpoconfigs + study)
-# res = logged_results_to_HBS_result(paths.path_hpoconfigs + study,
-#                                    '_{}'.format(study)
-#                                    )
-# paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined/hpo_confs/'
-# paths.path_hpoconfigs = '/data5/tess_project/Nikash_Walia/Kepler_planet_finder/res/Gapped_Splined_OddEven_Centroid/hpo_confs/'
-res = logged_results_to_HBS_result(paths.path_hpoconfigs + study, '_{}'.format(study))
+# load results json
+res = logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, study), '_{}'.format(study))
+# res = logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_keplerdr25_g2001-l201_spline_nongapped_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost_norobovetterkois_starshuffle', '_{}'.format(study))
 
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
@@ -120,10 +117,12 @@ if model_based_optimizer:
     idxs_modelbased = [1 if id2config[config]['config_info']['model_based_pick'] else 0 for config in configs_ftimeu]
 else:
     idxs_modelbased = [0 for config in configs_ftimeu]
-plt.figure()
-plt.plot(idxs_modelbased)
-plt.xlabel('Time Ordered Runs')
-plt.ylabel('Model based (1)/Random (0) \npicked configs.')
+
+f, ax = plt.subplots()
+ax.plot(idxs_modelbased)
+ax.set_xlabel('Time Ordered Runs')
+ax.set_ylabel('Model based (1)/Random (0) \npicked configs.')
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'time_model-random.png'))
 
 nconfigs_valid = len(idxs_modelbased)
 nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
@@ -133,20 +132,22 @@ print('Number of model based pick configurations: {}'.format(nconfigs_modelbased
 print('Number of random picked configurations: {}'.format(nconfigs_valid - nconfigs_modelbased))
 
 # plot 2D histograms for two chosen metrics
+f, ax = plt.subplots()
 if ensemble_study:
-    plt.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
-               [run.info[metrics_plot[1]][0] for run in all_runs],
-               range=[(0, 1), (0, 1)],
-               bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
+    ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
+              [run.info[metrics_plot[1]][0] for run in all_runs],
+              range=[(0, 1), (0, 1)],
+              bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
 else:
-    plt.hist2d([run.info[metrics_plot[0]] for run in all_runs],
+    ax.hist2d([run.info[metrics_plot[0]] for run in all_runs],
                [run.info[metrics_plot[1]] for run in all_runs],
                range=[(0, 1), (0, 1)],
                bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
-plt.xticks(np.linspace(0, 1, num=10, endpoint=True))
-plt.xlabel(metrics_plot[0])
-plt.ylabel(metrics_plot[1])
-plt.title('2D histogram of configs performance metrics')
+ax.set_xticks(np.linspace(0, 1, num=10, endpoint=True))
+ax.set_xlabel(metrics_plot[0])
+ax.set_ylabel(metrics_plot[1])
+ax.set_title('2D histogram of configs performance metrics')
+f.savefig(os.path.join(paths.path_hpoconfigs, study, '2dhist_precision-recall.png'))
 
 # rank configurations based on metric
 if ensemble_study:
@@ -174,14 +175,15 @@ print('Number of top configs {}'.format(len(top_configs)))
 
 # Plot histogram of ranked metric for top configurations
 bins = 'auto'
-plt.figure()
+f, ax = plt.subplots()
 if ensemble_study:
-    _, bins, _ = plt.hist([run.info[rankmetric][0] for run in top_configs], bins=bins)
+    _, bins, _ = ax.hist([run.info[rankmetric][0] for run in top_configs], bins=bins, edgecolor='black')
 else:
-    _, bins, _ = plt.hist([run.info[rankmetric] for run in top_configs], bins=bins)
-plt.xlabel('{}'.format(rankmetric))
-plt.ylabel('Counts')
-plt.title('Histogram top configs ({:.2f})'.format(min_val))
+    _, bins, _ = ax.hist([run.info[rankmetric] for run in top_configs], bins=bins, edgecolor='black')
+ax.set_xlabel('{}'.format(rankmetric))
+ax.set_ylabel('Counts')
+ax.set_title('Histogram top configs ({:.2f})'.format(min_val))
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(min_val, rankmetric)))
 
 #%% Configuration Visualization
 
@@ -359,7 +361,8 @@ for run_i, run in enumerate(timesorted_allruns):
 
     if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
 
-        print('Best config so far: {}'. format(run.config_id))
+        if run.loss < bconfig_loss:
+            print('Best config so far: {} ({})'. format(run.config_id, run.loss))
 
         # add timestamp and cumulated budget to the arrays
         cum_budget_vec.append(cum_budget)
@@ -410,6 +413,7 @@ ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
 ax.grid(True, which='both')
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'walltime-hpoloss.png'))
 
 f, ax = plt.subplots()
 if not ensemble_study:
@@ -426,6 +430,7 @@ ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')
 ax.grid(True, which='both')
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'cumbudget-hpoloss.png'))
 
 
 #%% Study analysis plots
@@ -454,24 +459,29 @@ print('It achieved optimization loss ({}) of {} (validation) and {} (test).'.for
 # Let's plot the observed losses grouped by budget,
 f, _ = hpvis.losses_over_time(all_runs)
 f.set_size_inches(10, 6)
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'losses_over_time_budgets.png'))
 
 # the number of concurrent runs,
 f, _ = hpvis.concurrent_runs_over_time(all_runs)
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'concurrent_runs_over_time.png'))
 # f.set_size_inches(10, 6)
 
 # and the number of finished runs.
 hpvis.finished_runs_over_time(all_runs)
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'finished_runs_over_time.png'))
 
 # This one visualizes the spearman rank correlation coefficients of the losses
 # between different budgets.
 f, _ = hpvis.correlation_across_budgets(res)
 f.set_size_inches(10, 8)
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'spearman_corr_budgets.png'))
 
 # For model based optimizers, one might wonder how much the model actually helped.
 # The next plot compares the performance of configs picked by the model vs. random ones
 if model_based_optimizer:
     f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
     f.set_size_inches(10, 8)
+    f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_model-random.png'))
 
 #%% Compare different HPO studies
 

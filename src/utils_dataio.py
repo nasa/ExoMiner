@@ -7,6 +7,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import tempfile
+import tensorflow_probability as tfp
 
 # local
 from src.utils_train import phase_shift, phase_inversion, add_whitegaussiannoise
@@ -16,8 +17,8 @@ class InputFn(object):
     """Class that acts as a callable input function for the Estimator."""
 
     def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 filter_data=None, scalar_params_idxs=None, shuffle_buffer_size=27000, shuffle_seed=24,
-                 prefetch_buffer_nsamples=256):
+                 online_preproc_params=None, filter_data=None, scalar_params_idxs=None, shuffle_buffer_size=27000,
+                 shuffle_seed=24, prefetch_buffer_nsamples=256):
         """Initializes the input function.
 
         :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
@@ -29,6 +30,7 @@ class InputFn(object):
         value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
         (can the dimension and data type be inferred from the tensors in the dataset?)
         :param data_augmentation: bool, if True data augmentation is performed
+        :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
         :param filter_data:
         :param scalar_params_idxs: list, indexes of features to extract from the scalar features Tensor
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
@@ -46,6 +48,7 @@ class InputFn(object):
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
         self.scalar_params_idxs = scalar_params_idxs
+        self.online_preproc_params = online_preproc_params
 
         self.shuffle_buffer_size = shuffle_buffer_size
         self.shuffle_seed = shuffle_seed
@@ -73,18 +76,10 @@ class InputFn(object):
             data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
                            for feature_name, feature_info in self.features_set.items()}
 
-            # # get auxiliary data from TFRecords required to perform data augmentation
-            # if self.data_augmentation:
-            #     for feature_name in self.features_set:
-            #         if 'view' in feature_name:
-            #             data_fields[feature_name + '_rmsoot'] = tf.io.FixedLenFeature([], tf.float32)
+            # data_fields['tce_period_norm'] = tf.io.FixedLenFeature((1,), tf.float32)
 
             # get labels if in TRAIN or EVAL mode
-            # FIXME: change the feature name to 'label' - standardization of TCE feature names across different
-            #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
-            #  av_training_set
             if include_labels:
-                # data_fields['av_training_set'] = tf.io.FixedLenFeature([], tf.string)
                 data_fields['label'] = tf.io.FixedLenFeature([], tf.string)
 
             # # initialize filtering data fields
@@ -97,11 +92,31 @@ class InputFn(object):
 
             # prepare data augmentation
             if self.data_augmentation:
+
                 # Randomly reverse time series features with probability reverse_time_series_prob.
                 should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
+
+                # bin shifting
                 bin_shift = [-5, 5]
                 shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
                                           dtype=tf.dtypes.int32, name='randuniform')
+
+                # get oot indices for Gaussian noise augmentation added to oot indices
+                tce_ephem = tf.io.parse_single_example(serialized=serialized_example,
+                                                       features={'tce_period':
+                                                                     tf.io.FixedLenFeature([], tf.float32),
+                                                                 'tce_duration':
+                                                                     tf.io.FixedLenFeature([], tf.float32)})
+
+                # TODO: number of bins and number of transits in the local view should also be an argument of the input
+                #  function
+                # boolean tensor for oot indices for global view
+                idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(self.online_preproc_params['num_bins_global'],
+                                                                            tce_ephem['tce_duration'],
+                                                                            tce_ephem['tce_period'])
+                # boolean tensor for oot indices for local view
+                idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(self.online_preproc_params['num_bins_local'],
+                                                                          self.online_preproc_params['num_transit_dur'])
 
             # initialize feature output
             output = {}
@@ -118,7 +133,7 @@ class InputFn(object):
                 # FIXME: change the feature name to 'label' - standardization of TCE feature names across different
                 #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
                 #  av_training_set
-                elif include_labels and feature_name == 'label':  # either 'label' or 'av_training_set'
+                elif include_labels and feature_name == 'label':
 
                     # map label to integer
                     label_id = label_to_id.lookup(value)
@@ -143,23 +158,40 @@ class InputFn(object):
                     else:  # choose only some of the scalar_params based on their indexes
                         output['scalar_params'] = tf.gather(value, indices=self.scalar_params_idxs, axis=0)
 
+                    # output['scalar_params'] = tf.concat([output['scalar_params'], parsed_features['tce_period_norm']], axis=0)
+
                 # time-series features
-                else:  # input_config.features[feature_name].is_time_series:
+                elif 'view' in feature_name:  # input_config.features[feature_name].is_time_series:
 
                     # data augmentation
                     if self.data_augmentation:
 
                         # with tf.variable_scope('input_data/data_augmentation'):
 
+                        # add white gaussian noise
+                        if 'global' in feature_name:
+                            oot_values = tf.boolean_mask(value, idxs_nontransitcadences_glob)
+                        else:
+                            oot_values = tf.boolean_mask(value, idxs_nontransitcadences_loc)
+
+                        # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
+                        oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
+                        # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
+                        # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
+                        #                       name='oot_median')
+
+                        oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
+
+                        value = add_whitegaussiannoise(value, oot_median, oot_std)
+
+                        # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
+                        #                                parsed_features[feature_name + '_stdoot'])
+
                         # invert phase
                         value = phase_inversion(value, should_reverse)
 
                         # phase shift some bins
                         value = phase_shift(value, shift)
-
-                        # add white gaussian noise
-                        value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
-                                                       parsed_features[feature_name + '_stdoot'])
 
                     output[feature_name] = value
 
@@ -611,7 +643,9 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     # main fields: ['target_id', 'tce_plnt_num', 'label']
     FLOATFIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'ra', 'dec', 'mag', 'transit_depth', 'tce_steff',
                    'tce_slogg', 'tce_smass', 'tce_sdens', 'tce_smet', 'tce_sradius', 'koi_score', 'wst_robstat',
-                   'tce_bin_oedp_stat', 'boot_fap']
+                   'tce_bin_oedp_stat', 'boot_fap', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad',
+                   'tce_model_snr', 'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
+
     STRINGFIELDS = ['koi_disposition', 'kepoi_name', 'kepler_name', 'fpwg_disp_status', 'tce_datalink_dvs',
                     'tce_datalink_dvr']
 
@@ -911,13 +945,64 @@ def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_fi
                 writer.write(example.SerializeToString())
 
 
+def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
+    """ Get boolean mask of out-of-transit cadences for the local views.
+
+    :param num_bins_loc: int, number of bins for the local views
+    :param num_transit_durations: int, number of transit durations in the local views
+    :return:
+        idxs_nontransitcadences_loc: tf 1D boolean tensor with out-of-transit indices set to True and in-transit
+        indices set to False
+    """
+
+    # get out-of-transit indices for local views
+    transit_duration_bins_loc = num_bins_loc / num_transit_durations  # number of bins per transit duration
+
+    # get left and right in-transit indices
+    left_lim = tf.cast(tf.math.round((num_bins_loc - transit_duration_bins_loc) / 2), tf.int32)
+    right_lim = tf.cast(tf.math.round((num_bins_loc + transit_duration_bins_loc) / 2), tf.int32)
+
+    idx_range = tf.range(0, num_bins_loc)
+
+    idxs_nontransitcadences_loc = tf.math.logical_or(tf.math.less_equal(idx_range, left_lim),
+                                                     tf.math.greater_equal(idx_range, right_lim))
+
+    return idxs_nontransitcadences_loc
+
+
+def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period):
+    """ Get boolean mask of out-of-transit cadences for the global views.
+
+    :param num_bins_glob: int, number of bins for the global views
+    :param transit_duration: tf scalar float tensor, transit duration
+    :param orbital_period: tf scalar float tensor, orbital period
+    :return:
+        idxs_nontransitcadences_glob: tf 1D boolean tensor with out-of-transit indices set to True and in-transit
+        indices set to False
+    """
+
+    # get out-of-transit indices for global views
+    frac_durper = transit_duration / orbital_period  # ratio transit duration to orbital period
+
+    # get left and right in-transit indices
+    left_lim = tf.cast(tf.math.round(num_bins_glob / 2 * (1 - frac_durper)), tf.int32)
+    right_lim = tf.cast(tf.math.round(num_bins_glob / 2 * (1 + frac_durper)), tf.int32)
+
+    idx_range = tf.range(0, num_bins_glob)
+
+    idxs_nontransitcadences_glob = tf.math.logical_or(tf.math.less_equal(idx_range, left_lim),
+                                                      tf.math.greater_equal(idx_range, right_lim))
+
+    return idxs_nontransitcadences_glob
+
+
 if __name__ == '__main__':
 
     # check features, labels and other parameters stored in the TFRecords
     tfrec_dir = ''
     datasets = ['train', 'val', 'test']
     features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr',
-                                 'local_view_even', 'local_view_odd', 'scalar_params']
+                      'local_view_even', 'local_view_odd', 'scalar_params']
     tfrec_files = [file for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
     for file in tfrec_files:
         record_iterator = tf.python_io.tf_record_iterator(path=os.path.join(tfrec_dir, file))

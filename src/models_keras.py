@@ -26,9 +26,10 @@ class CNN1dPlanetFinderv1(object):
             self.output_size = 1
 
         # TODO: NEED TO CHANGE THIS MANUALLY...
-        # ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_oddeven',
-        # 'local_view_oddeven', 'global_view_weak_secondary']:
-        self.branches = ['global_flux_view', 'local_flux_view']
+        # ['global_flux_view', 'local_flux_view', 'local_centr_view', 'global_centr_view', 'local_oddeven_views',
+        #  'local_weak_secondary_view']:
+        self.branches = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn',
+                         'local_centr_view_medcmaxn', 'local_weak_secondary_view', 'local_flux_oddeven_views']
 
         # self.is_training = None
 
@@ -108,19 +109,19 @@ class CNN1dPlanetFinderv1(object):
             n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
 
             # get pool size for the given view
-            pool_size = self.config[
-                config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+            pool_size = self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
 
             for conv_block_i in range(n_blocks):
 
-                num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
+                # num_filters = self.config['init_conv_filters'] * (2 ** conv_block_i)
+                num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
 
                 # set convolution layer parameters from config
                 kwargs = {'filters': num_filters,
                           'kernel_initializer': weight_initializer,
                           'kernel_size': self.config['kernel_size'],
                           'strides': self.config['kernel_stride'],
-                          'padding': "same"}
+                          'padding': 'same'}
 
                 for seq_conv_block_i in range(self.config['conv_ls_per_block']):
 
@@ -138,8 +139,14 @@ class CNN1dPlanetFinderv1(object):
                                                                            seq_conv_block_i == 0
                                                                                      else net)
 
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
-                    else tf.keras.layers.ReLU()(net)
+                    if self.config['non_lin_fn'] == 'lrelu':
+                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net)
+                    elif self.config['non_lin_fn'] == 'relu':
+                        tf.keras.layers.ReLU()(net)
+                    elif self.config['non_lin_fn'] == 'prelu':
+                        tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                              alpha_regularizer=None,
+                                              alpha_constraint=None)
 
                 net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
                                                    name='maxpooling{}{}'.format(branch, conv_block_i))(net)
@@ -199,6 +206,29 @@ class CNN1dPlanetFinderv1(object):
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)([
                 pre_logits_concat, self.inputs['scalar_params']])
 
+        if self.config['batch_norm']:
+            pre_logits_concat = tf.keras.layers.BatchNormalization(axis=-1,
+                                                                   momentum=0.99,
+                                                                   epsilon=1e-3,
+                                                                   center=True,
+                                                                   scale=True,
+                                                                   beta_initializer='zeros',
+                                                                   gamma_initializer='ones',
+                                                                   moving_mean_initializer='zeros',
+                                                                   moving_variance_initializer='ones',
+                                                                   beta_regularizer=None,
+                                                                   gamma_regularizer=None,
+                                                                   beta_constraint=None,
+                                                                   gamma_constraint=None,
+                                                                   renorm=False,
+                                                                   renorm_clipping=None,
+                                                                   renorm_momentum=0.99,
+                                                                   fused=None,
+                                                                   trainable=True,
+                                                                   virtual_batch_size=None,
+                                                                   adjustment=None,
+                                                                   name='batch_norm_convflt_output')(pre_logits_concat)
+
         return pre_logits_concat
 
     def build_fc_layers(self, net):
@@ -241,8 +271,14 @@ class CNN1dPlanetFinderv1(object):
                                             bias_constraint=None,
                                             name='fc{}'.format(fc_layer_i))(net)
 
-            net = tf.keras.layers.LeakyReLU(alpha=0.01)(net) if self.config['non_lin_fn'] == 'prelu' \
-                else tf.keras.layers.ReLU()(net)
+            if self.config['non_lin_fn'] == 'lrelu':
+                net = tf.keras.layers.LeakyReLU(alpha=0.01)(net)
+            elif self.config['non_lin_fn'] == 'relu':
+                tf.keras.layers.ReLU()(net)
+            elif self.config['non_lin_fn'] == 'prelu':
+                tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                      alpha_regularizer=None,
+                                      alpha_constraint=None)
 
             # TODO: investigate this, is it set automatically?
             # net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net, training=keras.backend.learning_phase())

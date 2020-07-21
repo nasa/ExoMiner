@@ -11,19 +11,15 @@ TODO: allocate several models to the same GPU
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-# tf.logging.set_verbosity(tf.logging.INFO)
-# tf.logging.set_verbosity(tf.logging.ERROR)
-# logging.getLogger("tensorflow").setLevel(logging.INFO)
-# tf.logging.set_verbosity(tf.logging.INFO)
 import numpy as np
-# from mpi4py import MPI
+from mpi4py import MPI
 import time
-# from tensorflow import keras
 from tensorflow.keras import callbacks, losses, optimizers
 import argparse
+from tensorflow.keras.utils import plot_model
+
 
 # local
 import paths
@@ -31,14 +27,83 @@ if 'home6' in paths.path_hpoconfigs:
     import matplotlib
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.utils_dataio import InputFn, get_data_from_tfrecord, get_data_from_tfrecord_kepler
+from src.utils_dataio import InputFn, get_data_from_tfrecord
 from src.models_keras import CNN1dPlanetFinderv1
 import src.config_keras
 from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
 
 
-def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, earlystopping):
+def print_metrics(model_id, res, datasets, metrics_names):
+    """
+
+    :param model_id:
+    :param res:
+    :param datasets:
+    :param metrics_names:
+    :return:
+    """
+
+    print('#' * 100)
+    print('Model {}'.format(model_id))
+    print('Performance on epoch ({})'.format(len(res['loss'])))
+    for dataset in datasets:
+        print(dataset)
+        for metric in metrics_names:
+            if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
+                if 'precision_at' in metric:
+                    print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+                else:
+                    if dataset == 'train':
+                        print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
+                    elif dataset == 'test':
+                        print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
+                    else:
+                        print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
+    print('#' * 100)
+
+
+def save_metrics_to_file(model_dir_sub, res, datasets, metrics_names):
+    """ Write results to a txt file
+
+    :param model_dir_sub:
+    :param res:
+    :param datasets:
+    :param metrics_names:
+    :return:
+    """
+
+    with open(os.path.join(model_dir_sub, 'results.txt'), 'w') as res_file:
+
+        res_file.write('Performance metrics at epoch {} \n'.format(len(res['loss'])))
+
+        for dataset in datasets:
+
+            res_file.write('Dataset: {}\n'.format(dataset))
+
+            for metric in metrics_names:
+                if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
+
+                    if 'precision_at' in metric:
+                        res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+                    else:
+                        if dataset == 'train':
+                            res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
+
+                        elif dataset == 'test':
+                            res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
+
+                        else:
+                            res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
+
+            res_file.write('\n')
+
+        res_file.write('{}'.format('-' * 100))
+
+        res_file.write('\n')
+
+
+def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, earlystopping=False):
     """ Draw loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -49,7 +114,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     :param model_id: int, identifies the model being used
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective
     epoch. If False, gets the maximum value.
-    :param earlystopping:
+    :param earlystopping: bool, True if early stopping was used
     :return:
     """
 
@@ -57,7 +122,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
 
     # min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
     # choose epoch associated with the best value for the metric
-    if earlystopping is not None:
+    if earlystopping:
         if min_optmetric:
             ep_idx = np.argmin(res['val_{}'.format(opt_metric)])
         else:
@@ -76,8 +141,7 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     # ax[0].set_ylim(bottom=0)
     ax[0].set_xlabel('Epochs')
     ax[0].set_ylabel('Loss')
-    ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (res['val_loss'][ep_idx],
-                                                                       res['test_loss']))
+    ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (res['val_loss'][ep_idx], res['test_loss']))
     ax[0].legend(loc="upper right")
     ax[0].grid(True)
     ax[1].plot(epochs, res[opt_metric], label='Training')
@@ -185,8 +249,8 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
 
 
 def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_id, opt_metric, min_optmetric,
-             callbacks_list, features_set, data_augmentation=False, scalar_params_idxs=None, filter_data=None,
-             mpi_rank=None, ngpus_per_node=1):
+             callbacks_dict, features_set, data_augmentation=False, online_preproc_params=None, scalar_params_idxs=None,
+             clf_threshold=0.5, filter_data=None, mpi_rank=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
@@ -197,16 +261,17 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch
     If False, gets the maximum value
-    :param callbacks_list: list, callbacks
+    :param callbacks_dict: dict, callbacks
     :param features_set: dict, each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
     :param data_augmentation: bool, whether to use or not data augmentation
+    :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
+    :param clf_threshold: float, classification threshold in [0, 1]
     # :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
     # elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
     # values should be a list; for the other data_fields, it should be a two element list that defines the interval of
     # acceptable values
     :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
     training multiple models in multiple GPUs in parallel
-    :param ngpus_per_node: int, number of GPUs per node when training/evaluating multiple models in parallel
     :return:
     """
 
@@ -227,6 +292,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     # get labels for each dataset
     labels = {dataset: [] for dataset in datasets}
+    original_labels = {dataset: [] for dataset in datasets}
 
     tfrec_files = [file for file in os.listdir(data_dir) if file.split('-')[0] in datasets]
     for tfrec_file in tfrec_files:
@@ -234,22 +300,15 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        # labels[dataset] += get_data_from_tfrecord_kepler(os.path.join(data_dir, tfrec_file), ['label'],
-        #                                                  config['label_map'], filt=filter_data[dataset])['label']
-        labels[dataset] += get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label'],
-                                                         config['label_map'], filt=filter_data[dataset])['label']
+        data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label', 'original_label'],
+                                      config['label_map'], filt=filter_data[dataset])
+
+        labels[dataset] += data['label']
+        original_labels[dataset] += data['original_label']
 
     # convert from list to numpy array
-    # TODO: should make this a numpy array from the beginning
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in datasets}
-
-    # set visible GPU as function of the MPI rank and number of GPUs per node
-    if mpi_rank is not None:
-        gpu_id = mpi_rank % ngpus_per_node
-    else:
-        gpu_id = 0
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
+    original_labels = {dataset: np.array(original_labels[dataset]) for dataset in datasets}
 
     # instantiate Keras model
     model = base_model(config, features_set, scalar_params_idxs).kerasModel
@@ -259,7 +318,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
         model.summary()
 
     # setup metrics to be monitored
-    metrics_list = get_metrics()
+    metrics_list = get_metrics(clf_threshold=clf_threshold)
 
     if config['optimizer'] == 'Adam':
         model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
@@ -293,6 +352,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                              mode=tf.estimator.ModeKeys.TRAIN,
                              label_map=config['label_map'],
                              data_augmentation=data_augmentation,
+                             online_preproc_params=online_preproc_params,
                              filter_data=filter_data['train'],
                              features_set=features_set,
                              scalar_params_idxs=scalar_params_idxs)
@@ -326,7 +386,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                         batch_size=None,
                         epochs=n_epochs,
                         verbose=verbose,
-                        callbacks=callbacks_list,
+                        callbacks=list(callbacks_dict.values()),
                         validation_split=0.,
                         validation_data=val_input_fn(),
                         shuffle=True,  # does the input function shuffle for every epoch?
@@ -357,12 +417,9 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     for metric_name_i, metric_name in enumerate(model.metrics_names):
         res['test_{}'.format(metric_name)] = res_eval[metric_name_i]
 
-    # if mpi_rank is not None:
-    #     sys.stdout.flush()
-
     # predict on given datasets - needed for computing the output distribution
-    predictions_dataset = {dataset: [] for dataset in datasets}
-    for dataset in predictions_dataset:
+    predictions = {dataset: [] for dataset in datasets}
+    for dataset in predictions:
 
         print('Predicting on dataset {}...'.format(dataset))
 
@@ -374,22 +431,39 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                                    features_set=features_set,
                                    scalar_params_idxs=scalar_params_idxs)
 
-        predictions_dataset[dataset] = model.predict(predict_input_fn(),
-                                                     batch_size=None,
-                                                     verbose=verbose,
-                                                     steps=None,
-                                                     callbacks=None,
-                                                     max_queue_size=10,
-                                                     workers=1,
-                                                     use_multiprocessing=False)
+        predictions[dataset] = model.predict(predict_input_fn(),
+                                             batch_size=None,
+                                             verbose=verbose,
+                                             steps=None,
+                                             callbacks=None,
+                                             max_queue_size=10,
+                                             workers=1,
+                                             use_multiprocessing=False)
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in datasets}
     for dataset in output_cl:
-        # map_labels
-        for class_label in config['label_map']:
-            output_cl[dataset][class_label] = predictions_dataset[dataset][
-                np.where(labels[dataset] == config['label_map'][class_label])]
+        for original_label in config['label_map']:
+            # get predictions for each original class individually to compute histogram
+            output_cl[dataset][original_label] = predictions[dataset][np.where(original_labels[dataset] ==
+                                                                               original_label)]
+
+    # compute precision at top-k
+    k_arr = [10, 100, 1000]
+    for dataset in datasets:
+        sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
+        labels_sorted = labels[dataset][sorted_idxs].squeeze()
+        predictions_sorted = predictions[dataset][sorted_idxs].squeeze()
+        classifications_sorted = np.zeros(predictions_sorted.shape, dtype='uint8')
+        classifications_sorted[np.where(predictions_sorted >= clf_threshold)] = 1
+        for k_i in range(len(k_arr)):
+            if len(sorted_idxs) < k_arr[k_i]:
+                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = np.nan
+            else:
+                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = \
+                    np.sum(labels_sorted[-k_arr[k_i]:] * classifications_sorted[-k_arr[k_i]:]) / k_arr[k_i]
+    # add precision-at-top-k to the set of metrics computed for the model
+    metrics_names = model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
 
     # save results in a numpy file
     print('Saving metrics to a numpy file...')
@@ -397,53 +471,26 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     print('Plotting evaluation results...')
     # draw evaluation plots
-    draw_plots(res, res_dir, opt_metric, output_cl, model_id, min_optmetric, earlystopping=None)
+    draw_plots(res, res_dir, opt_metric, output_cl, model_id, min_optmetric,
+               earlystopping='early_stopping' in callbacks_dict)
 
     print('Saving metrics to a txt file...')
-    # write results to a txt file
-    with open(os.path.join(model_dir_sub, 'results.txt'), 'w') as res_file:
-        res_file.write('Performance metrics at epoch {} \n'.format(len(res['loss'])))
-        for dataset in datasets:
-            res_file.write('Dataset: {}\n'.format(dataset))
-            for metric in model.metrics_names:
-                if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
-                    if dataset == 'train':
-                        res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
-                    elif dataset == 'test':
-                        res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-                    else:
-                        res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
-            res_file.write('\n')
-        res_file.write('{}'.format('-' * 100))
-        res_file.write('\n')
+    save_metrics_to_file(model_dir_sub, res, datasets, metrics_names=metrics_names)
 
-    print('#' * 100)
-    print('Model {}'.format(model_id))
-    print('Performance on epoch ({})'.format(len(res['loss'])))
-    for dataset in datasets:
-        print(dataset)
-        for metric in model.metrics_names:
-            if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
-                if dataset == 'train':
-                    print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
-                elif dataset == 'test':
-                    print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-                else:
-                    print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
-    print('#' * 100)
+    print_metrics(model_id, res, datasets, metrics_names)
 
     # save model, features and config used for training this model
     model.save(os.path.join(model_dir_sub, 'model{}.h5'.format(model_id)))
     np.save(os.path.join(model_dir_sub, 'features_set'), features_set)
     np.save(os.path.join(model_dir_sub, 'config'), config)
     # plot model and save the figure created
-    # keras.utils.plot_model(model,
-    #                        to_file=os.path.join(model_dir_sub, 'model.png'),
-    #                        show_shapes=False,
-    #                        show_layer_names=True,
-    #                        rankdir='TB',
-    #                        expand_nested=False,
-    #                        dpi=96)
+    plot_model(model,
+               to_file=os.path.join(model_dir_sub, 'model.png'),
+               show_shapes=False,
+               show_layer_names=True,
+               rankdir='TB',
+               expand_nested=False,
+               dpi=96)
 
 
 if __name__ == '__main__':
@@ -464,8 +511,11 @@ if __name__ == '__main__':
     # if rank != 0:
     #     time.sleep(2)
 
-    # tf.logging.set_verbosity(tf.logging.ERROR)
-    # tf.logging.set_verbosity(tf.logging.INFO)
+    # # set a specific GPU for training the ensemble
+    # gpu_id = rank % ngpus_per_node
+    #
+    # physical_devices = tf.config.list_physical_devices('GPU')
+    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
 
     # SCRIPT PARAMETERS #############################################
 
@@ -474,17 +524,14 @@ if __name__ == '__main__':
 
     # results directory
     save_path = os.path.join(paths.pathtrainedmodels, study)
-    if not os.path.isdir(save_path):
-        os.mkdir(save_path)
-        os.mkdir(os.path.join(save_path, 'models'))
+    os.makedirs(save_path, exist_ok=True)
+    os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'bohb_dr25tcert_spline_gapped_glflux'
+    hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_splinenew_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband'
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
-
-    ngpus_per_node = 1  # number of GPUs per node
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
@@ -508,21 +555,20 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # tfrecord files directory
-    tfrec_dir = os.path.join(paths.path_tfrecs,
+    tfrec_dir = os.path.join('/data5/tess_project/Data/tfrecords/',
                              'Kepler',
-                             'DR25',
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven_'
-                             'updtkois_shuffled_wks_norm')
+                             'Q1-Q17_DR25',
+                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
 
     # features to be extracted from the dataset(s)
-    features_names = ['global_flux_view', 'local_flux_view', 'global_view_centr', 'local_view_centr', 'local_view_odd',
-                      'local_view_even']
+    features_names = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn', 'local_centr_view_medcmaxn',
+                      'local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
-    features_dim['scalar_params'] = (12,)  # dimension of the scalar parameter array in the TFRecords
+    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [1, 2]
+    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -532,45 +578,49 @@ if __name__ == '__main__':
     #                 'local_view': {'dim': (201,), 'dtype': tf.float32}}
 
     data_augmentation = False  # if True, uses data augmentation in the training set
+    online_preproc_params = {'num_bins_global': 2001, 'num_bins_local': 201, 'num_transit_dur': 9}
 
     # args_inputfn = {'features_set': features_set, 'data_augmentation': data_augmentation,
     #                 'scalar_params_idxs': scalar_params_idxs}
 
-    n_models = 10  # number of models in the ensemble
-    n_epochs = 300  # number of epochs used to train each model
-    multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label',
-                       'verbose': False}
+    n_models = 1  # number of models in the ensemble
+    n_epochs = 5  # number of epochs used to train each model
+    multi_class = False  # multi-class classification
+    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     opt_metric = 'auc_pr'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
 
+    clf_threshold = 0.5
+
     # callbacks list
-    callbacks_list = []
+    callbacks_dict = {}
 
     # early stopping callback
-    callbacks_list.append(callbacks.EarlyStopping(monitor='val_{}'.format(opt_metric), min_delta=0,
-                                                  patience=20,
-                                                  verbose=1,
-                                                  mode='max',
-                                                  baseline=None,
-                                                  restore_best_weights=True))
+    callbacks_dict['early_stopping'] = callbacks.EarlyStopping(monitor='val_{}'.format(opt_metric),
+                                                               min_delta=0,
+                                                               patience=20,
+                                                               verbose=1,
+                                                               mode='max',
+                                                               baseline=None,
+                                                               restore_best_weights=True)
 
     # TensorBoard callback
-    callbacks_list.append(callbacks.TensorBoard(log_dir=os.path.join(save_path, 'models'),
-                                                histogram_freq=0,
-                                                write_graph=False,
-                                                write_images=True,
-                                                update_freq='epoch',
-                                                profile_batch=2,
-                                                ))
+    callbacks_dict['tensorboard'] = callbacks.TensorBoard(log_dir=os.path.join(save_path, 'models'),
+                                                          histogram_freq=0,
+                                                          write_graph=False,
+                                                          write_images=True,
+                                                          update_freq='epoch',
+                                                          profile_batch=2
+                                                          )
 
     # set the configuration from a HPO study
     if config is None:
         res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
                                                      , '_{}'.format(hpo_study))
+
         # get ID to config mapping
         id2config = res.get_id2config_mapping()
         # best config - incumbent
@@ -587,6 +637,8 @@ if __name__ == '__main__':
     config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
+    config['batch_norm'] = False
+    config['non_lin_fn'] = 'relu'
     config = src.config_keras.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI
@@ -601,10 +653,12 @@ if __name__ == '__main__':
                  model_id=model_i + 1,
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
-                 callbacks_list=callbacks_list,
+                 callbacks_dict=callbacks_dict,
                  features_set=features_set,
                  scalar_params_idxs=scalar_params_idxs,
-                 data_augmentation=data_augmentation)
+                 data_augmentation=data_augmentation,
+                 online_preproc_params=online_preproc_params,
+                 clf_threshold=clf_threshold)
 
     # # uncomment for multiprocessing using MPI
     # if rank < n_models:
@@ -619,8 +673,10 @@ if __name__ == '__main__':
     #              model_id = rank + 1,
     #              opt_metric=opt_metric,
     #              min_optmetric=min_optmetric,
-    #              callbacks_list=callbacks_list,
+    #              callbacks_dict=callbacks_dict,
     #              features_set=features_set,
     #              scalar_params_idxs=scalar_params_idxs,
     #              mpi_rank=rank,
-    #              ngpus_per_node=ngpus_per_node)
+    #              data_augmentation=data_augmentation,
+    #              online_preproc_params=online_preproc_params,
+    #              clf_threshold=clf_threshold)

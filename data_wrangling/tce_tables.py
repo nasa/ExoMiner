@@ -4,6 +4,8 @@ from scipy import io
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import os
+
 
 #%% Add TPS TCE parameters to the non-TCE (~180k) Kepler table
 
@@ -715,3 +717,31 @@ print(tceTbl['label'].value_counts())
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv',
               index=False)
+
+#%%
+
+sourceTbl = pd.read_csv('/home/msaragoc/Downloads/q1_q17_dr25_tce_2020.07.14_17.42.20.csv', header=38)
+tceDir = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+
+tceTblsFiles = [os.path.join(tceDir, tceTblFile) for tceTblFile in os.listdir(tceDir) if tceTblFile.startswith('q1_q17_dr25')]
+
+columnsToAdd = ['tce_rb_tpdur', 'tce_rb_tcount0', 'tce_rb_tcount1', 'tce_rb_tcount2', 'tce_rb_tcount3', 'tce_rb_tcount4']
+
+for tceTblFile in tceTblsFiles:
+
+    print(tceTblFile)
+
+    tceTbl = pd.read_csv(tceTblFile)
+
+    for columnToAdd in columnsToAdd:
+        tceTbl[columnToAdd] = np.nan
+
+    for tce_i, tce in tceTbl.iterrows():
+
+        key = 'kepid' if tceTblFile.split('/')[-1] in ['q1_q17_dr25_tce_2020.04.15_23.19.10_stellar.csv',
+                                                       'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21.csv'] else 'target_id'
+
+        tceTbl.loc[tce_i, columnsToAdd] = sourceTbl.loc[(sourceTbl['kepid'] == tce[key]) &
+                                                        (sourceTbl['tce_plnt_num'] == tce['tce_plnt_num'])][columnsToAdd].values[0]
+
+    tceTbl.to_csv(tceTblFile, index=False)

@@ -227,7 +227,7 @@ def read_kepler_light_curve(filenames,
                             centroid_radec=False,
                             prefer_psfcentr=False,
                             invert=False,
-                            #get_px_centr=False
+                            # get_px_centr=False
                             ):
     """ Reads data from FITS files for a Kepler target star.
 
@@ -243,16 +243,19 @@ def read_kepler_light_curve(filenames,
     centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
       and Dec, or not
     prefer_psfcentr: bool, if True, uses PSF centroids when available
+    invert: bool, if True, inverts time series
 
   Returns:
-    all_time: A list of numpy arrays; the time values of the light curve.
-    all_flux: A list of numpy arrays; the flux values of the light curve.
-    all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values of
-    the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
-    add_info: A dict with additional data extracted from the FITS files; 'quarter' is a list of quarters for each numpy
-    array of the light curve; 'module' is the same but for the module in which the target is in every quarter;
-    'target position' is a list of two elements which correspond to the target star position, either in world (RA, Dec)
-    or local CCD (x, y) pixel coordinates
+  data: dictionary with data extracted from the FITS files
+    - all_time: A list of numpy arrays; the time values of the light curve.
+    - all_flux: A list of numpy arrays; the flux values of the light curve.
+    - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values
+    of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
+    - sectors: A list with the observation sectors
+    - target_postiion: A list of two elements which correspond to the target star position, either in world
+    (RA, Dec) or local CCD (x, y) pixel coordinates
+    - module: A list with the module IDs
+    - quarter: A list with the observed quarters
   """
 
     # initialize data dict
@@ -292,9 +295,9 @@ def read_kepler_light_curve(filenames,
             if len(data['target_position']) == 0:
                 data['target_position'] = [kepid_coord1, kepid_coord2]
 
-                # TODO: convert target position from RA and Dec to local CCD pixel coordinates
-                if not centroid_radec:
-                    pass
+            # TODO: convert target position from RA and Dec to local CCD pixel coordinates
+            if not centroid_radec:
+                pass
 
             # uncomment to get only TCEs from module 13
             # if module != 13:
@@ -327,16 +330,16 @@ def read_kepler_light_curve(filenames,
                                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
 
                 # # reference pixel in the aperture coordinate frame
-                ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']],
-                                       [hdu_list['APERTURE'].header['CRPIX2']]])
+                # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']],
+                #                        [hdu_list['APERTURE'].header['CRPIX2']]])
 
                 # reference pixel in CCD coordinate frame
                 ref_px_ccdf = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
-                                         [hdu_list['APERTURE'].header['CRVAL2P']]])
+                                        [hdu_list['APERTURE'].header['CRVAL2P']]])
 
-                # RA and Dec at reference pixel
-                ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
-                                         [hdu_list['APERTURE'].header['CRVAL2']]])
+                # # RA and Dec at reference pixel
+                # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
+                #                          [hdu_list['APERTURE'].header['CRVAL2']]])
 
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
@@ -398,7 +401,7 @@ def read_kepler_light_curve(filenames,
         data['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
 
     # inverts light curve
-    # TODO: currently only scrambling for the all_centroids variable
+    # TODO: currently only inverting for the all_centroids variable
     if invert:
         data['all_flux'] = [-1 * flux for flux in data['all_flux']]
         data['all_centroids']['x'] = [-1 * centroid for centroid in data['all_centroids']['x']]

@@ -13,10 +13,7 @@ from src_preprocessing.tf_util import example_util
 
 #%% define directories
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar'
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment'
-os.makedirs(destTfrecDir, exist_ok=True)
-
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar'
 srcTfrecTbls = sorted([os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir)
                             if file.endswith('.csv') and file.startswith('shard')])
 
@@ -31,50 +28,6 @@ for srcTfrecTbl in srcTfrecTbls:
 
 srcTfrecTblMerge.to_csv(os.path.join(srcTfrecDir, 'merged_shards.csv'), index=True)
 
-#%% create training, validation and test datasets
-
-experimentTceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_'
-                               'noRobobvetterKOIs.csv')
-
-# shuffle per target stars
-targetStars = experimentTceTbl['target_id'].unique()
-numTargetStars = len(targetStars)
-
-dataset_frac = {'train': 0.8, 'val': 0.1, 'test': 0.1}
-
-assert sum(dataset_frac.values()) == 1
-
-lastTargetStar = {'train': targetStars[int(dataset_frac['train'] * numTargetStars)],
-                  'val': targetStars[int((dataset_frac['train'] + dataset_frac['val']) * numTargetStars)]}
-
-numTces = {'total': len(experimentTceTbl)}
-trainIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['train']].index[-1] + 1  # int(numTces['total'] * dataset_frac['train'])
-valIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['val']].index[-1] + 1 # int(numTces['total'] * (dataset_frac['train'] + dataset_frac['val']))
-
-print('Train idx: {}\nValidation index: {}'.format(trainIdx, valIdx))
-
-datasetTbl = {'train': experimentTceTbl[:trainIdx],
-              'val': experimentTceTbl[trainIdx:valIdx],
-              'test': experimentTceTbl[valIdx:]}
-
-assert len(np.intersect1d(datasetTbl['train']['target_id'].unique(), datasetTbl['val']['target_id'].unique())) == 0
-assert len(np.intersect1d(datasetTbl['train']['target_id'].unique(), datasetTbl['test']['target_id'].unique())) == 0
-assert len(np.intersect1d(datasetTbl['val']['target_id'].unique(), datasetTbl['test']['target_id'].unique())) == 0
-
-# shuffle TCEs in each dataset
-np.random.seed(24)
-datasetTbl = {dataset: datasetTbl[dataset].iloc[np.random.permutation(len(datasetTbl[dataset]))]
-              for dataset in datasetTbl}
-
-for dataset in datasetTbl:
-    datasetTbl[dataset].to_csv(os.path.join(destTfrecDir, '{}set.csv'.format(dataset)), index=False)
-
-for dataset in datasetTbl:
-    numTces[dataset] = len(datasetTbl[dataset])
-    print(datasetTbl[dataset]['label'].value_counts())
-    print('Number of TCEs in {} set: {}'.format(dataset, len(datasetTbl[dataset])))
-
 #%% create new TFRecords based on the original ones
 
 # load train, val and test datasets
@@ -82,6 +35,10 @@ datasetTblDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords
                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
 datasetTbl = {dataset: pd.read_csv(os.path.join(datasetTblDir, '{}set.csv'.format(dataset)))
               for dataset in ['train', 'val', 'test']}
+
+# # get only TCEs with tce_plnt_num = 1
+# datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
+
 numTces = {}
 for dataset in datasetTbl:
     numTces[dataset] = len(datasetTbl[dataset])
@@ -183,9 +140,10 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
                                  ' {}-{}.'.format(shardFilename, tce['target_id'], tce[tceIdentifier]))
 
 
-srcTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar/merged_shards.csv', index_col=0)
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar'
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar'
+srcTbl = pd.read_csv(os.path.join(srcTfrecDir, 'merged_shards.csv'), index_col=0)
+destTfrecDir = srcTfrecDir + '_starshuffle_experiment'
+os.makedirs(destTfrecDir, exist_ok=True)
 omitMissing = True
 nProcesses = 15
 pool = multiprocessing.Pool(processes=nProcesses)
@@ -265,14 +223,14 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
                 raise ValueError('TCE {}-{} not found in the TCE table'.format(targetIdTfrec, tceIdentifierTfrec))
 
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment'
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment-labels'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment'
+destTfrecDir = srcTfrecDir + '-labels'
 os.makedirs(destTfrecDir, exist_ok=True)
 
 # dispositions coming from the experiment TCE table
 experimentTceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
                                'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_'
-                               'noRobobvetterKOIs.csv')
+                               'noRobovetterKOIs.csv')
 tceIdentifier = 'tce_plnt_num'
 omitMissing = True
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
@@ -316,7 +274,10 @@ assert np.sum(countExamples) == 0
 
 #%% compute normalization statistics for scalar parameters, timeseries, ...
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
+# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
+# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-scalar_globalbinwidthaslocal_starshuffle_experiment'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment'
+# get only training set TFRecords
 tfrecTrainFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if file.startswith('train-shard')]
 
 tceIdentifier = 'tce_plnt_num'
@@ -340,7 +301,7 @@ num_bins_loc = 201
 num_bins_glob = 2001
 idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
 
-# FDL centroid time series normalization statistics parameters
+# our centroid time series normalization statistics parameters
 centroidList = ['global_centr_view', 'local_centr_view']
 centroidMat = {timeSeries: [] for timeSeries in centroidList}
 
@@ -362,6 +323,9 @@ for tfrec_i, tfrecFile in enumerate(tfrecTrainFiles):
 
         # get scalar parameters data
         tceScalarParams = example.features.feature['scalar_params'].float_list.value
+        # binOedpStat = tceScalarParams[6]
+        # binOedpStat += 1
+        # binOedpStat =
         scalarParamsMat.append(tceScalarParams)
 
         # get FDL centroid time series data
@@ -380,13 +344,37 @@ for tfrec_i, tfrecFile in enumerate(tfrecTrainFiles):
             timeSeriesTce = example.features.feature[timeSeries].float_list.value
             centroidMat[timeSeries].extend(timeSeriesTce)
 
-# save normalization statistics for the scalar parameters
+# save normalization statistics for the scalar parameters (median and robust estimator of std)
+# do not use missing values to compute the normalization statistics for bootstrap FA probability
 scalarParamsMat = np.array(scalarParamsMat)
+
+# transform bootstrap FA probability
+bfapArr = scalarParamsMat[:, 7]
+bfapArrValid = bfapArr[np.where(bfapArr != -1)]  # leave out missing values (-1)
+bfapArrValid += 1e-32  # np.min(bfapArrValid[np.where(bfapArrValid > 0)])  # 1  # add 1 so that range becomes [1, 2]
+bfapArrValid = np.log10(bfapArrValid)  # log transform
+bfapNormStats = {'median': np.median(bfapArrValid), 'std': stats.mad_std(bfapArrValid)}
+
+# transform binoedp stat
+binoedpArr = scalarParamsMat[:, 6]
+binoedpArr += 1e-32
+binoedpArr = np.log10(binoedpArr)
+binoedpNormStats = {'median': np.median(binoedpArr), 'std': stats.mad_std(binoedpArr)}
+
 scalarNormStats = {'values': scalarParamsMat,
                    'median': np.median(scalarParamsMat, axis=0),
                    'std': stats.mad_std(scalarParamsMat, axis=0),
                    'params': scalarParams}
+
+# overwrite stats for bfap and binoedp
+scalarNormStats['median'][7] = bfapNormStats['median']
+scalarNormStats['std'][7] = bfapNormStats['std']
+
+scalarNormStats['median'][6] = binoedpNormStats['median']
+scalarNormStats['std'][6] = binoedpNormStats['std']
+
 np.save(os.path.join(tfrecDir, 'train_scalarparam_norm_stats.npy'), scalarNormStats)
+
 # create additional csv file with normalization statistics
 scalarNormStatsDataForDf = {}
 for scalar_i in range(len(scalarParams)):
@@ -402,6 +390,7 @@ normStatsFDL = {timeSeries:  {# 'values': timeSeriesFDLMat,
                               }
                 for timeSeries in timeSeriesFDLList}
 np.save(os.path.join(tfrecDir, 'train_fdlcentroid_norm_stats.npy'), normStatsFDL)
+
 # create additional csv file with normalization statistics
 normStatsFDLDataForDf = {}
 for timeSeries in timeSeriesFDLList:
@@ -419,6 +408,7 @@ normStatsCentroid = {timeSeries:  {# 'values': timeSeriesFDLMat,
                                    }
                      for timeSeries in centroidList}
 np.save(os.path.join(tfrecDir, 'train_centroid_norm_stats.npy'), normStatsCentroid)
+
 # create additional csv file with normalization statistics
 normStatsCentroidDataForDf = {}
 for timeSeries in centroidList:
@@ -508,7 +498,7 @@ print(badTces)
 #%% normalize examples in the TFRecords
 
 
-def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
+def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
     """ Normalize examples in TFRecords.
 
     :param destTfrecDir:  str, destination TFRecord directory for the normalized data
@@ -518,10 +508,8 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
     """
 
     # get out-of-transit indices for the local views
-    nr_transit_durations = 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
-    num_bins_loc = 201
-    num_bins_glob = 2001
-    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(normParams['num_bins_loc'],
+                                                              normParams['nr_transit_durations'])  # same for all TCEs
 
     with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
         # iterate through the source shard
@@ -533,10 +521,25 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
 
             # normalize scalar parameters
             tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
-            # print(example.features.feature['target_id'].int64_list.value, tceScalarParams)
-            # aaaaa
+            # TODO: normalization statistics perhaps should be computed using the TCE table and after that missing
+            #       would be replaced; stellar parameters would have to be updated in the TFRecords
+            # log transform with constant translation of bfap and oedp stat
+            tceScalarParams[6] += 1e-32
+            assert tceScalarParams[6] > 0
+            tceScalarParams[6] = np.log10(tceScalarParams[6])
+
+            if tceScalarParams[7] == -1:  # check if bootstrap FA probability value is missing (-1)
+                tceScalarParams[7] = normStats['scalar_params']['median'][7]
+            else:
+                tceScalarParams[7] += 1e-32
+                assert tceScalarParams[7] > 0
+                tceScalarParams[7] = np.log10(tceScalarParams[7])
+
+            # median centering and std normalization
             tceScalarParams = (tceScalarParams - normStats['scalar_params']['median']) / \
                               normStats['scalar_params']['std']
+
+            # # for TPS - does not have DV diagnostics (bfap, oedpstat, ghost, ...)
             # tceScalarParams = (tceScalarParams - normStats['scalar_params']['median'][np.array([0,1,2,3,8,9])]) / \
             #                   normStats['scalar_params']['std'][np.array([0,1,2,3,8,9])]
 
@@ -544,9 +547,10 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
             # get out-of-transit indices for the global views
             transitDuration = example.features.feature['tce_duration'].float_list.value[0]
             orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(num_bins_glob, transitDuration, orbitalPeriod)
+            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(normParams['num_bins_glob'],
+                                                                        transitDuration,
+                                                                        orbitalPeriod)
             # compute oot global and local flux views std
-
             glob_flux_view_std = \
                 np.std(
                     np.array(
@@ -585,28 +589,59 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
                                                          normStats['local_centr_view']['median'],
                                                          normStats['local_centr_view']['std'])
 
+            # # correct wks scale by scaling by itself
+            # glob_wks_view = np.array(example.features.feature['global_weak_secondary_view'].float_list.value)
+            # glob_wks_view_absmin = np.abs(np.min(glob_wks_view))
+            # if glob_wks_view_absmin > 0:
+            #     glob_wks_view /= glob_wks_view_absmin
+            # # glob_wks_view /= np.std(glob_wks_view[idxs_nontransitcadences_glob])
+            # loc_wks_view = np.array(example.features.feature['local_weak_secondary_view'].float_list.value)
+            # loc_wks_view_absmin = np.abs(np.min(loc_wks_view))
+            # if loc_wks_view_absmin > 0:
+            #     loc_wks_view /= loc_wks_view_absmin
+            # # loc_wks_view /= np.std(loc_wks_view[idxs_nontransitcadences_loc])
+            #
+            # loc_centr_view_medcmaxn = np.array(example.features.feature['local_centr_view'].float_list.value)
+            # loc_centr_view_medcmaxn /= np.max(loc_centr_view_medcmaxn)
+            # glob_centr_view_medcmaxn = np.array(example.features.feature['global_centr_view'].float_list.value)
+            # glob_centr_view_medcmaxn /= np.max(glob_centr_view_medcmaxn)
+
             normalizedFeatures = {'scalar_params': tceScalarParams,
                                   'global_centr_fdl_view': glob_centr_fdl_view,
                                   'local_centr_fdl_view': loc_centr_fdl_view,
                                   'global_centr_view': glob_centr_view,
-                                  'local_centr_view': loc_centr_view
+                                  'local_centr_view': loc_centr_view,
+                                  # 'global_weak_secondary_view': glob_wks_view,
+                                  # 'local_weak_secondary_view': loc_wks_view,
+                                  # 'global_centr_view_medcmaxn': glob_centr_view_medcmaxn,
+                                  # 'local_centr_view_medcmaxn': loc_centr_view_medcmaxn
                                   }
 
             for normalizedFeature in normalizedFeatures:
                 example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
                                                allow_overwrite=True)
 
+            # orbitalPeriod = -1 + 2 * (orbitalPeriod - 0.500309) / (720.2339999999999 - 0.500309)
+            # example_util.set_float_feature(example, 'tce_period_norm', [orbitalPeriod])
+
             writer.write(example.SerializeToString())
 
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment-labels'
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_experiment-labels-norm'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels'
+destTfrecDir = srcTfrecDir + '-norm'
 os.makedirs(destTfrecDir, exist_ok=True)
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
 
+normParams = {'nr_transit_durations': 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+              'num_bins_loc': 201,
+              'num_bins_glob': 2001
+              }
+
 # load normalization statistics
 normStats = {}
-normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
+# normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
+# normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-scalar_globalbinwidthaslocal_starshuffle_experiment'
+normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment'
 # scalar parameters normalization statistics
 normStatsScalar = np.load(os.path.join(normStatsDir, 'train_scalarparam_norm_stats.npy'), allow_pickle=True).item()
 # FDL centroid normalization statistics
@@ -619,7 +654,7 @@ normStats.update(normStatsCentroid)
 
 nProcesses = 15
 pool = multiprocessing.Pool(processes=nProcesses)
-jobs = [(destTfrecDir, file, normStats) for file in srcTfrecFiles]
+jobs = [(destTfrecDir, file, normStats, normParams) for file in srcTfrecFiles]
 async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
 pool.close()
 
@@ -631,8 +666,8 @@ print('Normalization finished.')
 
 #%% Check final preprocessed data
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
-plotDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/plots_after_norm'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
+plotDir = os.path.join(tfrecDir, 'plots_all_views')
 os.makedirs(plotDir, exist_ok=True)
 tfrecFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if 'shard' in file]
 
@@ -641,13 +676,33 @@ views = ['global_centr_view', 'local_centr_view', 'global_centr_view_medcmaxn', 
          'global_centr_view_medn', 'local_centr_view_medn', 'global_centr_fdl_view', 'local_centr_fdl_view',
          'global_flux_view', 'local_flux_view', 'global_flux_odd_view', 'local_flux_odd_view', 'global_flux_even_view',
          'local_flux_even_view', 'global_weak_secondary_view', 'local_weak_secondary_view']
+# views = ['local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
+# nr_transit_durations = 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
+# num_bins_loc = 201
+# num_bins_glob = 2001
+# idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
 
-tceOfInterest = (5130369, 1)
+# rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+#                          'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
+#                          'ensemble_ranked_predictions_testset')
+# rankingTbl = rankingTbl.loc[(rankingTbl['original_label'] == 'AFP') & (rankingTbl['score'] >= 0.5)]
+# rankingTbl = rankingTbl.loc[(rankingTbl['target_id'] == 8937762) & (rankingTbl[tceIdentifier] == 1)]
+
+tceOfInterest = (8611832, 1)
+scheme = (4, 4)
+basename = 'all_views'  # basename for figures
+probPlot = 1.01  # probability threshold for plotting
+# lwksViewStdTce = {}
+# oddevenMinTce = {}
 for tfrecFile in tfrecFiles:
 
     record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
 
     for string_i, string_record in enumerate(record_iterator):
+
+        if np.random.random() > probPlot:
+            continue
+
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
@@ -656,113 +711,180 @@ for tfrecFile in tfrecFiles:
 
         if targetIdTfrec != tceOfInterest[0] or tceIdentifierTfrec != tceOfInterest[1]:
             continue
-        else:
-            tceFound = True
+        # else:
+        #     tceFound = True
+
+        # tceFound = rankingTbl.loc[(rankingTbl['target_id'] == targetIdTfrec) &
+        #                           (rankingTbl[tceIdentifier] == tceIdentifierTfrec)]
+        #
+        # if len(tceFound) == 0:
+        #     continue
 
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-        tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
+        # if labelTfrec == 'NTP':
+        #     continue
 
+        # tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
+
+        viewsDict = {}
         for view in views:
-            viewTimeseries = example.features.feature[view].float_list.value
-            f, ax = plt.subplots()
-            ax.scatter(np.arange(len(viewTimeseries)), viewTimeseries, c='b', s=5)
-            ax.set_xlabel('Bin Number')
-            ax.set_ylabel('Amplitude')
-            ax.set_title('{}'.format(view))
-            f.savefig(os.path.join(plotDir, '{}.png'.format(view)))
+            viewsDict[view] = np.array(example.features.feature[view].float_list.value)
 
-        print('Scalar parameters: ', tceScalarParams)
+        # for view in views:
+        #     viewTimeseries = example.features.feature[view].float_list.value
+        #     f, ax = plt.subplots()
+        #     ax.scatter(np.arange(len(viewTimeseries)), viewTimeseries, c='b', s=5)
+        #     ax.set_xlabel('Bin Number')
+        #     ax.set_ylabel('Amplitude')
+        #     ax.set_title('{}'.format(view))
+        #     f.savefig(os.path.join(plotDir, '{}.png'.format(view)))
 
-        if tceFound:
-            aaaaa
+        # print('Scalar parameters: ', tceScalarParams)
 
-#%% normalize scalar parameters in TFRecords using computed statistics based on the experiment TCE table
-#
-# srcDir = ''
-# destDirFp = ''
-#
-# srcTfrecs = [os.path.join(srcDir, file) for file in os.listdir(srcDir) if 'shard' in file]
-#
-# os.makedirs(destDirFp, exist_ok=True)
-#
-# scalarNormStats = np.load(os.path.join(newTfrecDir, 'train_scalarparam_norm_stats.npy'), allow_pickle=True).item()
-#
-# for srcTfrec in srcTfrecs:
-#
-#     record_iterator = tf.python_io.tf_record_iterator(path=srcTfrec)
-#
-#     with tf.python_io.TFRecordWriter(os.path.join(destDirFp, os.path.basename(srcTfrec))) as writer:
-#         for string_record in enumerate(record_iterator):
-#             example = tf.train.Example()
-#             example.ParseFromString(string_record)
-#
-#             scalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
-#
-#             scalarParams = (scalarParams - scalarNormStats['median']) / scalarNormStats['std']
-#
-#             example_util.set_feature(example, 'scalar_params', list(scalarParams), allow_overwrite=True)
-#
-#             writer.write(example.SerializeToString())
-#
-#
-# #%% normalize FDL centroid time-series in the TFRecords using computed normalization statistics based on the experiment
-# # TCE table
-#
-# srcDir = ''
-# destDirFp = ''
-#
-# srcTfrecs = [os.path.join(srcDir, file) for file in os.listdir(srcDir) if 'shard' in file]
-#
-# os.makedirs(destDirFp, exist_ok=True)
-#
-# timeSeriesList = ['global_view_centr_fdl', 'local_view_centr_fdl']
-# timeSeriesNormStats = np.load(os.path.join(newTfrecDir, 'train_fdlcentroid_norm_stats.npy'), allow_pickle=True).item()
-#
-# # get out-of-transit indices for the local and global views
-# nr_transit_durations = 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
-# num_bins_loc = 201
-# num_bins_glob = 2001
-# idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
-#
-# for srcTfrec in srcTfrecs:
-#
-#     record_iterator = tf.python_io.tf_record_iterator(path=srcTfrec)
-#
-#     with tf.python_io.TFRecordWriter(os.path.join(destDirFp, os.path.basename(srcTfrec))) as writer:
-#         for string_record in enumerate(record_iterator):
-#             example = tf.train.Example()
-#             example.ParseFromString(string_record)
-#
-#             glob_flux_view = np.array(example.features.feature['global_view'].float_list.value)
-#             loc_flux_view = np.array(example.features.feature['local_view'].float_list.value)
-#
-#             transitDuration = example.features.feature['tce_duration'].float_list.value[0]
-#             orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-#             idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(num_bins_glob, transitDuration, orbitalPeriod)
-#
-#             for timeSeries in timeSeriesList:
-#                 timeSeriesTce = np.array(example.features.feature[timeSeries].float_list.value)
-#                 if 'global' in timeSeries:
-#                     fluxOotStd = np.std(glob_flux_view[idxs_nontransitcadences_glob], ddof=1)
-#                     timeSeriesTce = (timeSeriesTce - timeSeriesNormStats[timeSeries]['oot_median']) /\
-#                                     timeSeriesNormStats[timeSeries]['oot_std'] * fluxOotStd
-#                 else:
-#                     fluxOotStd = np.std(loc_flux_view[idxs_nontransitcadences_loc], ddof=1)
-#                     timeSeriesTce = (timeSeriesTce - timeSeriesNormStats[timeSeries]['oot_median']) /\
-#                                     timeSeriesNormStats[timeSeries]['oot_std'] * fluxOotStd
-#
-#                 # timeSeriesTce_meanoot = example.features.feature['{}_meanoot'.format(timeSeries)].float_list.value[0]
-#                 # timeSeriesTce_meanoot = (timeSeriesTce_meanoot - timeSeriesNormStats[timeSeries]['oot_median']) / \
-#                 #                         timeSeriesNormStats[timeSeries]['oot_std'] * fluxOotStd
-#                 # timeSeriesTce_stdoot = example.features.feature['{}_stdoot'.format(timeSeries)].float_list.value[0]
-#                 # timeSeriesTce_stdoot = timeSeriesTce_stdoot / timeSeriesNormStats[timeSeries]['oot_std'] * \
-#                 #                        fluxOotStd
-#                 #
-#                 example_util.set_float_feature(example, timeSeries, timeSeriesTce, allow_overwrite=True)
-#                 # example_util.set_float_feature(example, '{}_meanoot'.format(timeSeries), [timeSeriesTce_meanoot],
-#                 #                                allow_overwrite=True)
-#                 # example_util.set_float_feature(example, '{}_stdoot'.format(timeSeries), [timeSeriesTce_stdoot],
-#                 #                                allow_overwrite=True)
-#
-#             writer.write(example.SerializeToString())
+        # if tceFound:
+        #     aaaaa
+
+        f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
+        k = 0
+        views_list = list(viewsDict.keys())
+        for i in range(scheme[0]):
+            for j in range(scheme[1]):
+                if k < len(views_list):
+                    ax[i, j].plot(viewsDict[views_list[k]])
+                    ax[i, j].set_title(views_list[k], pad=20)
+                if i == scheme[0] - 1:
+                    ax[i, j].set_xlabel('Bin number')
+                if j == 0:
+                    ax[i, j].set_ylabel('Amplitude')
+                k += 1
+
+        f.suptitle('TCE {} {} {}'.format(targetIdTfrec, tceIdentifierTfrec, labelTfrec))
+        plt.subplots_adjust(hspace=0.3)
+        plt.savefig(os.path.join(plotDir, '{}_{}_{}_{}.png'.format(targetIdTfrec, tceIdentifierTfrec, labelTfrec,
+                                                                   basename)))
+        f.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.close()
+
+        # lwksViewStdTce[(targetIdTfrec, tceIdentifierTfrec)] = \
+        #     np.std(viewsDict['local_weak_secondary_view'][idxs_nontransitcadences_loc])
+        #
+        # oddevenMinTce[(targetIdTfrec, tceIdentifierTfrec)] = [np.min(viewsDict['local_flux_odd_view']),
+        #                                                       np.min(viewsDict['local_flux_even_view'])]
+
+#%% Plot minimum value for odd and even local views for a given dataset
+
+# rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+#                          'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
+#                          'ensemble_ranked_predictions_testset')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
+
+tceTbl['odd_min_val'] = np.nan
+tceTbl['even_min_val'] = np.nan
+
+for targetId, tceId in oddevenMinTce:
+    tceTbl.loc[(tceTbl['target_id'] == targetId) &
+               (tceTbl['tce_plnt_num'] == tceId), ['odd_min_val', 'even_min_val']] = oddevenMinTce[targetId, tceId]
+
+dispositions = ['PC', 'AFP', 'NTP']
+plotTbls = {disposition: None for disposition in dispositions}
+for disposition in dispositions:
+    plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
+    # plotTbls[disposition] = rankingTbl.loc[tceTbl['original_label'] == disposition]
+
+f, ax = plt.subplots()
+# ax.scatter(plotTbls['PC']['odd_min_val'].values, plotTbls['PC']['even_min_val'].values, label='PC', s=15, c='g')
+# ax.scatter(plotTbls['AFP']['odd_min_val'].values, plotTbls['AFP']['even_min_val'].values, label='AFP', s=15, c='y')
+ax.scatter(plotTbls['NTP']['odd_min_val'].values, plotTbls['NTP']['even_min_val'].values, label='NTP', s=15, c='r')
+ax.set_ylabel('Even view min value')
+ax.set_xlabel('Odd view min value')
+ax.set_title('Q1-Q17 DR25 \nNon-rogue TCEs and no Robovetter KOIs dataset')
+ax.legend()
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+
+#%% Plot oot-std value for local weak secondary flux view for a given dataset
+
+rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                         'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
+                         'ensemble_ranked_predictions_testset')
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
+
+rankingTbl['lwks_oot-std'] = np.nan
+
+for targetId, tceId in oddevenMinTce:
+    rankingTbl.loc[(rankingTbl['target_id'] == targetId) &
+                   (rankingTbl['tce_plnt_num'] == tceId), 'lwks_oot'] = lwksViewStdTce[targetId, tceId]
+
+dispositions = ['PC', 'AFP', 'NTP']
+plotTbls = {disposition: None for disposition in dispositions}
+for disposition in dispositions:
+    # plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
+    plotTbls[disposition] = rankingTbl.loc[rankingTbl['original_label'] == disposition]
+
+f, ax = plt.subplots()
+ax.scatter(plotTbls['PC']['lwks_oot'].values, plotTbls['PC']['score'].values, label='PC', s=15, c='g')
+ax.scatter(plotTbls['AFP']['lwks_oot'].values, plotTbls['AFP']['score'].values, label='AFP', s=15, c='y')
+ax.scatter(plotTbls['NTP']['lwks_oot'].values, plotTbls['NTP']['score'].values, label='NTP', s=15, c='r')
+ax.set_ylabel('Score')
+ax.set_xlabel('Local weak secondary oot-std')
+ax.set_title('Test set')
+ax.legend()
+# ax.set_xscale('log')
+ax.set_ylim([0, 1])
+# ax.set_xlim([0, 1])
+
+#%% Adding the normalized rolling band diagnostic to the TFRecords
+
+tceIdentifier = 'tce_plnt_num'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
+srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
+destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
+os.makedirs(destTfrecDir, exist_ok=True)
+
+trainTceTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/' \
+                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/trainset.csv')
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+tce_rb_tcount0Arr = np.zeros(len(trainTceTbl), dtype='float')
+for tce_i, tce in trainTceTbl.iterrows():
+    tce_rb_tcount0Arr[tce_i] = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) &
+                                          (tceTbl[tceIdentifier] == tce[tceIdentifier])]['tce_rb_tcount0']
+
+normStats = {
+    'tce_rb_tcount0': {'median': np.median(tce_rb_tcount0Arr),
+                       'std': stats.mad_std(tce_rb_tcount0Arr)}
+}
+
+for srcTfrecFile in srcTfrecFiles:
+
+    with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
+
+        record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
+
+        for string_i, string_record in enumerate(record_iterator):
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+
+            tce_rb_tcount0Tfrec = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
+                                             (tceTbl[tceIdentifier] == tceIdentifierTfrec)]['tce_rb_tcount0']
+
+            assert len(tce_rb_tcount0Tfrec) > 0
+
+            tce_rb_tcount0Tfrec = (tce_rb_tcount0Tfrec - normStats['tce_rb_tcount0']['median']) / \
+                                  normStats['tce_rb_tcount0']['std']
+
+            tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
+
+            tceScalarParams = np.append(tceScalarParams, tce_rb_tcount0Tfrec.values[0])
+
+            example_util.set_float_feature(example, 'scalar_params', tceScalarParams, allow_overwrite=True)
+
+            writer.write(example.SerializeToString())

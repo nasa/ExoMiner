@@ -2,6 +2,61 @@ import tensorflow as tf
 # from tensorflow.python.keras import backend as K
 from tensorflow import keras
 import numpy as np
+# from tensorflow.compat.v1.metrics import precision_at_k
+
+
+# class PrecisionAtK(keras.metrics.Metric):
+#
+#     def __init__(self, k, clf_thr=0.5, name='precision_at_k', **kwargs):
+#         super(PrecisionAtK, self).__init__(name=name, **kwargs)
+#         # super(PrecisionAtK, self).__init__(precision_at_k, k=k, name=name)
+#
+#         self.k = k
+#         self.clf_thr = clf_thr
+#         self.true_positives = self.add_weight(name='tp', initializer='zeros')
+#         self.false_positives = self.add_weight(name='fp', initializer='zeros')
+#
+#     def update_state(self, y_true, y_pred, sample_weight=None, *args, **kwargs):
+#
+#         sorted_idxs = tf.argsort(y_pred, axis=0, direction='DESCENDING')
+#
+#         threshold = tf.cast(self.clf_thr, y_pred.dtype)
+#         k_batch = tf.math.minimum(y_true.shape[0], self.k)
+#
+#         y_pred = tf.cast(y_pred > threshold, tf.bool)
+#
+#         y_true = tf.cast(y_true, tf.bool)
+#         # y_pred = tf.cast(y_pred, tf.bool)
+#
+#         y_true = tf.gather(y_true, sorted_idxs)
+#         y_pred = tf.gather(y_pred, sorted_idxs)
+#
+#         k_idxs = tf.range(k_batch, delta=1, dtype=tf.int32)
+#         y_true = tf.gather(y_true, k_idxs, axis=0)
+#         y_pred = tf.gather(y_pred, k_idxs, axis=0)
+#
+#         pos_values = tf.logical_and(tf.equal(y_true, True), tf.equal(y_pred, True))
+#         pos_values = tf.cast(pos_values, self.dtype)
+#
+#         neg_values = tf.logical_and(tf.equal(y_true, False), tf.equal(y_pred, True))
+#         neg_values = tf.cast(neg_values, self.dtype)
+#
+#         if sample_weight is not None:
+#             sample_weight = tf.cast(sample_weight, self.dtype)
+#
+#             pos_sample_weight = tf.broadcast_to(sample_weight, pos_values.shape)
+#             pos_values = tf.multiply(pos_values, pos_sample_weight)
+#
+#             neg_sample_weight = tf.broadcast_to(sample_weight, neg_values.shape)
+#             neg_values = tf.multiply(neg_values, neg_sample_weight)
+#
+#         self.true_positives.assign_add(tf.reduce_sum(pos_values))
+#         self.false_positives.assign_add(tf.reduce_sum(neg_values))
+#
+#     def result(self):
+#
+#         return tf.math.divide_no_nan(self.true_positives, self.true_positives + self.false_positives)
+
 
 def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     """ Setup metrics to be monitored.
@@ -11,6 +66,7 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     :return:
         metrics_list: list, metrics to be monitored
     """
+
     threshold_range = list(np.linspace(0, 1, num=num_thresholds))
 
     auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
@@ -21,9 +77,11 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
                                 summation_method='interpolation',
                                 curve='ROC',
                                 name='auc_roc')
+
     binary_acc = keras.metrics.BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
     precision = keras.metrics.Precision(thresholds=clf_threshold, name='precision')
     recall = keras.metrics.Recall(thresholds=clf_threshold, name='recall')
+
     precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
     recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
 
@@ -31,6 +89,12 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
     tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
     fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+
+    # precision_k = precision_at_k(k=10, class_id=1, name='precision_at_10')
+    # precision_k = PrecisionAtK(k=10, name='precision_at_10')
+    # precision_at_ks = []
+    # for k in [10, 100, 1000]:
+    # top_acc = keras.metrics.TopKCategoricalAccuracy(k=300, name='top_300_catagorical_accuracy')
 
     metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, tn, fn]
 

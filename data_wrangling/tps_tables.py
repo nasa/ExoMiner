@@ -45,7 +45,7 @@ tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSO
 stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/Kepler/'
                           'q1_q17_dr25_stellar_gaiadr2_nanstosolar.csv')
 
-tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536.csv')
 
 stellar_fields_out = ['kepmag', 'tce_steff', 'tce_steff_err1', 'tce_steff_err2', 'tce_slogg', 'tce_slogg_err1',
                       'tce_slogg_err2', 'tce_smet', 'tce_smet_err1', 'tce_smet_err2', 'tce_sradius', 'tce_sradius_err1',
@@ -84,7 +84,7 @@ tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSO
 
 #%% Standardize fields in the TPS TCE table
 
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_stellar.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_stellar.csv')
 
 rawFields = ['keplerId', 'keplerMag', 'epochKjd', 'periodDays', 'fittedDepth', 'weakSecondaryPhase',
              'maxMesPulseDurationHours']
@@ -104,21 +104,24 @@ tceTpsTbl.rename(columns=renameDict, inplace=True)
 tceTpsTbl = tceTpsTbl.loc[(tceTpsTbl['tce_period'] > 0) & (tceTpsTbl['tce_duration'] > 0)]
 print(len(tceTpsTbl))
 
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_processed.csv', index=False)
+# convert fractional transit depth to ppm
+tceTpsTbl['transit_depth'] = tceTpsTbl['transit_depth'] * 1e6
+
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_processed.csv', index=False)
 
 #%% Shuffle TPS table
 
-np.random.seed(42)
+np.random.seed(24)
 
-tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_processed.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_processed.csv')
 
 tceTpsTbl = tceTpsTbl.iloc[np.random.permutation(len(tceTpsTbl))]
 
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_shuffled.csv', index=False)
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_shuffled.csv', index=False)
 
 #%% Filter non-TCEs from the TPS table
 
-tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_shuffled.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_shuffled.csv')
 
 tceTpsTbl['tce_plnt_num'] = 1
 
@@ -127,15 +130,14 @@ nonTceTpsTbl['label'] = 'NTP'
 
 tceTpsTbl = tceTpsTbl.loc[tceTpsTbl['isPlanetACandidate'] == 1]
 
-nonTceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_nontces.csv', index=False)
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_tces.csv', index=False)
+nonTceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_nontces.csv', index=False)
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_tces.csv', index=False)
 
 #%% Update TPS TCE table with dispositions
 
-tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_tces.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_tces.csv')
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv')
 
 tceTpsTbl['label'] = 'NTP'
 tceTpsTbl['tce_rogue_flag'] = 0
@@ -150,15 +152,15 @@ for tce_i, tce in tceTpsTbl.iterrows():
                    (tceTbl['tce_plnt_num'] == tce.tce_plnt_num)][['label', 'tce_rogue_flag', 'tce_datalink_dvs',
                                                                   'tce_datalink_dvr']].values[0]
 
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_dr25.csv', index=False)
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_dr25.csv', index=False)
 
 #%% Filter out rogue TCEs
 
-tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_dr25.csv')
+tceTpsTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_dr25.csv')
 
 tceTpsTbl = tceTpsTbl.loc[tceTpsTbl['tce_rogue_flag'] == 0]
 
-tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/keplerTPS_KSOP2536_dr25_noroguetces.csv',
+tceTpsTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17 DR25/keplerTPS_KSOP2536_dr25_noroguetces.csv',
                  index=False)
 
 #%% Order TPS TCE table following order of the DV TCE table

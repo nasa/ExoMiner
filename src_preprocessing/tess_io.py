@@ -7,6 +7,7 @@ import os
 from tensorflow import gfile
 from astropy.io import fits
 import numpy as np
+from astropy import wcs
 
 # local
 from src_preprocessing.light_curve import util
@@ -33,7 +34,10 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              18: ("2019306063752", "162"),
              19: ("2019331140908", "164"),
              20: ("2019357164649", "165"),
-             21: ("2020020091053", "167")}
+             21: ("2020020091053", "167"),
+             22: ("2020049080258", "174"),
+             23: ("2020078014623", "177"),
+             24: ("2020106103520", "180")}
 
 
 def tess_filenames(base_dir,
@@ -65,12 +69,12 @@ def tess_filenames(base_dir,
 
     Returns:
     A list of filepaths to the FITS files for a given TIC and observation sector(s)
-    A string containing all the sectors in which the TCE was observed separated by a space
+    # A string containing all the sectors in which the TCE was observed separated by a space
     """
 
     # initialize variables
     filenames = []
-    tce_sectors = ''
+    # tce_sectors = ''
 
     # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
     tess_id = str(ticid).zfill(16)
@@ -95,21 +99,22 @@ def tess_filenames(base_dir,
 
         if not check_existence or gfile.Exists(filename):
             filenames.append(filename)
-            tce_sectors += '{} '.format(sector)
+            # tce_sectors += '{} '.format(sector)
     # else:
     #     print("File {} does not exist.".format(filename))
 
-    return filenames, tce_sectors[:-1]
+    return filenames  # , tce_sectors[:-1]
 
 
 def read_tess_light_curve(filenames,
                           light_curve_extension="LIGHTCURVE",
                           interpolate_missing_time=False,
                           centroid_radec=False,
-                          prefer_psfcentr=False):
+                          prefer_psfcentr=False,
+                          invert=False):
     """ Reads data from FITS files for a TESS target star.
 
-  Args:
+    Args:
     filenames: A list of .fits files containing time and flux measurements.
     light_curve_extension: Name of the HDU 1 extension containing light curves.
     interpolate_missing_time: Whether to interpolate missing (NaN) time values.
@@ -119,22 +124,29 @@ def read_tess_light_curve(filenames,
     centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
       and Dec, or not
     prefer_psfcentr: bool, if True, uses PSF centroids when available
+    invert: bool, if True, inverts time series
 
-  Returns:
-    all_time: A list of numpy arrays; the time values of the light curve.
-    all_flux: A list of numpy arrays; the flux values of the light curve.
-    all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values of
-    the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
-    add_info: A dict with additional data extracted from the FITS files; 'module' is the same but for the module in
-    which the target is in every quarter; 'target position' is a list of two elements which correspond to the target
-    star position, either in world (RA, Dec) or local CCD (x, y) pixel coordinates
-  """
+    Returns:
+    data: dictionary with data extracted from the FITS files
+        - all_time: A list of numpy arrays; the time values of the light curve.
+        - all_flux: A list of numpy arrays; the flux values of the light curve.
+        - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid
+        values of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
+        - sectors: A list with the observation sectors
+        - target_postiion: A list of two elements which correspond to the target star position, either in world
+        (RA, Dec) or local CCD (x, y) pixel coordinates
+        - camera: A list with the camera IDs
+        - ccd: A list with the CCD IDs
+    """
 
-    # initialize variables
-    all_time = []
-    all_flux = []
-    all_centroid = {'x': [], 'y': []}
-    add_info = {'camera': [], 'ccd': [], 'sector': [], 'target position': []}
+    # initialize data dict
+    data = {'all_time': [],
+            'all_flux': [],
+            'all_centroids': {'x': [], 'y': []},
+            'sectors': [],
+            'target_position': [],
+            'camera': [],
+            'ccd': []}
 
     def _has_finite(array):
         for i in array:
@@ -145,68 +157,75 @@ def read_tess_light_curve(filenames,
 
     # iterate through the FITS files for the target star
     for filename in filenames:
-        with fits.open(gfile.Open(filename, "rb")) as hdu_list:
+        try:
+            with fits.open(gfile.Open(filename, "rb"), ignoring_missing_end=True) as hdu_list:
 
-            add_info['camera'].append(hdu_list["PRIMARY"].header["CAMERA"])
-            add_info['ccd'].append(hdu_list["PRIMARY"].header["CCD"])
-            add_info['sector'].append(hdu_list["PRIMARY"].header["SECTOR"])
+                camera = hdu_list["PRIMARY"].header["CAMERA"]
+                ccd = hdu_list["PRIMARY"].header["CCD"]
+                sector = hdu_list["PRIMARY"].header["SECTOR"]
 
-            if len(add_info['target position']) == 0:
-                add_info['target position'] = [hdu_list["PRIMARY"].header["RA_OBJ"],
+                if len(data['target_position']) == 0:
+                    data['target_position'] = [hdu_list["PRIMARY"].header["RA_OBJ"],
                                                hdu_list["PRIMARY"].header["DEC_OBJ"]]
 
                 # TODO: convert target position from RA and Dec to local CCD pixel coordinates
                 if not centroid_radec:
                     pass
 
-            light_curve = hdu_list[light_curve_extension].data
+                light_curve = hdu_list[light_curve_extension].data
 
-            if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
-                centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
-            else:
-                if _has_finite(light_curve.MOM_CENTR1):
-                    centroid_x, centroid_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+                if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
+                    centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
                 else:
-                    continue  # no data
+                    if _has_finite(light_curve.MOM_CENTR1):
+                        centroid_x, centroid_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+                    else:
+                        continue  # no data
 
-            # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
-            if centroid_radec:
-                # transformation matrix from aperture coordinate frame to RA and Dec
-                cd_transform_matrix = np.zeros((2, 2))
-                cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header[
-                    'CDELT1'], \
-                                         hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header[
-                                             'CDELT1']
-                cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header[
-                    'CDELT2'], \
-                                         hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header[
-                                             'CDELT2']
+                # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
+                if centroid_radec:
+                    # transformation matrix from aperture coordinate frame to RA and Dec
+                    cd_transform_matrix = np.zeros((2, 2))
+                    cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header[
+                        'CDELT1'], \
+                                             hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header[
+                                                 'CDELT1']
+                    cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header[
+                        'CDELT2'], \
+                                             hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header[
+                                                 'CDELT2']
 
-                # # reference pixel in the aperture coordinate frame
-                # ref_px = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
+                    # # reference pixel in the aperture coordinate frame
+                    # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
 
-                # reference pixel in CCD coordinate frame
-                ref_px_apert = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
-                                         [hdu_list['APERTURE'].header['CRVAL2P']]])
+                    # reference pixel in CCD coordinate frame
+                    ref_px_ccdf = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
+                                            [hdu_list['APERTURE'].header['CRVAL2P']]])
 
-                # RA and Dec at reference pixel
-                ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
-                                         [hdu_list['APERTURE'].header['CRVAL2']]])
+                    # # RA and Dec at reference pixel
+                    # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
+                    #                          [hdu_list['APERTURE'].header['CRVAL2']]])
+        except:
+            print(filename)
+            print('here')
 
         # convert from CCD pixel coordinates to world coordinates RA and Dec
         if centroid_radec:
-            centroid_x, centroid_y = convertpxtoradec_centr(centroid_x,
-                                                            centroid_y,
-                                                            cd_transform_matrix,
-                                                            ref_px_apert,
-                                                            ref_angcoord
-                                                            )
+            # centroid_x, centroid_y = convertpxtoradec_centr(centroid_x,
+            #                                                 centroid_y,
+            #                                                 cd_transform_matrix,
+            #                                                 ref_px_apert,
+            #                                                 ref_angcoord
+            #                                                 )
 
-        all_centroid['x'].append(centroid_x)
-        all_centroid['y'].append(centroid_y)
+            w = wcs.WCS(hdu_list['APERTURE'].header)
+            pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
+            world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=False)
+            centroid_ra, centroid_dec = world[:, 0], world[:, 1]
 
         time = light_curve.TIME
         flux = light_curve.PDCSAP_FLUX
+
         if not time.size:
             continue  # No data.
 
@@ -214,11 +233,28 @@ def read_tess_light_curve(filenames,
         if interpolate_missing_time:
             time = util.interpolate_missing_time(time, light_curve.CADENCENO)
 
-        all_time.append(time)
-        all_flux.append(flux)
+        data['all_time'].append(time)
+        data['all_flux'].append(flux)
+        if centroid_radec:
+            data['all_centroids']['x'].append(centroid_ra)
+            data['all_centroids']['y'].append(centroid_dec)
+        else:
+            data['all_centroids']['x'].append(centroid_x)
+            data['all_centroids']['y'].append(centroid_y)
 
-    # TODO: adapt this to the centroid time series as well?
+        data['camera'].append(camera)
+        data['ccd'].append(ccd)
+        data['sectors'].append(sector)
+
+    # TODO: scramble for TESS data as well?
     # if scramble_type:
     #    all_time, all_flux = scramble_light_curve(all_time, all_flux, all_quarters, scramble_type)
 
-    return all_time, all_flux, all_centroid, add_info
+    # inverts light curve
+    # TODO: currently only inverting for the all_centroids variable
+    if invert:
+        data['all_flux'] = [-1 * flux for flux in data['all_flux']]
+        data['all_centroids']['x'] = [-1 * centroid for centroid in data['all_centroids']['x']]
+        data['all_centroids']['y'] = [-1 * centroid for centroid in data['all_centroids']['y']]
+
+    return data
