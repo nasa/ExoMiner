@@ -1,10 +1,7 @@
 """
 Custom TensorFlow Keras worker for the hyperparameter optimizer.
 
-TODO: add sess_config as parameter for the worker
-      find a way to automate the matplotlib switch backend when running on Pleiades
-      ******** remember to enable/disable GPU assignment for multi/single GPU systems **********
-      add config attribute related with tf.ConfigProto options
+TODO: find a way to automate the matplotlib switch backend when running on Pleiades
 """
 
 # 3rd party
@@ -385,6 +382,7 @@ class TransitClassifier(Worker):
 
         :return: ConfigurationsSpace-Object
         """
+
         config_space = CS.ConfigurationSpace()
 
         # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
@@ -422,7 +420,7 @@ class TransitClassifier(Worker):
         # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
         # config_space.add_condition(cond)
 
-        init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=7, default_value=4)
+        init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=6, default_value=4)
         kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=8, default_value=2)
         kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2, default_value=1)
         conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
@@ -431,14 +429,14 @@ class TransitClassifier(Worker):
         pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8, default_value=2)
         pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2, default_value=1)
 
-        num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=3, default_value=2)
-        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5,
+        num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=5, default_value=2)
+        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5,
                                                                 default_value=3)
 
         init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
         # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
 
-        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=0, upper=4, default_value=2)
+        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=1, upper=4, default_value=2)
 
         config_space.add_hyperparameters([num_glob_conv_blocks,
                                           num_fc_layers,

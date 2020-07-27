@@ -293,14 +293,18 @@ ax.grid(True)
 
 #%% Check scalar features after normalization
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm'
+# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
+# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_centrmedcmaxncorr_starshuffle_experiment-labels-norm'
 
 scalarFeaturesNames = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'boot_fap', 'tce_smass', 'tce_sdens',
                        'tce_cap_stat', 'tce_hap_stat']
+# scalarFeaturesNames = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'boot_fap', 'tce_smass', 'tce_sdens',
+#                        'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
 
 scalarFeatures = []
 
-tfrecFiles = [os.path.join(tfrecDir, tfrecFile) for tfrecFile in os.listdir(tfrecDir)]
+tfrecFiles = [os.path.join(tfrecDir, tfrecFile) for tfrecFile in os.listdir(tfrecDir) if 'shard' in tfrecFile]
 
 for tfrecFile in tfrecFiles:
 
@@ -311,6 +315,8 @@ for tfrecFile in tfrecFiles:
         example.ParseFromString(string_record)
 
         scalarFeatures.append(np.array(example.features.feature['scalar_params'].float_list.value, dtype='float')[np.array([0, 1, 2, 3, 7, 8, 9, 10, 11])])
+        # scalarFeatures.append(np.array(example.features.feature['scalar_params'].float_list.value, dtype='float')[
+        #                           np.array([0, 1, 2, 3, 7, 8, 9, 10, 11, 12])])
 
 scalarFeatures = np.array(scalarFeatures)
 
@@ -323,9 +329,10 @@ bins = {
     'tce_sradius': np.linspace(-2, 15, 100, endpoint=True),
     'tce_sdens': np.linspace(-1, 15, 100, endpoint=True),
     'tce_cap_stat': np.linspace(-15, 40, 100, endpoint=True),
-    'tce_hap_stat': np.linspace(-10, 40, 100, endpoint=True)
+    'tce_hap_stat': np.linspace(-10, 40, 100, endpoint=True),
+    'tce_rb_tcount0': np.linspace(-1, 30, 100, endpoint=True)
 }
-for i in range(len(scalarFeaturesNames)):
+for i in [4]:  # range(len(scalarFeaturesNames)):
 
     smean = np.mean(scalarFeatures[:, i])
     smedian = np.median(scalarFeatures[:, i])
@@ -347,5 +354,5 @@ for i in range(len(scalarFeaturesNames)):
     # ax.set_yscale('log')
     ax.set_xlim(bins[scalarFeaturesNames[i]][[0, -1]])
     ax.legend()
-    f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/normalized_scalar_parameters/hist_{}-norm_keplerq1q7dr25.png'.format(scalarFeaturesNames[i]))
-    plt.close('all')
+    # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/normalized_scalar_parameters/hist_{}-norm_keplerq1q7dr25.png'.format(scalarFeaturesNames[i]))
+    # plt.close('all')

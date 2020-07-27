@@ -527,15 +527,17 @@ if __name__ == '__main__':
     os.makedirs(save_path, exist_ok=True)
     os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
 
+    # tfrecord files directory
+    tfrec_dir = os.path.join(paths.path_tfrecs,
+                             'Kepler',
+                             'Q1-Q17_DR25',
+                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
+
     # name of the HPO study from which to get a configuration; config needs to be set to None
     hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_splinenew_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband'
 
-    # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = CNN1dPlanetFinderv1
-
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
-
     # example of configuration
     # config = {'batch_size': 32,
     #           'conv_ls_per_block': 2,
@@ -554,15 +556,40 @@ if __name__ == '__main__':
     #           'pool_stride': 1,
     #           'sgd_momentum': 0.024701642898564722}
 
-    # tfrecord files directory
-    tfrec_dir = os.path.join('/data5/tess_project/Data/tfrecords/',
-                             'Kepler',
-                             'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
+    # set the configuration from a HPO study
+    if config is None:
+        res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
+                                                     , '_{}'.format(hpo_study))
+
+        # get ID to config mapping
+        id2config = res.get_id2config_mapping()
+        # best config - incumbent
+        incumbent = res.get_incumbent_id()
+        config = id2config[incumbent]['config']
+
+        # select a specific config based on its ID
+        # example - check config.json
+        # config = id2config[(8, 0, 3)]['config']
+
+    # base model used - check estimator_util.py to see which models are implemented
+    BaseModel = CNN1dPlanetFinderv1
+    config['branches'] = ['global_flux_view',
+                          'local_flux_view',
+                          'local_flux_oddeven_views',
+                          'global_centr_view_medcmaxn',
+                          'local_centr_view_medcmaxn',
+                          'local_weak_secondary_view'
+                          ]
 
     # features to be extracted from the dataset(s)
-    features_names = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn', 'local_centr_view_medcmaxn',
-                      'local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
+    features_names = ['global_flux_view',
+                      'local_flux_view',
+                      'local_flux_odd_view',
+                      'local_flux_even_view',
+                      'global_centr_view_medcmaxn',
+                      'local_centr_view_medcmaxn',
+                      'local_weak_secondary_view'
+                      ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
@@ -572,12 +599,11 @@ if __name__ == '__main__':
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
-
     # example of feature set
     # features_set = {'global_view': {'dim': (2001,), 'dtype': tf.float32},
     #                 'local_view': {'dim': (201,), 'dtype': tf.float32}}
 
-    data_augmentation = False  # if True, uses data augmentation in the training set
+    data_augmentation = False  # if True, uses online data augmentation in the training set
     online_preproc_params = {'num_bins_global': 2001, 'num_bins_local': 201, 'num_transit_dur': 9}
 
     # args_inputfn = {'features_set': features_set, 'data_augmentation': data_augmentation,
@@ -616,29 +642,14 @@ if __name__ == '__main__':
                                                           profile_batch=2
                                                           )
 
-    # set the configuration from a HPO study
-    if config is None:
-        res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
-                                                     , '_{}'.format(hpo_study))
-
-        # get ID to config mapping
-        id2config = res.get_id2config_mapping()
-        # best config - incumbent
-        incumbent = res.get_incumbent_id()
-        config = id2config[incumbent]['config']
-
-        # select a specific config based on its ID
-        # example - check config.json
-        # config = id2config[(8, 0, 3)]['config']
-
     # SCRIPT PARAMETERS #############################################
 
     # add dataset parameters
     config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
-    config['batch_norm'] = False
-    config['non_lin_fn'] = 'relu'
+    # config['batch_norm'] = False
+    # config['non_lin_fn'] = 'relu'
     config = src.config_keras.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI

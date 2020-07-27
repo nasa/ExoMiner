@@ -535,6 +535,15 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
                 assert tceScalarParams[7] > 0
                 tceScalarParams[7] = np.log10(tceScalarParams[7])
 
+            # clip ghost diagnostic by +- 20 * std
+            tceScalarParams[-3] = np.clip(tceScalarParams[-3],
+                                          -20 * normStatsScalar['std'][-3],
+                                          20 * normStatsScalar['std'][-3])
+            # hap
+            tceScalarParams[-2] = np.clip(tceScalarParams[-2],
+                                          -20 * normStatsScalar['std'][-2],
+                                          20 * normStatsScalar['std'][-2])
+
             # median centering and std normalization
             tceScalarParams = (tceScalarParams - normStats['scalar_params']['median']) / \
                               normStats['scalar_params']['std']
@@ -666,14 +675,17 @@ print('Normalization finished.')
 
 #%% Check final preprocessed data
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/' \
+           'tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm_rollingband_newcentrnorm_ghostclip'
 plotDir = os.path.join(tfrecDir, 'plots_all_views')
 os.makedirs(plotDir, exist_ok=True)
 tfrecFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if 'shard' in file]
 
 tceIdentifier = 'tce_plnt_num'
 views = ['global_centr_view', 'local_centr_view', 'global_centr_view_medcmaxn', 'local_centr_view_medcmaxn',
-         'global_centr_view_medn', 'local_centr_view_medn', 'global_centr_fdl_view', 'local_centr_fdl_view',
+         'global_centr_view_medcmaxn_dir', 'local_centr_view_medcmaxn_dir',
+         'global_centr_view_medn',
+         'local_centr_view_medn', 'global_centr_fdl_view', 'local_centr_fdl_view',
          'global_flux_view', 'local_flux_view', 'global_flux_odd_view', 'local_flux_odd_view', 'global_flux_even_view',
          'local_flux_even_view', 'global_weak_secondary_view', 'local_weak_secondary_view']
 # views = ['local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
@@ -688,8 +700,8 @@ views = ['global_centr_view', 'local_centr_view', 'global_centr_view_medcmaxn', 
 # rankingTbl = rankingTbl.loc[(rankingTbl['original_label'] == 'AFP') & (rankingTbl['score'] >= 0.5)]
 # rankingTbl = rankingTbl.loc[(rankingTbl['target_id'] == 8937762) & (rankingTbl[tceIdentifier] == 1)]
 
-tceOfInterest = (8611832, 1)
-scheme = (4, 4)
+tceOfInterest = (5724810, 1)  # (8611832, 1)
+scheme = (5, 4)
 basename = 'all_views'  # basename for figures
 probPlot = 1.01  # probability threshold for plotting
 # lwksViewStdTce = {}
@@ -713,6 +725,9 @@ for tfrecFile in tfrecFiles:
             continue
         # else:
         #     tceFound = True
+
+        scalarParamsTfrec = np.array(example.features.feature['scalar_params'].float_list.value)
+        aaaa
 
         # tceFound = rankingTbl.loc[(rankingTbl['target_id'] == targetIdTfrec) &
         #                           (rankingTbl[tceIdentifier] == tceIdentifierTfrec)]
@@ -772,92 +787,38 @@ for tfrecFile in tfrecFiles:
         # oddevenMinTce[(targetIdTfrec, tceIdentifierTfrec)] = [np.min(viewsDict['local_flux_odd_view']),
         #                                                       np.min(viewsDict['local_flux_even_view'])]
 
-#%% Plot minimum value for odd and even local views for a given dataset
-
-# rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
-#                          'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
-#                          'ensemble_ranked_predictions_testset')
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
-
-tceTbl['odd_min_val'] = np.nan
-tceTbl['even_min_val'] = np.nan
-
-for targetId, tceId in oddevenMinTce:
-    tceTbl.loc[(tceTbl['target_id'] == targetId) &
-               (tceTbl['tce_plnt_num'] == tceId), ['odd_min_val', 'even_min_val']] = oddevenMinTce[targetId, tceId]
-
-dispositions = ['PC', 'AFP', 'NTP']
-plotTbls = {disposition: None for disposition in dispositions}
-for disposition in dispositions:
-    plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
-    # plotTbls[disposition] = rankingTbl.loc[tceTbl['original_label'] == disposition]
-
-f, ax = plt.subplots()
-# ax.scatter(plotTbls['PC']['odd_min_val'].values, plotTbls['PC']['even_min_val'].values, label='PC', s=15, c='g')
-# ax.scatter(plotTbls['AFP']['odd_min_val'].values, plotTbls['AFP']['even_min_val'].values, label='AFP', s=15, c='y')
-ax.scatter(plotTbls['NTP']['odd_min_val'].values, plotTbls['NTP']['even_min_val'].values, label='NTP', s=15, c='r')
-ax.set_ylabel('Even view min value')
-ax.set_xlabel('Odd view min value')
-ax.set_title('Q1-Q17 DR25 \nNon-rogue TCEs and no Robovetter KOIs dataset')
-ax.legend()
-# ax.set_yscale('log')
-# ax.set_xscale('log')
-
-#%% Plot oot-std value for local weak secondary flux view for a given dataset
-
-rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
-                         'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
-                         'ensemble_ranked_predictions_testset')
-# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
-
-rankingTbl['lwks_oot-std'] = np.nan
-
-for targetId, tceId in oddevenMinTce:
-    rankingTbl.loc[(rankingTbl['target_id'] == targetId) &
-                   (rankingTbl['tce_plnt_num'] == tceId), 'lwks_oot'] = lwksViewStdTce[targetId, tceId]
-
-dispositions = ['PC', 'AFP', 'NTP']
-plotTbls = {disposition: None for disposition in dispositions}
-for disposition in dispositions:
-    # plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
-    plotTbls[disposition] = rankingTbl.loc[rankingTbl['original_label'] == disposition]
-
-f, ax = plt.subplots()
-ax.scatter(plotTbls['PC']['lwks_oot'].values, plotTbls['PC']['score'].values, label='PC', s=15, c='g')
-ax.scatter(plotTbls['AFP']['lwks_oot'].values, plotTbls['AFP']['score'].values, label='AFP', s=15, c='y')
-ax.scatter(plotTbls['NTP']['lwks_oot'].values, plotTbls['NTP']['score'].values, label='NTP', s=15, c='r')
-ax.set_ylabel('Score')
-ax.set_xlabel('Local weak secondary oot-std')
-ax.set_title('Test set')
-ax.legend()
-# ax.set_xscale('log')
-ax.set_ylim([0, 1])
-# ax.set_xlim([0, 1])
-
 #%% Adding the normalized rolling band diagnostic to the TFRecords
 
 tceIdentifier = 'tce_plnt_num'
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/' \
+              'tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm'
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
+destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/' \
+               'tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm_rollingband_newcentrnorm_ghostclip'
 os.makedirs(destTfrecDir, exist_ok=True)
 
-trainTceTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/' \
-                'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/trainset.csv')
+# training set TCE table
+trainTceTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
+                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/trainset.csv')
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+# TCE table
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
 
+# compute training set statistics for the rolling band diagnostic
 tce_rb_tcount0Arr = np.zeros(len(trainTceTbl), dtype='float')
 for tce_i, tce in trainTceTbl.iterrows():
     tce_rb_tcount0Arr[tce_i] = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) &
                                           (tceTbl[tceIdentifier] == tce[tceIdentifier])]['tce_rb_tcount0']
-
 normStats = {
     'tce_rb_tcount0': {'median': np.median(tce_rb_tcount0Arr),
                        'std': stats.mad_std(tce_rb_tcount0Arr)}
 }
+
+# normalization stats for ghost diagnostic
+normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment/'
+# scalar parameters normalization statistics
+normStatsScalar = np.load(os.path.join(normStatsDir, 'train_scalarparam_norm_stats.npy'), allow_pickle=True).item()
 
 for srcTfrecFile in srcTfrecFiles:
 
@@ -870,6 +831,8 @@ for srcTfrecFile in srcTfrecFiles:
             example = tf.train.Example()
             example.ParseFromString(string_record)
 
+            # get rolling band diagnostic from TCE table for this TCE; normalize it using training set stats;
+            # add to the example
             tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
             targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
@@ -885,6 +848,36 @@ for srcTfrecFile in srcTfrecFiles:
 
             tceScalarParams = np.append(tceScalarParams, tce_rb_tcount0Tfrec.values[0])
 
+            # clip ghost diagnostic values to 20 * sigma
+            # cap
+            tceScalarParams[-3] = np.clip(tceScalarParams[-3],
+                                          -20 * normStatsScalar['std'][-2],
+                                          20 * normStatsScalar['std'][-2])
+            # hap
+            tceScalarParams[-2] = np.clip(tceScalarParams[-2],
+                                          -20 * normStatsScalar['std'][-1],
+                                          20 * normStatsScalar['std'][-1])
+
             example_util.set_float_feature(example, 'scalar_params', tceScalarParams, allow_overwrite=True)
+
+            # create new global and local centroid views
+            # 1) absolute and then max normalization
+            # 2) max(abs) normalization
+            glob_centr_medcmaxn = np.array(example.features.feature['global_centr_view_medcmaxn'].float_list.value)
+            loc_centr_medcmaxn = np.array(example.features.feature['local_centr_view_medcmaxn'].float_list.value)
+
+            # 1)
+            glob_centr_medc_abs_maxn = np.abs(glob_centr_medcmaxn) / np.max(np.abs(glob_centr_medcmaxn))
+            example_util.set_float_feature(example, 'global_centr_view_medcmaxn', glob_centr_medc_abs_maxn,
+                                           allow_overwrite=True)
+            loc_centr_medc_abs_maxn = np.abs(loc_centr_medcmaxn) / np.max(np.abs(loc_centr_medcmaxn))
+            example_util.set_float_feature(example, 'local_centr_view_medcmaxn', loc_centr_medc_abs_maxn,
+                                           allow_overwrite=True)
+
+            # 2)
+            glob_centr_medc_maxabsn = glob_centr_medcmaxn / np.max(np.abs(glob_centr_medcmaxn))
+            example_util.set_float_feature(example, 'global_centr_view_medcmaxn_dir', glob_centr_medc_maxabsn)
+            loc_centr_medc_maxabsn = loc_centr_medcmaxn / np.max(np.abs(loc_centr_medcmaxn))
+            example_util.set_float_feature(example, 'local_centr_view_medcmaxn_dir', loc_centr_medc_maxabsn)
 
             writer.write(example.SerializeToString())

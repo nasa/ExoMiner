@@ -1,7 +1,5 @@
 """
-Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline
-
-# TODO: generalize this code for TESS - change keywords, quarters and modules, ...
+Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline.
 """
 
 # 3rd party
@@ -554,6 +552,17 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
 
 
 def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename):
+    """ Creates and saves a figure with plots of the global flux view and global weak secondary flux view for a given
+    TCE.
+
+    :param glob_view: NumPy array, global flux view
+    :param glob_view_weak_secondary: NumPy array, global weak secondary flux view
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: Config object; preprocessing parameters.
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
 
     f, ax = plt.subplots()
     ax.plot(glob_view, color='b', label='primary')
@@ -567,7 +576,17 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
     plt.close()
 
 
-def plot_phasefoldedandbinned(time, timeseries, tce, config, savedir, basename):
+def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
+    """ Creates and saves a figure with plots of the phase folded time series for a given TCE.
+
+    :param time: Numpy array, timestamps
+    :param timeseries: NumPy array, timeseries
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: Config object; preprocessing parameters.
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
 
     f, ax = plt.subplots()
     ax.plot(time, timeseries)
@@ -579,7 +598,7 @@ def plot_phasefoldedandbinned(time, timeseries, tce, config, savedir, basename):
     plt.close()
 
 
-def plot_all_phbtimeseries(timeseries, tce, config, scheme, savedir, basename):
+def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, basename):
     """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
 
     :param timeseries: dict, views to be plotted

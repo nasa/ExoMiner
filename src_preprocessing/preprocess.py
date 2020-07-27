@@ -37,8 +37,7 @@ from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.third_party.kepler_spline import kepler_spline
 from src_preprocessing import utils_visualization
-from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13, \
-    synchronize_centroids_with_flux, get_denoised_centroids_kepler
+from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 from src_preprocessing import tess_io
 
@@ -243,7 +242,8 @@ def get_gap_indices(flux, checkfuncs=None):
 
 
 def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
-    """ Linearly interpolate the timeseries across the in-transit cadences.
+    """ Linearly interpolate the timeseries across the in-transit cadences. The interpolation is performed between the
+    boundary points using their values.
 
     :param timeseries: list of numpy arrays, time-series; if centroid is True, then it is a dictionary with a list of
     numpy arrays for each coordinate ('x' and 'y')
@@ -322,8 +322,8 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
 
 
 def impute_transits(timeseries, transit_pulse_train, centroid=False):
-    """ Impute transits by linearly interpolating them using as boundary values the out-of-transit median in a windows
-    around the transits.
+    """ Impute transits by linearly interpolating them using as boundary values the out-of-transit median in windows
+    around the transits. These windows have the same width as transit.
 
     :param timeseries: list of numpy arrays, time-series; if centroid is True, then it is a dictionary with a list of
     numpy arrays for each coordinate ('x' and 'y')
@@ -715,15 +715,15 @@ def _process_tce(tce, table, config, conf_dict):
         A tensorflow.train.Example proto containing TCE features.
     """
 
-    # if tce['target_id'] == 198206613:  # 8009350 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
-    # if tce['oi'] == 1207.01:
+    # if tce['target_id'] == 11288051 and tce['tce_plnt_num'] == 3:  # tce['av_training_set'] == 'PC' and
+    # # if tce['oi'] == 1207.01:
     #     print(tce)
     # else:
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = False
-    if np.random.random() < 0.01:
+    if np.random.random() < 0.1:
         plot_preprocessing_tce = config.plot_figures
 
     # sample TCE ephemeris using uncertainty interval
@@ -770,15 +770,25 @@ def _process_tce(tce, table, config, conf_dict):
     #     all_centroids, idxs_nan_centroids = get_denoised_centroids_kepler(tce.target_id, config.denoised_centroids_dir)
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_centroids(data['all_time'], data['all_centroids'], None, tce, config,
-                                           os.path.join(config.output_dir, 'plots'), '1_raw_aug{}'.format(tce['augmentation_idx']),
+        utils_visualization.plot_centroids(data['all_time'],
+                                           data['all_centroids'],
+                                           None,
+                                           tce,
+                                           config,
+                                           os.path.join(config.output_dir, 'plots'),
+                                           '1_raw_aug{}'.format(tce['augmentation_idx']),
                                            add_info=add_info,
                                            target_position=None
                                            )
 
         if not config.px_coordinates:
-            utils_visualization.plot_centroids(data['all_time'], data['all_centroids'], None, tce, config,
-                                               os.path.join(config.output_dir, 'plots'), '1_raw_target_aug{}'.format(tce['augmentation_idx']),
+            utils_visualization.plot_centroids(data['all_time'],
+                                               data['all_centroids'],
+                                               None,
+                                               tce,
+                                               config,
+                                               os.path.join(config.output_dir, 'plots'),
+                                               '1_raw_target_aug{}'.format(tce['augmentation_idx']),
                                                add_info=add_info,
                                                target_position=data['target_position']
                                                )
@@ -937,7 +947,6 @@ def _process_tce(tce, table, config, conf_dict):
 
     # preprocess the flux and centroid time series
     data_processed = process_light_curve(data, config, tce, plot_preprocessing_tce)
-    # data.update(data_processed)
 
     # generate TCE example based on the preprocessed data
     return generate_example_for_tce(data_processed, tce, config, plot_preprocessing_tce)
@@ -977,8 +986,7 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                 os.path.join(config.output_dir, 'plots'), '3_binarytimeseriesandflux')
 
     # linearly interpolate across TCE transits
-    # all_flux_lininterp = lininterp_transits(all_flux, binary_time_all, centroid=False)
-    all_flux_lininterp = impute_transits(all_flux, binary_time_all, centroid=False)
+    all_flux_lininterp = lininterp_transits(all_flux, binary_time_all, centroid=False)
 
     # fit a spline to the flux time-series
     spline_flux = kepler_spline.fit_kepler_spline(all_time, all_flux_lininterp, verbose=False)[0]
@@ -991,7 +999,7 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                  config,
                                                  os.path.join(config.output_dir, 'plots'),
                                                  '4_smoothingandnormalizationflux_aug{}'.format(tce['augmentation_idx']),
-                                                 flux_interp= all_flux_lininterp)
+                                                 flux_interp=all_flux_lininterp)
 
     # get indices for which the spline has finite values
     finite_i = [np.isfinite(spline_flux[i]) for i in range(len(spline_flux))]
@@ -1011,8 +1019,7 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     return time, flux
 
 
-def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tce, config,
-                                      plot_preprocessing_tce):
+def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tce, config, plot_preprocessing_tce):
     """ Preprocess the weak secondary flux time series.
 
     :param all_time: list of NumPy arrays, timestamps
@@ -1043,14 +1050,11 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
                                                 os.path.join(config.output_dir, 'plots'), '3_binarytimeseries_wksflux_aug{}'.format(tce['augmentation_idx']))
 
     # spline fitting for the secondary flux time-series
-    # all_flux_noprimary_lininterp = lininterp_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
-    all_flux_noprimary_lininterp = impute_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
+    all_flux_noprimary_lininterp = lininterp_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
 
-    spline_flux_noprimary = kepler_spline.fit_kepler_spline(all_time, all_flux_noprimary_lininterp,
-                                                            verbose=False)[0]
+    spline_flux_noprimary = kepler_spline.fit_kepler_spline(all_time, all_flux_noprimary_lininterp, verbose=False)[0]
 
     if plot_preprocessing_tce:
-        # if not config.whitened:
         utils_visualization.plot_flux_fit_spline(all_time,
                                                  all_flux_noprimary,
                                                  spline_flux_noprimary,
@@ -1108,8 +1112,11 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
             all_centroids = kepler_transform_pxcoordinates_mod13(all_centroids, add_info)
 
             if plot_preprocessing_tce:
-                utils_visualization.plot_centroids(all_time, all_centroids, None,
-                                                   tce, config,
+                utils_visualization.plot_centroids(all_time,
+                                                   all_centroids,
+                                                   None,
+                                                   tce,
+                                                   config,
                                                    os.path.join(config.output_dir, 'plots'),
                                                    '2_rawaftertransformation_aug{}'.format(tce['augmentation_idx']),
                                                    add_info=add_info)
@@ -1129,8 +1136,7 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     # FIXME: wouldn't it be better to fit a spline to oot values or a Savitzky Golay filter
     #  (as Jeff and Doug mentioned)?
     # FIXME: fit spline only to the oot values - linearly interpolate the transits; same thing for flux
-    # all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
-    all_centroids_lininterp = impute_transits(all_centroids, binary_time_all, centroid=True)
+    all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
     spline_centroid = {coord: kepler_spline.fit_kepler_spline(all_time, all_centroids_lininterp[coord],
                                                               verbose=False)[0] for coord in all_centroids_lininterp}
 
@@ -1260,8 +1266,14 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
         all_centroid_dist = [centroid_dist_arr * 3600 for centroid_dist_arr in all_centroid_dist]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(all_time, all_centroid_dist, None, None, tce, config,
-                                                os.path.join(config.output_dir, 'plots'), '6_distcentr_aug{}'.format(tce['augmentation_idx']))
+        utils_visualization.plot_dist_centroids(all_time,
+                                                all_centroid_dist,
+                                                None,
+                                                None,
+                                                tce,
+                                                config,
+                                                os.path.join(config.output_dir, 'plots'),
+                                                '6_distcentr_aug{}'.format(tce['augmentation_idx']))
 
     # impute the time series with Gaussian noise based on global estimates of median and std
     if config.gap_imputed:
@@ -1306,8 +1318,7 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
 
-    # all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
-    all_centroids_lininterp = impute_transits(all_centroids, binary_time_all, centroid=True)
+    all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
 
     spline_centroid = {coord: kepler_spline.fit_kepler_spline(all_time,
                                                               all_centroids_lininterp[coord],
@@ -1864,21 +1875,23 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     #                                                                             tce['tce_time0bk'],
     #                                                                             augmentation=False)
 
-    pfb_timeseries = {'Flux': (time, flux),
-                      'Odd Flux': (odd_time, odd_flux),
-                      'Even Flux': (even_time, even_flux),
-                      # 'Weak Secondary Flux': (time_noprimary, flux_noprimary),
-                      'Centroid dist': (time_centroid_dist, centroid_dist),
-                      # 'Centroid dist FDL': (time_centroid_dist_fdl, centroid_dist_fdl)
-                      }
+    phasefolded_timeseries = {'Flux': (time, flux),
+                              'Odd Flux': (odd_time, odd_flux),
+                              'Even Flux': (even_time, even_flux),
+                              # 'Weak Secondary Flux': (time_noprimary, flux_noprimary),
+                              'Centroid dist': (time_centroid_dist, centroid_dist),
+                              # 'Centroid dist FDL': (time_centroid_dist_fdl, centroid_dist_fdl)
+                              }
 
     if plot_preprocessing_tce:
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
-        utils_visualization.plot_all_phbtimeseries(pfb_timeseries, tce, config, (2, 2),
-                                                   os.path.join(config.output_dir, 'plots'),
-                                                   '7_phasefoldedbinned_timeseries_aug{}'.format(tce['augmentation_idx']
-                                                                                                 )
-                                                   )
+        utils_visualization.plot_all_phasefoldedtimeseries(phasefolded_timeseries,
+                                                           tce,
+                                                           config,
+                                                           (2, 2),
+                                                           os.path.join(config.output_dir, 'plots'),
+                                                           '7_phasefoldedbinned_timeseries_aug{}'.format(tce['augmentation_idx'])
+                                                           )
 
     # make output proto
     ex = tf.train.Example()
@@ -2033,19 +2046,50 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                         'local': np.median(loc_centr_view)}
                              }
 
-        # median centering and normalization using absolute maximum of the centroid view
-        glob_centr_view_mcmn = centering_and_normalization(glob_centr_view, centr_views_stats['median']['global'],
-                                                           np.max(glob_centr_view - centr_views_stats['median']['global']),
-                                                           report={'config': config, 'tce': tce,
-                                                                   'view': 'global_centr_view_medcmaxn'}
-                                                           )
-        loc_centr_view_mcmn = centering_and_normalization(loc_centr_view, centr_views_stats['median']['local'],
-                                                          np.max(loc_centr_view - centr_views_stats['median']['local']),
-                                                          report={'config': config, 'tce': tce,
-                                                                  'view': 'local_centr_view_medcmaxn'}
-                                                          )
+        # median centering, absolute and max normalization of the centroid views
+        # removes magnitude and direction of shift; describes shift relative to oot only
+        # defined in [0, 1]
+        glob_centr_view_medc_abs_maxn = centering_and_normalization(glob_centr_view,
+                                                                    centr_views_stats['median']['global'],
+                                                                    1,  # np.max(glob_centr_view - centr_views_stats['median']['global']),
+                                                                    report={'config': config, 'tce': tce,
+                                                                    'view': 'global_centr_view_medcmaxn'}
+                                                                    )
+        glob_centr_view_medc_abs_maxn = np.abs(glob_centr_view_medc_abs_maxn)
+        glob_centr_view_medc_abs_maxn /= np.max(glob_centr_view_medc_abs_maxn)
+
+        loc_centr_view_medc_abs_maxn = centering_and_normalization(loc_centr_view,
+                                                                   centr_views_stats['median']['local'],
+                                                                   1,  # np.max(loc_centr_view - centr_views_stats['median']['local']),
+                                                                   report={'config': config, 'tce': tce,
+                                                                           'view': 'local_centr_view_medcmaxn'}
+                                                                   )
+        loc_centr_view_medc_abs_maxn = np.abs(loc_centr_view_medc_abs_maxn)
+        loc_centr_view_medc_abs_maxn /= np.max(loc_centr_view_medc_abs_maxn)
+
+        # median centering, max absolute normalization of the centroid views
+        # removes magnitude of shift, but keeps direction of shift from oot relative to the target star
+        # closer to -1, closer to target star; closer to 0, closer to oot; closer to 1, further from target star
+        # defined in [-1, 1]
+        glob_centr_view_medc_maxabsn = centering_and_normalization(glob_centr_view,
+                                                                   centr_views_stats['median']['global'],
+                                                                   1,  # np.max(glob_centr_view - centr_views_stats['median']['global']),
+                                                                   report={'config': config, 'tce': tce,
+                                                                           'view': 'global_centr_view_medcmaxn'}
+                                                                   )
+        glob_centr_view_medc_maxabsn /= np.max(np.abs(glob_centr_view_medc_maxabsn))
+
+        loc_centr_view_medc_maxabsn = centering_and_normalization(loc_centr_view,
+                                                                  centr_views_stats['median']['local'],
+                                                                  1,  # np.max(loc_centr_view - centr_views_stats['median']['local']),
+                                                                  report={'config': config, 'tce': tce,
+                                                                          'view': 'local_centr_view_medcmaxn'}
+                                                                  )
+        loc_centr_view_medc_maxabsn /= np.max(loc_centr_view_medc_maxabsn)
 
         # median normalization for centroid views
+        # centroid is normalized by oot value, which is set to around 1
+        # the shift is scaled by oot, so bound is not defined [P/N, 1] or [1, P/N]
         glob_centr_view_mn = centering_and_normalization(glob_centr_view, 0, centr_views_stats['median']['global'],
                                                          report={'config': config, 'tce': tce,
                                                                  'view': 'global_centr_view_medn'}
@@ -2083,10 +2127,12 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
         centr_views = {'global_centr_view': glob_centr_view,
                        'local_centr_view': loc_centr_view,
-                       'global_centr_view_medcmaxn': glob_centr_view_mcmn,
-                       'local_centr_view_medcmaxn': loc_centr_view_mcmn,
+                       'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
+                       'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
                        'global_centr_view_medn': glob_centr_view_mn,
                        'local_centr_view_medn': loc_centr_view_mn,
+                       'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
+                       'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
                        # 'global_centr_fdl_view': glob_centr_fdl_view,
                        # 'local_centr_fdl_view': loc_centr_fdl_view
                        }
@@ -2097,8 +2143,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
         if plot_preprocessing_tce:
             # CHANGE NUMBER OF VIEWS PLOTTED!!!
-            utils_visualization.plot_all_views(views, tce, config, (4, 3), os.path.join(config.output_dir, 'plots'),
-                                               '7_final_views_aug{}'.format(tce['augmentation_idx']))
+            utils_visualization.plot_all_views(views, tce, config, (4, 4), os.path.join(config.output_dir, 'plots'),
+                                               '8_final_views_aug{}'.format(tce['augmentation_idx']))
 
     except Exception as e:
         report_exclusion(config, tce, 'Error when creating views', stderr=e)
@@ -2115,7 +2161,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():
-        if name == 'Public Comment':
+        if name == 'Public Comment':  # can add special characters that are not serializable in the TFRecords
             continue
         try:
             example_util.set_feature(ex, name, [value])

@@ -434,9 +434,6 @@ if __name__ == '__main__':
     # if rank != 0:
     #     time.sleep(2)
 
-    # tf.logging.set_verbosity(tf.logging.ERROR)
-    # tf.logging.set_verbosity(tf.logging.INFO)
-
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
@@ -477,7 +474,6 @@ if __name__ == '__main__':
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
-
     # # example of configuration
     # config = {'batch_size': 32,
     #           'conv_ls_per_block': 2,
@@ -525,8 +521,14 @@ if __name__ == '__main__':
     clf_thr = 0.5
 
     # features to be extracted from the dataset
-    features_names = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn', 'local_centr_view_medcmaxn',
-                      'local_flux_odd_view', 'local_flux_even_view', 'local_weak_secondary_view']
+    features_names = ['global_flux_view',
+                      'local_flux_view',
+                      'global_centr_view_medcmaxn',
+                      'local_centr_view_medcmaxn',
+                      'local_flux_odd_view',
+                      'local_flux_even_view',
+                      'local_weak_secondary_view'
+                      ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
@@ -536,7 +538,6 @@ if __name__ == '__main__':
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
-
     # example of feature set
     # features_set = {'global_view': {'dim': (2001,), 'dtype': tf.float32},
     #                 'local_view': {'dim': (201,), 'dtype': tf.float32}}

@@ -1,0 +1,67 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+#%% Plot minimum value for odd and even local views for a given dataset
+
+# rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+#                          'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
+#                          'ensemble_ranked_predictions_testset')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
+
+tceTbl['odd_min_val'] = np.nan
+tceTbl['even_min_val'] = np.nan
+
+for targetId, tceId in oddevenMinTce:
+    tceTbl.loc[(tceTbl['target_id'] == targetId) &
+               (tceTbl['tce_plnt_num'] == tceId), ['odd_min_val', 'even_min_val']] = oddevenMinTce[targetId, tceId]
+
+dispositions = ['PC', 'AFP', 'NTP']
+plotTbls = {disposition: None for disposition in dispositions}
+for disposition in dispositions:
+    plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
+    # plotTbls[disposition] = rankingTbl.loc[tceTbl['original_label'] == disposition]
+
+f, ax = plt.subplots()
+# ax.scatter(plotTbls['PC']['odd_min_val'].values, plotTbls['PC']['even_min_val'].values, label='PC', s=15, c='g')
+# ax.scatter(plotTbls['AFP']['odd_min_val'].values, plotTbls['AFP']['even_min_val'].values, label='AFP', s=15, c='y')
+ax.scatter(plotTbls['NTP']['odd_min_val'].values, plotTbls['NTP']['even_min_val'].values, label='NTP', s=15, c='r')
+ax.set_ylabel('Even view min value')
+ax.set_xlabel('Odd view min value')
+ax.set_title('Q1-Q17 DR25 \nNon-rogue TCEs and no Robovetter KOIs dataset')
+ax.legend()
+# ax.set_yscale('log')
+# ax.set_xscale('log')
+
+#%% Plot oot-std value for local weak secondary flux view for a given dataset
+
+rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+                         'keplerdr25_g2001-l201_spline_gapped_glfluxbohb_norobovetterkois_starshuffle_glflux-loe/'
+                         'ensemble_ranked_predictions_testset')
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobobvetterKOIs.csv')
+
+rankingTbl['lwks_oot-std'] = np.nan
+
+for targetId, tceId in oddevenMinTce:
+    rankingTbl.loc[(rankingTbl['target_id'] == targetId) &
+                   (rankingTbl['tce_plnt_num'] == tceId), 'lwks_oot'] = lwksViewStdTce[targetId, tceId]
+
+dispositions = ['PC', 'AFP', 'NTP']
+plotTbls = {disposition: None for disposition in dispositions}
+for disposition in dispositions:
+    # plotTbls[disposition] = tceTbl.loc[tceTbl['label'] == disposition]
+    plotTbls[disposition] = rankingTbl.loc[rankingTbl['original_label'] == disposition]
+
+f, ax = plt.subplots()
+ax.scatter(plotTbls['PC']['lwks_oot'].values, plotTbls['PC']['score'].values, label='PC', s=15, c='g')
+ax.scatter(plotTbls['AFP']['lwks_oot'].values, plotTbls['AFP']['score'].values, label='AFP', s=15, c='y')
+ax.scatter(plotTbls['NTP']['lwks_oot'].values, plotTbls['NTP']['score'].values, label='NTP', s=15, c='r')
+ax.set_ylabel('Score')
+ax.set_xlabel('Local weak secondary oot-std')
+ax.set_title('Test set')
+ax.legend()
+# ax.set_xscale('log')
+ax.set_ylim([0, 1])
+# ax.set_xlim([0, 1])

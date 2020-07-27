@@ -14,8 +14,7 @@ import pandas as pd
 
 # local
 from src_preprocessing.preprocess import _process_tce
-from src_preprocessing.utils_generate_input_records import get_kepler_tce_table, get_tess_tce_table, \
-    load_whitened_data, shuffle_tce, normalize_params_tce_table
+from src_preprocessing.utils_generate_input_records import get_kepler_tce_table, get_tess_tce_table, shuffle_tce  # load_whitened_data, normalize_params_tce_table
 
 
 class Config:
@@ -24,7 +23,7 @@ class Config:
 
     # TFRecords base name
     tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
-    # tfrecords_base_name = 'test_tfrecordskeplerdr25_norobovetterkois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalar'
+    # tfrecords_base_name = 'test_tfrecordskeplerdr25_norobovetterkois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalar_zoom'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',

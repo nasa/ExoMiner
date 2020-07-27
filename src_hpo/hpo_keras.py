@@ -145,7 +145,7 @@ if __name__ == '__main__':
     # size = MPI.COMM_WORLD.size
     print('Rank = {}'.format(rank))
 
-    num_gpus = 1  # numper of GPUs per node
+    num_gpus = 1  # number of GPUs per node
 
     # set a specific GPU for training the ensemble
     gpu_id = rank % num_gpus
@@ -178,12 +178,27 @@ if __name__ == '__main__':
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
+    config = {'branches': ['global_flux_view',
+                           'local_flux_view',
+                           'local_flux_oddeven_views',
+                           'global_centr_view_medcmaxn',
+                           'local_centr_view_medcmaxn',
+                           'local_weak_secondary_view'
+                           ]
+              }
 
     nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
     # features to be extracted from the dataset
     # features names - keywords used in the TFRecords
-    features_names = ['global_flux_view', 'local_flux_view']  # time-series features names
+    features_names = ['global_flux_view',
+                      'local_flux_view'
+                      'local_waek_secondary_view',
+                      'local_centr_view_medcmaxn',
+                      'global_centr_view_medcmaxn',
+                      'local_flux_odd_view',
+                      'local_flux_even_view'
+                      ]  # time-series features names
     # features dimension
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
@@ -202,7 +217,11 @@ if __name__ == '__main__':
     scalar_params_idxs = None  # [1, 2]
 
     # data directory
-    tfrec_dir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
+    tfrec_dir = os.path.join(paths.path_tfrecs,
+                             'Kepler',
+                             'Q1-Q17_DR25',
+                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
+                             )
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
@@ -210,7 +229,7 @@ if __name__ == '__main__':
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
 
     # add dataset parameters
-    config = config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args)
+    config = config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config=config)
 
     # add fit parameters
     config['callbacks_list'] = []

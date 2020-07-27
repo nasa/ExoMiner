@@ -25,11 +25,12 @@ class CNN1dPlanetFinderv1(object):
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
-        # TODO: NEED TO CHANGE THIS MANUALLY...
-        # ['global_flux_view', 'local_flux_view', 'local_centr_view', 'global_centr_view', 'local_oddeven_views',
-        #  'local_weak_secondary_view']:
-        self.branches = ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn',
-                         'local_centr_view_medcmaxn', 'local_weak_secondary_view', 'local_flux_oddeven_views']
+        # ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn',
+        #  'local_centr_view_medcmaxn', 'local_weak_secondary_view', 'local_flux_oddeven_views']
+        if 'branches' not in self.config:
+            self.branches = ['global_flux_view', 'local_flux_view']
+        else:
+            self.branches = self.config['branches']
 
         # self.is_training = None
 
@@ -140,13 +141,17 @@ class CNN1dPlanetFinderv1(object):
                                                                                      else net)
 
                     if self.config['non_lin_fn'] == 'lrelu':
-                        net = tf.keras.layers.LeakyReLU(alpha=0.01)(net)
+                        net = tf.keras.layers.LeakyReLU(alpha=0.01,
+                                                        name='lrelu{}_{}_{}'.format(branch, conv_block_i,
+                                                                                    seq_conv_block_i))(net)
                     elif self.config['non_lin_fn'] == 'relu':
-                        tf.keras.layers.ReLU()(net)
+                        net = tf.keras.layers.ReLU(name='relu{}_{}_{}'.format(branch, conv_block_i,
+                                                                              seq_conv_block_i))(net)
                     elif self.config['non_lin_fn'] == 'prelu':
-                        tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                              alpha_regularizer=None,
-                                              alpha_constraint=None)
+                        net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                    alpha_regularizer=None,
+                                                    alpha_constraint=None,
+                                                    name='prelu{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i))
 
                 net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
                                                    name='maxpooling{}{}'.format(branch, conv_block_i))(net)
@@ -272,13 +277,14 @@ class CNN1dPlanetFinderv1(object):
                                             name='fc{}'.format(fc_layer_i))(net)
 
             if self.config['non_lin_fn'] == 'lrelu':
-                net = tf.keras.layers.LeakyReLU(alpha=0.01)(net)
+                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu{}'.format(fc_layer_i))(net)
             elif self.config['non_lin_fn'] == 'relu':
-                tf.keras.layers.ReLU()(net)
+                net = tf.keras.layers.ReLU(name='fc_relu{}'.format(fc_layer_i))(net)
             elif self.config['non_lin_fn'] == 'prelu':
-                tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                      alpha_regularizer=None,
-                                      alpha_constraint=None)
+                net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                            alpha_regularizer=None,
+                                            alpha_constraint=None,
+                                            name='fc_prelu{}'.format(fc_layer_i))
 
             # TODO: investigate this, is it set automatically?
             # net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net, training=keras.backend.learning_phase())
