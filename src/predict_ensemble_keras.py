@@ -12,7 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
-from tensorflow.keras import metrics, callbacks, losses, optimizers
+from tensorflow.keras import losses, optimizers
 from tensorflow.keras.models import load_model
 import pandas as pd
 
@@ -30,12 +30,13 @@ from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics
 
 
-def print_metrics(res, datasets, metrics_names):
+def print_metrics(res, datasets, metrics_names, prec_at_top):
     """
 
     :param res:
     :param datasets:
     :param metrics_names:
+    :param prec_at_top:
     :return:
     """
 
@@ -47,16 +48,21 @@ def print_metrics(res, datasets, metrics_names):
             for metric in metrics_names:
                 if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
                     print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+
+            for k in prec_at_top[dataset]:
+                print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                        res['{}_precision_at_{}'.format(dataset, k)]))
     print('#' * 100)
 
 
-def save_metrics_to_file(save_path, res, datasets, metrics_names):
+def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top):
     """ Write results to a txt file.
 
     :param model_dir_sub:
     :param res:
     :param datasets:
     :param metrics_names:
+    :param prec_at_top:
     :return:
     """
 
@@ -72,6 +78,10 @@ def save_metrics_to_file(save_path, res, datasets, metrics_names):
                 for metric in metrics_names:
                     if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
                         res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+
+                for k in prec_at_top[dataset]:
+                    res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                                     res['{}_precision_at_{}'.format(dataset, k)]))
 
             res_file.write('\n')
 
@@ -361,19 +371,19 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
                                                                           original_label)]
 
     # compute precision at top-k
-    k_arr = [10, 100, 1000]
+    k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
     for dataset in datasets:
         sorted_idxs = np.argsort(scores_classification[dataset], axis=0).squeeze()
         labels_sorted = data[dataset]['label'][sorted_idxs].squeeze()
         scores_classification_sorted = scores_classification[dataset][sorted_idxs].squeeze()
-        for k_i in range(len(k_arr)):
-            if len(sorted_idxs) < k_arr[k_i]:
-                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = np.nan
+        for k_i in range(len(k_arr[dataset])):
+            if len(sorted_idxs) < k_arr[dataset][k_i]:
+                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = np.nan
             else:
-                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = \
-                    np.sum(labels_sorted[-k_arr[k_i]:] * scores_classification_sorted[-k_arr[k_i]:]) / k_arr[k_i]
-    # add precision-at-top-k to the set of metrics computed for the ensemble
-    metrics_names = ensemble_model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
+                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = \
+                    np.sum(labels_sorted[-k_arr[dataset][k_i]:] * scores_classification_sorted[-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
+    # # add precision-at-top-k to the set of metrics computed for the ensemble
+    # metrics_names = ensemble_model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
 
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
@@ -386,9 +396,9 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
             draw_plots_auc(res, res_dir, dataset)
 
     print('Saving metrics to a txt file...')
-    save_metrics_to_file(save_path, res, datasets, metrics_names)
+    save_metrics_to_file(save_path, res, datasets, ensemble_model.metrics_names, k_arr)
 
-    print_metrics(res, datasets, metrics_names)
+    print_metrics(res, datasets, ensemble_model.metrics_names, k_arr)
 
     # generate rankings for each evaluated dataset
     if generate_csv_pred:

@@ -34,13 +34,14 @@ from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
 
 
-def print_metrics(model_id, res, datasets, metrics_names):
+def print_metrics(model_id, res, datasets, metrics_names, prec_at_top):
     """
 
     :param model_id:
     :param res:
     :param datasets:
     :param metrics_names:
+    :param prec_at_k:
     :return:
     """
 
@@ -51,25 +52,29 @@ def print_metrics(model_id, res, datasets, metrics_names):
         print(dataset)
         for metric in metrics_names:
             if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
-                if 'precision_at' in metric:
-                    print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+
+                if dataset == 'train':
+                    print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
+                elif dataset == 'test':
+                    print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
                 else:
-                    if dataset == 'train':
-                        print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
-                    elif dataset == 'test':
-                        print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-                    else:
-                        print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
+                    print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
+
+        for k in prec_at_top[dataset]:
+            print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                    res['{}_precision_at_{}'.format(dataset, k)]))
+
     print('#' * 100)
 
 
-def save_metrics_to_file(model_dir_sub, res, datasets, metrics_names):
+def save_metrics_to_file(model_dir_sub, res, datasets, metrics_names, prec_at_top):
     """ Write results to a txt file
 
     :param model_dir_sub:
     :param res:
     :param datasets:
     :param metrics_names:
+    :param prec_at_k:
     :return:
     """
 
@@ -84,17 +89,18 @@ def save_metrics_to_file(model_dir_sub, res, datasets, metrics_names):
             for metric in metrics_names:
                 if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
 
-                    if 'precision_at' in metric:
-                        res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+                    if dataset == 'train':
+                        res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
+
+                    elif dataset == 'test':
+                        res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
+
                     else:
-                        if dataset == 'train':
-                            res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
+                        res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-                        elif dataset == 'test':
-                            res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-
-                        else:
-                            res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
+            for k in prec_at_top[dataset]:
+                res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                                 res['{}_precision_at_{}'.format(dataset, k)]))
 
             res_file.write('\n')
 
@@ -449,21 +455,21 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                                                                                original_label)]
 
     # compute precision at top-k
-    k_arr = [10, 100, 1000]
+    k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
     for dataset in datasets:
         sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
         labels_sorted = labels[dataset][sorted_idxs].squeeze()
         predictions_sorted = predictions[dataset][sorted_idxs].squeeze()
         classifications_sorted = np.zeros(predictions_sorted.shape, dtype='uint8')
         classifications_sorted[np.where(predictions_sorted >= clf_threshold)] = 1
-        for k_i in range(len(k_arr)):
-            if len(sorted_idxs) < k_arr[k_i]:
-                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = np.nan
+        for k_i in range(len(k_arr[dataset])):
+            if len(sorted_idxs) < k_arr[dataset][k_i]:
+                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = np.nan
             else:
-                res['{}_precision_at_{}'.format(dataset, k_arr[k_i])] = \
-                    np.sum(labels_sorted[-k_arr[k_i]:] * classifications_sorted[-k_arr[k_i]:]) / k_arr[k_i]
-    # add precision-at-top-k to the set of metrics computed for the model
-    metrics_names = model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
+                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = \
+                    np.sum(labels_sorted[-k_arr[dataset][k_i]:] * classifications_sorted[-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
+    # # add precision-at-top-k to the set of metrics computed for the model
+    # metrics_names = model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
 
     # save results in a numpy file
     print('Saving metrics to a numpy file...')
@@ -475,9 +481,9 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                earlystopping='early_stopping' in callbacks_dict)
 
     print('Saving metrics to a txt file...')
-    save_metrics_to_file(model_dir_sub, res, datasets, metrics_names=metrics_names)
+    save_metrics_to_file(model_dir_sub, res, datasets, metrics_names=model.metrics_names, prec_at_top=k_arr)
 
-    print_metrics(model_id, res, datasets, metrics_names)
+    print_metrics(model_id, res, datasets, model.metrics_names, prec_at_top=k_arr)
 
     # save model, features and config used for training this model
     model.save(os.path.join(model_dir_sub, 'model{}.h5'.format(model_id)))
@@ -534,7 +540,7 @@ if __name__ == '__main__':
                              'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_splinenew_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband'
+    hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
@@ -575,20 +581,20 @@ if __name__ == '__main__':
     BaseModel = CNN1dPlanetFinderv1
     config['branches'] = ['global_flux_view',
                           'local_flux_view',
-                          'local_flux_oddeven_views',
-                          'global_centr_view_medcmaxn',
-                          'local_centr_view_medcmaxn',
-                          'local_weak_secondary_view'
+                          # 'local_flux_oddeven_views',
+                          # 'global_centr_view_medcmaxn',
+                          # 'local_centr_view_medcmaxn',
+                          # 'local_weak_secondary_view'
                           ]
 
     # features to be extracted from the dataset(s)
     features_names = ['global_flux_view',
                       'local_flux_view',
-                      'local_flux_odd_view',
-                      'local_flux_even_view',
-                      'global_centr_view_medcmaxn',
-                      'local_centr_view_medcmaxn',
-                      'local_weak_secondary_view'
+                      # 'local_flux_odd_view',
+                      # 'local_flux_even_view',
+                      # 'global_centr_view_medcmaxn',
+                      # 'local_centr_view_medcmaxn',
+                      # 'local_weak_secondary_view'
                       ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
@@ -610,7 +616,7 @@ if __name__ == '__main__':
     #                 'scalar_params_idxs': scalar_params_idxs}
 
     n_models = 1  # number of models in the ensemble
-    n_epochs = 5  # number of epochs used to train each model
+    n_epochs = 2  # number of epochs used to train each model
     multi_class = False  # multi-class classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set

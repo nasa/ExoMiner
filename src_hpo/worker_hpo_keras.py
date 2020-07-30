@@ -383,17 +383,16 @@ class TransitClassifier(Worker):
         :return: ConfigurationsSpace-Object
         """
 
-        config_space = CS.ConfigurationSpace()
+        config_space = CS.ConfigurationSpace(seed=None)
 
         # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
 
-        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
+        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, log=True)
         # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp_fast', 'inv_exp_slow'])
 
         optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
 
-        sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, default_value=0.9,
-                                                      log=True)
+        sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, log=True)
 
         # batch_norm = CSH.CategoricalHyperparameter('batch_norm', [True, False])
         # non_lin_fn = CSH.CategoricalHyperparameter('non_lin_fn', ['relu', 'prelu'])
@@ -402,8 +401,7 @@ class TransitClassifier(Worker):
         # batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
 
         # previous values: 0.001 to 0.7
-        dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.2, default_value=0.2,
-                                                      log=True)
+        dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.2, log=True)
 
         # l2_regularizer = CSH.CategoricalHyperparameter('l2_regularizer', [True, False])
         # l2_decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2,
@@ -420,23 +418,22 @@ class TransitClassifier(Worker):
         # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
         # config_space.add_condition(cond)
 
-        init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=6, default_value=4)
-        kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=8, default_value=2)
-        kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2, default_value=1)
-        conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
+        init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=6)
+        kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=8)
+        kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2)
+        conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3)
 
-        pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8, default_value=2)
-        pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8, default_value=2)
-        pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2, default_value=1)
+        pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8)
+        pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8)
+        pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2)
 
-        num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=5, default_value=2)
-        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5,
-                                                                default_value=3)
+        num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=5)
+        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5)
 
         init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
         # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
 
-        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=1, upper=4, default_value=2)
+        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=1, upper=4)
 
         config_space.add_hyperparameters([num_glob_conv_blocks,
                                           num_fc_layers,

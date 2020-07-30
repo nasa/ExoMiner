@@ -151,7 +151,9 @@ class CNN1dPlanetFinderv1(object):
                         net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                     alpha_regularizer=None,
                                                     alpha_constraint=None,
-                                                    name='prelu{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i))
+                                                    shared_axes=[1, 2],
+                                                    name='prelu{}_{}_{}'.format(branch, conv_block_i,
+                                                                                seq_conv_block_i))(net)
 
                 net = tf.keras.layers.MaxPooling1D(pool_size=pool_size, strides=self.config['pool_stride'],
                                                    name='maxpooling{}{}'.format(branch, conv_block_i))(net)
@@ -284,7 +286,8 @@ class CNN1dPlanetFinderv1(object):
                 net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                             alpha_regularizer=None,
                                             alpha_constraint=None,
-                                            name='fc_prelu{}'.format(fc_layer_i))
+                                            shared_axes=[1],
+                                            name='fc_prelu{}'.format(fc_layer_i))(net)
 
             # TODO: investigate this, is it set automatically?
             # net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net, training=keras.backend.learning_phase())
