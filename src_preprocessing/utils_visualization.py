@@ -534,11 +534,12 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
                 ax[i, j].plot(views[views_list[k]])
                 # ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]])
                 ax[i, j].set_title(views_list[k], pad=20)
+                ax[i, j].set_xlim([0, len(views[views_list[k]])])
             if i == scheme[0] - 1:
                 ax[i, j].set_xlabel('Bin number')
             if j == 0:
                 ax[i, j].set_ylabel('Amplitude')
-            ax[i, j].set_xlim([0, len(views[views_list[k]])])
+
             k += 1
 
     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))

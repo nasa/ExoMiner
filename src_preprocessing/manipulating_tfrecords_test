@@ -2,6 +2,71 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+#%% Checking values for centroid views
+
+# print(len(np.where(centroidMat['global_centr_view'], np.percentile(centroidMat['global_centr_view'], 75))))
+
+badTces = []
+thr = 1000  # 5844.65576171875  # 99.9 percentile
+
+label = 'AFP'
+# centroidDict = {'global_centr_view': [], 'local_centr_view': []}
+
+for tfrec_i, tfrecFile in enumerate(tfrecTrainFiles):
+
+    print('Getting data from {} ({} %)'.format(tfrecFile.split('/')[-1], tfrec_i / len(tfrecTrainFiles) * 100))
+
+    # iterate through the shard
+    record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
+
+    for string_i, string_record in enumerate(record_iterator):
+
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
+
+        tceLabel = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+        if tceLabel != label:
+            continue
+
+        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+
+        # get centroid time series data
+
+        timeSeriesTce = np.array(example.features.feature['global_centr_view'].float_list.value)
+        # centroidDict['global_centr_view'].append(np.min(timeSeriesTce))
+
+        if np.any(np.array(timeSeriesTce) > thr):
+            badTces.append((targetIdTfrec, tceIdentifierTfrec))
+
+        # timeSeriesTce = np.array(example.features.feature['local_centr_view'].float_list.value)
+        # centroidDict['local_centr_view'].append(np.min(timeSeriesTce))
+
+print(len(badTces))
+print(badTces)
+
+# numOutliers = {}
+# for timeSeries in centroidDict:
+#     q75 = np.percentile(centroidDict[timeSeries], 75)
+#     q25 = np.percentile(centroidDict[timeSeries], 25)
+#
+#     iqr = q75 - q25
+#
+#     numOutliers[timeSeries] = len(np.where(centroidDict[timeSeries] > 1.5 * iqr)[0])
+#
+# # plot boxplots of centroid local and global views in the training set
+# print('Generating boxplots...')
+# f, ax = plt.subplots()
+# ax.boxplot([centroidDict['global_centr_view'], centroidDict['local_centr_view']], bootstrap=None, meanline=True,
+#            showmeans=True)
+# ax.set_title('Non-normalized centroid time series\n{} Num outliers = {}'.format(label, numOutliers[timeSeries]))
+# ax.set_yscale('log')
+# ax.set_ylabel('Median value')
+# ax.set_xticklabels(['Global view', 'Local view'])
+# f.savefig('/home/msaragoc/Downloads/hist_nonnormalized_centroids_{}.png'.format(label))
+# plt.show()
+
 #%% Plot minimum value for odd and even local views for a given dataset
 
 # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'

@@ -192,7 +192,7 @@ class TransitClassifier(Worker):
                                 max_queue_size=10,  # used for generator or keras.utils.Sequence input only
                                 workers=1,  # same
                                 use_multiprocessing=False  # same
-                               )
+                                )
 
             # get records of loss and metrics for the training and validation sets
             res_i = history.history
@@ -258,10 +258,8 @@ class TransitClassifier(Worker):
                 print('HPO {}: {}'.format(k, res_hpo[k]))
             else:
                 for l in res_hpo[k]:
-                    # if 'test' in l:
                     print('{}: {} +- {}'.format(l, *res_hpo[k][l]))
-                    # else:
-                    #     print('{}: {} +- {}'.format(l, res_hpo[k][l][0][-1], res_hpo[k][l][1][-1]))
+
         print('#' * 100)
         sys.stdout.flush()
 

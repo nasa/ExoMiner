@@ -27,7 +27,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'ConfigE-bohb_keplerdr25_g2001-l201_splinenew_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband'
+study = 'ConfigF-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

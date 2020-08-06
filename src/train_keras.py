@@ -588,14 +588,15 @@ if __name__ == '__main__':
                           ]
 
     # features to be extracted from the dataset(s)
-    features_names = ['global_flux_view',
+    features_names = [
+                      'global_flux_view',
                       'local_flux_view',
                       # 'local_flux_odd_view',
                       # 'local_flux_even_view',
                       # 'global_centr_view_medcmaxn',
                       # 'local_centr_view_medcmaxn',
                       # 'local_weak_secondary_view'
-                      ]
+    ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features

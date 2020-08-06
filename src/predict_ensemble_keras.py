@@ -212,6 +212,8 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     :return:
     """
 
+    verbose = False if 'home6' in paths.path_hpoconfigs else True
+
     # instantiate variable to get data from the TFRecords
     data = {dataset: {field: [] for field in fields} for dataset in datasets}
 
@@ -319,7 +321,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         res_eval = ensemble_model.evaluate(x=eval_input_fn(),
                                            y=None,
                                            batch_size=None,
-                                           verbose=1,
+                                           verbose=verbose,
                                            sample_weight=None,
                                            steps=None,
                                            callbacks=None,
@@ -349,7 +351,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
-                                                 verbose=1,
+                                                 verbose=verbose,
                                                  steps=None,
                                                  callbacks=None,
                                                  max_queue_size=10,
@@ -435,14 +437,6 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
 
 if __name__ == '__main__':
-
-    # # uncomment for MPI multiprocessing
-    # rank = MPI.COMM_WORLD.rank
-    # size = MPI.COMM_WORLD.size
-    # print('Rank={}/{}'.format(rank, size - 1))
-    # sys.stdout.flush()
-    # if rank != 0:
-    #     time.sleep(2)
 
     # SCRIPT PARAMETERS #############################################
 
@@ -531,14 +525,15 @@ if __name__ == '__main__':
     clf_thr = 0.5
 
     # features to be extracted from the dataset
-    features_names = ['global_flux_view',
+    features_names = [
+                      'global_flux_view',
                       'local_flux_view',
                       'global_centr_view_medcmaxn',
                       'local_centr_view_medcmaxn',
                       'local_flux_odd_view',
                       'local_flux_even_view',
                       'local_weak_secondary_view'
-                      ]
+    ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
@@ -569,9 +564,6 @@ if __name__ == '__main__':
 
     # SCRIPT PARAMETERS #############################################
 
-    # comment for multiprocessing using MPI
-    # for model_i in range(n_models):
-    # print('Training model %i out of %i on %i epochs...' % (model_i + 1, n_models, n_epochs))
     run_main(config=config,
              features_set=features_set,
              scalar_params_idxs=scalar_params_idxs,
@@ -582,21 +574,3 @@ if __name__ == '__main__':
              datasets=datasets,
              fields=fields,
              generate_csv_pred=generate_csv_pred)
-
-    # # uncomment for multiprocessing using MPI
-    # if rank < n_models:
-    #     print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
-    #     sys.stdout.flush()
-    #     run_main(config=config,
-    #              n_epochs=n_epochs,
-    #              data_dir=tfrec_dir,
-    #              base_model=BaseModel,
-    #              model_dir=os.path.join(save_path, 'models'),
-    #              res_dir=save_path,
-    #              model_id = rank + 1,
-    #              opt_metric=opt_metric,
-    #              min_optmetric=min_optmetric,
-    #              earlystoppingparams=earlystoppingparams,
-    #              features_set=features_set,
-    #              scalar_params_idxs=scalar_params_idxs,
-    #              filter_data=filter_data)

@@ -716,14 +716,14 @@ def _process_tce(tce, table, config, conf_dict):
     """
 
     # if tce['target_id'] == 11288051 and tce['tce_plnt_num'] == 3:  # tce['av_training_set'] == 'PC' and
-    # # if tce['oi'] == 1207.01:
+    # if tce['oi'] == 541.01:
     #     print(tce)
     # else:
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = False
-    if np.random.random() < 0.1:
+    if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
     # sample TCE ephemeris using uncertainty interval
@@ -799,8 +799,6 @@ def _process_tce(tce, table, config, conf_dict):
         #                                    pxcoordinates=True)
 
     # # # gap TCE to get weak secondary test time-series
-    # # data['all_time_noprimary'], data['all_flux_noprimary'], data['gap_time_noprimary'] = \
-    # #     gap_this_tce(data['all_time'], data['all_flux'], tce, config, gap_pad=config.gap_padding)
     # # get gapped indices
     # data['gap_time_noprimary'] = None
     # gapped_idxs_noprimary = gap_this_tce(data['all_time'], tce, config, gap_pad=config.gap_padding)
@@ -825,30 +823,35 @@ def _process_tce(tce, table, config, conf_dict):
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_duration'], time[0])
                               for time in data['all_time']]
     duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # remove NaNs
+    # centroid time-series
+    joint_timeseries = ['all_time', 'all_centroids']
+    finite_idxs = []
+    for arr_i in range(len(data[joint_timeseries[0]])):
+        finite_idxs_aux = []
+        for timeseries in joint_timeseries:
+            if 'time' not in timeseries:
+                finite_idxs_aux.append(np.isfinite(data[timeseries]['x'][arr_i]))
+                finite_idxs_aux.append(np.isfinite(data[timeseries]['y'][arr_i]))
+            else:
+                finite_idxs_aux.append(np.isfinite(data[timeseries][arr_i]))
+        finite_idxs.append(np.logical_and.reduce(finite_idxs_aux))
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, data['all_time'])]
+    binary_time_all = [create_binary_time_series(time[finite_idx],
+                                                 first_transit_time,
+                                                 duration_gapped,
+                                                 tce['tce_period'])
+                       for first_transit_time, time, finite_idx
+                       in zip(first_transit_time_all, data['all_time'], finite_idxs)]
     # get out-of-transit indices for the centroid time series
-    centroid_oot = {coord: [centroids[np.where(binary_time == 0)] for binary_time, centroids in
-                            zip(binary_time_all, data['all_centroids'][coord])] for coord in data['all_centroids']}
+    centroid_oot = {coord: [centroids[finite_idx][np.where(binary_time == 0)] for binary_time, centroids, finite_idx in
+                            zip(binary_time_all, data['all_centroids'][coord], finite_idxs)]
+                    for coord in data['all_centroids']}
     # estimate average out-of-transit centroid as the median across quarters - same as they do in the Kepler pipeline
     # TODO: how to compute the average oot? mean, median, other...
     data['avg_centroid_oot'] = {coord: np.nanmedian(np.concatenate(centroid_oot[coord])) for coord in centroid_oot}
 
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
-    # gap other TCEs in the light curve
-    # if config.gapped:
-    #     data['all_time'], data['all_flux'], data['all_centroids'], data['gap_time'] = \
-    #         gap_other_tces(data['all_time'],
-    #                        data['all_flux'],
-    #                        data['all_centroids'],
-    #                        add_info,
-    #                        tce, table, config, conf_dict,
-    #                        gap_pad=config.gap_padding,
-    #                        keep_overlap=config.gap_keep_ovelap)
-    # else:
-    #     data['gap_time'] = None
-
     data['gap_time'] = None
     if config.gapped:
         gapped_idxs = gap_other_tces(data['all_time'],

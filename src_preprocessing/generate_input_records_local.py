@@ -22,22 +22,22 @@ class Config:
     """
 
     # TFRecords base name
-    tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
+    tfrecords_base_name = 'test_q1q17dr25scr1'  # 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
     # tfrecords_base_name = 'test_tfrecordskeplerdr25_norobovetterkois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalar_zoom'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
-                                 'TESS',  # either 'Kepler' of 'TESS'
-                                 # 'DR25'
+                                 'Kepler',  # either 'Kepler' of 'TESS'
+                                 'DR25'
                                  )
 
     # output directory
     output_dir = os.path.join(tfrecords_dir, tfrecords_base_name)
 
-    satellite = 'tess'  # choose from: ['kepler', 'tess']
+    satellite = 'kepler'  # choose from: ['kepler', 'tess']
     # multisector = True  # True for TESS multi-sector runs
     # sectors = np.arange(1, 19)  # only for TESS
-    tce_identifier = 'oi'  # either 'tce_plnt_num' or 'oi'
+    tce_identifier = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
 
     augmentation = False  # if True, it augments the dataset by applying augmentation techniques to the TCE data
     num_examples_per_tce = 1 if augmentation else 1  # number of examples created per TCE
@@ -88,7 +88,7 @@ class Config:
     injected_group = False  # either 'False' or inject group name
     light_curve_extension = 'LIGHTCURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
     # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
-    scramble_type = None
+    scramble_type = 'SCR1'  # either None or SCRX where X = {1,2,3}
     invert = False  # if True, raw light curves are inverted
 
     omit_missing = True  # skips target IDs that are not in the FITS files
@@ -100,7 +100,7 @@ class Config:
     #                  'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
     # Kepler with DV
     # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
-    #                  'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat']
+    #                  'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
     # Kepler with TPS or TESS (for now)
     scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
@@ -108,11 +108,16 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
+        #                      'keplerTPS_KSOP2536_dr25_noroguetces.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
+                             'kplr_dr25_scr1_tces_stellar_processed_withlabels.csv'
 
         # FITS files directory
-        lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
+        # lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
+        lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final'
 
         dict_savedir = ''  # '/home/lswilken/Documents/Astronet_Simplified/pc_confidence_kepler_q1q17'
 

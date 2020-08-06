@@ -89,10 +89,25 @@ studyRootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_find
 resTblFp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
            'results_studies_7-30-2020.csv'
 datasetsMetrics = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
-                          'map_datasets_metrics.npy').item()
+                          'map_datasets_metrics.npy', allow_pickle=True).item()
 
 studiesToAdd = [
-    ('dasdas', 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentrmedn_prelu'),
+    ('ConfigE_spline_gapped_gbal_glflux+glcentroid+loe+lwks+6stellar_prelu',
+     'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+6stellar_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+bfap_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-bfap_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+ghost_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-ghost_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-rollingband_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+loe_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+lwks_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu')
 ]
 
 for studyName, studyDir in studiesToAdd:
