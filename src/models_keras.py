@@ -1036,6 +1036,7 @@ def create_inputs(features, scalar_params_idxs):
     :return:
         inputs: dictionary, each key-value pair is a feature_name: feature
     """
+
     inputs = {}
 
     for feature in features:

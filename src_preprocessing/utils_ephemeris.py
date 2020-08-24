@@ -29,7 +29,7 @@ def find_first_epoch_after_this_time(epoch, period, reference_time):
 def create_binary_time_series(time, epoch, duration, period):
     """ Creates a binary time series based on the the ephemeris.
 
-    :param time: numpy array, time in days
+    :param time: NumPy array, time in days
     :param epoch: float, epoch in days
     :param duration: float, transit duration in days
     :param period: float, orbital period in days
@@ -65,8 +65,6 @@ def create_binary_time_series(time, epoch, duration, period):
 
         # warning value when the array has NaN values; they are considered False, so not in the interval defined
         transit_idxs = np.where(np.logical_and(time >= sTransit, time < eTransit))[0]
-        # transit_idxs = np.where(time >= sTransit)[0]
-        # transit_idxs = np.intersect1d(transit_idxs, np.where(time < eTransit)[0])
         binary_time_series[transit_idxs] = 1
 
     return binary_time_series

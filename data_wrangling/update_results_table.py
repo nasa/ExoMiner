@@ -87,15 +87,19 @@ np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/resu
 
 studyRootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
 resTblFp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
-           'results_studies_7-30-2020.csv'
+           'results_studies_8-19-2020.csv'
 datasetsMetrics = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
                           'map_datasets_metrics.npy', allow_pickle=True).item()
 
 studiesToAdd = [
-    ('ConfigE_spline_gapped_gbal_glflux+glcentroid+loe+lwks+6stellar_prelu',
-     'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar_prelu'),
-    # ('ConfigD_spline_gapped_gbal_glflux+6stellar_prelu',
-    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'),
+    ('ConfigE_spline_gapped_gbal_glflux+glcentr+loediff+lwks+6stellar+bfap+ghost+rollingband_prelu_nobugdur',
+     'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loediff-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'),
+    # ('ConfigE_spline_gapped_gbal_glflux+glcentr+loe+lwks+6stellar+bfap+ghost+rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentr+loe+lwks+6stellar_prelu_tps-tce1',
+    #  'keplerdr25_tps-tce1_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentr+loe+lwks+6stellar_prelu_dv-tce1',
+    #  'keplerdr25_tce1_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar_prelu')
     # ('ConfigD_spline_gapped_gbal_glflux+bfap_prelu',
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-bfap_prelu'),
     # ('ConfigD_spline_gapped_gbal_glflux+ghost_prelu',

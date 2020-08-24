@@ -1,7 +1,5 @@
 """
 Perform inference using an ensemble of Tensorflow Keras models.
-
-TODO: make draw plots workable when in inference only mode
 """
 
 # 3rd party
@@ -95,7 +93,7 @@ def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top):
         res_file.write('\n')
 
 
-def draw_plots_auc(res, save_path, dataset):
+def draw_plots_prcurve_roc(res, save_path, dataset):
     """ Plot ROC and PR curves.
 
     :param res: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
@@ -192,6 +190,50 @@ def draw_plots_scores_distribution(output_cl, save_path):
         plt.close()
 
 
+def plot_precision_at_k(labels_ord, k_curve_arr, dataset, save_path):
+    """ Plot precision-at-k and misclassified-at-k curves.
+
+    :param labels_ord:
+    :param k_curve_arr:
+    :param save_path:
+    :return:
+    """
+
+    # compute precision at k curve
+    precision_at_k = {k: np.nan for k in k_curve_arr}
+    for k_i in range(len(k_curve_arr)):
+        if len(labels_ord) < k_curve_arr[k_i]:
+            precision_at_k[k_curve_arr[k_i]] = np.nan
+        else:
+            precision_at_k[k_curve_arr[k_i]] = \
+                np.sum(labels_ord[-k_curve_arr[k_i]:]) / k_curve_arr[k_i]
+
+    # precision at k curve
+    f, ax = plt.subplots()
+    ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
+    ax.set_ylabel('Precision')
+    ax.set_xlabel('Top-K')
+    ax.grid(True)
+    ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
+    ax.set_ylim(top=1)
+    f.savefig(os.path.join(save_path, 'precisionatk_{}.svg'.format(dataset)))
+    plt.close()
+
+    # misclassified examples at k curve
+    f, ax = plt.subplots()
+    kvalues = np.array(list(precision_at_k.keys()))
+    precvalues = np.array(list(precision_at_k.values()))
+    num_misclf_examples = kvalues - kvalues * precvalues
+    ax.plot(kvalues, num_misclf_examples)
+    ax.set_ylabel('Number Misclassfied TCEs')
+    ax.set_xlabel('Top-K')
+    ax.grid(True)
+    ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
+    ax.legend()
+    f.savefig(os.path.join(save_path, 'ensemble_misclassified_at_k_{}.svg'.format(dataset)))
+    plt.close()
+
+
 def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
              scalar_params_idxs=None):
     """ Evaluate model on a given configuration in the specified datasets and also predict on them.
@@ -243,24 +285,10 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         data[dataset]['label'] = np.array(data[dataset]['label'])
         data[dataset]['original_label'] = np.array(data[dataset]['original_label'])
 
-    # if mpi_rank is not None:
-    #     # sess_config.gpu_options.visible_device_list = str(mpi_rank % ngpus_per_node)
-    #     gpu_id = mpi_rank % ngpus_per_node
-    #
-    # else:
-    #     gpu_id = 0
-
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
-    # strategy = tf.distribute.OneDeviceStrategy(device='/gpu:{}'.format(gpu_id))
-    #
-    # with strategy.scope():
-    # devices_list = [device.name[16:] for device in tf.config.list_physical_devices('CPU')]
-
     # create ensemble
     model_list = []
     for model_i, model_filepath in enumerate(models_filepaths):
 
-        # with tf.device(devices_list[model_i]):
         model = load_model(filepath=model_filepath, compile=False)
         model._name = 'model{}'.format(model_i)
 
@@ -270,7 +298,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
     ensemble_model.summary()
 
-    # setup metrics to be monitored
+    # set up metrics to be monitored
     metrics_list = get_metrics(clf_threshold=clf_thr)
 
     # compile model - set optimizer, loss and metrics
@@ -333,9 +361,6 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         for metric_name_i, metric_name in enumerate(ensemble_model.metrics_names):
             res['{}_{}'.format(dataset, metric_name)] = res_eval[metric_name_i]
 
-    # if mpi_rank is not None:
-    #     sys.stdout.flush()
-
     # predict on given datasets - needed for computing the output distribution and produce a ranking
     scores = {dataset: [] for dataset in datasets}
     for dataset in scores:
@@ -373,19 +398,23 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
                                                                           original_label)]
 
     # compute precision at top-k
-    k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+    k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+    k_curve_arr = {
+        'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+        'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+        'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    }
+    labels_sorted = {}
     for dataset in datasets:
-        sorted_idxs = np.argsort(scores_classification[dataset], axis=0).squeeze()
-        labels_sorted = data[dataset]['label'][sorted_idxs].squeeze()
-        scores_classification_sorted = scores_classification[dataset][sorted_idxs].squeeze()
+        sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
+        labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
+
         for k_i in range(len(k_arr[dataset])):
             if len(sorted_idxs) < k_arr[dataset][k_i]:
                 res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = np.nan
             else:
                 res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = \
-                    np.sum(labels_sorted[-k_arr[dataset][k_i]:] * scores_classification_sorted[-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
-    # # add precision-at-top-k to the set of metrics computed for the ensemble
-    # metrics_names = ensemble_model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
+                    np.sum(labels_sorted[dataset][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
 
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
@@ -394,8 +423,10 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     print('Plotting evaluation results...')
     # draw evaluation plots
     for dataset in datasets:
+        draw_plots_scores_distribution(output_cl, res_dir)
         if dataset != 'predict':
-            draw_plots_auc(res, res_dir, dataset)
+            draw_plots_prcurve_roc(res, res_dir, dataset)
+            plot_precision_at_k(labels_sorted[dataset], k_curve_arr[dataset], dataset, res_dir)
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(save_path, res, datasets, ensemble_model.metrics_names, k_arr)
@@ -441,13 +472,14 @@ if __name__ == '__main__':
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'keras_test'
+    study = 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'
 
-    # tfrecord files directory
+    # TFRecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
+                             'tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
+                            )
 
     print('Selected TFRecord files directory: {}'.format(tfrec_dir))
 
@@ -459,7 +491,7 @@ if __name__ == '__main__':
 
     # fields to be extracted from the TFRecords and that show up in the ranking created for each dataset
     # set to None if not adding other fields
-    # fields = ['kepid', 'label', 'tce_n', 'tce_period', 'tce_duration', 'epoch', 'original label']
+    # fields = ['target_id', 'label', 'tce_plnt_num', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label']
     fields = ['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
               'mag', 'ra', 'dec', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr',
               'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
@@ -473,8 +505,6 @@ if __name__ == '__main__':
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess
 
     generate_csv_pred = True
-
-    ngpus_per_node = 1  # number of GPUs per node
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
@@ -497,7 +527,8 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'ConfigC-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost'
+    # hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
+    hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
 
     # set the configuration from a HPO study
     if config is None:
@@ -528,18 +559,18 @@ if __name__ == '__main__':
     features_names = [
                       'global_flux_view',
                       'local_flux_view',
-                      'global_centr_view_medcmaxn',
-                      'local_centr_view_medcmaxn',
-                      'local_flux_odd_view',
-                      'local_flux_even_view',
-                      'local_weak_secondary_view'
+                      # 'global_centr_view',
+                      # 'local_centr_view',
+                      # 'local_flux_odd_view',
+                      # 'local_flux_even_view',
+                      # 'local_weak_secondary_view'
     ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
     features_names.append('scalar_params')  # use scalar parameters as input features
     features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    scalar_params_idxs = [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 4, 5]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -552,7 +583,9 @@ if __name__ == '__main__':
     # args_inputfn = {'features_set': features_set, 'scalar_params_idxs': scalar_params_idxs}
 
     # get models for the ensemble
-    models_dir = os.path.join(paths.pathtrainedmodels, study, 'models')
+    models_dir = os.path.join(paths.pathtrainedmodels,
+                              study,
+                              'models')
     models_filepaths = [os.path.join(models_dir, model_dir, '{}.h5'.format(model_dir))
                         for model_dir in os.listdir(models_dir)
                         if 'model' in model_dir]

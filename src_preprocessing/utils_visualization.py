@@ -512,7 +512,7 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     plt.close()
 
 
-def plot_all_views(views, tce, config, scheme, savedir, basename):
+def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     """ Creates and saves a figure with plots that show views for a given TCE.
 
     :param views: dict, views to be plotted
@@ -522,8 +522,29 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
+    :param num_transits: dict, number of transits for each view
     :return:
     """
+
+    scalarParamsStr = ''
+    for scalarParam_i in range(len(config.scalar_params)):
+        if scalarParam_i == 5:
+            scalarParamsStr += '\n'
+        if config.scalar_params[scalarParam_i] in ['boot_fap']:
+            scalarParamsStr += '{}={:.4E}  '.format(config.scalar_params[scalarParam_i],
+                                                    tce[config.scalar_params[scalarParam_i]])
+        elif config.scalar_params[scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
+            scalarParamsStr += '{}={}  '.format(config.scalar_params[scalarParam_i],
+                                                int(tce[config.scalar_params[scalarParam_i]]))
+        else:
+            scalarParamsStr += '{}={:.4f}  '.format(config.scalar_params[scalarParam_i],
+                                                    tce[config.scalar_params[scalarParam_i]])
+
+    ephemerisStr = 'Epoch={:.4f}, Period={:.4f}, Transit Duration={:.4f}, Transit Depth={:.4f}'.format(
+        tce['tce_time0bk'],
+        tce['tce_period'],
+        tce['tce_duration'] * 24,
+        tce['transit_depth'])
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
     k = 0
@@ -533,7 +554,10 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
             if k < len(views_list):
                 ax[i, j].plot(views[views_list[k]])
                 # ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]])
-                ax[i, j].set_title(views_list[k], pad=20)
+                if views_list[k] in num_transits:
+                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits[views_list[k]]), pad=20)
+                else:
+                    ax[i, j].set_title('{}'.format(views_list[k]), pad=20)
                 ax[i, j].set_xlim([0, len(views[views_list[k]])])
             if i == scheme[0] - 1:
                 ax[i, j].set_xlabel('Bin number')
@@ -542,7 +566,8 @@ def plot_all_views(views, tce, config, scheme, savedir, basename):
 
             k += 1
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    f.suptitle('TCE {} {} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
+                                              scalarParamsStr))
     plt.subplots_adjust(hspace=0.3)
     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
                                                                basename)))
@@ -632,5 +657,32 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
                                                                basename)))
 
     # f.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    plt.close()
+
+
+def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
+    """ Creates and saves a figure with plots that show the absolute difference between odd and even views.
+
+    :param timeseries: dict, views to be plotted
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: Config object; preprocessing parameters.
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
+
+    f, ax = plt.subplots(2, 1)
+    ax[0].plot(np.abs(timeseries['global_flux_odd_view'] - timeseries['global_flux_even_view']))
+    ax[0].set_title('Global odd-even views')
+    ax[0].set_ylabel('Amplitude')
+    ax[1].plot(np.abs(timeseries['local_flux_odd_view'] - timeseries['local_flux_even_view']))
+    ax[1].set_title('Local odd-even views')
+    ax[1].set_xlabel('Bin Number')
+    ax[1].set_ylabel('Amplitude')
+
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
 
     plt.close()

@@ -109,32 +109,18 @@ def save_metrics_to_file(model_dir_sub, res, datasets, metrics_names, prec_at_to
         res_file.write('\n')
 
 
-def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, earlystopping=False):
+def plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, save_path):
     """ Draw loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
     for the test set.
-    :param save_path: str, filepath used to save the plots figure.
+    :param epochs: Numpy array, epochs
+    :param ep_idx: idx of the epoch in which the test set was evaluated.
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
-    :param output_cl: dict, predicted outputs per class in each dataset
     :param model_id: int, identifies the model being used
-    :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective
-    epoch. If False, gets the maximum value.
-    :param earlystopping: bool, True if early stopping was used
+    :param save_path: str, filepath used to save the plots figure.
     :return:
     """
-
-    epochs = np.arange(1, len(res['loss']) + 1)
-
-    # min_val_loss, ep_idx = np.min(res['validation loss']), np.argmin(res['validation loss'])
-    # choose epoch associated with the best value for the metric
-    if earlystopping:
-        if min_optmetric:
-            ep_idx = np.argmin(res['val_{}'.format(opt_metric)])
-        else:
-            ep_idx = np.argmax(res['val_{}'.format(opt_metric)])
-    else:
-        ep_idx = -1
 
     # plot loss and optimization metric as function of the epochs
     f, ax = plt.subplots(1, 2)
@@ -167,6 +153,9 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     f.savefig(os.path.join(save_path, 'model{}_plotseval_epochs{:.0f}.png'.format(model_id, epochs[-1])))
     plt.close()
 
+
+def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, save_path):
+
     # plot precision, recall, roc auc, pr auc curves for the validation and test sets
     f, ax = plt.subplots()
     ax.plot(epochs, res['val_precision'], label='Val Precision')
@@ -194,6 +183,17 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     f.savefig(os.path.join(save_path, 'model{}_prec_rec_auc.png'.format(model_id)))
     plt.close()
 
+
+def plot_pr_curve(res, ep_idx, model_id, save_path):
+    """ Plot PR curve
+
+    :param res:
+    :param ep_idx:
+    :param model_id:
+    :param save_path:
+    :return:
+    """
+
     # plot pr curve
     f, ax = plt.subplots()
     ax.plot(res['val_rec_thr'][ep_idx], res['val_prec_thr'][ep_idx],
@@ -202,14 +202,13 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
             label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='k')
     ax.plot(res['rec_thr'][ep_idx], res['prec_thr'][ep_idx],
             label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='b')
-    # # CHANGE THR_VEC ACCORDINGLY TO THE SAMPLED THRESHOLD VALUES
-    # threshold_range = np.linspace(0, num_thresholds - 1, 11, endpoint=True, dtype='int')
-    ax.scatter(res['val_rec_thr'][ep_idx],
-               res['val_prec_thr'][ep_idx], c='r')
-    ax.scatter(res['test_rec_thr'],
-               res['test_prec_thr'], c='k')
-    ax.scatter(res['rec_thr'][ep_idx],
-               res['prec_thr'][ep_idx], c='b')
+
+    # ax.scatter(res['val_rec_thr'][ep_idx],
+    #            res['val_prec_thr'][ep_idx], c='r')
+    # ax.scatter(res['test_rec_thr'],
+    #            res['test_prec_thr'], c='k')
+    # ax.scatter(res['rec_thr'][ep_idx],
+    #            res['prec_thr'][ep_idx], c='b')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
@@ -218,13 +217,67 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
     ax.legend(loc='lower left')
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
-    ax.set_title('Precision Recall curve')
+    # ax.set_title('Precision Recall curve')
     f.savefig(os.path.join(save_path, 'model{}_prec_rec.png'.format(model_id)))
     plt.close()
 
+
+def plot_roc(res, ep_idx, model_id, save_path):
+    """ Plot PR curve.
+
+    :param res:
+    :param ep_idx:
+    :param model_id:
+    :param save_path:
+    :return:
+    """
+
+    # count number of samples per class to compute TPR and FPR
+    num_samples_per_class = {dataset: {'positive': 0, 'negative': 0} for dataset in ['train', 'val', 'test']}
+    num_samples_per_class['train'] = {'positive': res['tp'][0][0] + res['fn'][0][0],
+                                      'negative': res['fp'][0][0] + res['tn'][0][0]}
+    num_samples_per_class['val'] = {'positive': res['val_tp'][0][0] + res['val_fn'][0][0],
+                                    'negative': res['val_fp'][0][0] + res['val_tn'][0][0]}
+    num_samples_per_class['test'] = {'positive': res['test_tp'][0] + res['test_fn'][0],
+                                     'negative': res['test_fp'][0] + res['test_tn'][0]}
+
+    # plot roc
+    f, ax = plt.subplots()
+    ax.plot(res['fp'][ep_idx] / num_samples_per_class['train']['negative'],
+            res['tp'][ep_idx] / num_samples_per_class['train']['positive'], 'b',
+            label='Train (AUC={:.3f})'.format(res['auc_roc'][ep_idx]))
+    ax.plot(res['val_fp'][ep_idx] / num_samples_per_class['val']['negative'],
+            res['val_tp'][ep_idx] / num_samples_per_class['val']['positive'], 'r',
+            label='Val (AUC={:.3f})'.format(res['val_auc_roc'][ep_idx]))
+    ax.plot(res['test_fp'] / num_samples_per_class['test']['negative'],
+            res['test_tp'] / num_samples_per_class['test']['positive'], 'k',
+            label='Test (AUC={:.3f})'.format(res['test_auc_roc']))
+
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
+    ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
+    ax.grid(True)
+    ax.legend(loc='lower right')
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('ROC')
+    f.savefig(os.path.join(save_path, 'model{}_roc.svg'.format(model_id)))
+    plt.close()
+
+
+def plot_class_distribution(output_cl, model_id, save_path):
+    """
+
+    :param output_cl:
+    :param model_id:
+    :param save_path:
+    :return:
+    """
+
     # plot histogram of the class distribution as a function of the predicted output
     bins = np.linspace(0, 1, 11, True)
-    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set'}
+    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set', 'predict': 'Predict set'}
     for dataset in output_cl:
         hist, bin_edges = {}, {}
         for class_label in output_cl[dataset]:
@@ -251,6 +304,52 @@ def draw_plots(res, save_path, opt_metric, output_cl, model_id, min_optmetric, e
         ax.legend()
         ax.set_title('Output distribution - {}'.format(dataset_names[dataset]))
         plt.savefig(os.path.join(save_path, 'model{}_class_predoutput_distribution_{}.png'.format(model_id, dataset)))
+        plt.close()
+
+
+def plot_precision_at_k(labels_ord, k_curve_arr, model_id, save_path):
+    """ Plot precision-at-k and misclassified-at-k curves.
+
+    :param labels_ord:
+    :param k_curve_arr:
+    :param model_id:
+    :param save_path:
+    :return:
+    """
+
+    for dataset in labels_ord:
+        # compute precision at k curve
+        precision_at_k = {k: np.nan for k in k_curve_arr[dataset]}
+        for k_i in range(len(k_curve_arr[dataset])):
+            if len(labels_ord[dataset]) < k_curve_arr[dataset][k_i]:
+                precision_at_k[k_curve_arr[dataset][k_i]] = np.nan
+            else:
+                precision_at_k[k_curve_arr[dataset][k_i]] = \
+                    np.sum(labels_ord[dataset][-k_curve_arr[dataset][k_i]:]) / k_curve_arr[dataset][k_i]
+
+        # precision at k curve
+        f, ax = plt.subplots()
+        ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
+        ax.set_ylabel('Precision')
+        ax.set_xlabel('Top-K')
+        ax.grid(True)
+        ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
+        ax.set_ylim(top=1)
+        f.savefig(os.path.join(save_path, 'model{}_precisionatk_{}.svg'.format(model_id, dataset)))
+        plt.close()
+
+        # misclassified examples at k curve
+        f, ax = plt.subplots()
+        kvalues = np.array(list(precision_at_k.keys()))
+        precvalues = np.array(list(precision_at_k.values()))
+        num_misclf_examples = kvalues - kvalues * precvalues
+        ax.plot(kvalues, num_misclf_examples)
+        ax.set_ylabel('Number Misclassfied TCEs')
+        ax.set_xlabel('Top-K')
+        ax.grid(True)
+        ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
+        ax.legend()
+        f.savefig(os.path.join(save_path, 'model{}_misclassified_at_k_{}.svg'.format(model_id, dataset)))
         plt.close()
 
 
@@ -342,7 +441,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     else:
         model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                               momentum=config['momentum'],
+                                               momentum=config['sgd_momentum'],
                                                nesterov=False,
                                                name='SGD'),  # optimizer
                       # loss function to minimize
@@ -455,30 +554,50 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                                                                                original_label)]
 
     # compute precision at top-k
-    k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+    k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+    k_curve_arr = {
+        'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+        'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+        'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    }
+    labels_sorted = {}
     for dataset in datasets:
         sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-        labels_sorted = labels[dataset][sorted_idxs].squeeze()
-        predictions_sorted = predictions[dataset][sorted_idxs].squeeze()
-        classifications_sorted = np.zeros(predictions_sorted.shape, dtype='uint8')
-        classifications_sorted[np.where(predictions_sorted >= clf_threshold)] = 1
+        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
+
         for k_i in range(len(k_arr[dataset])):
             if len(sorted_idxs) < k_arr[dataset][k_i]:
                 res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = np.nan
             else:
                 res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = \
-                    np.sum(labels_sorted[-k_arr[dataset][k_i]:] * classifications_sorted[-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
-    # # add precision-at-top-k to the set of metrics computed for the model
-    # metrics_names = model.metrics_names + ['precision_at_{}'.format(k) for k in k_arr]
+                    np.sum(labels_sorted[dataset][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
 
     # save results in a numpy file
     print('Saving metrics to a numpy file...')
     np.save(os.path.join(model_dir_sub, 'results.npy'), res)
 
     print('Plotting evaluation results...')
-    # draw evaluation plots
-    draw_plots(res, res_dir, opt_metric, output_cl, model_id, min_optmetric,
-               earlystopping='early_stopping' in callbacks_dict)
+    epochs = np.arange(1, len(res['loss']) + 1)
+    # choose epoch associated with the best value for the metric
+    if 'early_stopping' in callbacks_dict:
+        if min_optmetric:
+            ep_idx = np.argmin(res['val_{}'.format(opt_metric)])
+        else:
+            ep_idx = np.argmax(res['val_{}'.format(opt_metric)])
+    else:
+        ep_idx = -1
+    # plot evaluation loss and metric curves
+    plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, res_dir)
+    # plot class distribution
+    plot_class_distribution(output_cl, model_id, res_dir)
+    # plot precision, recall, ROC AUC, PR AUC curves
+    # plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, res_dir)
+    # plot pr curve
+    plot_pr_curve(res, ep_idx, model_id, res_dir)
+    # plot roc
+    plot_roc(res, ep_idx, model_id, res_dir)
+    # plot precision-at-k and misclassfied-at-k examples curves
+    plot_precision_at_k(labels_sorted, k_curve_arr, model_id, res_dir)
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, datasets, metrics_names=model.metrics_names, prec_at_top=k_arr)
@@ -501,13 +620,13 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
 if __name__ == '__main__':
 
-    # used in job arrays
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    args = parser.parse_args()
-
-    ngpus_per_node = 1  # number of GPUs per node
-
+    # # used in job arrays
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    # args = parser.parse_args()
+    #
+    # ngpus_per_node = 4  # number of GPUs per node
+    #
     # # uncomment for MPI multiprocessing
     # rank = MPI.COMM_WORLD.rank
     # rank = ngpus_per_node * args.job_idx + rank
@@ -516,7 +635,7 @@ if __name__ == '__main__':
     # sys.stdout.flush()
     # if rank != 0:
     #     time.sleep(2)
-
+    #
     # # set a specific GPU for training the ensemble
     # gpu_id = rank % ngpus_per_node
     #
@@ -526,21 +645,24 @@ if __name__ == '__main__':
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'keras_test'
+    study = 'keras_test'  # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'
 
     # results directory
     save_path = os.path.join(paths.pathtrainedmodels, study)
     os.makedirs(save_path, exist_ok=True)
     os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
 
-    # tfrecord files directory
+    # TFRecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband')
+                             'tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_data/tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
+                             )
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
+    # hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
+    # hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
+    hpo_study = 'ConfigF-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
 
     # set configuration manually. Set to None to use a configuration from a HPO study
     config = None
@@ -579,11 +701,12 @@ if __name__ == '__main__':
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
-    config['branches'] = ['global_flux_view',
+    config['branches'] = [
+                          'global_flux_view',
                           'local_flux_view',
                           # 'local_flux_oddeven_views',
-                          # 'global_centr_view_medcmaxn',
-                          # 'local_centr_view_medcmaxn',
+                          # 'global_centr_view',
+                          # 'local_centr_view',
                           # 'local_weak_secondary_view'
                           ]
 
@@ -593,16 +716,16 @@ if __name__ == '__main__':
                       'local_flux_view',
                       # 'local_flux_odd_view',
                       # 'local_flux_even_view',
-                      # 'global_centr_view_medcmaxn',
-                      # 'local_centr_view_medcmaxn',
+                      # 'global_centr_view',
+                      # 'local_centr_view',
                       # 'local_weak_secondary_view'
     ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
-    features_names.append('scalar_params')  # use scalar parameters as input features
-    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
+    # features_names.append('scalar_params')  # use scalar parameters as input features
+    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    scalar_params_idxs = None  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -656,7 +779,7 @@ if __name__ == '__main__':
 
     # add missing parameters in hpo with default values
     # config['batch_norm'] = False
-    # config['non_lin_fn'] = 'relu'
+    config['non_lin_fn'] = 'prelu'
     config = src.config_keras.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI

@@ -112,3 +112,36 @@ for dataset in datasets:
 
         print('Dataset {}'.format(dataset))
         print('Disposition {}: {}/{} ({})'.format(disposition, numCorrect, numTotal, numCorrect / numTotal * 100))
+
+#%%
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+studyRoot = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble'
+studyDir = 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
+studyName = 'configE-all'
+dataset = 'train'
+rankingTbl = pd.read_csv(os.path.join(studyRoot, studyDir, 'ensemble_ranked_predictions_{}set.csv'.format(dataset)))
+
+koiColumns = ['koi_fpflag_nt', 'koi_fpflag_ss', 'koi_fpflag_co', 'koi_fpflag_ec', 'koi_comment']
+for col in koiColumns:
+    rankingTbl[col] = np.nan
+
+for tce_i, tce in rankingTbl.iterrows():
+
+    validTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) &
+                          (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+
+    if len(validTce) == 1:
+        rankingTbl.loc[tce_i, koiColumns] = validTce[koiColumns].values[0]
+
+saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/koi_comment_flag_analysis'
+rankingTbl.to_csv(os.path.join(saveDir, 'ranking_{}set_study{}.csv').format(dataset, studyName), index=False)
+
+rankingTblmisclf = rankingTbl.loc[((rankingTbl['predicted class'] == 1) & (rankingTbl['label'] == 0)) |
+                                  ((rankingTbl['predicted class'] == 0) & (rankingTbl['label'] == 1))]
+rankingTblmisclf = rankingTblmisclf[['target_id', 'tce_plnt_num', 'original_label', 'label', 'predicted class', 'score']
+                                    + koiColumns]
+
+rankingTblmisclf.to_csv(os.path.join(saveDir, 'ranking_{}set_study{}_misclf.csv').format(dataset, studyName), index=False)

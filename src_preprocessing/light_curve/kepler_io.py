@@ -401,10 +401,8 @@ def read_kepler_light_curve(filenames,
         data['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
 
     # inverts light curve
-    # TODO: currently only inverting for the all_centroids variable
     if invert:
+        data['all_flux'] = [flux - 2 * np.median(flux) for flux in data['all_flux']]
         data['all_flux'] = [-1 * flux for flux in data['all_flux']]
-        data['all_centroids']['x'] = [-1 * centroid for centroid in data['all_centroids']['x']]
-        data['all_centroids']['y'] = [-1 * centroid for centroid in data['all_centroids']['y']]
 
     return data

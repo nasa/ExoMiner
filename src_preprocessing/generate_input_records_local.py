@@ -22,13 +22,18 @@ class Config:
     """
 
     # TFRecords base name
-    tfrecords_base_name = 'test_q1q17dr25scr1'  # 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
-    # tfrecords_base_name = 'test_tfrecordskeplerdr25_norobovetterkois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalar_zoom'
+    # tfrecords_base_name = 'test_q1q17dr25scr1'  # 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
+    # tfrecords_base_name = 'test_tfrecordskeplerdr25_nontces_norobovetterkois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-6stellar'
+    # tfrecords_base_name = 'test_q1q17dr25_misclassified_configE+all'
+    # tfrecords_base_name = 'test_q1q17dr25_fellipe_examples'
+    # tfrecords_base_name = 'test_q1q17dr25_19interesting_nontces'
+    # tfrecords_base_name = 'test_q1q17dr25_diffoddeven'
+    tfrecords_base_name = 'test_plotviews_info'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
                                  'Kepler',  # either 'Kepler' of 'TESS'
-                                 'DR25'
+                                 'Q1-Q17_DR25'
                                  )
 
     # output directory
@@ -54,7 +59,7 @@ class Config:
     # in the same sector
     gapped = False
     gap_keep_ovelap = False
-    gap_padding = True
+    gap_padding = 1
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
     gap_with_confidence_level = False
@@ -88,7 +93,7 @@ class Config:
     injected_group = False  # either 'False' or inject group name
     light_curve_extension = 'LIGHTCURVE'  # either 'LIGHTCURVE' of 'INJECTED LIGHTCURVE' for injected data
     # either 'None' for not scrambling the quarters, or 'SCR1', 'SCR2' and 'SCR3' to use one of the scrambled groups
-    scramble_type = 'SCR1'  # either None or SCRX where X = {1,2,3}
+    scramble_type = None  # 'SCR1'  # either None or SCRX where X = {1,2,3}
     invert = False  # if True, raw light curves are inverted
 
     omit_missing = True  # skips target IDs that are not in the FITS files
@@ -99,21 +104,23 @@ class Config:
     # scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
     #                  'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
     # Kepler with DV
-    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
-    #                  'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
+    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
+                     'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat',
+                     'tce_rb_tcount0']
     # Kepler with TPS or TESS (for now)
-    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
+    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-        #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
         #                      'keplerTPS_KSOP2536_dr25_noroguetces.csv'
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
-                             'kplr_dr25_scr1_tces_stellar_processed_withlabels.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
+        #                      'kplr_dr25_scr1_tces_stellar_processed_withlabels.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/keplerTPS_KSOP2536_nontces.csv'
 
         # FITS files directory
         # lc_data_dir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
