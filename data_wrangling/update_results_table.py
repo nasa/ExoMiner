@@ -58,7 +58,8 @@ datasets = {
     'test': 'Test'
 }
 
-topk = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+# topk = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+topk = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
 # topk = {'train': [10, 100, 1000], 'val': [10, 100, 1000], 'test': [10, 100, 1000]}
 
 datasetsMetrics = {}
@@ -87,13 +88,13 @@ np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/resu
 
 studyRootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
 resTblFp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/' \
-           'results_studies_8-19-2020.csv'
+           'results_studies_8-26-2020.csv'
 datasetsMetrics = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
                           'map_datasets_metrics.npy', allow_pickle=True).item()
 
 studiesToAdd = [
-    ('ConfigE_spline_gapped_gbal_glflux+glcentr+loediff+lwks+6stellar+bfap+ghost+rollingband_prelu_nobugdur',
-     'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loediff-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'),
+    # ('ConfigE_spline_gapped_gbal_glflux+glcentr+loediff+lwks+6stellar+bfap+ghost+rollingband_prelu_nobugdur',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loediff-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'),
     # ('ConfigE_spline_gapped_gbal_glflux+glcentr+loe+lwks+6stellar+bfap+ghost+rollingband_prelu',
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
     # ('ConfigD_spline_gapped_gbal_glflux+glcentr+loe+lwks+6stellar_prelu_tps-tce1',
@@ -108,10 +109,38 @@ studiesToAdd = [
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-rollingband_prelu'),
     # ('ConfigD_spline_gapped_gbal_glflux+loe_prelu',
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu'),
-    # ('ConfigD_spline_gapped_gbal_glflux+lwks_prelu',
-    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu'),
+    # ('ConfigD_spline_gapped_glflux+loe_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu'),
+    # ('ConfigD_spline_gapped_glflux_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu'),
+    # ('ConfigD_spline_nongapped_nopps_glflux_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux_prelu'),
+    # ('ConfigD_spline_nongapped_nopps_glflux+glcentr_std_noclip_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip_prelu'),
+    # ('ConfigD_spline_nongapped_nopps_glflux+glcentr_std_noclip+loe+lwks+6stellar+bfap+ghost+rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
+    ('ConfigD_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks+6stellar+bfap+ghost+rollingband_prelu',
+     'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
     # ('ConfigD_spline_gapped_gbal_glflux_prelu',
-    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu')
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu'),
+    # ('ConfigD_spline_gapped_glflux+6stellar_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'),
+    # ('ConfigD_spline_gapped_glflux+bfap_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-bfap_prelu'),
+    # ('ConfigD_spline_gapped_glflux+ghost_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-ghost_prelu'),
+    # ('ConfigD_spline_gapped_glflux+rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-rollingband_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+loe_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentrstdclip_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_clip_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentrstdnoclip_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip_prelu'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentrmedcmaxn_prelu',
+    #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentrmedcmaxn_prelu'),
+    # ('ConfigD_spline_gapped_glflux+glcentrmedcmaxn_dir_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentrmedcmaxn_dir_prelu'),
 ]
 
 for studyName, studyDir in studiesToAdd:

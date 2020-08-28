@@ -5,6 +5,20 @@ import tensorflow as tf
 import os
 from src_preprocessing.tf_util import example_util
 
+#%%
+
+# # plot boxplots of centroid local and global views in the training set
+# print('Generating boxplots...')
+# f, ax = plt.subplots()
+# ax.boxplot([centroidMat['global_centr_view'], centroidMat['local_centr_view']], bootstrap=None, meanline=True,
+#            showmeans=True)
+# ax.set_title('Non-normalized centroid time series')
+# ax.set_yscale('log')
+# ax.set_ylabel('Value')
+# ax.set_xticklabels(['Global view', 'Local view'])
+# f.savefig('/home/msaragoc/Downloads/hist_nonnormalized_centroids.png')
+# # plt.show()
+
 #%% Checking values for centroid views
 
 # print(len(np.where(centroidMat['global_centr_view'], np.percentile(centroidMat['global_centr_view'], 75))))
@@ -303,19 +317,21 @@ for srcTfrecFile in srcTfrecFiles:
 #%% Getting only TCEs with tce_plnt_num = 1
 
 tceIdentifier = 'tce_plnt_num'
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_data/tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm'
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
 srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_data/tfrecordskeplerdr25-dv-tce1_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
+destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_tce1'
 os.makedirs(destTfrecDir, exist_ok=True)
 
 for srcTfrecFile in srcTfrecFiles:
 
-    with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
+    with tf.io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
 
-        record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
+        # record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
+        tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
 
-        for string_i, string_record in enumerate(record_iterator):
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+        # for string_i, string_record in enumerate(record_iterator):
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
@@ -326,3 +342,44 @@ for srcTfrecFile in srcTfrecFiles:
                 continue
 
             writer.write(example.SerializeToString())
+
+#%% Remove Possible Planets from dataset
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+tceIdentifier = 'tce_plnt_num'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm'
+srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
+srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
+destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_nopps'
+os.makedirs(destTfrecDir, exist_ok=True)
+
+tcesRemoved = {'train': 0, 'val': 0, 'test': 0}
+for srcTfrecFile in srcTfrecFiles:
+
+    with tf.io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
+
+        # record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
+        tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
+
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+        # for string_i, string_record in enumerate(record_iterator):
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+
+            tceFound = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
+                                  (tceTbl['tce_plnt_num'] == tceIdentifierTfrec)]
+
+            # possible planet KOI is not a confirmed KOI
+            if tceFound['fpwg_disp_status'].values[0] == 'POSSIBLE PLANET' and \
+                    tceFound['koi_disposition'].values[0] != 'CONFIRMED':
+                tcesRemoved[srcTfrecFile.split('/')[-1].split('-')[0]] += 1
+                continue
+
+            writer.write(example.SerializeToString())
+

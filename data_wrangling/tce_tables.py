@@ -745,3 +745,34 @@ for tceTblFile in tceTblsFiles:
                                                         (sourceTbl['tce_plnt_num'] == tce['tce_plnt_num'])][columnsToAdd].values[0]
 
     tceTbl.to_csv(tceTblFile, index=False)
+
+#%% Change labels of the preprocessing Kepler Q1-Q17 DR25 TCE table to the ones being used in the final experiment
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv')
+
+labelTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                       'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+tceTbl['label'] = 'NTP'
+
+for tcei, tce in tceTbl.iterrows():
+
+    tceFound = labelTbl.loc[(labelTbl['target_id'] == tce['target_id']) &
+                            (labelTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+
+    if len(tceFound) > 0:
+        tceTbl.loc[tcei, ['label']] = tceFound['label'].values[0]
+
+# assert labels changed
+for tcei, tce in tceTbl.iterrows():
+
+    tceFound = labelTbl.loc[(labelTbl['target_id'] == tce['target_id']) &
+                            (labelTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+
+    if len(tceFound) > 0:
+        assert tce['label'] == tceFound['label'].values[0]
+
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv',
+              index=False)

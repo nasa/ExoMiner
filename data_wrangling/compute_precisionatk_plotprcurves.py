@@ -69,7 +69,7 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=Fal
         ax.set_ylabel('Number Misclassfied TCEs')
         ax.set_xlabel('Top-K')
         ax.grid(True)
-        ax.set_xlim([k_arr[dataset][0], k_arr[dataset][-1]])
+        ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
         ax.legend()
         f.savefig(os.path.join(rootDir, 'misclassified_at_k_{}.svg'.format(dataset)))
         plt.close()
@@ -102,7 +102,9 @@ studies = [
     # 'keplerdr25_g2001-l201_spline_gapped_glflux_norobovetterkois_shallue_starshuffle',
     # 'keplerdr25_g2001-l201_spline_gapped_glflux_norobovetterkois_fdl_starshuffle'
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
-    'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'
+    # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
 ]
 
 datasets = ['train', 'val', 'test']
@@ -119,7 +121,7 @@ rootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/re
 for study in studies:
     print('Running for study {}'.format(study))
     for dataset in datasets:
-        compute_precision_at_k(study, dataset, rootDir, k_arr[dataset], k_curve_arr[dataset], plot=True)
+        compute_precision_at_k(study, dataset, rootDir, k_arr[dataset], k_curve_arr[dataset], plot=False)
 
 #%% Get precision at k values for different studies
 
@@ -165,7 +167,9 @@ studies = {
     # 'keplerdr25_g2001-l201_spline_gapped_glflux_norobovetterkois_fdl_starshuffle': 'Exonet',
     # 'keplerdr25_g2001-l201_spline_gapped_glflux_norobovetterkois_shallue_starshuffle': 'Astronet',
     # '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis': 'Robovetter'
-    'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur': 'ExoMiner-DV'
+    # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur': 'ExoMiner-DV'
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu': 'ExoMiner-PPs',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu': 'ExoMiner-No PPs'
 }
 
 rootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble'
@@ -175,6 +179,18 @@ k_arr = {
     'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
     'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
     'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+}
+
+k_arr_ticks = {
+    'train': np.linspace(200, 2000, 10, endpoint=True, dtype='int'),
+    'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+}
+
+k_arr_limits = {
+    'train': [0, 1818],
+    'val': [0, 222],
+    'test': [0, 251],
 }
 
 # plot precision at k curve
@@ -197,9 +213,11 @@ for dataset in datasets:
     ax.set_xlabel('Top-K')
     ax.grid(True)
     # ax.set_xticks(np.linspace(k_arr[0], k_arr[-1], 11, endpoint=True))
-    ax.set_xticks(np.linspace(25, 250, 10, endpoint=True, dtype='int'))
+    # ax.set_xticks(np.linspace(25, 250, 10, endpoint=True, dtype='int'))
+    ax.set_xticks(k_arr_ticks[dataset])
     ax.set_yticks(np.linspace(0.9, 1, 11))
-    ax.set_xlim([k_arr[dataset][0], k_arr[dataset][-1]])
+    # ax.set_xlim([k_arr[dataset][0], k_arr[dataset][-1]])
+    ax.set_xlim(k_arr_limits[dataset])
     ax.set_ylim(top=1.001, bottom=0.9)
     ax.legend()
 
@@ -228,8 +246,10 @@ for dataset in datasets:
     # ax.set_xticks(np.linspace(k_arr[0], k_arr[-1], 11, endpoint=True))
     # ax.set_xticks(k_arr[dataset])
     # ax.set_yticks(np.linspace(0.9, 1, 11))
-    ax.set_xlim([k_arr[dataset][0], k_arr[dataset][-1]])
+    # ax.set_xlim([k_arr[dataset][0], k_arr[dataset][-1]])
     # ax.set_ylim(top=1.001, bottom=0.9)
+    ax.set_xticks(k_arr_ticks[dataset])
+    ax.set_xlim(k_arr_limits[dataset])
     ax.legend()
 
     f.savefig(os.path.join(rootDir, 'misclassified_at_k_{}.svg'.format(dataset)))

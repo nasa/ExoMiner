@@ -430,8 +430,9 @@ def gap_this_tce(all_time, tce, gap_pad=0):
 
     # find gapped cadences for the TCE
     # transit_duration = tce['tce_duration'] * (1 + 2 * gap_pad)
-    transit_duration = max(min(tce['tce_duration'] * (1 + 2 * gap_pad), tce['tce_period'] / 10),
-                           tce['tce_duration'])
+    # transit_duration = max(min(tce['tce_duration'] * (1 + 2 * gap_pad), tce['tce_period'] / 10),
+    #                        tce['tce_duration'])
+    transit_duration = min(tce['tce_duration'] * (1 + 2 * gap_pad), np.abs(tce['tce_maxmesd']))
 
     for i in range(len(all_time)):
 
@@ -535,49 +536,56 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
     elif config.gap_with_confidence_level and config.satellite == 'tess':
         raise NotImplementedError('Using confidence level for gapping TCEs not implemented for TESS.')
 
-    # find gapped cadences for each TCE
-    for ephem_i, ephem in gap_ephems.iterrows():
+    # get transit duration of the TCE of interest
+    transit_duration_main = tce['tce_duration'] * (1 + 2 * gap_pad)
 
-        # ephem['tce_duration'] = ephem['tce_duration'] * (1 + 2 * gap_pad)
-        ephem['tce_duration'] = max(min(ephem['tce_duration'] * (1 + 2 * gap_pad), ephem['tce_period'] / 10),
-                                    ephem['tce_duration'])
+    # gap cadences for all other TCEs in the same target star
+    for i in range(len(all_time)):
 
-        for i in range(len(all_time)):
+        begin_time, end_time = all_time[i][0], all_time[i][-1]
+
+        transit_idxs_gappedtces = []
+
+        # find gapped cadences for each TCE
+        for ephem_i, ephem in gap_ephems.iterrows():
+
+            # gap more than transit duration to account for inaccuracies in the ephemeris estimates
+            # ephem['tce_duration'] = ephem['tce_duration'] * (1 + 2 * gap_pad)
+            # ephem['tce_duration'] = max(min(ephem['tce_duration'] * (1 + 2 * gap_pad), ephem['tce_period'] / 10),
+            #                             ephem['tce_duration'])
+            duration_gapped = ephem['tce_duration'] * (1 + 2 * gap_pad)
 
             # for TESS, check if this time array belongs to one of the overlapping sectors
             if config.satellite != 'kepler' and add_info['sectors'][i] not in gapSectors[ephem_i]:
                 continue
 
-            begin_time, end_time = all_time[i][0], all_time[i][-1]
-
             # get timestamp of the first transit of the gapped TCE in the current time array
             epoch = find_first_epoch_after_this_time(ephem['tce_time0bk'], ephem['tce_period'], begin_time)
 
             # create binary time-series for this time interval based on the ephemeris of the gapped TCE
-            bintransit_ts = create_binary_time_series(all_time[i], epoch, ephem['tce_duration'], ephem['tce_period'])
+            bintransit_ts = create_binary_time_series(all_time[i], epoch, duration_gapped, ephem['tce_period'])
 
             # get indexes of in-transit cadences for the gapped TCE in this time array
-            transit_idxs = np.where(bintransit_ts == 1)
+            transit_idxs = np.where(bintransit_ts == 1)[0]
 
-            if keep_overlap:  # do not gap cadences that belong to the TCE of interest
+            transit_idxs_gappedtces.extend(list(transit_idxs))
 
-                transit_duration = max(min(tce['tce_duration'] * (1 + 2 * gap_pad), tce['tce_period'] / 10),
-                                       tce['tce_duration'])
+        if keep_overlap:  # do not gap cadences that belong to the TCE of interest
 
-                # get timestamp of the first transit of the main TCE in the current time array
-                epoch_main = find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], begin_time)
+            # get timestamp of the first transit of the main TCE in the current time array
+            epoch_main = find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], begin_time)
 
-                # create binary time-series for this time interval based on the ephemeris of the main TCE
-                bintransit_ts_main = create_binary_time_series(all_time[i], epoch_main, transit_duration,
-                                                               tce['tce_period'])
+            # create binary time-series for this time interval based on the ephemeris of the main TCE
+            bintransit_ts_main = create_binary_time_series(all_time[i], epoch_main, transit_duration_main,
+                                                           tce['tce_period'])
 
-                # get indexes of in-transit cadences for the main TCE in this time array
-                transit_idxs_main = np.where(bintransit_ts_main == 1)
+            # get indexes of in-transit cadences for the main TCE in this time array
+            transit_idxs_main = np.where(bintransit_ts_main == 1)[0]
 
-                # exclude from gapped indices the indices of the in-transit cadences for the main TCE
-                transit_idxs = np.setdiff1d(transit_idxs, transit_idxs_main)
+            # exclude from gapped indices the indices of the in-transit cadences for the main TCE
+            transit_idxs_gappedtces = np.setdiff1d(transit_idxs_gappedtces, transit_idxs_main)
 
-            gapped_idxs.append(transit_idxs)
+        gapped_idxs.append(np.array(transit_idxs_gappedtces))
 
     return gapped_idxs
 
@@ -670,23 +678,32 @@ def _process_tce(tce, table, config, conf_dict):
         A tensorflow.train.Example proto containing TCE features.
     """
 
-    # import pandas as pd
+    import pandas as pd
     # # rankingTbl = pd.read_csv(
     # #     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
     # #     'keplerdr25_nontces_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-6stellar_prelu/'
     # #     'ensemble_ranked_predictions_predictset.csv')
     # # rankingTbl = pd.read_csv('/home/msaragoc/Downloads/ml_tces_first_19.csv')
+    # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/odd-even_min_comparison/'
+    #                          'keplerq1q17dr25_norobovetterkois_normalized_oddeven_views_diff_koicomment_koidisp_fpwgdisp.csv')
+    # rankingTbl = rankingTbl.loc[rankingTbl['label'] == 'PC']
+    # rankingTbl = rankingTbl[-20:]
+    # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/num_tces_per_disp/tce_counts_per_target.csv')
+    # rankingTbl = rankingTbl.loc[rankingTbl['label'] == 'PC']
     #
+    # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id']) &
+    #                       (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
-    if tce['target_id'] == 8937762 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
+    # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
+    if tce['target_id'] == 11442793 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if tce['oi'] == 541.01:
         print(tce)
     else:
         return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
@@ -783,7 +800,8 @@ def _process_tce(tce, table, config, conf_dict):
     data['all_time_nongapped'] = [np.array(el) for el in data['all_time']]
 
     # estimate the global (across quarters) average out-of-transit centroid position before gapping TCEs
-    duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
     # remove NaNs
     # centroid time-series
     joint_timeseries = ['all_time', 'all_centroids']
@@ -815,6 +833,7 @@ def _process_tce(tce, table, config, conf_dict):
     # TODO: how to compute the average oot? mean, median, other...
     data['avg_centroid_oot'] = {coord: np.nanmedian(np.concatenate(centroid_oot[coord])) for coord in centroid_oot}
 
+    # gap cadences belonging to the transits of other TCEs in the same target star
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
     data['gap_time'] = None
     if config.gapped:
@@ -826,7 +845,6 @@ def _process_tce(tce, table, config, conf_dict):
                                      conf_dict,
                                      gap_pad=config.gap_padding,
                                      keep_overlap=config.gap_keep_ovelap)
-
         timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']
         if config.gap_imputed:
             data['gap_time'] = []
@@ -938,7 +956,8 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     all_time, all_flux, _ = util.split(all_time, all_flux, gap_width=config.gapWidth)
 
     # add gap after and before transit based on transit duration
-    duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
@@ -999,10 +1018,12 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         time: list of NumPy arrays, timestamps for preprocessed flux time seriesed
         flux_noprimary: list of NumPy arrays, preprocessed weak secondary flux time series
     """
+
     all_time, all_flux_noprimary, _ = util.split(all_time, all_flux_noprimary, gap_width=config.gapWidth)
 
     # add gap after and before transit based on transit duration
-    duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
 
     first_transit_time_all_noprimary = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                          tce['tce_period'], time[0])
@@ -1014,7 +1035,8 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
     if plot_preprocessing_tce:
         utils_visualization.plot_binseries_flux(all_time, all_flux_noprimary, binary_time_all_noprimary,
                                                 tce, config,
-                                                os.path.join(config.output_dir, 'plots'), '3_binarytimeseries_wksflux_aug{}'.format(tce['augmentation_idx']))
+                                                os.path.join(config.output_dir, 'plots'),
+                                                '3_binarytimeseries_wksflux_aug{}'.format(tce['augmentation_idx']))
 
     # spline fitting for the secondary flux time-series
     all_flux_noprimary_lininterp = lininterp_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
@@ -1089,7 +1111,8 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
                                                    add_info=add_info)
 
     # add gap after and before transit based on transit duration
-    duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
@@ -1280,7 +1303,8 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
                               for time in all_time]
 
-    duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
+    duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
@@ -1694,7 +1718,7 @@ def global_view(time, flux, period, num_bins=2001, bin_width_factor=1/2001, cent
         time,
         flux,
         num_bins=num_bins,
-        bin_width=kwargs['tce_duration'] * bin_width_factor,  # period * bin_width_factor,
+        bin_width=max(period * bin_width_factor, kwargs['tce_duration'] * 0.16),
         t_min=-period / 2,
         t_max=period / 2,
         centroid=centroid,
@@ -1931,24 +1955,24 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                         bin_width_factor=config.bin_width_factor_loc,
                                         report={'config': config, 'tce': tce, 'view': 'local_flux_even_view'})
 
-        # # get local and global view for the weak secondary flux
-        # glob_weak_secondary_view = global_view(time_noprimary, flux_noprimary,
-        #                                        tce['tce_period'],
-        #                                        normalize=False,
-        #                                        centering=False,
-        #                                        num_durations=config.num_durations,
-        #                                        num_bins=config.num_bins_glob,
-        #                                        bin_width_factor=config.bin_width_factor_glob,
-        #                                        report={'config': config, 'tce': tce, 'view': 'global_wks_view'},
-        #                                        tce_duration=tce['tce_duration'])
-        # loc_weak_secondary_view = local_view(time_noprimary, flux_noprimary,
-        #                                      tce['tce_period'], tce['tce_duration'],
-        #                                      normalize=False,
-        #                                      centering=False,
-        #                                      num_durations=config.num_durations,
-        #                                      num_bins=config.num_bins_loc,
-        #                                      bin_width_factor=config.bin_width_factor_loc,
-        #                                      report={'config': config, 'tce': tce, 'view': 'local_wks_view'})
+        # get local and global view for the weak secondary flux
+        glob_weak_secondary_view = global_view(time_noprimary, flux_noprimary,
+                                               tce['tce_period'],
+                                               normalize=False,
+                                               centering=False,
+                                               num_durations=config.num_durations,
+                                               num_bins=config.num_bins_glob,
+                                               bin_width_factor=config.bin_width_factor_glob,
+                                               report={'config': config, 'tce': tce, 'view': 'global_wks_view'},
+                                               tce_duration=tce['tce_duration'])
+        loc_weak_secondary_view = local_view(time_noprimary, flux_noprimary,
+                                             tce['tce_period'], tce['tce_duration'],
+                                             normalize=False,
+                                             centering=False,
+                                             num_durations=config.num_durations,
+                                             num_bins=config.num_bins_loc,
+                                             bin_width_factor=config.bin_width_factor_loc,
+                                             report={'config': config, 'tce': tce, 'view': 'local_wks_view'})
 
         # if plot_preprocessing_tce:
         #     utils_visualization.plot_wks(glob_view, glob_view_weak_secondary, tce, config,
@@ -1974,39 +1998,50 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                          flux_views_stats['median']['local']))}
 
         # center by the flux view median and normalize by the flux view absolute minimum
+        views_aux = {}
         for flux_view in flux_views:
-            flux_views[flux_view] = \
+            views_aux['{}_fluxnorm'.format(flux_view)] = \
                 centering_and_normalization(flux_views[flux_view],
                                             flux_views_stats['median'][('local', 'global')['global' in flux_view]],
                                             flux_views_stats['min'][('local', 'global')['global' in flux_view]],
                                             report={'config': config, 'tce': tce, 'view': flux_view}
                                             )
+        flux_views.update(views_aux)
 
-        # add odd-even views absolute difference
-        flux_views['local_flux_oddeven_view_diff_dir'] = flux_views['local_flux_even_view'] - \
-                                                         flux_views['local_flux_odd_view']
-        if np.min(flux_views['local_flux_even_view']) <= np.min(flux_views['local_flux_odd_view']):
-            flux_views['local_flux_oddeven_view_diff'] = flux_views['local_flux_even_view'] -\
-                                                         flux_views['local_flux_odd_view']
-        else:
-            flux_views['local_flux_oddeven_view_diff'] = flux_views['local_flux_odd_view'] - \
-                                                         flux_views['local_flux_even_view']
+        # # add odd-even views absolute difference
+        # flux_views['local_flux_oddeven_view_diff_dir'] = flux_views['local_flux_even_view'] - \
+        #                                                  flux_views['local_flux_odd_view']
+        # if np.min(flux_views['local_flux_even_view']) <= np.min(flux_views['local_flux_odd_view']):
+        #     flux_views['local_flux_oddeven_view_diff'] = flux_views['local_flux_even_view'] -\
+        #                                                  flux_views['local_flux_odd_view']
+        # else:
+        #     flux_views['local_flux_oddeven_view_diff'] = flux_views['local_flux_odd_view'] - \
+        #                                                  flux_views['local_flux_even_view']
 
-        # # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
-        # weak_secondary_flux_views = {'global_weak_secondary_view': glob_weak_secondary_view,
-        #                              'local_weak_secondary_view': loc_weak_secondary_view
-        #                              }
-        # for flux_view in weak_secondary_flux_views:
-        #     weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
-        #     weak_secondary_flux_views[flux_view] = \
-        #         centering_and_normalization(weak_secondary_flux_views[flux_view],
-        #                                     weak_secondary_view_median,
-        #                                     np.abs(np.min(weak_secondary_flux_views[flux_view] -
-        #                                                   weak_secondary_view_median)),
-        #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-        #                                     )
-        # flux_views.update(weak_secondary_flux_views)
-        # num_transits.update({'local_weak_secondary_view': num_transits_wks})
+        # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
+        weak_secondary_flux_views = {'global_weak_secondary_view': glob_weak_secondary_view,
+                                     'local_weak_secondary_view': loc_weak_secondary_view
+                                     }
+        views_aux = {}
+        for flux_view in weak_secondary_flux_views:
+            # normalize by self absolute minimum
+            weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
+            views_aux['{}_selfnorm'.format(flux_view)] = \
+                centering_and_normalization(weak_secondary_flux_views[flux_view],
+                                            weak_secondary_view_median,
+                                            np.abs(np.min(weak_secondary_flux_views[flux_view] -
+                                                          weak_secondary_view_median)),
+                                            report={'config': config, 'tce': tce, 'view': flux_view}
+                                            )
+            # normalize by flux absolute minimum
+            views_aux['{}_fluxnorm'.format(flux_view)] = \
+                centering_and_normalization(weak_secondary_flux_views[flux_view],
+                                            flux_views_stats['median'][('local', 'global')['global' in flux_view]],
+                                            flux_views_stats['min'][('local', 'global')['global' in flux_view]],
+                                            report={'config': config, 'tce': tce, 'view': flux_view}
+                                            )
+        weak_secondary_flux_views.update(views_aux)
+        num_transits.update({'local_weak_secondary_view': num_transits_wks})
 
         # get centroid views
         glob_centr_view = global_view(time_centroid_dist, centroid_dist,
@@ -2112,10 +2147,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                         bin_width_factor=config.bin_width_factor_loc,
                                         report={'config': config, 'tce': tce, 'view': 'local_centr_fdl_view'})
 
-        if plot_preprocessing_tce:
-            utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
-                                                     os.path.join(config.output_dir, 'plots'),
-                                                     '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
+        # if plot_preprocessing_tce:
+        #     utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
+        #                                              os.path.join(config.output_dir, 'plots'),
+        #                                              '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
 
         centr_views = {'global_centr_view': glob_centr_view,
                        'local_centr_view': loc_centr_view,
@@ -2135,6 +2170,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # initialize dictionary with the views that will be stored in the TFRecords example for this TCE
         views = {}
         views.update(flux_views)
+        views.update(weak_secondary_flux_views)
         views.update(centr_views)
 
         # utils_visualization.plot_diff_oddeven(views, tce, config, os.path.join(config.output_dir, 'plots'),
@@ -2142,8 +2178,13 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
         if plot_preprocessing_tce:
             # CHANGE NUMBER OF VIEWS PLOTTED!!!
-            views_plot = {view_name: view for view_name, view in views.items() if view_name not in
-                          ['global_flux_even_view', 'global_flux_odd_view']}
+            views_to_plot = ['global_flux_view', 'local_flux_view', 'local_flux_odd_view', 'local_flux_even_view',
+                          'global_flux_view_fluxnorm', 'local_flux_view_fluxnorm', 'local_flux_odd_view_fluxnorm',
+                          'local_flux_even_view_fluxnorm',
+                          'local_weak_secondary_view', 'local_weak_secondary_view_selfnorm',
+                          'local_weak_secondary_view_fluxnorm', 'global_centr_view', 'local_centr_view',
+                          'global_centr_fdl_view', 'local_centr_fdl_view']
+            views_plot = {view_name: view for view_name, view in views.items() if view_name in views_to_plot}
             utils_visualization.plot_all_views(views_plot, tce, config, (4, 4),
                                                os.path.join(config.output_dir, 'plots'),
                                                '8_final_views_aug{}'.format(tce['augmentation_idx']),

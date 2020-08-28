@@ -28,7 +28,11 @@ class Config:
     # tfrecords_base_name = 'test_q1q17dr25_fellipe_examples'
     # tfrecords_base_name = 'test_q1q17dr25_19interesting_nontces'
     # tfrecords_base_name = 'test_q1q17dr25_diffoddeven'
-    tfrecords_base_name = 'test_plotviews_info'
+    # tfrecords_base_name = 'test_plotviews_info'
+    # tfrecords_base_name = 'test_PC_large_oddeven_depth_diff'
+    # tfrecords_base_name = 'test_strong_wks'
+    # tfrecords_base_name = 'test_multi-tces_PC'
+    tfrecords_base_name = 'test_gapping_other_tces'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -57,7 +61,7 @@ class Config:
 
     # gapping - remove other TCEs belonging to the same target; if conducting a multi-sector run, check only for TCEs
     # in the same sector
-    gapped = False
+    gapped = True
     gap_keep_ovelap = False
     gap_padding = 1
     gap_imputed = False  # add noise to gapped light curves
@@ -68,7 +72,7 @@ class Config:
     # binning parameters
     num_bins_glob = 2001  # number of bins in the global view
     num_bins_loc = 201  # number of bins in the local view
-    bin_width_factor_glob = 0.16  # 1 / num_bins_glob
+    bin_width_factor_glob = 1 / num_bins_glob  # 0.16
     bin_width_factor_loc = 0.16
     num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
 
@@ -114,8 +118,10 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
         input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
+                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
         #                      'keplerTPS_KSOP2536_dr25_noroguetces.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \

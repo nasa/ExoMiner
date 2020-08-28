@@ -150,7 +150,7 @@ def plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, save_path):
     ax[1].legend(loc="lower right")
     f.suptitle('Epochs = {:.0f}(Best val:{:.0f})'.format(epochs[-1], epochs[ep_idx]))
     f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(os.path.join(save_path, 'model{}_plotseval_epochs{:.0f}.png'.format(model_id, epochs[-1])))
+    f.savefig(os.path.join(save_path, 'model{}_plotseval_epochs{:.0f}.svg'.format(model_id, epochs[-1])))
     plt.close()
 
 
@@ -180,7 +180,7 @@ def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, save_path):
     # ax[1].legend(loc="lower right")
     # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
     # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(os.path.join(save_path, 'model{}_prec_rec_auc.png'.format(model_id)))
+    f.savefig(os.path.join(save_path, 'model{}_prec_rec_auc.svg'.format(model_id)))
     plt.close()
 
 
@@ -218,7 +218,7 @@ def plot_pr_curve(res, ep_idx, model_id, save_path):
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     # ax.set_title('Precision Recall curve')
-    f.savefig(os.path.join(save_path, 'model{}_prec_rec.png'.format(model_id)))
+    f.savefig(os.path.join(save_path, 'model{}_prec_rec.svg'.format(model_id)))
     plt.close()
 
 
@@ -303,7 +303,7 @@ def plot_class_distribution(output_cl, model_id, save_path):
         ax.set_xticks(np.linspace(0, 1, 11, True))
         ax.legend()
         ax.set_title('Output distribution - {}'.format(dataset_names[dataset]))
-        plt.savefig(os.path.join(save_path, 'model{}_class_predoutput_distribution_{}.png'.format(model_id, dataset)))
+        plt.savefig(os.path.join(save_path, 'model{}_class_predoutput_distribution_{}.svg'.format(model_id, dataset)))
         plt.close()
 
 
@@ -348,7 +348,6 @@ def plot_precision_at_k(labels_ord, k_curve_arr, model_id, save_path):
         ax.set_xlabel('Top-K')
         ax.grid(True)
         ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
-        ax.legend()
         f.savefig(os.path.join(save_path, 'model{}_misclassified_at_k_{}.svg'.format(model_id, dataset)))
         plt.close()
 
@@ -610,7 +609,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     np.save(os.path.join(model_dir_sub, 'config'), config)
     # plot model and save the figure created
     plot_model(model,
-               to_file=os.path.join(model_dir_sub, 'model.png'),
+               to_file=os.path.join(model_dir_sub, 'model.svg'),
                show_shapes=False,
                show_layer_names=True,
                rankdir='TB',

@@ -526,6 +526,10 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     :return:
     """
 
+    global_phase = np.linspace(-tce['tce_period'] / 2, tce['tce_period'] / 2, config.num_bins_glob, endpoint=True)
+    local_phase = np.linspace(-tce['tce_duration'] * config.num_durations, tce['tce_duration'] * config.num_durations,
+                              config.num_bins_loc, endpoint=True)
+
     scalarParamsStr = ''
     for scalarParam_i in range(len(config.scalar_params)):
         if scalarParam_i == 5:
@@ -554,6 +558,14 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
             if k < len(views_list):
                 ax[i, j].plot(views[views_list[k]])
                 # ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]])
+                # ax2 = ax[i, j].twiny()
+                # if 'global' in views_list[k]:
+                #     ax2.plot(global_phase, views[views_list[k]])
+                #     ax2.set_xlim([global_phase[0], global_phase[-1]])
+                # else:
+                #     ax2.plot(local_phase, views[views_list[k]])
+                #     ax2.set_xlim([local_phase[0], local_phase[-11]])
+                # ax2.grid(True)
                 if views_list[k] in num_transits:
                     ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits[views_list[k]]), pad=20)
                 else:
@@ -616,6 +628,7 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
 
     f, ax = plt.subplots()
     ax.plot(time, timeseries)
+    ax.set_xlim([time[0], time[-1]])
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase')
     ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
@@ -645,6 +658,7 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
             if k < len(views_list):
                 ax[i, j].plot(timeseries[views_list[k]][0], timeseries[views_list[k]][1])
                 ax[i, j].set_title(views_list[k], pad=20)
+                ax[i, j].set_xlim([timeseries[views_list[k]][0][0], timeseries[views_list[k]][0][-1]])
             if i == scheme[0] - 1:
                 ax[i, j].set_xlabel('Phase')
             if j == 0:

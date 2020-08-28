@@ -229,7 +229,6 @@ def plot_precision_at_k(labels_ord, k_curve_arr, dataset, save_path):
     ax.set_xlabel('Top-K')
     ax.grid(True)
     ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
-    ax.legend()
     f.savefig(os.path.join(save_path, 'ensemble_misclassified_at_k_{}.svg'.format(dataset)))
     plt.close()
 

@@ -259,12 +259,14 @@ def read_kepler_light_curve(filenames,
   """
 
     # initialize data dict
-    data = {'all_time': [],
-            'all_flux': [],
-            'all_centroids': {'x': [], 'y': []},
-            'quarter': [],
-            'module': [],
-            'target_position': []}
+    data = {
+        'all_time': [],
+        'all_flux': [],
+        'all_centroids': {'x': [], 'y': []},
+        'quarter': [],
+        'module': [],
+        'target_position': []
+    }
 
     # if get_px_centr:
         # if get_px_centr and not centroid_radec:
