@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 #%%
 
 
-def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=False):
+def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, k_curve_arr_plot, plot=False, verbose=False):
     """ Compute precision-at-k and plot related curves.
 
     :param study: str, study name
@@ -14,7 +14,9 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=Fal
     :param rootDir: str, root directory with the studies
     :param k_arr: list with k values for which to compute precision-at-k
     :param k_curve_arr: list with k values for which to compute precision-at-k curve
+    :param k_curve_arr_plot: list with values for which to draw xticks (k values)
     :param plot: bool, if True plots precision-at-k and misclassified-at-k curves
+    :param verbose: bool, if True print precision-at-k values
     :return:
     """
 
@@ -34,6 +36,9 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=Fal
 
     np.save(os.path.join(rootDir, study, 'precision_at_k_{}.npy'.format(dataset)), precision_at_k)
 
+    if verbose:
+        print('{}: {}'.format(dataset, precision_at_k))
+
     # compute precision at k curve
     precision_at_k = {k: np.nan for k in k_curve_arr}
     for k_i in range(len(k_curve_arr)):
@@ -52,11 +57,10 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=Fal
         ax.set_ylabel('Precision')
         ax.set_xlabel('Top-K')
         ax.grid(True)
-        # ax.set_xticks(np.linspace(k_arr[0], k_arr[-1], 11, endpoint=True))
-        # ax.set_xticks(np.linspace(25, 250, 10, endpoint=True, dtype='int'))
-        # ax.set_yticks(np.linspace(0, 1, 21))
+        ax.set_xticks(k_curve_arr_plot)
         ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
-        ax.set_ylim(top=1)
+        # ax.set_ylim(top=1)
+        ax.set_ylim([-0.01, 1.01])
         f.savefig(os.path.join(rootDir, study, 'precision_at_k_{}.svg'.format(dataset)))
         plt.close()
 
@@ -69,9 +73,10 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, plot=Fal
         ax.set_ylabel('Number Misclassfied TCEs')
         ax.set_xlabel('Top-K')
         ax.grid(True)
+        ax.set_xticks(k_curve_arr_plot)
         ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
-        ax.legend()
-        f.savefig(os.path.join(rootDir, 'misclassified_at_k_{}.svg'.format(dataset)))
+        ax.set_ylim(bottom=-0.01)
+        f.savefig(os.path.join(rootDir, study, 'misclassified_at_k_{}.svg'.format(dataset)))
         plt.close()
 
 #%% Compute precision at k for experiments
@@ -103,17 +108,34 @@ studies = [
     # 'keplerdr25_g2001-l201_spline_gapped_glflux_norobovetterkois_fdl_starshuffle'
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr-loe-lwks-6stellar-ghost-bfap-rollingband_prelu_nobugdur'
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_astronet-300epochs-es20patience_glflux'
 ]
 
 datasets = ['train', 'val', 'test']
 
-k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+# k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+k_arr = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # PPs
+
 k_curve_arr = {
-    'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
-    'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
-    'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    # 'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    'train': np.linspace(25, 1800, 100, endpoint=True, dtype='int'),  # PPs
+    'val': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
+    'test': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
+}
+k_curve_arr_plot = {
+    # 'train': np.linspace(200, 2000, 10, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    'train': np.linspace(200, 1800, 8, endpoint=True, dtype='int'),  # PPs
+    'val': np.linspace(25, 200, 8, endpoint=True, dtype='int'),
+    'test': np.linspace(25, 200, 8, endpoint=True, dtype='int')
 }
 
 rootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble'
@@ -121,7 +143,8 @@ rootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/re
 for study in studies:
     print('Running for study {}'.format(study))
     for dataset in datasets:
-        compute_precision_at_k(study, dataset, rootDir, k_arr[dataset], k_curve_arr[dataset], plot=False)
+        compute_precision_at_k(study, dataset, rootDir, k_arr[dataset], k_curve_arr[dataset], k_curve_arr_plot[dataset],
+                               plot=True, verbose=True)
 
 #%% Get precision at k values for different studies
 

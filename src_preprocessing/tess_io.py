@@ -4,7 +4,7 @@ Utility I/O functions for TESS data.
 
 # 3rd party
 import os
-from tensorflow import gfile
+from tensorflow.io import gfile
 from astropy.io import fits
 import numpy as np
 from astropy import wcs
@@ -158,7 +158,8 @@ def read_tess_light_curve(filenames,
     # iterate through the FITS files for the target star
     for filename in filenames:
         try:
-            with fits.open(gfile.Open(filename, "rb"), ignoring_missing_end=True) as hdu_list:
+            # with fits.open(gfile.Open(filename, "rb"), ignoring_missing_end=True) as hdu_list:
+            with fits.open(filename, ignoring_missing_end=True) as hdu_list:
 
                 camera = hdu_list["PRIMARY"].header["CAMERA"]
                 ccd = hdu_list["PRIMARY"].header["CCD"]

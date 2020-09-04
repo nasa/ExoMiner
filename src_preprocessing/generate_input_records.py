@@ -7,17 +7,18 @@ for classifying Threshold Crossing Events.
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import tensorflow as tf
 import pickle
 from mpi4py import MPI
 import datetime
 import socket
-# import numpy as np
-# import time
 import pandas as pd
+from tensorflow.compat.v1 import logging as tf_logging
+from tensorflow.compat.v1 import app as tf_app
+from tensorflow.io import gfile, TFRecordWriter
 
 # local
 from src_preprocessing.preprocess import _process_tce
+# from src_preprocessing.preprocess_sv_fdl import _process_tce
 from src_preprocessing.utils_generate_input_records import get_tess_tce_table, get_kepler_tce_table, \
     load_whitened_data, shuffle_tce, normalize_params_tce_table
 
@@ -28,7 +29,7 @@ class Config:
     """
 
     # TFRecords base name
-    tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
+    tfrecords_base_name = 'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband'
 
     # TFRecords root directory
     tfrecords_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords'
@@ -36,9 +37,9 @@ class Config:
     # output directory
     output_dir = os.path.join(tfrecords_dir, 'TESS', tfrecords_base_name)
 
-    satellite = 'tess'  # choose from: ['kepler', 'tess']
+    satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
-    tce_identifier = 'oi'  # either 'tce_plnt_num' or 'oi'
+    tce_identifier = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
 
     # offline data augmentation
     augmentation = False  # if True, it augments the dataset by applying augmentation techniques to the TCE data
@@ -88,17 +89,18 @@ class Config:
     # scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
     #                  'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
     # # Kepler with DV
-    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
-    #                  'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
+    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
+                     'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat',
+                     'tce_rb_tcount0']
     # Kepler with TPS
-    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
+    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
     use_tps_ephem = False  # use TPS ephemeris instead of DV
 
     # binning parameters
     num_bins_glob = 2001  # number of bins in the global view
     num_bins_loc = 201  # number of bins in the local view
-    bin_width_factor_glob = 0.16  # 1 / num_bins_glob
+    bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
     num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
 
@@ -106,12 +108,32 @@ class Config:
     get_denoised_centroids = False
 
     if satellite.startswith('kepler'):
+
         # TCE table filepath
-        input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-                             'DR25/q1_q17_dr25_tce_cumkoi2020.02.21_stellar_shuffled.csv'
+
+        # q1-q17 dr25 DV TCEs
+        input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv'
+        # # q1-q17 dr25 TPS TCE-1s
+        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'tps/keplerTPS_KSOP2536_dr25.csv'
+        # # q1-q17 dr25 non-TCEs
+        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'tps/keplerTPS_KSOP2536_nontces.csv'
+        # # scrambled TCEs
+        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'simulated_data/scrambled/kplr_dr25_scr3_tces_stellar_processed_withlabels.csv'
+        # # inverted TCEs
+        # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'simulated_data/inverted/kplr_dr25_inv_tces_stellar_processed_withlabels.csv'
+
         # PDC light curve FITS files root directory
+        # q1-q17 dr25 TCEs
         lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
                       'pdc-tce-time-series-fits'
+        # q1-q17 dr25 TCEs + non-TCEs
+        # lc_data_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
+        #               'dr_25_all_final'
 
         dict_savedir = ''
 
@@ -157,13 +179,13 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
-    tf.logging.info('{}: Processing {} items in shard {}'.format(config.process_i, shard_size, shard_name))
+    tf_logging.info('{}: Processing {} items in shard {}'.format(config.process_i, shard_size, shard_name))
 
     confidence_dict = pickle.load(open(config.dict_savedir, 'rb')) if config.gap_with_confidence_level else {}
 
     start_time = int(datetime.datetime.now().strftime("%s"))
 
-    with tf.python_io.TFRecordWriter(file_name) as writer:
+    with TFRecordWriter(file_name) as writer:
 
         num_processed = 0
 
@@ -206,10 +228,10 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                         printstr = '{}: Processed {}/{} items in shard {}'.format(config.process_i, num_processed,
                                                                                   shard_size, shard_name)
 
-                    tf.logging.info(printstr)
+                    tf_logging.info(printstr)
 
     if config.n_processes < 50:
-        tf.logging.info('{}: Wrote {} items in shard {}', config.process_i, shard_size, shard_name)
+        tf_logging.info('{}: Wrote {} items in shard {}', config.process_i, shard_size, shard_name)
 
 
 def main(_):
@@ -218,11 +240,11 @@ def main(_):
     config = Config()
 
     # make the output directory if it doesn't already exist
-    tf.gfile.MakeDirs(config.output_dir)
+    gfile.makedirs(config.output_dir)
 
     # make directory to save figures in different steps of the preprocessing pipeline
     if config.plot_figures:
-        tf.gfile.MakeDirs(os.path.join(config.output_dir, 'plots'))
+        gfile.makedirs(os.path.join(config.output_dir, 'plots'))
 
     # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config.satellite == 'kepler'
@@ -240,11 +262,11 @@ def main(_):
 
     _process_file_shard(tce_table, file_name_i, eph_table, config)
 
-    tf.logging.info('Finished processing {} items in shard {}'.format(len(tce_table), filename))
+    tf_logging.info('Finished processing {} items in shard {}'.format(len(tce_table), filename))
 
 
 if __name__ == "__main__":
 
-    tf.logging.set_verbosity(tf.logging.INFO)
+    tf_logging.set_verbosity(tf_logging.INFO)
 
-    tf.app.run(main=main)
+    tf_app.run(main=main)

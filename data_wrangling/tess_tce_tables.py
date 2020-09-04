@@ -93,99 +93,16 @@ print(tceDf['sector'].value_counts())
 # 49412 TCEs Sectors 1-24 multi and single-sector runs, 6-25-2020 12.00 pm
 tceDf.to_csv(os.path.join(tceDvDir, 'tess-s1-s24_m-sruns_dvr-tcestats.csv'), index=False)
 
-#%% Fill in stellar paramters for the TOIs
-
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois.csv', header=4)
-toiTargets = toiTbl['TIC'].unique()
-
-print('Number of TICs in TOI Catalog: {}'.format(len(toiTargets)))
-
-# get the header
-headerList = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/tic_column_description.txt',
-                         skiprows=1, header=None, sep='\t', usecols=[1]).values.ravel()
-
-columnNames = ['[Tmag] [real]', '[Teff] [real]', '[logg] [real]', '[MH] [real]', '[rad] [real]', '[mass] [real]',
-               '[rho] [real]', '[ra] [float]', '[dec] [float]']
-
-#%% Reading from CTL list
-
-# define number of rows to be read from the dataframe at each step
-chunksize = 10000
-
-# load the CTL list
-# 9488282 targets in the CTL
-dfCtlReader = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/CTL/'
-                          'exo_CTL_08.01xTIC_v8.csv', chunksize=chunksize, header=None, names=headerList)
-
-dfTicList = pd.DataFrame(columns=headerList)
-i = 1
-for chunk in dfCtlReader:
-    print('Reading TICs {}-{}'.format(i, i + len(chunk) - 1))
-
-    # check which TICs in this chunk are in the list
-    validTics = chunk.loc[chunk['[ID] [bigint]'].isin(toiTargets)]
-
-    dfTicList = pd.concat([dfTicList, validTics])
-
-    i += len(chunk)
-    print('Number of valid TICs added: {}\nTotal added (Total): {} ({})'.format(len(validTics), len(dfTicList),
-                                                                                len(toiTargets)))
-
-    if len(dfTicList) == len(toiTargets):
-        break
-
-dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/stellarctl_tois.csv', index=False)
-
-for columnName in columnNames:
-    print(dfTicList[columnName].isna().value_counts())
-
-#%% Reading from TIC-8 catalog
-
-# root directory with TIC-8 csv files
-ticDir = '/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/TESS/TIC-8'
-ticQuadTbls = [os.path.join(ticDir, ticQuadTbl) for ticQuadTbl in os.listdir(ticDir)]
-
-# define number of rows to be read from the dataframe at each step
-chunksize = 10000
-
-dfTicList = pd.DataFrame(columns=headerList)
-
-# iterate through TIC-8 csv files
-for tbl_i, ticQuadTbl in enumerate(ticQuadTbls):
-
-    # create an iterator that reads chunksize rows each time
-    dfCtlReader = pd.read_csv(ticQuadTbl, chunksize=chunksize, header=None, names=headerList)
-    i = 1
-    for chunk in dfCtlReader:
-
-        print('Reading TICs {}-{} in table {}/{}'.format(i, i + len(chunk) - 1, tbl_i, len(ticQuadTbls)))
-
-        # check which TICs in this chunk are in the list
-        validTics = chunk.loc[chunk['[ID] [bigint]'].isin(toiTargets)]
-
-        dfTicList = pd.concat([dfTicList, validTics])
-
-        i += len(chunk)
-        print('Number of valid TICs added: {}\nTotal added (Total): {} ({})'.format(len(validTics), len(dfTicList),
-                                                                                    len(toiTargets)))
-
-        if len(dfTicList) == len(toiTargets):
-            break
-
-dfTicList.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/stellartic8_tois.csv', index=False)
-
-for columnName in columnNames:
-    print(dfTicList[columnName].isna().value_counts())
-
 #%% Update TOI catalog with stellar parameters
 
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois.csv', header=4)
+toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois.csv', header=4)
 toiTblTargets = toiTbl.drop_duplicates(subset=['TIC'])
 columnNames = ['TMag Value', 'Surface Gravity Value', 'Star Radius Value', 'Effective Temperature Value']
 for columnName in columnNames:
     print(toiTblTargets[columnName].isna().value_counts())
 
-stellarTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/stellartic8_tois.csv')
+stellarTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+                         'stellartic8_tois_8-14-2020.csv')
 
 columnNamesStellar = ['[Tmag] [real]', '[Teff] [real]', '[logg] [real]', '[MH] [real]', '[rad] [real]', '[mass] [real]',
                       '[rho] [real]', '[ra] [float]', '[dec] [float]']
@@ -208,16 +125,15 @@ for columnName in ['[MH] [real]', '[mass] [real]', '[rho] [real]']:
 #
 # assert toisUpdated == len(toiTbl)
 
-paramsUpdated = 0
 for toi_i, toi in toiTbl.iterrows():
 
     ticMatched = stellarTbl.loc[stellarTbl['[ID] [bigint]'] == toi['TIC'], columnNamesStellar]
     for param_i in range(len(columnNamesToi)):
+        # only update missing values
         if np.isnan(toi[columnNamesToi[param_i]]) and not np.isnan(ticMatched[columnNamesStellar[param_i]].values[0]):
             toiTbl.loc[toi_i, [columnNamesToi[param_i]]] = ticMatched[columnNamesStellar[param_i]].values[0]
-            paramsUpdated += 1
 
-toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar.csv', index=False)
+toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois_stellar.csv', index=False)
 toiTblTargets = toiTbl.drop_duplicates(subset=['TIC'])
 for columnName in columnNamesToi:
     print(toiTblTargets[columnName].isna().value_counts())
@@ -228,7 +144,7 @@ for columnName in columnNamesToi:
 solarParams = {'Effective Temperature Value': 5777.0, 'Surface Gravity Value': 4.438, '[MH] [real]': 0,
                'Star Radius Value': 1.0, '[rho] [real]': 1.408, '[mass] [real]': 1.0}
 
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar.csv')
+toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois_stellar.csv')
 
 paramsUpdated = 0
 for toi_i, toi in toiTbl.iterrows():
@@ -237,14 +153,16 @@ for toi_i, toi in toiTbl.iterrows():
             toiTbl.loc[toi_i, [param]] = solarParams[param]
             paramsUpdated += 1
 
-toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar.csv', index=False)
+toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois_stellar_missvaltosolar.csv',
+              index=False)
 toiTblTargets = toiTbl.drop_duplicates(subset=['TIC'])
 for columnName in columnNamesToi:
     print(toiTblTargets[columnName].isna().value_counts())
 
 #%% Standardize TCE table columns
 
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar.csv')
+toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+                     'tois_stellar_missvaltosolar.csv')
 print('Number of TOIs: {}'.format(len(toiTbl)))
 
 rawFields = ['TIC', 'Full TOI ID', 'TOI Disposition', 'TIC Right Ascension', 'TIC Declination', 'TMag Value',
@@ -272,16 +190,19 @@ toiTbl = toiTbl.loc[(toiTbl['tce_period'] > 0) & (toiTbl['tce_duration'] > 0) & 
 print('Number of TOIs after dropping TOIs with nonpositive period, transit duration or '
       'transit depth: {}'.format(len(toiTbl)))
 
-toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar_procols.csv', index=False)
+toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+              'tois_stellar_missvaltosolar_stdcols.csv', index=False)
 
 #%% Filter out QLP TOIs
 
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar_procols.csv')
+toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+                     'tois_stellar_missvaltosolar_stdcols.csv')
 
 toiTbl = toiTbl.loc[toiTbl['Source Pipeline'] == 'spoc']
 print('Number of SPOC TOIs: {}'.format(len(toiTbl)))
 
-toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar_procols_spoc.csv',
+toiTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+              'tois_stellar_missvaltosolar_stdcols_spoc.csv',
               index=False)
 
 #%%
@@ -293,4 +214,3 @@ columnNamesStellar = ['starTeffKelvin', 'starLoggCgs', 'starRadiusSolarRadii']
 tceTblTargets = tceTbl.drop_duplicates(subset=['ticid'])
 for columnName in columnNamesStellar:
     print(tceTblTargets[columnName].isna().value_counts())
-

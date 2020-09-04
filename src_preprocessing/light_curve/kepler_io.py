@@ -18,7 +18,8 @@ import os.path
 
 from astropy.io import fits
 import numpy as np
-from tensorflow import gfile
+# from tensorflow import gfile
+from tensorflow.io import gfile
 from astropy import wcs
 
 from src_preprocessing.light_curve import util
@@ -146,7 +147,7 @@ def kepler_filenames(base_dir,
                                                        cadence_suffix)
             filename = os.path.join(base_dir, base_name)
             # Not all stars have data for all quarters.
-            if not check_existence or gfile.Exists(filename):
+            if not check_existence or gfile.exists(filename):
                 filenames.append(filename)
 
     return filenames
@@ -263,17 +264,11 @@ def read_kepler_light_curve(filenames,
         'all_time': [],
         'all_flux': [],
         'all_centroids': {'x': [], 'y': []},
+        'all_centroids_px': {'x': [], 'y': []},
         'quarter': [],
         'module': [],
         'target_position': []
     }
-
-    # if get_px_centr:
-        # if get_px_centr and not centroid_radec:
-            # raise ValueError('Duplicated centroid time-series due to setting `get_px_centr` flag to True and '
-            #                  '`centroid_radec` flag to False.')
-    # initialize dict for FDL centroid time-series
-    data['all_centroids_px'] = {'x': [], 'y': []}
 
     def _has_finite(array):
         for i in array:
@@ -284,7 +279,8 @@ def read_kepler_light_curve(filenames,
 
     # iterate through the FITS files for the target star
     for filename in filenames:
-        with fits.open(gfile.Open(filename, "rb")) as hdu_list:
+        # with fits.open(gfile.Open(filename, "rb")) as hdu_list:
+        with fits.open(filename) as hdu_list:
 
             # needed to transform coordinates when target is in module 13 and when using pixel coordinates
             quarter = hdu_list["PRIMARY"].header["QUARTER"]
@@ -380,8 +376,14 @@ def read_kepler_light_curve(filenames,
         # if get_px_centr:
         # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
         # aperture
-        data['all_centroids_px']['x'].append(centroid_fdl_x - ref_px_ccdf[0])
-        data['all_centroids_px']['y'].append(centroid_fdl_y - ref_px_ccdf[1])
+        # 1st attempt at reproducing FDL centroid; they mention centroid relative to the Target Pixel File center,
+        # It is not clear what exactly that means
+        # data['all_centroids_px']['x'].append(centroid_fdl_x - ref_px_ccdf[0])
+        # data['all_centroids_px']['y'].append(centroid_fdl_y - ref_px_ccdf[1])
+        # 2nd attempt - instead of subtracting the ref_px_ccdf coordinates, the spline is subtracted during
+        # preprocessing
+        data['all_centroids_px']['x'].append(centroid_fdl_x)
+        data['all_centroids_px']['y'].append(centroid_fdl_y)
 
         data['quarter'].append(quarter)
         data['module'].append(module)

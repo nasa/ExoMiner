@@ -222,252 +222,250 @@ auc_pr = AUC(num_thresholds=num_thresholds,
 _ = auc_pr.update_state(rankingLabels, rankingScores)
 print(auc_pr.result().numpy())
 
-#%% Compute AUC ROC and AUC PR and plot PR curve and ROC
-
-# load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
-
-# load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
-# columns of interest from the Robovetter TCE table
-columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
-               'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
-robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                               'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
-                               skipinitialspace=False)
-# print(robovetterTceTbl.head())
-# create target_id and tce_plnt_num columns
-robovetterTceTbl['target_id'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0]))
-robovetterTceTbl['tce_plnt_num'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1]))
-
-# load dataset TCE table
-dataset = 'train'
-datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
-                         '{}set.csv'.format(dataset))
-
-# initialize label and score columns
-datasetTbl['label'] = ''
-datasetTbl['score'] = np.nan
-labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
-# add labels and scores from the TCE table and the Robovetter TCE table, respectively
-for tce_i, tce in datasetTbl.iterrows():
-
-    foundTceRobovetter = robovetterTceTbl.loc[(robovetterTceTbl['target_id'] == tce['target_id']) &
-                                              (robovetterTceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
-
-    # add Robovetter score
-    datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
-    # add integer label
-    datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
-
-assert not datasetTbl['score'].isna().any()
-assert (datasetTbl['label'] != '').all()
-
-# add small score so that minimum is above 0 so the ROC goes to a FPR of 1
-score_fuzzy_factor = 1e-6
-datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x + score_fuzzy_factor if x < 1-score_fuzzy_factor else x)
-# datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x - score_fuzzy_factor if x > 1-score_fuzzy_factor else x)
-
-# define thresholds used to compute the metrics
-num_thresholds = 1000
-threshold_range = list(np.linspace(0, 1, num=num_thresholds, endpoint=False))
-
-# compute AUC ROC, AUC PR
-auc_pr = AUC(num_thresholds=num_thresholds,
-                           summation_method='interpolation',
-                           curve='PR',
-                           name='auc_pr')
-auc_roc = AUC(num_thresholds=num_thresholds,
-                            summation_method='interpolation',
-                            curve='ROC',
-                            name='auc_roc')
-_ = auc_pr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
-auc_pr = auc_pr.result().numpy()
-_ = auc_roc.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
-auc_roc = auc_roc.result().numpy()
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-        'aucroc_aucpr_{}.npy'.format(dataset), {'AUC ROC': auc_roc, 'AUC PR': auc_pr})
-
-# compute precision and recall for the PR curve
-precision_thr = Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
-recall_thr = Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
-_ = precision_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
-precision_thr_arr = precision_thr.result().numpy()
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-        'precision_thr_{}.npy'.format(dataset), precision_thr_arr)
-_ = recall_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
-recall_thr_arr = recall_thr.result().numpy()
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/recall_thr_{}.npy'.format(dataset),
-        recall_thr_arr)
-
-# compute TPR and FPR for the ROC
-false_pos_thr = FalsePositives(thresholds=threshold_range, name='prec_thr')
-_ = false_pos_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
-false_pos_thr_arr = false_pos_thr.result().numpy()
-fpr_thr_arr = false_pos_thr_arr / len(datasetTbl.loc[datasetTbl['label'] == 0])
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-        'fpr_thr_{}.npy'.format(dataset), fpr_thr_arr)
-
-# plot PR curve
-f, ax = plt.subplots()
-ax.plot(recall_thr_arr, precision_thr_arr)
-# ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
-ax.set_ylabel('Precision')
-ax.set_xlabel('Recall')
-ax.grid(True)
-ax.set_xticks(np.linspace(0, 1, 11))
-ax.set_yticks(np.linspace(0, 1, 11))
-ax.set_xlim([0, 1])
-ax.set_ylim([0, 1])
-ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-          'precision-recall_curve_{}.svg'.format(dataset))
-
-# plot PR curve
-f, ax = plt.subplots()
-ax.plot(recall_thr_arr, precision_thr_arr)
-# ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
-ax.set_ylabel('Precision')
-ax.set_xlabel('Recall')
-ax.grid(True)
-ax.set_xticks(np.linspace(0, 1, 21))
-ax.set_yticks(np.linspace(0, 1, 21))
-ax.set_xlim([0.5, 1])
-ax.set_ylim([0.5, 1])
-ax.text(0.8, 0.6, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-          'precision-recall_curve_zoom_{}.svg'.format(dataset))
-
-# plot ROC
-f, ax = plt.subplots()
-ax.plot(fpr_thr_arr, recall_thr_arr)
-ax.set_ylabel('True Positive Rate')
-ax.set_xlabel('False Positive Rate')
-ax.grid(True)
-ax.set_xticks(np.linspace(0, 1, 11))
-ax.set_yticks(np.linspace(0, 1, 11))
-ax.set_xlim([0, 1])
-ax.set_ylim([0, 1])
-ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_{}.svg'.format(dataset))
-
-f, ax = plt.subplots()
-ax.plot(fpr_thr_arr, recall_thr_arr)
-ax.set_ylabel('True Positive Rate')
-ax.set_xlabel('False Positive Rate')
-ax.grid(True)
-ax.set_xticks(np.linspace(0, 1, 21))
-ax.set_yticks(np.linspace(0, 1, 21))
-ax.set_xlim([0, 0.5])
-ax.set_ylim([0.5, 1])
-ax.text(0.3, 0.6, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_zoom_{}.svg'.format(dataset))
-
-#%% Compute precision at k for Robovetter
-
-# load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
-
-# load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
-# columns of interest from the Robovetter TCE table
-columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
-               'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
-robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                               'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
-                               skipinitialspace=False)
-# print(robovetterTceTbl.head())
-# create target_id and tce_plnt_num columns
-robovetterTceTbl['target_id'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0]))
-robovetterTceTbl['tce_plnt_num'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1]))
-
-# load dataset TCE table
-dataset = 'train'
-datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
-                         '{}set.csv'.format(dataset))
-
-datasetTbl['label'] = ''
-datasetTbl['score'] = np.nan
-datasetTbl['Robovetter_disposition'] = ''
-labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
-labelMapRobovetter = {'PC': 1, 'FP': 0}
-for tce_i, tce in datasetTbl.iterrows():
-
-    foundTceRobovetter = robovetterTceTbl.loc[(robovetterTceTbl['target_id'] == tce['target_id']) &
-                                              (robovetterTceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
-
-    # add Robovetter score
-    datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
-    # add Robovetter disposition
-    datasetTbl.loc[tce_i, ['Robovetter_disposition']] = labelMapRobovetter[foundTceRobovetter.Disposition.values[0]]
-
-    # add integer label
-    datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
-
-assert not datasetTbl['score'].isna().any()
-assert (datasetTbl['label'] != '').all()
-
-score_fuzzy_factor = 1e-6
-datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x + score_fuzzy_factor if x < 1-score_fuzzy_factor else x)
-# datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x - score_fuzzy_factor if x > 1-score_fuzzy_factor else x)
-
-# order by ascending score
-datasetTblOrd = datasetTbl.sort_values('score', axis=0, ascending=True)
-
-# compute precision at k
-k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
-precision_at_k = {k: np.nan for k in k_arr[dataset]}
-for k_i in range(len(k_arr[dataset])):
-    if len(datasetTbl) < k_arr[dataset][k_i]:
-        precision_at_k[k_arr[dataset][k_i]] = np.nan
-    else:
-        precision_at_k[k_arr[dataset][k_i]] = \
-            np.sum(datasetTblOrd['label'][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
-
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-        'precision_at_k_{}.npy'.format(dataset), precision_at_k)
-
-# compute precision at k curve
-k_arr = np.linspace(25, 250, 10, endpoint=True, dtype='int')
-precision_at_k = {k: np.nan for k in k_arr}
-for k_i in range(len(k_arr)):
-    if len(datasetTbl) < k_arr[k_i]:
-        precision_at_k[k_arr[k_i]] = np.nan
-    else:
-        precision_at_k[k_arr[k_i]] = \
-            np.sum(datasetTblOrd['label'][-k_arr[k_i]:]) / k_arr[k_i]
-
-np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-        'precision_at_k_curve_{}.npy'.format(dataset), precision_at_k)
-
-f, ax = plt.subplots()
-ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
-ax.set_ylabel('Precision')
-ax.set_xlabel('Top-K')
-ax.grid(True)
-# ax.set_xticks(np.linspace(k_arr[0], k_arr[-1], 11, endpoint=True))
-ax.set_xticks(np.linspace(25, 250, 10, endpoint=True, dtype='int'))
+# #%% Compute AUC ROC and AUC PR and plot PR curve and ROC
+#
+# # load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+#
+# # load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
+# # columns of interest from the Robovetter TCE table
+# columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
+#                'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
+# robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#                                'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
+#                                skipinitialspace=False)
+# # print(robovetterTceTbl.head())
+# # create target_id and tce_plnt_num columns
+# robovetterTceTbl['target_id'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0]))
+# robovetterTceTbl['tce_plnt_num'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1]))
+#
+# # load dataset TCE table
+# dataset = 'train'
+# datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+#                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
+#                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
+#                          '{}set.csv'.format(dataset))
+#
+# # initialize label and score columns
+# datasetTbl['label'] = ''
+# datasetTbl['score'] = np.nan
+# labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
+# # add labels and scores from the TCE table and the Robovetter TCE table, respectively
+# for tce_i, tce in datasetTbl.iterrows():
+#
+#     foundTceRobovetter = robovetterTceTbl.loc[(robovetterTceTbl['target_id'] == tce['target_id']) &
+#                                               (robovetterTceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#     foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#     assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
+#
+#     # add Robovetter score
+#     datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
+#     # add integer label
+#     datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
+#
+# assert not datasetTbl['score'].isna().any()
+# assert (datasetTbl['label'] != '').all()
+#
+# # add small score so that minimum is above 0 so the ROC goes to a FPR of 1
+# score_fuzzy_factor = 1e-6
+# datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x + score_fuzzy_factor if x < 1-score_fuzzy_factor else x)
+# # datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x - score_fuzzy_factor if x > 1-score_fuzzy_factor else x)
+#
+# # define thresholds used to compute the metrics
+# num_thresholds = 1000
+# threshold_range = list(np.linspace(0, 1, num=num_thresholds, endpoint=False))
+#
+# # compute AUC ROC, AUC PR
+# auc_pr = AUC(num_thresholds=num_thresholds,
+#                            summation_method='interpolation',
+#                            curve='PR',
+#                            name='auc_pr')
+# auc_roc = AUC(num_thresholds=num_thresholds,
+#                             summation_method='interpolation',
+#                             curve='ROC',
+#                             name='auc_roc')
+# _ = auc_pr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+# auc_pr = auc_pr.result().numpy()
+# _ = auc_roc.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+# auc_roc = auc_roc.result().numpy()
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'aucroc_aucpr_{}.npy'.format(dataset), {'AUC ROC': auc_roc, 'AUC PR': auc_pr})
+#
+# # compute precision and recall for the PR curve
+# precision_thr = Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
+# recall_thr = Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
+# _ = precision_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+# precision_thr_arr = precision_thr.result().numpy()
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'precision_thr_{}.npy'.format(dataset), precision_thr_arr)
+# _ = recall_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+# recall_thr_arr = recall_thr.result().numpy()
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/recall_thr_{}.npy'.format(dataset),
+#         recall_thr_arr)
+#
+# # compute TPR and FPR for the ROC
+# false_pos_thr = FalsePositives(thresholds=threshold_range, name='prec_thr')
+# _ = false_pos_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+# false_pos_thr_arr = false_pos_thr.result().numpy()
+# fpr_thr_arr = false_pos_thr_arr / len(datasetTbl.loc[datasetTbl['label'] == 0])
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'fpr_thr_{}.npy'.format(dataset), fpr_thr_arr)
+#
+# # plot PR curve
+# f, ax = plt.subplots()
+# ax.plot(recall_thr_arr, precision_thr_arr)
+# # ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
+# ax.set_ylabel('Precision')
+# ax.set_xlabel('Recall')
+# ax.grid(True)
+# ax.set_xticks(np.linspace(0, 1, 11))
+# ax.set_yticks(np.linspace(0, 1, 11))
+# ax.set_xlim([0, 1])
+# ax.set_ylim([0, 1])
+# ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#           'precision-recall_curve_{}.svg'.format(dataset))
+#
+# # plot PR curve
+# f, ax = plt.subplots()
+# ax.plot(recall_thr_arr, precision_thr_arr)
+# # ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
+# ax.set_ylabel('Precision')
+# ax.set_xlabel('Recall')
+# ax.grid(True)
+# ax.set_xticks(np.linspace(0, 1, 21))
 # ax.set_yticks(np.linspace(0, 1, 21))
-ax.set_xlim([k_arr[0], k_arr[-1]])
-ax.set_ylim(top=1)
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-          'precision_at_k_{}.svg'.format(dataset))
+# ax.set_xlim([0.5, 1])
+# ax.set_ylim([0.5, 1])
+# ax.text(0.8, 0.6, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#           'precision-recall_curve_zoom_{}.svg'.format(dataset))
+#
+# # plot ROC
+# f, ax = plt.subplots()
+# ax.plot(fpr_thr_arr, recall_thr_arr)
+# ax.set_ylabel('True Positive Rate')
+# ax.set_xlabel('False Positive Rate')
+# ax.grid(True)
+# ax.set_xticks(np.linspace(0, 1, 11))
+# ax.set_yticks(np.linspace(0, 1, 11))
+# ax.set_xlim([0, 1])
+# ax.set_ylim([0, 1])
+# ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_{}.svg'.format(dataset))
+#
+# f, ax = plt.subplots()
+# ax.plot(fpr_thr_arr, recall_thr_arr)
+# ax.set_ylabel('True Positive Rate')
+# ax.set_xlabel('False Positive Rate')
+# ax.grid(True)
+# ax.set_xticks(np.linspace(0, 1, 21))
+# ax.set_yticks(np.linspace(0, 1, 21))
+# ax.set_xlim([0, 0.5])
+# ax.set_ylim([0.5, 1])
+# ax.text(0.3, 0.6, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_zoom_{}.svg'.format(dataset))
 
-#%%
+# #%% Compute precision at k for Robovetter
+#
+# # load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+#
+# # load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
+# # columns of interest from the Robovetter TCE table
+# columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
+#                'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
+# robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#                                'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
+#                                skipinitialspace=False)
+# # print(robovetterTceTbl.head())
+# # create target_id and tce_plnt_num columns
+# robovetterTceTbl['target_id'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0]))
+# robovetterTceTbl['tce_plnt_num'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1]))
+#
+# # load dataset TCE table
+# dataset = 'train'
+# datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+#                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
+#                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
+#                          '{}set.csv'.format(dataset))
+#
+# datasetTbl['label'] = ''
+# datasetTbl['score'] = np.nan
+# datasetTbl['Robovetter_disposition'] = ''
+# labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
+# labelMapRobovetter = {'PC': 1, 'FP': 0}
+# for tce_i, tce in datasetTbl.iterrows():
+#
+#     foundTceRobovetter = robovetterTceTbl.loc[(robovetterTceTbl['target_id'] == tce['target_id']) &
+#                                               (robovetterTceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#     foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#     assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
+#
+#     # add Robovetter score
+#     datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
+#     # add Robovetter disposition
+#     datasetTbl.loc[tce_i, ['Robovetter_disposition']] = labelMapRobovetter[foundTceRobovetter.Disposition.values[0]]
+#
+#     # add integer label
+#     datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
+#
+# assert not datasetTbl['score'].isna().any()
+# assert (datasetTbl['label'] != '').all()
+#
+# score_fuzzy_factor = 1e-6
+# datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x + score_fuzzy_factor if x < 1-score_fuzzy_factor else x)
+# # datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x - score_fuzzy_factor if x > 1-score_fuzzy_factor else x)
+#
+# # order by ascending score
+# datasetTblOrd = datasetTbl.sort_values('score', axis=0, ascending=True)
+#
+# # compute precision at k
+# k_arr = {'train': [100, 1000, 2000], 'val': [50, 150, 250], 'test': [50, 150, 250]}
+# precision_at_k = {k: np.nan for k in k_arr[dataset]}
+# for k_i in range(len(k_arr[dataset])):
+#     if len(datasetTbl) < k_arr[dataset][k_i]:
+#         precision_at_k[k_arr[dataset][k_i]] = np.nan
+#     else:
+#         precision_at_k[k_arr[dataset][k_i]] = \
+#             np.sum(datasetTblOrd['label'][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
+#
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'precision_at_k_{}.npy'.format(dataset), precision_at_k)
+#
+# # compute precision at k curve
+# k_arr = np.linspace(25, 250, 10, endpoint=True, dtype='int')
+# precision_at_k = {k: np.nan for k in k_arr}
+# for k_i in range(len(k_arr)):
+#     if len(datasetTbl) < k_arr[k_i]:
+#         precision_at_k[k_arr[k_i]] = np.nan
+#     else:
+#         precision_at_k[k_arr[k_i]] = \
+#             np.sum(datasetTblOrd['label'][-k_arr[k_i]:]) / k_arr[k_i]
+#
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'precision_at_k_curve_{}.npy'.format(dataset), precision_at_k)
+#
+# f, ax = plt.subplots()
+# ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
+# ax.set_ylabel('Precision')
+# ax.set_xlabel('Top-K')
+# ax.grid(True)
+# # ax.set_xticks(np.linspace(k_arr[0], k_arr[-1], 11, endpoint=True))
+# ax.set_xticks(np.linspace(25, 250, 10, endpoint=True, dtype='int'))
+# # ax.set_yticks(np.linspace(0, 1, 21))
+# ax.set_xlim([k_arr[0], k_arr[-1]])
+# ax.set_ylim(top=1)
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#           'precision_at_k_{}.svg'.format(dataset))
 
-#%% Compute AUC ROC and AUC PR and plot PR curve and ROC
+#%% Compute metrics (1)
 
 # load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
@@ -481,16 +479,64 @@ robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/An
                                'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
                                skipinitialspace=False)
 # print(robovetterTceTbl.head())
+# print(len(robovetterTceTbl))
+
 # create target_id and tce_plnt_num columns
 robovetterTceTbl['target_id'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0]))
 robovetterTceTbl['tce_plnt_num'] = robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1]))
 
+# remove PPs
+tceTbl = tceTbl.loc[~((tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED'))]
+
+# get only TCEs in the Robovetter table that are also in the TCE dataset table
+tceTbl['UID'] = tceTbl[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']),
+                                                            axis=1)
+robovetterTceTbl['UID'] = robovetterTceTbl[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
+                                                                                                         x['tce_plnt_num']),
+                                                                                axis=1)
+robovetterTceTbl = robovetterTceTbl.loc[robovetterTceTbl['UID'].isin(tceTbl['UID'])]
+robovetterTceTbl.drop(columns='UID', inplace=True)
+
+# print(len(robovetterTceTbl))
+# save Robovetter TCE table
+robovetterTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+                        'kplr_dr25_obs_robovetter_output.csv', index=False)
+
+#%% Compute metrics (2)
+
+# load Robovetter TCE table
+robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+                               'kplr_dr25_obs_robovetter_output.csv')
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+# k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+k_arr = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # no PPs
+k_curve_arr = {
+    # 'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    'train': np.linspace(25, 1800, 100, endpoint=True, dtype='int'),  # PPs
+    'val': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
+    'test': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
+}
+k_curve_arr_plot = {
+    # 'train': np.linspace(200, 2000, 10, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    'train': np.linspace(200, 1800, 8, endpoint=True, dtype='int'),  # PPs
+    'val': np.linspace(25, 200, 8, endpoint=True, dtype='int'),
+    'test': np.linspace(25, 200, 8, endpoint=True, dtype='int')
+}
+
 # load dataset TCE table
-dataset = 'train'
-datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+dataset = 'test'
+datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/old/bug_with_transitduration_amplified/'
                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
                          'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
                          '{}set.csv'.format(dataset))
+print('Number of TCEs in the {} set = {}'.format(dataset, len(datasetTbl)))
 
 # initialize label and score columns
 datasetTbl['label'] = ''
@@ -506,15 +552,19 @@ for tce_i, tce in datasetTbl.iterrows():
 
     foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
 
-    assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
+    # assert len(foundTce) == 1 and len(foundTceRobovetter) == 1
+    if len(foundTceRobovetter) == 1 and len(foundTce) == 1:  # for PPs
 
-    # add Robovetter score
-    datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
-    # add Robovetter disposition
-    datasetTbl.loc[tce_i, ['Robovetter_disposition']] = labelMapRobovetter[foundTceRobovetter.Disposition.values[0]]
-    # add integer label
-    datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
+        # add Robovetter score
+        datasetTbl.loc[tce_i, ['score']] = foundTceRobovetter.Robovetter_Score.values[0]
+        # add Robovetter disposition
+        datasetTbl.loc[tce_i, ['Robovetter_disposition']] = labelMapRobovetter[foundTceRobovetter.Disposition.values[0]]
+        # add integer label
+        datasetTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
 
+print(len(datasetTbl))
+datasetTbl = datasetTbl.loc[~datasetTbl['score'].isna()]  # for PPs
+print(len(datasetTbl))
 assert not datasetTbl['score'].isna().any()
 assert (datasetTbl['label'] != '').all()
 
@@ -558,100 +608,246 @@ binary_accuracy = binary_accuracy.result().numpy()
 robovetter_metrics = {'AUC PR': auc_pr, 'AUC ROC': auc_roc, 'Precision': precision, 'Recall': recall,
                       'Binary Accuracy': binary_accuracy}
 
+print(robovetter_metrics)
+
+# compute precision and recall for the PR curve
+precision_thr = Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
+recall_thr = Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
+_ = precision_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+precision_thr_arr = precision_thr.result().numpy()
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'precision_thr_{}.npy'.format(dataset), precision_thr_arr)
+_ = recall_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+recall_thr_arr = recall_thr.result().numpy()
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/recall_thr_{}.npy'.format(dataset),
+#         recall_thr_arr)
+
+# compute TPR and FPR for the ROC
+false_pos_thr = FalsePositives(thresholds=threshold_range, name='prec_thr')
+_ = false_pos_thr.update_state(datasetTbl['label'].tolist(), datasetTbl['score'].tolist())
+false_pos_thr_arr = false_pos_thr.result().numpy()
+fpr_thr_arr = false_pos_thr_arr / len(datasetTbl.loc[datasetTbl['label'] == 0])
+# np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#         'fpr_thr_{}.npy'.format(dataset), fpr_thr_arr)
+
+robovetter_metrics.update({'precision_thr': precision_thr_arr,
+                           'recal_thr': recall_thr_arr,
+                           'fpr_thr': fpr_thr_arr,
+                           })
+
+# plot PR curve
+f, ax = plt.subplots()
+ax.plot(recall_thr_arr, precision_thr_arr)
+# ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
+ax.set_ylabel('Precision')
+ax.set_xlabel('Recall')
+ax.grid(True)
+ax.set_xticks(np.linspace(0, 1, 11))
+ax.set_yticks(np.linspace(0, 1, 11))
+ax.set_xlim([0, 1])
+ax.set_ylim([0, 1])
+ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+          'precision-recall_curve_{}.svg'.format(dataset))
+plt.close()
+
+# plot PR curve
+f, ax = plt.subplots()
+ax.plot(recall_thr_arr, precision_thr_arr)
+# ax.scatter(recall_thr_arr, precision_thr_arr, c='r')
+ax.set_ylabel('Precision')
+ax.set_xlabel('Recall')
+ax.grid(True)
+ax.set_xticks(np.linspace(0, 1, 21))
+ax.set_yticks(np.linspace(0, 1, 21))
+ax.set_xlim([0.5, 1])
+ax.set_ylim([0.5, 1])
+ax.text(0.8, 0.6, 'AUC={:.3}'.format(auc_pr), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+          'precision-recall_curve_zoom_{}.svg'.format(dataset))
+plt.close()
+
+# plot ROC
+f, ax = plt.subplots()
+ax.plot(fpr_thr_arr, recall_thr_arr)
+ax.set_ylabel('True Positive Rate')
+ax.set_xlabel('False Positive Rate')
+ax.grid(True)
+ax.set_xticks(np.linspace(0, 1, 11))
+ax.set_yticks(np.linspace(0, 1, 11))
+ax.set_xlim([0, 1])
+ax.set_ylim([0, 1])
+ax.text(0.8, 0.1, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_{}.svg'.format(dataset))
+plt.close()
+
+f, ax = plt.subplots()
+ax.plot(fpr_thr_arr, recall_thr_arr)
+ax.set_ylabel('True Positive Rate')
+ax.set_xlabel('False Positive Rate')
+ax.grid(True)
+ax.set_xticks(np.linspace(0, 1, 21))
+ax.set_yticks(np.linspace(0, 1, 21))
+ax.set_xlim([0, 0.5])
+ax.set_ylim([0.5, 1])
+ax.text(0.3, 0.6, 'AUC={:.3}'.format(auc_roc), bbox={'facecolor': 'gray', 'alpha': 0.2, 'pad': 10})
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/roc_zoom_{}.svg'.format(dataset))
+plt.close()
+
+# order by ascending score
+datasetTblOrd = datasetTbl.sort_values('score', axis=0, ascending=True)
+
+# compute precision at k
+precision_at_k = {k: np.nan for k in k_arr[dataset]}
+for k_i in range(len(k_arr[dataset])):
+    if len(datasetTbl) < k_arr[dataset][k_i]:
+        precision_at_k[k_arr[dataset][k_i]] = np.nan
+    else:
+        precision_at_k[k_arr[dataset][k_i]] = \
+            np.sum(datasetTblOrd['label'][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
+
+robovetter_metrics.update({'precision_at_k': precision_at_k})
+
+print(precision_at_k)
+
+# compute precision at k curve
+precision_at_k = {k: np.nan for k in k_curve_arr[dataset]}
+for k_i in range(len(k_curve_arr[dataset])):
+    if len(datasetTbl) < k_curve_arr[dataset][k_i]:
+        precision_at_k[k_curve_arr[dataset][k_i]] = np.nan
+    else:
+        precision_at_k[k_curve_arr[dataset][k_i]] = \
+            np.sum(datasetTblOrd['label'][-k_curve_arr[dataset][k_i]:]) / k_curve_arr[dataset][k_i]
+
+robovetter_metrics.update({'precision_at_k_curve': precision_at_k})
+
 np.save('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/metrics_{}set'.format(dataset),
         robovetter_metrics)
 
-print(robovetter_metrics)
+# plot precision at k curve
+f, ax = plt.subplots()
+ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
+ax.set_ylabel('Precision')
+ax.set_xlabel('Top-K')
+ax.grid(True)
+ax.set_xticks(k_curve_arr_plot[dataset])
+ax.set_yticks(np.linspace(0, 1, 11, endpoint=True))
+ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
+ax.set_ylim([-0.01, 1.01])
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+          'precision_at_k_{}.svg'.format(dataset))
+plt.close()
 
-#%% Create Robovetter TCE table with our labels and also split it into training, validation and test tables
+# plot misclassified examples at k curve
+kvalues = np.array(list(precision_at_k.keys()))
+precvalues = np.array(list(precision_at_k.values()))
+num_misclf_examples = kvalues - kvalues * precvalues
+f, ax = plt.subplots()
+ax.plot(kvalues, num_misclf_examples)
+ax.set_ylabel('Number Misclassfied TCEs')
+ax.set_xlabel('Top-K')
+ax.grid(True)
+ax.set_xticks(k_curve_arr_plot[dataset])
+ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
+ax.set_ylim(bottom=-0.01)
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+          'misclassified_at_k_{}.svg'.format(dataset))
+plt.close()
 
-# load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+# order TCEs by descending score
+datasetTbl.sort_values('score', ascending=False, inplace=True)
+datasetTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+                  'kplr_dr25_obs_robovetter_{}.csv'.format(dataset), index=False)
 
-# load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
-# columns of interest from the Robovetter TCE table
-columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
-               'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
-robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                               'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
-                               skipinitialspace=False)
-
-# rename Disposition column to Robovetter_Disposition
-robovetterTceTbl.rename(columns={'Disposition': 'Robovetter_Disposition'}, inplace=True)
-
-# create target_id and tce_plnt_num columns
-robovetterTceTbl.insert(0, 'target_id', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0])))
-robovetterTceTbl.insert(1,'tce_plnt_num', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1])))
-robovetterTceTbl.drop(columns='TCE', inplace=True)
-
-# initialize label and original_label columns
-robovetterTceTbl['original_label'] = ''
-robovetterTceTbl['label'] = -1
-labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
-# add labels and scores from the TCE table and the Robovetter TCE table, respectively
-for tce_i, tce in robovetterTceTbl.iterrows():
-
-    print('Checking TCE {}/{}'.format(tce_i, len(robovetterTceTbl)))
-    foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    assert len(foundTce) <= 1
-
-    if len(foundTce) == 1:
-        # # add integer label
-        # tce['label'] = labelMap[foundTce.label.values[0]]
-        # # add label
-        # tce['original_label'] = foundTce.label.values[0]
-        #
-        # robovetterTceTbl = pd.concat([robovetterTceTbl, tce], axis=0)
-
-        # add label
-        robovetterTceTbl.loc[tce_i, ['original_label']] = foundTce.label.values[0]
-
-        # add integer label
-        robovetterTceTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
-
-# drop TCEs not part of our TCE table
-robovetterTceTbl = robovetterTceTbl.loc[robovetterTceTbl['original_label'] != '']
-assert (robovetterTceTbl['original_label'] != '').all()
-assert (robovetterTceTbl['label'] != '').all()
-
-robovetterTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                        'kplr_dr25_obs_robovetter_with_our_labels.csv', index=False)
-
-# split Robovetter TCE table into training, validation and test tables according to the split in the experiments
-datasets = ['train', 'val', 'test']
+# #%% Create Robovetter TCE table with our labels and also split it into training, validation and test tables
+#
+# # load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+#
+# # load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
+# # columns of interest from the Robovetter TCE table
+# columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
+#                'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
 # robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-#                                'kplr_dr25_obs_robovetter_with_our_labels.csv')
-for dataset in datasets:
-
-    robovetterDatasetTbl = robovetterTceTbl.copy(deep=True)
-    robovetterDatasetTbl['in'] = 0
-
-    # load dataset TCE table
-    datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
-                             '{}set.csv'.format(dataset))
-
-    # add labels and scores from the TCE table and the Robovetter TCE table, respectively
-    for tce_i, tce in datasetTbl.iterrows():
-        print('TCE {}/{}'.format(tce_i, len(datasetTbl)))
-        foundTce = robovetterDatasetTbl.loc[
-            (robovetterDatasetTbl['target_id'] == tce['target_id']) & (robovetterDatasetTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-        assert len(foundTce) <= 1
-
-        # add TCE to Robovetter dataset table
-        if len(foundTce) == 1:
-            robovetterDatasetTbl['in'] = 1
-        else:
-            robovetterDatasetTbl['in'] = 0
-
-    robovetterDatasetTbl = robovetterDatasetTbl.loc[robovetterDatasetTbl['in'] == 1]
-    robovetterDatasetTbl.drop(columns='in', inplace=True)
-
-    # order TCEs by descending score
-    robovetterDatasetTbl.sort_values('Robovetter_Score', ascending=False, inplace=True)
-    robovetterDatasetTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                                'kplr_dr25_obs_robovetter_with_our_labels_{}.csv'.format(dataset), index=False)
+#                                'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
+#                                skipinitialspace=False)
+#
+# # rename Disposition column to Robovetter_Disposition
+# robovetterTceTbl.rename(columns={'Disposition': 'Robovetter_Disposition'}, inplace=True)
+#
+# # create target_id and tce_plnt_num columns
+# robovetterTceTbl.insert(0, 'target_id', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0])))
+# robovetterTceTbl.insert(1,'tce_plnt_num', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1])))
+# robovetterTceTbl.drop(columns='TCE', inplace=True)
+#
+# # initialize label and original_label columns
+# robovetterTceTbl['original_label'] = ''
+# robovetterTceTbl['label'] = -1
+# labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
+# # add labels and scores from the TCE table and the Robovetter TCE table, respectively
+# for tce_i, tce in robovetterTceTbl.iterrows():
+#
+#     print('Checking TCE {}/{}'.format(tce_i, len(robovetterTceTbl)))
+#     foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#     assert len(foundTce) <= 1
+#
+#     if len(foundTce) == 1:
+#         # # add integer label
+#         # tce['label'] = labelMap[foundTce.label.values[0]]
+#         # # add label
+#         # tce['original_label'] = foundTce.label.values[0]
+#         #
+#         # robovetterTceTbl = pd.concat([robovetterTceTbl, tce], axis=0)
+#
+#         # add label
+#         robovetterTceTbl.loc[tce_i, ['original_label']] = foundTce.label.values[0]
+#
+#         # add integer label
+#         robovetterTceTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
+#
+# # drop TCEs not part of our TCE table
+# robovetterTceTbl = robovetterTceTbl.loc[robovetterTceTbl['original_label'] != '']
+# assert (robovetterTceTbl['original_label'] != '').all()
+# assert (robovetterTceTbl['label'] != '').all()
+#
+# robovetterTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#                         'kplr_dr25_obs_robovetter_with_our_labels.csv', index=False)
+#
+# # split Robovetter TCE table into training, validation and test tables according to the split in the experiments
+# datasets = ['train', 'val', 'test']
+# # robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+# #                                'kplr_dr25_obs_robovetter_with_our_labels.csv')
+# for dataset in datasets:
+#
+#     robovetterDatasetTbl = robovetterTceTbl.copy(deep=True)
+#     robovetterDatasetTbl['in'] = 0
+#
+#     # load dataset TCE table
+#     datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+#                              'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
+#                              'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
+#                              '{}set.csv'.format(dataset))
+#
+#     # add labels and scores from the TCE table and the Robovetter TCE table, respectively
+#     for tce_i, tce in datasetTbl.iterrows():
+#         print('TCE {}/{}'.format(tce_i, len(datasetTbl)))
+#         foundTce = robovetterDatasetTbl.loc[
+#             (robovetterDatasetTbl['target_id'] == tce['target_id']) & (robovetterDatasetTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+#
+#         assert len(foundTce) <= 1
+#
+#         # add TCE to Robovetter dataset table
+#         if len(foundTce) == 1:
+#             robovetterDatasetTbl['in'] = 1
+#         else:
+#             robovetterDatasetTbl['in'] = 0
+#
+#     robovetterDatasetTbl = robovetterDatasetTbl.loc[robovetterDatasetTbl['in'] == 1]
+#     robovetterDatasetTbl.drop(columns='in', inplace=True)
+#
+#     # order TCEs by descending score
+#     robovetterDatasetTbl.sort_values('Robovetter_Score', ascending=False, inplace=True)
+#     robovetterDatasetTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
+#                                 'kplr_dr25_obs_robovetter_with_our_labels_{}.csv'.format(dataset), index=False)

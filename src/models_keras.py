@@ -96,13 +96,15 @@ class CNN1dPlanetFinderv1(object):
 
             elif branch == 'local_flux_oddeven_views':
 
-                input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('local_view_oddeven'))(
-                    [self.inputs['local_flux_odd_view'], self.inputs['local_flux_even_view']])
+                # input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('local_view_oddeven'))(
+                #     [self.inputs['local_flux_odd_view'], self.inputs['local_flux_even_view']])
+                input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('local_view_oddeven'))([self.inputs['local_flux_odd_view_fluxnorm'], self.inputs['local_flux_even_view_fluxnorm']])
 
             elif branch == 'global_flux_oddeven_views':
 
-                input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('global_view_oddeven'))(
-                    [self.inputs['global_flux_odd_view'], self.inputs['global_flux_even_view']])
+                # input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('global_view_oddeven'))(
+                #     [self.inputs['global_flux_odd_view'], self.inputs['global_flux_even_view']])
+                input_branch = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('global_view_oddeven'))([self.inputs['global_flux_odd_view_fluxnorm'], self.inputs['global_flux_even_view_fluxnorm']])
 
             # with tf.variable_scope('ConvNet_%s' % view):
 
@@ -341,7 +343,7 @@ class Astronet(object):
         self.output_size = 1
 
         # global and local view branches
-        self.branches = ['global_view', 'local_view']
+        self.branches = ['global_flux_view_fluxnorm', 'local_flux_view_fluxnorm']
 
         # self.is_training = None
 
@@ -392,10 +394,7 @@ class Astronet(object):
         cnn_layers = {}
         for branch_i, branch in enumerate(self.branches):
 
-            if branch == 'global_view':
-                input_branch = self.inputs['global_flux_view']
-            else:
-                input_branch = self.inputs['local_flux_view']
+            input_branch = self.inputs[branch]
 
             # with tf.variable_scope('ConvNet_%s' % view):
 
@@ -406,12 +405,12 @@ class Astronet(object):
             pool_size = 7 if 'local' in branch else 5
 
             # number of filters in each convolutional block
-            num_filters = {'global_view': [16, 32, 64, 128, 256], 'local_view': [16, 32]}
+            num_filters = [16, 32, 64, 128, 256] if 'global' in branch else [16, 32]
 
             for conv_block_i in range(n_blocks):
 
                 # set convolution layer parameters from config
-                kwargs = {'filters': num_filters[branch][conv_block_i],
+                kwargs = {'filters': num_filters[conv_block_i],
                           'kernel_initializer': weight_initializer,
                           'kernel_size': 5,
                           'strides': 1,
@@ -567,6 +566,7 @@ class Exonet(object):
 
         # global and local view branches
         self.branches = ['global_view', 'local_view']
+        # self.branches = ['global_flux_view_fluxnorm', 'local_flux_view_fluxnorm', 'global_centr_fdl_view', 'local_centr_fdl_view']
 
         # self.is_training = None
 
@@ -618,11 +618,11 @@ class Exonet(object):
         for branch_i, branch in enumerate(self.branches):
 
             if branch == 'global_view':
-                input_branch = tf.keras.layers.Concatenate(name='global_input', axis=1)([self.inputs[input]
+                input_branch = tf.keras.layers.Concatenate(name='global_input', axis=2)([self.inputs[input]
                                                                                          for input in self.inputs
                                                                                          if 'global' in input])
             else:
-                input_branch = tf.keras.layers.Concatenate(name='local_input', axis=1)([self.inputs[input]
+                input_branch = tf.keras.layers.Concatenate(name='local_input', axis=2)([self.inputs[input]
                                                                                         for input in self.inputs
                                                                                         if 'local' in input])
 
@@ -847,11 +847,11 @@ class Exonet_XS(object):
         for branch_i, branch in enumerate(self.branches):
 
             if branch == 'global_view':
-                input_branch = tf.keras.layers.Concatenate(name='global_input', axis=1)([self.inputs[input]
+                input_branch = tf.keras.layers.Concatenate(name='global_input', axis=2)([self.inputs[input]
                                                                                          for input in self.inputs
                                                                                          if 'global' in input])
             else:
-                input_branch = tf.keras.layers.Concatenate(name='local_input', axis=1)([self.inputs[input]
+                input_branch = tf.keras.layers.Concatenate(name='local_input', axis=2)([self.inputs[input]
                                                                                         for input in self.inputs
                                                                                         if 'local' in input])
 

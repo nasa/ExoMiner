@@ -335,6 +335,7 @@ def plot_precision_at_k(labels_ord, k_curve_arr, model_id, save_path):
         ax.grid(True)
         ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
         ax.set_ylim(top=1)
+        ax.set_title('{}'.format(dataset))
         f.savefig(os.path.join(save_path, 'model{}_precisionatk_{}.svg'.format(model_id, dataset)))
         plt.close()
 
@@ -347,6 +348,7 @@ def plot_precision_at_k(labels_ord, k_curve_arr, model_id, save_path):
         ax.set_ylabel('Number Misclassfied TCEs')
         ax.set_xlabel('Top-K')
         ax.grid(True)
+        ax.set_title('{}'.format(dataset))
         ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
         f.savefig(os.path.join(save_path, 'model{}_misclassified_at_k_{}.svg'.format(model_id, dataset)))
         plt.close()

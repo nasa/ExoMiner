@@ -696,14 +696,14 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    if tce['target_id'] == 11442793 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
-    # if tce['oi'] == 541.01:
-        print(tce)
-    else:
-        return None
+    # if tce['target_id'] == 11442793 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
+    # # if tce['oi'] == 541.01:
+    #     print(tce)
+    # else:
+    #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True  # False
+    plot_preprocessing_tce = False  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config.plot_figures
 
@@ -774,10 +774,11 @@ def _process_tce(tce, table, config, conf_dict):
                                                target_position=data['target_position']
                                                )
 
-        # utils_visualization.plot_centroids(data['all_time'], data['all_centroids_px'], None, tce, config,
-        #                                    os.path.join(config.output_dir, 'plots'), '1_raw_fdl_aug{}'.format(tce['augmentation_idx']),
-        #                                    add_info=add_info,
-        #                                    pxcoordinates=True)
+        utils_visualization.plot_centroids(data['all_time'], data['all_centroids_px'], None, tce, config,
+                                           os.path.join(config.output_dir, 'plots'),
+                                           '1_raw_fdl_aug{}'.format(tce['augmentation_idx']),
+                                           add_info=add_info,
+                                           pxcoordinates=True)
 
     # gap TCE to get weak secondary test time-series
     # get gapped indices
@@ -969,7 +970,7 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
 
     if plot_preprocessing_tce:
         utils_visualization.plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config,
-                                                os.path.join(config.output_dir, 'plots'), '3_binarytimeseriesandflux')
+                                                os.path.join(config.output_dir, 'plots'), '2_binarytimeseriesandflux')
 
     # linearly interpolate across TCE transits
     all_flux_lininterp = lininterp_transits(all_flux, binary_time_all, centroid=False)
@@ -984,7 +985,7 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                  tce,
                                                  config,
                                                  os.path.join(config.output_dir, 'plots'),
-                                                 '4_smoothingandnormalizationflux_aug{}'.format(tce['augmentation_idx']),
+                                                 '3_smoothingandnormalizationflux_aug{}'.format(tce['augmentation_idx']),
                                                  flux_interp=all_flux_lininterp)
 
     # get indices for which the spline has finite values
@@ -1036,7 +1037,7 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         utils_visualization.plot_binseries_flux(all_time, all_flux_noprimary, binary_time_all_noprimary,
                                                 tce, config,
                                                 os.path.join(config.output_dir, 'plots'),
-                                                '3_binarytimeseries_wksflux_aug{}'.format(tce['augmentation_idx']))
+                                                '2_binarytimeseries_wksflux_aug{}'.format(tce['augmentation_idx']))
 
     # spline fitting for the secondary flux time-series
     all_flux_noprimary_lininterp = lininterp_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
@@ -1050,7 +1051,7 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
                                                  tce,
                                                  config,
                                                  os.path.join(config.output_dir, 'plots'),
-                                                 '4_smoothingandnormalization_wksflux_aug{}'.format(tce['augmentation_idx']),
+                                                 '3_smoothingandnormalization_wksflux_aug{}'.format(tce['augmentation_idx']),
                                                  flux_interp= all_flux_noprimary_lininterp)
 
     finite_i = [np.isfinite(spline_flux_noprimary[i]) for i in range(len(spline_flux_noprimary))]
@@ -1305,6 +1306,7 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
 
     # duration_gapped = max(min(tce['tce_duration'] * (1 + 2 * 1), tce['tce_period'] / 10), tce['tce_duration'])
     duration_gapped = min(3 * tce['tce_duration'], np.abs(tce['tce_maxmesd']))
+    # duration_gapped = 3 * tce['tce_duration']
 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
@@ -1318,7 +1320,11 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
     finite_i_centroid = [np.logical_and(np.isfinite(spline_centroid['x'][i]), np.isfinite(spline_centroid['y'][i]))
                          for i in range(len(spline_centroid['x']))]
 
-    all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] /
+    # all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] /
+    #                          spline_centroid[coord][i][finite_i_centroid[i]]
+    #                          for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
+    #                  for coord in all_centroids}
+    all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] -
                              spline_centroid[coord][i][finite_i_centroid[i]]
                              for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
                      for coord in all_centroids}

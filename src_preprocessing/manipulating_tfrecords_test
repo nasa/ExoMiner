@@ -349,10 +349,10 @@ tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR
                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
 
 tceIdentifier = 'tce_plnt_num'
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment-labels-norm'
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
 srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
-destTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-oddeven-wks-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_nopps'
+destTfrecDir = srcTfrecDir + '_nopps'
 os.makedirs(destTfrecDir, exist_ok=True)
 
 tcesRemoved = {'train': 0, 'val': 0, 'test': 0}
@@ -383,3 +383,35 @@ for srcTfrecFile in srcTfrecFiles:
 
             writer.write(example.SerializeToString())
 
+print(tcesRemoved)
+
+#%% Count number of TCEs in the TFRecords
+
+#%% Remove Possible Planets from dataset
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+
+tceIdentifier = 'tce_plnt_num'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl'
+
+tcesCount = {'PC': 0, 'NTP': 0, 'AFP': 0}
+for srcTfrecFile in srcTfrecFiles:
+
+    # record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
+    tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
+
+    for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+    # for string_i, string_record in enumerate(record_iterator):
+
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
+
+        targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+        tcesCount[labelTfrec] += 1
+
+print(tcesCount)
+print(np.sum(list(tcesCount.values())))
