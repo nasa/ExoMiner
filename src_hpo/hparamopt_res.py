@@ -27,7 +27,7 @@ print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'ConfigF-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
+study = 'ConfigH-keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -58,6 +58,7 @@ print('Total number of runs: {} (viable, nonviable and possibly non-evaluated)'.
 
 # remove invalid configs
 all_runs = [run for run in all_runs if run.info is not None]
+all_runs = [run for run in all_runs if not isinstance(run.info, str)]
 print('Number of valid/invalid runs: {}|{}'.format(len(all_runs), total_runs - len(all_runs)))
 
 # extract budgets
@@ -134,7 +135,7 @@ print('Number of random picked configurations: {}'.format(nconfigs_valid - nconf
 # plot 2D histograms for two chosen metrics
 f, ax = plt.subplots()
 if ensemble_study:
-    ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
+    ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs ],
               [run.info[metrics_plot[1]][0] for run in all_runs],
               range=[(0, 1), (0, 1)],
               bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
@@ -184,138 +185,6 @@ ax.set_xlabel('{}'.format(rankmetric))
 ax.set_ylabel('Counts')
 ax.set_title('Histogram top configs ({:.2f})'.format(min_val))
 f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(min_val, rankmetric)))
-
-#%% Configuration Visualization
-
-# pick parameters to be analyzed
-# discrete parameters
-hparams_d = ['conv_ls_per_block', 'init_conv_filters', 'kernel_size', 'kernel_stride', 'num_fc_layers',
-           'num_glob_conv_blocks', 'num_loc_conv_blocks', 'pool_size_glob', 'pool_size_loc', 'init_fc_neurons',
-           'batch_size', 'pool_stride']
-# continuous parameters
-# hparams_c = ['lr', 'dropout_rate']
-hparams_c = ['dropout_rate']
-
-# hparams = ['conv_ls_per_block', 'init_conv_filters', 'num_fc_layers', 'init_fc_neurons', 'batch_size']
-# hparams = ['kernel_size', 'kernel_stride', 'pool_stride', 'pool_size_glob', 'pool_size_loc', 'dropout_rate']
-# hparams = ['kernel_size', 'pool_size_glob', 'pool_size_loc', 'dropout_rate', 'num_glob_conv_blocks', 'num_loc_conv_blocks', 'init_fc_neurons', 'conv_ls_per_block', 'init_conv_filters']
-hparams = ['num_fc_layers', 'dropout_rate', 'conv_ls_per_block']
-
-hparams_all = hparams_d + hparams_c
-
-# for hparam in hparams_all:
-
-# hparams = ['metric'] + hparams_all
-hparams = hparams_all
-# hparams = ['metric'] + hparams + ['metric']
-#     hparams = ['metric'] + [hparam]
-
-# get parameters' values for each configuration
-data = []
-metric_vals = []
-for hparam in hparams:
-    data_hparam = []
-    for top_config in top_configs:
-        data_hparam.append(id2config[top_config.config_id]['config'][hparam])
-        # data_hparam.append(top_configs[config][hparam])
-        if hparam == hparams[0]:
-            if ensemble_study:
-                metric_vals.append(top_config.info[rankmetric][0])
-            else:
-                metric_vals.append(top_config.info[rankmetric])
-    data.append(data_hparam)
-
-# hyperparameters boxplots
-# for i, hparam in enumerate(hparams):
-#     f, ax = plt.subplots()
-#     # ax.set_title('{}'.format(hparam))
-#     ax.set_title('Boxplot')
-#     # whiskers [Q1 - whis * IQR; Q3 + whis * IQR]
-#     ax.boxplot(data[i], showfliers=True, notch=False, labels=[hparam], whis=1.5)
-#     ax.set_ylabel('Value')
-#     # ax.set_xlabel('')
-#     # ax.set_xticklabels([''])
-
-data, metric_vals = np.array(data), np.array(metric_vals)
-
-# Parallel Coordinates Visualization
-# based on: http://benalexkeen.com/parallel-coordinates-in-matplotlib/
-
-# lims = np.arange(min_val, 0.985, 0.0005)  # [0.981, 0.9815, 0.982, 0.9825, 0.983, 0.984]
-lims = bins
-cmap = cm.get_cmap('viridis')
-colours = [cmap(el) for el in np.linspace(0, 1, endpoint=True, num=len(lims))]
-# colours = ['#2e8ad8', '#cd3785', '#c64c00', '#889a00']
-# colours = ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)])
-#              for i in range(len(lims))]
-colour_code = np.zeros(data.shape[1], dtype='int')
-for i in range(1, len(lims)):
-    if i != len(lims) - 1:
-        # print(len(colour_code[(metric_vals >= lims[i]) & (metric_vals < lims[i + 1])]))
-        colour_code[(metric_vals >= lims[i]) & (metric_vals < lims[i + 1])] = i
-    else:
-        # print(len(colour_code[(metric_vals >= lims[i])]))
-        colour_code[metric_vals >= lims[i]] = i
-
-# Create (X-1) sublots along x axis
-fig, axes = plt.subplots(1, len(hparams) - 1, sharey=False, figsize=(15, 5))
-if len(hparams) - 1 == 1:
-    axes = [axes]
-
-# Get min, max and range for each column
-# Normalize the data for each column
-min_max_range = {}
-for i, hparam in enumerate(hparams):
-    min_max_range[hparam] = [data[i].min(), data[i].max(), np.ptp(data[i])]
-    data[i] = np.true_divide(data[i] - data[i].min(), (np.ptp(data[i]), data[i])[np.ptp(data[i]) == 0])
-
-# Plot each row
-for i in range(len(hparams) - 1):
-    for j in range(data.shape[1]):  # plot each data point
-        axes[i].plot(np.arange(len(hparams)), data[:, j], color=colours[colour_code[j]])
-    axes[i].set_xlim([i, i + 1])
-
-
-# Set the tick positions and labels on y axis for each plot
-# Tick positions based on normalised data
-# Tick labels are based on original data
-def set_ticks_for_axis(dim, ax, ticks):
-    min_val, max_val, val_range = min_max_range[hparams[dim]]
-    step = val_range / float(ticks - 1)
-    tick_labels = [round(min_val + step * i, 2) for i in range(ticks)]
-    norm_min = data[dim].min()
-    norm_range = np.ptp(data[dim])
-    norm_step = norm_range / float(ticks - 1)
-    ticks = [round(norm_min + norm_step * i, 2) for i in range(ticks)]
-    ax.yaxis.set_ticks(ticks)
-    ax.set_yticklabels(tick_labels)
-
-
-for dim, ax in enumerate(axes):
-    ax.xaxis.set_major_locator(ticker.FixedLocator([dim]))
-    set_ticks_for_axis(dim, ax, ticks=6)
-    ax.set_xticklabels([hparams[dim]])
-
-# Move the final axis' ticks to the right-hand side
-ax = plt.twinx(axes[-1])
-dim = len(axes)
-ax.xaxis.set_major_locator(ticker.FixedLocator([len(hparams) - 2, len(hparams) - 1]))
-set_ticks_for_axis(dim, ax, ticks=6)
-ax.set_xticklabels([hparams[-2], hparams[-1]])
-
-# Remove space between subplots
-plt.subplots_adjust(wspace=0)
-
-# Add legend to plot
-plt.legend(
-    [plt.Line2D((0, 1), (0, 0), color=colours[i]) for i in range(len(lims))],
-    ['[{:.4f},{:.4f}['.format(lims[l], lims[l + 1]) if l < len(lims) - 1 else '[{:.3f},1['.format(lims[l])
-     for l in range(len(lims))],
-    bbox_to_anchor=(1.2, 1), loc=2, borderaxespad=0.)
-
-plt.suptitle("Parallel Coordinates\nMetric:{}".format(rankmetric))
-if len(hparams) - 1 == 1:
-    plt.subplots_adjust(top=0.914, bottom=0.068, left=0.042, right=0.703, hspace=0.195, wspace=0.0)
 
 #%% Learning curves and tracking best configuration
 

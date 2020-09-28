@@ -28,7 +28,7 @@ if 'home6' in paths.path_hpoconfigs:
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from src.utils_dataio import InputFn, get_data_from_tfrecord
-from src.models_keras import CNN1dPlanetFinderv1
+from src.models_keras import CNN1dPlanetFinderv1, Astronet, Exonet
 import src.config_keras
 from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
@@ -564,7 +564,10 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     labels_sorted = {}
     for dataset in datasets:
         sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
+        try:
+            labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
+        except:
+            print('a')
 
         for k_i in range(len(k_arr[dataset])):
             if len(sorted_idxs) < k_arr[dataset][k_i]:
@@ -657,7 +660,7 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_data/tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
+                             'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_nopps'
                              )
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
@@ -701,32 +704,38 @@ if __name__ == '__main__':
         # config = id2config[(8, 0, 3)]['config']
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = CNN1dPlanetFinderv1
+    BaseModel = Exonet  # CNN1dPlanetFinderv1
+    config['batch_size'] = 64
+    config['optimizer'] = 'Adam'
     config['branches'] = [
-                          'global_flux_view',
-                          'local_flux_view',
-                          # 'local_flux_oddeven_views',
-                          # 'global_centr_view',
-                          # 'local_centr_view',
-                          # 'local_weak_secondary_view'
-                          ]
+        'global_flux_view',
+        'local_flux_view',
+        'global_centr_fdl_view_norm',
+        'local_centr_fdl_view_norm',
+        # 'local_flux_oddeven_views',
+        # 'global_centr_view',
+        # 'local_centr_view',
+        # 'local_weak_secondary_view'
+    ]
 
     # features to be extracted from the dataset(s)
     features_names = [
-                      'global_flux_view',
-                      'local_flux_view',
-                      # 'local_flux_odd_view',
-                      # 'local_flux_even_view',
-                      # 'global_centr_view',
-                      # 'local_centr_view',
-                      # 'local_weak_secondary_view'
+        'global_flux_view',
+        'local_flux_view',
+        'global_centr_fdl_view_norm',
+        'local_centr_fdl_view_norm',
+        # 'local_flux_odd_view',
+        # 'local_flux_even_view',
+        # 'global_centr_view',
+        # 'local_centr_view',
+        # 'local_weak_secondary_view'
     ]
     features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
                     for feature_name in features_names}
-    # features_names.append('scalar_params')  # use scalar parameters as input features
-    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
+    features_names.append('scalar_params')  # use scalar parameters as input features
+    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = None  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    scalar_params_idxs = [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
                     for feature_name in features_names}
@@ -741,7 +750,7 @@ if __name__ == '__main__':
     #                 'scalar_params_idxs': scalar_params_idxs}
 
     n_models = 1  # number of models in the ensemble
-    n_epochs = 2  # number of epochs used to train each model
+    n_epochs = 1  # number of epochs used to train each model
     multi_class = False  # multi-class classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
@@ -780,7 +789,7 @@ if __name__ == '__main__':
 
     # add missing parameters in hpo with default values
     # config['batch_norm'] = False
-    config['non_lin_fn'] = 'prelu'
+    # config['non_lin_fn'] = 'prelu'
     config = src.config_keras.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI

@@ -279,7 +279,7 @@ def read_kepler_light_curve(filenames,
 
     # iterate through the FITS files for the target star
     for filename in filenames:
-        # with fits.open(gfile.Open(filename, "rb")) as hdu_list:
+
         with fits.open(filename) as hdu_list:
 
             # needed to transform coordinates when target is in module 13 and when using pixel coordinates
@@ -312,6 +312,8 @@ def read_kepler_light_curve(filenames,
                     # approach to correct systematics in the MOM (flux-weighted) centroids
                     centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
                                              light_curve.MOM_CENTR2 - light_curve.POS_CORR2
+                    # centroid_x, centroid_y = light_curve.MOM_CENTR1, \
+                    #                          light_curve.MOM_CENTR2
 
                     centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
                 else:

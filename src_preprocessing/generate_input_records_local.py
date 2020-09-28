@@ -24,9 +24,10 @@ class Config:
     """
 
     # TFRecords base name
-    # tfrecords_base_name = 'test_q1q17dr25scr1'  # 'tfrecordstess_spoctois_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-scalarnoDV'
+    # tfrecords_base_name = 'test_q1q17dr25scr1'
     # tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_spline_nongapped_flux-centroid-oddeven-6stellar'
-    tfrecords_base_name = 'test_code'
+    # tfrecords_base_name = 'val_set_misclassified_CFPs_configH_9-21-2020'
+    tfrecords_base_name = 'analyze_wks_preprocessing'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -56,24 +57,20 @@ class Config:
     # gapping - remove other TCEs belonging to the same target; if conducting a multi-sector run, check only for TCEs
     # in the same sector
     gapped = False
-    gap_keep_ovelap = False
+    gap_keep_overlap = True
     gap_padding = 1
+    gap_padding_primary = 2
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
     gap_with_confidence_level = False
     gap_confidence_level = 0.75
 
     # binning parameters
-    num_bins_glob = 2001  # number of bins in the global view
-    num_bins_loc = 201  # number of bins in the local view
+    num_bins_glob = 301  # number of bins in the global view
+    num_bins_loc = 31  # number of bins in the local view
     bin_width_factor_glob = 1 / num_bins_glob  # 0.16
     bin_width_factor_loc = 0.16
-    num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
-
-    # which time-series data to compute additionaly to the flux time-series features
-    # odd-even flux time-series are computed based on the flux time-series, so by default this feature is computed
-    # TODO: add if statements to the preprocessing to take care of this; currently not being used
-    time_series_extracted = ['centroid', 'weak_secondary_flux']
+    num_durations = 3  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
@@ -99,12 +96,10 @@ class Config:
     # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
     # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
     # These parameters are added to the example in the TFRecord as a list of float values.
-    # scalar_params = ['tce_sradius', 'tce_steff', 'tce_slogg', 'tce_smet', 'tce_smass', 'tce_sdens', 'wst_robstat',
-    #                  'wst_depth', 'tce_bin_oedp_stat', 'boot_fap', 'tce_cap_stat', 'tce_hap_stat']
     # Kepler with DV
     scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
                      'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat',
-                     'tce_rb_tcount0']
+                     'tce_rb_tcount0', 'tce_dikco_msky', 'tce_dicco_msky', 'tce_max_mult_ev', 'tce_maxmes']
     # Kepler with TPS or TESS (for now)
     # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
@@ -112,10 +107,12 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+                             'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
         #                      'keplerTPS_KSOP2536_dr25_noroguetces.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
@@ -135,7 +132,8 @@ class Config:
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/' \
         #                      'exofop_ctoilists_Community_processed.csv'
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/tois_stellar_missvaltosolar_procols_spoc.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/' \
+                             'tois_stellar_missvaltosolar_stdcols_spoc.csv'
 
         lc_data_dir = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
@@ -258,7 +256,7 @@ def create_shards(config, tce_table):
     return file_shards
 
 
-def main(_):
+def main():
 
     # get the configuration parameters
     config = Config()
@@ -301,4 +299,5 @@ if __name__ == "__main__":
 
     tf_logging.set_verbosity(tf_logging.INFO)
 
-    tf_app.run(main=main)
+    # tf_app.run(main=main)
+    main()

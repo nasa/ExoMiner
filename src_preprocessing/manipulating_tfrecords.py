@@ -14,7 +14,7 @@ from src_preprocessing.tf_util import example_util
 
 #%% define directories
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband'
 srcTfrecTbls = sorted([os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir)
                        if file.endswith('.csv') and file.startswith('shard')])
 
@@ -96,7 +96,6 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
     :return:
     """
 
-    # with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, shardFilename)) as writer:
     with tf.io.TFRecordWriter(os.path.join(destTfrecDir, shardFilename)) as writer:
 
         # iterate through TCEs in the shard TCE table
@@ -111,11 +110,9 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
                 tceIdx = foundTce.index[0]
                 tceFoundInTfrecordFlag = False
 
-                # record_iterator = tf.python_io.tf_record_iterator(path=os.path.join(srcTfrecDir, foundTce.values[0]))
                 tfrecord_dataset = tf.data.TFRecordDataset(os.path.join(srcTfrecDir, foundTce.values[0]))
 
                 for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
-                # for string_i, string_record in enumerate(record_iterator):
 
                     # index in the source TFRecords TCE table follow the writing order in the source TFRecords, so it
                     # can be used to access a specific TCE
@@ -146,7 +143,7 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
                                  ' {}-{}.'.format(shardFilename, tce['target_id'], tce[tceIdentifier]))
 
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband'
 srcTbl = pd.read_csv(os.path.join(srcTfrecDir, 'merged_shards.csv'), index_col=0)
 destTfrecDir = srcTfrecDir + '_starshuffle_experiment'
 os.makedirs(destTfrecDir, exist_ok=True)
@@ -174,11 +171,9 @@ for tfrecFile in tfrecFiles:
     countExamplesShard = 0
 
     # iterate through the source shard
-    # record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
     tfrecord_dataset = tf.data.TFRecordDataset(tfrecFile)
 
     for string_record in tfrecord_dataset.as_numpy_iterator():
-    # for string_i, string_record in enumerate(record_iterator):
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
@@ -210,7 +205,6 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
     :return:
     """
 
-    # with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
     with tf.io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
 
         # iterate through the source shard
@@ -218,7 +212,6 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
         tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
 
         for string_record in tfrecord_dataset.as_numpy_iterator():
-        # for string_i, string_record in enumerate(record_iterator):
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
@@ -241,7 +234,7 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
                 raise ValueError('TCE {}-{} not found in the TCE table'.format(targetIdTfrec, tceIdentifierTfrec))
 
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment'
 destTfrecDir = srcTfrecDir + '-labels'
 os.makedirs(destTfrecDir, exist_ok=True)
 
@@ -273,11 +266,9 @@ for tfrecFile in tfrecFiles:
     countExamplesShard = 0
 
     # iterate through the source shard
-    # record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
     tfrecord_dataset = tf.data.TFRecordDataset(tfrecFile)
 
     for string_record in tfrecord_dataset.as_numpy_iterator():
-    # for string_i, string_record in enumerate(record_iterator):
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
@@ -298,7 +289,7 @@ assert np.sum(countExamples) == 0
 
 #%% compute normalization statistics for scalar parameters, timeseries, ...
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment'
 
 # get only training set TFRecords
 tfrecTrainFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if file.startswith('train-shard')]
@@ -312,10 +303,11 @@ tceIdentifier = 'tce_plnt_num'
 # scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat',
 #                 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat']
 # stellar parameters + DV diagnostics
-# scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat',
-#                 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
+scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat',
+                'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0',
+                'tce_dikco_msky', 'tce_dicco_msky', 'tce_max_mult_ev']
 # only stellar parameters
-scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
+# scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 numScalarParams = len(scalarParams)
 scalarParamsMat = []
 
@@ -323,9 +315,12 @@ scalarParamsMat = []
 timeSeriesFDLList = ['global_centr_fdl_view', 'local_centr_fdl_view']
 timeSeriesFDLMat = {timeSeries: [] for timeSeries in timeSeriesFDLList}
 # get out-of-transit indices for the local and global views
-nr_transit_durations = 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
-num_bins_loc = 201
-num_bins_glob = 2001
+# nr_transit_durations = 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
+# num_bins_loc = 201
+# num_bins_glob = 2001
+nr_transit_durations = 2 * 2.5 + 1  # number of transit durations (2*n+1, n on each side of the transit)
+num_bins_loc = 31
+num_bins_glob = 301
 idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
 
 # our centroid time series normalization statistics parameters
@@ -337,11 +332,9 @@ for tfrec_i, tfrecFile in enumerate(tfrecTrainFiles):
     print('Getting data from {} ({} %)'.format(tfrecFile.split('/')[-1], tfrec_i / len(tfrecTrainFiles) * 100))
 
     # iterate through the shard
-    # record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
     tfrecord_dataset = tf.data.TFRecordDataset(tfrecFile)
 
     for string_record in tfrecord_dataset.as_numpy_iterator():
-    # for string_i, string_record in enumerate(record_iterator):
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
@@ -370,18 +363,18 @@ for tfrec_i, tfrecFile in enumerate(tfrecTrainFiles):
 # do not use missing values to compute the normalization statistics for bootstrap FA probability
 scalarParamsMat = np.array(scalarParamsMat)
 
-# # transform bootstrap FA probability
-# bfapArr = scalarParamsMat[:, 7]
-# bfapArrValid = bfapArr[np.where(bfapArr != -1)]  # leave out missing values (-1)
-# bfapArrValid += 1e-32  # np.min(bfapArrValid[np.where(bfapArrValid > 0)])  # 1  # add 1 so that range becomes [1, 2]
-# bfapArrValid = np.log10(bfapArrValid)  # log transform
-# bfapNormStats = {'median': np.median(bfapArrValid), 'std': stats.mad_std(bfapArrValid)}
+# transform bootstrap FA probability
+bfapArr = scalarParamsMat[:, 7]
+bfapArrValid = bfapArr[np.where(bfapArr != -1)]  # leave out missing values (-1)
+bfapArrValid += 1e-32  # np.min(bfapArrValid[np.where(bfapArrValid > 0)])  # 1  # add 1 so that range becomes [1, 2]
+bfapArrValid = np.log10(bfapArrValid)  # log transform
+bfapNormStats = {'median': np.median(bfapArrValid), 'std': stats.mad_std(bfapArrValid)}
 
-# # transform binoedp stat
-# binoedpArr = scalarParamsMat[:, 6]
-# binoedpArr += 1e-32
-# binoedpArr = np.log10(binoedpArr)
-# binoedpNormStats = {'median': np.median(binoedpArr), 'std': stats.mad_std(binoedpArr)}
+# transform binoedp stat
+binoedpArr = scalarParamsMat[:, 6]
+binoedpArr += 1e-32
+binoedpArr = np.log10(binoedpArr)
+binoedpNormStats = {'median': np.median(binoedpArr), 'std': stats.mad_std(binoedpArr)}
 
 scalarNormStats = {'values': scalarParamsMat,
                    'median': np.median(scalarParamsMat, axis=0),
@@ -389,11 +382,11 @@ scalarNormStats = {'values': scalarParamsMat,
                    'params': scalarParams}
 
 # # overwrite stats for bfap and binoedp
-# scalarNormStats['median'][7] = bfapNormStats['median']
-# scalarNormStats['std'][7] = bfapNormStats['std']
-#
-# scalarNormStats['median'][6] = binoedpNormStats['median']
-# scalarNormStats['std'][6] = binoedpNormStats['std']
+scalarNormStats['median'][7] = bfapNormStats['median']
+scalarNormStats['std'][7] = bfapNormStats['std']
+
+scalarNormStats['median'][6] = binoedpNormStats['median']
+scalarNormStats['std'][6] = binoedpNormStats['std']
 
 np.save(os.path.join(tfrecDir, 'train_scalarparam_norm_stats.npy'), scalarNormStats)
 
@@ -422,35 +415,35 @@ for timeSeries in timeSeriesFDLList:
 normStatsFDLDf = pd.DataFrame(data=normStatsFDLDataForDf)
 normStatsFDLDf.to_csv(os.path.join(tfrecDir, 'train_fdlcentroid_norm_stats.csv'), index=False)
 
-# # save normalization statistics for centroid time series
-# normStatsCentroid = {timeSeries:  {
-#                                    'median': np.median(centroidMat[timeSeries]),
-#                                    'std': stats.mad_std(centroidMat[timeSeries]),
-#                                    'clip_value': 30
-#                                    # 'clip_value': np.percentile(centroidMat[timeSeries], 75) +
-#                                    #               1.5 * np.subtract(*np.percentile(centroidMat[timeSeries], [75, 25]))
-#                                    }
-#                      for timeSeries in centroidList}
-# for timeSeries in centroidList:
-#     centroidMatClipped = np.clip(centroidMat[timeSeries], a_max=30, a_min=None)
-#     clipStats = {
-#         'median_clip': np.median(centroidMatClipped),
-#         'std_clip': stats.mad_std(centroidMatClipped)
-#     }
-#     normStatsCentroid[timeSeries].update(clipStats)
-# np.save(os.path.join(tfrecDir, 'train_centroid_norm_stats.npy'), normStatsCentroid)
-#
-# # create additional csv file with normalization statistics
-# normStatsCentroidDataForDf = {}
-# for timeSeries in centroidList:
-#     normStatsCentroidDataForDf['{}_median'.format(timeSeries)] = [normStatsCentroid[timeSeries]['median']]
-#     normStatsCentroidDataForDf['{}_std'.format(timeSeries)] = [normStatsCentroid[timeSeries]['std']]
-#     # normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = [normStatsCentroid[timeSeries]['clip_value']]
-#     normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = 30
-#     normStatsCentroidDataForDf['{}_median_clip'.format(timeSeries)] = [normStatsCentroid[timeSeries]['median_clip']]
-#     normStatsCentroidDataForDf['{}_std_clip'.format(timeSeries)] = [normStatsCentroid[timeSeries]['std_clip']]
-# normStatsCentroidDf = pd.DataFrame(data=normStatsCentroidDataForDf)
-# normStatsCentroidDf.to_csv(os.path.join(tfrecDir, 'train_centroid_norm_stats.csv'), index=False)
+# save normalization statistics for centroid time series
+normStatsCentroid = {timeSeries:  {
+                                   'median': np.median(centroidMat[timeSeries]),
+                                   'std': stats.mad_std(centroidMat[timeSeries]),
+                                   'clip_value': 30
+                                   # 'clip_value': np.percentile(centroidMat[timeSeries], 75) +
+                                   #               1.5 * np.subtract(*np.percentile(centroidMat[timeSeries], [75, 25]))
+                                   }
+                     for timeSeries in centroidList}
+for timeSeries in centroidList:
+    centroidMatClipped = np.clip(centroidMat[timeSeries], a_max=30, a_min=None)
+    clipStats = {
+        'median_clip': np.median(centroidMatClipped),
+        'std_clip': stats.mad_std(centroidMatClipped)
+    }
+    normStatsCentroid[timeSeries].update(clipStats)
+np.save(os.path.join(tfrecDir, 'train_centroid_norm_stats.npy'), normStatsCentroid)
+
+# create additional csv file with normalization statistics
+normStatsCentroidDataForDf = {}
+for timeSeries in centroidList:
+    normStatsCentroidDataForDf['{}_median'.format(timeSeries)] = [normStatsCentroid[timeSeries]['median']]
+    normStatsCentroidDataForDf['{}_std'.format(timeSeries)] = [normStatsCentroid[timeSeries]['std']]
+    # normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = [normStatsCentroid[timeSeries]['clip_value']]
+    normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = 30
+    normStatsCentroidDataForDf['{}_median_clip'.format(timeSeries)] = [normStatsCentroid[timeSeries]['median_clip']]
+    normStatsCentroidDataForDf['{}_std_clip'.format(timeSeries)] = [normStatsCentroid[timeSeries]['std_clip']]
+normStatsCentroidDf = pd.DataFrame(data=normStatsCentroidDataForDf)
+normStatsCentroidDf.to_csv(os.path.join(tfrecDir, 'train_centroid_norm_stats.csv'), index=False)
 
 #%% normalize examples in the TFRecords
 
@@ -468,15 +461,12 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
     idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(normParams['num_bins_loc'],
                                                               normParams['nr_transit_durations'])  # same for all TCEs
 
-    # with tf.python_io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
     with tf.io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
 
         # iterate through the source shard
-        # record_iterator = tf.python_io.tf_record_iterator(path=srcTfrecFile)
         tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
 
         for string_record in tfrecord_dataset.as_numpy_iterator():
-        # for string_i, string_record in enumerate(record_iterator):
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
@@ -485,30 +475,43 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
             tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
             # TODO: normalization statistics perhaps should be computed using the TCE table and after that missing
             #       would be replaced; stellar parameters would have to be updated in the TFRecords
-            # # log transform with constant translation of bfap and oedp stat
-            # tceScalarParams[6] += 1e-32
-            # assert tceScalarParams[6] > 0
-            # tceScalarParams[6] = np.log10(tceScalarParams[6])
-            #
-            # if tceScalarParams[7] == -1:  # check if bootstrap FA probability value is missing (-1)
-            #     tceScalarParams[7] = normStats['scalar_params']['median'][7]
-            # else:
-            #     tceScalarParams[7] += 1e-32
-            #     assert tceScalarParams[7] > 0
-            #     tceScalarParams[7] = np.log10(tceScalarParams[7])
-            #
-            # # clip ghost diagnostic by +- 20 * std
-            # tceScalarParams[-3] = np.clip(tceScalarParams[-3],
-            #                               -20 * normStatsScalar['std'][-3],
-            #                               20 * normStatsScalar['std'][-3])
-            # # hap
-            # tceScalarParams[-2] = np.clip(tceScalarParams[-2],
-            #                               -20 * normStatsScalar['std'][-2],
-            #                               20 * normStatsScalar['std'][-2])
-            #
-            # # median centering and std normalization
-            # tceScalarParams = (tceScalarParams - normStats['scalar_params']['median']) / \
-            #                   normStats['scalar_params']['std']
+            # log transform with constant translation of bfap and oedp stat
+            tceScalarParams[6] += 1e-32
+            assert tceScalarParams[6] > 0
+            tceScalarParams[6] = np.log10(tceScalarParams[6])
+
+            if tceScalarParams[7] == -1:  # check if bootstrap FA probability value is missing (-1)
+                tceScalarParams[7] = normStats['scalar_params']['median'][7]
+            else:
+                tceScalarParams[7] += 1e-32
+                assert tceScalarParams[7] > 0
+                tceScalarParams[7] = np.log10(tceScalarParams[7])
+
+            # clip ghost diagnostic by +- 20 * std
+            tceScalarParams[10] = np.clip(tceScalarParams[10],
+                                          -20 * normStatsScalar['std'][10],
+                                          20 * normStatsScalar['std'][10])
+            # hap
+            tceScalarParams[11] = np.clip(tceScalarParams[11],
+                                          -20 * normStatsScalar['std'][11],
+                                          20 * normStatsScalar['std'][11])
+
+            # clip difference imaging centroid offset by +- 20 * std
+            tceScalarParams[13] = np.clip(tceScalarParams[13],
+                                          -20 * normStatsScalar['std'][13],
+                                          20 * normStatsScalar['std'][13])
+            tceScalarParams[14] = np.clip(tceScalarParams[14],
+                                          -20 * normStatsScalar['std'][14],
+                                          20 * normStatsScalar['std'][14])
+
+            # clip MES by +- 20 * std
+            tceScalarParams[15] = np.clip(tceScalarParams[15],
+                                          -20 * normStatsScalar['std'][15],
+                                          20 * normStatsScalar['std'][15])
+
+            # median centering and std normalization
+            tceScalarParams = (tceScalarParams - normStats['scalar_params']['median']) / \
+                              normStats['scalar_params']['std']
 
             # for TPS - does not have DV diagnostics (bfap, oedpstat, ghost, ...)
             # tceScalarParams = (tceScalarParams - normStats['scalar_params']['median'][np.array([0, 1, 2, 3, 8, 9])]) / \
@@ -538,51 +541,61 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
             # center and normalize FDL centroid time series
             glob_centr_fdl_view = np.array(example.features.feature['global_centr_fdl_view'].float_list.value)
             glob_centr_fdl_view_norm = centering_and_normalization(glob_centr_fdl_view,
-                                                              normStats['global_centr_fdl_view']['oot_median'],
-                                                              normStats['global_centr_fdl_view']['oot_std']
-                                                              )
-            glob_centr_fdl_view_norm *= glob_flux_view_std / np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
+                                                                   normStats['global_centr_fdl_view']['oot_median'],
+                                                                   normStats['global_centr_fdl_view']['oot_std']
+                                                                   )
+            glob_centr_fdl_view_norm *= glob_flux_view_std / \
+                                        np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
             loc_centr_fdl_view = np.array(example.features.feature['local_centr_fdl_view'].float_list.value)
             loc_centr_fdl_view_norm = centering_and_normalization(loc_centr_fdl_view,
-                                                             normStats['local_centr_fdl_view']['oot_median'],
-                                                             normStats['local_centr_fdl_view']['oot_std']
-                                                             )
-            loc_centr_fdl_view_norm *= loc_flux_view_std / np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc], ddof=1)
+                                                                  normStats['local_centr_fdl_view']['oot_median'],
+                                                                  normStats['local_centr_fdl_view']['oot_std']
+                                                                  )
+            loc_centr_fdl_view_norm *= loc_flux_view_std / np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc],
+                                                                  ddof=1)
 
-            # # normalize centroid time series; first clip time series to a maximum value for each view
-            # glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
-            # loc_centr_view = np.array(example.features.feature['local_centr_view'].float_list.value)
-            #
-            # # 1) clipping to physically meaningful distance in arcsec
-            # glob_centr_view_std_clip = np.clip(glob_centr_view, a_max=normStats['global_centr_view']['clip_value'],
-            #                                    a_min=None)
-            # glob_centr_view_std_clip = centering_and_normalization(glob_centr_view_std_clip,
-            #                                                        normStats['global_centr_view']['median_clip'],
-            #                                                        normStats['global_centr_view']['std_clip'])
-            #
-            # loc_centr_view_std_clip = np.clip(loc_centr_view, a_max=normStats['local_centr_view']['clip_value'],
-            #                                   a_min=None)
-            # loc_centr_view_std_clip = centering_and_normalization(loc_centr_view_std_clip,
-            #                                                        normStats['local_centr_view']['median_clip'],
-            #                                                        normStats['local_centr_view']['std_clip'])
-            #
-            # # 2) no clipping
-            # glob_centr_view_std_noclip = centering_and_normalization(glob_centr_view,
-            #                                                        normStats['global_centr_view']['median'],
-            #                                                        normStats['global_centr_view']['std'])
-            # loc_centr_view_std_noclip = centering_and_normalization(loc_centr_view,
-            #                                                        normStats['local_centr_view']['median'],
-            #                                                        normStats['local_centr_view']['std'])
+            # normalize centroid time series; first clip time series to a maximum value for each view
+            glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
+            loc_centr_view = np.array(example.features.feature['local_centr_view'].float_list.value)
 
+            # 1) clipping to physically meaningful distance in arcsec
+            glob_centr_view_std_clip = np.clip(glob_centr_view, a_max=normStats['global_centr_view']['clip_value'],
+                                               a_min=None)
+            glob_centr_view_std_clip = centering_and_normalization(glob_centr_view_std_clip,
+                                                                   normStats['global_centr_view']['median_clip'],
+                                                                   normStats['global_centr_view']['std_clip'])
+
+            loc_centr_view_std_clip = np.clip(loc_centr_view, a_max=normStats['local_centr_view']['clip_value'],
+                                              a_min=None)
+            loc_centr_view_std_clip = centering_and_normalization(loc_centr_view_std_clip,
+                                                                   normStats['local_centr_view']['median_clip'],
+                                                                   normStats['local_centr_view']['std_clip'])
+
+            # 2) no clipping
+            glob_centr_view_std_noclip = centering_and_normalization(glob_centr_view,
+                                                                   normStats['global_centr_view']['median'],
+                                                                   normStats['global_centr_view']['std'])
+            loc_centr_view_std_noclip = centering_and_normalization(loc_centr_view,
+                                                                   normStats['local_centr_view']['median'],
+                                                                   normStats['local_centr_view']['std'])
+
+            # 3) center each centroid individually using their median and divide by the standard deviation of the
+            # training set
+            glob_centr_view_medind_std = glob_centr_view - np.median(glob_centr_view)
+            glob_centr_view_medind_std /= normStats['global_centr_view']['std']
+            loc_centr_view_medind_std = loc_centr_view - np.median(loc_centr_view)
+            loc_centr_view_medind_std /= normStats['local_centr_view']['std']
 
             # add features to the example in the TFRecord
             normalizedFeatures = {'scalar_params': tceScalarParams,
                                   'local_centr_fdl_view_norm': loc_centr_fdl_view_norm,
                                   'global_centr_fdl_view_norm': glob_centr_fdl_view_norm,
-                                  # 'global_centr_view_std_clip': glob_centr_view_std_clip,
-                                  # 'local_centr_view_std_clip': loc_centr_view_std_clip,
-                                  # 'global_centr_view_std_noclip': glob_centr_view_std_noclip,
-                                  # 'local_centr_view_std_noclip': loc_centr_view_std_noclip
+                                  'global_centr_view_std_clip': glob_centr_view_std_clip,
+                                  'local_centr_view_std_clip': loc_centr_view_std_clip,
+                                  'global_centr_view_std_noclip': glob_centr_view_std_noclip,
+                                  'local_centr_view_std_noclip': loc_centr_view_std_noclip,
+                                  'global_centr_view_medind_std': glob_centr_view_medind_std,
+                                  'local_centr_view_medind_std': loc_centr_view_medind_std
                                   }
 
             for normalizedFeature in normalizedFeatures:
@@ -595,30 +608,37 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, normParams):
             writer.write(example.SerializeToString())
 
 
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment-labels'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels'
 destTfrecDir = srcTfrecDir + '-norm'
 os.makedirs(destTfrecDir, exist_ok=True)
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
 srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
 
-normParams = {'nr_transit_durations': 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
-              'num_bins_loc': 201,
-              'num_bins_glob': 2001
-              }
+normParams = {
+    'nr_transit_durations': 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+    'num_bins_loc': 201,
+    'num_bins_glob': 2001
+}
+# normParams = {
+#     'nr_transit_durations': 2 * 2.5 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+#     'num_bins_loc': 31,
+#     'num_bins_glob': 301
+# }
 
 # load normalization statistics
 normStats = {}
-normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment'
+normStatsDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment'
 # scalar parameters normalization statistics
 normStatsScalar = np.load(os.path.join(normStatsDir, 'train_scalarparam_norm_stats.npy'), allow_pickle=True).item()
 # FDL centroid normalization statistics
 normStatsFDLCentroid = np.load(os.path.join(normStatsDir, 'train_fdlcentroid_norm_stats.npy'), allow_pickle=True).item()
-# # Centroid normalization statistics
-# normStatsCentroid = np.load(os.path.join(normStatsDir, 'train_centroid_norm_stats.npy'), allow_pickle=True).item()
+# Centroid normalization statistics
+normStatsCentroid = np.load(os.path.join(normStatsDir, 'train_centroid_norm_stats.npy'), allow_pickle=True).item()
 
+# add normalization statistics for different features to normalization statistic dictionary
 normStats['scalar_params'] = {key: normStatsScalar[key] for key in normStatsScalar if key not in 'values'}
 normStats.update(normStatsFDLCentroid)
-# normStats.update(normStatsCentroid)
+normStats.update(normStatsCentroid)
 
 nProcesses = 15
 pool = multiprocessing.Pool(processes=nProcesses)
@@ -634,7 +654,7 @@ print('Normalization finished.')
 
 #%% Check final preprocessed data
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_starshuffle_experiment-labels-norm'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_withcentrmedind_std'
 plotDir = os.path.join(tfrecDir, 'plots_all_views')
 os.makedirs(plotDir, exist_ok=True)
 tfrecFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if 'shard' in file]
@@ -646,19 +666,23 @@ views = [
     'global_flux_view_fluxnorm',
     'local_flux_view_fluxnorm',
     # 'global_flux_odd_view',
-    # 'local_flux_odd_view',
+    'local_flux_odd_view',
+    'local_flux_odd_view_fluxnorm',
     # 'global_flux_even_view',
-    # 'local_flux_even_view',
+    'local_flux_even_view',
+    'local_flux_even_view_fluxnorm',
     # 'local_flux_oddeven_view_diff',
     # 'local_flux_oddeven_view_diff_dir',
     # 'global_weak_secondary_view',
-    # 'local_weak_secondary_view',
-    # 'global_centr_view',
-    # 'local_centr_view',
+    'local_weak_secondary_view_fluxnorm',
+    'global_centr_view',
+    'local_centr_view',
     # 'global_centr_view_std_clip',
     # 'local_centr_view_std_clip',
-    # 'global_centr_view_std_noclip',
-    # 'local_centr_view_std_noclip',
+    'global_centr_view_std_noclip',
+    'local_centr_view_std_noclip',
+    'global_centr_view_medind_std',
+    'local_centr_view_medind_std',
     # 'global_centr_view_medcmaxn',
     # 'local_centr_view_medcmaxn',
     # 'global_centr_view_medcmaxn_dir',
@@ -667,25 +691,23 @@ views = [
     # 'local_centr_view_medn',
     'global_centr_fdl_view',
     'local_centr_fdl_view',
-    'global_centr_fdl_view_norm',
-    'local_centr_fdl_view_norm',
+    # 'global_centr_fdl_view_norm',
+    # 'local_centr_fdl_view_norm',
 ]
-# scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat',
-#                 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
-scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
+scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth', 'tce_bin_oedp_stat',
+                'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
+# scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
-tceOfInterest = (8937762, 1)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
-scheme = (2, 4)
+tceOfInterest = (9773869, 1)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
+scheme = (3, 6)
 basename = 'all_views'  # basename for figures
 # probPlot = 1.01  # probability threshold for plotting
 
 for tfrecFile in tfrecFiles:
 
-    # record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
     tfrecord_dataset = tf.data.TFRecordDataset(tfrecFile)
 
     for string_record in tfrecord_dataset.as_numpy_iterator():
-    # for string_i, string_record in enumerate(record_iterator):
 
         # if np.random.random() > probPlot:
         #     continue
@@ -707,10 +729,10 @@ for tfrecFile in tfrecFiles:
             # print('{}: {}'.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i]))
             if scalarParam_i == 5:
                 scalarParamsStr += '\n'
-            # if scalarParams[scalarParam_i] == 'boot_fap':
-            #     scalarParamsStr += '{}={:.4E}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
-            # else:
-            scalarParamsStr += '{}={:.4f}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
+            if scalarParams[scalarParam_i] == 'boot_fap':
+                scalarParamsStr += '{}={:.4E}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
+            else:
+                scalarParamsStr += '{}={:.4f}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
 
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 

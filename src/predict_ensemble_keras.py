@@ -317,7 +317,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
     else:
         ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                        momentum=config['momentum'],
+                                                        momentum=config['sgd_momentum'],
                                                         nesterov=False,
                                                         name='SGD'),  # optimizer
                                # loss function to minimize

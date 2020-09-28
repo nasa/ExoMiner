@@ -2,10 +2,10 @@ import os
 import tensorflow as tf
 
 
-from src.estimator_util import InputFn, ModelFn, CNN1dPlanetFinderv1
+from src.old.estimator_util import InputFn, ModelFn, CNN1dPlanetFinderv1
 import paths
 from src_hpo import utils_hpo
-from src.config import label_map
+from src.old.config import label_map
 import src
 
 base_model = CNN1dPlanetFinderv1
@@ -36,10 +36,10 @@ use_kepler_ce = False  # use weighted CE loss based on the class proportions in 
 satellite = 'kepler'
 
 # add dataset parameters
-config = src.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
+config = src.old.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
 
 # add missing parameters in hpo with default values
-config = src.config.add_default_missing_params(config=config)
+config = src.old.config.add_default_missing_params(config=config)
 
 # features to be extracted from the dataset
 features_names = ['global_view', 'local_view']

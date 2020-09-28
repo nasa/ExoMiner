@@ -205,14 +205,19 @@ kepid_tbl.to_csv('/home/msaragoc/Downloads/q1_q17_dr25_stellar_gaiadr2.csv')
 
 #%% Update Kepler TCE table (34k) with the latest stellar parameters
 
-stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Stellar parameters/Kepler/'
+stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/KIC_tables/'
                           'q1_q17_dr25_stellar_gaiadr2_nanstosolar.csv')
+
+tce_tbl_dir = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
 # tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
 #                       'q1_q17_dr25_tce_2019.03.12_updt_tcert_extended.csv')
 # tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
 #                       'q1_q17_dr25_tce_cumkoi2020.02.21_numtcespertarget.csv')
-tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/raw/'
-                      'q1_q17_dr25_tce_2020.04.15_23.19.10.csv', header=57)
+# tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/raw/'
+#                       'q1_q17_dr25_tce_2020.04.15_23.19.10.csv', header=57)
+tce_tbl_filename = 'q1_q17_dr25_tce_2020.09.15_15.12.12.csv'
+tce_tbl_filepath = os.path.join(tce_tbl_dir, tce_tbl_filename)
+tce_tbl = pd.read_csv(tce_tbl_filepath, header=92)
 
 stellar_fields_out = ['kepmag', 'tce_steff', 'tce_steff_err1', 'tce_steff_err2', 'tce_slogg', 'tce_slogg_err1',
                       'tce_slogg_err2', 'tce_smet', 'tce_smet_err1', 'tce_smet_err2', 'tce_sradius', 'tce_sradius_err1',
@@ -236,7 +241,6 @@ for row_star_i, row_star in stellar_tbl.iterrows():
                                                                              len(stellar_tbl),
                                                                              row_star_i / len(stellar_tbl) * 100,
                                                                              count))
-    # target_cond = tce_tbl['kepid'] == row_star['kepid']
     target_cond = tce_tbl['kepid'] == row_star['kepid']
 
     count += target_cond.sum()
@@ -244,8 +248,9 @@ for row_star_i, row_star in stellar_tbl.iterrows():
     tce_tbl.loc[target_cond, stellar_fields_out] = row_star[stellar_fields_in].values
 
 print('Number of TCEs updated: {}'.format(count))
-tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-               'q1_q17_dr25_tce_2020.04.15_23.19.10_stellar.csv', index=False)
+# tce_tbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
+#                'q1_q17_dr25_tce_2020.04.15_23.19.10_stellar.csv', index=False)
+tce_tbl.to_csv(os.path.join(tce_tbl_filepath)[:-4] + '_stellar.csv', index=False)
 
 #%% Update Kepler non-TCE table (~180k) with the latest stellar parameters
 

@@ -85,6 +85,7 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
 
   # Bins with no y-values will fall back to the global median.
   result = np.repeat(np.median(y), num_bins)
+  result_time = np.ones(num_bins)
 
   # Find the first element of x >= x_min. This loop is guaranteed to produce
   # a valid index because we know that x_min <= x[-1].
@@ -112,9 +113,10 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
     if j_end > j_start:
       # Compute and insert the median bin value.
       result[i] = np.median(y[j_start:j_end])
+      result_time[i] = bin_min + bin_width / 2
 
     # Advance the bin.
     bin_min += bin_spacing
     bin_max += bin_spacing
 
-  return result
+  return result, result_time

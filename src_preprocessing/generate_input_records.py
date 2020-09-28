@@ -55,6 +55,7 @@ class Config:
     gapped = False
     gap_keep_overlap = False
     gap_padding = 1
+    gap_padding_primary = 2
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
     gap_with_confidence_level = False
@@ -234,7 +235,7 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
         tf_logging.info('{}: Wrote {} items in shard {}', config.process_i, shard_size, shard_name)
 
 
-def main(_):
+def main():
 
     # get the configuration parameters
     config = Config()
@@ -269,4 +270,5 @@ if __name__ == "__main__":
 
     tf_logging.set_verbosity(tf_logging.INFO)
 
-    tf_app.run(main=main)
+    # tf_app.run(main=main)
+    main()

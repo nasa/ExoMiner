@@ -97,7 +97,7 @@ def tess_filenames(base_dir,
         base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
         filename = os.path.join(base_dir, base_name)
 
-        if not check_existence or gfile.Exists(filename):
+        if not check_existence or gfile.exists(filename):
             filenames.append(filename)
             # tce_sectors += '{} '.format(sector)
     # else:
@@ -246,16 +246,5 @@ def read_tess_light_curve(filenames,
         data['camera'].append(camera)
         data['ccd'].append(ccd)
         data['sectors'].append(sector)
-
-    # TODO: scramble for TESS data as well?
-    # if scramble_type:
-    #    all_time, all_flux = scramble_light_curve(all_time, all_flux, all_quarters, scramble_type)
-
-    # inverts light curve
-    # TODO: currently only inverting for the all_centroids variable
-    if invert:
-        data['all_flux'] = [-1 * flux for flux in data['all_flux']]
-        data['all_centroids']['x'] = [-1 * centroid for centroid in data['all_centroids']['x']]
-        data['all_centroids']['y'] = [-1 * centroid for centroid in data['all_centroids']['y']]
 
     return data

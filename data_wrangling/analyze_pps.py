@@ -12,19 +12,19 @@ import numpy as np
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/reliability_pps'
 experimentRootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
 
-experimentNoPPs = 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_astronet-300epochs-es20patience_glflux_datasetwithpps'
-experimentWithPPs = 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_astronet-300epochs-es20patience_glflux'
+experimentNoPPs = 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar_datasetwithpps'
+experimentWithPPs = 'keplerdr25_g2001-l201_spline_gapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
 
 # get only PPs
-tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED')]
+# tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED')]
 # tceTbl = tceTbl.loc[tceTbl['koi_disposition'] == 'CONFIRMED']
 # tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FP') & (tceTbl['koi_disposition'] != 'CONFIRMED')]
 # tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FA') & (tceTbl['koi_disposition'] != 'CONFIRMED')]
 # tceTbl = tceTbl.loc[tceTbl['koi_disposition'] == 'CANDIDATE']
-# tceTbl = tceTbl.loc[tceTbl['koi_disposition'].isna()]
+tceTbl = tceTbl.loc[tceTbl['koi_disposition'].isna()]
 print('Total number of PPs in the dataset: {}'.format(len(tceTbl)))
 
 tceTbl['UID'] = tceTbl[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']),
@@ -77,14 +77,15 @@ for dataset in datasets:
     ax.set_ylabel('Model Trained without PPs')
     ax.set_xticks(np.linspace(0, 1, 11, endpoint=True))
     ax.set_yticks(np.linspace(0, 1, 11, endpoint=True))
-    ax.set_title('{} set PPs\nTotal PPs = {}\n'
+    ax.set_title('{} set non-KOIs\nTotal non-KOIs = {}\n'
                  'Classified as Positives (wo/ vs w/)= {} vs {}'.format(dataset, len(datasetsRankTbl[dataset]),
                                                                         datasetsRankTbl[dataset]['predicted class No PPs'].sum(),
                                                                         datasetsRankTbl[dataset]['predicted class'].sum()))
     ax.grid(True)
-    f.savefig(os.path.join(saveDir, 'scorespps_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
+    # f.savefig(os.path.join(saveDir, 'scorespps_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
     # f.savefig(os.path.join(saveDir, 'scoresconfirmedKOIs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
     # f.savefig(os.path.join(saveDir, 'scoresCFPs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
     # f.savefig(os.path.join(saveDir, 'scoresCFAs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
     # f.savefig(os.path.join(saveDir, 'scorescandidateKOIs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
-    # f.savefig(os.path.join(saveDir, 'scorescandidatenonKOIs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
+    f.savefig(os.path.join(saveDir, 'scoresnonKOIs_ppmodelvsnonppmodel_{}set.svg'.format(dataset)))
+    plt.close()

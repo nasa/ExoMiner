@@ -19,8 +19,6 @@ import tensorflow as tf
 # logging.getLogger("tensorflow").setLevel(logging.INFO)
 # tf.logging.set_verbosity(tf.logging.INFO)
 import numpy as np
-from mpi4py import MPI
-import time
 # import itertools
 import argparse
 
@@ -29,9 +27,9 @@ import paths
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir, \
-    get_data_from_tfrecord, get_data_from_tfrecord_kepler
-import src.config
+from src.old.estimator_util import InputFn, ModelFn, CNN1dPlanetFinderv1, get_model_dir, \
+    get_data_from_tfrecord
+import src.old.config
 from src_hpo import utils_hpo
 from src import utils_train
 # import baseline_configs
@@ -526,10 +524,10 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
 
     # add dataset parameters
-    config = src.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
+    config = src.old.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
 
     # add missing parameters in hpo with default values
-    config = src.config.add_default_missing_params(config=config)
+    config = src.old.config.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI
     for item in range(n_models):

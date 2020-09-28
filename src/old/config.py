@@ -3,7 +3,7 @@ Utility script for defining configurations.
 """
 
 # local
-from src.estimator_util import get_ce_weights
+from src.old.estimator_util import get_ce_weights
 
 label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary classification
                                "NTP": 0,

@@ -86,7 +86,7 @@ def create_metric_mapping(topk, saveFp=None):
             for k_i in range(len(topk[dataset])):
                 if k_i == len(topk[dataset]) - 1:
                     datasetsMetrics['{}_precision_at_{}'.format(dataset, topk[dataset][k_i])] = \
-                        '{}Prec{}'.format(datasets[dataset], topk[dataset][k_i])
+                        '{}PrecMax'.format(datasets[dataset])
                 else:
                     datasetsMetrics['{}_precision_at_{}'.format(dataset, topk[dataset][k_i])] = \
                         '{}Prec{}'.format(datasets[dataset], topk[dataset][k_i])
@@ -149,8 +149,20 @@ studiesToAdd = [
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu'),
     # ('Astronet-50epochs_spline_nongapped_glflux_nopps',
     #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_astronet-50epochs_glflux'),
-    ('Astronet-300epochs-ES20patience_spline_nongapped_glflux_nopps',
-     'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_astronet-300epochs-es20patience_glflux'),
+    # ('Astronet-300epochs-ES20patience_spline_nongapped_glflux_nopps',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_astronet-300epochs-es20patience_glflux'),
+    # ('Exonet-300epochs-ES20patience_spline_nongapped_glflux-glcentr_fdl-6stellar',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar'),
+    # ('Exonet-50epochs_spline_nongapped_glflux-glcentr_fdl-6stellar',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_exonet-50epochs_glflux-glcentr_fdl-6stellar'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks+6stellar_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar_prelu'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks+6stellar-bfap-ghost-rollingband_prelu_nopps',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu')
+    # ('Exonet-300epochs-ES20patience_spline_nongapped_glflux+glcentr_fdl+6stellar',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkoisnopps_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar'),
+    # ('ConfigD_spline_gapped_gbal_glflux+glcentr_fdl_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_fdl_prelu'),
     # ('ConfigD_spline_gapped_glflux+6stellar_prelu',
     #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'),
     # ('ConfigD_spline_gapped_glflux+bfap_prelu',
@@ -169,10 +181,32 @@ studiesToAdd = [
     #  'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentrmedcmaxn_prelu'),
     # ('ConfigD_spline_gapped_glflux+glcentrmedcmaxn_dir_prelu',
     #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentrmedcmaxn_dir_prelu'),
+    # ('ConfigD_spline_nongapped_glflux+glcentr_fdl+6stellar_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_fdl-6stellar_prelu'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_fdl+6stellar_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_fdl-6stellar_prelu')
+    # ('ConfigE_spline_gapped_glflux+glcentr_std_noclip+loe+lwks+6stellar-bfap-ghost-rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_gapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks+6stellar-bfap-ghost-rollingband_prelu_g301-l31',
+    #  'keplerdr25_g301-l31_spline_gapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_medind_std+loe+lwks+6stellar-bfap-ghost-rollingband_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_medind_std-loe-lwks-6stellar-bfap-ghost-rollingband_prelu'),
+    # ('ConfigD_spline_nongapped_glflux+mes_prelu',
+    #  '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-mes_prelu'),
+    # ('ConfigD_spline_nongapped_glflux+lwks_fluxnorm_wksmaxmes_prelu',
+    #  '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_fluxnorm-wksmaxmes_prelu')
+    # ('ConfigD_spline_nongapped_glflux+co_kic_oot_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-co_kic_oot_prelu'),
+    # ('ConfigD_spline_nongapped_glflux+glcentr_std_noclip+co_kic_oot_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-co_kic_oot_prelu'),
+    # ('ConfigE_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks_fluxnorm+6stellar+bfap+ghost+rollingband+co_kic_oot+wksmaxmes_prelu',
+    #  'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband-co_kic_oot-wksmaxmes_prelu'),
+    ('ConfigH_g301-l31_spline_nongapped_glflux+glcentr_std_noclip+loe+lwks_fluxnorm+6stellar+bfap+ghost+rollingband_prelu',
+     'keplerdr25_g301-l31_spline_nongapped_norobovetterkois_starshuffle_configH_glflux-glcentr_std_noclip-lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband_prelu')
 ]
 
-# topk = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
-topk = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # No PPs
+topk = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+# topk = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # No PPs
 saveFp = None
 # saveFp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/map_datasets_metrics.npy'
 # datasetsMetrics = np.load('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'

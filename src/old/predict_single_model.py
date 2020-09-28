@@ -14,8 +14,9 @@ import numpy as np
 import tensorflow as tf
 
 # local
-from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, Exonet, Exonet_XS, \
-    get_data_from_tfrecord, get_data_from_tfrecord_kepler
+from src.old.estimator_util import InputFn, ModelFn
+
+
 # needed for backward compatibility for models created before upgrading the model building function CNN1dModel in
 # estimator_util to use tf.keras layers and different names for the graph nodes
 # from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord

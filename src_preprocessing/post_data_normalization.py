@@ -5,9 +5,8 @@ to normalized the data.
 
 import numpy as np
 import os
-import matplotlib.pyplot as plt
 
-from src.estimator_util import get_data_from_tfrecords
+from src.old.estimator_util import get_data_from_tfrecords
 
 #%% Get extrema for the non-normalized centroid training set
 

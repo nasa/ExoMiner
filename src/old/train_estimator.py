@@ -31,9 +31,9 @@ if 'home6' in paths.path_hpoconfigs:
 import matplotlib.pyplot as plt
 # from src.estimator_util import InputFn, ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir, \
 #     get_data_from_tfrecord, get_data_from_tfrecord_kepler
-from src.estimator_util import ModelFn, CNN1dModel, CNN1dPlanetFinderv1, get_model_dir
-from src.utils_dataio import get_data_from_tfrecord, get_data_from_tfrecord_kepler, InputFn
-import src.config
+from src.old.estimator_util import ModelFn, CNN1dPlanetFinderv1, get_model_dir
+from src.utils_dataio import get_data_from_tfrecord_kepler, InputFn
+import src.old.config
 from src_hpo import utils_hpo
 from src import utils_train
 
@@ -506,10 +506,10 @@ if __name__ == '__main__':
         os.mkdir(save_path + '/models/')
 
     # add dataset parameters
-    config = src.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
+    config = src.old.config.add_dataset_params(satellite, multi_class, use_kepler_ce, config, ce_weights_args)
 
     # add missing parameters in hpo with default values
-    config = src.config.add_default_missing_params(config=config)
+    config = src.old.config.add_default_missing_params(config=config)
 
     # # comment for multiprocessing using MPI
     # for item in range(n_models):

@@ -27,11 +27,11 @@ if 'home6' in paths.path_hpoconfigs:
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
-from src import config
+from src.old import config
 
 # local
-from src.estimator_util import get_ce_weights, CNN1dPlanetFinderv1, CNN1dModel, Exonet, Exonet_XS
-from src_hpo.worker_hpo_tf import TransitClassifier
+from src.old.estimator_util import get_ce_weights, CNN1dPlanetFinderv1
+from src_hpo.old.worker_hpo_tf import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
 

@@ -6,8 +6,12 @@ Auxiliary functions used to plot outcome from different steps along the preproce
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 # if 'nobackup' in os.path.abspath(__file__):
 plt.switch_backend('agg')
+
+
+DEGREETOARCSEC = 3600
 
 
 def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedir, basename):
@@ -67,18 +71,18 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
 
     if not config.px_coordinates and not pxcoordinates:
         if target_position is None:
-            centroids = {coord: [3600 * centroids_arr for centroids_arr in centroids[coord]] for coord in centroids}
+            centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in centroids[coord]] for coord in centroids}
         else:
-            centroids = {'x': [3600 * (centroids_arr - target_position[0]) * np.cos(target_position[1] * np.pi / 180)
+            centroids = {'x': [DEGREETOARCSEC * (centroids_arr - target_position[0]) * np.cos(target_position[1] * np.pi / 180)
                                for centroids_arr in centroids['x']],
-                         'y': [3600 * (centroids_arr - target_position[1]) for centroids_arr in centroids['y']]}
+                         'y': [DEGREETOARCSEC * (centroids_arr - target_position[1]) for centroids_arr in centroids['y']]}
 
         if centroids_spline is not None:
-            centroids_spline = {coord: [3600 * spline_arr for spline_arr in centroids_spline[coord]]
+            centroids_spline = {coord: [DEGREETOARCSEC * spline_arr for spline_arr in centroids_spline[coord]]
                                 for coord in centroids_spline}
 
         if 'centroid_interp' in kwargs:
-            kwargs['centroid_interp'] = {coord: [3600 * arr for arr in kwargs['centroid_interp'][coord]]
+            kwargs['centroid_interp'] = {coord: [DEGREETOARCSEC * arr for arr in kwargs['centroid_interp'][coord]]
                                          for coord in kwargs['centroid_interp']}
 
     if centroids_spline is None:
@@ -532,7 +536,7 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
     scalarParamsStr = ''
     for scalarParam_i in range(len(config.scalar_params)):
-        if scalarParam_i == 5:
+        if scalarParam_i % 5 == 0:
             scalarParamsStr += '\n'
         if config.scalar_params[scalarParam_i] in ['boot_fap']:
             scalarParamsStr += '{}={:.4E}  '.format(config.scalar_params[scalarParam_i],
@@ -557,7 +561,7 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
         for j in range(scheme[1]):
             if k < len(views_list):
                 ax[i, j].plot(views[views_list[k]])
-                # ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]])
+                ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]], s=10, color='k', alpha=0.2)
                 # ax2 = ax[i, j].twiny()
                 # if 'global' in views_list[k]:
                 #     ax2.plot(global_phase, views[views_list[k]])
@@ -578,14 +582,11 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
             k += 1
 
-    f.suptitle('TCE {} {} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
+    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
                                               scalarParamsStr))
-    plt.subplots_adjust(hspace=0.3)
+    plt.subplots_adjust(hspace=0.36, wspace=0.37, top=0.85, right=0.95, bottom=0.07, left=0.07)
     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
                                                                basename)))
-
-    f.tight_layout(rect=[0, 0.03, 1, 0.95])
-
     plt.close()
 
 
@@ -699,4 +700,123 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
                                                                basename)))
 
+    plt.close()
+
+
+def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, scheme, savedir, basename):
+    """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
+
+    :param timeseries: dict, phase folded time series
+    :param binned_timeseries: dict, binned views
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: Config object; preprocessing parameters.
+    :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
+    number of plots per column])
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
+
+    gs = gridspec.GridSpec(4, 2)
+
+    local_view_time_interval = tce['tce_duration'] * (config.num_durations)
+
+    f = plt.figure(figsize=(20, 14))
+
+    ax = plt.subplot(gs[0, :])
+    ax.scatter(timeseries['Flux'][0], timeseries['Flux'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], color='b')
+    ax.plot(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], 'b')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (day)')
+    ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
+
+    left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
+    right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
+    ax = plt.subplot(gs[1, 0])
+    ax.scatter(timeseries['Flux'][0][left_idx:right_idx] * 24, timeseries['Flux'][1][left_idx:right_idx],
+               color='k', s=5)
+    ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='b')
+    ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'b')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([timeseries['Flux'][0][left_idx] * 24, timeseries['Flux'][0][right_idx] * 24])
+
+    if 'Weak Secondary Flux' in timeseries:
+        left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
+        right_idx = np.where(timeseries['Weak Secondary Flux'][0] < local_view_time_interval)[0][-1]
+        ax = plt.subplot(gs[1, 1])
+        ax.scatter(timeseries['Weak Secondary Flux'][0][left_idx:right_idx] * 24,
+                   timeseries['Weak Secondary Flux'][1][left_idx:right_idx], color='k', s=5)
+        ax.scatter(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
+                   binned_timeseries['Local Weak Secondary Flux'][1], color='b')
+        ax.plot(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
+                binned_timeseries['Local Weak Secondary Flux'][1], 'b')
+        ax.set_ylabel('Relative Flux')
+        ax.set_xlabel('Phase (hour)')
+        ax.set_xlim([timeseries['Weak Secondary Flux'][0][left_idx] * 24,
+                     timeseries['Weak Secondary Flux'][0][right_idx] * 24])
+        ax.set_title('Weak Secondary Phase : {} Days'.format(tce['tce_maxmesd']))
+
+    left_idx = np.where(timeseries['Odd Flux'][0] > -local_view_time_interval)[0][0]
+    right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
+    ax = plt.subplot(gs[2, 0])
+    ax.scatter(timeseries['Odd Flux'][0][left_idx:right_idx] * 24, timeseries['Odd Flux'][1][left_idx:right_idx],
+               color='k', s=5)
+    ax.scatter(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='b')
+    ax.plot(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'b')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([timeseries['Odd Flux'][0][left_idx] * 24, timeseries['Odd Flux'][0][right_idx] * 24])
+    ax.set_title('Odd')
+
+    left_idx = np.where(timeseries['Even Flux'][0] > -local_view_time_interval)[0][0]
+    right_idx = np.where(timeseries['Even Flux'][0] < local_view_time_interval)[0][-1]
+    ax = plt.subplot(gs[2, 1])
+    ax.scatter(timeseries['Even Flux'][0][left_idx:right_idx] * 24, timeseries['Even Flux'][1][left_idx:right_idx],
+               color='k', s=5)
+    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='b')
+    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'b')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([timeseries['Even Flux'][0][left_idx] * 24, timeseries['Even Flux'][0][right_idx] * 24])
+    ax.set_title('Even')
+
+    ax = plt.subplot(gs[3, 0])
+    ax.scatter(timeseries['Centroid Offset Distance'][0], timeseries['Centroid Offset Distance'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['Global Centroid Offset Distance'][0],
+               binned_timeseries['Global Centroid Offset Distance'][1], color='b')
+    ax.plot(binned_timeseries['Global Centroid Offset Distance'][0],
+            binned_timeseries['Global Centroid Offset Distance'][1], 'b')
+    ax.set_ylabel('Offset distance (arcsec)')
+    ax.set_xlabel('Phase (day)')
+    ax.set_xlim([timeseries['Centroid Offset Distance'][0][0],
+                 timeseries['Centroid Offset Distance'][0][-1]])
+
+    left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
+    right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
+    ax = plt.subplot(gs[3, 1])
+    ax.scatter(timeseries['Centroid Offset Distance'][0][left_idx:right_idx] * 24,
+            timeseries['Centroid Offset Distance'][1][left_idx:right_idx],
+            color='k', s=5)
+    ax.scatter(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
+               binned_timeseries['Local Centroid Offset Distance'][1], color='b')
+    ax.plot(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
+            binned_timeseries['Local Centroid Offset Distance'][1], 'b')
+    ax.set_ylabel('Offset distance (arcsec)')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
+                 timeseries['Centroid Offset Distance'][0][right_idx] * 24])
+
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    plt.subplots_adjust(
+        hspace=0.526,
+        wspace=0.202,
+        top=0.943,
+        bottom=0.06,
+        left=0.057,
+        right=0.98
+    )
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
     plt.close()

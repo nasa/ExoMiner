@@ -23,8 +23,8 @@ import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
 
 # local
-from src.estimator_util import ModelFn, InputFn, CNN1dModel, CNN1dPlanetFinderv1, Exonet_XS, Exonet
-from src.config import add_default_missing_params
+from src.old.estimator_util import ModelFn, InputFn
+from src.old.config import add_default_missing_params
 import paths
 
 if 'home6' in paths.path_hpoconfigs:

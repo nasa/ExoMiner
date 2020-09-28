@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
+from astropy.stats import mad_std
 
 #%% Non-normalized bootstrap FA probability from the TCE table
 
@@ -356,3 +357,172 @@ for i in [4]:  # range(len(scalarFeaturesNames)):
     ax.legend()
     # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/normalized_scalar_parameters/hist_{}-norm_keplerq1q7dr25.png'.format(scalarFeaturesNames[i]))
     # plt.close('all')
+
+#%% Analyze MES
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_rmcandandfpkois_'
+                     'norogues_renamedcols.csv')
+
+bins = np.linspace(0, 20, 100, endpoint=True)
+
+stats = {
+    'median': np.median(tceTbl['tce_max_mult_ev']),
+    'mean': np.mean(tceTbl['tce_max_mult_ev']),
+    'std_rob': mad_std(tceTbl['tce_max_mult_ev']),
+    'std': np.std(tceTbl['tce_max_mult_ev'], ddof=1),
+    'min': np.min(tceTbl['tce_max_mult_ev']),
+    'max': np.max(tceTbl['tce_max_mult_ev'])
+}
+
+# tceTbl['tce_max_mult_ev'].clip(0, 20 * stats['std_rob'], inplace=True)  # clip values to see what changes in the histogram
+f, ax = plt.subplots()
+tceTbl['tce_max_mult_ev'].hist(bins=bins)
+ax.set_ylabel('Counts')
+ax.set_xlabel('MES')
+ax.axvline(x=stats['median'], c='y', label='median')
+ax.axvline(x=stats['median'] + stats['std_rob'], c='g', label='med+std_rob')
+ax.axvline(x=stats['median'] - stats['std_rob'], c='b', label='med-std_rob')
+ax.set_ylabel('Counts')
+ax.set_xlabel('MES')
+ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | Min: {:.2f} |Max: {:.2f}'.format(stats['mean'],
+                                                                                               stats['median'],
+                                                                                               stats['std'],
+                                                                                               stats['std_rob'],
+                                                                                               stats['min'],
+                                                                                               stats['max']
+                                                                                               )
+             )
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/mes/'
+          'hist_tce_mes_keplerq1q7dr25.svg')
+
+labels = ['PC', 'AFP', 'NTP']
+zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
+
+f, ax = plt.subplots()
+for label in labels:
+    tceTbl.loc[tceTbl['label'] == label]['tce_max_mult_ev'].hist(bins=bins, label=label, edgecolor='k',
+                                                                 zorder=zorder[label])
+ax.set_ylabel('Counts')
+ax.set_xlabel('MES')
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/mes/'
+          'hist_tce_mes_keplerq1q7dr25_pc-afp-ntp.svg')
+
+#%% Analyze Weak Secondary MES
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+                     'rmcandandfpkois_norogues.csv')
+
+tceTbl['tce_maxmes'].describe()
+
+bins = np.linspace(0, 20, 100, endpoint=True)
+
+stats = {
+    'median': np.median(tceTbl['tce_maxmes']),
+    'mean': np.mean(tceTbl['tce_maxmes']),
+    'std_rob': mad_std(tceTbl['tce_maxmes']),
+    'std': np.std(tceTbl['tce_maxmes'], ddof=1),
+    'min': np.min(tceTbl['tce_maxmes']),
+    'max': np.max(tceTbl['tce_maxmes'])
+}
+
+# tceTbl['tce_max_mult_ev'].clip(0, 20 * stats['std_rob'], inplace=True)  # clip values to see what changes in the histogram
+f, ax = plt.subplots()
+tceTbl['tce_maxmes'].hist(bins=bins)
+ax.set_ylabel('Counts')
+ax.set_xlabel('MES')
+ax.axvline(x=stats['median'], c='y', label='median')
+ax.axvline(x=stats['median'] + stats['std_rob'], c='g', label='med+std_rob')
+ax.axvline(x=stats['median'] - stats['std_rob'], c='b', label='med-std_rob')
+ax.set_ylabel('Counts')
+ax.set_xlabel('Weak Secondary Max MES')
+ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | Min: {:.2f} |Max: {:.2f}'.format(
+    stats['mean'],
+    stats['median'],
+    stats['std'],
+    stats['std_rob'],
+    stats['min'],
+    stats['max']
+)
+             )
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
+          'hist_tce_wksmaxmes_keplerq1q7dr25.svg')
+
+labels = ['PC', 'AFP', 'NTP']
+zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
+
+f, ax = plt.subplots()
+for label in labels:
+    tceTbl.loc[tceTbl['label'] == label]['tce_maxmes'].hist(bins=bins, label=label, edgecolor='k', zorder=zorder[label])
+ax.set_ylabel('Counts')
+ax.set_xlabel('Weak Secondary Max MES')
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
+          'hist_tce_wksmaxmes_keplerq1q7dr25_pc-afp-ntp.svg')
+
+#%% Analyze difference imaging offset features
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_rmcandandfpkois_'
+                     'norogues_renamedcols.csv')
+
+feature = 'tce_dikco_msky'  # 'tce_dikco_msky', 'tce_dicco_msky'
+
+tceTbl[feature].describe()
+
+bins = np.linspace(0, 3, 100, endpoint=True)
+
+stats = {
+    'median': np.median(tceTbl[feature]),
+    'mean': np.mean(tceTbl[feature]),
+    'std_rob': mad_std(tceTbl[feature]),
+    'std': np.std(tceTbl[feature], ddof=1),
+    'min': np.min(tceTbl[feature]),
+    'max': np.max(tceTbl[feature])
+}
+
+# tceTbl[feature].clip(0, 20 * stats['std_rob'], inplace=True)  # clip values to see what changes in the histogram
+
+f, ax = plt.subplots()
+tceTbl[feature].hist(bins=bins)
+ax.axvline(x=stats['median'], c='y', label='median')
+ax.axvline(x=stats['median'] + stats['std_rob'], c='g', label='med+std_rob')
+ax.axvline(x=stats['median'] - stats['std_rob'], c='b', label='med-std_rob')
+ax.set_ylabel('Counts')
+ax.set_xlabel('{}'.format(feature))
+ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | Min: {:.2f} '
+             '|Max: {:.2f}'.format(stats['mean'],
+                                   stats['median'],
+                                   stats['std'],
+                                   stats['std_rob'],
+                                   stats['min'],
+                                   stats['max']
+                                   )
+             )
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/diff_imaging_centroid_off/'
+          'hist_tce_{}_keplerq1q7dr25.svg'.format(feature))
+
+labels = ['PC', 'AFP', 'NTP']
+zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
+
+f, ax = plt.subplots()
+for label in labels:
+    tceTbl.loc[tceTbl['label'] == label][feature].hist(bins=bins, label=label, edgecolor='k', zorder=zorder[label])
+ax.set_ylabel('Counts')
+ax.set_xlabel('{}'.format(feature))
+ax.set_ylabel('Counts')
+ax.set_xlabel('{}'.format(feature))
+ax.legend()
+# ax.set_xscale('log')
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/diff_imaging_centroid_off/'
+          'hist_tce_{}_keplerq1q7dr25_pc-afp-ntp.svg'.format(feature))

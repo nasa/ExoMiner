@@ -24,9 +24,21 @@ expTrain = [
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu',
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu',
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_prelu'
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu',
     'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu',
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu'
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_selfnorm-wksmaxmes_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_fluxnorm-wksmaxmes_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_selfnorm_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-co_kic_oot_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip_prelu',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-co_kic_oot_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband-co_kic_oot-wksmaxmes_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar_prelu',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_astronet-300epochs-es20patience_glflux',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar'
 ]
 
 for experiment in expTrain:
@@ -39,7 +51,8 @@ for experiment in expTrain:
 
     # results = {}
     for modelDir in modelsDir:
-        results[experiment][modelDir.split('/')[-1]] = np.load(os.path.join(modelDir, 'results.npy'), allow_pickle=True).item()
+        results[experiment][modelDir.split('/')[-1]] = np.load(os.path.join(modelDir, 'results.npy'),
+                                                               allow_pickle=True).item()
 
 #%% Plot results
 
@@ -59,13 +72,26 @@ mapExpName = {
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu': 'l Odd-even',
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu': 'l Weak\nSecondary',
     # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_prelu': 'gl Centroid',
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu': 'l Weak\nSecondary',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu': 'l Weak\nSecondary',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu': 'Baseline',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu': 'l Odd-even',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_selfnorm-wksmaxmes_prelu': 'l Weak\nSecondary\nSelfnorm\n+MaxMes',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_fluxnorm-wksmaxmes_prelu': 'l Weak\nSecondary\nFluxnorm\n+MaxMes',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_prelu': 'l Weak\nSecondary\nFluxnorm',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-lwks_selfnorm_prelu': 'l Weak\nSecondary\nSelfnorm',
     'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu': 'Baseline',
-    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-loe_prelu': 'l Odd-even'
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-co_kic_oot_prelu': 'CO-KIC_OOT',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip_prelu': 'gl Centroid\nStd-noclip',
+    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux-glcentr_std_noclip-co_kic_oot_prelu': 'gl Centroid\nStd-noclip\n+CO-KIC_OOT',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband-co_kic_oot-wksmaxmes_prelu': 'Exominer_new',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu': 'Exominer',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar_prelu': 'Exominer-TPS',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_astronet-300epochs-es20patience_glflux': 'Astronet',
+    'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar': 'Exonet'
 }
 
 numModels = 10  # len(results)
-metric = 'val_auc_pr'
+metric = 'test_precision'
 
 # valMetric = np.array([results[model_i][metric][-1] for model_i in results]) * 100
 # meanMetric = np.mean(valMetric)
@@ -90,7 +116,7 @@ ax.set_xlabel('Model id')
 ax.set_ylabel('{}'.format(metric))
 ax.set_xticks(np.arange(1, numModels + 1))
 ax.legend()
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/model_variability/modelsplot_configD+feature_{}.png'.format(metric))
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/model_variability/modelsplot_{}.png'.format(metric))
 plt.close()
 
 f, ax = plt.subplots()
@@ -99,25 +125,5 @@ ax.set_xticklabels(mapExpName.values(), rotation=45)
 ax.set_ylabel('{}'.format(metric))
 ax.set_xlabel('Experiment')
 plt.subplots_adjust(top=0.975, bottom=0.220, left=0.11, right=0.9, hspace=0.2, wspace=0.2)
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/model_variability/boxplot_configD+feature_{}.png'.format(metric))
+f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/model_variability/boxplot_{}.png'.format(metric))
 plt.close()
-
-#%%
-import pandas as pd
-
-testsetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/testset.csv')
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
-
-tceTbl = tceTbl.loc[tceTbl['label'] == 'PC']
-
-tceCount = 0
-for tce_i, tce in tceTbl.iterrows():
-
-    tceFound = testsetTbl.loc[(testsetTbl['target_id'] == tce['target_id']) &
-                              (testsetTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-
-    if len(tceFound) == 1:
-        tceCount += 1
-
-# test set 283 PC; 257 val set; 2084
-print(tceCount)

@@ -15,7 +15,6 @@ from mpi4py import MPI
 import numpy as np
 import logging
 logging.basicConfig(level=logging.WARNING)
-# logging.propagate = False
 import tensorflow as tf
 
 import paths
@@ -52,13 +51,13 @@ def run_main(args, bohb_params=None):
 
     if args.worker:  # workers go here
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
-        time.sleep(2 * rank)
+        time.sleep(2 * args.rank)
         args.studyid = check_run_id(args.studyid, args.results_directory, worker=True)
 
         # printstr = "Starting worker %s" % rank
         # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
-        w = TransitClassifier(args, worker_id_custom=rank, run_id=args.studyid, host=host)
+        w = TransitClassifier(args, worker_id_custom=args.rank, run_id=args.studyid, host=host)
         w.load_nameserver_credentials(working_directory=args.results_directory)
         w.run(background=False)
         exit(0)
@@ -71,7 +70,7 @@ def run_main(args, bohb_params=None):
     ns_host, ns_port = name_server.start()
 
     # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
-    w = TransitClassifier(args, worker_id_custom=rank, run_id=args.studyid, host=host, nameserver=ns_host,
+    w = TransitClassifier(args, worker_id_custom=args.rank, run_id=args.studyid, host=host, nameserver=ns_host,
                           nameserver_port=ns_port)
     w.run(background=True)
 
@@ -140,21 +139,28 @@ def run_main(args, bohb_params=None):
 
 
 if __name__ == '__main__':
-
+    
     rank = MPI.COMM_WORLD.rank
-    # size = MPI.COMM_WORLD.size
-    print('Rank = {}'.format(rank))
+    size = MPI.COMM_WORLD.size
+    print('Rank (size) = {} ({})'.format(rank, size))
+    
+    num_gpus = 4  # number of GPUs per node
 
-    num_gpus = 1  # number of GPUs per node
-
-    # set a specific GPU for training the ensemble
+    if rank == 0:
+        print('Number of GPUs selected per node = {}'.format(num_gpus))
+    
     gpu_id = rank % num_gpus
+    print('GPU ID for rank {}: {}'.format(rank, gpu_id))    
 
+    # print('rank', rank, 'gpu_id', gpu_id)  # , os.environ['CUDA_VISIBLE_DEVICES'])
     physical_devices = tf.config.list_physical_devices('GPU')
+    print('List of GPUs available to rank {}: {}'.format(rank, physical_devices))
+
+    # tf.config.experimental.set_memory_growth(physical_devices[gpu_id], True)
     tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_id)
-
+    logical_devices = tf.config.list_logical_devices('GPU')
+    print('GPU(s) selected for rank {}: {}'.format(rank, logical_devices))
+    
     optimizer = 'bohb'  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 
     # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
@@ -174,36 +180,38 @@ if __name__ == '__main__':
                    'min_bandwidth': 1e-3}
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'test'  # name of the HPO study
+    study = 'ConfigH-keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'  # name of the HPO study
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv1
-    config = {'branches': ['global_flux_view',
-                           'local_flux_view',
+    config = {'branches': ['global_flux_view_fluxnorm',
+                           'local_flux_view_fluxnorm',
                            'local_flux_oddeven_views',
-                           'global_centr_view_medcmaxn',
-                           'local_centr_view_medcmaxn',
-                           'local_weak_secondary_view'
-                           ]
-              }
+                           'global_centr_view_std_noclip',
+                           'local_centr_view_std_noclip',
+                           'local_weak_secondary_view_fluxnorm'
+                          ]
+             }
 
-    nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
+    nic_name = 'ib0'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
     # features to be extracted from the dataset
     # features names - keywords used in the TFRecords
-    features_names = ['global_flux_view',
-                      'local_flux_view'
-                      'local_waek_secondary_view',
-                      'local_centr_view_medcmaxn',
-                      'global_centr_view_medcmaxn',
-                      'local_flux_odd_view',
-                      'local_flux_even_view'
-                      ]  # time-series features names
+    features_names = ['global_flux_view_fluxnorm', 
+                      'local_flux_view_fluxnorm', 
+                      'local_weak_secondary_view_fluxnorm', 
+                      'local_flux_odd_view_fluxnorm', 
+                      'local_flux_even_view_fluxnorm', 
+                      'local_centr_view_std_noclip', 
+                      'global_centr_view_std_noclip'
+                     ]  # time-series features names
     # features dimension
-    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+    # features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+    #                 for feature_name in features_names}
+    features_dim = {feature_name: (301, 1) if 'global' in feature_name else (31, 1)
                     for feature_name in features_names}
-    # features_names.append('scalar_params')  # add scalar features
-    # features_dim['scalar_params'] = (12,)
+    features_names.append('scalar_params')  # add scalar features
+    features_dim['scalar_params'] = (13,)
     # features data types
     features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
     features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
@@ -214,14 +222,14 @@ if __name__ == '__main__':
     #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
 
     # extract from the scalar features Tensor only the features matching these indexes; if None uses all of them
-    scalar_params_idxs = None  # [1, 2]
+    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
 
     # data directory
-    tfrec_dir = os.path.join(paths.path_tfrecs,
+    tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment-labels-norm'
-                             )
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-'
+                             '6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm')
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
@@ -237,6 +245,7 @@ if __name__ == '__main__':
 
     # add missing architecture parameters in hpo with default values
     config = config_keras.add_default_missing_params(config=config)
+    config['non_lin_fn'] = 'prelu'
 
     print('Base configuration used: ', config)
 
@@ -256,6 +265,9 @@ if __name__ == '__main__':
     parser.add_argument('--multi_class', type=bool, default=False)
     parser.add_argument('--satellite', type=str, default='kepler')
     parser.add_argument('--use_kepler_ce', type=bool, default=True)
+
+    parser.add_argument('--test_frac', type=float, default=0.1, help='data fraction for model testing')
+    parser.add_argument('--val_frac', type=float, default=0.1, help='model validation data fraction')
 
     parser.add_argument('--tfrec_dir', type=str, default=tfrec_dir)
 
@@ -306,5 +318,9 @@ if __name__ == '__main__':
     args.BaseModel = BaseModel
 
     args.config = config
+
+    args.rank = rank
+    
+    args.num_gpus = num_gpus
 
     run_main(args, bohb_params)

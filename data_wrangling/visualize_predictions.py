@@ -5,9 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # local
-import paths
-import src.config
-from src.estimator_util import get_data_from_tfrecords
+from src.old.estimator_util import get_data_from_tfrecords
 
 #%%
 #

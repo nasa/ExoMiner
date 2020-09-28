@@ -24,11 +24,10 @@ import itertools
 
 # local
 # from src.estimator_util import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-import src.config
+from src.old.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
+import src.old.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
-import baseline_configs
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')
@@ -561,12 +560,12 @@ if __name__ == "__main__":
 
     # add dataset parameters
     for config in configs:
-        configs[config] = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag,
-                                                        use_kepler_ce, configs[config])
+        configs[config] = src.old.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag,
+                                                            use_kepler_ce, configs[config])
 
     # add missing parameters in hpo with default values
     for config in configs:
-        configs[config] = src.config.add_default_missing_params(config=configs[config])
+        configs[config] = src.old.config.add_default_missing_params(config=configs[config])
 
     print('Configurations used: ', configs)
 

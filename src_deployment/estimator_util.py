@@ -1623,8 +1623,7 @@ def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_fi
 
 if __name__ == '__main__':
 
-    import paths
-    from src.config import label_map
+    from src.old.config import label_map
 
     # get number of samples in the datasets
     multi_class = False

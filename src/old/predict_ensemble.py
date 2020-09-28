@@ -15,9 +15,8 @@ import pandas as pd
 
 # local
 import paths
-from src.estimator_util import get_data_from_tfrecord_kepler, get_data_from_tfrecord, CNN1dModel, CNN1dPlanetFinderv1, \
-    Exonet, Exonet_XS
-from src import predict_single_model
+from src.old.estimator_util import get_data_from_tfrecord_kepler, CNN1dPlanetFinderv1
+from src.old import predict_single_model
 
 if 'home6' in paths.path_hpoconfigs:
     import matplotlib; matplotlib.use('agg')

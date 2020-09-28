@@ -22,11 +22,11 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_a
 import pandas as pd
 
 # local
-from src.estimator_util import InputFn, ModelFn, get_data_from_tfrecord, CNN1dPlanetFinderv1
+from src.old.estimator_util import InputFn, ModelFn, get_data_from_tfrecord, CNN1dPlanetFinderv1
 # needed for backward compatibility for models created before upgrading the model building function CNN1dModel in
 # estimator_util to use tf.keras layers and different names for the graph nodes
 # from src.estimator_util_bc import InputFn, ModelFn, CNN1dModel, get_data_from_tfrecord
-import src.config
+import src.old.config
 import src_hpo.utils_hpo as utils_hpo
 import paths
 
@@ -431,10 +431,10 @@ if __name__ == "__main__":
         os.mkdir(pathsaveres)
 
     # add dataset parameters
-    config = src.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
+    config = src.old.config.add_dataset_params(tfrec_dir, satellite, multi_class, centr_flag, use_kepler_ce, config)
 
     # add missing parameters in hpo with default values
-    config = src.config.add_default_missing_params(config=config)
+    config = src.old.config.add_default_missing_params(config=config)
     print('Configuration used: ', config)
 
     main(config=config,

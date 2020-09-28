@@ -10,7 +10,7 @@ import tensorflow as tf
 
 
 def early_stopping(best_value, curr_value, last_best, patience, minimize, min_delta=-np.inf):
-    """ Early stopping.
+    """ Early stopping used for Estimator TF models.
 
     :param best_value: float, best value so far
     :param curr_value: float, current value
@@ -45,7 +45,7 @@ def early_stopping(best_value, curr_value, last_best, patience, minimize, min_de
 
 
 def delete_checkpoints(model_dir, keep_model_i):
-    """ Delete checkpoints.
+    """ Delete checkpoints used Estimator models.
 
     :param model_dir: str, filepath to the directory in which the model checkpoints are saved
     :param keep_model_i: int, model instance to be kept based on epoch index
