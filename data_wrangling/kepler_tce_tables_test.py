@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 from scipy import io
 import matplotlib.pyplot as plt
-from astropy.stats import mad_std
+# from astropy.stats import mad_std
+import random
 
 #%% Check transit depth for Kepler dataset
 
@@ -292,3 +293,48 @@ for tce_i, tce in tceTbl.iterrows():
                                                    tce['tce_plnt_num'])]['tce_maxmes'].values[0]
 
 tceTbl.to_csv(tceTblFp, index=False)
+
+#%% Shuffle TCEs in Q1-Q17 DR25 TCE table
+
+# np.random.seed(24)
+random.seed(24)
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+                     'rmcandandfpkois_norogues.csv'.format(baseTceTbl))
+
+# shuffle at target star level
+targetStarGroups = [df for _, df in tceTbl.groupby('target_id')]
+random.shuffle(targetStarGroups)
+tceTblShuffled = pd.concat(targetStarGroups).reset_index(drop=True)
+
+# # shuffle at a TCE level
+# tceTblShuffled = tceTbl.iloc[np.random.permutation(len(tceTbl))]
+
+tceTblShuffled.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                      '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+                      'rmcandandfpkois_norogues_shuffle.csv'.format(baseTceTbl), index=False)
+
+#%% Choose random rows from TCE table
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois_norogues.csv')
+
+numTces = {
+    'CONFIRMED': 10,
+    'POSSIBLE PLANET': 10,
+    'CERTIFIED FA': 10,
+    'CERTIFIED FP': 10,
+    'NTP': 10
+}
+confirmedSubTbl = tceTbl.loc[tceTbl['koi_disposition'] == 'CONFIRMED'].sample(numTces['CONFIRMED'])
+ppSubTbl = tceTbl.loc[(tceTbl['label'] == 'PC') & (tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET')].sample(numTces['POSSIBLE PLANET'])
+cfpSubTbl = tceTbl.loc[(tceTbl['label'] == 'AFP') & (tceTbl['fpwg_disp_status'] == 'CERTIFIED FP')].sample(numTces['CERTIFIED FP'])
+cfaSubTbl = tceTbl.loc[(tceTbl['label'] == 'NTP') & (tceTbl['fpwg_disp_status'] == 'CERTIFIED FA')].sample(numTces['CERTIFIED FA'])
+ntpSubTbl = tceTbl.loc[(tceTbl['label'] == 'NTP') & (tceTbl['fpwg_disp_status'] != 'CERTIFIED FA')].sample(numTces['NTP'])
+
+subTbl = pd.concat([confirmedSubTbl, ppSubTbl, cfpSubTbl, cfaSubTbl, ntpSubTbl], axis=0)
+
+subTbl.to_csv('/home/msaragoc/Downloads/subtbl.csv', index=False)
+

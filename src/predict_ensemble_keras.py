@@ -458,7 +458,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     np.save(os.path.join(save_path, 'config'), config)
     # plot ensemble model and save the figure
     keras.utils.plot_model(ensemble_model,
-                           to_file=os.path.join(save_path, 'model.png'),
+                           to_file=os.path.join(save_path, 'ensemble.png'),
                            show_shapes=False,
                            show_layer_names=True,
                            rankdir='TB',
@@ -477,8 +477,8 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25_g2001-l201_gbal_spline_nongapped_flux-centroid-oddeven-wks-6stellar-ghost-bfap-rollingband_starshuffle_experiment-labels-norm'
-                            )
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+                             )
 
     print('Selected TFRecord files directory: {}'.format(tfrec_dir))
 
@@ -526,8 +526,7 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    # hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
-    hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
+    hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
 
     # set the configuration from a HPO study
     if config is None:
@@ -555,27 +554,53 @@ if __name__ == '__main__':
     clf_thr = 0.5
 
     # features to be extracted from the dataset
-    features_names = [
-                      'global_flux_view',
-                      'local_flux_view',
-                      # 'global_centr_view',
-                      # 'local_centr_view',
-                      # 'local_flux_odd_view',
-                      # 'local_flux_even_view',
-                      # 'local_weak_secondary_view'
-    ]
-    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
-                    for feature_name in features_names}
-    features_names.append('scalar_params')  # use scalar parameters as input features
-    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
+    # features_names = [
+    #                   'global_flux_view',
+    #                   'local_flux_view',
+    #                   # 'global_centr_view',
+    #                   # 'local_centr_view',
+    #                   # 'local_flux_odd_view',
+    #                   # 'local_flux_even_view',
+    #                   # 'local_weak_secondary_view'
+    # ]
+    # features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+    #                 for feature_name in features_names}
+    # features_names.append('scalar_params')  # use scalar parameters as input features
+    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
     # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 4, 5]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
-    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-                    for feature_name in features_names}
-    # example of feature set
-    # features_set = {'global_view': {'dim': (2001,), 'dtype': tf.float32},
-    #                 'local_view': {'dim': (201,), 'dtype': tf.float32}}
+    scalar_params_idxs = None  # [0, 1, 2, 3, 4, 5]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
+
+    features_set = {
+        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+    }
 
     print('Selected features: {}, {}'.format(features_set, scalar_params_idxs))
 

@@ -630,3 +630,168 @@ for tfrecFile in tfrecFiles:
         plt.savefig(os.path.join(plotDir, '{}_{}_{}_{}.png'.format(targetIdTfrec, tceIdentifierTfrec, labelTfrec,
                                                                    basename)))
         plt.close()
+
+#%% Add scalar features to the TFRecords
+
+features = {
+    'tce_dikco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': 20},
+    'tce_dikco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                           'clip_factor': 20},
+    'tce_dicco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': 20},
+    'tce_dicco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                           'clip_factor': 20},
+    'tce_max_mult_ev': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                        'clip_factor': 200},
+    'tce_maxmes': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                   'clip_factor': 20},
+    'tce_albedo': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                   'clip_factor': 20},
+    'tce_ptemp': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                  'clip_factor': 20},
+    'transit_depth': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                      'clip_factor': 20},
+    'tce_depth_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                      'clip_factor': 20},
+    'tce_duration': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                         'clip_factor': np.nan},
+    'tce_duration_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                         'clip_factor': 20},
+    'tce_period': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                     'clip_factor': np.nan},
+    'tce_period_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                         'clip_factor': 20},
+    'tce_steff': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_sradius': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_sdens': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_slogg': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_smet': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_smass': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+    'tce_cap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': 20},
+    'tce_hap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': 20},
+    'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
+                       'clip_factor': np.nan},
+    'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan},
+
+}
+featuresList = list(features.keys())
+
+trainsetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/trainset.csv')
+print('Number of TCEs in the training set: {}'.format(len(trainsetTbl)))
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv')
+print('Number of TCEs in the dataset: {}'.format(len(tceTbl)))
+
+tceTbl['UID'] = tceTbl[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']),
+                                                            axis=1)
+trainsetTbl['UID'] = trainsetTbl[['target_id', 'tce_plnt_num']].apply(lambda x:
+                                                                      '{}-{}'.format(x['target_id'], x['tce_plnt_num']),
+                                                                      axis=1)
+
+# get only training set TCEs
+trainTceTbl = tceTbl[tceTbl['UID'].isin(trainsetTbl['UID'])][featuresList]
+
+assert len(trainTceTbl) == len(trainsetTbl)
+
+# compute training statistics for standardization
+for feature in features:
+    features[feature].update({
+        'median': np.median(trainTceTbl[feature]),
+        'mad_std': mad_std(trainTceTbl[feature])
+    })
+
+
+def _standardize(row, normStats):
+    """ Standardize parameters for a TCE.
+
+    :param row: pandas Series, TCE parameters
+    :param normStats: dict, normalization statistics
+    :return:
+        pandas Series with TCE parameters standardized
+    """
+
+    for feature in row.index:
+
+        # replace missing values by central tendency estimate of the training set
+        if row[feature] == normStats[feature]['missing_value']:
+            row[feature] = normStats[feature]['median']
+
+        else:
+
+            # log transform the data
+            if normStats[feature]['log_transform']:
+
+                # add constant value to deal with zero for log transform
+                if not np.isnan(normStats[feature]['log_transform_eps']):
+                    row[feature] += normStats[feature]['log_transform_eps']
+
+                row[feature] = np.log10(row[feature])
+
+            # clipping the data between median +- clip_factor * mad_std
+            if not np.isnan(normStats[feature]['clip_factor']):
+                row[feature] = np.clip([row[feature]],
+                                       normStats[feature]['median'] -
+                                       normStats[feature]['clip_factor'] * normStats[feature]['mad_std'],
+                                       normStats[feature]['median'] +
+                                       normStats[feature]['clip_factor'] * normStats[feature]['mad_std']
+                                       )[0]
+
+        # standardization
+        row[feature] -= normStats[feature]['median']
+        row[feature] /= normStats[feature]['mad_std']
+
+    return row
+
+
+# standardize for all the data set
+tceTbl[featuresList] = tceTbl[featuresList].apply(_standardize, args=(features,), axis=1)
+
+# source TFRecords
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm'
+srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
+srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
+
+# define TFRecords destination
+destTfrecDir = srcTfrecDir + '_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+os.makedirs(destTfrecDir, exist_ok=True)
+
+tceIdentifier = 'tce_plnt_num'
+
+# add standardized features to the source TFRecords and write them to the destination
+for srcTfrecFile in srcTfrecFiles:
+
+    with tf.io.TFRecordWriter(os.path.join(destTfrecDir, srcTfrecFile.split('/')[-1])) as writer:
+
+        tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
+
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+            tceScalarParams = np.array(example.features.feature['scalar_params'].float_list.value)
+
+            tceFound = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
+                                  (tceTbl['tce_plnt_num'] == tceIdentifierTfrec)]
+
+            # for feature in featuresList:
+            #     tceScalarParams = np.append(tceScalarParams, tceFound[feature])
+
+            # example_util.set_float_feature(example, 'scalar_params', tceScalarParams, allow_overwrite=True)
+
+            for feature in featuresList:
+                example_util.set_float_feature(example, '{}_norm'.format(feature), tceFound[feature].values)
+
+            writer.write(example.SerializeToString())

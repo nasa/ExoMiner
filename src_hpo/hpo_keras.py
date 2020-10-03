@@ -26,7 +26,7 @@ from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
 
 # local
-from src.models_keras import CNN1dPlanetFinderv1
+from src.models_keras import CNN1dPlanetFinderv1, CNN1dPlanetFinderv2
 from src import config_keras
 from src_hpo.worker_hpo_keras import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     size = MPI.COMM_WORLD.size
     print('Rank (size) = {} ({})'.format(rank, size))
     
-    num_gpus = 4  # number of GPUs per node
+    num_gpus = 1  # number of GPUs per node
 
     if rank == 0:
         print('Number of GPUs selected per node = {}'.format(num_gpus))
@@ -157,9 +157,9 @@ if __name__ == '__main__':
     print('List of GPUs available to rank {}: {}'.format(rank, physical_devices))
 
     # tf.config.experimental.set_memory_growth(physical_devices[gpu_id], True)
-    tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-    logical_devices = tf.config.list_logical_devices('GPU')
-    print('GPU(s) selected for rank {}: {}'.format(rank, logical_devices))
+    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
+    # logical_devices = tf.config.list_logical_devices('GPU')
+    # print('GPU(s) selected for rank {}: {}'.format(rank, logical_devices))
     
     optimizer = 'bohb'  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 
@@ -180,10 +180,10 @@ if __name__ == '__main__':
                    'min_bandwidth': 1e-3}
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'ConfigH-keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'  # name of the HPO study
+    study = 'hpo_test'  # name of the HPO study
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = CNN1dPlanetFinderv1
+    BaseModel = CNN1dPlanetFinderv2
     config = {'branches': ['global_flux_view_fluxnorm',
                            'local_flux_view_fluxnorm',
                            'local_flux_oddeven_views',
@@ -193,43 +193,67 @@ if __name__ == '__main__':
                           ]
              }
 
-    nic_name = 'ib0'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
+    nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
     # features to be extracted from the dataset
-    # features names - keywords used in the TFRecords
-    features_names = ['global_flux_view_fluxnorm', 
-                      'local_flux_view_fluxnorm', 
-                      'local_weak_secondary_view_fluxnorm', 
-                      'local_flux_odd_view_fluxnorm', 
-                      'local_flux_even_view_fluxnorm', 
-                      'local_centr_view_std_noclip', 
-                      'global_centr_view_std_noclip'
-                     ]  # time-series features names
-    # features dimension
-    # features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+    # # features names - keywords used in the TFRecords
+    # features_names = ['global_flux_view_fluxnorm',
+    #                   'local_flux_view_fluxnorm',
+    #                   'local_weak_secondary_view_fluxnorm',
+    #                   'local_flux_odd_view_fluxnorm',
+    #                   'local_flux_even_view_fluxnorm',
+    #                   'local_centr_view_std_noclip',
+    #                   'global_centr_view_std_noclip'
+    #                  ]  # time-series features names
+    # # features dimension
+    # # features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
+    # #                 for feature_name in features_names}
+    # features_dim = {feature_name: (301, 1) if 'global' in feature_name else (31, 1)
     #                 for feature_name in features_names}
-    features_dim = {feature_name: (301, 1) if 'global' in feature_name else (31, 1)
-                    for feature_name in features_names}
-    features_names.append('scalar_params')  # add scalar features
-    features_dim['scalar_params'] = (13,)
-    # features data types
-    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-                    for feature_name in features_names}
+    # features_names.append('scalar_params')  # add scalar features
+    # features_dim['scalar_params'] = (13,)
+    # # features data types
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
 
-    # example
-    # features_set = {'global_view': {'dim': 2001, 'dtype': tf.float32},
-    #                 'local_view': {'dim': 201, 'dtype': tf.float32}}
+    features_set = {
+        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+    }
 
     # extract from the scalar features Tensor only the features matching these indexes; if None uses all of them
-    scalar_params_idxs = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    scalar_params_idxs = None  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
 
     # data directory
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-'
-                             '6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm')
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr')
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}

@@ -414,8 +414,11 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 
 #%% Analyze Weak Secondary MES
 
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+#                      'rmcandandfpkois_norogues.csv')
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
                      'rmcandandfpkois_norogues.csv')
 
 tceTbl['tce_maxmes'].describe()
@@ -452,8 +455,8 @@ ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | 
              )
 ax.legend()
 # ax.set_xscale('log')
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
-          'hist_tce_wksmaxmes_keplerq1q7dr25.svg')
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
+#           'hist_tce_wksmaxmes_keplerq1q7dr25.svg')
 
 labels = ['PC', 'AFP', 'NTP']
 zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
@@ -465,8 +468,8 @@ ax.set_ylabel('Counts')
 ax.set_xlabel('Weak Secondary Max MES')
 ax.legend()
 # ax.set_xscale('log')
-f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
-          'hist_tce_wksmaxmes_keplerq1q7dr25_pc-afp-ntp.svg')
+# f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/wks_mes/'
+#           'hist_tce_wksmaxmes_keplerq1q7dr25_pc-afp-ntp.svg')
 
 #%% Analyze difference imaging offset features
 
@@ -526,3 +529,143 @@ ax.legend()
 # ax.set_xscale('log')
 f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/diff_imaging_centroid_off/'
           'hist_tce_{}_keplerq1q7dr25_pc-afp-ntp.svg'.format(feature))
+
+#%% Plot histograms of non-normalized scalar features from the TCE table
+
+saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
+          'diffimgcentr_fwcentr_ptemp_albedo_durationerr_perioderr_deptherr_9-30-2020'
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois_norogues.csv')
+
+features = [
+    # 'tce_albedo',
+    # 'tce_ptemp',
+    # 'transit_depth',
+    # 'tce_depth_err',
+    # 'tce_duration',
+    # 'tce_duration_err',
+    'tce_period',
+    # 'tce_period_err',
+    # 'tce_dikco_msky',
+    # 'tce_dikco_msky_err',
+    # 'tce_dicco_msky',
+    # 'tce_dicco_msky_err',
+    # 'tce_fwm_stat',
+    # 'tce_fwm_srao',
+    # 'tce_fwm_srao_err',
+    # 'tce_fwm_sdeco',
+    # 'tce_fwm_sdeco_err',
+    # 'tce_fwm_prao',
+    # 'tce_fwm_prao_err',
+    # 'tce_fwm_pdeco',
+    # 'tce_fwm_pdeco_err',
+    # 'tce_max_mult_ev',
+]
+
+bins = {
+    'tce_albedo': np.linspace(0, 100, 50, endpoint=True),
+    'tce_ptemp': np.linspace(0, 1e4, 50, endpoint=True),
+    'transit_depth': np.linspace(0, 1e4, 50, endpoint=True),
+    'tce_depth_err': np.linspace(-1, 100, 50, endpoint=True),
+    'tce_duration': np.linspace(0, 100, 50, endpoint=True),
+    'tce_duration_err': np.linspace(-1, 20, 50, endpoint=True),
+    'tce_period': np.linspace(0, 800, 100, endpoint=True),
+    'tce_period_err': np.linspace(0, 0.1, 100, endpoint=True),
+    'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
+    'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    'tce_dicco_msky': np.linspace(0, 20, 50, endpoint=True),
+    'tce_dicco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    'tce_fwm_stat': np.linspace(0, 1000, 50, endpoint=True),
+    'tce_fwm_srao': np.linspace(-100, 100, 50, endpoint=True),
+    'tce_fwm_srao_err': np.linspace(-100, 100, 50, endpoint=True),
+    'tce_fwm_sdeco': np.linspace(-100, 100, 50, endpoint=True),
+    'tce_fwm_sdeco_err': np.linspace(-10, 100, 50, endpoint=True),
+    'tce_fwm_prao': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
+    'tce_fwm_prao_err': np.linspace(0, 1e-1, 50, endpoint=True),
+    'tce_fwm_pdeco': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
+    'tce_fwm_pdeco_err': np.linspace(0, 1e-1, 50, endpoint=True),
+    'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True)
+}
+
+log_yscale = [
+    'tce_fwm_stat',
+    'tce_fwm_sdeco',
+    'tce_fwm_sdeco_err',
+    'tce_fwm_prao',
+    'tce_fwm_prao_err',
+    'tce_fwm_pdeco',
+    'tce_fwm_pdeco_err',
+    'tce_period_err',
+    'tce_max_mult_ev',
+    'tce_dikco_msky',
+    'tce_dikco_msky_err',
+    'tce_dicco_msky',
+    'tce_dicco_msky_err',
+    'transit_depth',
+    'tce_duration',
+    'tce_period',
+]
+
+for feature in features:
+
+    print('Feature {}: '.format(feature), tceTbl[feature].describe())
+
+    # convert from second to arcsecond
+    if feature in ['tce_fwm_srao', 'tce_fwm_srao_err', 'tce_fwm_prao', 'tce_fwm_prao_err']:
+        tceTbl[feature] *= 15
+
+    stats = {
+        'median': np.median(tceTbl[feature]),
+        'mean': np.mean(tceTbl[feature]),
+        'std_rob': mad_std(tceTbl[feature]),
+        'std': np.std(tceTbl[feature], ddof=1),
+        'min': np.min(tceTbl[feature]),
+        'max': np.max(tceTbl[feature])
+    }
+
+    # tceTbl[feature].clip(0, 20 * stats['std_rob'], inplace=True)  # clip values to see what changes in the histogram
+
+    f, ax = plt.subplots()
+    tceTbl[feature].hist(bins=bins[feature], edgecolor='k')
+    ax.axvline(x=stats['median'], c='y', label='median')
+    ax.axvline(x=stats['median'] + stats['std_rob'], c='g', label='med+std_rob')
+    ax.axvline(x=stats['median'] - stats['std_rob'], c='b', label='med-std_rob')
+    ax.set_ylabel('Counts')
+    ax.set_xlabel('{}'.format(feature))
+    ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | Min: {:.2f} '
+                 '|Max: {:.2f}'.format(stats['mean'],
+                                       stats['median'],
+                                       stats['std'],
+                                       stats['std_rob'],
+                                       stats['min'],
+                                       stats['max']
+                                       )
+                 )
+    ax.set_xlim([bins[feature][0], bins[feature][-1]])
+    ax.legend()
+    if feature in log_yscale:
+        ax.set_yscale('log')
+    # ax.set_xscale('log')
+    f.savefig(os.path.join(saveDir, 'hist_{}_keplerq1q7dr25.svg'.format(feature)))
+    # plt.close()
+
+    labels = ['PC', 'AFP', 'NTP']
+    zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
+
+    f, ax = plt.subplots()
+    for label in labels:
+        tceTbl.loc[tceTbl['label'] == label][feature].hist(bins=bins[feature], label=label, edgecolor='k',
+                                                           zorder=zorder[label])
+    ax.set_ylabel('Counts')
+    ax.set_xlabel('{}'.format(feature))
+    ax.set_ylabel('Counts')
+    ax.set_xlabel('{}'.format(feature))
+    ax.set_xlim([bins[feature][0], bins[feature][-1]])
+    ax.legend()
+    if feature in log_yscale:
+        ax.set_yscale('log')
+    # ax.set_xscale('log')
+    f.savefig(os.path.join(saveDir, 'hist_{}_keplerq1q7dr25_pc-afp-ntp.svg'.format(feature)))
+    # plt.close()

@@ -530,9 +530,9 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     :return:
     """
 
-    global_phase = np.linspace(-tce['tce_period'] / 2, tce['tce_period'] / 2, config.num_bins_glob, endpoint=True)
-    local_phase = np.linspace(-tce['tce_duration'] * config.num_durations, tce['tce_duration'] * config.num_durations,
-                              config.num_bins_loc, endpoint=True)
+    # global_phase = np.linspace(-tce['tce_period'] / 2, tce['tce_period'] / 2, config.num_bins_glob, endpoint=True)
+    # local_phase = np.linspace(-tce['tce_duration'] * config.num_durations, tce['tce_duration'] * config.num_durations,
+    #                           config.num_bins_loc, endpoint=True)
 
     scalarParamsStr = ''
     for scalarParam_i in range(len(config.scalar_params)):
@@ -554,7 +554,7 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
         tce['tce_duration'] * 24,
         tce['transit_depth'])
 
-    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
     k = 0
     views_list = list(views.keys())
     for i in range(scheme[0]):
@@ -584,7 +584,71 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
     f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
                                               scalarParamsStr))
-    plt.subplots_adjust(hspace=0.36, wspace=0.37, top=0.85, right=0.95, bottom=0.07, left=0.07)
+    plt.subplots_adjust(hspace=0.43, wspace=0.37, top=0.788, right=0.974, bottom=0.07, left=0.045)
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+                                                               basename)))
+    plt.close()
+
+
+def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename, num_transits):
+    """ Creates and saves a figure with plots that show views for a given TCE.
+
+    :param views: dict, views to be plotted
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: Config object; preprocessing parameters.
+    :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
+    number of plots per column])
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :param num_transits: dict, number of transits for each view
+    :return:
+    """
+
+    scalarParamsStr = ''
+    for scalarParam_i in range(len(config.scalar_params)):
+        if scalarParam_i % 5 == 0:
+            scalarParamsStr += '\n'
+        if config.scalar_params[scalarParam_i] in ['boot_fap']:
+            scalarParamsStr += '{}={:.4E}  '.format(config.scalar_params[scalarParam_i],
+                                                    tce[config.scalar_params[scalarParam_i]])
+        elif config.scalar_params[scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
+            scalarParamsStr += '{}={}  '.format(config.scalar_params[scalarParam_i],
+                                                int(tce[config.scalar_params[scalarParam_i]]))
+        else:
+            scalarParamsStr += '{}={:.4f}  '.format(config.scalar_params[scalarParam_i],
+                                                    tce[config.scalar_params[scalarParam_i]])
+
+    ephemerisStr = 'Epoch={:.4f}, Period={:.4f}, Transit Duration={:.4f}, Transit Depth={:.4f}'.format(
+        tce['tce_time0bk'],
+        tce['tce_period'],
+        tce['tce_duration'] * 24,
+        tce['transit_depth'])
+
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
+    k = 0
+    views_list = list(views.keys())
+    for i in range(scheme[0]):
+        for j in range(scheme[1]):
+            if k < len(views_list):
+                ax[i, j].plot(views[views_list[k]])
+                ax[i, j].plot(views[views_list[k]] + views_var[views_list[k]], 'r--')
+                ax[i, j].plot(views[views_list[k]] - views_var[views_list[k]], 'r--')
+                ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]], s=10, color='k', alpha=0.2)
+                if views_list[k] in num_transits:
+                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits[views_list[k]]), pad=20)
+                else:
+                    ax[i, j].set_title('{}'.format(views_list[k]), pad=20)
+                ax[i, j].set_xlim([0, len(views[views_list[k]])])
+            if i == scheme[0] - 1:
+                ax[i, j].set_xlabel('Bin number')
+            if j == 0:
+                ax[i, j].set_ylabel('Amplitude')
+
+            k += 1
+
+    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
+                                              scalarParamsStr))
+    plt.subplots_adjust(hspace=0.452, wspace=0.2, top=0.79, right=0.97, bottom=0.09, left=0.055)
     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
                                                                basename)))
     plt.close()
@@ -727,6 +791,10 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, sche
     ax.scatter(timeseries['Flux'][0], timeseries['Flux'][1], color='k', s=5)
     ax.scatter(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], color='b')
     ax.plot(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], 'b')
+    # ax.plot(binned_timeseries['Global Flux'][0],
+    #         binned_timeseries['Global Flux'][1] + binned_timeseries['Global Flux'][2], 'b--')
+    # ax.plot(binned_timeseries['Global Flux'][0],
+    #         binned_timeseries['Global Flux'][1] - binned_timeseries['Global Flux'][2], 'b--')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (day)')
     ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])

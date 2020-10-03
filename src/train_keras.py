@@ -3,7 +3,6 @@ Train models using a given configuration obtained on a hyperparameter optimizati
 
 TODO: allocate several models to the same GPU
       figure out the logging
-      add argument to choose model used
       make draw_plots function compatible with TESS
 """
 
@@ -27,8 +26,9 @@ if 'home6' in paths.path_hpoconfigs:
     import matplotlib
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.utils_dataio import InputFn, get_data_from_tfrecord
-from src.models_keras import CNN1dPlanetFinderv1, Astronet, Exonet
+from src.utils_dataio import InputFnv2 as InputFn
+from src.utils_dataio import get_data_from_tfrecord
+from src.models_keras import CNN1dPlanetFinderv1, Astronet, Exonet, CNN1dPlanetFinderv2
 import src.config_keras
 from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
@@ -372,10 +372,6 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     :param data_augmentation: bool, whether to use or not data augmentation
     :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
     :param clf_threshold: float, classification threshold in [0, 1]
-    # :param filter_data: dict, containing as keys the names of the datasets. Each value is a dict containing as keys the
-    # elements of data_fields or a subset, which are used to filter the examples. For 'label', 'kepid' and 'tce_n' the
-    # values should be a list; for the other data_fields, it should be a two element list that defines the interval of
-    # acceptable values
     :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
     training multiple models in multiple GPUs in parallel
     :return:
@@ -564,10 +560,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     labels_sorted = {}
     for dataset in datasets:
         sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-        try:
-            labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
-        except:
-            print('a')
+        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
 
         for k_i in range(len(k_arr[dataset])):
             if len(sorted_idxs) < k_arr[dataset][k_i]:
@@ -610,16 +603,19 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
     # save model, features and config used for training this model
     model.save(os.path.join(model_dir_sub, 'model{}.h5'.format(model_id)))
-    np.save(os.path.join(model_dir_sub, 'features_set'), features_set)
-    np.save(os.path.join(model_dir_sub, 'config'), config)
-    # plot model and save the figure created
-    plot_model(model,
-               to_file=os.path.join(model_dir_sub, 'model.svg'),
-               show_shapes=False,
-               show_layer_names=True,
-               rankdir='TB',
-               expand_nested=False,
-               dpi=96)
+    if model_id == 1:
+        # save feature set used
+        np.save(os.path.join(model_dir_sub, 'features_set'), features_set)
+        # save configuration used
+        np.save(os.path.join(model_dir_sub, 'config'), config)
+        # save plot of model
+        plot_model(model,
+                   to_file=os.path.join(res_dir, 'model.svg'),
+                   show_shapes=True,
+                   show_layer_names=True,
+                   rankdir='TB',
+                   expand_nested=False,
+                   dpi=48)
 
 
 if __name__ == '__main__':
@@ -660,35 +656,16 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
                              )
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    # hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
-    # hpo_study = 'ConfigD-bohb_keplerdr25_g2001-l201_spline_nongapped_starshuffle_norobovetterkois_globalbinwidthaslocal_glflux'
-    hpo_study = 'ConfigF-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
+    hpo_study = 'hpo_test'
 
-    # set configuration manually. Set to None to use a configuration from a HPO study
+    # set configuration manually. Set to None to use a configuration from an HPO study
     config = None
-    # example of configuration
-    # config = {'batch_size': 32,
-    #           'conv_ls_per_block': 2,
-    #           'dropout_rate': 0.0053145468133186415,
-    #           'init_conv_filters': 3,
-    #           'init_fc_neurons': 128,
-    #           'kernel_size': 8,
-    #           'kernel_stride': 2,
-    #           'lr': 0.015878640426114688,
-    #           'num_fc_layers': 3,
-    #           'num_glob_conv_blocks': 2,
-    #           'num_loc_conv_blocks': 2,
-    #           'optimizer': 'SGD',
-    #           'pool_size_glob': 2,
-    #           'pool_size_loc': 2,
-    #           'pool_stride': 1,
-    #           'sgd_momentum': 0.024701642898564722}
 
-    # set the configuration from a HPO study
+    # set the configuration from an HPO study
     if config is None:
         res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
                                                      , '_{}'.format(hpo_study))
@@ -701,47 +678,77 @@ if __name__ == '__main__':
 
         # select a specific config based on its ID
         # example - check config.json
-        # config = id2config[(8, 0, 3)]['config']
+        # config = id2config[(0, 0, 0)]['config']
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = Exonet  # CNN1dPlanetFinderv1
-    config['batch_size'] = 64
-    config['optimizer'] = 'Adam'
+    BaseModel = CNN1dPlanetFinderv2
+    # config['batch_size'] = 64
+    # config['optimizer'] = 'Adam'
     config['branches'] = [
-        'global_flux_view',
-        'local_flux_view',
-        'global_centr_fdl_view_norm',
-        'local_centr_fdl_view_norm',
-        # 'local_flux_oddeven_views',
-        # 'global_centr_view',
-        # 'local_centr_view',
-        # 'local_weak_secondary_view'
+        'global_flux_view_fluxnorm',
+        'local_flux_view_fluxnorm',
+        # 'global_centr_fdl_view_norm',
+        # 'local_centr_fdl_view_norm',
+        'local_flux_oddeven_views',
+        'global_centr_view_std_noclip',
+        'local_centr_view_std_noclip',
+        'local_weak_secondary_view_fluxnorm'
     ]
 
     # features to be extracted from the dataset(s)
-    features_names = [
-        'global_flux_view',
-        'local_flux_view',
-        'global_centr_fdl_view_norm',
-        'local_centr_fdl_view_norm',
-        # 'local_flux_odd_view',
-        # 'local_flux_even_view',
-        # 'global_centr_view',
-        # 'local_centr_view',
-        # 'local_weak_secondary_view'
-    ]
-    features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
-                    for feature_name in features_names}
-    features_names.append('scalar_params')  # use scalar parameters as input features
-    features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
-    # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
-    scalar_params_idxs = [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
-    features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-                    for feature_name in features_names}
+    # features_names = [
+    #     'global_flux_view_fluxnorm',
+    #     'local_flux_view_fluxnorm',
+    #     # 'global_centr_fdl_view_norm',
+    #     # 'local_centr_fdl_view_norm',
+    #     'local_flux_odd_view_fluxnorm',
+    #     'local_flux_even_view_fluxnorm',
+    #     'global_centr_view_std_noclip',
+    #     'local_centr_view_std_noclip',
+    #     'local_weak_secondary_view_fluxnorm',
+    # ]
+    # features_dim = {feature_name: (301, 1) if 'global' in feature_name else (31, 1)
+    #                 for feature_name in features_names}
+    # features_names.append('scalar_params')  # use scalar parameters as input features
+    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
+    # # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
+    scalar_params_idxs = None  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
+    #
+    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
+    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
+    #                 for feature_name in features_names}
     # example of feature set
     # features_set = {'global_view': {'dim': (2001,), 'dtype': tf.float32},
     #                 'local_view': {'dim': (201,), 'dtype': tf.float32}}
+
+    features_set = {
+        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+    }
 
     data_augmentation = False  # if True, uses online data augmentation in the training set
     online_preproc_params = {'num_bins_global': 2001, 'num_bins_local': 201, 'num_transit_dur': 9}
@@ -759,7 +766,7 @@ if __name__ == '__main__':
     opt_metric = 'auc_pr'  # choose which metric to plot side by side with the loss
     min_optmetric = False  # if lower value is better set to True
 
-    clf_threshold = 0.5
+    clf_threshold = 0.5  # classification threshold
 
     # callbacks list
     callbacks_dict = {}
@@ -789,7 +796,7 @@ if __name__ == '__main__':
 
     # add missing parameters in hpo with default values
     # config['batch_norm'] = False
-    # config['non_lin_fn'] = 'prelu'
+    config['non_lin_fn'] = 'prelu'
     config = src.config_keras.add_default_missing_params(config=config)
 
     # comment for multiprocessing using MPI

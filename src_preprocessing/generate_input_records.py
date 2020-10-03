@@ -13,14 +13,13 @@ import datetime
 import socket
 import pandas as pd
 from tensorflow.compat.v1 import logging as tf_logging
-from tensorflow.compat.v1 import app as tf_app
 from tensorflow.io import gfile, TFRecordWriter
 
 # local
 from src_preprocessing.preprocess import _process_tce
 # from src_preprocessing.preprocess_sv_fdl import _process_tce
 from src_preprocessing.utils_generate_input_records import get_tess_tce_table, get_kepler_tce_table, \
-    load_whitened_data, shuffle_tce, normalize_params_tce_table
+    shuffle_tce
 
 
 class Config:
@@ -35,7 +34,10 @@ class Config:
     tfrecords_dir = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords'
 
     # output directory
-    output_dir = os.path.join(tfrecords_dir, 'TESS', tfrecords_base_name)
+    output_dir = os.path.join(tfrecords_dir,
+                              'Kepler',
+                              'Q1-Q17_DR25',
+                              tfrecords_base_name)
 
     satellite = 'kepler'  # choose from: ['kepler', 'tess']
     multisector = False  # True for TESS multi-sector runs
@@ -99,11 +101,11 @@ class Config:
     use_tps_ephem = False  # use TPS ephemeris instead of DV
 
     # binning parameters
-    num_bins_glob = 2001  # number of bins in the global view
-    num_bins_loc = 201  # number of bins in the local view
+    num_bins_glob = 301  # number of bins in the global view
+    num_bins_loc = 21  # number of bins in the local view
     bin_width_factor_glob = 1 / num_bins_glob
     bin_width_factor_loc = 0.16
-    num_durations = 4  # number of transit duration to include in the local view: 2 * num_durations + 1
+    num_durations = 2.5  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
@@ -114,7 +116,7 @@ class Config:
 
         # q1-q17 dr25 DV TCEs
         input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                             'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled_norobovetterlabels.csv'
+                             'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv'
         # # q1-q17 dr25 TPS TCE-1s
         # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'tps/keplerTPS_KSOP2536_dr25.csv'

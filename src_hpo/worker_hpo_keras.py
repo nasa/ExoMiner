@@ -12,9 +12,10 @@ from tensorflow.keras import callbacks, losses, optimizers
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
+from tensorflow.keras.utils import plot_model
 
 # local
-from src.utils_dataio import InputFn
+from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics
 
 import paths
@@ -81,10 +82,9 @@ class TransitClassifier(Worker):
                 Due to Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
         """
 
-        logical_devices = tf.config.list_logical_devices('GPU')
+        # logical_devices = tf.config.list_logical_devices('GPU')
         # print('GPU(s) selected for rank {}: {}'.format(self.worker_id_custom, logical_devices))
- 
-        sys.stdout.flush()
+        # sys.stdout.flush()
 
         # merge sampled and fixed configurations
         config.update(self.base_config)
@@ -242,10 +242,21 @@ class TransitClassifier(Worker):
                     for metric_name in res:
                         res[metric_name].append(res_i[metric_name])
 
+                if model_i == 0:
+                    plot_model(model,
+                               to_file=os.path.join(self.results_directory, 'config{}_model.svg'.format(config_id)),
+                               show_shapes=True,
+                               show_layer_names=True,
+                               rankdir='TB',
+                               expand_nested=False,
+                               dpi=48)
+
+                # FIXME: do I need to delete the model variable?
                 del model
+
             except Exception as e:
                 # print('Exception: {}'.format(e))
-                gpu_str = 'List of GPUs available to rank {}: {}'.format(self.worker_id_custom, logical_devices)        
+                gpu_str = ''  # 'List of GPUs available to rank {}: {}'.format(self.worker_id_custom, logical_devices)
                 sys.stdout.flush()
                 return {'loss': np.inf, 'info': '{}, error: {}'.format(gpu_str, e)}
 
@@ -354,29 +365,29 @@ class TransitClassifier(Worker):
         plt.close()
 
         # plot precision, recall, roc auc, pr auc curves for the validation and test sets
-        f, ax = plt.subplots()
-        ax.plot(epochs, res['val_precision']['central tendency'], label='Val Precision', color='b')
-        ax.plot(epochs, res['val_recall']['central tendency'], label='Val Recall', color='r')
-        ax.plot(epochs, res['val_auc_roc']['central tendency'], label='Val ROC AUC', color='g')
-        ax.plot(epochs, res['val_auc_pr']['central tendency'], label='Val PR AUC', color='k')
-        ax.scatter(epochs[-1], res['test_precision']['central tendency'], label='Test Precision', c='b')
-        ax.scatter(epochs[-1], res['test_recall']['central tendency'], label='Test Recall', c='r')
-        ax.scatter(epochs[-1], res['test_auc_roc']['central tendency'], label='Test ROC AUC', c='g')
-        ax.scatter(epochs[-1], res['test_auc_pr']['central tendency'], label='Test PR AUC', c='k')
-        ax.grid(True)
-        chartBox = ax.get_position()
-        ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
-        ax.legend(loc='upper center', bbox_to_anchor=(1.45, 0.8), shadow=True, ncol=1)
-        ax.set_xlim([0, epochs[-1]])
-        ax.set_ylim([0, 1])
-        ax.set_xlabel('Epochs')
-        ax.set_ylabel('Metric Value')
-        ax.set_title('Precision-Recall-ROC AUC-PR AUC\nVal/Test')
-        # ax[1].legend(loc="lower right")
-        # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(os.path.join(self.results_directory,
-                               'config{}_budget{}_prec-rec-auc.png'.format(config_id, epochs[-1])))
-        plt.close()
+        # f, ax = plt.subplots()
+        # ax.plot(epochs, res['val_precision']['central tendency'], label='Val Precision', color='b')
+        # ax.plot(epochs, res['val_recall']['central tendency'], label='Val Recall', color='r')
+        # ax.plot(epochs, res['val_auc_roc']['central tendency'], label='Val ROC AUC', color='g')
+        # ax.plot(epochs, res['val_auc_pr']['central tendency'], label='Val PR AUC', color='k')
+        # ax.scatter(epochs[-1], res['test_precision']['central tendency'], label='Test Precision', c='b')
+        # ax.scatter(epochs[-1], res['test_recall']['central tendency'], label='Test Recall', c='r')
+        # ax.scatter(epochs[-1], res['test_auc_roc']['central tendency'], label='Test ROC AUC', c='g')
+        # ax.scatter(epochs[-1], res['test_auc_pr']['central tendency'], label='Test PR AUC', c='k')
+        # ax.grid(True)
+        # chartBox = ax.get_position()
+        # ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
+        # ax.legend(loc='upper center', bbox_to_anchor=(1.45, 0.8), shadow=True, ncol=1)
+        # ax.set_xlim([0, epochs[-1]])
+        # ax.set_ylim([0, 1])
+        # ax.set_xlabel('Epochs')
+        # ax.set_ylabel('Metric Value')
+        # ax.set_title('Precision-Recall-ROC AUC-PR AUC\nVal/Test')
+        # # ax[1].legend(loc="lower right")
+        # # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+        # f.savefig(os.path.join(self.results_directory,
+        #                        'config{}_budget{}_prec-rec-auc.png'.format(config_id, epochs[-1])))
+        # plt.close()
 
         # plot pr curve
         f, ax = plt.subplots()
@@ -437,7 +448,11 @@ class TransitClassifier(Worker):
         # l2_decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2,
         #                                                log=True)
 
-        config_space.add_hyperparameters([sgd_momentum, dropout_rate, optimizer, lr
+        config_space.add_hyperparameters([
+            sgd_momentum,
+            dropout_rate,
+            optimizer,
+            lr
                                           # lr, optimizer, batch_size, l2_regularizer, l2_decay_rate, use_softmax, lr_scheduler,
                                           # batch_norm, non_lin_fn, weight_initializer
                                           ])
@@ -461,21 +476,27 @@ class TransitClassifier(Worker):
         num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5,
                                                                 default_value=3)
 
-        init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
-        # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
+        num_fc_conv_units = CSH.CategoricalHyperparameter('num_fc_conv_units', [32, 64, 128, 256, 512])
+        dropout_ratefc_conv = CSH.UniformFloatHyperparameter('dropout_rate_fc_conv', lower=0.001, upper=0.2,
+                                                             default_value=0.2, log=True)
 
+        init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
         num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=1, upper=4, default_value=2)
 
-        config_space.add_hyperparameters([num_glob_conv_blocks,
-                                          num_fc_layers,
-                                          conv_ls_per_block,
-                                          kernel_size,
-                                          kernel_stride,
-                                          pool_size_glob,
-                                          pool_stride,
-                                          pool_size_loc,
-                                          num_loc_conv_blocks,
-                                          init_fc_neurons,
-                                          init_conv_filters])
+        config_space.add_hyperparameters([
+            num_glob_conv_blocks,
+            num_loc_conv_blocks,
+            init_conv_filters,
+            conv_ls_per_block,
+            kernel_size,
+            kernel_stride,
+            pool_size_glob,
+            pool_stride,
+            pool_size_loc,
+            num_fc_conv_units,
+            dropout_ratefc_conv,
+            init_fc_neurons,
+            num_fc_layers,
+        ])
 
         return config_space

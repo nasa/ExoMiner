@@ -12,7 +12,6 @@ import pickle
 import pandas as pd
 from tensorflow.io import gfile, TFRecordWriter
 from tensorflow.compat.v1 import logging as tf_logging
-from tensorflow.compat.v1 import app as tf_app
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -26,8 +25,7 @@ class Config:
     # TFRecords base name
     # tfrecords_base_name = 'test_q1q17dr25scr1'
     # tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_spline_nongapped_flux-centroid-oddeven-6stellar'
-    # tfrecords_base_name = 'val_set_misclassified_CFPs_configH_9-21-2020'
-    tfrecords_base_name = 'analyze_wks_preprocessing'
+    tfrecords_base_name = 'test_changes_preprocessing_code_var'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -70,7 +68,7 @@ class Config:
     num_bins_loc = 31  # number of bins in the local view
     bin_width_factor_glob = 1 / num_bins_glob  # 0.16
     bin_width_factor_loc = 0.16
-    num_durations = 3  # number of transit duration to include in the local view: 2 * num_durations + 1
+    num_durations = 2.5  # number of transit duration to include in the local view: 2 * num_durations + 1
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     get_denoised_centroids = False
@@ -96,19 +94,33 @@ class Config:
     # list with the names of the scalar parameters from the TCE table (e.g. stellar parameters) that are also added to
     # the TFRecords along with the time-series features (views). Set list to empty to not add any scalar parameter.
     # These parameters are added to the example in the TFRecord as a list of float values.
-    # Kepler with DV
-    scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'wst_robstat', 'wst_depth',
-                     'tce_bin_oedp_stat', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat',
-                     'tce_rb_tcount0', 'tce_dikco_msky', 'tce_dicco_msky', 'tce_max_mult_ev', 'tce_maxmes']
-    # Kepler with TPS or TESS (for now)
-    # scalar_params = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
+    scalar_params = [
+        'tce_steff',
+        'tce_slogg',
+        'tce_smet',
+        'tce_sradius',
+        'wst_robstat',
+        'wst_depth',
+        'tce_bin_oedp_stat',
+        'boot_fap',
+        'tce_smass',
+        'tce_sdens',
+        'tce_cap_stat',
+        'tce_hap_stat',
+        'tce_rb_tcount0',
+        'tce_dikco_msky',
+        'tce_dicco_msky',
+        'tce_max_mult_ev',
+        'tce_maxmes'
+    ]
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                             'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'old/q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffled.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \

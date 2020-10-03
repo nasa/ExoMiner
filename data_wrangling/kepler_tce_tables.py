@@ -3,6 +3,10 @@ import pandas as pd
 import numpy as np
 import random
 
+#%%
+
+baseTceTbl = 'q1_q17_dr25_tce_2020.09.28_10.36.22'
+
 #%% Add KOI dispositions; need to match KOIs to TCEs
 
 koiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/cumulative_2020.02.21_10.29.22.csv',
@@ -20,7 +24,7 @@ koiTbl = koiTbl.loc[koiTbl['koi_tce_delivname'] == 'q1_q17_dr25_tce']
 koiTbl.reset_index(drop=True, inplace=True)
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar.csv')
+                     '{}_stellar.csv'.format(baseTceTbl))
 
 # initialize KOI columns in the TCE table
 tceTbl = pd.concat([tceTbl, pd.DataFrame(columns=columnsToAdd)], axis=1)
@@ -41,7 +45,7 @@ for koi_i, koi in koiTbl.iterrows():
     assert tce_match.sum() == 1
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi.csv', index=False)
+              '{}_stellar_koi.csv'.format(baseTceTbl), index=False)
 
 #%% Add FPWG dispositions; need to match KOIs from CFP table to KOIs from cumulative list
 
@@ -53,7 +57,7 @@ columnsToAdd = ['fpwg_disp_status', 'fpwg_disp_source', 'fpwg_disp_eb', 'fpwg_di
                 'fpwg_disp_other']
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi.csv')
+                     '{}_stellar_koi.csv'.format(baseTceTbl))
 
 # initialize KOI columns in the TCE table
 tceTbl = pd.concat([tceTbl, pd.DataFrame(columns=columnsToAdd)], axis=1)
@@ -76,7 +80,7 @@ for koi_i, koi in cfpTbl.iterrows():
 print('Number of KOI matched: {}'.format(koiMatched))
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp.csv', index=False)
+              '{}_stellar_koi_cfp.csv'.format(baseTceTbl), index=False)
 
 #%% Define the labels for each TCE in the TCE table
 
@@ -84,15 +88,15 @@ tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
 # Cumulative KOI list
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp.csv')
+                     '{}_stellar_koi_cfp.csv'.format(baseTceTbl))
 print('Original number of TCEs: {}'.format(len(tceTbl)))
 
 # initialize TCE labels as NTP
 tceTbl['label'] = 'NTP'
 
 # load Certified False Positive list
-cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/fpwg_2020.03.13_11.37.49.csv',
-                     header=13)
+# cfpTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/fpwg_2020.03.13_11.37.49.csv',
+#                      header=13)
 
 map_cfpdisp_to_label = {'CERTIFIED FP': 'AFP', 'CERTIFIED FA': 'NTP', 'POSSIBLE PLANET': 'PC'}
 
@@ -108,8 +112,8 @@ def _cfpdisp_to_label(row, mapDict):
 tceTbl['label'] = tceTbl[['label', 'fpwg_disp_status']].apply(_cfpdisp_to_label, axis=1, args=(map_cfpdisp_to_label,))
 
 # load Cumulative KOI list
-cumKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
-                        'cumulative_2020.02.21_10.29.22.csv', header=90)
+# cumKoiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
+#                         'cumulative_2020.02.21_10.29.22.csv', header=90)
 
 map_cumkoidisp_to_label = {'CONFIRMED': 'PC'}
 
@@ -126,14 +130,14 @@ tceTbl['label'] = tceTbl[['label', 'koi_disposition']].apply(_cumkoidisp_to_labe
                                                              args=(map_cumkoidisp_to_label,))
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels.csv', index=False)
+              '{}_stellar_koi_cfp_norobovetterlabels.csv'.format(baseTceTbl), index=False)
 
 #%% Rename columns in Q1-Q17 DR25 TCE list
 
 # rawTceTable = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
 #                           'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21.csv')
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels.csv')
+                     '{}_stellar_koi_cfp_norobovetterlabels.csv'.format(baseTceTbl))
 
 # columns to be renamed
 rawFields = ['kepid', 'kepmag', 'tce_depth']
@@ -146,13 +150,54 @@ for i in range(len(rawFields)):
 tceTbl.rename(columns=renameDict, inplace=True)
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv',
+              '{}_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'.format(baseTceTbl),
+              index=False)
+
+#%% Check if there are  TCEs with missing values for the required columns
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+                     '{}_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'.format(baseTceTbl))
+
+numTotalTces = len(tceTbl)
+
+colsToCheck = [
+    'tce_duration', 'tce_time0bk', 'tce_period', 'transit_depth',
+    'tce_depth_err', 'tce_duration_err', 'tce_period_err',
+    # 'ra', 'dec',
+    'tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+    'tce_cap_stat', 'tce_hap_stat',
+    'boot_fap',
+    'tce_rb_tcount0',
+    'tce_maxmesd', 'tce_maxmes', 'tce_ptemp', 'tce_albedo',
+    'tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err',
+    'tce_fwm_stat', 'tce_fwm_srao', 'tce_fwm_srao_err', 'tce_fwm_sdeco', 'tce_fwm_sdeco_err',
+    'tce_fwm_prao', 'tce_fwm_prao_err', 'tce_fwm_pdeco', 'tce_fwm_pdeco_err'
+]
+
+# remove TCEs with any NaN in the required fields
+tceTblNoNa = tceTbl.dropna(axis=0, subset=colsToCheck, inplace=False)
+
+print('Number of TCEs removed: {}'.format(numTotalTces - len(tceTblNoNa)))
+
+tceTblTces = tceTbl[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
+                                                                                  x['tce_plnt_num']),
+                                                         axis=1)
+tceTblTcesNoNa = tceTblNoNa[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
+                                                                                          x['tce_plnt_num']),
+                                                                 axis=1)
+
+print('TCEs with at least one missing value: {}'.format(np.setdiff1d(tceTblTces, tceTblTcesNoNa)))
+
+tceTbl = tceTblNoNa
+
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval.csv'.format(baseTceTbl),
               index=False)
 
 #%% Filter out CANDIDATE and FALSE POSITIVE KOIs dispositioned by Robovetter
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv')
+                     '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval.csv'.format(baseTceTbl))
 
 # keep only CONFIRMED KOIs, CFP, CFA and POSSIBLE PLANET KOIs, and non-KOI
 tceTbl = tceTbl.loc[(tceTbl['koi_disposition'] == 'CONFIRMED') |
@@ -163,55 +208,32 @@ print('Number of TCEs after removing KOIs dispositioned by Robovetter: {}'.forma
 print(tceTbl['label'].value_counts())
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_rmcandandfpkois.csv',
+              '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois.csv'.format(baseTceTbl),
               index=False)
-
-#%% Check if there are  TCEs with missing values for the required columns
-
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
-                     'rmcandandfpkois.csv')
-
-numTotalTces = len(tceTbl)
-
-colsToCheck = ['tce_duration', 'tce_time0bk', 'tce_period', 'transit_depth', 'ra', 'dec', 'tce_steff', 'tce_slogg',
-               'tce_smet', 'tce_sradius', 'boot_fap', 'tce_smass', 'tce_sdens', 'tce_cap_stat', 'tce_hap_stat',
-               'tce_rb_tcount0', 'tce_maxmesd', 'tce_max_mult_ev', 'tce_dikco_msky', 'tce_dicco_msky', 'tce_maxmes']
-
-# remove TCEs with any NaN in the required fields
-tceTbl.dropna(axis=0, subset=colsToCheck, inplace=True)
-
-print('Number of TCEs removed: {}'.format(numTotalTces - len(tceTbl)))
-
-# remove TCEs with zero period or transit duration
-# rawTceTable = rawTceTable.loc[(rawTceTable['tce_period'] > 0) & (rawTceTable['tce_duration'] > 0)]
-# print(len(rawTceTable))
-
-# 34032 to 34032 TCEs
-# rawTceTable.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17 DR25/'
-#                    'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_processed.csv',
-#                    index=False)
 
 #%% Filter rogue TCEs in Q1-Q17 DR25
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
-                     'rmcandandfpkois.csv')
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois.csv'.format(baseTceTbl))
 
 numTotalTces = len(tceTbl)
+print('Number of TCEs currently in the TCE table: {}'.format(numTotalTces))
 
 tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] == 0]
 
 print('Number of rogue TCEs removed from the TCE table: {}'.format(numTotalTces - len(tceTbl)))
+print('Number of TCEs in the TCE table after removing rogue TCEs: {}'.format(len(tceTbl)))
 
 tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-              'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_rmcandandfpkois_'
-              'norogues.csv', index=False)
+              '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_'
+              'norogues.csv'.format(baseTceTbl), index=False)
 
 #%% Replace TCE ephemeris for KOI ephemeris
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv')
+                     '{}_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois_norogues.csv'.format(baseTceTbl))
 
 
 def _replace_tce_for_koi_ephem(row):
@@ -226,26 +248,6 @@ tceTbl[['tce_period', 'tce_duration', 'tce_time0bk']] = tceTbl.apply(_replace_tc
 
 assert len(np.where(tceTbl['tce_period'] == tceTbl['koi_period'])[0]) == len(tceTbl.loc[~tceTbl['kepoi_name'].isna()])
 
-tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.15_15.12.12_stellar'
-              '_koi_cfp_norobovetterlabels_renamedcols_koiephemeris.csv', index=False)
-
-#%% Shuffle TCEs in Q1-Q17 DR25 TCE table
-
-# np.random.seed(24)
-random.seed(24)
-
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
-                     'rmcandandfpkois_norogues.csv')
-
-# shuffle at target star level
-targetStarGroups = [df for _, df in tceTbl.groupby('target_id')]
-random.shuffle(targetStarGroups)
-tceTblShuffled = pd.concat(targetStarGroups).reset_index(drop=True)
-
-# # shuffle at a TCE level
-# tceTblShuffled = tceTbl.iloc[np.random.permutation(len(tceTbl))]
-
-tceTblShuffled.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                      'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
-                      'rmcandandfpkois_norogues_shuffle.csv', index=False)
+tceTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/{}_stellar'
+              '_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues_'
+              'koiephemeris.csv'.format(baseTceTbl), index=False)
