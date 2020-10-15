@@ -89,7 +89,8 @@ ax[0, 0].get_xaxis().set_tick_params(which='minor', width=0)
 ax[0, 1].set_visible(False)
 ax[1, 0].set_xlabel('Orbital Period (days)')
 ax[1, 0].set_ylabel('Rp (R{})'.format(r"$_\bigoplus$"))
-a = ax[1, 0].scatter(rankingTbl['tce_period'], rankingTbl['tce_prad'], s=10, cmap='viridis', c=rankingTbl['score'], vmin=0, vmax=1)
+a = ax[1, 0].scatter(rankingTbl['tce_period'], rankingTbl['tce_prad'], s=10, cmap='viridis', c=rankingTbl['score'],
+                     vmin=0, vmax=1)
 ax[1, 0].set_xscale('log')  # orbital period
 ax[1, 0].set_yscale('log')  # orbital period
 ax[1, 0].set_yticks([0.4, 1.0, 2.0, 3.0, 10.0, 30.0])  # planet radius

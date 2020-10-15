@@ -90,12 +90,6 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
     fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
 
-    # precision_k = precision_at_k(k=10, class_id=1, name='precision_at_10')
-    # precision_k = PrecisionAtK(k=10, name='precision_at_10')
-    # precision_at_ks = []
-    # for k in [10, 100, 1000]:
-    # top_acc = keras.metrics.TopKCategoricalAccuracy(k=300, name='top_300_catagorical_accuracy')
-
     metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, tn, fn]
 
     return metrics_list

@@ -7,27 +7,20 @@ Evaluate a hyperparameter optimization study using BOHB, BO and RS implementatio
 import matplotlib.pyplot as plt
 import hpbandster.visualization as hpvis
 import numpy as np
-from matplotlib import ticker, cm
+import matplotlib.colors as mcolors
+# import matplotlib.cm as mcm
 import glob
 # import random
 import os
 
 # local
-from src_hpo.utils_hpo import estimate_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
+from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logger
 import paths
 
-#%% check number of iterations per Successive Halving and per budget
-
-num_iterations = 10
-eta = 2
-bmin, bmax = 5, 50
-nmodels = 3
-nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
-print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
 
 #%% load results from a HPO study
 
-study = 'ConfigH-keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'
+study = 'ConfigG-bohb_keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -135,19 +128,24 @@ print('Number of random picked configurations: {}'.format(nconfigs_valid - nconf
 # plot 2D histograms for two chosen metrics
 f, ax = plt.subplots()
 if ensemble_study:
-    ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs ],
+    axh = ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs ],
               [run.info[metrics_plot[1]][0] for run in all_runs],
               range=[(0, 1), (0, 1)],
-              bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
+              bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)],
+              norm=mcolors.LogNorm(),
+              cmap='viridis')
 else:
-    ax.hist2d([run.info[metrics_plot[0]] for run in all_runs],
+    axh = ax.hist2d([run.info[metrics_plot[0]] for run in all_runs],
                [run.info[metrics_plot[1]] for run in all_runs],
                range=[(0, 1), (0, 1)],
-               bins=[np.linspace(0, 1, num=80, endpoint=True), np.linspace(0, 1, num=80, endpoint=True)])
-ax.set_xticks(np.linspace(0, 1, num=10, endpoint=True))
+               bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)])
+ax.grid(True)
+ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
+ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
 ax.set_xlabel(metrics_plot[0])
 ax.set_ylabel(metrics_plot[1])
 ax.set_title('2D histogram of configs performance metrics')
+plt.colorbar(axh[3])
 f.savefig(os.path.join(paths.path_hpoconfigs, study, '2dhist_precision-recall.png'))
 
 # rank configurations based on metric
@@ -219,7 +217,9 @@ bconfig_loss, cum_budget = np.inf, 0
 bmu_hpoloss, bsem_hpoloss = None, None
 timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
 if ensemble_study:
-    tinc_hpolossdev = []
+    tinc_hpoloss_centraltend = []
+    tinc_hpoloss_dev = []
+
 for run_i, run in enumerate(timesorted_allruns):
 
     if cum_budget + int(run.budget) * nmodels > lim_totalbudget:
@@ -252,28 +252,32 @@ for run_i, run in enumerate(timesorted_allruns):
                                                                                                     run.budget))
 
             # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
-            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()[hpo_loss]['all scores'])
-            mu_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
-            sem_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
+            # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()[hpo_loss]['all scores'])
+            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['single_models'][hpo_loss]['all scores'])
+            centraltend_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
+            dev_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
+            ens_hpoloss = run.loss
 
             if run.loss < bconfig_loss:
-                bmu_hpoloss, bsem_hpoloss = mu_hpoloss, sem_hpoloss
-                tinc_hpoloss.append(mu_hpoloss)
-                tinc_hpolossdev.append(sem_hpoloss)
+                bens_hpoloss, bcentraltend_hpoloss, bdev_hpoloss = ens_hpoloss, centraltend_hpoloss, dev_hpoloss
+
+                tinc_hpoloss.append(ens_hpoloss)
+                tinc_hpoloss_centraltend.append(centraltend_hpoloss)
+                tinc_hpoloss_dev.append(dev_hpoloss)
             else:
-                tinc_hpoloss.append(bmu_hpoloss)
-                tinc_hpolossdev.append(bsem_hpoloss)
+                tinc_hpoloss.append(bens_hpoloss)
+                tinc_hpoloss_centraltend.append(bcentraltend_hpoloss)
+                tinc_hpoloss_dev.append(bdev_hpoloss)
 
         if run.loss < bconfig_loss:
             bconfig_loss = run.loss
 
 f, ax = plt.subplots()
-if not ensemble_study:
-    ax.plot(timestamps, tinc_hpoloss)
-else:
-    ax.errorbar(timestamps, tinc_hpoloss,
-                tinc_hpolossdev, label=study, capsize=5)
+ax.plot(timestamps, tinc_hpoloss, label=study)
 ax.scatter(timestamps, tinc_hpoloss, c='r')
+if ensemble_study:
+    ax.errorbar(timestamps, tinc_hpoloss_centraltend,
+                tinc_hpoloss_dev, capsize=5)
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_ylim(top=1)
@@ -282,15 +286,15 @@ ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
 ax.grid(True, which='both')
+plt.subplots_adjust(left=0.145)
 f.savefig(os.path.join(paths.path_hpoconfigs, study, 'walltime-hpoloss.png'))
 
 f, ax = plt.subplots()
-if not ensemble_study:
-    ax.plot(cum_budget_vec, tinc_hpoloss)
-else:
-    ax.errorbar(cum_budget_vec, tinc_hpoloss,
-                tinc_hpolossdev, label=study, capsize=5)
+ax.plot(cum_budget_vec, tinc_hpoloss, label=study)
 ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
+if ensemble_study:
+    ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
+                tinc_hpoloss_dev, capsize=5)
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_ylim(top=1)
@@ -299,6 +303,7 @@ ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')
 ax.grid(True, which='both')
+plt.subplots_adjust(left=0.145)
 f.savefig(os.path.join(paths.path_hpoconfigs, study, 'cumbudget-hpoloss.png'))
 
 

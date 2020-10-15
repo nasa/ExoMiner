@@ -29,12 +29,12 @@ from src.utils_metrics import get_metrics
 
 
 def print_metrics(res, datasets, metrics_names, prec_at_top):
-    """
+    """ Print results.
 
-    :param res:
-    :param datasets:
-    :param metrics_names:
-    :param prec_at_top:
+    :param res: dict, loss and metric values for the different datasets
+    :param datasets: list, dataset names
+    :param metrics_names: list, metrics and losses names
+    :param prec_at_top: dict, top-k values for different datasets
     :return:
     """
 
@@ -56,11 +56,10 @@ def print_metrics(res, datasets, metrics_names, prec_at_top):
 def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top):
     """ Write results to a txt file.
 
-    :param model_dir_sub:
-    :param res:
-    :param datasets:
-    :param metrics_names:
-    :param prec_at_top:
+    :param res: dict, loss and metric values for the different datasets
+    :param datasets: list, dataset names
+    :param metrics_names: list, metrics and losses names
+    :param prec_at_top: dict, top-k values for different datasets
     :return:
     """
 
@@ -154,7 +153,6 @@ def draw_plots_scores_distribution(output_cl, save_path):
     :return:
     """
 
-    # plot histogram of the class distribution as a function of the predicted output
     bins = np.linspace(0, 1, 11, True)
     for dataset in output_cl:
 
@@ -193,9 +191,9 @@ def draw_plots_scores_distribution(output_cl, save_path):
 def plot_precision_at_k(labels_ord, k_curve_arr, dataset, save_path):
     """ Plot precision-at-k and misclassified-at-k curves.
 
-    :param labels_ord:
-    :param k_curve_arr:
-    :param save_path:
+    :param labels_ord: dict, for each dataset, the labels of the items ordered by the scores given by the model
+    :param k_curve_arr: dict, keys are datasets and values are values of k to compute precision-at-k
+    :param save_path: str, filepath used to save the plots figure
     :return:
     """
 
@@ -397,23 +395,17 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
                                                                           original_label)]
 
     # compute precision at top-k
-    k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
-    k_curve_arr = {
-        'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
-        'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
-        'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
-    }
     labels_sorted = {}
     for dataset in datasets:
         sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
         labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
 
-        for k_i in range(len(k_arr[dataset])):
-            if len(sorted_idxs) < k_arr[dataset][k_i]:
-                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = np.nan
+        for k_i in range(len(config['k_arr'][dataset])):
+            if len(sorted_idxs) < config['k_arr'][dataset][k_i]:
+                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = np.nan
             else:
-                res['{}_precision_at_{}'.format(dataset, k_arr[dataset][k_i])] = \
-                    np.sum(labels_sorted[dataset][-k_arr[dataset][k_i]:]) / k_arr[dataset][k_i]
+                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = \
+                    np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
 
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
@@ -425,12 +417,12 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         draw_plots_scores_distribution(output_cl, res_dir)
         if dataset != 'predict':
             draw_plots_prcurve_roc(res, res_dir, dataset)
-            plot_precision_at_k(labels_sorted[dataset], k_curve_arr[dataset], dataset, res_dir)
+            plot_precision_at_k(labels_sorted[dataset], config['k_curve_arr'][dataset], dataset, res_dir)
 
     print('Saving metrics to a txt file...')
-    save_metrics_to_file(save_path, res, datasets, ensemble_model.metrics_names, k_arr)
+    save_metrics_to_file(save_path, res, datasets, ensemble_model.metrics_names, config['k_arr'])
 
-    print_metrics(res, datasets, ensemble_model.metrics_names, k_arr)
+    print_metrics(res, datasets, ensemble_model.metrics_names, config['k_arr'])
 
     # generate rankings for each evaluated dataset
     if generate_csv_pred:
@@ -583,6 +575,7 @@ if __name__ == '__main__':
         'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
         'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},

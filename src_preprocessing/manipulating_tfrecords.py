@@ -666,12 +666,17 @@ print('Normalization finished.')
 
 #%% Check final preprocessed data
 
+# TFRecord directory
 tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+# create plot directory if it does not exist
 plotDir = os.path.join(tfrecDir, 'plots_all_views')
 os.makedirs(plotDir, exist_ok=True)
+# get filepaths to TFRecord files
 tfrecFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if 'shard' in file]
 
 tceIdentifier = 'tce_plnt_num'
+
+# set views to be plotted
 views = [
     'global_flux_view',
     'local_flux_view',
@@ -691,8 +696,10 @@ views = [
     'local_centr_view',
     # 'global_centr_view_std_clip',
     # 'local_centr_view_std_clip',
-    'global_centr_view_std_noclip',
-    'local_centr_view_std_noclip',
+    # 'global_centr_view_std_noclip',
+    # 'local_centr_view_std_noclip',
+    'global_centr_view_std_noclip_norm',
+    'local_centr_view_std_noclip_norm',
     # 'global_centr_view_medind_std',
     # 'local_centr_view_medind_std',
     # 'global_centr_view_medcmaxn',
@@ -706,14 +713,16 @@ views = [
     'global_centr_fdl_view_norm',
     'local_centr_fdl_view_norm',
 ]
+
+# set scalar parameter values to be extracted
 scalarParams = [
     'tce_steff',
     'tce_slogg',
     'tce_smet',
     'tce_sradius',
-    'wst_robstat',
-    'wst_depth',
-    'tce_bin_oedp_stat',
+    # 'wst_robstat',
+    # 'wst_depth',
+    # 'tce_bin_oedp_stat',
     'boot_fap',
     'tce_smass',
     'tce_sdens',
@@ -728,10 +737,14 @@ scalarParams = [
     'tce_maxmes',
     'tce_albedo',
     'tce_ptemp',
-    'tce_depth_err',
-    'tce_duration_err',
-    'tce_period_err'
+    # 'tce_depth_err',
+    # 'tce_duration_err',
+    # 'tce_period_err',
+    'transit_depth'
 ]
+
+# set this to get the normalized scalar parameters
+scalarParams = ['{}_norm'.format(param) for param in scalarParams]
 # scalarParams = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens']
 
 tceOfInterest = (9773869, 1)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
@@ -766,9 +779,10 @@ for tfrecFile in tfrecFiles:
             if scalarParam_i % 6 == 0:
                 scalarParamsStr += '\n'
             if scalarParams[scalarParam_i] == 'boot_fap':
-                scalarParamsStr += '{}={:.4E}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
+                # scalarParamsStr += '{}={:.4E}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
+                scalarParamsStr += '{}={:.4E}  '.format(scalarParams[scalarParam_i], example.features.feature[scalarParams[scalarParam_i]].float_list.value[0])
             else:
-                scalarParamsStr += '{}={:.4f}  '.format(scalarParams[scalarParam_i], scalarParamsTfrec[scalarParam_i])
+                scalarParamsStr += '{}={:.4f}  '.format(scalarParams[scalarParam_i], example.features.feature[scalarParams[scalarParam_i]].float_list.value[0])
 
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 

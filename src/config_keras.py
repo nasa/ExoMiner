@@ -2,6 +2,8 @@
 Utility script for defining configurations.
 """
 
+import numpy as np
+
 # local
 from src.utils_dataio import get_ce_weights
 
@@ -30,17 +32,26 @@ def add_default_missing_params(config):
         config: dict, with additional parameters that were not optimized in the HPO study
     """
 
-    # check parameters not optimized by the HPO study
-    default_parameters = {'non_lin_fn': 'relu',
-                          'batch_norm': False,
-                          'weight_initializer': None,
-                          'force_softmax': False,
-                          'use_kepler_ce': False,
-                          'decay_rate': None,
-                          'batch_size': 32
-                          # 'optimizer': 'SGD',
-                          # 'lr': 1e-5
-                          }
+    default_parameters = {
+        'datasets': ['train', 'val', 'test'],
+        'clf_thr': 0.5,
+        'num_thr': 1000,
+        'non_lin_fn': 'relu',
+        'batch_norm': False,
+        'weight_initializer': None,
+        'force_softmax': False,
+        'use_kepler_ce': False,
+        'decay_rate': None,
+        'batch_size': 32,
+        # 'optimizer': 'SGD',
+        # 'lr': 1e-5,
+        'k_arr': {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]},
+        'k_curve_arr': {
+            'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+            'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+            'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+        }
+    }
 
     for default_parameter in default_parameters:
         if default_parameter not in config:

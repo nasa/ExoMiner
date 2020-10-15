@@ -3,6 +3,10 @@ import numpy as np
 import msgpack
 import matplotlib.pyplot as plt
 import os
+import multiprocessing
+from astropy.io import fits
+
+from src_preprocessing.light_curve.kepler_io import kepler_filenames
 
 #%% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
 # last time updated? Provenance all except star radius: KIC, J-K, Pinsonneault, Spectroscopy, Photometry,
@@ -287,4 +291,85 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/stellar_parame
           'q1_q17_dr25_stellar_plus_supp_gaiadr2_missingvaluestosolar.svg')
 f.tight_layout()
 
-#%%
+#%% Compare Kepler IDs stellar parameters in LC FITS files to Stellar table
+
+# stellar parameters
+tableToFITSField = {'tce_steff_fits': 'TEFF', 'tce_slogg_fits': 'LOGG', 'tce_smet_fits': 'FEH',
+                    'tce_sradius_fits': 'RADIUS', 'ra_fits': 'RA_OBJ', 'dec_fits': 'DEC_OBJ'}
+stellarParams = ['tce_slogg', 'tce_smet', 'tce_sradius', 'tce_steff', 'ra', 'dec']
+
+# root directory for the LC FITS files
+fitsRootDir = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dr_25_all_final'
+
+# directory in which results are saved
+saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_stellartablevsfits_params'
+
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_'
+                     'stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv')
+# get only Kepler IDs and stellar parameters from the TCE table
+targetTbl = tceTbl.groupby('target_id').first()[stellarParams].reset_index(level=0, inplace=False)
+# add columns for the FITS stellar parameters
+targetTbl = pd.concat([targetTbl, pd.DataFrame(columns=['{}_fits'.format(col) for col in stellarParams])])
+
+numProcess = 12  # number of processes
+
+subTargetTblList = np.array_split(targetTbl, numProcess)  # split table into subtables processed by each process
+
+
+def get_stellar_params_from_fits(targetTbl, targetTblIdx, fitsRootDir, saveDir):
+    """ Add light curve FITS stellar parameters to the Kepler IDs in the target table.
+
+    :param targetTbl: pandas DataFrame, subtable with stellar parameters for Kepler IDs
+    :param targetTblIdx: int, subtable index
+    :param fitsRootDir: str, FITS root directory
+    :param saveDir: str, directory in which the processed subtables are saved
+    :return:
+        targetTbl: pandas DataFrame, subtable with also stellar parameters extracted from the light curve FITS files for
+        the Kepler IDs
+    """
+
+    print('Iterating over sub table {} ({} targets)...'.format(targetTblIdx, len(targetTbl)))
+    # iterate over the Kepler IDs in the subtable
+    for target_i, target in targetTbl.iterrows():
+
+        # get filenames for the lc FITS files associated with the Kepler ID
+        filenames = kepler_filenames(fitsRootDir, target['target_id'])
+
+        # get primary header that contains stellar parameters data
+        fitsPrimaryHeader = fits.getheader(filenames[0], 'PRIMARY')
+
+        # add FITS stellar parameters to the table for the given Kepler ID
+        for param in tableToFITSField:
+            targetTbl.loc[target_i, param] = fitsPrimaryHeader[tableToFITSField[param]]
+
+    print('Finished iterating over sub table {} ({} targets).'.format(targetTblIdx, len(targetTbl)))
+
+    # save the processed subtable
+    targetTblFp = os.path.join(saveDir, 'keplerdr25stellar_with_stellarFITS_{}.csv'.format(targetTblIdx))
+    targetTbl.to_csv(targetTblFp, index=False)
+    print('Saved sub table {} to {}.'.format(targetTblIdx, targetTblFp))
+
+    return targetTbl
+
+
+# create mp pool that spans n processes each one processing with a subtable
+pool = multiprocessing.Pool(processes=numProcess)
+jobs = [(subTargetTbl, subTargetTbl_i, fitsRootDir, saveDir)
+        for subTargetTbl_i, subTargetTbl in enumerate(subTargetTblList)]
+async_results = [pool.apply_async(get_stellar_params_from_fits, job) for job in jobs]
+pool.close()
+
+# instead of pool.join(), async_result.get() to ensure any exceptions raised by the worker processes are raised here
+subTblsProcessed = [async_result.get() for async_result in async_results]
+stellarTblWithFits = pd.concat(subTblsProcessed, axis=0)
+stellarTblWithFits.to_csv(os.path.join(saveDir, 'keplerdr25stellar_with_stellarFITS.csv'), index=False)
+
+# scatter plot of stellar parameters in table against LC FITS data
+for param in stellarParams:
+
+    f, ax = plt.subplots(figsize=(8, 6))
+    ax.scatter(stellarTblWithFits[param], stellarTblWithFits['{}_fits'.format(param)], s=5)
+    ax.set_xlabel('Stellar Table\n{}'.format(param))
+    ax.set_ylabel('LC FITS\n{}'.format(param))
+    ax.grid(True)
+    f.savefig(os.path.join(saveDir, 'stellartblvslcfits_{}.png'.format(param)))

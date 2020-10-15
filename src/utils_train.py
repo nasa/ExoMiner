@@ -1,76 +1,10 @@
 """
-Utility functions used during training for the TensorFlow custom estimator.
-- Early stopping, data augmentation techniques, ...
+Utility functions used during training, evaluating and predicting.
+- Custom callbacks, data augmentation techniques, ...
 """
 
 # 3rd party
-import os
-import numpy as np
 import tensorflow as tf
-
-
-def early_stopping(best_value, curr_value, last_best, patience, minimize, min_delta=-np.inf):
-    """ Early stopping used for Estimator TF models.
-
-    :param best_value: float, best value so far
-    :param curr_value: float, current value
-    :param last_best: int, best iteration with respect to the current iteration
-    :param patience: int, number of epochs to wait before early stopping
-    :param minimize: bool, if True, metric tracked is being minimized, False vice-versa
-    :param min_delta: float, minimum change in the monitored quantity to qualify as an improvement
-    :return:
-        stop: bool, True if early stopping
-        last_best: int, best iteration with respect to the current iteration
-        best_value: float, best value so far
-    """
-
-    delta = curr_value - best_value
-
-    # if current value is worse than best value so far
-    if (minimize and delta >= 0) or (not minimize and delta <= 0):
-        last_best += 1
-    # if current value is better than best value so far
-    # reset when best value was seen
-    elif (minimize and delta < 0) or (not minimize and delta > 0) and np.abs(delta) > min_delta:
-        last_best = 0
-        best_value = curr_value
-
-    # reached patience, stop training
-    if last_best == patience:
-        stop = True
-    else:
-        stop = False
-
-    return stop, last_best, best_value
-
-
-def delete_checkpoints(model_dir, keep_model_i):
-    """ Delete checkpoints used Estimator models.
-
-    :param model_dir: str, filepath to the directory in which the model checkpoints are saved
-    :param keep_model_i: int, model instance to be kept based on epoch index
-    :return:
-    """
-
-    # get checkpoint files
-    ckpt_files = [ckpt for ckpt in os.listdir(model_dir) if 'model.ckpt' in ckpt]
-    # sort files based on steps
-    ckpt_files = sorted(ckpt_files, key=lambda file: file.split('.')[1].split('-')[1])
-    # get the steps id for each checkpoint
-    ckpt_steps = np.unique([int(ckpt_file.split('.')[1].split('-')[1]) for ckpt_file in ckpt_files])
-    # print('keeping checkpoint ({}) {}'.format(keep_model_i, ckpt_steps[keep_model_i - 1]))
-
-    for i in range(len(ckpt_files)):
-        if 'model.ckpt-' + str(ckpt_steps[keep_model_i - 1]) + '.' not in ckpt_files[i]:
-            # print('deleting checkpoint file {}'.format(ckpt_files[i]))
-            fp = os.path.join(model_dir, ckpt_files[i])
-            if os.path.isfile(fp):  # delete file
-                os.unlink(fp)
-
-    # updating checkpoint txt file
-    with open(model_dir + "/checkpoint", "w") as file:
-        file.write('model_checkpoint_path: "model.ckpt-{}"\n'.format(int(ckpt_steps[keep_model_i - 1])))
-        file.write('all_model_checkpoint_paths: "model.ckpt-{}"'.format(int(ckpt_steps[keep_model_i - 1])))
 
 
 def phase_inversion(timeseries_tensor, should_reverse):
@@ -129,3 +63,67 @@ def phase_shift(timeseries_tensor, bin_shift):
                                    (timeseries_tensor.get_shape()[0] - bin_shift, 0), (bin_shift, 1)),
                           tf.slice(timeseries_tensor, (0, 0), (timeseries_tensor.get_shape()[0] - bin_shift, 1))],
                          axis=0, name='neg_shift')
+
+
+class LayerOutputCallback(tf.keras.callbacks.Callback):
+
+    def __init__(self, input_fn, batch_size, layer_name, summary_writer, buckets, description='custom'):
+        """ Callback that writes to a histogram summary the output of a given layer.
+
+        :param input_fn: input function
+        :param batch_size: int, batch size
+        :param layer_name: str, name of the layer
+        :param summary_writer: summary writer
+        :param buckets: int, bucket size
+        :param description: str, optional description
+        """
+
+        super(LayerOutputCallback, self).__init__()
+        self.input_fn = input_fn
+        self.batch_size = batch_size
+        self.layer_name = layer_name
+        self.summary_writer = summary_writer
+        self.description = description
+        self.buckets = buckets
+
+    # def on_batch_end(self, batch, logs=None):
+    #
+    #     layer = [l for l in self.model.layers if l.name == 'convbranch_wscalar_concat'][0]
+    #     get_layer_output = tf.keras.backend.function(inputs=self.model.input, outputs=layer.output)
+    #     print('Batch {} | Input to FC block: '.format(batch), get_layer_output.outputs)
+
+    # def on_train_batch_end(self, batch, logs=None):
+    #
+    #     num_batches = int(24000 / self.batch_size)
+    #     if batch in np.linspace(0, num_batches, 10, endpoint=False, dtype='uint32'):
+    #         # pass
+    #         layer = [l for l in self.model.layers if l.name == self.layer_name][0]
+    #         get_layer_output = tf.keras.backend.function(inputs=self.model.input, outputs=layer.output)
+    #         for batch_i, (batch_input, batch_label) in enumerate(self.inputFn):
+    #             if batch_i == batch:
+    #                 batch_output_layer = get_layer_output(batch_input)
+    #                 # print('Batch {} | Input to FC block: '.format(batch), batch_output_layer)
+    #                 with self.summaryWriter.as_default():
+    #                     tf.summary.histogram(data=tf.convert_to_tensor(batch_output_layer, dtype=tf.float32), name='{}_output'.format(self.layer_name), step=batch, buckets=30, description='aaa')
+
+    def on_epoch_end(self, epoch, logs=None):
+        """ Write to a summary the output of a given layer at the end of each epoch.
+
+        :param epoch: int, epoch
+        :param logs: dict, logs
+        :return:
+        """
+
+        layer = [l for l in self.model.layers if l.name == self.layer_name][0]
+        get_layer_output = tf.keras.backend.function(inputs=self.model.input, outputs=layer.output)
+        data = []
+        for batch_i, (batch_input, batch_label) in enumerate(self.input_fn):
+            if batch_i == 0:
+                batch_output_layer = get_layer_output(batch_input)
+                data.append(batch_output_layer)
+
+        with self.summary_writer.as_default():
+
+            tf.summary.histogram(data=tf.convert_to_tensor([data], dtype=tf.float32),
+                                 name='{}_output'.format(self.layer_name), step=epoch, buckets=self.buckets,
+                                 description=self.description)

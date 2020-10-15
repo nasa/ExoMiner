@@ -5,6 +5,15 @@ import glob
 import paths
 from src_hpo.utils_hpo import estimate_BOHB_runs, logged_results_to_HBS_result  # , json_result_logger
 
+#%% check number of iterations per Successive Halving and per budget
+
+num_iterations = 10
+eta = 2
+bmin, bmax = 5, 50
+nmodels = 3
+nruns, total_budget = estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=nmodels)
+print('Number of runs: {}\nTotal budget: {}'.format(nruns, total_budget))
+
 #%% Compare different HPO studies
 
 paths.path_hpoconfigs = ['/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_dr25tcert_spline_gapped_centroid_oddeven_normpair_ncoe',

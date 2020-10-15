@@ -42,10 +42,13 @@ def run_main(args, bohb_params=None):
     """
 
     if not args.worker:  # create required folders if master node
-        if not os.path.isdir(args.results_directory):
-            os.mkdir(args.results_directory)
-        if not os.path.isdir(args.models_directory):
-            os.mkdir(args.models_directory)
+        os.makedirs(args.results_directory, exist_ok=True)
+        os.makedirs(os.path.join(args.results_directory, 'logs'), exist_ok=True)
+        os.makedirs(args.models_directory, exist_ok=True)
+
+    # for each rank, create a folder to save temporarily the models created for a given run
+    args.model_dir_rank = os.path.join(args.results_directory, 'models_rank{}'.format(args.rank))
+    os.makedirs(args.model_dir_rank, exist_ok=True)
 
     host = hpns.nic_name_to_host(args.nic_name)
 
@@ -139,7 +142,9 @@ def run_main(args, bohb_params=None):
 
 
 if __name__ == '__main__':
-    
+
+    # run_options = tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom=True)
+
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
     print('Rank (size) = {} ({})'.format(rank, size))
@@ -153,8 +158,8 @@ if __name__ == '__main__':
     print('GPU ID for rank {}: {}'.format(rank, gpu_id))    
 
     # print('rank', rank, 'gpu_id', gpu_id)  # , os.environ['CUDA_VISIBLE_DEVICES'])
-    physical_devices = tf.config.list_physical_devices('GPU')
-    print('List of GPUs available to rank {}: {}'.format(rank, physical_devices))
+    # physical_devices = tf.config.list_physical_devices('GPU')
+    # print('List of GPUs available to rank {}: {}'.format(rank, physical_devices))
 
     # tf.config.experimental.set_memory_growth(physical_devices[gpu_id], True)
     # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
@@ -180,7 +185,7 @@ if __name__ == '__main__':
                    'min_bandwidth': 1e-3}
     eta = 2  # Down sampling rate, must be greater or equal to 2
 
-    study = 'hpo_test'  # name of the HPO study
+    study = 'hpo_test2'  # name of the HPO study
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv2
@@ -190,8 +195,8 @@ if __name__ == '__main__':
                            'global_centr_view_std_noclip',
                            'local_centr_view_std_noclip',
                            'local_weak_secondary_view_fluxnorm'
-                          ]
-             }
+                           ]
+              }
 
     nic_name = 'lo'  # 'ib0' or 'lo'; 'ib0' to run on the supercomputer, 'lo' to run on a local host
 
@@ -227,6 +232,7 @@ if __name__ == '__main__':
         'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
         'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
@@ -253,7 +259,7 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr')
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_convscalars')
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
@@ -282,6 +288,8 @@ if __name__ == '__main__':
 
     # directory in which the results are saved
     results_directory = os.path.join(paths.path_hpoconfigs, study)
+
+    verbose = 1
 
     sys.stdout.flush()
 
@@ -344,7 +352,13 @@ if __name__ == '__main__':
     args.config = config
 
     args.rank = rank
-    
-    args.num_gpus = num_gpus
+
+    args.gpu_id = gpu_id
+
+    args.verbose = verbose
+
+    # args.num_gpus = num_gpus
+
+    # args.run_options = run_options
 
     run_main(args, bohb_params)

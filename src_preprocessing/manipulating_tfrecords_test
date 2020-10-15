@@ -705,9 +705,21 @@ assert len(trainTceTbl) == len(trainsetTbl)
 
 # compute training statistics for standardization
 for feature in features:
+
+    # remove missing values
+    if not np.isnan(features[feature]['missing_value']):
+        values = trainTceTbl.loc[trainTceTbl[feature] != features[feature]['missing_value'], feature].values
+    else:
+        values = trainTceTbl[feature].values
+
+    # log transform
+    if features[feature]['log_transform']:
+        values += features[feature]['log_transform_eps']
+        values = np.log10(values)
+
     features[feature].update({
-        'median': np.median(trainTceTbl[feature]),
-        'mad_std': mad_std(trainTceTbl[feature])
+        'median': np.median(values),
+        'mad_std': mad_std(values)
     })
 
 
@@ -762,7 +774,7 @@ srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrec
 srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
 
 # define TFRecords destination
-destTfrecDir = srcTfrecDir + '_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+destTfrecDir = srcTfrecDir + '_convscalars'
 os.makedirs(destTfrecDir, exist_ok=True)
 
 tceIdentifier = 'tce_plnt_num'
@@ -795,3 +807,7 @@ for srcTfrecFile in srcTfrecFiles:
                 example_util.set_float_feature(example, '{}_norm'.format(feature), tceFound[feature].values)
 
             writer.write(example.SerializeToString())
+
+#%%
+
+

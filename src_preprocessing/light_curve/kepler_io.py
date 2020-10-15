@@ -291,7 +291,7 @@ def read_kepler_light_curve(filenames,
             kepid_coord1, kepid_coord2 = hdu_list["PRIMARY"].header["RA_OBJ"], hdu_list["PRIMARY"].header["DEC_OBJ"]
 
             if len(data['target_position']) == 0:
-                data['target_position'] = [288.69058, 46.913929]  # [kepid_coord1, kepid_coord2]
+                data['target_position'] = [kepid_coord1, kepid_coord2]
 
             # TODO: convert target position from RA and Dec to local CCD pixel coordinates
             if not centroid_radec:
