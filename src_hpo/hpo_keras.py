@@ -17,9 +17,9 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 import tensorflow as tf
 
-import paths
-if 'home6' in paths.path_hpoconfigs:
-    import matplotlib; matplotlib.use('agg')
+# import paths
+# if 'home6' in paths.path_hpoconfigs:
+#     import matplotlib; matplotlib.use('agg')
 
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
@@ -44,7 +44,6 @@ def run_main(args, bohb_params=None):
     if not args.worker:  # create required folders if master node
         os.makedirs(args.results_directory, exist_ok=True)
         os.makedirs(os.path.join(args.results_directory, 'logs'), exist_ok=True)
-        os.makedirs(args.models_directory, exist_ok=True)
 
     # for each rank, create a folder to save temporarily the models created for a given run
     args.model_dir_rank = os.path.join(args.results_directory, 'models_rank{}'.format(args.rank))
@@ -142,8 +141,6 @@ def run_main(args, bohb_params=None):
 
 
 if __name__ == '__main__':
-
-    # run_options = tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom=True)
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
@@ -259,7 +256,8 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_convscalars')
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_convscalars'
+                             )
 
     multi_class = False  # multiclass classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
@@ -282,9 +280,6 @@ if __name__ == '__main__':
     # previous run directory; used to warmup start model based optimizers
     prev_run_study = ''
     prev_run_dir = None  # os.path.join(paths.path_hpoconfigs, prev_run_study)
-
-    # directory in which the models are saved
-    models_directory = os.path.join(paths.path_hpomodels, study)
 
     # directory in which the results are saved
     results_directory = os.path.join(paths.path_hpoconfigs, study)
@@ -315,8 +310,6 @@ if __name__ == '__main__':
                         help='Which network interface to use for communication. \'lo\' for local, \'ib0\' '
                              'for Infinity Band.')
 
-    parser.add_argument('--models_directory', type=str, default=models_directory,
-                        help='Directory in which the models are saved.')
     parser.add_argument('--results_directory', type=str, default=results_directory,
                         help='Directory which the results and logs are saved.')
 
@@ -358,7 +351,5 @@ if __name__ == '__main__':
     args.verbose = verbose
 
     # args.num_gpus = num_gpus
-
-    # args.run_options = run_options
 
     run_main(args, bohb_params)

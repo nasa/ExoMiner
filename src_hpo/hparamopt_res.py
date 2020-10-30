@@ -20,7 +20,7 @@ import paths
 
 #%% load results from a HPO study
 
-study = 'ConfigG-bohb_keplerdr25_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband'
+study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -128,17 +128,23 @@ print('Number of random picked configurations: {}'.format(nconfigs_valid - nconf
 # plot 2D histograms for two chosen metrics
 f, ax = plt.subplots()
 if ensemble_study:
-    axh = ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs ],
-              [run.info[metrics_plot[1]][0] for run in all_runs],
-              range=[(0, 1), (0, 1)],
-              bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)],
-              norm=mcolors.LogNorm(),
-              cmap='viridis')
+    # axh = ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
+    #           [run.info[metrics_plot[1]][0] for run in all_runs],
+    #           range=[(0, 1), (0, 1)],
+    #           bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)],
+    #           norm=mcolors.LogNorm(),
+    #           cmap='viridis')
+    axh = ax.hist2d([run.info[metrics_plot[0]] for run in all_runs],
+                    [run.info[metrics_plot[1]] for run in all_runs],
+                    range=[(0, 1), (0, 1)],
+                    bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)],
+                    norm=mcolors.LogNorm(),
+                    cmap='viridis')
 else:
     axh = ax.hist2d([run.info[metrics_plot[0]] for run in all_runs],
-               [run.info[metrics_plot[1]] for run in all_runs],
-               range=[(0, 1), (0, 1)],
-               bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)])
+                    [run.info[metrics_plot[1]] for run in all_runs],
+                    range=[(0, 1), (0, 1)],
+                    bins=[np.linspace(0, 1, num=41, endpoint=True), np.linspace(0, 1, num=41, endpoint=True)])
 ax.grid(True)
 ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
 ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
@@ -150,7 +156,8 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, '2dhist_precision-recall.pn
 
 # rank configurations based on metric
 if ensemble_study:
-    ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric][0], reverse=True)
+    # ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric][0], reverse=True)
+    ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric], reverse=True)
 else:
     ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric], reverse=True)
 # for run in ranked_allruns:
@@ -161,7 +168,8 @@ top_configs_aux = []
 top_configs = []
 for run in ranked_allruns:
     if ensemble_study:
-        if run.info[rankmetric][0] < min_val:
+        # if run.info[rankmetric][0] < min_val:
+        if run.info[rankmetric] < min_val:
             break
     else:
         if run.info[rankmetric] < min_val:
@@ -176,7 +184,8 @@ print('Number of top configs {}'.format(len(top_configs)))
 bins = 'auto'
 f, ax = plt.subplots()
 if ensemble_study:
-    _, bins, _ = ax.hist([run.info[rankmetric][0] for run in top_configs], bins=bins, edgecolor='black')
+    # _, bins, _ = ax.hist([run.info[rankmetric][0] for run in top_configs], bins=bins, edgecolor='black')
+    _, bins, _ = ax.hist([run.info[rankmetric] for run in top_configs], bins=bins, edgecolor='black')
 else:
     _, bins, _ = ax.hist([run.info[rankmetric] for run in top_configs], bins=bins, edgecolor='black')
 ax.set_xlabel('{}'.format(rankmetric))
@@ -209,6 +218,7 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(
 # returns the best configuration over time/over cumulative budget
 nmodels = 3
 hpo_loss = 'val_auc_pr'  # 'pr auc'
+budget_chosen = 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
@@ -228,10 +238,15 @@ for run_i, run in enumerate(timesorted_allruns):
 
     cum_budget += int(run.budget) * nmodels
 
+    if budget_chosen != 'all':
+
+        if run.budget != budget_chosen:
+            continue
+
     if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
 
         if run.loss < bconfig_loss:
-            print('Best config so far: {} ({})'. format(run.config_id, run.loss))
+            print('Best config so far: {} ({} on budget {})'. format(run.config_id, run.loss, run.budget))
 
         # add timestamp and cumulated budget to the arrays
         cum_budget_vec.append(cum_budget)
@@ -273,11 +288,11 @@ for run_i, run in enumerate(timesorted_allruns):
             bconfig_loss = run.loss
 
 f, ax = plt.subplots()
-ax.plot(timestamps, tinc_hpoloss, label=study)
+ax.plot(timestamps, tinc_hpoloss, label='Ensemble')
 ax.scatter(timestamps, tinc_hpoloss, c='r')
 if ensemble_study:
     ax.errorbar(timestamps, tinc_hpoloss_centraltend,
-                tinc_hpoloss_dev, capsize=5)
+                tinc_hpoloss_dev, capsize=5, label='Single model variability')
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_ylim(top=1)
@@ -286,25 +301,29 @@ ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
 ax.grid(True, which='both')
+ax.legend()
+plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
 plt.subplots_adjust(left=0.145)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'walltime-hpoloss.png'))
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'walltime-hpoloss_budget_{}.png'.format(budget_chosen)))
 
 f, ax = plt.subplots()
-ax.plot(cum_budget_vec, tinc_hpoloss, label=study)
+ax.plot(cum_budget_vec, tinc_hpoloss, label='Ensemble')
 ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
 if ensemble_study:
     ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
-                tinc_hpoloss_dev, capsize=5)
+                tinc_hpoloss_dev, capsize=5, label='Single model variability')
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_ylim(top=1)
+ax.legend()
 # ax.set_xlim(right=1e5)
 ax.set_ylabel('Optimization loss')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')
 ax.grid(True, which='both')
+plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
 plt.subplots_adjust(left=0.145)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'cumbudget-hpoloss.png'))
+f.savefig(os.path.join(paths.path_hpoconfigs, study, 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen)))
 
 
 #%% Study analysis plots

@@ -852,7 +852,7 @@ class TransitClassifier(Worker):
         # initialize epochs array
         epochs = np.arange(1, int(budget) + 1)
 
-        alpha = 0.1
+        alpha = 0.3
 
         # plot loss and optimization metric as function of the epochs
         f, ax = plt.subplots(1, 2)
@@ -865,7 +865,7 @@ class TransitClassifier(Worker):
         for test_loss_i in res_models['test_loss']['all scores']:
             ax[0].scatter(epochs[-1], test_loss_i, c='k', alpha=alpha)
         ax[0].scatter(epochs[-1], res_ensemble['test_loss'], c='k', label='Test')
-        ax[0].set_xlim([0, epochs[-1]])
+        ax[0].set_xlim([0, epochs[-1] + 1])
         # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
@@ -883,7 +883,7 @@ class TransitClassifier(Worker):
         for test_hpoloss_i in res_models['test_{}'.format(self.hpo_loss)]['all scores']:
             ax[1].scatter(epochs[-1], test_hpoloss_i, c='k', alpha=alpha)
         ax[1].scatter(epochs[-1], res_ensemble['test_{}'.format(self.hpo_loss)], label='Test', c='k')
-        ax[1].set_xlim([0, epochs[-1]])
+        ax[1].set_xlim([0, epochs[-1] + 1])
         # ax[1].set_ylim([0.0, 1.05])
         ax[1].grid(True)
         ax[1].set_xlabel('Epochs')

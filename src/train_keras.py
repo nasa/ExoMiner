@@ -664,7 +664,7 @@ if __name__ == '__main__':
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'keras_test'  # 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'
+    study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_nopps'
 
     # results directory
     save_path = os.path.join(paths.pathtrainedmodels, study)
@@ -675,14 +675,14 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_starshuffle_experiment-labels-norm_nopps'
                              )
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'hpo_test'
+    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
 
     # set configuration manually. Set to None to use a configuration from an HPO study
-    config = {"conv_ls_per_block": 3, "dropout_rate": 0.01738165655902395, "dropout_rate_fc_conv": 0.03578260216791814, "init_conv_filters": 6, "init_fc_neurons": 512, "kernel_size": 1, "kernel_stride": 1, "lr": 1.8343300091857058e-05, "num_fc_conv_units": 128, "num_fc_layers": 2, "num_glob_conv_blocks": 5, "num_loc_conv_blocks": 1, "optimizer": "Adam", "pool_size_glob": 3, "pool_size_loc": 8, "pool_stride": 1}
+    config = None
 
     # set the configuration from an HPO study
     if config is None:
@@ -768,12 +768,9 @@ if __name__ == '__main__':
     }
 
     data_augmentation = False  # if True, uses online data augmentation in the training set
-    online_preproc_params = {'num_bins_global': 2001, 'num_bins_local': 201, 'num_transit_dur': 9}
+    online_preproc_params = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 6}
 
-    # args_inputfn = {'features_set': features_set, 'data_augmentation': data_augmentation,
-    #                 'scalar_params_idxs': scalar_params_idxs}
-
-    n_models = 1  # number of models in the ensemble
+    n_models = 10  # number of models in the ensemble
     n_epochs = 300  # number of epochs used to train each model
     multi_class = False  # multi-class classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}

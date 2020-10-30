@@ -25,7 +25,7 @@ class Config:
     # TFRecords base name
     # tfrecords_base_name = 'test_q1q17dr25scr1'
     # tfrecords_base_name = 'tfrecordstess_spoctois_g2001-l201_spline_nongapped_flux-centroid-oddeven-6stellar'
-    tfrecords_base_name = 'test_changes_preprocessing_code_var'
+    tfrecords_base_name = 'testing_configK_tces_badpreprocessing_10-29-2020'
 
     # TFRecords root directory
     tfrecords_dir = os.path.join('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -57,7 +57,7 @@ class Config:
     gapped = False
     gap_keep_overlap = True
     gap_padding = 1
-    gap_padding_primary = 2
+    gap_padding_primary = 3
     gap_imputed = False  # add noise to gapped light curves
     # gap transits of other TCEs only if highly confident these TCEs are planets
     gap_with_confidence_level = False
@@ -118,7 +118,13 @@ class Config:
     if satellite.startswith('kepler'):
 
         # TCE table filepath
-        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval.csv'
+        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
+        #                      'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_' \
+        #                      'nomissingval.csv'
+        # secondary phase changed
+        input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'\
+                             'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_'\
+                             'nomissingval_symsecphase_koiephem.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'old/q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \

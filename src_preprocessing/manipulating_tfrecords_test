@@ -347,10 +347,11 @@ for srcTfrecFile in srcTfrecFiles:
 #%% Remove Possible Planets from dataset
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois_norogues.csv')
 
 tceIdentifier = 'tce_plnt_num'
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm'
+srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_starshuffle_experiment-labels-norm'
 srcTfrecFiles = [os.path.join(srcTfrecDir, file) for file in os.listdir(srcTfrecDir) if 'shard' in file]
 srcTfrecFiles = [file for file in srcTfrecFiles if not file.endswith('.csv')]
 destTfrecDir = srcTfrecDir + '_nopps'
@@ -492,18 +493,15 @@ for srcTfrecFile in srcTfrecFiles:
 
 plt.switch_backend('agg')
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_' \
-           'nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_' \
-           'g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_' \
-           'starshuffle_experiment-labels-norm'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_starshuffle_experiment-labels-norm_nopps'
 plotDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/' \
-          'analyze_wks_9-25-2020'
+          'test_set_misclassified_configK_nopps_CertifiedFPs_10-26-2020'
 os.makedirs(plotDir, exist_ok=True)
 tfrecFiles = [os.path.join(tfrecDir, file) for file in os.listdir(tfrecDir) if 'shard' in file]
 
-# rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/misclassified_analysis/'
-#                          'configH_9-21-2020/ranking_Confirmed KOI_trainset.csv')[-29:]
-tce = (6587796, 1)
+rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/misclassified_analysis/'
+                         'configK_nopps_10-26-2020/ranking_Certified FP_testset.csv')[:4]
+# tce = (6587796, 1)
 
 tceIdentifier = 'tce_plnt_num'
 views = [
@@ -538,25 +536,50 @@ views = [
     # 'local_centr_view_medn',
     'global_centr_fdl_view',
     'local_centr_fdl_view',
-    'global_centr_fdl_view_norm',
-    'local_centr_fdl_view_norm',
+    # 'global_centr_fdl_view_norm',
+    # 'local_centr_fdl_view_norm',
 ]
 
-scalarParams = {
-    'tce_steff': 0,
-    'tce_slogg': 1,
-    'tce_smet': 2,
-    'tce_sradius': 3,
-    # 'wst_robstat': 4,
-    # 'wst_depth': 5,
-    # 'tce_bin_oedp_stat': 6,
-    'boot_fap': 7,
-    'tce_smass': 8,  # 4
-    'tce_sdens': 9,  # 5
-    'tce_cap_stat': 10,
-    'tce_hap_stat': 11,
-    'tce_rb_tcount0': 12
-}
+# scalarParams = {
+#     'tce_steff': 0,
+#     'tce_slogg': 1,
+#     'tce_smet': 2,
+#     'tce_sradius': 3,
+#     # 'wst_robstat': 4,
+#     # 'wst_depth': 5,
+#     # 'tce_bin_oedp_stat': 6,
+#     'boot_fap': 7,
+#     'tce_smass': 8,  # 4
+#     'tce_sdens': 9,  # 5
+#     'tce_cap_stat': 10,
+#     'tce_hap_stat': 11,
+#     'tce_rb_tcount0': 12
+# }
+
+scalarParams = [
+    'tce_period',
+    'tce_duration',
+    'transit_depth',
+    'tce_max_mult_ev',
+    # 'tce_model_snr',
+    # 'tce_maxmesd',
+    'tce_ptemp',
+    'tce_albedo',
+    'tce_dicco_msky',
+    'tce_dicco_msky_err',
+    'tce_dikco_msky',
+    'tce_dikco_msky_err',
+    'tce_steff',
+    'tce_slogg',
+    'tce_smet',
+    'tce_sradius',
+    'boot_fap',
+    'tce_smass',
+    'tce_sdens',
+    'tce_cap_stat',
+    'tce_hap_stat',
+    'tce_rb_tcount0',
+]
 
 scheme = (3, 6)
 basename = 'views'  # basename for figures
@@ -573,29 +596,34 @@ for tfrecFile in tfrecFiles:
         tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
-        # if len(rankingTbl.loc[(rankingTbl['target_id'] == targetIdTfrec) &
-        #                       (rankingTbl[tceIdentifier] == tceIdentifierTfrec)]) == 0:
-        #     continue
-        if tce != (targetIdTfrec, tceIdentifierTfrec):
+        if len(rankingTbl.loc[(rankingTbl['target_id'] == targetIdTfrec) &
+                              (rankingTbl[tceIdentifier] == tceIdentifierTfrec)]) == 0:
             continue
+        # if tce != (targetIdTfrec, tceIdentifierTfrec):
+        #     continue
 
-        scalarParamsTfrec = np.array(example.features.feature['scalar_params'].float_list.value)
+        # scalarParamsTfrec = np.array(example.features.feature['scalar_params'].float_list.value)
         scalarParamsStr = ''
         for scalarParam_i, scalarParam in enumerate(scalarParams):
-            scalarParamNonNormalized = np.array(example.features.feature[scalarParam].float_list.value)[0]
+            if scalarParam in ['tce_rb_tcount0', 'tce_steff']:
+                scalarParamNonNormalized = np.array(example.features.feature[scalarParam].int64_list.value)[0]
+            else:
+                scalarParamNonNormalized = np.array(example.features.feature[scalarParam].float_list.value)[0]
+            scalarParamNormalized = np.array(example.features.feature['{}_norm'.format(scalarParam)].float_list.value)[0]
             if scalarParam_i % 5 == 0:
                 scalarParamsStr += '\n'
-            if scalarParam == 'boot_fap':
-                scalarParamsStr += '{}={:.4E}({:.4E}) '.format(scalarParam,
-                                                               scalarParamsTfrec[scalarParams[scalarParam]],
-                                                               scalarParamNonNormalized)
-            elif scalarParam in ['tce_rb_tcount0', 'tce_steff']:
-                scalarParamsStr += '{}={:.4f}({})  '.format(scalarParam,
-                                                            scalarParamsTfrec[scalarParams[scalarParam]],
+            if scalarParam in ['boot_fap']:
+                scalarParamsStr += '{}={:.4f}({:.4E}) '.format(scalarParam,
+                                                               scalarParamNonNormalized,
+                                                               scalarParamNormalized)
+            elif scalarParam in ['tce_rb_tcount0', 'tce_steff', 'transit_depth', 'tce_max_mult_ev',
+                                 'tce_model_snr', 'tce_ptemp']:
+                scalarParamsStr += '{}={:.4f}({:.0f})  '.format(scalarParam,
+                                                            scalarParamNormalized,
                                                             scalarParamNonNormalized)
             else:
                 scalarParamsStr += '{}={:.4f}({:.4f})  '.format(scalarParam,
-                                                                scalarParamsTfrec[scalarParams[scalarParam]],
+                                                                scalarParamNormalized,
                                                                 scalarParamNonNormalized)
 
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
@@ -604,7 +632,7 @@ for tfrecFile in tfrecFiles:
         for view in views:
             viewsDict[view] = np.array(example.features.feature[view].float_list.value)
 
-        f, ax = plt.subplots(scheme[0], scheme[1], figsize=(22, 18))
+        f, ax = plt.subplots(scheme[0], scheme[1], figsize=(22, 12))
         k = 0
         views_list = list(viewsDict.keys())
         for i in range(scheme[0]):
@@ -629,6 +657,7 @@ for tfrecFile in tfrecFiles:
                             wspace=0.394)
         plt.savefig(os.path.join(plotDir, '{}_{}_{}_{}.png'.format(targetIdTfrec, tceIdentifierTfrec, labelTfrec,
                                                                    basename)))
+        # aaaa
         plt.close()
 
 #%% Add scalar features to the TFRecords
@@ -807,7 +836,3 @@ for srcTfrecFile in srcTfrecFiles:
                 example_util.set_float_feature(example, '{}_norm'.format(feature), tceFound[feature].values)
 
             writer.write(example.SerializeToString())
-
-#%%
-
-

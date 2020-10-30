@@ -10,18 +10,20 @@ import os
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/misclassified_analysis/'
 experimentRootDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
 
-experiment = 'keplerdr25_g301-l31_spline_nongapped_norobovetterkois_starshuffle_configH_glflux-glcentr_std_noclip-' \
-             'lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband_prelu'
+experiment = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_nopps'
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.15_15.12.12_stellar_koi_cfp_norobovetterlabels_renamedcols_'
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
                      'rmcandandfpkois_norogues.csv')
 
 dispToCheck = {
-    'Possible Planet KOI': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED')],
+    # 'Possible Planet KOI': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') &
+    #                                   (tceTbl['koi_disposition'] != 'CONFIRMED')],
     'Confirmed KOI': tceTbl.loc[tceTbl['koi_disposition'] == 'CONFIRMED'],
-    'Certified FP': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FP') & (tceTbl['koi_disposition'] != 'CONFIRMED')],
-    'Certified FA': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FA') & (tceTbl['koi_disposition'] != 'CONFIRMED')],
+    'Certified FP': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FP') &
+                               (tceTbl['koi_disposition'] != 'CONFIRMED')],
+    'Certified FA': tceTbl.loc[(tceTbl['fpwg_disp_status'] == 'CERTIFIED FA') &
+                               (tceTbl['koi_disposition'] != 'CONFIRMED')],
     'Candidate KOI': tceTbl.loc[tceTbl['koi_disposition'] == 'CANDIDATE'],
     'Non-KOI': tceTbl.loc[tceTbl['koi_disposition'].isna()],
 }

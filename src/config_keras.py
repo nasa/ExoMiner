@@ -45,10 +45,14 @@ def add_default_missing_params(config):
         'batch_size': 32,
         # 'optimizer': 'SGD',
         # 'lr': 1e-5,
-        'k_arr': {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]},
+        # 'k_arr': {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]},
+        'k_arr': {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]},  # no PPs
         'k_curve_arr': {
-            'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
-            'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+            # 'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+            # 'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+            # 'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+            'train': np.linspace(25, 1800, 100, endpoint=True, dtype='int'),  # no PPs
+            'val': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
             'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
         }
     }

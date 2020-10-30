@@ -117,6 +117,8 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
             result[i] = np.median(y[j_start:j_end])
             # result_var[i] = np.std(y[j_start:j_end], ddof=1)
             result_var[i] = stats.mad_std(y[j_start:j_end])
+            # _, result[i], result_var[i] = stats.sigma_clipped_stats(y[j_start:j_end], sigma=2, maxiters=10)
+
             result_time[i] = bin_min + bin_width / 2
 
         # Advance the bin.

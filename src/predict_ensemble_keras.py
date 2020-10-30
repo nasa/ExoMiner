@@ -21,7 +21,9 @@ if 'home6' in paths.path_hpoconfigs:
     import matplotlib
     matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from src.utils_dataio import InputFn, get_data_from_tfrecord
+# from src.utils_dataio import InputFn
+from src.utils_dataio import get_data_from_tfrecord
+from src.utils_dataio import InputFnv2 as InputFn
 from src.models_keras import create_ensemble
 import src.config_keras
 from src_hpo import utils_hpo
@@ -245,9 +247,6 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     :param fields: list, fields to extract from the TFRecords datasets
     :param generate_csv_pred: bool, if True also generates a prediction ranking for the specified datasets
     :param scalar_params_idxs: list, indexes of scalar parameters in the TFRecords to be used as features
-    # :param mpi_rank: int, rank of the mpi process used to distribute the models for the GPUs; set to None when not
-    # training multiple models in multiple GPUs in parallel
-    # :param ngpus_per_node: int, number of GPUs per node when training/evaluating multiple models in parallel
     :return:
     """
 
@@ -460,16 +459,14 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
 if __name__ == '__main__':
 
-    # SCRIPT PARAMETERS #############################################
-
     # name of the study
-    study = 'keplerdr25_g2001-l201_spline_gbal_nongapped_norobovetterkois_starshuffle_configD_glflux-6stellar_prelu'
+    study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_koiephem_nopps_nokoiephemtest'
 
     # TFRecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_diffimg_kic_oot_coff-mes-wksmaxmes-wksalbedo-wksptemp-deptherr-perioderr-durationerr'
+                             '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_starshuffle_experiment-labels-norm_nopps'
                              )
 
     print('Selected TFRecord files directory: {}'.format(tfrec_dir))
@@ -518,7 +515,7 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'ConfigE-bohb_keplerdr25_g2001-l201_spline_gbal_nongapped_starshuffle_norobovetterkois_glflux-glcentr-loe-lwks-6stellar-bfap-ghost-rollingband'
+    hpo_study =  'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
 
     # set the configuration from a HPO study
     if config is None:
@@ -601,7 +598,7 @@ if __name__ == '__main__':
 
     # get models for the ensemble
     models_dir = os.path.join(paths.pathtrainedmodels,
-                              study,
+                              'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_koiephem_nopps',  # study,
                               'models')
     models_filepaths = [os.path.join(models_dir, model_dir, '{}.h5'.format(model_dir))
                         for model_dir in os.listdir(models_dir)
@@ -611,8 +608,6 @@ if __name__ == '__main__':
     save_path = os.path.join(paths.pathresultsensemble, study)
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-
-    # SCRIPT PARAMETERS #############################################
 
     run_main(config=config,
              features_set=features_set,
