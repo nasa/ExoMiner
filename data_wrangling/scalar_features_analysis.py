@@ -533,19 +533,30 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 #%% Plot histograms of non-normalized scalar features from the TCE table
 
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
-          'diffimgcentr_fwcentr_ptemp_albedo_durationerr_perioderr_deptherr_9-30-2020'
+          'prad-period_12-2-2020'
+os.makedirs(saveDir, exist_ok=True)
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
-                     'rmcandandfpkois_norogues.csv')
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec.csv')
+
+# remove Possible Planet KOIs
+tceTbl = tceTbl.loc[~((tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED'))]
 
 features = [
     # 'tce_albedo',
+    # 'tce_albedo_err',
+    # 'tce_albedo_stat',
     # 'tce_ptemp',
+    # 'tce_ptemp_err',
+    # 'tce_ptemp_stat',
+    # 'wst_depth',
+    # 'tce_maxmes',
+    # 'tce_eqt',
     # 'transit_depth',
     # 'tce_depth_err',
     # 'tce_duration',
     # 'tce_duration_err',
+    'tce_prad',
     'tce_period',
     # 'tce_period_err',
     # 'tce_dikco_msky',
@@ -565,28 +576,36 @@ features = [
 ]
 
 bins = {
-    'tce_albedo': np.linspace(0, 100, 50, endpoint=True),
-    'tce_ptemp': np.linspace(0, 1e4, 50, endpoint=True),
-    'transit_depth': np.linspace(0, 1e4, 50, endpoint=True),
-    'tce_depth_err': np.linspace(-1, 100, 50, endpoint=True),
-    'tce_duration': np.linspace(0, 100, 50, endpoint=True),
-    'tce_duration_err': np.linspace(-1, 20, 50, endpoint=True),
+    # 'tce_eqt': np.linspace(-1e4, 1e4, 50, endpoint=True),
+    # 'tce_albedo': np.linspace(0, 100, 50, endpoint=True),
+    # 'tce_albedo_err': np.linspace(-10, 100, 50, endpoint=True),
+    # 'tce_albedo_stat': np.linspace(-4, 4, 50, endpoint=True),
+    # 'tce_ptemp': np.linspace(0, 1e4, 50, endpoint=True),
+    # 'tce_ptemp_err': np.linspace(-10, 1e3, 50, endpoint=True),
+    # 'tce_ptemp_stat': np.linspace(-10, 10, 50, endpoint=True),
+    # 'tce_maxmes': np.linspace(0, 100, 50, endpoint=True),
+    # 'wst_depth': np.linspace(-1e4, 1e4, 100, endpoint=True),
+    # 'transit_depth': np.linspace(0, 1e4, 50, endpoint=True),
+    # 'tce_depth_err': np.linspace(-1, 100, 50, endpoint=True),
+    # 'tce_duration': np.linspace(0, 100, 50, endpoint=True),
+    # 'tce_duration_err': np.linspace(-1, 20, 50, endpoint=True),
+    'tce_prad': np.linspace(0, 20, 100, endpoint=True),
     'tce_period': np.linspace(0, 800, 100, endpoint=True),
-    'tce_period_err': np.linspace(0, 0.1, 100, endpoint=True),
-    'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
-    'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
-    'tce_dicco_msky': np.linspace(0, 20, 50, endpoint=True),
-    'tce_dicco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
-    'tce_fwm_stat': np.linspace(0, 1000, 50, endpoint=True),
-    'tce_fwm_srao': np.linspace(-100, 100, 50, endpoint=True),
-    'tce_fwm_srao_err': np.linspace(-100, 100, 50, endpoint=True),
-    'tce_fwm_sdeco': np.linspace(-100, 100, 50, endpoint=True),
-    'tce_fwm_sdeco_err': np.linspace(-10, 100, 50, endpoint=True),
-    'tce_fwm_prao': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
-    'tce_fwm_prao_err': np.linspace(0, 1e-1, 50, endpoint=True),
-    'tce_fwm_pdeco': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
-    'tce_fwm_pdeco_err': np.linspace(0, 1e-1, 50, endpoint=True),
-    'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True)
+    # 'tce_period_err': np.linspace(0, 0.1, 100, endpoint=True),
+    # 'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
+    # 'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    # 'tce_dicco_msky': np.linspace(0, 20, 50, endpoint=True),
+    # 'tce_dicco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    # 'tce_fwm_stat': np.linspace(0, 1000, 50, endpoint=True),
+    # 'tce_fwm_srao': np.linspace(-100, 100, 50, endpoint=True),
+    # 'tce_fwm_srao_err': np.linspace(-100, 100, 50, endpoint=True),
+    # 'tce_fwm_sdeco': np.linspace(-100, 100, 50, endpoint=True),
+    # 'tce_fwm_sdeco_err': np.linspace(-10, 100, 50, endpoint=True),
+    # 'tce_fwm_prao': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
+    # 'tce_fwm_prao_err': np.linspace(0, 1e-1, 50, endpoint=True),
+    # 'tce_fwm_pdeco': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
+    # 'tce_fwm_pdeco_err': np.linspace(0, 1e-1, 50, endpoint=True),
+    # 'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True)
 }
 
 log_yscale = [
@@ -606,6 +625,7 @@ log_yscale = [
     'transit_depth',
     'tce_duration',
     'tce_period',
+    'wst_depth',
 ]
 
 for feature in features:

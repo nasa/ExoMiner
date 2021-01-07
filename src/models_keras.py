@@ -587,8 +587,9 @@ class CNN1dPlanetFinderv2(object):
                     scalar_input = tf.keras.layers.Concatenate(axis=1, name='wks_scalar_input')(
                         [
                         self.inputs['tce_maxmes_norm'],
-                        self.inputs['tce_albedo_norm'],
-                        self.inputs['tce_ptemp_norm']
+                        self.inputs['tce_albedo_stat_norm'],
+                        self.inputs['tce_ptemp_stat_norm'],
+                        self.inputs['wst_depth_norm']
                         ])
 
                     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -603,6 +604,7 @@ class CNN1dPlanetFinderv2(object):
                             self.inputs['tce_dikco_msky_err_norm'],
                             self.inputs['tce_dicco_msky_norm'],
                             self.inputs['tce_dicco_msky_err_norm'],
+                            self.inputs['tce_fwm_stat_norm']
                         ])
 
                     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -698,6 +700,8 @@ class CNN1dPlanetFinderv2(object):
                 self.inputs['tce_hap_stat_norm'],
                 self.inputs['tce_rb_tcount0_norm'],
                 self.inputs['boot_fap_norm'],
+                self.inputs['tce_period_norm'],
+                self.inputs['tce_prad_norm']
             ])
 
         net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')([
@@ -1496,26 +1500,6 @@ class Exonet_XS(object):
         outputs = self.build_fc_layers(net)
 
         return outputs
-
-
-class Ensemble(object):
-
-    def __init__(self, config, features, models):
-
-        # model configuration (parameters and hyperparameters)
-        self.config = config
-        self.features = features
-
-        if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
-            self.output_size = max(config['label_map'].values()) + 1
-        else:  # binary classification with sigmoid output layer
-            self.output_size = 1
-
-        self.inputs = self.create_inputs()
-
-        self.outputs = self.create_ensemble(models)
-
-        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
 
 def create_inputs(features, scalar_params_idxs):

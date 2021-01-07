@@ -191,7 +191,8 @@ if __name__ == '__main__':
                            'local_flux_oddeven_views',
                            'global_centr_view_std_noclip',
                            'local_centr_view_std_noclip',
-                           'local_weak_secondary_view_fluxnorm'
+                           # 'local_weak_secondary_view_fluxnorm',
+                           'local_weak_secondary_view_selfnorm'
                            ]
               }
 
@@ -222,17 +223,22 @@ if __name__ == '__main__':
     features_set = {
         'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
         'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
@@ -256,7 +262,7 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_starshuffle_experiment-labels-norm_convscalars'
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollingband_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_starshuffle_experiment-labels-norm_nopps_ptempstat-albedostat-wstdepth-fwmstat'
                              )
 
     multi_class = False  # multiclass classification
@@ -275,7 +281,7 @@ if __name__ == '__main__':
     config = config_keras.add_default_missing_params(config=config)
     config['non_lin_fn'] = 'prelu'
 
-    print('Base configuration used: ', config)
+    # print('Base configuration used: ', config)
 
     # previous run directory; used to warmup start model based optimizers
     prev_run_study = ''

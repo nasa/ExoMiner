@@ -8,6 +8,7 @@ import pickle
 import pandas as pd
 from tensorflow.compat.v1 import logging as tf_logging
 import numpy as np
+import json
 
 
 def load_whitened_data(config):
@@ -20,9 +21,9 @@ def load_whitened_data(config):
     :return:
     """
 
-    flux_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_flux')
+    flux_files = [i for i in os.listdir(config['whitened_dir']) if i.startswith('DR25_readout_flux')
                   and not i.endswith('(copy)')]
-    time_files = [i for i in os.listdir(config.whitened_dir) if i.startswith('DR25_readout_time')
+    time_files = [i for i in os.listdir(config['whitened_dir']) if i.startswith('DR25_readout_time')
                   and not i.endswith('(copy)')]
 
     # FIXME: I am not a fan of using global variables...
@@ -41,27 +42,27 @@ def load_whitened_data(config):
 def get_kepler_tce_table(config):
     """ Get TCE ephemeris table for Kepler.
 
-    :param config: Config object, preprocessing parameter
+    :param config: dict, preprocessing parameters
     :return:
         tce_table: pandas DataFrame, table with complete ephemeris table used when gapping the time series
     """
 
-    # Read the CSV file of Kepler KOIs.
+    # read the CSV file of Kepler KOIs.
     # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
-    tce_table = pd.read_csv(config.input_tce_csv_file)
+    tce_table = pd.read_csv(config['input_tce_csv_file'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 
-    tf_logging.info("Read TCE CSV file with %d rows.", len(tce_table))
+    tf_logging.info(f'Read TCE CSV file with {len(tce_table)} rows.')
 
-    if config.using_mpi:  # when using MPI processes to preprocess chunks of the TCE table in parallel
+    if config['using_mpi']:  # when using MPI processes to preprocess chunks of the TCE table in parallel
 
-        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config.n_processes + 1)]
-        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config.n_processes)][config.process_i]
+        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config['n_processes'] + 1)]
+        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config['process_i']]
 
         shard_tce_table = tce_table[indices[0]:indices[1]]
 
-        if not config.gapped:
+        if not config['gapped']:
             tce_table = None
 
         return shard_tce_table, tce_table
@@ -72,28 +73,29 @@ def get_kepler_tce_table(config):
 def get_tess_tce_table(config):
     """ Get TCE ephemeris table for TESS.
 
-    :param config: Config object, contains the preprocessing parameters
+    :param config: dict, contains the preprocessing parameters
     :return:
         tce_table: pandas DataFrame, table with ephemeris table
     """
 
-    # Read the CSV file of TESS TOIs.
+    # read the CSV file of TESS TOIs.
     # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
-    tce_table = pd.read_csv(config.input_tce_csv_file, comment="#")
+    # tce_table = pd.read_csv(config['input_tce_csv_file'], comment="#")
+    tce_table = pd.read_csv(config['input_tce_csv_file'])
 
     # convert transit duration from hour to day
     tce_table["tce_duration"] /= 24
 
-    tf_logging.info("Read TCE CSV file with %d rows.", len(tce_table))
+    tf_logging.info(f'Read TCE CSV file with {len(tce_table)} rows.')
 
-    if config.using_mpi:  # when using MPI processes to preprocess chunks of the TCE table in parallel
+    if config['using_mpi']:  # when using MPI processes to preprocess chunks of the TCE table in parallel
 
-        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config.n_processes + 1)]
-        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config.n_processes)][config.process_i]
+        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config['n_processes'] + 1)]
+        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config.process_i]
 
         shard_tce_table = tce_table[indices[0]:indices[1]]
 
-        if not config.gapped:
+        if not config['gapped']:
             tce_table = None
 
         return shard_tce_table, tce_table
@@ -122,18 +124,32 @@ def shuffle_tce(tce_table, seed=123):
 def normalize_params_tce_table(config):
     """ Normalize parameters in the TCE table.
 
-    :param config: Config, object with preprocessing configuration parameters
+    :param config: dict with preprocessing configuration parameters
     :return:
         tce_tbl_norm_fp: str, filepath to TCE table with normalized parameters
     """
 
     # load the TCE table
-    tce_tbl = pd.read_csv(config.input_tce_csv_file)
+    tce_tbl = pd.read_csv(config['input_tce_csv_file'])
 
     # filepath to normalized TCE table
-    tce_tbl_norm_fp = '{}_normalized.csv'.format(config.input_tce_csv_file.replace('.csv', ''))
+    tce_tbl_norm_fp = '{}_normalized.csv'.format(config['input_tce_csv_file'].replace('.csv', ''))
 
     # save TCE table with normalized parameters
     tce_tbl.to_csv(tce_tbl_norm_fp, index=False)
 
     return tce_tbl_norm_fp
+
+
+def is_jsonable(x):
+    """ Test if object is JSON serializable.
+
+    :param x: object
+    :return:
+    """
+
+    try:
+        json.dumps(x)
+        return True
+    except:
+        return False

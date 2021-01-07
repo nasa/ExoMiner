@@ -1,6 +1,4 @@
-"""
-Match TCEs with their secondary event that was also detected as a TCE.
-"""
+""" Match TCEs with their secondary event that was also detected as a TCE. """
 
 import os
 import pandas as pd

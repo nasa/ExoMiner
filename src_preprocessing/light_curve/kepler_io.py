@@ -23,7 +23,7 @@ from tensorflow.io import gfile
 from astropy import wcs
 
 from src_preprocessing.light_curve import util
-from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
+# from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 
 # Quarter index to filename prefix for long cadence Kepler data.
 # Reference: https://archive.stsci.edu/kepler/software/get_kepler.py
@@ -296,10 +296,6 @@ def read_kepler_light_curve(filenames,
             # TODO: convert target position from RA and Dec to local CCD pixel coordinates
             if not centroid_radec:
                 pass
-
-            # uncomment to get only TCEs from module 13
-            # if module != 13:
-            #     return None, None, None, None
 
             light_curve = hdu_list[light_curve_extension].data
 

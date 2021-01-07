@@ -1,31 +1,80 @@
 import numpy as np
 import pandas as pd
-import os
+from pathlib import Path
+from datetime import datetime
+import logging
 
 #%% create training, validation and test datasets
 
-experimentTceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                               'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_'
-                               'noRobovetterKOIs.csv')
+# saving directory
+destTfrecDir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/'
+                    f'split_{datetime.now().strftime("%m-%d-%Y_%H-%M")}')
+destTfrecDir.mkdir(exist_ok=True)
 
-destTfrecDir = ''
+# set up logger
+logger = logging.getLogger(name='split_dataset_run')
+logger_handler = logging.FileHandler(filename=destTfrecDir / f'split_dataset.log', mode='w')
+logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+logger.setLevel(logging.INFO)
+logger_handler.setFormatter(logger_formatter)
+logger.addHandler(logger_handler)
+logger.info(f'Starting run...')
+
+rnd_seed = 24  # random seed
+logger.info(f'Setting random seed to {rnd_seed}')
+rng = np.random.default_rng(rnd_seed)
+
+# source TCE table
+# experimentTceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                                'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_'
+#                                'noRobovetterKOIs.csv')
+experimentTceTbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'\
+                           'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_'\
+                           'nomissingval_symsecphase_confirmedkoiperiod_sec.csv')
+experimentTceTbl = pd.read_csv(experimentTceTbl_fp)
+experimentTceTbl.sort_values(['target_id', 'tce_plnt_num'], ascending=True, inplace=True)
+experimentTceTbl.reset_index(drop=True, inplace=True)
+# remove rogue TCEs
+experimentTceTbl = experimentTceTbl.loc[experimentTceTbl['tce_rogue_flag'] == 0]
+# keep only CONFIRMED KOIs, CFP, CFA and POSSIBLE PLANET KOIs, and non-KOI
+experimentTceTbl = experimentTceTbl.loc[(experimentTceTbl['koi_disposition'] == 'CONFIRMED') |
+                                        (experimentTceTbl['fpwg_disp_status'].isin(['CERTIFIED FP',
+                                                                                    'CERTIFIED FA',
+                                                                                    'POSSIBLE PLANET'])) |
+                                        experimentTceTbl['kepoi_name'].isna()]
+experimentTceTbl.reset_index(drop=True, inplace=True)
+
+logger.info(f'Number of TCEs after removing KOIs dispositioned by Robovetter: {len(experimentTceTbl)}')
+
+# set labels
+experimentTceTbl[['label']] = 'NTP'
+experimentTceTbl.loc[experimentTceTbl['koi_disposition'] == 'CONFIRMED', ['label']] = 'PC'
+experimentTceTbl.loc[(experimentTceTbl['koi_disposition'] != 'CONFIRMED') &
+                     (experimentTceTbl['fpwg_disp_status'] == 'CERTIFIED FP'), ['label']] = 'AFP'
+
+logger.info(experimentTceTbl['label'].value_counts())
+
+experimentTceTbl.to_csv(destTfrecDir / f'{experimentTceTbl_fp.stem}_allTCEs.csv', index=False)
 
 # shuffle per target stars
+target_star_grps = [df for _, df in experimentTceTbl.groupby('target_id')]
+rng.shuffle(target_star_grps)
+experimentTceTbl = pd.concat(target_star_grps, axis=0).reset_index(drop=True)
 targetStars = experimentTceTbl['target_id'].unique()
 numTargetStars = len(targetStars)
 
-dataset_frac = {'train': 0.8, 'val': 0.1, 'test': 0.1}
+dataset_frac = {'train': 0.5, 'val': 0.25, 'test': 0.25}
+logger.info(f'Dataset split: {dataset_frac}')
 
 assert sum(dataset_frac.values()) == 1
 
 lastTargetStar = {'train': targetStars[int(dataset_frac['train'] * numTargetStars)],
                   'val': targetStars[int((dataset_frac['train'] + dataset_frac['val']) * numTargetStars)]}
 
-numTces = {'total': len(experimentTceTbl)}
-trainIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['train']].index[-1] + 1  # int(numTces['total'] * dataset_frac['train'])
-valIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['val']].index[-1] + 1 # int(numTces['total'] * (dataset_frac['train'] + dataset_frac['val']))
+trainIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['train']].index[-1] + 1
+valIdx = experimentTceTbl.loc[experimentTceTbl['target_id'] == lastTargetStar['val']].index[-1] + 1
 
-print('Train idx: {}\nValidation index: {}'.format(trainIdx, valIdx))
+logger.info(f'Train idx: {trainIdx}\nValidation index: {valIdx}')
 
 datasetTbl = {'train': experimentTceTbl[:trainIdx],
               'val': experimentTceTbl[trainIdx:valIdx],
@@ -36,14 +85,15 @@ assert len(np.intersect1d(datasetTbl['train']['target_id'].unique(), datasetTbl[
 assert len(np.intersect1d(datasetTbl['val']['target_id'].unique(), datasetTbl['test']['target_id'].unique())) == 0
 
 # shuffle TCEs in each dataset
-np.random.seed(24)
-datasetTbl = {dataset: datasetTbl[dataset].iloc[np.random.permutation(len(datasetTbl[dataset]))]
+np.random.seed(rnd_seed)
+datasetTbl = {dataset: datasetTbl[dataset].iloc[rng.permutation(len(datasetTbl[dataset]))]
               for dataset in datasetTbl}
 
 for dataset in datasetTbl:
-    datasetTbl[dataset].to_csv(os.path.join(destTfrecDir, '{}set.csv'.format(dataset)), index=False)
+    logger.info(f'Saving TCE table for dataset {dataset}...')
+    datasetTbl[dataset].to_csv(destTfrecDir / f'{dataset}set.csv', index=False)
 
 for dataset in datasetTbl:
-    numTces[dataset] = len(datasetTbl[dataset])
-    print(datasetTbl[dataset]['label'].value_counts())
-    print('Number of TCEs in {} set: {}'.format(dataset, len(datasetTbl[dataset])))
+    logger.info(dataset)
+    logger.info(datasetTbl[dataset]['label'].value_counts())
+    logger.info(f'Number of TCEs in {dataset} set: {len(datasetTbl[dataset])}')

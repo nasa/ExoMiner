@@ -2,8 +2,7 @@
 Train models using a given configuration obtained on a hyperparameter optimization study.
 
 TODO: allocate several models to the same GPU
-      figure out the logging
-      make draw_plots function compatible with TESS
+
 """
 
 # 3rd party
@@ -18,20 +17,22 @@ import time
 from tensorflow.keras import callbacks, losses, optimizers
 import argparse
 from tensorflow.keras.utils import plot_model
-
+from pathlib import Path
+import logging
+import matplotlib.pyplot as plt
 
 # local
 import paths
-if 'home6' in paths.path_hpoconfigs:
-    import matplotlib
-    matplotlib.use('agg')
-import matplotlib.pyplot as plt
 from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.models_keras import CNN1dPlanetFinderv1, Astronet, Exonet, CNN1dPlanetFinderv2
 import src.config_keras
 from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
+from src.utils_visualization import plot_class_distribution, plot_precision_at_k
+
+if 'home6' in paths.path_hpoconfigs:
+    plt.switch_backend('agg')
 
 
 def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
@@ -80,7 +81,7 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
     :return:
     """
 
-    with open(os.path.join(model_dir_sub, 'results.txt'), 'w') as res_file:
+    with open(model_dir_sub / 'results.txt', 'w') as res_file:
 
         res_file.write('Performance metrics at epoch {} \n'.format(ep_idx + 1))
 
@@ -111,7 +112,7 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
         res_file.write('\n')
 
 
-def plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, save_path):
+def plot_loss_metric(res, epochs, ep_idx, opt_metric, save_path):
     """ Plot loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -119,7 +120,6 @@ def plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, save_path):
     :param epochs: Numpy array, epochs
     :param ep_idx: idx of the epoch in which the test set was evaluated
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
-    :param model_id: int, identifies the model being used
     :param save_path: str, filepath used to save the plots figure
     :return:
     """
@@ -151,18 +151,17 @@ def plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, save_path):
     ax[1].legend(loc="lower right")
     f.suptitle('Epochs = {:.0f}(Best val:{:.0f})'.format(epochs[-1], epochs[ep_idx]))
     f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(os.path.join(save_path, 'model{}_plotseval_epochs{:.0f}.svg'.format(model_id, epochs[-1])))
+    f.savefig(save_path)
     plt.close()
 
 
-def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, save_path):
+def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, save_path):
     """  Plot precision, recall, roc auc, pr auc curves for the validation and test sets.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
     for the test set)
     :param epochs: Numpy array, epochs
     :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param model_id: int, identifies the model being used
     :param save_path: str, filepath used to save the plots figure
     :return:
     """
@@ -190,11 +189,11 @@ def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, save_path):
     # ax[1].legend(loc="lower right")
     # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
     # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(os.path.join(save_path, 'model{}_prec_rec_auc.svg'.format(model_id)))
+    f.savefig(save_path)
     plt.close()
 
 
-def plot_pr_curve(res, ep_idx, model_id, save_path):
+def plot_pr_curve(res, ep_idx, save_path):
     """ Plot PR curve.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -227,17 +226,16 @@ def plot_pr_curve(res, ep_idx, model_id, save_path):
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     # ax.set_title('Precision Recall curve')
-    f.savefig(os.path.join(save_path, 'model{}_prec_rec.svg'.format(model_id)))
+    f.savefig(save_path)
     plt.close()
 
 
-def plot_roc(res, ep_idx, model_id, save_path):
+def plot_roc(res, ep_idx, save_path):
     """ Plot ROC.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
     for the test set)
     :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param model_id: int, identifies the model being used
     :param save_path: str, filepath used to save the plots figure
     :return:
     """
@@ -272,96 +270,8 @@ def plot_roc(res, ep_idx, model_id, save_path):
     ax.set_xlabel('False Positive Rate')
     ax.set_ylabel('True Positive Rate')
     ax.set_title('ROC')
-    f.savefig(os.path.join(save_path, 'model{}_roc.svg'.format(model_id)))
+    f.savefig(save_path)
     plt.close()
-
-
-def plot_class_distribution(output_cl, model_id, save_path):
-    """ Plot histogram of the class distribution as a function of the predicted output.
-
-    :param output_cl: dict, keys are datasets and values are a dictionary whose keys are the different classes and the
-    values are the scores for all items from that class
-    :param model_id: int, identifies the model being used
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    bins = np.linspace(0, 1, 11, True)
-    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set', 'predict': 'Predict set'}
-    for dataset in output_cl:
-        hist, bin_edges = {}, {}
-        for class_label in output_cl[dataset]:
-            counts_cl = list(np.histogram(output_cl[dataset][class_label], bins, density=False, range=(0, 1)))
-            counts_cl[0] = counts_cl[0] / len(output_cl[dataset][class_label])
-            hist[class_label] = counts_cl[0]
-            bin_edges[class_label] = counts_cl[1]
-
-        bins_multicl = np.linspace(0, 1, len(output_cl[dataset]) * 10 + 1, True)
-        bin_width = bins_multicl[1] - bins_multicl[0]
-        bins_cl = {}
-        for i, class_label in enumerate(output_cl[dataset]):
-            bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
-                                    for idx in range(i, len(bins_multicl) - 1, len(output_cl[dataset]))]
-
-        f, ax = plt.subplots()
-        for class_label in output_cl[dataset]:
-            ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
-        ax.set_ylabel('Class fraction')
-        ax.set_xlabel('Predicted output')
-        ax.set_xlim([0, 1])
-        ax.set_ylim([0, 1])
-        ax.set_xticks(np.linspace(0, 1, 11, True))
-        ax.legend()
-        ax.set_title('Output distribution - {}'.format(dataset_names[dataset]))
-        plt.savefig(os.path.join(save_path, 'model{}_class_predoutput_distribution_{}.svg'.format(model_id, dataset)))
-        plt.close()
-
-
-def plot_precision_at_k(labels_ord, k_curve_arr, model_id, save_path):
-    """ Plot precision-at-k and misclassified-at-k curves.
-
-    :param labels_ord: dict, for each dataset, the labels of the items ordered by the scores given by the model
-    :param k_curve_arr: dict, keys are datasets and values are values of k to compute precision-at-k
-    :param model_id: int, identifies the model being used
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    for dataset in labels_ord:
-        # compute precision at k curve
-        precision_at_k = {k: np.nan for k in k_curve_arr[dataset]}
-        for k_i in range(len(k_curve_arr[dataset])):
-            if len(labels_ord[dataset]) < k_curve_arr[dataset][k_i]:
-                precision_at_k[k_curve_arr[dataset][k_i]] = np.nan
-            else:
-                precision_at_k[k_curve_arr[dataset][k_i]] = \
-                    np.sum(labels_ord[dataset][-k_curve_arr[dataset][k_i]:]) / k_curve_arr[dataset][k_i]
-
-        # precision at k curve
-        f, ax = plt.subplots()
-        ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
-        ax.set_ylabel('Precision')
-        ax.set_xlabel('Top-K')
-        ax.grid(True)
-        ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
-        ax.set_ylim(top=1)
-        ax.set_title('{}'.format(dataset))
-        f.savefig(os.path.join(save_path, 'model{}_precisionatk_{}.svg'.format(model_id, dataset)))
-        plt.close()
-
-        # misclassified examples at k curve
-        f, ax = plt.subplots()
-        kvalues = np.array(list(precision_at_k.keys()))
-        precvalues = np.array(list(precision_at_k.values()))
-        num_misclf_examples = kvalues - kvalues * precvalues
-        ax.plot(kvalues, num_misclf_examples)
-        ax.set_ylabel('Number Misclassfied TCEs')
-        ax.set_xlabel('Top-K')
-        ax.grid(True)
-        ax.set_title('{}'.format(dataset))
-        ax.set_xlim([k_curve_arr[dataset][0], k_curve_arr[dataset][-1]])
-        f.savefig(os.path.join(save_path, 'model{}_misclassified_at_k_{}.svg'.format(model_id, dataset)))
-        plt.close()
 
 
 def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_id, opt_metric, min_optmetric,
@@ -386,14 +296,14 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     :return:
     """
 
-    if mpi_rank is None or mpi_rank == 0:
-        print('Configuration used: ', config)
+    # if mpi_rank is None or mpi_rank == 0:
+    #     print('Configuration used: ', config)
 
     verbose = False if 'home6' in paths.path_hpoconfigs else True
 
     # create directory for the model
-    model_dir_sub = os.path.join(model_dir, 'model{}'.format(model_id))
-    os.makedirs(model_dir_sub, exist_ok=True)
+    model_dir_sub = model_dir / f'model{model_id}'
+    model_dir_sub.mkdir(exist_ok=True)
 
     # debug_dir = os.path.join(model_dir_sub, 'debug')
     # os.makedirs(debug_dir, exist_ok=True)
@@ -577,8 +487,8 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                     np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
 
     # save results in a numpy file
-    res_fp = os.path.join(model_dir_sub, 'results.npy')
-    print('Saving metrics to {}...'.format(res_fp))
+    res_fp = model_dir_sub / 'results.npy'
+    print(f'Saving metrics to {res_fp}...')
     np.save(res_fp, res)
 
     print('Plotting evaluation results...')
@@ -586,23 +496,29 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     # choose epoch associated with the best value for the metric
     if 'early_stopping' in callbacks_dict:
         if min_optmetric:
-            ep_idx = np.argmin(res['val_{}'.format(opt_metric)])
+            ep_idx = np.argmin(res[f'val_{opt_metric}'])
         else:
-            ep_idx = np.argmax(res['val_{}'.format(opt_metric)])
+            ep_idx = np.argmax(res[f'val_{opt_metric}'])
     else:
         ep_idx = -1
     # plot evaluation loss and metric curves
-    plot_loss_metric(res, epochs, ep_idx, opt_metric, model_id, res_dir)
+    plot_loss_metric(res, epochs, ep_idx, opt_metric,
+                     res_dir / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg')
     # plot class distribution
-    plot_class_distribution(output_cl, model_id, res_dir)
+    for dataset in datasets:
+        plot_class_distribution(output_cl[dataset],
+                                res_dir / f'model{model_id}_class_predoutput_distribution_{dataset}.svg')
     # plot precision, recall, ROC AUC, PR AUC curves
-    # plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, model_id, res_dir)
+    # plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx,
+                                 # os.path.join(res_dir, 'model{}_prec_rec_auc.svg'.format(model_id)))
     # plot pr curve
-    plot_pr_curve(res, ep_idx, model_id, res_dir)
+    plot_pr_curve(res, ep_idx, res_dir / f'model{model_id}_prec_rec.svg')
     # plot roc
-    plot_roc(res, ep_idx, model_id, res_dir)
+    plot_roc(res, ep_idx, res_dir / f'model{model_id}_roc.svg')
     # plot precision-at-k and misclassfied-at-k examples curves
-    plot_precision_at_k(labels_sorted, config['k_curve_arr'], model_id, res_dir)
+    for dataset in datasets:
+        plot_precision_at_k(labels_sorted[dataset], config['k_curve_arr'][dataset],
+                            res_dir / f'model{model_id}_{dataset}')
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, model.metrics_names, config['k_arr'])
@@ -610,15 +526,15 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     print_metrics(model_id, res, datasets, ep_idx, model.metrics_names, config['k_arr'])
 
     # save model, features and config used for training this model
-    model.save(os.path.join(model_dir_sub, 'model{}.h5'.format(model_id)))
+    model.save(model_dir_sub / f'model{model_id}.h5')
     if model_id == 1:
         # save feature set used
-        np.save(os.path.join(model_dir_sub, 'features_set'), features_set)
+        np.save(model_dir / 'features_set', features_set)
         # save configuration used
-        np.save(os.path.join(model_dir_sub, 'config'), config)
+        np.save(model_dir / 'config', config)
         # save plot of model
         plot_model(model,
-                   to_file=os.path.join(res_dir, 'model.svg'),
+                   to_file=res_dir / 'model.svg',
                    show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
@@ -628,150 +544,178 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
 
 if __name__ == '__main__':
 
-    # # used in job arrays
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    # args = parser.parse_args()
-    #
-    # ngpus_per_node = 4  # number of GPUs per node
-    #
-    # # uncomment for MPI multiprocessing
-    # rank = MPI.COMM_WORLD.rank
-    # rank = ngpus_per_node * args.job_idx + rank
-    # size = MPI.COMM_WORLD.size
-    # print('Rank={}/{}'.format(rank, size - 1))
-    # sys.stdout.flush()
-    # if rank != 0:
-    #     time.sleep(2)
+    # used in job arrays
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    args = parser.parse_args()
+
+    ngpus_per_node = 1  # number of GPUs per node
+
+    # uncomment for MPI multiprocessing
+    rank = MPI.COMM_WORLD.rank
+    rank = ngpus_per_node * args.job_idx + rank
+    size = MPI.COMM_WORLD.size
+    print(f'Rank = {rank}/{size - 1}')
+    sys.stdout.flush()
+    if rank != 0:
+        time.sleep(2)
 
     # get list of physical GPU devices available to TF in this process
     physical_devices = tf.config.list_physical_devices('GPU')
-    print('List of physical GPU devices available: {}'.format(physical_devices))
-    # print('List of physical GPU devices available to rank {}: {}'.format(rank, physical_devices))
+    print(f'List of physical GPU devices available: {physical_devices}')
 
     # select GPU to be used
-    # gpu_id = rank % ngpus_per_node
-    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-    tf.config.set_visible_devices(physical_devices[0], 'GPU')
-
-    # TF only allocated memory that is needed
-    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    gpu_id = rank % ngpus_per_node
+    tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
+    # tf.config.set_visible_devices(physical_devices[0], 'GPU')
 
     # get list of logical GPU devices available to TF in this process
     logical_devices = tf.config.list_logical_devices('GPU')
-    print('List of logical GPU devices available: {}'.format(logical_devices))
+    print(f'List of logical GPU devices available: {logical_devices}')
 
     # SCRIPT PARAMETERS #############################################
 
     # name of the study
-    study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_nopps'
+    # study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per'
+    study = 'test_astronet'
 
     # results directory
-    save_path = os.path.join(paths.pathtrainedmodels, study)
-    os.makedirs(save_path, exist_ok=True)
-    os.makedirs(os.path.join(save_path, 'models'), exist_ok=True)
+    save_path = Path(paths.pathtrainedmodels) / study
+    save_path.mkdir(exist_ok=True)
+    models_path = save_path / 'models'
+    models_path.mkdir(exist_ok=True)
+
+    # set up logger
+    logger = logging.getLogger(name='train-eval_run')
+    logger_handler = logging.FileHandler(filename=save_path / f'train-eval_run_{rank}.log',
+                                         mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting run {study}...')
 
     # TFRecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_correctprimarygapping_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
                              )
-
-    # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    logger.info(f'Using data from {tfrec_dir}')
 
     # set configuration manually. Set to None to use a configuration from an HPO study
-    config = None
+    config = {}
 
+    # name of the HPO study from which to get a configuration; config needs to be set to None
+    hpo_study = None  # 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
     # set the configuration from an HPO study
-    if config is None:
-        res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
-                                                     , '_{}'.format(hpo_study))
+    if hpo_study is not None:
+        hpo_path = Path(paths.path_hpoconfigs) / hpo_study
+        res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_study}')
 
         # get ID to config mapping
         id2config = res.get_id2config_mapping()
         # best config - incumbent
         incumbent = res.get_incumbent_id()
-        config = id2config[incumbent]['config']
+        config_id_hpo = incumbent
+        config = id2config[config_id_hpo]['config']
 
         # select a specific config based on its ID
         # example - check config.json
         # config = id2config[(0, 0, 0)]['config']
 
+        logger.info(f'Using configuration from HPO study {hpo_study}')
+        logger.info(f'HPO Config {config_id_hpo}: {config}')
+
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = CNN1dPlanetFinderv2
-    # config['batch_size'] = 64
-    # config['optimizer'] = 'Adam'
+    BaseModel = Astronet  # CNN1dPlanetFinderv2
+    config.update({
+        # 'num_loc_conv_blocks': 2,
+        # 'num_glob_conv_blocks': 5,
+        # 'init_fc_neurons': 512,
+        # 'num_fc_layers': 4,
+        # 'pool_size_loc': 7,
+        # 'pool_size_glob': 5,
+        # 'pool_stride': 2,
+        # 'conv_ls_per_block': 2,
+        # 'init_conv_filters': 4,
+        # 'kernel_size': 5,
+        # 'kernel_stride': 1,
+        # 'non_lin_fn': 'prelu',  # 'relu',
+        'optimizer': 'Adam',
+        'lr': 1e-5,
+        'batch_size': 64,
+        'dropout_rate': 0,
+    })
+    # select convolutional branches
     config['branches'] = [
         'global_flux_view_fluxnorm',
         'local_flux_view_fluxnorm',
         # 'global_centr_fdl_view_norm',
         # 'local_centr_fdl_view_norm',
-        'local_flux_oddeven_views',
-        'global_centr_view_std_noclip',
-        'local_centr_view_std_noclip',
-        'local_weak_secondary_view_fluxnorm'
+        # 'local_flux_oddeven_views',
+        # 'global_centr_view_std_noclip',
+        # 'local_centr_view_std_noclip',
+        # 'local_weak_secondary_view_fluxnorm',
+        # 'local_weak_secondary_view_selfnorm',
+        # 'local_weak_secondary_view_max_flux-wks_norm'
     ]
 
-    # features to be extracted from the dataset(s)
-    # features_names = [
-    #     'global_flux_view_fluxnorm',
-    #     'local_flux_view_fluxnorm',
-    #     # 'global_centr_fdl_view_norm',
-    #     # 'local_centr_fdl_view_norm',
-    #     'local_flux_odd_view_fluxnorm',
-    #     'local_flux_even_view_fluxnorm',
-    #     'global_centr_view_std_noclip',
-    #     'local_centr_view_std_noclip',
-    #     'local_weak_secondary_view_fluxnorm',
-    # ]
-    # features_dim = {feature_name: (301, 1) if 'global' in feature_name else (31, 1)
-    #                 for feature_name in features_names}
-    # features_names.append('scalar_params')  # use scalar parameters as input features
-    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
-    # # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
     scalar_params_idxs = None  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
-    #
-    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-    #                 for feature_name in features_names}
 
+    # choose features set
     features_set = {
-        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # flux related features
+        'global_flux_view_fluxnorm': {'dim': (2001, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (201, 1), 'dtype': tf.float32},
+        # 'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # odd-even views
+        # 'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # centroid views
         # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        # secondary related features
+        # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # centroid related features
+        # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # other diagnostic parameters
+        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+        # tce parameters
+        # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
     }
+    logger.info(f'Feature set: {features_set}')
 
     data_augmentation = False  # if True, uses online data augmentation in the training set
     online_preproc_params = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 6}
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 300  # number of epochs used to train each model
+    n_epochs = 50  # number of epochs used to train each model
     multi_class = False  # multi-class classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
@@ -784,16 +728,16 @@ if __name__ == '__main__':
     callbacks_dict = {}
 
     # early stopping callback
-    callbacks_dict['early_stopping'] = callbacks.EarlyStopping(monitor='val_{}'.format(opt_metric),
-                                                               min_delta=0,
-                                                               patience=20,
-                                                               verbose=1,
-                                                               mode='max',
-                                                               baseline=None,
-                                                               restore_best_weights=True)
+    # callbacks_dict['early_stopping'] = callbacks.EarlyStopping(monitor=f'val_{opt_metric}',
+    #                                                            min_delta=0,
+    #                                                            patience=20,
+    #                                                            verbose=1,
+    #                                                            mode='max',
+    #                                                            baseline=None,
+    #                                                            restore_best_weights=True)
 
     # TensorBoard callback
-    callbacks_dict['tensorboard'] = callbacks.TensorBoard(log_dir=os.path.join(save_path, 'models'),
+    callbacks_dict['tensorboard'] = callbacks.TensorBoard(log_dir=models_path,
                                                           histogram_freq=1,
                                                           write_graph=True,
                                                           write_images=False,
@@ -803,24 +747,22 @@ if __name__ == '__main__':
                                                           embeddings_freq=0
                                                           )
 
-    # SCRIPT PARAMETERS #############################################
-
     # add dataset parameters
     config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
-    # config['batch_norm'] = False
-    config['non_lin_fn'] = 'prelu'
     config = src.config_keras.add_default_missing_params(config=config)
+
+    logger.info(f'Final configuration used: {config}')
 
     # comment for multiprocessing using MPI
     for model_i in range(n_models):
-        print('Training model %i out of %i on %i epochs...' % (model_i + 1, n_models, n_epochs))
+        print(f'Training model {model_i + 1} out of {n_models} on {n_epochs} epochs...')
         run_main(config=config,
                  n_epochs=n_epochs,
                  data_dir=tfrec_dir,
                  base_model=BaseModel,
-                 model_dir=os.path.join(save_path, 'models'),
+                 model_dir=models_path,
                  res_dir=save_path,
                  model_id=model_i + 1,
                  opt_metric=opt_metric,
@@ -834,13 +776,13 @@ if __name__ == '__main__':
 
     # # uncomment for multiprocessing using MPI
     # if rank < n_models:
-    #     print('Training model %i out of %i on %i' % (rank + 1, n_models, n_epochs))
+    #     print(f'Training model {rank + 1} out of {n_models} on {n_epochs}')
     #     sys.stdout.flush()
     #     run_main(config=config,
     #              n_epochs=n_epochs,
     #              data_dir=tfrec_dir,
     #              base_model=BaseModel,
-    #              model_dir=os.path.join(save_path, 'models'),
+    #              model_dir=models_path,
     #              res_dir=save_path,
     #              model_id = rank + 1,
     #              opt_metric=opt_metric,

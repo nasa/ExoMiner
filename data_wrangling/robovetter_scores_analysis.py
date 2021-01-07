@@ -509,35 +509,41 @@ robovetterTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/
 
 # load Robovetter TCE table
 robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-                               'kplr_dr25_obs_robovetter_output.csv')
+                               'without_PPs/kplr_dr25_obs_robovetter_output.csv')
 
+# load TCE table
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'
+                     'rmcandandfpkois_norogues.csv')
+# remove Possible Planet KOIs
+tceTbl = tceTbl.loc[~((tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED'))]
 
-k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
-# k_arr = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # no PPs
+# k_arr = {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]}
+k_arr = {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]}  # no PPs
 k_curve_arr = {
-    'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
-    'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
-    'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
-    # 'train': np.linspace(25, 1800, 100, endpoint=True, dtype='int'),  # PPs
-    # 'val': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
-    # 'test': np.linspace(25, 200, 10, endpoint=True, dtype='int'),
+    # 'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 10, endpoint=True, dtype='int'),
+    'train': np.linspace(180, 1800, 100, endpoint=True, dtype='int'),  # no PPs
+    'val': np.linspace(20, 220, 21, endpoint=True, dtype='int'),
+    'test': np.linspace(10, 250, 25, endpoint=True, dtype='int'),
 }
 k_curve_arr_plot = {
-    'train': np.linspace(200, 2000, 10, endpoint=True, dtype='int'),
-    'val': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
-    'test': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
-    # 'train': np.linspace(200, 1800, 8, endpoint=True, dtype='int'),  # PPs
-    # 'val': np.linspace(25, 200, 8, endpoint=True, dtype='int'),
-    # 'test': np.linspace(25, 200, 8, endpoint=True, dtype='int')
+    # 'train': np.linspace(200, 2000, 10, endpoint=True, dtype='int'),
+    # 'val': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    # 'test': np.linspace(25, 250, 8, endpoint=True, dtype='int'),
+    'train': np.linspace(180, 1800, 10, endpoint=True, dtype='int'),  # no PPs
+    'val': np.linspace(20, 220, 21, endpoint=True, dtype='int'),
+    'test': np.linspace(10, 250, 25, endpoint=True, dtype='int')
 }
+
+# define thresholds used to compute the metrics
+num_thresholds = 2000
+threshold_range = list(np.linspace(0, 1, num=num_thresholds, endpoint=False))
 
 # load dataset TCE table
 dataset = 'test'
-datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/old/bug_with_transitduration_amplified/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
-                         'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
+datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020/'
                          '{}set.csv'.format(dataset))
 print('Number of TCEs in the {} set = {}'.format(dataset, len(datasetTbl)))
 
@@ -573,10 +579,6 @@ assert (datasetTbl['label'] != '').all()
 score_fuzzy_factor = 1e-6
 datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x + score_fuzzy_factor if x < 1-score_fuzzy_factor else x)
 # datasetTbl['score'] = datasetTbl['score'].apply(lambda x: x - score_fuzzy_factor if x > 1-score_fuzzy_factor else x)
-
-# define thresholds used to compute the metrics
-num_thresholds = 1000
-threshold_range = list(np.linspace(0, 1, num=num_thresholds, endpoint=False))
 
 # compute metrics
 auc_pr = AUC(num_thresholds=num_thresholds,
@@ -757,96 +759,3 @@ plt.close()
 datasetTbl.sort_values('score', ascending=False, inplace=True, axis=0)
 datasetTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
                   'kplr_dr25_obs_robovetter_{}.csv'.format(dataset), index=False)
-
-# #%% Create Robovetter TCE table with our labels and also split it into training, validation and test tables
-#
-# # load Q1-Q17 DR25 TCE table with the dispositions used in our experiments
-# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
-#
-# # load and prepare Robovetter Q1-Q17 DR25 TCE (no rogue TCEs) table
-# # columns of interest from the Robovetter TCE table
-# columnNames = ['TCE', 'Robovetter_Score', 'Disposition', 'Not_Transit-Like_Flag', 'Stellar_Eclipse_Flag',
-#                'Centroid Offset_Flag', 'Ephemeris_Match_Flag', 'Minor_Descriptive_Flags']
-# robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-#                                'kplr_dr25_obs_robovetter_output.txt', skiprows=1, names=columnNames, sep=' ',
-#                                skipinitialspace=False)
-#
-# # rename Disposition column to Robovetter_Disposition
-# robovetterTceTbl.rename(columns={'Disposition': 'Robovetter_Disposition'}, inplace=True)
-#
-# # create target_id and tce_plnt_num columns
-# robovetterTceTbl.insert(0, 'target_id', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[0])))
-# robovetterTceTbl.insert(1,'tce_plnt_num', robovetterTceTbl['TCE'].apply(lambda x: int(x.split('-')[1])))
-# robovetterTceTbl.drop(columns='TCE', inplace=True)
-#
-# # initialize label and original_label columns
-# robovetterTceTbl['original_label'] = ''
-# robovetterTceTbl['label'] = -1
-# labelMap = {'PC': 1, 'AFP': 0, 'NTP': 0}
-# # add labels and scores from the TCE table and the Robovetter TCE table, respectively
-# for tce_i, tce in robovetterTceTbl.iterrows():
-#
-#     print('Checking TCE {}/{}'.format(tce_i, len(robovetterTceTbl)))
-#     foundTce = tceTbl.loc[(tceTbl['target_id'] == tce['target_id']) & (tceTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-#
-#     assert len(foundTce) <= 1
-#
-#     if len(foundTce) == 1:
-#         # # add integer label
-#         # tce['label'] = labelMap[foundTce.label.values[0]]
-#         # # add label
-#         # tce['original_label'] = foundTce.label.values[0]
-#         #
-#         # robovetterTceTbl = pd.concat([robovetterTceTbl, tce], axis=0)
-#
-#         # add label
-#         robovetterTceTbl.loc[tce_i, ['original_label']] = foundTce.label.values[0]
-#
-#         # add integer label
-#         robovetterTceTbl.loc[tce_i, ['label']] = labelMap[foundTce.label.values[0]]
-#
-# # drop TCEs not part of our TCE table
-# robovetterTceTbl = robovetterTceTbl.loc[robovetterTceTbl['original_label'] != '']
-# assert (robovetterTceTbl['original_label'] != '').all()
-# assert (robovetterTceTbl['label'] != '').all()
-#
-# robovetterTceTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-#                         'kplr_dr25_obs_robovetter_with_our_labels.csv', index=False)
-#
-# # split Robovetter TCE table into training, validation and test tables according to the split in the experiments
-# datasets = ['train', 'val', 'test']
-# # robovetterTceTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-# #                                'kplr_dr25_obs_robovetter_with_our_labels.csv')
-# for dataset in datasets:
-#
-#     robovetterDatasetTbl = robovetterTceTbl.copy(deep=True)
-#     robovetterDatasetTbl['in'] = 0
-#
-#     # load dataset TCE table
-#     datasetTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
-#                              'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/'
-#                              'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment/'
-#                              '{}set.csv'.format(dataset))
-#
-#     # add labels and scores from the TCE table and the Robovetter TCE table, respectively
-#     for tce_i, tce in datasetTbl.iterrows():
-#         print('TCE {}/{}'.format(tce_i, len(datasetTbl)))
-#         foundTce = robovetterDatasetTbl.loc[
-#             (robovetterDatasetTbl['target_id'] == tce['target_id']) & (robovetterDatasetTbl['tce_plnt_num'] == tce['tce_plnt_num'])]
-#
-#         assert len(foundTce) <= 1
-#
-#         # add TCE to Robovetter dataset table
-#         if len(foundTce) == 1:
-#             robovetterDatasetTbl['in'] = 1
-#         else:
-#             robovetterDatasetTbl['in'] = 0
-#
-#     robovetterDatasetTbl = robovetterDatasetTbl.loc[robovetterDatasetTbl['in'] == 1]
-#     robovetterDatasetTbl.drop(columns='in', inplace=True)
-#
-#     # order TCEs by descending score
-#     robovetterDatasetTbl.sort_values('Robovetter_Score', ascending=False, inplace=True)
-#     robovetterDatasetTbl.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/robovetter_analysis/'
-#                                 'kplr_dr25_obs_robovetter_with_our_labels_{}.csv'.format(dataset), index=False)

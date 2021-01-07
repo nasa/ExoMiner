@@ -13,21 +13,22 @@ from tensorflow import keras
 from tensorflow.keras import losses, optimizers
 from tensorflow.keras.models import load_model
 import pandas as pd
-
+import logging
+from pathlib import Path
+import matplotlib.pyplot as plt
 
 # local
 import paths
-if 'home6' in paths.path_hpoconfigs:
-    import matplotlib
-    matplotlib.use('agg')
-import matplotlib.pyplot as plt
-# from src.utils_dataio import InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_dataio import InputFnv2 as InputFn
 from src.models_keras import create_ensemble
 import src.config_keras
 from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics
+from src.utils_visualization import plot_class_distribution, plot_precision_at_k
+
+if 'home6' in paths.path_hpoconfigs:
+    plt.switch_backend('agg')
 
 
 def print_metrics(res, datasets, metrics_names, prec_at_top):
@@ -41,60 +42,67 @@ def print_metrics(res, datasets, metrics_names, prec_at_top):
     """
 
     print('#' * 100)
-    print('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
+    print(f'Performance metrics for the ensemble ({len(models_filepaths)} models)\n')
     for dataset in datasets:
         if dataset != 'predict':
             print(dataset)
             for metric in metrics_names:
                 if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                    print('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+                    print(f'{metric}: {res[f"{dataset}_{metric}"]}\n')
 
             for k in prec_at_top[dataset]:
-                print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                        res['{}_precision_at_{}'.format(dataset, k)]))
+                print(f'{"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n')
     print('#' * 100)
 
 
-def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top):
+def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top, print_res=False):
     """ Write results to a txt file.
 
+    :param save_path: Path, saving directory
     :param res: dict, loss and metric values for the different datasets
     :param datasets: list, dataset names
     :param metrics_names: list, metrics and losses names
     :param prec_at_top: dict, top-k values for different datasets
+    :param print_res: bool, if True it prints results to std_out
     :return:
     """
 
     # write results to a txt file
-    with open(os.path.join(save_path, 'results_ensemble.txt'), 'w') as res_file:
+    with open(save_path / 'results_ensemble.txt', 'w') as res_file:
 
-        res_file.write('Performance metrics for the ensemble ({} models)\n'.format(len(models_filepaths)))
+        res_file.write(f'Performance metrics for the ensemble ({len(models_filepaths)} models)\n')
 
         for dataset in datasets:
 
             if dataset != 'predict':
-                res_file.write('Dataset: {}\n'.format(dataset))
+                res_file.write(f'Dataset: {dataset}\n')
                 for metric in metrics_names:
                     if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                        res_file.write('{}: {}\n'.format(metric, res['{}_{}'.format(dataset, metric)]))
+                        str_aux = f'{metric}: {res[f"{dataset}_{metric}"]}\n'
+                        res_file.write(str_aux)
+                        if print_res:
+                            print(str_aux)
 
                 for k in prec_at_top[dataset]:
-                    res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                                     res['{}_precision_at_{}'.format(dataset, k)]))
+                    str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
+                    res_file.write(str_aux)
+                    if print_res:
+                        print(str_aux)
 
             res_file.write('\n')
 
-        res_file.write('{}'.format('-' * 100))
+        res_file.write(f'{"-" * 100}')
 
         res_file.write('\nModels used to create the ensemble:\n')
 
         for model_filepath in models_filepaths:
-            res_file.write('{}\n'.format(model_filepath))
+            res_file.write(f'{model_filepath}\n')
 
         res_file.write('\n')
 
 
-def draw_plots_prcurve_roc(res, save_path, dataset):
+# TODO: separate functions for each curve?
+def plot_prcurve_roc(res, save_path, dataset):
     """ Plot ROC and PR curves.
 
     :param res: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
@@ -146,100 +154,12 @@ def draw_plots_prcurve_roc(res, save_path, dataset):
     plt.close()
 
 
-def draw_plots_scores_distribution(output_cl, save_path):
-    """ Plot distribution of scores.
-
-    :param output_cl: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
-    the scores for each class ('PC', 'non-PC', for example)
-    :param save_path: str, path to save directory
-    :return:
-    """
-
-    bins = np.linspace(0, 1, 11, True)
-    for dataset in output_cl:
-
-        hist, bin_edges = {}, {}
-        for class_label in output_cl[dataset]:
-            counts_cl = list(np.histogram(output_cl[dataset][class_label], bins, density=False, range=(0, 1)))
-            counts_cl[0] = counts_cl[0] / max(len(output_cl[dataset][class_label]), 1e-7)
-            hist[class_label] = counts_cl[0]
-            bin_edges[class_label] = counts_cl[1]
-
-        bins_multicl = np.linspace(0, 1, len(output_cl[dataset]) * 10 + 1, True)
-        bin_width = bins_multicl[1] - bins_multicl[0]
-        bins_cl = {}
-        for i, class_label in enumerate(output_cl[dataset]):
-            bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
-                                    for idx in range(i, len(bins_multicl) - 1, len(output_cl[dataset]))]
-
-        f, ax = plt.subplots()
-        for class_label in output_cl[dataset]:
-            ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
-        if dataset == 'predict':
-            ax.set_ylabel('Dataset fraction')
-        else:
-            ax.set_ylabel('Class fraction')
-        ax.set_xlabel('Predicted output')
-        ax.set_xlim([0, 1])
-        ax.set_ylim([0, 1])
-        ax.set_title('Output distribution - {}'.format(dataset))
-        ax.set_xticks(np.linspace(0, 1, 11, True))
-        if dataset != 'predict':
-            ax.legend()
-        plt.savefig(os.path.join(save_path, 'ensemble_class_scoredistribution_{}.png'.format(dataset)))
-        plt.close()
-
-
-def plot_precision_at_k(labels_ord, k_curve_arr, dataset, save_path):
-    """ Plot precision-at-k and misclassified-at-k curves.
-
-    :param labels_ord: dict, for each dataset, the labels of the items ordered by the scores given by the model
-    :param k_curve_arr: dict, keys are datasets and values are values of k to compute precision-at-k
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    # compute precision at k curve
-    precision_at_k = {k: np.nan for k in k_curve_arr}
-    for k_i in range(len(k_curve_arr)):
-        if len(labels_ord) < k_curve_arr[k_i]:
-            precision_at_k[k_curve_arr[k_i]] = np.nan
-        else:
-            precision_at_k[k_curve_arr[k_i]] = \
-                np.sum(labels_ord[-k_curve_arr[k_i]:]) / k_curve_arr[k_i]
-
-    # precision at k curve
-    f, ax = plt.subplots()
-    ax.plot(list(precision_at_k.keys()), list(precision_at_k.values()))
-    ax.set_ylabel('Precision')
-    ax.set_xlabel('Top-K')
-    ax.grid(True)
-    ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
-    ax.set_ylim(top=1)
-    f.savefig(os.path.join(save_path, 'precisionatk_{}.svg'.format(dataset)))
-    plt.close()
-
-    # misclassified examples at k curve
-    f, ax = plt.subplots()
-    kvalues = np.array(list(precision_at_k.keys()))
-    precvalues = np.array(list(precision_at_k.values()))
-    num_misclf_examples = kvalues - kvalues * precvalues
-    ax.plot(kvalues, num_misclf_examples)
-    ax.set_ylabel('Number Misclassfied TCEs')
-    ax.set_xlabel('Top-K')
-    ax.grid(True)
-    ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
-    f.savefig(os.path.join(save_path, 'ensemble_misclassified_at_k_{}.svg'.format(dataset)))
-    plt.close()
-
-
-def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
+def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
              scalar_params_idxs=None):
     """ Evaluate model on a given configuration in the specified datasets and also predict on them.
 
     :param config: configuration object from the Config class
     :param features_set: dict, each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
-    :param clf_thr: float, classification threshold
     :param data_dir: str, path to directory with the tfrecord files
     :param res_dir: str, path to directory to save results
     :param models_filepaths: list, filepaths to models to be integrated in the ensemble
@@ -261,14 +181,14 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
         # get dataset of the TFRecord
         dataset = tfrec_file.split('-')[0]
 
-        if dataset == 'predict':
-            fields_aux = list(fields)
-            if 'label' in fields:
-                fields_aux.remove('label')
-            if 'original_label' in fields:
-                fields_aux.remove('original_label')
-        else:
-            fields_aux = fields
+        # if dataset == 'predict':
+        #     fields_aux = list(fields)
+        #     if 'label' in fields:
+        #         fields_aux.remove('label')
+        #     if 'original_label' in fields:
+        #         fields_aux.remove('original_label')
+        # else:
+        fields_aux = fields
 
         data_aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields_aux, config['label_map'])
 
@@ -286,7 +206,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     for model_i, model_filepath in enumerate(models_filepaths):
 
         model = load_model(filepath=model_filepath, compile=False)
-        model._name = 'model{}'.format(model_i)
+        model._name = f'model{model_i}'
 
         model_list.append(model)
 
@@ -295,7 +215,7 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     ensemble_model.summary()
 
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=clf_thr)
+    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
 
     # compile model - set optimizer, loss and metrics
     if config['optimizer'] == 'Adam':
@@ -329,9 +249,9 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     for dataset in datasets:
 
         if dataset == 'predict':
-            pass
+            continue
 
-        print('Evaluating on dataset {}'.format(dataset))
+        print(f'Evaluating on dataset {dataset}')
 
         # input function for evaluating on each dataset
         eval_input_fn = InputFn(file_pattern=data_dir + '/{}*'.format(dataset),
@@ -355,13 +275,13 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
         # add evaluated dataset metrics to result dictionary
         for metric_name_i, metric_name in enumerate(ensemble_model.metrics_names):
-            res['{}_{}'.format(dataset, metric_name)] = res_eval[metric_name_i]
+            res[f'{dataset}_{metric_name}'] = res_eval[metric_name_i]
 
     # predict on given datasets - needed for computing the output distribution and produce a ranking
     scores = {dataset: [] for dataset in datasets}
     for dataset in scores:
 
-        print('Predicting on dataset {}...'.format(dataset))
+        print(f'Predicting on dataset {dataset}...')
 
         predict_input_fn = InputFn(file_pattern=data_dir + '/' + dataset + '*',
                                    batch_size=config['batch_size'],
@@ -383,45 +303,52 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= clf_thr] = 1
+        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in datasets}
     for dataset in output_cl:
-        for original_label in config['label_map']:
-            # get predictions for each original class individually to compute histogram
-            output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
-                                                                          original_label)]
+        if dataset != 'predict':
+            for original_label in config['label_map']:
+                # get predictions for each original class individually to compute histogram
+                output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
+                                                                              original_label)]
+        else:
+            output_cl[dataset]['NTP'] = scores[dataset]
 
     # compute precision at top-k
     labels_sorted = {}
     for dataset in datasets:
+        if dataset == 'predict':
+            continue
         sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
         labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
 
         for k_i in range(len(config['k_arr'][dataset])):
             if len(sorted_idxs) < config['k_arr'][dataset][k_i]:
-                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = np.nan
+                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = np.nan
             else:
-                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = \
+                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = \
                     np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
 
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
-    np.save(os.path.join(save_path, 'results_ensemble.npy'), res)
+    np.save(res_dir / 'results_ensemble.npy', res)
 
     print('Plotting evaluation results...')
     # draw evaluation plots
     for dataset in datasets:
-        draw_plots_scores_distribution(output_cl, res_dir)
+        plot_class_distribution(output_cl[dataset],
+                                res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
         if dataset != 'predict':
-            draw_plots_prcurve_roc(res, res_dir, dataset)
-            plot_precision_at_k(labels_sorted[dataset], config['k_curve_arr'][dataset], dataset, res_dir)
+            plot_prcurve_roc(res, res_dir, dataset)
+            plot_precision_at_k(labels_sorted[dataset],
+                                config['k_curve_arr'][dataset],
+                                res_dir / f'{dataset}')
 
     print('Saving metrics to a txt file...')
-    save_metrics_to_file(save_path, res, datasets, ensemble_model.metrics_names, config['k_arr'])
-
-    print_metrics(res, datasets, ensemble_model.metrics_names, config['k_arr'])
+    save_metrics_to_file(res_dir, res, datasets, ensemble_model.metrics_names, config['k_arr'], print_res=True)
+    # print_metrics(res, datasets, ensemble_model.metrics_names, config['k_arr'])
 
     # generate rankings for each evaluated dataset
     if generate_csv_pred:
@@ -435,21 +362,20 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 
         # write results to a txt file
         for dataset in datasets:
-            print('Saving ranked predictions in dataset {}'
-                  ' to {}...'.format(dataset, res_dir + "/ranked_predictions_{}".format(dataset)))
+            print(f'Saving ranked predictions in dataset {dataset} to {res_dir / f"ranked_predictions_{dataset}"}...')
             data_df = pd.DataFrame(data[dataset])
 
             # sort in descending order of output
             data_df.sort_values(by='score', ascending=False, inplace=True)
-            data_df.to_csv(os.path.join(res_dir, "ensemble_ranked_predictions_{}set.csv".format(dataset)), index=False)
+            data_df.to_csv(res_dir / f'ensemble_ranked_predictions_{dataset}set.csv', index=False)
 
     # save model, features and config used for training this model
-    ensemble_model.save(os.path.join(save_path, 'ensemble_model.h5'))
-    np.save(os.path.join(save_path, 'features_set'), features_set)
-    np.save(os.path.join(save_path, 'config'), config)
+    ensemble_model.save(res_dir / 'ensemble_model.h5')
+    np.save(res_dir / 'features_set', features_set)
+    np.save(res_dir / 'config', config)
     # plot ensemble model and save the figure
     keras.utils.plot_model(ensemble_model,
-                           to_file=os.path.join(save_path, 'ensemble.png'),
+                           to_file=res_dir / 'ensemble.png',
                            show_shapes=False,
                            show_layer_names=True,
                            rankdir='TB',
@@ -460,22 +386,35 @@ def run_main(config, features_set, clf_thr, data_dir, res_dir, models_filepaths,
 if __name__ == '__main__':
 
     # name of the study
-    study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_koiephem_nopps_nokoiephemtest'
+    study = 'keplerdr25-dv_g2001-l201_9tr_spline_gapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_tces1'
+
+    # results directory
+    save_path = Path(paths.pathresultsensemble) / study
+    save_path.mkdir(exist_ok=True)
+
+    # set up logger
+    logger = logging.getLogger(name='predict_run')
+    logger_handler = logging.FileHandler(filename=save_path / f'predict_run.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting run {study}...')
 
     # TFRecord files directory
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband-stdtimeseries_secsymphase_wksnorm_maxflux-wks_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps_secparams_prad_period_tces1'
                              )
 
-    print('Selected TFRecord files directory: {}'.format(tfrec_dir))
+    logger.info(f'Using data from {tfrec_dir}')
 
     # datasets used; choose from 'train', 'val', 'test', 'predict' - needs to follow naming of TFRecord files
     datasets = ['train', 'val', 'test']
     # datasets = ['predict']
 
-    print('Datasets to be evaluated/tested: {}'.format(datasets))
+    logger.info(f'Datasets to be evaluated/tested: {datasets}')
 
     # fields to be extracted from the TFRecords and that show up in the ranking created for each dataset
     # set to None if not adding other fields
@@ -484,18 +423,21 @@ if __name__ == '__main__':
               'mag', 'ra', 'dec', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr',
               'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
 
-    print('Fields to be extracted from the TFRecords: {}'.format(fields))
+    # print('Fields to be extracted from the TFRecords: {}'.format(fields))
 
     multi_class = False  # multiclass classification
-    ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label',
-                       'verbose': False}
+    ce_weights_args = {'tfrec_dir': tfrec_dir,
+                       'datasets': ['train'],
+                       'label_fieldname': 'label',
+                       'verbose': False
+                       }
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
     satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess
 
     generate_csv_pred = True
 
     # set configuration manually. Set to None to use a configuration from a HPO study
-    config = None
+    config = np.load(Path(paths.pathtrainedmodels) / study/ 'config.npy', allow_pickle=True).item()
     # # example of configuration
     # config = {'batch_size': 32,
     #           'conv_ls_per_block': 2,
@@ -515,104 +457,112 @@ if __name__ == '__main__':
     #           'sgd_momentum': 0.024701642898564722}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study =  'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_' \
+                'std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
 
     # set the configuration from a HPO study
-    if config is None:
-        res = utils_hpo.logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, hpo_study)
-                                                     , '_{}'.format(hpo_study))
+    if hpo_study is not None:
+        res = utils_hpo.logged_results_to_HBS_result(Path(paths.path_hpoconfigs) / hpo_study, f'_{hpo_study}')
         # get ID to config mapping
         id2config = res.get_id2config_mapping()
         # best config - incumbent
         incumbent = res.get_incumbent_id()
-        config = id2config[incumbent]['config']
+        config_id_hpo = incumbent
+        config = id2config[config_id_hpo]['config']
 
         # select a specific config based on its ID
         # example - check config.json
         # config = id2config[(8, 0, 3)]['config']
 
-    print('Selected configuration: ', config)
+        logger.info(f'Using configuration from HPO study {hpo_study}')
+        logger.info(f'HPO Config {config_id_hpo}: {config}')
+
+    config.update({
+        # 'num_loc_conv_blocks': 2,
+        # 'num_glob_conv_blocks': 5,
+        # 'init_fc_neurons': 512,
+        # 'num_fc_layers': 4,
+        # 'pool_size_loc': 7,
+        # 'pool_size_glob': 5,
+        # 'pool_stride': 2,
+        # 'conv_ls_per_block': 2,
+        # 'init_conv_filters': 4,
+        # 'kernel_size': 5,
+        # 'kernel_stride': 1,
+        'non_lin_fn': 'prelu',  # 'relu',
+        # 'optimizer': 'Adam',
+        # 'lr': 1e-5,
+        # 'batch_size': 64,
+        # 'dropout_rate': 0,
+    })
 
     # add dataset parameters
     config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
     config = src.config_keras.add_default_missing_params(config=config)
-    print('Configuration used: ', config)
+    # print('Configuration used: ', config)
 
-    clf_thr = 0.5
+    logger.info(f'Final configuration used: {config}')
 
-    # features to be extracted from the dataset
-    # features_names = [
-    #                   'global_flux_view',
-    #                   'local_flux_view',
-    #                   # 'global_centr_view',
-    #                   # 'local_centr_view',
-    #                   # 'local_flux_odd_view',
-    #                   # 'local_flux_even_view',
-    #                   # 'local_weak_secondary_view'
-    # ]
-    # features_dim = {feature_name: (2001, 1) if 'global' in feature_name else (201, 1)
-    #                 for feature_name in features_names}
-    # features_names.append('scalar_params')  # use scalar parameters as input features
-    # features_dim['scalar_params'] = (13,)  # dimension of the scalar parameter array in the TFRecords
-    # choose indexes of scalar parameters to be extracted as features; None to get all of them in the TFRecords
     scalar_params_idxs = None  # [0, 1, 2, 3, 4, 5]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
-    # features_dtypes = {feature_name: tf.float32 for feature_name in features_names}
-    # features_set = {feature_name: {'dim': features_dim[feature_name], 'dtype': features_dtypes[feature_name]}
-    #                 for feature_name in features_names}
 
     features_set = {
+        # flux related features
         'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
         'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
-        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # odd-even flux views
         'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # secondary flux views
+        # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        # secondary flux related features
+        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # centroid views
         'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (2001, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (201, 1), 'dtype': tf.float32},
+        # centroid related features
+        # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # other diagnostic parameters
+        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+        # tce parameters
+        # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
     }
-
-    print('Selected features: {}, {}'.format(features_set, scalar_params_idxs))
-
-    # args_inputfn = {'features_set': features_set, 'scalar_params_idxs': scalar_params_idxs}
+    logger.info(f'Feature set: {features_set}')
 
     # get models for the ensemble
-    models_dir = os.path.join(paths.pathtrainedmodels,
-                              'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnorm_maxflux-wks_koiephem_nopps',  # study,
-                              'models')
-    models_filepaths = [os.path.join(models_dir, model_dir, '{}.h5'.format(model_dir))
-                        for model_dir in os.listdir(models_dir)
-                        if 'model' in model_dir]
-
-    # results directory
-    save_path = os.path.join(paths.pathresultsensemble, study)
-    if not os.path.isdir(save_path):
-        os.mkdir(save_path)
+    models_dir = Path(paths.pathtrainedmodels) / study / 'models'
+    models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
+                        model_dir.stem]
 
     run_main(config=config,
              features_set=features_set,
              scalar_params_idxs=scalar_params_idxs,
-             clf_thr=clf_thr,
              data_dir=tfrec_dir,
              res_dir=save_path,
              models_filepaths=models_filepaths,

@@ -1,3 +1,7 @@
+"""
+Testing transit model fit to the flux views
+"""
+
 from pytransit import QuadraticModel
 import numpy as np
 import os

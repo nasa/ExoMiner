@@ -1,6 +1,4 @@
-"""
-Utilty functions for data I/O.
-"""
+""" Utilty functions for data I/O. """
 
 # 3rd party
 import os
@@ -120,9 +118,6 @@ class InputFn(object):
                 if 'oot' in feature_name:
                     continue
                 # label
-                # FIXME: change the feature name to 'label' - standardization of TCE feature names across different
-                #  TFRecords (Kepler/TESS) sources - remember that for backward compatibility we need to keep
-                #  av_training_set
                 elif include_labels and feature_name == 'label':
 
                     # map label to integer
@@ -616,7 +611,7 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
         data['selected_idxs'] = []
 
     # record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
-    tfrecord_dataset = tf.data.TFRecordDataset(tfrecord)
+    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecord))
     # try:
     for string_record in tfrecord_dataset.as_numpy_iterator():
 
@@ -945,19 +940,4 @@ def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period
 
 if __name__ == '__main__':
 
-    # check features, labels and other parameters stored in the TFRecords
-    tfrec_dir = ''
-    datasets = ['train', 'val', 'test']
-    features_names = ['global_view', 'local_view', 'global_view_centr', 'local_view_centr',
-                      'local_view_even', 'local_view_odd', 'scalar_params']
-    tfrec_files = [file for file in os.listdir(tfrec_dir) if file.split('-')[0] in datasets]
-    for file in tfrec_files:
-        record_iterator = tf.python_io.tf_record_iterator(path=os.path.join(tfrec_dir, file))
-        for i, string_record in enumerate(record_iterator):
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-            # label_map['kepler'][False][example.features.feature['label'].bytes_list.value[0].decode('utf-8')]
-            for feature_name in features_names:
-                value = example.features.feature[feature_name].float_list.value
-                if not np.all(np.isfinite(value)):  # or value <= 0:
-                    print(example.features.feature['target_id'])
+    pass

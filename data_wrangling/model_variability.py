@@ -1,3 +1,5 @@
+""" Study model variability for ensemble. """
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt

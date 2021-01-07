@@ -7,18 +7,19 @@ import os
 import numpy as np
 import multiprocessing
 from datetime import date
+from pathlib import Path
 
 #%% Get TICs to be extracted from the major stellar catalogs (CTL, TIC8, ...)
 
-toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois.csv', header=4)
+toiTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois.csv', header=4)
 toiTargetsCurr = toiTbl['TIC'].unique()
 
-toiTargetsPrev = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/6-19-2020/tois.csv',
+toiTargetsPrev = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/tois.csv',
                              header=4)['TIC'].unique()
 
 toiTargets = np.setdiff1d(toiTargetsCurr, toiTargetsPrev)
 
-print('Number of new TICs to extract from the TESS stellar catalogs: {}'.format(len(toiTargets)))
+print(f'Number of new TICs to extract from the TESS stellar catalogs: {len(toiTargets)}')
 
 #%% Read from CTL catalog to update sub CTL table
 
@@ -106,7 +107,7 @@ print('Number of targets after update: {}'.format(len(ctlTbl)))
 #%% Update sub TIC8 table
 
 
-def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir):
+def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir, basename):
     """ Get stellar parameters from TIC-8 catalog for a set of TICs.
 
     :param tics: NumPy array, TICs to get stellar parameters
@@ -115,9 +116,11 @@ def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir):
     :param headerListFp: str, filepath for the file with the header for the CTL catalog
     :param chunksize: int, number of rows to read each time from the CTL catalog
     :param saveDir: str, saving directory
+    :param basename: str, string added to the tables names
     :return:
     """
-    print('Getting {} TICs from {} TIC-8 subtables and saving them to table {}'.format(len(tics), len(ticTbls), tbli))
+
+    print(f'Getting {len(tics)} TICs from {len(ticTbls)} TIC-8 subtables and saving them to table {tbli}')
 
     headerList = pd.read_csv(headerListFp, skiprows=1, header=None, sep='\t', usecols=[1]).values.ravel()
     dataTypes = {col: None for col in headerList}
@@ -136,8 +139,8 @@ def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir):
     # iterate through TIC-8 csv files
     for ticQuadTbl_i, ticQuadTbl in enumerate(ticTbls):
 
-        print('Reading TIC table {}({})'.format(ticQuadTbl_i, len(ticTbls)))
-        print('Number of TICs added: {}({})'.format(len(dfTicList), len(tics)))
+        print(f'Process {tbli}: reading TIC table {ticQuadTbl_i}({len(ticTbls)})\n'
+              f'Number of TICs added: {len(dfTicList)}({len(tics)})')
 
         dfTicReader = pd.read_csv(ticQuadTbl, chunksize=chunksize, header=None, names=headerList, dtype=dataTypes)
 
@@ -157,9 +160,9 @@ def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir):
         if len(dfTicList) == len(tics):
             break
 
-    print('Added {} TICs'.format(len(dfTicList)))
+    print(f'Process {tbli}: added {len(dfTicList)} TICs')
 
-    dfTicList.to_csv(os.path.join(saveDir, 'stellartic8_tois_{}.csv'.format(tbli)), index=False)
+    dfTicList.to_csv(saveDir / f'stellartic8_tois_{basename}_{tbli}.csv', index=False)
 
     # for columnName in columnNames:
     #     print(dfTicList[columnName].isna().value_counts())
@@ -168,26 +171,26 @@ def get_tics_from_tic(tics, ticTbls, tbli, headerListFp, chunksize, saveDir):
 # columnNames = ['[Tmag] [real]', '[Teff] [real]', '[logg] [real]', '[MH] [real]', '[rad] [real]', '[mass] [real]',
 #                '[rho] [real]', '[ra] [float]', '[dec] [float]']
 
-saveDir = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/'
+saveDir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/')
+basename = '12-4-2020'
 
 # root directory with TIC-8 csv files
-ticDir = '/data5/tess_project/Data/Ephemeris_tables/TESS/TIC_tables/TIC-8'
-ticQuadTbls = [os.path.join(ticDir, ticQuadTbl) for ticQuadTbl in os.listdir(ticDir)]
+ticDir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TIC_tables/TIC-8')
+ticQuadTbls = list(ticDir.iterdir())
 
-headerListFp = '/data5/tess_project/Data/Ephemeris_tables/TESS/TIC_tables/tic_column_description.txt'
+headerListFp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TIC_tables/tic_column_description.txt')
 
 # define number of rows to be read from the dataframe at each step
 chunksize = 1000
 
-nProcesses = 4
+nProcesses = 15
 pool = multiprocessing.Pool(processes=nProcesses)
 ticTblsProcs = np.array_split(ticQuadTbls, nProcesses)
-jobs = [(toiTargets, ticTblsSub, tbl_i, headerListFp, chunksize, saveDir) for tbl_i, ticTblsSub in
+jobs = [(toiTargets, ticTblsSub, tbl_i, headerListFp, chunksize, saveDir, basename) for tbl_i, ticTblsSub in
         enumerate(ticTblsProcs)]
 async_results = [pool.apply_async(get_tics_from_tic, job) for job in jobs]
 pool.close()
 
-# Instead of pool.join(), async_result.get() to ensure any exceptions raised by the worker processes are raised here
 for async_result in async_results:
     async_result.get()
 
@@ -214,8 +217,8 @@ print('Number of targets after update: {}'.format(len(tic8Tbl)))
 
 tic8Tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
                       'stellartic8_tois_8-14-2020.csv')
-ctlTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
-                     'stellarctl_tois_8-14-2020.csv')
+# ctlTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/8-14-2020/'
+#                      'stellarctl_tois_8-14-2020.csv')
 
 columnNames = ['[Tmag] [real]', '[Teff] [real]', '[logg] [real]', '[MH] [real]', '[rad] [real]', '[mass] [real]',
                '[rho] [real]', '[ra] [float]', '[dec] [float]']
@@ -223,7 +226,7 @@ columnNames = ['[Tmag] [real]', '[Teff] [real]', '[logg] [real]', '[MH] [real]',
 # print(tic8Tbl[columnNames].isna().sum())
 # the number of missing values is the same, which confirms that CTL is a subset of TIC-8
 print(tic8Tbl.loc[tic8Tbl['[ID] [bigint]'].isin(ctlTbl['[ID] [bigint]'])][columnNames].isna().sum())
-print(ctlTbl[columnNames].isna().sum())
+# print(ctlTbl[columnNames].isna().sum())
 
 # print(len(np.intersect1d(tic8Tbl['[ID] [bigint]'], ctlTbl['[ID] [bigint]'])))
 # print(len(np.setdiff1d(tic8Tbl['[ID] [bigint]'], ctlTbl['[ID] [bigint]'])))

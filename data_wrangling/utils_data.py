@@ -1,6 +1,4 @@
-"""
-Utility functions for data manipulation.
-"""
+""" Utility functions for data manipulation. """
 
 # 3rd party
 import pandas as pd

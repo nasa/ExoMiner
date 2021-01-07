@@ -1,13 +1,11 @@
-"""
-Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline.
-"""
+""" Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
 
 # 3rd party
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-# if 'nobackup' in os.path.abspath(__file__):
+
 plt.switch_backend('agg')
 
 
@@ -21,8 +19,8 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     :param all_time: list of numpy arrays, time
     :param all_flux: list of numpy arrays, flux time-series
     :param binary_time_all: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
-    :param config: Config object; preprocessing parameters.
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -30,7 +28,7 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
 
     f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
 
-    plt.suptitle('TCE {} | {} | {}'.format(tce['target_id'], tce[config.tce_identifier], tce['label']))
+    plt.suptitle(f'TCE {tce["target_id"]} | {tce[config["tce_identifier"]]} | {tce["label"]}')
 
     for i in range(len(all_time)):
         ax[0].plot(all_time[i], binary_time_all[i], 'b')
@@ -45,8 +43,7 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     ax[1].set_ylabel('Amplitude')
     ax[1].set_xlabel('Time [day]')
 
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
-                                                               basename)))
+    plt.savefig(os.path.join(savedir, f'{tce.target_id}_{tce[config["tce_identifier"]]}_{tce.label}_{basename}.png'))
 
     plt.close()
 
@@ -61,7 +58,7 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
     :param centroids_spline: dict ('x' and 'y' keys, values are lists of numpy arrays), spline fitted to the centroid
     time-series
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :param add_info: dict, 'quarter' and 'module' are lists with the quarters and modules in which the target shows up,
@@ -69,13 +66,15 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
     :return:
     """
 
-    if not config.px_coordinates and not pxcoordinates:
+    if not config['px_coordinates'] and not pxcoordinates:
         if target_position is None:
-            centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in centroids[coord]] for coord in centroids}
+            centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in centroids[coord]]
+                         for coord in centroids}
         else:
-            centroids = {'x': [DEGREETOARCSEC * (centroids_arr - target_position[0]) * np.cos(target_position[1] * np.pi / 180)
-                               for centroids_arr in centroids['x']],
-                         'y': [DEGREETOARCSEC * (centroids_arr - target_position[1]) for centroids_arr in centroids['y']]}
+            centroids = {'x': [DEGREETOARCSEC * (centroids_arr - target_position[0]) *
+                               np.cos(target_position[1] * np.pi / 180) for centroids_arr in centroids['x']],
+                         'y': [DEGREETOARCSEC * (centroids_arr - target_position[1])
+                               for centroids_arr in centroids['y']]}
 
         if centroids_spline is not None:
             centroids_spline = {coord: [DEGREETOARCSEC * spline_arr for spline_arr in centroids_spline[coord]]
@@ -93,7 +92,7 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
             ax[0].plot(time[i], centroids_arr[0], 'b')
             ax[1].plot(time[i], centroids_arr[1], 'b')
 
-        if config.px_coordinates or pxcoordinates:
+        if config['px_coordinates'] or pxcoordinates:
             ax[0].set_ylabel('Col pixel')
             ax[1].set_ylabel('Row pixel')
         else:
@@ -102,15 +101,15 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
 
         ax[1].set_xlabel('Time [day]')
 
-        if config.satellite == 'kepler':
+        if config['satellite'] == 'kepler':
 
             if add_info is not None:
-                f.suptitle('Quarters: {}\nModules: {}'.format(add_info['quarter'], add_info['module']))
+                f.suptitle(f'Quarters: {add_info["quarter"]}\nModules: {add_info["module"]}')
 
-        ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
 
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
-                                                                   basename)))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+                                                                   tce.label, basename)))
 
         plt.close()
 
@@ -148,7 +147,7 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
             ax[0, 1].plot(time[i], centroids_arr[0] / centroids_spline['x'][i], 'b')
             ax[1, 1].plot(time[i], centroids_arr[1] / centroids_spline['y'][i], 'b')
 
-        if config.px_coordinates or pxcoordinates:
+        if config['px_coordinates'] or pxcoordinates:
             ax[0, 0].set_ylabel('Col pixel')
             ax[1, 0].set_ylabel('Row pixel')
         else:
@@ -164,10 +163,10 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
         ax[0, 0].set_title('Non-normalized centroid time-series')
         ax[0, 1].set_title('Normalized centroid time-series')
 
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
 
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
-                                                                   basename)))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+                                                                   tce.label, basename)))
 
         plt.close()
 
@@ -180,7 +179,7 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
     :param flux: list of numpy arrays, flux time-series
     :param flux_spline: list of numpy arrays, spline fitted to the flux time-series
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -206,9 +205,9 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
     ax[1].set_title('Spline normalized flux time-series')
     ax[0].set_title('Non-normalized flux time-series')
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
 
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
 
     plt.close()
@@ -226,13 +225,13 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     :param avg_centroid_oot: dict ('x' and 'y' keys), coordinates of the average out-of-transit centroid
     :param target_coords: list, RA and Dec coordinates of the target
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters
+    :param config: dict, preprocessing parameters
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
     """
 
-    if not config.px_coordinates:
+    if not config['px_coordinates']:
         all_centroids = {coord: [3600 * centroids_arr for centroids_arr in all_centroids[coord]]
                          for coord in all_centroids}
         centroid_oot = {coord: [3600 * centroids_arr for centroids_arr in centroid_oot[coord]]
@@ -254,7 +253,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     plt.figure(figsize=(18, 8))
 
     plt.suptitle('Centroid time-series\n {} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'],
-                                                                                       tce[config.tce_identifier],
+                                                                                       tce[config["tce_identifier"]],
                                                                                        tce['label'],
                                                                                        target_coords))
 
@@ -268,7 +267,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     #          np.concatenate([avg_centroid_oot['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
     #          'r--', label='avg oot', zorder=1)
     plt.legend()
-    if config.px_coordinates:
+    if config['px_coordinates']:
         plt.ylabel('Col pixel')
     else:
         plt.ylabel('RA [arcsec]')
@@ -298,7 +297,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
 
     plt.legend()
     plt.xlabel('Time [day]')
-    if config.px_coordinates:
+    if config['px_coordinates']:
         plt.ylabel('Row pixel')
     else:
         plt.ylabel('Dec [arcsec]')
@@ -315,7 +314,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, centroid_oot
     plt.legend()
     plt.xlabel('Time [day]')
 
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
 
     plt.close()
@@ -331,13 +330,13 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     :param avg_centroid_oot: dict ('x' and 'y' keys), coordinates of the average out-of-transit centroid
     :param target_coords: list, RA and Dec coordinates of the target
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
     """
 
-    if not config.px_coordinates:
+    if not config['px_coordinates']:
         all_centroids = {coord: [3600 * centroids_arr for centroids_arr in all_centroids[coord]]
                          for coord in all_centroids}
         avg_centroid_oot = {coord: 3600 * avg_centroid_oot[coord] for coord in avg_centroid_oot}
@@ -347,7 +346,7 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
 
     plt.figure(figsize=(20, 8))
 
-    plt.suptitle('{} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config.tce_identifier],
+    plt.suptitle('{} | TCE {} | {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
                                                                 tce['label'], target_coords))
 
     plt.subplot(211)
@@ -359,7 +358,7 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     #          np.concatenate([avg_centroid_oot['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
     #          'r--', label='avg oot', zorder=1)
     plt.legend()
-    if config.px_coordinates:
+    if config['px_coordinates']:
         plt.ylabel('Col pixel')
     else:
         plt.ylabel('RA [arcsec]')
@@ -374,13 +373,13 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     #          np.concatenate([avg_centroid_oot['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
     #          'r--', label='avg oot', zorder=1)
     plt.legend()
-    if config.px_coordinates:
+    if config['px_coordinates']:
         plt.ylabel('Row pixel')
     else:
         plt.ylabel('Dec [arcsec]')
     plt.xlabel('Time [day]')
 
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
 
     plt.close()
@@ -395,8 +394,8 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
     :param centroid_dist: list of numpy arrays, centroid-to-target distance
     :param centroid_dist_spline: list of numpy arrays, spline fitted to centroid-to-target distance
     :param avg_centroid_dist_oot: float, average out-of-transit centroid-to-target distance
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -409,15 +408,15 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         for i in range(len(centroid_dist)):
             ax.plot(time[i], centroid_dist[i], 'b')
 
-        if config.px_coordinates or pxcoordinates:
+        if config['px_coordinates'] or pxcoordinates:
             ax.set_ylabel('Euclidean distance [pixel]')
         else:
             ax.set_ylabel('Angular distance [arcsec]')
         ax.set_title('Centroid-to-target distance time-series')
         ax.set_xlabel('Time [day]')
 
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                    basename)))
 
         plt.close()
@@ -436,7 +435,7 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
                 ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', zorder=1)
             ax[1].plot(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, 'b')
 
-        if config.px_coordinates or pxcoordinates:
+        if config['px_coordinates'] or pxcoordinates:
             ax[0].set_ylabel('Euclidean distance [pixel]')
         else:
             ax[0].set_ylabel('Angular distance [arcsec]')
@@ -446,10 +445,9 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         ax[1].set_xlabel('Time [day]')
         ax[1].set_title('Spline normalized centroid-to-target distance time-series')
 
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
-                                                                   basename)))
-
+        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+                                                                   tce.label, basename)))
         plt.close()
 
 
@@ -460,7 +458,7 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
     :param glob_view_centr: numpy array, global centroid view
     :param loc_view_centr: numpy array, local centroid view
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters
+    :param config: dict, preprocessing parameters
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -475,10 +473,9 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
     ax[1].set_xlabel('Bin number')
     ax[1].set_title('Local view')
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
-
     plt.close()
 
 
@@ -491,7 +488,7 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     :param glob_view_centr: numpy array, global centroid view
     :param loc_view_centr: numpy array, local centroid view
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -509,10 +506,9 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     ax[1, 1].plot(loc_view_centr)
     ax[1, 1].set_xlabel('Bin number')
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
-
     plt.close()
 
 
@@ -521,7 +517,7 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
     :param views: dict, views to be plotted
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
@@ -535,24 +531,24 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     #                           config.num_bins_loc, endpoint=True)
 
     scalarParamsStr = ''
-    for scalarParam_i in range(len(config.scalar_params)):
-        if scalarParam_i % 5 == 0:
+    for scalarParam_i in range(len(config['scalar_params'])):
+        if scalarParam_i % 7 == 0:
             scalarParamsStr += '\n'
-        if config.scalar_params[scalarParam_i] in ['boot_fap']:
-            scalarParamsStr += '{}={:.4E}  '.format(config.scalar_params[scalarParam_i],
-                                                    tce[config.scalar_params[scalarParam_i]])
-        elif config.scalar_params[scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
-            scalarParamsStr += '{}={}  '.format(config.scalar_params[scalarParam_i],
-                                                int(tce[config.scalar_params[scalarParam_i]]))
+        if config['scalar_params'][scalarParam_i] in ['boot_fap']:
+            scalarParamsStr += '{}={:.4E}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
+        elif config['scalar_params'][scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
+            scalarParamsStr += '{}={}  '.format(config['scalar_params'][scalarParam_i],
+                                                int(tce[config['scalar_params'][scalarParam_i]]))
         else:
-            scalarParamsStr += '{}={:.4f}  '.format(config.scalar_params[scalarParam_i],
-                                                    tce[config.scalar_params[scalarParam_i]])
+            scalarParamsStr += '{}={:.4f}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
 
-    ephemerisStr = 'Epoch={:.4f}, Period={:.4f}, Transit Duration={:.4f}, Transit Depth={:.4f}'.format(
+    ephemerisStr = 'Epoch={:.4f}, Period={:.4f}, Transit Duration={:.4f}'.format(
         tce['tce_time0bk'],
         tce['tce_period'],
-        tce['tce_duration'] * 24,
-        tce['transit_depth'])
+        tce['tce_duration'] * 24
+    )
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
     k = 0
@@ -582,10 +578,10 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
             k += 1
 
-    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
+    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
                                               scalarParamsStr))
-    plt.subplots_adjust(hspace=0.43, wspace=0.37, top=0.788, right=0.974, bottom=0.07, left=0.045)
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
     plt.close()
 
@@ -595,7 +591,7 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
 
     :param views: dict, views to be plotted
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
@@ -605,18 +601,18 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
     """
 
     scalarParamsStr = ''
-    for scalarParam_i in range(len(config.scalar_params)):
-        if scalarParam_i % 5 == 0:
+    for scalarParam_i in range(len(config['scalar_params'])):
+        if scalarParam_i % 7 == 0:
             scalarParamsStr += '\n'
-        if config.scalar_params[scalarParam_i] in ['boot_fap']:
-            scalarParamsStr += '{}={:.4E}  '.format(config.scalar_params[scalarParam_i],
-                                                    tce[config.scalar_params[scalarParam_i]])
-        elif config.scalar_params[scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
-            scalarParamsStr += '{}={}  '.format(config.scalar_params[scalarParam_i],
-                                                int(tce[config.scalar_params[scalarParam_i]]))
+        if config['scalar_params'][scalarParam_i] in ['boot_fap']:
+            scalarParamsStr += '{}={:.4E}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
+        elif config['scalar_params'][scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
+            scalarParamsStr += '{}={}  '.format(config['scalar_params'][scalarParam_i],
+                                                int(tce[config['scalar_params'][scalarParam_i]]))
         else:
-            scalarParamsStr += '{}={:.4f}  '.format(config.scalar_params[scalarParam_i],
-                                                    tce[config.scalar_params[scalarParam_i]])
+            scalarParamsStr += '{}={:.4f}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
 
     ephemerisStr = 'Epoch={:.4f}, Period={:.4f}, Transit Duration={:.4f}, Transit Depth={:.4f}'.format(
         tce['tce_time0bk'],
@@ -646,10 +642,10 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
 
             k += 1
 
-    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config.tce_identifier], tce.label, ephemerisStr,
+    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
                                               scalarParamsStr))
-    plt.subplots_adjust(hspace=0.452, wspace=0.2, top=0.79, right=0.97, bottom=0.09, left=0.055)
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
     plt.close()
 
@@ -661,7 +657,7 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
     :param glob_view: NumPy array, global flux view
     :param glob_view_weak_secondary: NumPy array, global weak secondary flux view
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -673,8 +669,8 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
     ax.set_ylabel('Normalized amplitude')
     ax.set_xlabel('Bins')
     ax.legend()
-    ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
     plt.close()
 
@@ -684,8 +680,8 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
 
     :param time: Numpy array, timestamps
     :param timeseries: NumPy array, timeseries
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -696,8 +692,8 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
     ax.set_xlim([time[0], time[-1]])
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase')
-    ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    ax.set_title(f'TCE {tce.target_id} {tce[config["tce_identifier"]]} {tce.label}')
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
     plt.close()
 
@@ -706,8 +702,8 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
     """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
 
     :param timeseries: dict, views to be plotted
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
@@ -730,13 +726,11 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
                 ax[i, j].set_ylabel('Amplitude')
             k += 1
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
     # plt.subplots_adjust(hspace=0.3)
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
-                                                               basename)))
-
     # f.tight_layout(rect=[0, 0.03, 1, 0.95])
-
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
+                                                               basename)))
     plt.close()
 
 
@@ -745,7 +739,7 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
 
     :param timeseries: dict, views to be plotted
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -760,22 +754,19 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
     ax[1].set_xlabel('Bin Number')
     ax[1].set_ylabel('Amplitude')
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
-
     plt.close()
 
 
-def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, scheme, savedir, basename):
+def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, savedir, basename):
     """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
 
     :param timeseries: dict, phase folded time series
     :param binned_timeseries: dict, binned views
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: Config object; preprocessing parameters.
-    :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
-    number of plots per column])
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -783,7 +774,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, sche
 
     gs = gridspec.GridSpec(4, 2)
 
-    local_view_time_interval = tce['tce_duration'] * (config.num_durations)
+    local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
 
     f = plt.figure(figsize=(20, 14))
 
@@ -824,7 +815,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, sche
         ax.set_xlabel('Phase (hour)')
         ax.set_xlim([timeseries['Weak Secondary Flux'][0][left_idx] * 24,
                      timeseries['Weak Secondary Flux'][0][right_idx] * 24])
-        ax.set_title('Weak Secondary Phase : {} Days'.format(tce['tce_maxmesd']))
+        ax.set_title('Weak Secondary Phase : {:.4f} Days'.format(tce['tce_maxmesd']))
 
     left_idx = np.where(timeseries['Odd Flux'][0] > -local_view_time_interval)[0][0]
     right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
@@ -876,7 +867,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, sche
     ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
                  timeseries['Centroid Offset Distance'][0][right_idx] * 24])
 
-    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config.tce_identifier], tce.label))
+    f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
     plt.subplots_adjust(
         hspace=0.526,
         wspace=0.202,
@@ -885,6 +876,6 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, sche
         left=0.057,
         right=0.98
     )
-    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config.tce_identifier], tce.label,
+    plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
                                                                basename)))
     plt.close()
