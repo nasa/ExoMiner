@@ -2,11 +2,7 @@
 import pandas as pd
 from pathlib import Path
 import numpy as np
-from scipy.spatial import distance
 import matplotlib.pyplot as plt
-
-# local
-from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 #%% Preprocess TEV MIT TCE lists
 
@@ -364,129 +360,6 @@ toi_tbl.to_csv(toi_dir / f'tois_stellar.csv', index=False)
 toi_tbl = toi_tbl.loc[~toi_tbl['Sectors'].isna()]
 toi_tbl.to_csv(toi_dir / f'tois_stellar_nosectornan.csv', index=False)
 
-#%% Matching between TOIs and TCEs
-
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020')
-
-toi_tbl = pd.read_csv(toi_dir / f'tois_stellar_nosectornan.csv')
-
-tce_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_ephemeris')
-
-multisector_tce_dir = tce_root_dir / 'multi-sector runs'
-singlesector_tce_dir = tce_root_dir / 'single-sector runs'
-
-multisector_tce_tbls = {(int(file.stem.split('-')[1][1:]), int(file.stem.split('-')[2][1:5])): pd.read_csv(file,
-                                                                                                           header=6)
-                        for file in multisector_tce_dir.iterdir() if 'tcestats' in file.name}
-singlesector_tce_tbls = {int(file.stem.split('-')[1][1:]): pd.read_csv(file, header=6)
-                         for file in singlesector_tce_dir.iterdir() if 'tcestats' in file.name}
-singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
-
-match_thr = np.inf  # 0.25
-sampling_interval = 0.00001  # approximately 1 min
-
-# toi_tce_match = {}
-# cols = [
-    # 'orbitalPeriodDays',
-    # 'transitDepthPpm',
-    # 'transitDurationHours',
-    # 'transitEpochBtjd',
-    # 'ws_mes',
-    # 'ws_mesphase',
-    # 'mes'
-# ]
-max_num_tces = 30
-matching_tbl = pd.DataFrame(columns=['Full TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}'
-                                                                              for i in range(max_num_tces)])
-for toi_i, toi in toi_tbl.iterrows():
-
-    if toi_i % 50 == 0:
-        print(f'Matched {toi_i} ouf of {len(toi_tbl)}...')
-
-    # if toi['Full TOI ID'] == 2411.01:
-    #     aaaa
-
-    # toi_tce_match[toi['Full TOI ID']] = {}
-
-    toi_tceid = '{}-{}'.format(f'{toi["TIC"]}'.zfill(11), f'{toi["Signal ID"]}'.zfill(2))
-
-    toi_sectors = [int(sector) for sector in toi['Sectors'].split(' ')]
-
-    toi_bin_ts = create_binary_time_series(epoch=toi['Epoch Value'],
-                                           duration=toi['Transit Duration Value'] / 24,
-                                           period=toi['Orbital Period Value'],
-                                           tStart=toi['Epoch Value'],
-                                           tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-                                           samplingInterval=sampling_interval)
-
-    matching_dist_dict = {}
-
-    for toi_sector in toi_sectors:
-
-        # check the single sector run table
-        tce_tbl_aux = singlesector_tce_tbls[toi_sector]
-        tce_found = tce_tbl_aux.loc[tce_tbl_aux['tceid'] == toi_tceid]
-
-        if len(tce_found) > 0:
-            epoch_aux = find_nearest_epoch_to_this_time(tce_found['transitEpochBtjd'].values[0],
-                                                        tce_found['orbitalPeriodDays'].values[0],
-                                                        toi['Epoch Value'])
-            # epoch_shift = np.abs(p1[2] - p2[2]) / p1[1]
-            # e2 = np.abs(round(epoch_shift) - epoch_shift) * p1[1]
-            tce_bin_ts = create_binary_time_series(epoch=epoch_aux,
-                                                   duration=tce_found['transitDurationHours'].values[0] / 24,
-                                                   period=tce_found['orbitalPeriodDays'].values[0],
-                                                   tStart=toi['Epoch Value'],
-                                                   tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-                                                   samplingInterval=sampling_interval)
-
-            match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
-
-            if match_distance < match_thr:
-                # toi_tce_match[toi['Full TOI ID']][toi_sector] = tce_found
-                matching_dist_dict[f'{toi_sector}'] = match_distance
-
-        # check the multi sector runs tables
-        for multisector_tce_tbl in multisector_tce_tbls:
-            if toi_sector >= multisector_tce_tbl[0] and toi_sector <= multisector_tce_tbl[1]:
-                tce_tbl_aux = multisector_tce_tbls[multisector_tce_tbl]
-                tce_found = tce_tbl_aux.loc[tce_tbl_aux['tceid'] == toi_tceid]
-
-                if len(tce_found) > 0:
-
-                    epoch_aux = find_nearest_epoch_to_this_time(tce_found['transitEpochBtjd'].values[0],
-                                                                tce_found['orbitalPeriodDays'].values[0],
-                                                                toi['Epoch Value'])
-                    # epoch_shift = np.abs(p1[2] - p2[2]) / p1[1]
-                    # e2 = np.abs(round(epoch_shift) - epoch_shift) * p1[1]
-                    tce_bin_ts = create_binary_time_series(epoch=epoch_aux,
-                                                           duration=tce_found['transitDurationHours'].values[0] / 24,
-                                                           period=tce_found['orbitalPeriodDays'].values[0],
-                                                           tStart=toi['Epoch Value'],
-                                                           tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-                                                           samplingInterval=sampling_interval)
-
-                    match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
-
-                    if match_distance < match_thr:
-                        # toi_tce_match[toi['Full TOI ID']][(multisector_tce_tbl[0], multisector_tce_tbl[1])] = \
-                        #     tce_found[cols]
-                        matching_dist_dict[f'{multisector_tce_tbl[0]}-{multisector_tce_tbl[1]}'] = match_distance
-
-    matching_dist_dict = {k: v for k, v in sorted(matching_dist_dict.items(), key=lambda x: x[1])}
-    data_to_tbl = {'Full TOI ID': [toi['Full TOI ID']], 'TIC': [toi['TIC']],
-                   'Matched TCEs': ' '.join(list(matching_dist_dict.keys()))}
-    matching_dist_arr = list(matching_dist_dict.values())
-    for i in range(max_num_tces):
-        if i < len(matching_dist_arr):
-            data_to_tbl[f'matching_dist_{i}'] = [matching_dist_arr[i]]
-        else:
-            data_to_tbl[f'matching_dist_{i}'] = [np.nan]
-    matching_tbl = pd.concat([matching_tbl, pd.DataFrame(data=data_to_tbl)], axis=0)
-
-matching_tbl.to_csv(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
-                    f'tois_matchedtces_ephmerismatching_thr{match_thr}_samplint{sampling_interval}.csv', index=False)
-
 #%% check maximum number of TCEs per TOI
 
 num_tces_per_toi_tbl = pd.DataFrame(columns=['Full TOI ID', 'Number of TCEs'])
@@ -525,7 +398,7 @@ ws_mesphase_tbl.to_csv(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/
                        f'tois_matchedtces_wsphase_ephmerismatching_thr{match_thr}_samplint{sampling_interval}.csv',
                        index=False)
 
-#%% add secondary phase to the TOIs using the TCE that matched the TOI
+#%% add parameters from the TCE tables to the TOI table using the matched TCEs to each TOI
 
 tce_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_ephemeris')
 
@@ -540,7 +413,11 @@ singlesector_tce_tbls = {int(file.stem.split('-')[1][1:]): pd.read_csv(file, hea
 singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
 
 matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
-                           'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv')
+                           'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05_1-8-2021.csv')
+# remove TOIs whose closest TCE matching distance is above the matching threshold
+matching_thr = 0.25
+matching_tbl = matching_tbl.loc[matching_tbl['matching_dist_0'] <= matching_thr]
+
 
 toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois_stellar_nosectornan.csv')
 toi_tbl = pd.read_csv(toi_tbl_fp)
@@ -553,34 +430,61 @@ toi_tbl = toi_tbl.loc[toi_tbl['Full TOI ID'].isin(matching_tbl.loc[~matching_tbl
                                                                    'Full TOI ID'].to_list())]
 print(f'Number of TOIs after removing those not matched to any TCE: {len(toi_tbl)}')
 
-toi_tbl['tce_maxmesd'] = np.nan
+fields_to_add = {
+    'planetRadiusEarthRadii': 'tce_prad',
+    'ratioPlanetRadiusToStarRadius': 'tce_ror',
+    'ratioSemiMajorAxisToStarRadius': 'tce_prad',
+    'semiMajorAxisAu': 'tce_sma',
+    'transitIngressTimeHours': 'tce_ingress',
+    'minImpactParameter': 'tce_impact',
+    'ws_mes': 'tce_maxmes',
+    'ws_mesphase': 'tce_maxmesd',
+    'mes': 'tce_max_mult_ev',
+    'maxses': 'tce_max_sngle_ev',
+    'equilibriumTempKelvin': 'tce_eqt',
+    'InsolationFlux': 'tce_insol',
+    'planetNumber': 'tce_plnt_num',
+    'orbitalPeriodDays': 'tce_period_tce',
+    'transitDurationHours': 'tce_duration_tce',
+    'transitEpochBtjd': 'tce_time0bk_tce',
+    'transitDepthPpm': 'transit_depth_tce'
+}
+
+for field in fields_to_add.values():
+    toi_tbl[field] = np.nan
 
 for toi_i, toi in toi_tbl.iterrows():
+
+    if toi_i % 100 == 0:
+        print(f'Iterated over {toi_i + 1} out of {len(toi_tbl)}')
 
     toi_found = matching_tbl.loc[matching_tbl['Full TOI ID'] == toi['Full TOI ID']]
 
     if len(toi_found) > 0:
 
-        toi_tceid = '{}-{}'.format(f'{toi["TIC"]}'.zfill(11), f'{toi["Signal ID"]}'.zfill(2))
-        sector_str = toi_found['Matched TCEs'].values[0].split(' ')[0]
+        matched_tce_sector_str, matched_tceid = toi_found['Matched TCEs'].values[0].split(' ')[0].split('_')
+        toi_tceid = '{}-{}'.format(f'{toi_found["TIC"].values[0]}'.zfill(11), f'{matched_tceid}'.zfill(2))
 
-        if '-' in sector_str:
-            sector_start, sector_end = sector_str.split('-')
+        if '-' in matched_tce_sector_str:
+            sector_start, sector_end = matched_tce_sector_str.split('-')
             tce_tbl = multisector_tce_tbls[(int(sector_start), int(sector_end))]
-            toi_tbl.loc[toi_i, 'tce_maxmesd'] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid), 'ws_mesphase'].values
+            toi_tbl.loc[toi_i, list(fields_to_add.values())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
+                                                                           list(fields_to_add.keys())].values[0]
         else:
-            tce_tbl = singlesector_tce_tbls[int(sector_str)]
-            toi_tbl.loc[toi_i, 'tce_maxmesd'] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid), 'ws_mesphase'].values
+            tce_tbl = singlesector_tce_tbls[int(matched_tce_sector_str)]
+            toi_tbl.loc[toi_i, list(fields_to_add.values())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
+                                                                           list(fields_to_add.keys())].values[0]
 
-toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_wsphase.csv', index=False)
+toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_tcesparams_thr{matching_thr}.csv', index=False)
 
 print(toi_tbl['TOI Disposition'].value_counts())
 
-#%% rename columns
+#%% rename and change data type for columns
 
-toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois_stellar_nosectornan.csv')
+toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois_stellar_nosectornan_tcesparams_thr0.25.csv')
 toi_tbl = pd.read_csv(toi_tbl_fp)
 
+# rename columns
 rename_dict = {
     'TIC': 'target_id',
     'Full TOI ID': 'oi',
@@ -599,6 +503,31 @@ rename_dict = {
     'Transit Depth Error': 'tce_depth_err',
     'Sectors': 'sectors',
 }
-
 toi_tbl.rename(columns=rename_dict, inplace=True)
+
+# change data type in columns
+type_dict = {
+    'tce_steff': int,
+    'sectors': str,
+    'oi': str
+}
+toi_tbl = toi_tbl.astype(dtype=type_dict)
+
 toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_renamedcols.csv', index=False)
+
+# #%% Delete images of TOIs not of interest
+#
+# img_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/TESS/plot_misclassifiedKPs_1-18-2021/plots/')
+#
+# ranking_tbl = pd.read_csv(Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+#                    'tess_g301-l31_6tr_spline_nongapped_spoctois_configK_wsphase/ensemble_ranked_predictions_'
+#                    'predictset.csv'))
+# ranking_tbl = ranking_tbl.loc[(ranking_tbl['original_label'] == 'KP') & (ranking_tbl['predicted class'] == 0)]
+# ranking_tbl_tois = [str(toi) for toi in np.round(ranking_tbl['oi'].to_numpy(), decimals=2)]
+#
+# for file in img_dir.iterdir():
+#
+#     toi_id = file.stem.split('_')[1]
+#
+#     if toi_id not in ranking_tbl_tois:
+#         file.unlink()

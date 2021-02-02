@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 #%% Merge TCEs from the single-sector DV lists
 
@@ -214,3 +215,32 @@ columnNamesStellar = ['starTeffKelvin', 'starLoggCgs', 'starRadiusSolarRadii']
 tceTblTargets = tceTbl.drop_duplicates(subset=['ticid'])
 for columnName in columnNamesStellar:
     print(tceTblTargets[columnName].isna().value_counts())
+
+#%% Get number of TCEs per run
+
+tce_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_ephemeris')
+
+multisector_tce_dir = tce_root_dir / 'multi-sector runs'
+singlesector_tce_dir = tce_root_dir / 'single-sector runs'
+
+multisector_tce_tbls = {(int(file.stem.split('-')[1][1:]), int(file.stem.split('-')[2][1:5])): pd.read_csv(file,
+                                                                                                           header=6)
+                        for file in multisector_tce_dir.iterdir() if 'tcestats' in file.name}
+singlesector_tce_tbls = {int(file.stem.split('-')[1][1:]): pd.read_csv(file, header=6)
+                         for file in singlesector_tce_dir.iterdir() if 'tcestats' in file.name}
+singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
+
+# order keys by sector
+singlesector_tce_tbls = {key: singlesector_tce_tbls[key] for key in sorted(singlesector_tce_tbls.keys())}
+multisector_tce_tbls = {key: multisector_tce_tbls[key] for key in sorted(multisector_tce_tbls.keys())}
+
+sector_tce_tbls = dict(singlesector_tce_tbls)
+sector_tce_tbls.update(multisector_tce_tbls)
+
+num_tces = {'sector(s)': [], 'number of tces': []}
+for run in sector_tce_tbls:
+    num_tces['sector(s)'].append(run)
+    num_tces['number of tces'].append(len(sector_tce_tbls[run]))
+
+num_tces_tbl = pd.DataFrame(data=num_tces)
+num_tces_tbl.to_csv(tce_root_dir / 'num_tces_1-13-2021.csv', index=False)

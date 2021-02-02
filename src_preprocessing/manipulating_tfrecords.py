@@ -195,7 +195,7 @@ assert np.sum(countExamples) == 0
 
 #%% compute normalization statistics for scalar parameters, timeseries, ...
 
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_01-26-2021_16-33/tfrecords_cv_hpo/')
 
 # get only training set TFRecords
 tfrecTrainFiles = [file for file in tfrecDir.iterdir() if file.stem.startswith('train-shard')]
@@ -220,60 +220,60 @@ scalarParams = {
     'tce_sdens': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                   'clip_factor': np.nan, 'dtype': 'float'},
     # secondary
-    # 'tce_maxmes': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                'clip_factor': np.nan, 'dtype': 'float'},
-    # 'wst_depth': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-    #               'clip_factor': 20, 'dtype': 'float', 'replace_value': 0},
+    'tce_maxmes': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                   'clip_factor': np.nan, 'dtype': 'float'},
+    'wst_depth': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                  'clip_factor': 20, 'dtype': 'float', 'replace_value': 0},
     # 'tce_albedo': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #                'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_albedo_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-    #                     'dtype': 'float'},
+    'tce_albedo_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
+                        'dtype': 'float'},
     # 'tce_ptemp': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #               'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_ptemp_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-    #                    'dtype': 'float'},
+    'tce_ptemp_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
+                       'dtype': 'float'},
     # 'wst_robstat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #                 'clip_factor': np.nan, 'dtype': 'float'},
     # odd-even
     # 'tce_bin_oedp_stat': {'missing_value': np.nan, 'log_transform': True, 'log_transform_eps': 1e-32,
     #                       'clip_factor': np.nan, 'dtype': 'float'},
     # other diagnostics
-    # 'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
-    #              'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_cap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                  'clip_factor': 20, 'dtype': 'float'},
-    # 'tce_hap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                  'clip_factor': 20, 'dtype': 'float'},
-    # 'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                    'clip_factor': np.nan, 'dtype': 'int'},
+    'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
+                 'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_cap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                     'clip_factor': 20, 'dtype': 'float'},
+    'tce_hap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                     'clip_factor': 20, 'dtype': 'float'},
+    'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan, 'dtype': 'int'},
     # centroid
-    # 'tce_fwm_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-    #                  'dtype': 'float'},
-    # 'tce_dikco_msky': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                    'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_dicco_msky': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                    'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_dikco_msky_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                        'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_dicco_msky_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                        'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_fwm_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
+                     'dtype': 'float'},
+    'tce_dikco_msky': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_dicco_msky': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                       'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_dikco_msky_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                           'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_dicco_msky_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                           'clip_factor': np.nan, 'dtype': 'float'},
     # flux
     'transit_depth': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float'},
     # 'tce_depth_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #                   'clip_factor': np.nan, 'dtype': 'float'},
-    'tce_duration': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-                     'clip_factor': np.nan, 'dtype': 'float'},
+    # 'tce_duration': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+    #                  'clip_factor': np.nan, 'dtype': 'float'},
     # 'tce_duration_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #                      'clip_factor': np.nan, 'dtype': 'float'},
     'tce_period': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                    'clip_factor': np.nan, 'dtype': 'float'},
     # 'tce_period_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
     #                    'clip_factor': np.nan, 'dtype': 'float'},
-    'tce_max_mult_ev': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-                        'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_prad': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #              'clip_factor': 20, 'dtype': 'float'}
+    # 'tce_max_mult_ev': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+    #                     'clip_factor': np.nan, 'dtype': 'float'},
+    'tce_prad': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                 'clip_factor': 20, 'dtype': 'float'}
 }
 
 scalarParamsDict = {scalarParam: [] for scalarParam in scalarParams}
@@ -497,7 +497,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                                  normStats['scalar_params'][scalarParam]['mad_std']
 
                 # tceScalarParams[normStats['scalar_params']['info'][scalarParam]['idx']] = scalarParamVal
-                normalizedFeatures['{}_norm'.format(scalarParam)] = [scalarParamVal]
+                normalizedFeatures[f'{scalarParam}_norm'] = [scalarParamVal]
 
             # normalize FDL centroid time series
             # get out-of-transit indices for the global views
@@ -600,8 +600,8 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             writer.write(example.SerializeToString())
 
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels')
-destTfrecDir = Path(str(srcTfrecDir) + '-normdv')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_01-26-2021_16-33/tfrecords_cv_hpo/')
+destTfrecDir = Path(str(srcTfrecDir) + '-normalized')
 destTfrecDir.mkdir(exist_ok=True)
 srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
@@ -611,7 +611,7 @@ auxParams = {
     'num_bins_glob': 301  # 301, 2001
 }
 
-normStatsDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment')
+normStatsDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_01-26-2021_16-33/tfrecords_cv_hpo/')
 
 # load normalization statistics
 normStats = {
@@ -619,9 +619,15 @@ normStats = {
     'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
     'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
 }
-normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-                              if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
-                                         'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
+# for TPS
+# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+#                                          'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
+# for TESS
+# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+#                                          'transit_depth', 'tce_duration', 'tce_period']}
+# normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
 
 nProcesses = 15
 pool = multiprocessing.Pool(processes=nProcesses)
@@ -637,12 +643,14 @@ print('Normalization finished.')
 #%% Check final preprocessed data
 
 # TFRecord directory
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_01-26-2021_16-33/tfrecords_cv_hpo/tfrecords_cv_hpo-normalized')
 # create plot directory if it does not exist
 plotDir = tfrecDir / 'plots_all_views'
 plotDir.mkdir(exist_ok=True)
 # get filepaths to TFRecord files
 tfrecFiles = [file for file in tfrecDir.iterdir() if 'shard' in file.stem]
+
+tceIdentifier = 'tce_plnt_num'
 
 # set views to be plotted
 views = [
@@ -659,10 +667,10 @@ views = [
     # 'local_flux_oddeven_view_diff',
     # 'local_flux_oddeven_view_diff_dir',
     # 'global_weak_secondary_view',
-    'local_weak_secondary_view',
-    'local_weak_secondary_view_selfnorm',
-    'local_weak_secondary_view_fluxnorm',
-    'local_weak_secondary_view_max_flux-wks_norm',
+    # 'local_weak_secondary_view',
+    # 'local_weak_secondary_view_selfnorm',
+    # 'local_weak_secondary_view_fluxnorm',
+    # 'local_weak_secondary_view_max_flux-wks_norm',
     # centroid
     'global_centr_view',
     'local_centr_view',
@@ -694,38 +702,38 @@ scalarParams = [
     'tce_smass',
     'tce_sdens',
     # secondary
-    # 'wst_depth',
-    # 'tce_maxmes',
-    # 'tce_albedo_stat',
+    'wst_depth',
+    'tce_maxmes',
+    'tce_albedo_stat',
     # 'tce_albedo',
-    # 'tce_ptemp_stat',
+    'tce_ptemp_stat',
     # 'tce_ptemp',
     # 'wst_robstat',
     # odd-even
     # 'tce_bin_oedp_stat',
     # other parameters
-    # 'boot_fap',
-    # 'tce_cap_stat',
-    # 'tce_hap_stat',
-    # 'tce_rb_tcount0',
+    'boot_fap',
+    'tce_cap_stat',
+    'tce_hap_stat',
+    'tce_rb_tcount0',
     # centroid
-    # 'tce_fwm_stat',
-    # 'tce_dikco_msky',
-    # 'tce_dikco_msky_err',
-    # 'tce_dicco_msky',
-    # 'tce_dicco_msky_err',
+    'tce_fwm_stat',
+    'tce_dikco_msky',
+    'tce_dikco_msky_err',
+    'tce_dicco_msky',
+    'tce_dicco_msky_err',
     # flux
-    'tce_max_mult_ev',
+    # 'tce_max_mult_ev',
     # 'tce_depth_err',
     # 'tce_duration_err',
     # 'tce_period_err',
     'transit_depth',
-    # 'tce_prad',
+    'tce_prad',
     'tce_period'
 ]
 
 # set this to get the normalized scalar parameters
-tceOfInterest = (9773869, 1)  # (6500206, 2)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
+tceOfInterest = '9773869-1'  # (6500206, 2)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
 scheme = (3, 6)
 basename = 'all_views'  # basename for figures
 # probPlot = 1.01  # probability threshold for plotting
@@ -741,10 +749,19 @@ for tfrecFile in tfrecFiles:
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
-        if targetIdTfrec != tceOfInterest[0] or tceIdentifierTfrec != tceOfInterest[1]:
+        if tceIdentifier == 'oi':
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
+            tceid = str(tceIdentifierTfrec).split('.')
+            tceid = f'{tceid[0]}.{tceid[1][:2]}'
+        else:
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+            tceid = f'{targetIdTfrec}-{tceIdentifierTfrec}'
+
+
+
+        if tceid != tceOfInterest:
             continue
         # else:
         #     tceFound = True
@@ -779,6 +796,7 @@ for tfrecFile in tfrecFiles:
             viewsDict[view] = np.array(example.features.feature[view].float_list.value)
 
         # plot features
-        plot_features_example(viewsDict, scalarParamsStr, targetIdTfrec, tceIdentifierTfrec, labelTfrec, plotDir,
-                              scheme, basename=basename, display=False)
+        plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme, basename=basename,
+                              display=False)
         aaa
+

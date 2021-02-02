@@ -26,136 +26,10 @@ import src.config_keras
 from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
-
-if 'home6' in paths.path_hpoconfigs:
-    plt.switch_backend('agg')
+from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
 
 
-def print_metrics(res, datasets, metrics_names, prec_at_top):
-    """ Print results.
-
-    :param res: dict, loss and metric values for the different datasets
-    :param datasets: list, dataset names
-    :param metrics_names: list, metrics and losses names
-    :param prec_at_top: dict, top-k values for different datasets
-    :return:
-    """
-
-    print('#' * 100)
-    print(f'Performance metrics for the ensemble ({len(models_filepaths)} models)\n')
-    for dataset in datasets:
-        if dataset != 'predict':
-            print(dataset)
-            for metric in metrics_names:
-                if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                    print(f'{metric}: {res[f"{dataset}_{metric}"]}\n')
-
-            for k in prec_at_top[dataset]:
-                print(f'{"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n')
-    print('#' * 100)
-
-
-def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top, print_res=False):
-    """ Write results to a txt file.
-
-    :param save_path: Path, saving directory
-    :param res: dict, loss and metric values for the different datasets
-    :param datasets: list, dataset names
-    :param metrics_names: list, metrics and losses names
-    :param prec_at_top: dict, top-k values for different datasets
-    :param print_res: bool, if True it prints results to std_out
-    :return:
-    """
-
-    # write results to a txt file
-    with open(save_path / 'results_ensemble.txt', 'w') as res_file:
-
-        res_file.write(f'Performance metrics for the ensemble ({len(models_filepaths)} models)\n')
-
-        for dataset in datasets:
-
-            if dataset != 'predict':
-                res_file.write(f'Dataset: {dataset}\n')
-                for metric in metrics_names:
-                    if not np.any([el in metric for el in ['prec_thr', 'rec_thr', 'tp', 'fn', 'tn', 'fp']]):
-                        str_aux = f'{metric}: {res[f"{dataset}_{metric}"]}\n'
-                        res_file.write(str_aux)
-                        if print_res:
-                            print(str_aux)
-
-                for k in prec_at_top[dataset]:
-                    str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
-                    res_file.write(str_aux)
-                    if print_res:
-                        print(str_aux)
-
-            res_file.write('\n')
-
-        res_file.write(f'{"-" * 100}')
-
-        res_file.write('\nModels used to create the ensemble:\n')
-
-        for model_filepath in models_filepaths:
-            res_file.write(f'{model_filepath}\n')
-
-        res_file.write('\n')
-
-
-# TODO: separate functions for each curve?
-def plot_prcurve_roc(res, save_path, dataset):
-    """ Plot ROC and PR curves.
-
-    :param res: dict, each key is a specific dataset ('train', 'val', ...) and the values are dicts that contain
-    metrics for each dataset
-    :param save_path: str, path to save directory
-    :param dataset: str, dataset for which the plot is generated
-    :return:
-    """
-
-    # count number of samples per class to compute TPR and FPR
-    num_samples_per_class = {'positive': 0, 'negative': 0}
-    num_samples_per_class['positive'] = res['{}_tp'.format(dataset)][0] + res['{}_fn'.format(dataset)][0]
-    num_samples_per_class['negative'] = res['{}_fp'.format(dataset)][0] + res['{}_tn'.format(dataset)][0]
-
-    # ROC and PR curves
-    f = plt.figure(figsize=(9, 6))
-    lw = 2
-    ax = f.add_subplot(111, label='PR ROC')
-    ax.plot(res['{}_rec_thr'.format(dataset)], res['{}_prec_thr'.format(dataset)], color='darkorange', lw=lw,
-            label='PR ROC curve (area = %0.3f)' % res['{}_auc_pr'.format(dataset)])
-    # ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    ax.set_xticks(np.arange(0, 1.05, 0.05))
-    ax.set_yticks(np.arange(0, 1.05, 0.05))
-    ax.legend(loc="lower right")
-    ax.grid()
-    ax.set_xlim([0.0, 1.0])
-    ax.set_ylim([0.0, 1.0])
-    ax2 = f.add_subplot(111, label='AUC ROC', frame_on=False)
-    ax2.plot(res['{}_fp'.format(dataset)] / num_samples_per_class['negative'],
-             res['{}_tp'.format(dataset)] / num_samples_per_class['positive'],
-             color='darkorange', lw=lw, linestyle='--',
-             label='AUC ROC curve (area = %0.3f)' % res['{}_auc_roc'.format(dataset)])
-    ax2.set_xlim([0.0, 1.0])
-    ax2.set_ylim([0.0, 1.0])
-    ax2.xaxis.tick_top()
-    ax2.yaxis.tick_right()
-    ax2.set_xlabel('False Positive Rate')
-    ax2.set_ylabel('True Positive Rate')
-    ax2.set_xticks(np.arange(0, 1.05, 0.05))
-    ax2.set_yticks(np.arange(0, 1.05, 0.05))
-    ax2.yaxis.set_label_position('right')
-    ax2.xaxis.set_label_position('top')
-    ax2.legend(loc="lower left")
-
-    f.suptitle('PR/ROC Curves - {}'.format(dataset))
-    f.savefig(os.path.join(save_path, 'ensemble_pr-roc_curves_{}.png'.format(dataset)))
-    plt.close()
-
-
-def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
-             scalar_params_idxs=None):
+def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred):
     """ Evaluate model on a given configuration in the specified datasets and also predict on them.
 
     :param config: configuration object from the Config class
@@ -166,7 +40,6 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
     :param datasets: list, datasets in which the ensemble is evaluated/predicted on
     :param fields: list, fields to extract from the TFRecords datasets
     :param generate_csv_pred: bool, if True also generates a prediction ranking for the specified datasets
-    :param scalar_params_idxs: list, indexes of scalar parameters in the TFRecords to be used as features
     :return:
     """
 
@@ -181,13 +54,6 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
         # get dataset of the TFRecord
         dataset = tfrec_file.split('-')[0]
 
-        # if dataset == 'predict':
-        #     fields_aux = list(fields)
-        #     if 'label' in fields:
-        #         fields_aux.remove('label')
-        #     if 'original_label' in fields:
-        #         fields_aux.remove('original_label')
-        # else:
         fields_aux = fields
 
         data_aux = get_data_from_tfrecord(os.path.join(tfrec_dir, tfrec_file), fields_aux, config['label_map'])
@@ -210,7 +76,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=features_set, scalar_params_idxs=scalar_params_idxs, models=model_list)
+    ensemble_model = create_ensemble(features=features_set, models=model_list)
 
     ensemble_model.summary()
 
@@ -258,8 +124,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
                                 batch_size=config['batch_size'],
                                 mode=tf.estimator.ModeKeys.EVAL,
                                 label_map=config['label_map'],
-                                features_set=features_set,
-                                scalar_params_idxs=scalar_params_idxs)
+                                features_set=features_set)
 
         # evaluate model in the given dataset
         res_eval = ensemble_model.evaluate(x=eval_input_fn(),
@@ -287,8 +152,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
                                    batch_size=config['batch_size'],
                                    mode=tf.estimator.ModeKeys.PREDICT,
                                    label_map=config['label_map'],
-                                   features_set=features_set,
-                                   scalar_params_idxs=scalar_params_idxs)
+                                   features_set=features_set)
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
@@ -386,7 +250,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
 if __name__ == '__main__':
 
     # name of the study
-    study = 'keplerdr25-dv_g2001-l201_9tr_spline_gapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_tces1'
+    study = 'tess_g301-l31_6tr_spline_nongapped_spoctois_configK_wsphase'
 
     # results directory
     save_path = Path(paths.pathresultsensemble) / study
@@ -402,26 +266,31 @@ if __name__ == '__main__':
     logger.info(f'Starting run {study}...')
 
     # TFRecord files directory
+    # tfrec_dir = os.path.join(paths.path_tfrecs,
+    #                          'Kepler',
+    #                          'Q1-Q17_DR25',
+    #                          'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps_secparams_prad_period_tces1'
+    #                          )
     tfrec_dir = os.path.join(paths.path_tfrecs,
-                             'Kepler',
-                             'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps_secparams_prad_period_tces1'
-                             )
+                             'TESS',
+                             'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-oe-wks-centroid-noDV_nosecparams_data/tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-oe-wks-centroid-noDV_nosecparams-normkeplerdv')
 
     logger.info(f'Using data from {tfrec_dir}')
 
     # datasets used; choose from 'train', 'val', 'test', 'predict' - needs to follow naming of TFRecord files
-    datasets = ['train', 'val', 'test']
-    # datasets = ['predict']
+    # datasets = ['train', 'val', 'test']
+    datasets = ['predict']
 
     logger.info(f'Datasets to be evaluated/tested: {datasets}')
 
     # fields to be extracted from the TFRecords and that show up in the ranking created for each dataset
     # set to None if not adding other fields
+    fields = ['target_id', 'label', 'oi', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
+              'transit_depth', 'Signal-to-noise']
     # fields = ['target_id', 'label', 'tce_plnt_num', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label']
-    fields = ['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
-              'mag', 'ra', 'dec', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr',
-              'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
+    # fields = ['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
+    #           'mag', 'ra', 'dec', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad', 'tce_model_snr',
+    #           'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
 
     # print('Fields to be extracted from the TFRecords: {}'.format(fields))
 
@@ -432,12 +301,19 @@ if __name__ == '__main__':
                        'verbose': False
                        }
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
-    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess
+    satellite = 'tess'  # if 'kepler' in tfrec_dir else 'tess
 
     generate_csv_pred = True
 
+    # get models for the ensemble
+    models_study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_tpsfeatures'  # study
+    models_dir = Path(paths.pathtrainedmodels) / models_study / 'models'
+    models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
+                        model_dir.stem]
+    logger.info(f'Models\' file paths: {models_filepaths}')
+
     # set configuration manually. Set to None to use a configuration from a HPO study
-    config = np.load(Path(paths.pathtrainedmodels) / study/ 'config.npy', allow_pickle=True).item()
+    config = {}  # np.load(Path(paths.pathtrainedmodels) / models_study / 'config.npy', allow_pickle=True).item()
     # # example of configuration
     # config = {'batch_size': 32,
     #           'conv_ls_per_block': 2,
@@ -505,8 +381,6 @@ if __name__ == '__main__':
 
     logger.info(f'Final configuration used: {config}')
 
-    scalar_params_idxs = None  # [0, 1, 2, 3, 4, 5]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
-
     features_set = {
         # flux related features
         'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
@@ -555,14 +429,8 @@ if __name__ == '__main__':
     }
     logger.info(f'Feature set: {features_set}')
 
-    # get models for the ensemble
-    models_dir = Path(paths.pathtrainedmodels) / study / 'models'
-    models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
-                        model_dir.stem]
-
     run_main(config=config,
              features_set=features_set,
-             scalar_params_idxs=scalar_params_idxs,
              data_dir=tfrec_dir,
              res_dir=save_path,
              models_filepaths=models_filepaths,

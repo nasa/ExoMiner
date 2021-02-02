@@ -281,7 +281,7 @@ def normalize_timeseries_features(destTfrecDir, srcTfrecFile, normStats, auxPara
             writer.write(example.SerializeToString())
 
 
-def plot_features_example(viewsDict, scalarParamsStr, targetIdTfrec, tceIdentifierTfrec, labelTfrec, plotDir, scheme,
+def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme,
                           basename='', display=False):
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(22, 12))
@@ -300,9 +300,9 @@ def plot_features_example(viewsDict, scalarParamsStr, targetIdTfrec, tceIdentifi
                 ax[i, j].set_ylabel('Amplitude')
             k += 1
 
-    f.suptitle(f'TCE {targetIdTfrec} {tceIdentifierTfrec} {labelTfrec}\n{scalarParamsStr}')
+    f.suptitle(f'{tceid} {labelTfrec}\n{scalarParamsStr}')
     plt.subplots_adjust(top=0.795, bottom=0.075, left=0.045, right=0.98, hspace=0.435, wspace=0.315)
-    plt.savefig(plotDir / f'{targetIdTfrec}_{tceIdentifierTfrec}_{labelTfrec}_{basename}.png')
+    plt.savefig(plotDir / f'{tceid}_{labelTfrec}_{basename}.png')
     # f.tight_layout(rect=[0, 0.03, 1, 0.95])
     # f.tight_layout()
     if not display:

@@ -657,12 +657,13 @@ def _process_tce(tce, table, config, conf_dict):
     """
 
     # import pandas as pd
-    # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/misclassified_analysis/'
-    #                          'configK_nopps_10-26-2020/ranking_Confirmed KOI_testset.csv')[-13:]
+    # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
+    #                          'tess_g301-l31_6tr_spline_nongapped_spoctois_configK_wsphase/ensemble_ranked_predictions_'
+    #                          'predictset.csv')
     # cfpTbl = pd.read_csv('/home/msaragoc/Downloads/fpwg_2020.10.02_15.25.08.csv', header=10)
     # koiTTVs = cfpTbl.loc[cfpTbl['fpwg_comment'].str.contains('TTV', na=False)]['kepoi_name'].values
 
-    # rankingTbl = rankingTbl.loc[rankingTbl['label'] == 'PC']
+    # rankingTbl = rankingTbl.loc[(rankingTbl['original_label'] == 'KP') & (rankingTbl['predicted class'] == 0)]
     # rankingTbl = rankingTbl[-20:]
     # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/num_tces_per_disp/tce_counts_per_target.csv')
     # rankingTbl = rankingTbl.loc[rankingTbl['label'] == 'PC']
@@ -675,13 +676,14 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 5640085 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
     # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5780782-7', '6548447-4', '1028246-2', '11456839-1', '11456839-1', '5451336-1']:
-    # # if tce['oi'] == 541.01:
+    # if tce['oi'] == 185.01:
     #     print(tce)
+    #     tce['tce_time0bk'] = 2140.570625
     # else:
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 

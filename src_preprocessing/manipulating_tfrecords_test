@@ -397,16 +397,20 @@ print('Possible Planet KOIs removed from the dataset.')
 
 #%% Count TCEs from dataset
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
+# tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                      'q1_q17_dr25_tce_2020.04.15_23.19.10_cumkoi_2020.02.21_shuffledstar_noroguetces_noRobovetterKOIs.csv')
 
-tceIdentifier = 'tce_plnt_num'
-srcTfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl_data/tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-centroid-6stellar_shalluevand_fdl'
+tceIdentifier = 'oi'
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/'
+                   'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-oe-wks-centroid-noDV_nosecparams')
+srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if file.suffix != '.csv' and 'shard' in file.stem]
 
-tcesCount = {'PC': 0, 'NTP': 0, 'AFP': 0}
+# tcesCount = {'PC': 0, 'NTP': 0, 'AFP': 0}
+tcesCount = {'PC': 0, 'KP': 0, 'EB': 0, 'O': 0}
+data_to_tbl = {'oi': []}
 for srcTfrecFile in srcTfrecFiles:
 
-    tfrecord_dataset = tf.data.TFRecordDataset(srcTfrecFile)
+    tfrecord_dataset = tf.data.TFRecordDataset(str(srcTfrecFile))
 
     for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
 
@@ -414,13 +418,26 @@ for srcTfrecFile in srcTfrecFiles:
         example.ParseFromString(string_record)
 
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        if tceIdentifier == 'tce_plnt_num':
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        else:
+            tceIdentifierTfrec = str(example.features.feature[tceIdentifier].float_list.value[0]).split('.')
+            tceIdentifierTfrec = f'{tceIdentifierTfrec[0]}.{tceIdentifierTfrec[1][:2]}'
+
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
         tcesCount[labelTfrec] += 1
+        # tcesCount[labelTfrec].append((targetIdTfrec, tceIdentifierTfrec))
+        data_to_tbl['oi'].append(float(tceIdentifierTfrec))
 
 print(tcesCount)
 print(np.sum(list(tcesCount.values())))
+data_tbl = pd.DataFrame(data=data_to_tbl)
+data_tbl.to_csv('/home/msaragoc/Downloads/tois_in_tfrec.csv', index=False)
+toi_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/'
+                      'tois_stellar_nosectornan_wsphase_renamedcols.csv')
+data_tbl = data_tbl.loc[~data_tbl['oi'].isin(toi_tbl['oi'])]
+data_tbl.to_csv('/home/msaragoc/Downloads/tois_in_tfrec_missing.csv', index=False)
 
 #%% Add tce_dikco_msky, tce_dicco_msky and tce_max_mult_ev to the TFRecords
 

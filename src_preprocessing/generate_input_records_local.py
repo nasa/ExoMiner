@@ -27,13 +27,13 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # tfrecords_base_name = 'test_q1q17dr25scr1'
-    config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    # config['tfrecords_base_name'] = 'plot_5640085-2'
+    # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
+    config['tfrecords_base_name'] = 'plot_misclassifiedKPs_185.01_1-19-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
-                                   'Kepler',  # either 'Kepler' of 'TESS'
-                                   'Q1-Q17_DR25'
+                                   'TESS',  # either 'Kepler' of 'TESS'
+                                   # 'Q1-Q17_DR25'
                                    )
 
     # output directory
@@ -156,7 +156,7 @@ def create_preprocessing_config():
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/' \
         #                      'exofop_ctoilists_Community_processed.csv'
         config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/' \
-                                       'tois_stellar_nosectornan_wsphase_renamedcols.csv'
+                                       'tois_stellar_nosectornan_tcesparams_renamedcols.csv'
 
         config['lc_data_dir'] = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 

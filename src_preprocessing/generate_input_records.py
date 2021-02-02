@@ -179,6 +179,8 @@ def create_preprocessing_config():
     print(f'Process {config["process_i"]} ({config["n_processes"]})')
     sys.stdout.flush()
 
+    return config
+
 
 def _process_file_shard(tce_table, file_name, eph_table, config):
     """ Processes a single file shard.
@@ -229,10 +231,10 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                         examplesDf = exampleDf
                         firstTceInDf = False
                     else:
-                        examplesDf = pd.read_csv(os.path.join(config['output_dir'], '{}.csv'.format(shard_name)))
+                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv')
                         examplesDf = pd.concat([examplesDf, exampleDf])
 
-                    examplesDf.to_csv(os.path.join(config['output_dir'], '{}.csv'.format(shard_name)), index=False)
+                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=False)
 
             num_processed += 1
             if config['n_processes'] < 50 or config['process_i'] == 0:
@@ -259,7 +261,7 @@ def main():
     config = create_preprocessing_config()
 
     # make the output directory if it doesn't already exist
-    config['output_dir'].makedirs(exist_ok=True)
+    config['output_dir'].mkdir(exist_ok=True)
 
     # save the JSON file with preprocessing parameters that are JSON serializable
     if config['process_i'] == 0:
@@ -283,7 +285,7 @@ def main():
 
     node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
     filename = f'shard-{config["process_i"]:05d}-of-{config["n_processes"]:05d}-node-{node_id:s}'
-    file_name_i = os.path.join(config['output_dir'], filename)
+    file_name_i = config['output_dir'] / filename
 
     _process_file_shard(tce_table, file_name_i, eph_table, config)
 

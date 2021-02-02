@@ -207,26 +207,7 @@ def compute_precision_at_k(study, dataset, rootDir, k_arr, k_curve_arr, k_curve_
 #%% Compute precision at k for experiments
 
 studies = [
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configD_glflux_prelu',
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-lwks_fluxnorm-loe-6stellar-bfap-ghost-rollingband-co_kic_oot-wksmaxmes_prelu',
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband_prelu',
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_configE_glflux-glcentr_std_noclip-loe-lwks-6stellar_prelu',
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_astronet-300epochs-es20patience_glflux',
-    # 'keplerdr25_g2001-l201_spline_nongapped_norobovetterkois_starshuffle_exonet-300epochs-es20patience_glflux-glcentr_fdl-6stellar',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnormmaxflux-wks_correctprimarygapping_ptempstat_albedostat_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_wksnormmaxflux-wks_correctprimarygapping_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_wks-selfnorm_secsymphase_correctprimarygapping_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_correctprimarygapping_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_correctprimarygapping_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_secsymphase_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu_nopps',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_prelu'
-    # 'keplerdr25-dv_g2001-l201_9tr_spline_gapped_norobovetterkois_starshuffle_astronet_secsymphase_nopps_ckoiper',
-    # 'keplerdr25-dv_g2001-l201_9tr_spline_gapped_norobovetterkois_starshuffle_exonet_secsymphase_nopps_ckoiper',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per',
-    # 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_tpsfeatures_tces1',
-    # 'keplerdr25-tps_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper',
-    'keplerdr25-tps_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_dvmodel'
+    'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per'
 ]
 
 datasets = ['train', 'val', 'test']
@@ -262,6 +243,19 @@ k_curve_arr_plot = {
     'train': np.linspace(100, 1200, 12, endpoint=True, dtype='int'),  # without PPs and TCEs-1 only
     'val': np.linspace(20, 160, 15, endpoint=True, dtype='int'),
     'test': np.linspace(20, 170, 17, endpoint=True, dtype='int')
+}
+
+k_arr = {'train': [100, 1000, 1677], 'val': [50, 150, 227], 'test': [50, 150, 177]}
+
+k_curve_arr = {
+    'train': np.linspace(100, 1600, 16, endpoint=True, dtype='int'),
+    'val': np.linspace(10, 220, 22, endpoint=True, dtype='int'),
+    'test': np.linspace(10, 170, 17, endpoint=True, dtype='int')
+}
+k_curve_arr_plot = {
+    'train': np.linspace(100, 1600, 16, endpoint=True, dtype='int'),
+    'val': np.linspace(20, 220, 11, endpoint=True, dtype='int'),
+    'test': np.linspace(20, 170, 16, endpoint=True, dtype='int')
 }
 
 num_thresholds = 1000

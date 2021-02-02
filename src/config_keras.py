@@ -21,7 +21,11 @@ label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary clas
                               "NTP": 0,
                               "EB": 0,
                               "BEB": 0,
-                              "KP": 1}}}
+                              "KP": 1,
+                              'CP': 1,
+                              'FP': 0,
+                              'APC': 0,
+                              'O': 0}}}
 
 
 def add_default_missing_params(config):
@@ -46,7 +50,10 @@ def add_default_missing_params(config):
         # 'optimizer': 'SGD',
         # 'lr': 1e-5,
         # 'k_arr': {'train': [100, 1000, 2084], 'val': [50, 150, 257], 'test': [50, 150, 283]},
-        'k_arr': {'train': [100, 1000, 1818], 'val': [50, 150, 222], 'test': [50, 150, 251]},  # no PPs
+        'k_arr': {'train': [100, 1000, 1818],
+                  'val': [50, 150, 222],
+                  'test': [50, 150, 251]
+                  },  # no PPs
         'k_curve_arr': {
             # 'train': np.linspace(25, 2000, 100, endpoint=True, dtype='int'),
             # 'val': np.linspace(25, 250, 10, endpoint=True, dtype='int'),

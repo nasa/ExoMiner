@@ -2,7 +2,7 @@ import tensorflow as tf
 import operator
 from tensorflow.keras import regularizers
 from tensorflow import keras
-import sys
+# import sys
 
 
 class CNN1dPlanetFinderv1(object):
@@ -326,19 +326,17 @@ class CNN1dPlanetFinderv1(object):
 
 class CNN1dPlanetFinderv2(object):
 
-    def __init__(self, config, features, scalar_params_idxs):
+    def __init__(self, config, features):
         """ Initializes the CNN 1D Planet Finder v1 model. The core structure consists of separate convolutional
         branches for non-related types of input (flux, centroid, odd and even time series, ...).
 
         :param config: dict, model configuration for its parameters and hyperparameters
         :param features: dict, 'feature_name' : {'dim': tuple, 'dtype': (tf.int, tf.float, ...)}
-        :param scalar_params_idxs: list, containing indices of the scalar parameters that are used
         """
 
         # model configuration (parameters and hyperparameters)
         self.config = config
         self.features = features
-        self.scalar_params_idxs = scalar_params_idxs
 
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
@@ -352,20 +350,12 @@ class CNN1dPlanetFinderv2(object):
 
         # self.is_training = None
 
-        # # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
-        # # classes
-        # if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
-        #     self.output_size = max(config['label_map'].values()) + 1
-        # else:  # binary classification with sigmoid output layer
-        #     self.output_size = 1
-        #
         # # class-label weights for weighted loss
         # # convert from numpy to tensor
         # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
-        # print('inside model before creating inputs', tf.executing_eagerly())
         self.inputs = self.create_inputs()
-        # print('inside model after creating inputs', tf.executing_eagerly())
+
         # build the model
         self.outputs = self.build()
 
@@ -676,7 +666,7 @@ class CNN1dPlanetFinderv2(object):
         :return:
             model output before FC layers
         """
-        # print('inside model beginning connect_segments', tf.executing_eagerly())
+
         # Sort the hidden layers by name because the order of dictionary items is
         # nondeterministic between invocations of Python.
         time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
@@ -708,10 +698,6 @@ class CNN1dPlanetFinderv2(object):
             net,
             scalar_input
         ])
-
-        # tf.print('Input to FC block: ', net, output_stream=sys.stdout)
-        # print('inside model before get values layer function', tf.executing_eagerly())
-        # _get_values_layer(net)
 
         if self.config['batch_norm']:
             net = tf.keras.layers.BatchNormalization(axis=-1,
@@ -808,7 +794,7 @@ class CNN1dPlanetFinderv2(object):
 
         # create convolutional branches
         cnn_layers = self.build_cnn_layers()
-        # print('inside model after creating conv branches', tf.executing_eagerly())
+
         # merge convolutional branches
         net = self.connect_segments(cnn_layers)
 
@@ -1502,7 +1488,7 @@ class Exonet_XS(object):
         return outputs
 
 
-def create_inputs(features, scalar_params_idxs):
+def create_inputs(features):
     """ Create input layers for the input features.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
@@ -1516,12 +1502,7 @@ def create_inputs(features, scalar_params_idxs):
 
     for feature in features:
 
-        if feature == 'scalar_params' and scalar_params_idxs is not None:
-            input_feat_shape = len(scalar_params_idxs)
-        else:
-            input_feat_shape = features[feature]['dim']
-
-        input = tf.keras.Input(shape=input_feat_shape,
+        input = tf.keras.Input(shape=features[feature]['dim'],
                                batch_size=None,
                                name='{}'.format(feature),
                                dtype=features[feature]['dtype'],
@@ -1534,23 +1515,16 @@ def create_inputs(features, scalar_params_idxs):
     return inputs
 
 
-def create_ensemble(features, scalar_params_idxs, models):
+def create_ensemble(features, models):
     """ Create a Keras ensemble.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
-    :param scalar_paramss_idxs: list, choose indexes of scalar parameters to be extracted as features. None to get all of
-    them in the TFRecords
     :param models: list, list of Keras models
     :return:
         Keras ensemble
     """
 
-    # if config['multi_class'] or (not config['multi_class'] and config['force_softmax']):
-    #     output_size = max(config['label_map'].values()) + 1
-    # else:  # binary classification with sigmoid output layer
-    #     output_size = 1
-
-    inputs = create_inputs(features=features, scalar_params_idxs=scalar_params_idxs)
+    inputs = create_inputs(features=features)
 
     single_models_outputs = [model(inputs) for model in models]
 

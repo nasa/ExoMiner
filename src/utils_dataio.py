@@ -272,7 +272,7 @@ class InputFnv2(object):
     """Class that acts as a callable input function for the Estimator."""
 
     def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, scalar_params_idxs=None, shuffle_buffer_size=27000,
+                 online_preproc_params=None, filter_data=None, shuffle_buffer_size=27000,
                  shuffle_seed=24, prefetch_buffer_nsamples=256):
         """Initializes the input function.
 
@@ -287,7 +287,6 @@ class InputFnv2(object):
         :param data_augmentation: bool, if True data augmentation is performed
         :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
         :param filter_data:
-        :param scalar_params_idxs: list, indexes of features to extract from the scalar features Tensor
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
         size guarantees perfect shuffling
         :param shuffle_seed: int, shuffle seed
@@ -302,7 +301,6 @@ class InputFnv2(object):
         self.label_map = label_map
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
-        self.scalar_params_idxs = scalar_params_idxs
         self.online_preproc_params = online_preproc_params
 
         self.shuffle_buffer_size = shuffle_buffer_size
@@ -470,6 +468,200 @@ class InputFnv2(object):
         return dataset
 
 
+class InputFnCV(object):
+    """ Class that acts as a callable input function for the Keras model for cross-validation. """
+
+    def __init__(self, filepaths, batch_size, mode, label_map, features_set, data_augmentation=False,
+                 online_preproc_params=None, shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256):
+        """ Initializes the input function.
+
+        :param filepaths: list, TFrecords filepaths
+        :param batch_size: int, batch size
+        :param mode: str, describes in which mode the model is: TRAIN, EVAL, PREDICT
+        :param label_map: dict, map between class name and integer value
+        :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
+        value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
+        (can the dimension and data type be inferred from the tensors in the dataset?)
+        :param data_augmentation: bool, if True data augmentation is performed
+        :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
+        :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
+        size guarantees perfect shuffling
+        :param shuffle_seed: int, shuffle seed
+        :param prefetch_buffer_nsamples: int, number of samples which when divided by the batch size gives the number of
+        batches prefetched
+        :return:
+        """
+
+        self.filepaths = filepaths
+        self.mode = mode
+        self.batch_size = batch_size
+        self.label_map = label_map
+        self.features_set = features_set
+        self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
+        self.online_preproc_params = online_preproc_params
+
+        self.shuffle_buffer_size = shuffle_buffer_size
+        self.shuffle_seed = shuffle_seed
+        self.prefetch_buffer_size = int(prefetch_buffer_nsamples / self.batch_size)
+
+    def __call__(self):
+        """ Builds the input pipeline.
+
+        :return:
+            a tf.data.Dataset with features and labels
+        """
+
+        def _example_parser(serialized_example):
+            """Parses a single tf.Example into feature and label tensors.
+
+            :param serialized_example: a single tf.Example
+            :return:
+                tuple, feature and label tensors
+            """
+
+            # get features names, shapes and data types to be extracted from the TFRecords
+            data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
+                           for feature_name, feature_info in self.features_set.items()}
+
+            # parse the features
+            parsed_features = tf.io.parse_single_example(serialized=serialized_example, features=data_fields)
+
+            # get labels if in TRAIN or EVAL mode
+            if include_labels:
+                label_field = {'label': tf.io.FixedLenFeature([], tf.string)}
+                parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
+
+            # prepare data augmentation
+            if self.data_augmentation:
+
+                # Randomly reverse time series features with probability reverse_time_series_prob.
+                should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
+
+                # bin shifting
+                bin_shift = [-5, 5]
+                shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
+                                          dtype=tf.dtypes.int32, name='randuniform')
+
+                # get oot indices for Gaussian noise augmentation added to oot indices
+                tce_ephem = tf.io.parse_single_example(serialized=serialized_example,
+                                                       features={'tce_period': tf.io.FixedLenFeature([], tf.float32),
+                                                                 'tce_duration': tf.io.FixedLenFeature([], tf.float32)})
+
+                # boolean tensor for oot indices for global view
+                idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(self.online_preproc_params['num_bins_global'],
+                                                                            tce_ephem['tce_duration'],
+                                                                            tce_ephem['tce_period'])
+                # boolean tensor for oot indices for local view
+                idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(self.online_preproc_params['num_bins_local'],
+                                                                          self.online_preproc_params['num_transit_dur'])
+
+            # map label to integer value
+            label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
+            if include_labels:
+                # map label to integer
+                label_id = label_to_id.lookup(parsed_label['label'])
+
+                # Ensure that the label_id is non negative to verify a successful hash map lookup.
+                assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
+                                               ["Unknown label string:", parsed_label['label']],
+                                               name='assert_non-negativity')
+
+                with tf.control_dependencies([assert_known_label]):
+                    label_id = tf.identity(label_id)
+
+            # initialize feature output
+            output = {}
+            for feature_name, value in parsed_features.items():
+
+                # data augmentation for time series features
+                if 'view' in feature_name and self.data_augmentation:
+
+                    # with tf.variable_scope('input_data/data_augmentation'):
+
+                    # add white gaussian noise
+                    if 'global' in feature_name:
+                        oot_values = tf.boolean_mask(value, idxs_nontransitcadences_glob)
+                    else:
+                        oot_values = tf.boolean_mask(value, idxs_nontransitcadences_loc)
+
+                    # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
+                    oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
+                    # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
+                    # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
+                    #                       name='oot_median')
+
+                    oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
+
+                    value = add_whitegaussiannoise(value, oot_median, oot_std)
+
+                    # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
+                    #                                parsed_features[feature_name + '_stdoot'])
+
+                    # invert phase
+                    value = phase_inversion(value, should_reverse)
+
+                    # phase shift some bins
+                    value = phase_shift(value, shift)
+
+                output[feature_name] = value
+
+            # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
+            return output, label_id
+
+        # with tf.variable_scope('input_data'):
+
+        # Create a HashTable mapping label strings to integer ids.
+        table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
+                                                                values=list(self.label_map.values()),
+                                                                key_dtype=tf.string,
+                                                                value_dtype=tf.int32)
+
+        label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
+
+        include_labels = self.mode in ['TRAIN', 'EVAL']
+
+        filenames = [str(fp) for fp in self.filepaths]
+        # for p in self.filepaths:
+        #     matches = tf.io.gfile.glob(p)
+        #     if not matches:
+        #         raise ValueError(f'Found no input files matching {p}')
+        #     filenames.extend(matches)
+
+        # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
+
+        # create filename dataset based on the list of tfrecords filepaths
+        filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
+
+        # map a TFRecordDataset object to each tfrecord filepath
+        dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
+
+        # shuffle the dataset if training
+        # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
+        #        set variables for buffer size and shuffle seed?
+        # if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+        if self.mode == tf.estimator.ModeKeys.TRAIN:
+            dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
+
+        # do not repeat the dataset
+        dataset = dataset.repeat(1)
+
+        # map the example parser across the tfrecords dataset to extract the examples and manipulate them
+        # (e.g., real-time data augmentation, shuffling, ...)
+        # dataset = dataset.map(_example_parser, num_parallel_calls=4)
+        # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
+        # process asynchronously
+        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+        # creates batches by combining consecutive elements
+        dataset = dataset.batch(self.batch_size)
+
+        # prefetches batches determined by the buffer size chosen
+        # parallelized processing in the CPU with model computations in the GPU
+        dataset = dataset.prefetch(max(1, self.prefetch_buffer_size))
+
+        return dataset
+
+
 def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='label', verbose=False):
     """ Compute class cross-entropy weights based on the amount of labels for each class.
 
@@ -586,10 +778,10 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
     FLOATFIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'ra', 'dec', 'mag', 'transit_depth', 'tce_steff',
                    'tce_slogg', 'tce_smass', 'tce_sdens', 'tce_smet', 'tce_sradius', 'koi_score', 'wst_robstat',
                    'tce_bin_oedp_stat', 'boot_fap', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad',
-                   'tce_model_snr', 'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror']
+                   'tce_model_snr', 'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror', 'Signal-to-noise']
 
     STRINGFIELDS = ['koi_disposition', 'kepoi_name', 'kepler_name', 'fpwg_disp_status', 'tce_datalink_dvs',
-                    'tce_datalink_dvr']
+                    'tce_datalink_dvr', 'sectors']
 
     # TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
     #               'local_view_odd']
@@ -636,7 +828,8 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, cou
             datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
 
         if 'oi' in union_fields:
-            datum['oi'] = example.features.feature['oi'].int64_list.value[0]
+            # datum['oi'] = example.features.feature['oi'].int64_list.value[0]
+            datum['oi'] = example.features.feature['oi'].float_list.value[0]
 
         if 'tce_plnt_num' in union_fields:
             datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]

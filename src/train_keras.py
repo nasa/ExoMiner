@@ -19,7 +19,6 @@ import argparse
 from tensorflow.keras.utils import plot_model
 from pathlib import Path
 import logging
-import matplotlib.pyplot as plt
 
 # local
 import paths
@@ -30,259 +29,17 @@ import src.config_keras
 from src.utils_metrics import get_metrics
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
-
-if 'home6' in paths.path_hpoconfigs:
-    plt.switch_backend('agg')
+from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
 
 
-def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
-    """ Print results.
-
-    :param model_id: int, model ID
-    :param res: dict, loss and metric values for the different datasets
-    :param datasets: list, dataset names
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param metrics_names: list, metrics and losses names
-    :param prec_at_top: dict, top-k values for different datasets
-    :return:
-    """
-
-    print('#' * 100)
-    print('Model {}'.format(model_id))
-    print('Performance on epoch ({})'.format(ep_idx + 1))
-    for dataset in datasets:
-        print(dataset)
-        for metric in metrics_names:
-            if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
-
-                if dataset == 'train':
-                    print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
-                elif dataset == 'test':
-                    print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-                else:
-                    print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
-
-        for k in prec_at_top[dataset]:
-            print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                    res['{}_precision_at_{}'.format(dataset, k)]))
-
-    print('#' * 100)
-
-
-def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, prec_at_top):
-    """ Write results to a txt file.
-
-    :param model_dir_sub: std, model directory
-    :param res: dict, loss and metric values for the different datasets
-    :param datasets: list, datasets names
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param metrics_names: list, metrics and losses names
-    :param prec_at_top: dict, top-k values for different datasets
-    :return:
-    """
-
-    with open(model_dir_sub / 'results.txt', 'w') as res_file:
-
-        res_file.write('Performance metrics at epoch {} \n'.format(ep_idx + 1))
-
-        for dataset in datasets:
-
-            res_file.write('Dataset: {}\n'.format(dataset))
-
-            for metric in metrics_names:
-                if not any([metric_arr in metric for metric_arr in ['prec_thr', 'rec_thr', 'fn', 'fp', 'tn', 'tp']]):
-
-                    if dataset == 'train':
-                        res_file.write('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
-
-                    elif dataset == 'test':
-                        res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-
-                    else:
-                        res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
-
-            for k in prec_at_top[dataset]:
-                res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                                 res['{}_precision_at_{}'.format(dataset, k)]))
-
-            res_file.write('\n')
-
-        res_file.write('{}'.format('-' * 100))
-
-        res_file.write('\n')
-
-
-def plot_loss_metric(res, epochs, ep_idx, opt_metric, save_path):
-    """ Plot loss and evaluation metric plots.
-
-    :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
-    for the test set)
-    :param epochs: Numpy array, epochs
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param opt_metric: str, optimization metric to be plotted alongside the model's loss
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    f, ax = plt.subplots(1, 2)
-    ax[0].plot(epochs, res['loss'], label='Training', color='b')
-    ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
-
-    # ax[0].scatter(epochs[ep_idx], res['validation']['loss'][ep_idx], c='r')
-    ax[0].scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
-    ax[0].set_xlim([0, epochs[-1] + 1])
-    # ax[0].set_ylim(bottom=0)
-    ax[0].set_xlabel('Epochs')
-    ax[0].set_ylabel('Loss')
-    ax[0].set_title('Categorical cross-entropy\nVal/Test %.4f/%.4f' % (res['val_loss'][ep_idx], res['test_loss']))
-    ax[0].legend(loc="upper right")
-    ax[0].grid(True)
-    ax[1].plot(epochs, res[opt_metric], label='Training')
-    ax[1].plot(epochs, res['val_{}'.format(opt_metric)], label='Validation', color='r')
-    ax[1].scatter(epochs[ep_idx], res['val_{}'.format(opt_metric)][ep_idx], c='r')
-    ax[1].scatter(epochs[ep_idx], res['test_{}'.format(opt_metric)], label='Test', c='k')
-    ax[1].set_xlim([0, epochs[-1] + 1])
-    # ax[1].set_ylim([0.0, 1.05])
-    ax[1].grid(True)
-    ax[1].set_xlabel('Epochs')
-    ax[1].set_ylabel(opt_metric)
-    ax[1].set_title('%s\nVal/Test %.4f/%.4f' % (opt_metric, res['val_{}'.format(opt_metric)][ep_idx],
-                                                res['test_{}'.format(opt_metric)]))
-    ax[1].legend(loc="lower right")
-    f.suptitle('Epochs = {:.0f}(Best val:{:.0f})'.format(epochs[-1], epochs[ep_idx]))
-    f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(save_path)
-    plt.close()
-
-
-def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, save_path):
-    """  Plot precision, recall, roc auc, pr auc curves for the validation and test sets.
-
-    :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
-    for the test set)
-    :param epochs: Numpy array, epochs
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    f, ax = plt.subplots()
-    ax.plot(epochs, res['val_precision'], label='Val Precision')
-    ax.plot(epochs, res['val_recall'], label='Val Recall')
-    ax.plot(epochs, res['val_auc_roc'], label='Val ROC AUC')
-    ax.plot(epochs, res['val_auc_pr'], label='Val PR AUC')
-    ax.scatter(epochs[ep_idx], res['test_precision'], label='Test Precision')
-    ax.scatter(epochs[ep_idx], res['test_recall'], label='Test Recall')
-    ax.scatter(epochs[ep_idx], res['test_auc_roc'], label='Test ROC AUC')
-    ax.scatter(epochs[ep_idx], res['test_auc_pr'], label='Test PR AUC')
-    ax.grid(True)
-
-    chartBox = ax.get_position()
-    ax.set_position([chartBox.x0, chartBox.y0, chartBox.width * 0.6, chartBox.height])
-    ax.legend(loc='upper center', bbox_to_anchor=(1.45, 0.8), shadow=True, ncol=1)
-
-    ax.set_xlim([0, epochs[-1] + 1])
-    ax.set_ylim([0, 1])
-    ax.set_xlabel('Epochs')
-    ax.set_ylabel('Metric Value')
-    ax.set_title('Evaluation Metrics\nVal/Test')
-    # ax[1].legend(loc="lower right")
-    # f.suptitle('Epochs = {:.0f}'.format(res['epochs'][-1]))
-    # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(save_path)
-    plt.close()
-
-
-def plot_pr_curve(res, ep_idx, save_path):
-    """ Plot PR curve.
-
-    :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
-    for the test set)
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param model_id: int, identifies the model being used
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    f, ax = plt.subplots()
-    ax.plot(res['val_rec_thr'][ep_idx], res['val_prec_thr'][ep_idx],
-            label='Val (AUC={:.3f})'.format(res['val_auc_pr'][ep_idx]), color='r')
-    ax.plot(res['test_rec_thr'], res['test_prec_thr'],
-            label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='k')
-    ax.plot(res['rec_thr'][ep_idx], res['prec_thr'][ep_idx],
-            label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='b')
-    # ax.scatter(res['val_rec_thr'][ep_idx],
-    #            res['val_prec_thr'][ep_idx], c='r')
-    # ax.scatter(res['test_rec_thr'],
-    #            res['test_prec_thr'], c='k')
-    # ax.scatter(res['rec_thr'][ep_idx],
-    #            res['prec_thr'][ep_idx], c='b')
-    ax.set_xlim([0, 1])
-    ax.set_ylim([0, 1])
-    ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
-    ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
-    ax.grid(True)
-    ax.legend(loc='lower left')
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    # ax.set_title('Precision Recall curve')
-    f.savefig(save_path)
-    plt.close()
-
-
-def plot_roc(res, ep_idx, save_path):
-    """ Plot ROC.
-
-    :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
-    for the test set)
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param save_path: str, filepath used to save the plots figure
-    :return:
-    """
-
-    # count number of samples per class to compute TPR and FPR
-    num_samples_per_class = {dataset: {'positive': 0, 'negative': 0} for dataset in ['train', 'val', 'test']}
-    num_samples_per_class['train'] = {'positive': res['tp'][0][0] + res['fn'][0][0],
-                                      'negative': res['fp'][0][0] + res['tn'][0][0]}
-    num_samples_per_class['val'] = {'positive': res['val_tp'][0][0] + res['val_fn'][0][0],
-                                    'negative': res['val_fp'][0][0] + res['val_tn'][0][0]}
-    num_samples_per_class['test'] = {'positive': res['test_tp'][0] + res['test_fn'][0],
-                                     'negative': res['test_fp'][0] + res['test_tn'][0]}
-
-    # plot roc
-    f, ax = plt.subplots()
-    ax.plot(res['fp'][ep_idx] / num_samples_per_class['train']['negative'],
-            res['tp'][ep_idx] / num_samples_per_class['train']['positive'], 'b',
-            label='Train (AUC={:.3f})'.format(res['auc_roc'][ep_idx]))
-    ax.plot(res['val_fp'][ep_idx] / num_samples_per_class['val']['negative'],
-            res['val_tp'][ep_idx] / num_samples_per_class['val']['positive'], 'r',
-            label='Val (AUC={:.3f})'.format(res['val_auc_roc'][ep_idx]))
-    ax.plot(res['test_fp'] / num_samples_per_class['test']['negative'],
-            res['test_tp'] / num_samples_per_class['test']['positive'], 'k',
-            label='Test (AUC={:.3f})'.format(res['test_auc_roc']))
-
-    ax.set_xlim([0, 1])
-    ax.set_ylim([0, 1])
-    ax.set_xticks(np.linspace(0, 1, num=11, endpoint=True))
-    ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
-    ax.grid(True)
-    ax.legend(loc='lower right')
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    ax.set_title('ROC')
-    f.savefig(save_path)
-    plt.close()
-
-
-def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_id, opt_metric, min_optmetric,
-             callbacks_dict, features_set, data_augmentation=False, online_preproc_params=None, scalar_params_idxs=None,
+def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metric, min_optmetric,
+             callbacks_dict, features_set, data_augmentation=False, online_preproc_params=None,
              filter_data=None, mpi_rank=None):
     """ Train and evaluate model on a given configuration. Test set must also contain labels.
 
     :param config: configuration object from the Config class
     :param n_epochs: int, number of epochs to train the models
     :param data_dir: str, path to directory with the tfrecord files
-    :param model_dir: str, path to root directory in which to save the models
     :param res_dir: str, path to directory to save results
     :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param min_optmetric: bool, if set to True, gets minimum value of the optimization metric and the respective epoch
@@ -302,7 +59,9 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     verbose = False if 'home6' in paths.path_hpoconfigs else True
 
     # create directory for the model
-    model_dir_sub = model_dir / f'model{model_id}'
+    models_dir = res_dir / 'models'
+    models_dir.mkdir(exist_ok=True)
+    model_dir_sub = models_dir / f'model{model_id}'
     model_dir_sub.mkdir(exist_ok=True)
 
     # debug_dir = os.path.join(model_dir_sub, 'debug')
@@ -341,7 +100,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     original_labels = {dataset: np.array(original_labels[dataset]) for dataset in datasets}
 
     # instantiate Keras model
-    model = base_model(config, features_set, scalar_params_idxs).kerasModel
+    model = base_model(config, features_set).kerasModel
 
     # print model summary
     if mpi_rank is None or mpi_rank == 0:
@@ -384,22 +143,19 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                              data_augmentation=data_augmentation,
                              online_preproc_params=online_preproc_params,
                              filter_data=filter_data['train'],
-                             features_set=features_set,
-                             scalar_params_idxs=scalar_params_idxs)
+                             features_set=features_set)
     val_input_fn = InputFn(file_pattern=data_dir + '/val*',
                            batch_size=config['batch_size'],
                            mode=tf.estimator.ModeKeys.EVAL,
                            label_map=config['label_map'],
                            filter_data=filter_data['val'],
-                           features_set=features_set,
-                           scalar_params_idxs=scalar_params_idxs)
+                           features_set=features_set)
     test_input_fn = InputFn(file_pattern=data_dir + '/test*',
                             batch_size=config['batch_size'],
                             mode=tf.estimator.ModeKeys.EVAL,
                             label_map=config['label_map'],
                             filter_data=filter_data['test'],
-                            features_set=features_set,
-                            scalar_params_idxs=scalar_params_idxs)
+                            features_set=features_set)
 
     # fit the model to the training data
     print('Training model...')
@@ -452,8 +208,7 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
                                    mode=tf.estimator.ModeKeys.PREDICT,
                                    label_map=config['label_map'],
                                    filter_data=filter_data[dataset],
-                                   features_set=features_set,
-                                   scalar_params_idxs=scalar_params_idxs)
+                                   features_set=features_set)
 
         predictions[dataset] = model.predict(predict_input_fn(),
                                              batch_size=None,
@@ -528,10 +283,6 @@ def run_main(config, n_epochs, data_dir, base_model, model_dir, res_dir, model_i
     # save model, features and config used for training this model
     model.save(model_dir_sub / f'model{model_id}.h5')
     if model_id == 1:
-        # save feature set used
-        np.save(model_dir / 'features_set', features_set)
-        # save configuration used
-        np.save(model_dir / 'config', config)
         # save plot of model
         plot_model(model,
                    to_file=res_dir / 'model.svg',
@@ -577,13 +328,11 @@ if __name__ == '__main__':
 
     # name of the study
     # study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per'
-    study = 'test_astronet'
+    study = 'test_cv_data'
 
     # results directory
     save_path = Path(paths.pathtrainedmodels) / study
     save_path.mkdir(exist_ok=True)
-    models_path = save_path / 'models'
-    models_path.mkdir(exist_ok=True)
 
     # set up logger
     logger = logging.getLogger(name='train-eval_run')
@@ -599,7 +348,11 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-'
+                             'centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_'
+                             'confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_'
+                             'flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_'
+                             'correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
                              )
     logger.info(f'Using data from {tfrec_dir}')
 
@@ -607,7 +360,8 @@ if __name__ == '__main__':
     config = {}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = None  # 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-' \
+                'glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
     # set the configuration from an HPO study
     if hpo_study is not None:
         hpo_path = Path(paths.path_hpoconfigs) / hpo_study
@@ -628,7 +382,7 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = Astronet  # CNN1dPlanetFinderv2
+    BaseModel = CNN1dPlanetFinderv2
     config.update({
         # 'num_loc_conv_blocks': 2,
         # 'num_glob_conv_blocks': 5,
@@ -641,11 +395,11 @@ if __name__ == '__main__':
         # 'init_conv_filters': 4,
         # 'kernel_size': 5,
         # 'kernel_stride': 1,
-        # 'non_lin_fn': 'prelu',  # 'relu',
-        'optimizer': 'Adam',
-        'lr': 1e-5,
-        'batch_size': 64,
-        'dropout_rate': 0,
+        'non_lin_fn': 'prelu',  # 'relu',
+        # 'optimizer': 'Adam',
+        # 'lr': 1e-5,
+        # 'batch_size': 64,
+        # 'dropout_rate': 0,
     })
     # select convolutional branches
     config['branches'] = [
@@ -653,51 +407,49 @@ if __name__ == '__main__':
         'local_flux_view_fluxnorm',
         # 'global_centr_fdl_view_norm',
         # 'local_centr_fdl_view_norm',
-        # 'local_flux_oddeven_views',
-        # 'global_centr_view_std_noclip',
-        # 'local_centr_view_std_noclip',
+        'local_flux_oddeven_views',
+        'global_centr_view_std_noclip',
+        'local_centr_view_std_noclip',
         # 'local_weak_secondary_view_fluxnorm',
         # 'local_weak_secondary_view_selfnorm',
-        # 'local_weak_secondary_view_max_flux-wks_norm'
+        'local_weak_secondary_view_max_flux-wks_norm'
     ]
-
-    scalar_params_idxs = None  # [0, 1, 2, 3, 8, 9]  # [0, 1, 2, 3, 7, 8, 9, 10, 11, 12]
 
     # choose features set
     features_set = {
         # flux related features
-        'global_flux_view_fluxnorm': {'dim': (2001, 1), 'dtype': tf.float32},
-        'local_flux_view_fluxnorm': {'dim': (201, 1), 'dtype': tf.float32},
-        # 'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # odd-even views
-        # 'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # centroid views
         # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
         # secondary related features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # centroid related features
-        # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
-        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
@@ -706,8 +458,8 @@ if __name__ == '__main__':
         'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
         # tce parameters
-        # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
     }
     logger.info(f'Feature set: {features_set}')
 
@@ -728,16 +480,16 @@ if __name__ == '__main__':
     callbacks_dict = {}
 
     # early stopping callback
-    # callbacks_dict['early_stopping'] = callbacks.EarlyStopping(monitor=f'val_{opt_metric}',
-    #                                                            min_delta=0,
-    #                                                            patience=20,
-    #                                                            verbose=1,
-    #                                                            mode='max',
-    #                                                            baseline=None,
-    #                                                            restore_best_weights=True)
+    callbacks_dict['early_stopping'] = callbacks.EarlyStopping(monitor=f'val_{opt_metric}',
+                                                               min_delta=0,
+                                                               patience=20,
+                                                               verbose=1,
+                                                               mode='max',
+                                                               baseline=None,
+                                                               restore_best_weights=True)
 
     # TensorBoard callback
-    callbacks_dict['tensorboard'] = callbacks.TensorBoard(log_dir=models_path,
+    callbacks_dict['tensorboard'] = callbacks.TensorBoard(
                                                           histogram_freq=1,
                                                           write_graph=True,
                                                           write_images=False,
@@ -762,14 +514,12 @@ if __name__ == '__main__':
                  n_epochs=n_epochs,
                  data_dir=tfrec_dir,
                  base_model=BaseModel,
-                 model_dir=models_path,
                  res_dir=save_path,
                  model_id=model_i + 1,
                  opt_metric=opt_metric,
                  min_optmetric=min_optmetric,
                  callbacks_dict=callbacks_dict,
                  features_set=features_set,
-                 scalar_params_idxs=scalar_params_idxs,
                  data_augmentation=data_augmentation,
                  online_preproc_params=online_preproc_params,
                  )
@@ -782,14 +532,12 @@ if __name__ == '__main__':
     #              n_epochs=n_epochs,
     #              data_dir=tfrec_dir,
     #              base_model=BaseModel,
-    #              model_dir=models_path,
     #              res_dir=save_path,
     #              model_id = rank + 1,
     #              opt_metric=opt_metric,
     #              min_optmetric=min_optmetric,
     #              callbacks_dict=callbacks_dict,
     #              features_set=features_set,
-    #              scalar_params_idxs=scalar_params_idxs,
     #              mpi_rank=rank,
     #              data_augmentation=data_augmentation,
     #              online_preproc_params=online_preproc_params,

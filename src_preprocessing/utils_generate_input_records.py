@@ -91,7 +91,7 @@ def get_tess_tce_table(config):
     if config['using_mpi']:  # when using MPI processes to preprocess chunks of the TCE table in parallel
 
         boundaries = [int(i) for i in np.linspace(0, len(tce_table), config['n_processes'] + 1)]
-        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config.process_i]
+        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config['process_i']]
 
         shard_tce_table = tce_table[indices[0]:indices[1]]
 
@@ -116,7 +116,7 @@ def shuffle_tce(tce_table, seed=123):
 
     tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
 
-    tf_logging.info("Randomly shuffled TCEs.")
+    tf_logging.info('Randomly shuffled TCEs.')
 
     return tce_table
 
@@ -133,7 +133,7 @@ def normalize_params_tce_table(config):
     tce_tbl = pd.read_csv(config['input_tce_csv_file'])
 
     # filepath to normalized TCE table
-    tce_tbl_norm_fp = '{}_normalized.csv'.format(config['input_tce_csv_file'].replace('.csv', ''))
+    tce_tbl_norm_fp = f'{config["input_tce_csv_file"].replace(".csv", "")}_normalized.csv'
 
     # save TCE table with normalized parameters
     tce_tbl.to_csv(tce_tbl_norm_fp, index=False)
