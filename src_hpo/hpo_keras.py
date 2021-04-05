@@ -144,23 +144,20 @@ if __name__ == '__main__':
 
     if rank != 0:
         time.sleep(20)
-    
-    num_gpus = 1  # number of GPUs per node
 
+    print(f'[rank_{rank}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+    print(f'[rank_{rank}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
+
+    n_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(','))  # number of GPUs visible to the process
     if rank == 0:
-        print(f'Number of GPUs selected per node = {num_gpus}')
-    
-    gpu_id = rank % num_gpus
-    print(f'GPU ID for rank {rank}: {gpu_id}')
+        print(f'Number of GPUs selected per node = {n_gpus}')
+    gpu_id = rank % n_gpus
 
-    # print('rank', rank, 'gpu_id', gpu_id)  # , os.environ['CUDA_VISIBLE_DEVICES'])
-    # physical_devices = tf.config.list_physical_devices('GPU')
-    # print('List of GPUs available to rank {}: {}'.format(rank, physical_devices))
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # "0, 1"
 
-    # tf.config.experimental.set_memory_growth(physical_devices[gpu_id], True)
-    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-    # logical_devices = tf.config.list_logical_devices('GPU')
-    # print('GPU(s) selected for rank {}: {}'.format(rank, logical_devices))
+    print(f'[rank_{rank}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+    print(f'[rank_{rank}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
     study = 'hpo_test'  # name of the HPO study
 
@@ -290,5 +287,15 @@ if __name__ == '__main__':
         json_dict = {key: val for key, val in hpo_config.items() if is_jsonable(val)}
         with open(hpo_config['results_directory'] / 'hpo_config.json', 'w') as hpo_config_file:
             json.dump(json_dict, hpo_config_file)
+
+    # set up logger
+    logger = logging.getLogger(name='hpo_run')
+    logger_handler = logging.FileHandler(filename=hpo_config['results_directory'] / f'hpo_run_{rank}.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting run {study}...')
+    logger.info(f'HPO run parameters: {hpo_config}')
 
     run_main(hpo_config)

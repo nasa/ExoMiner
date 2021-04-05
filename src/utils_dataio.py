@@ -756,146 +756,195 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
     return n_samples
 
 
-def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, coupled=False):
+def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
     """ Extract data from a tfrecord file.
 
     :param tfrecord: str, tfrecord filepath
     :param data_fields: list of data fields to be extracted from the tfrecords.
     :param label_map: dict, map between class name and integer value
-    :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
-    examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
-    two element list that defines the interval of acceptable values
-    :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
     :return:
         data: dict, each key value pair is a list of values for a specific data field
 
-    # TODO: add lookup table
-    #       deal with errors
     """
 
-    # valid fields and features in the TFRecords
-    # main fields: ['target_id', 'tce_plnt_num', 'label']
-    FLOATFIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'ra', 'dec', 'mag', 'transit_depth', 'tce_steff',
-                   'tce_slogg', 'tce_smass', 'tce_sdens', 'tce_smet', 'tce_sradius', 'koi_score', 'wst_robstat',
-                   'tce_bin_oedp_stat', 'boot_fap', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad',
-                   'tce_model_snr', 'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror', 'Signal-to-noise']
-
-    STRINGFIELDS = ['koi_disposition', 'kepoi_name', 'kepler_name', 'fpwg_disp_status', 'tce_datalink_dvs',
-                    'tce_datalink_dvr', 'sectors']
-
-    # TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
-    #               'local_view_odd']
-    TIMESERIES = ['global_flux_view', 'local_flux_view', 'local_centr_view', 'global_centr_view',
-                  'global_flux_odd_view', 'local_flux_odd_view', 'global_flux_even_view', 'local_flux_even_view',
-                  'local_weak_secondary_view']
-
-    if filt is not None:
-        union_fields = np.union1d(data_fields, list(filt.keys()))  # get fields that are in both
-        if 'target_id+tce_plnt_num' in list(filt.keys()):  # add target_id and tce_plnt_num
-            union_fields = np.concatenate((union_fields, ['target_id', 'tce_plnt_num']))
-    else:
-        union_fields = data_fields
-
     # initialize data dict
-    data = {field: [] for field in union_fields}
+    data = {field: [] for field in data_fields}
 
-    if filt is not None:
-        data['selected_idxs'] = []
-
-    # record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
     tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecord))
-    # try:
     for string_record in tfrecord_dataset.as_numpy_iterator():
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        if filt is not None:
-            data['selected_idxs'].append(False)
-
         # extracting data fields
         datum = {}
-        if 'label' in union_fields:
-            label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-            if label_map is not None:  # map from label to respective integer
-                datum['label'] = label_map[label]
-
-        if 'original_label' in union_fields:
-            datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
-
-        if 'target_id' in union_fields:
-            datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
-
-        if 'oi' in union_fields:
-            # datum['oi'] = example.features.feature['oi'].int64_list.value[0]
-            datum['oi'] = example.features.feature['oi'].float_list.value[0]
-
-        if 'tce_plnt_num' in union_fields:
-            datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
-
-        if 'sectors' in union_fields:  # for TESS data
-            datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
-
-        # float parameters
-        for field in FLOATFIELDS:
-            if field in union_fields:
+        for field in data_fields:
+            if data_fields[field] == 'float_scalar':
                 datum[field] = example.features.feature[field].float_list.value[0]
+            elif data_fields[field] == 'int_scalar':
+                datum[field] = example.features.feature[field].int64_list.value[0]
+            elif data_fields[field] == 'string':
+                if field == 'original_label':
+                    datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-        # string parameters
-        for field in STRINGFIELDS:
-            if field in union_fields:
-                datum[field] = example.features.feature[field].bytes_list.value[0].decode('utf-8')
+                if field == 'label' and label_map is not None:
+                    datum[field] = label_map[example.features.feature['label'].bytes_list.value[0].decode("utf-8")]
 
-        # time-series features
-        for timeseries in TIMESERIES:
-            if timeseries in union_fields:
-                datum[timeseries] = example.features.feature[timeseries].float_list.value
-
-        # filtering
-        if filt is not None:
-
-            if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
-                continue
-
-            if 'original_label' in filt.keys() and datum['original_label'] not in filt['original_label'].values:
-                continue
-
-            if coupled:
-                if 'target_id+tce_plnt_num' in filt.keys() and \
-                        '{}_{}'.format(datum['target_id'], datum['tce_plnt_num']) not in filt['target_id+tce_plnt']:
-                    continue
+            elif data_fields[field] == 'float_list':
+                datum[field] = example.features.feature[field].float_list.value
+            elif data_fields[field] == 'int_list':
+                datum[field] = example.features.feature[field].int64_list.value[0]
             else:
-                if 'target_id' in filt.keys() and datum['target_id'] not in filt['target_id']:
-                    continue
-                if 'tce_plnt_num' in filt.keys() and datum['tce_plnt_num'] not in filt['tce_plnt_num']:
-                    continue
-
-            if 'tce_period' in filt.keys() and \
-                    not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
-                continue
-
-            if 'tce_duration' in filt.keys() and \
-                    not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
-                continue
-
-            if 'tce_time0bk' in filt.keys() and \
-                    not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
-                continue
-
-            if 'mes' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
-                continue
-
-            data['selected_idxs'][-1] = True
+                raise TypeError('Incompatible data type specified.')
 
         # add example
         for field in data_fields:
             data[field].append(datum[field])
 
-    # except:
-    #     print('Corrupted TFRecord: {}'.format(tfrecord))
-
     return data
+
+
+# def get_data_from_tfrecord(tfrecord, data_fields, label_map=None, filt=None, coupled=False):
+#     """ Extract data from a tfrecord file.
+#
+#     :param tfrecord: str, tfrecord filepath
+#     :param data_fields: list of data fields to be extracted from the tfrecords.
+#     :param label_map: dict, map between class name and integer value
+#     :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
+#     examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
+#     two element list that defines the interval of acceptable values
+#     :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
+#     :return:
+#         data: dict, each key value pair is a list of values for a specific data field
+#
+#     # TODO: add lookup table
+#     #       deal with errors
+#     """
+#
+#     # valid fields and features in the TFRecords
+#     # main fields: ['target_id', 'tce_plnt_num', 'label']
+#     FLOATFIELDS = ['tce_period', 'tce_duration', 'tce_time0bk', 'ra', 'dec', 'mag', 'transit_depth', 'tce_steff',
+#                    'tce_slogg', 'tce_smass', 'tce_sdens', 'tce_smet', 'tce_sradius', 'koi_score', 'wst_robstat',
+#                    'tce_bin_oedp_stat', 'boot_fap', 'tce_max_mult_ev', 'tce_insol', 'tce_eqt', 'tce_sma', 'tce_prad',
+#                    'tce_model_snr', 'tce_ingress', 'tce_impact', 'tce_incl', 'tce_dor', 'tce_ror', 'Signal-to-noise']
+#
+#     STRINGFIELDS = ['koi_disposition', 'kepoi_name', 'kepler_name', 'fpwg_disp_status', 'tce_datalink_dvs',
+#                     'tce_datalink_dvr', 'sectors']
+#
+#     # TIMESERIES = ['global_view', 'local_view', 'local_view_centr', 'global_view_centr', 'global_view_odd',
+#     #               'local_view_odd']
+#     TIMESERIES = ['global_flux_view', 'local_flux_view', 'local_centr_view', 'global_centr_view',
+#                   'global_flux_odd_view', 'local_flux_odd_view', 'global_flux_even_view', 'local_flux_even_view',
+#                   'local_weak_secondary_view']
+#
+#     if filt is not None:
+#         union_fields = np.union1d(data_fields, list(filt.keys()))  # get fields that are in both
+#         if 'target_id+tce_plnt_num' in list(filt.keys()):  # add target_id and tce_plnt_num
+#             union_fields = np.concatenate((union_fields, ['target_id', 'tce_plnt_num']))
+#     else:
+#         union_fields = data_fields
+#
+#     # initialize data dict
+#     data = {field: [] for field in union_fields}
+#
+#     if filt is not None:
+#         data['selected_idxs'] = []
+#
+#     # record_iterator = tf.compat.v1.python_io.tf_record_iterator(path=tfrecord)
+#     tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecord))
+#     # try:
+#     for string_record in tfrecord_dataset.as_numpy_iterator():
+#
+#         example = tf.train.Example()
+#         example.ParseFromString(string_record)
+#
+#         if filt is not None:
+#             data['selected_idxs'].append(False)
+#
+#         # extracting data fields
+#         datum = {}
+#         if 'label' in union_fields:
+#             label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+#
+#             if label_map is not None:  # map from label to respective integer
+#                 datum['label'] = label_map[label]
+#
+#         if 'original_label' in union_fields:
+#             datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+#
+#         if 'target_id' in union_fields:
+#             datum['target_id'] = example.features.feature['target_id'].int64_list.value[0]
+#
+#         if 'oi' in union_fields:
+#             # datum['oi'] = example.features.feature['oi'].int64_list.value[0]
+#             datum['oi'] = example.features.feature['oi'].float_list.value[0]
+#
+#         if 'tce_plnt_num' in union_fields:
+#             datum['tce_plnt_num'] = example.features.feature['tce_plnt_num'].int64_list.value[0]
+#
+#         if 'sectors' in union_fields:  # for TESS data
+#             datum['sectors'] = example.features.feature['sectors'].bytes_list.value[0].decode("utf-8")
+#
+#         # float parameters
+#         for field in FLOATFIELDS:
+#             if field in union_fields:
+#                 datum[field] = example.features.feature[field].float_list.value[0]
+#
+#         # string parameters
+#         for field in STRINGFIELDS:
+#             if field in union_fields:
+#                 datum[field] = example.features.feature[field].bytes_list.value[0].decode('utf-8')
+#
+#         # time-series features
+#         for timeseries in TIMESERIES:
+#             if timeseries in union_fields:
+#                 datum[timeseries] = example.features.feature[timeseries].float_list.value
+#
+#         # filtering
+#         if filt is not None:
+#
+#             if 'label' in filt.keys() and datum['label'] not in filt['label'].values:
+#                 continue
+#
+#             if 'original_label' in filt.keys() and datum['original_label'] not in filt['original_label'].values:
+#                 continue
+#
+#             if coupled:
+#                 if 'target_id+tce_plnt_num' in filt.keys() and \
+#                         '{}_{}'.format(datum['target_id'], datum['tce_plnt_num']) not in filt['target_id+tce_plnt']:
+#                     continue
+#             else:
+#                 if 'target_id' in filt.keys() and datum['target_id'] not in filt['target_id']:
+#                     continue
+#                 if 'tce_plnt_num' in filt.keys() and datum['tce_plnt_num'] not in filt['tce_plnt_num']:
+#                     continue
+#
+#             if 'tce_period' in filt.keys() and \
+#                     not filt['tce_period'][0] <= datum['tce_period'] <= filt['tce_period'][1]:
+#                 continue
+#
+#             if 'tce_duration' in filt.keys() and \
+#                     not filt['tce_duration'][0] <= datum['tce_duration'] <= filt['tce_duration'][1]:
+#                 continue
+#
+#             if 'tce_time0bk' in filt.keys() and \
+#                     not filt['tce_time0bk'][0] <= datum['tce_time0bk'] <= filt['tce_time0bk'][1]:
+#                 continue
+#
+#             if 'mes' in filt.keys() and not filt['mes'][0] <= datum['mes'] <= filt['mes'][1]:
+#                 continue
+#
+#             data['selected_idxs'][-1] = True
+#
+#         # add example
+#         for field in data_fields:
+#             data[field].append(datum[field])
+#
+#     # except:
+#     #     print('Corrupted TFRecord: {}'.format(tfrecord))
+#
+#     return data
 
 
 def get_data_from_tfrecord_kepler(tfrecord, data_fields, label_map=None, filt=None, coupled=False):

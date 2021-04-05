@@ -1013,8 +1013,7 @@ def cv():
     config = {}
 
     # name of the HPO study from which to get a configuration
-    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_' \
-                'std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    hpo_study = 'ConfigL'
     # set the configuration from an HPO study
     if hpo_study is not None:
         hpo_path = Path(paths.path_hpoconfigs) / hpo_study

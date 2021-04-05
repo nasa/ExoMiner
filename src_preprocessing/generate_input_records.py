@@ -80,6 +80,11 @@ def create_preprocessing_config():
 
     config['omit_missing'] = True  # skips target IDs that are not in the FITS files
 
+    # remove positive outliers from the phase folded flux time series
+    config['pos_outlier_removal'] = False
+    config['pos_outlier_removal_sigma'] = 5
+    config['pos_outlier_removal_fill'] = True
+
     # list with the names of the scalar parameters from the TCE table to be added to the plot of the preprocessed views
     config['scalar_params'] = [
         # 'tce_period',
@@ -88,25 +93,25 @@ def create_preprocessing_config():
         'transit_depth',
         'tce_max_mult_ev',
         # secondary parameters
-        # 'tce_maxmes',
+        'tce_maxmes',
         'tce_maxmesd',
         # 'wst_robstat',
-        # 'wst_depth',
-        # 'tce_ptemp_stat',
-        # 'tce_albedo_stat',
+        'wst_depth',
+        'tce_ptemp_stat',
+        'tce_albedo_stat',
         # odd-even
         # 'tce_bin_oedp_stat',
         # centroid
-        # 'tce_fwm_stat',
-        # 'tce_dikco_msky',
-        # 'tce_dikco_msky_err',
-        # 'tce_dicco_msky',
-        # 'tce_dicco_msky_err',
+        'tce_fwm_stat',
+        'tce_dikco_msky',
+        'tce_dikco_msky_err',
+        'tce_dicco_msky',
+        'tce_dicco_msky_err',
         # other diagnostics
-        # 'tce_cap_stat',
-        # 'tce_hap_stat',
-        # 'tce_rb_tcount0',
-        # 'boot_fap',
+        'tce_cap_stat',
+        'tce_hap_stat',
+        'tce_rb_tcount0',
+        'boot_fap',
         # stellar parameters
         'tce_smass',
         'tce_sdens',
@@ -220,19 +225,21 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
                 example = _process_tce(tce, eph_table, config, confidence_dict)
                 if example is not None:
+                    example, example_stats = example
                     writer.write(example.SerializeToString())
 
                     tceData = {column: [tce[column]] for column in tceColumns}
                     tceData['shard'] = [shard_name]
                     tceData['augmentation_idx'] = [example_i]
-                    exampleDf = pd.DataFrame(data=tceData, columns=columnsDf)
+                    tceData.update({key: [val] for key, val in example_stats.items()})
+                    exampleDf = pd.DataFrame(data=tceData)  # , columns=columnsDf)
 
                     if firstTceInDf:
                         examplesDf = exampleDf
                         firstTceInDf = False
                     else:
                         examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv')
-                        examplesDf = pd.concat([examplesDf, exampleDf])
+                        examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=False)
 

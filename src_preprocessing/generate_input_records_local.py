@@ -26,21 +26,20 @@ def create_preprocessing_config():
     config = {}
 
     # TFRecords base name
-    # tfrecords_base_name = 'test_q1q17dr25scr1'
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    config['tfrecords_base_name'] = 'plot_misclassifiedKPs_185.01_1-19-2021'
+    config['tfrecords_base_name'] = 'bin_time_9049550-1'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
-                                   'TESS',  # either 'Kepler' of 'TESS'
-                                   # 'Q1-Q17_DR25'
+                                   'Kepler',  # either 'Kepler' of 'TESS'
+                                   'Q1-Q17_DR25'
                                    )
 
     # output directory
     config['output_dir'] = config['tfrecords_dir'] / config['tfrecords_base_name']
 
-    config['satellite'] = 'tess'  # choose from: 'kepler', 'tess'
-    config['tce_identifier'] = 'oi'  # either 'tce_plnt_num' or 'oi'
+    config['satellite'] = 'kepler'  # choose from: 'kepler', 'tess'
+    config['tce_identifier'] = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
 
     # if True, it augments the dataset by applying augmentation techniques to the TCE data
     config['augmentation'] = False
@@ -92,33 +91,39 @@ def create_preprocessing_config():
 
     config['omit_missing'] = True  # skips target IDs that are not in the FITS files
 
+    # remove positive outliers from the phase folded flux time series
+    config['pos_outlier_removal'] = False
+    config['pos_outlier_removal_sigma'] = 5
+    config['pos_outlier_removal_fill'] = True
+
     # list with the names of the scalar parameters from the TCE table to be added to the plot of the preprocessed views
     config['scalar_params'] = [
+        # 'sectors',
         # 'tce_period',
         # 'tce_duration',
         # 'tce_time0bk',
-        'transit_depth',
-        # 'tce_max_mult_ev',
+        # 'transit_depth',
+        'tce_max_mult_ev',
         # secondary parameters
         # 'tce_maxmes',
         'tce_maxmesd',
         # 'wst_robstat',
-        # 'wst_depth',
-        # 'tce_ptemp_stat',
-        # 'tce_albedo_stat',
+        'wst_depth',
+        'tce_ptemp_stat',
+        'tce_albedo_stat',
         # odd-even
         # 'tce_bin_oedp_stat',
         # centroid
-        # 'tce_fwm_stat',
-        # 'tce_dikco_msky',
-        # 'tce_dikco_msky_err',
-        # 'tce_dicco_msky',
-        # 'tce_dicco_msky_err',
+        'tce_fwm_stat',
+        'tce_dikco_msky',
+        'tce_dikco_msky_err',
+        'tce_dicco_msky',
+        'tce_dicco_msky_err',
         # other diagnostics
-        # 'tce_cap_stat',
-        # 'tce_hap_stat',
-        # 'tce_rb_tcount0',
-        # 'boot_fap',
+        'tce_cap_stat',
+        'tce_hap_stat',
+        'tce_rb_tcount0',
+        'boot_fap',
         # stellar parameters
         'tce_smass',
         'tce_sdens',
@@ -126,6 +131,10 @@ def create_preprocessing_config():
         'tce_slogg',
         'tce_smet',
         'tce_sradius',
+        'mag',
+        # transit fit parameters
+        # 'tce_impact',
+        'tce_prad',
     ]
 
     # path to updated TCE table, PDC time series fits files and confidence level dictionary
@@ -133,8 +142,7 @@ def create_preprocessing_config():
 
         # TCE table filepath
         config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                                       'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_' \
-                                       'renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec.csv'
+                                       'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
         #                      'keplerTPS_KSOP2536_dr25_symsecphase_confirmedkoiperiod.csv'
         # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
@@ -149,14 +157,9 @@ def create_preprocessing_config():
         config['dict_savedir'] = ''  # '/home/lswilken/Documents/Astronet_Simplified/pc_confidence_kepler_q1q17'
 
     elif config['satellite'] == 'tess':
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/' \
-        #                      'toi_list_ssectors_dvephemeris_ephmatchnoepochthr0,25.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/final_tce_tables/TOI_2020.01.21_13.55.10.csv_TFOPWG_processed.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/TEV_MIT_TOI_lists/final_tce_tables/toi-plus-tev.mit.edu_2020-01-15_TOI Disposition_processed.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/final_tce_tables/' \
-        #                      'exofop_ctoilists_Community_processed.csv'
-        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/' \
-                                       'tois_stellar_nosectornan_tcesparams_renamedcols.csv'
+
+        # config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/tce_table_03-19-2021_1054/tess_tce_s1-s34_thr0.25_renamedcols.csv'
+        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois_stellar_nosectornan_tcesparams_renamedcols.csv'
 
         config['lc_data_dir'] = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
@@ -221,19 +224,20 @@ def _process_file_shard(tce_table, file_name, eph_table):
                 example = _process_tce(tce, eph_table, config, confidence_dict)
 
                 if example is not None:
+                    example, example_stats = example
                     writer.write(example.SerializeToString())
 
                     tceData = {column: [tce[column]] for column in tceColumns}
                     tceData['shard'] = [shard_name]
                     tceData['augmentation_idx'] = [example_i]
-                    exampleDf = pd.DataFrame(data=tceData,
-                                             columns=columnsDf)
+                    tceData.update({key: [val] for key, val in example_stats.items()})
+                    exampleDf = pd.DataFrame(data=tceData)  # , columns=columnsDf)
                     if firstTceInDf:
                         examplesDf = exampleDf
                         firstTceInDf = False
                     else:
                         examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv')
-                        examplesDf = pd.concat([examplesDf, exampleDf])
+                        examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=False)
 

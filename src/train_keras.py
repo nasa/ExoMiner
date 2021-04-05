@@ -26,7 +26,7 @@ from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.models_keras import CNN1dPlanetFinderv1, Astronet, Exonet, CNN1dPlanetFinderv2
 import src.config_keras
-from src.utils_metrics import get_metrics
+from src.utils_metrics import get_metrics, compute_precision_at_k
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
@@ -89,8 +89,11 @@ def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metr
         # find which dataset the TFRecord is from
         dataset = tfrec_file.split('-')[0]
 
-        data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label', 'original_label'],
-                                      config['label_map'], filt=filter_data[dataset])
+        # data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label', 'original_label'],
+        #                               config['label_map'], filt=filter_data[dataset])
+        data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file),
+                                      {'label': 'string', 'original_label': 'string'},
+                                      config['label_map'])
 
         labels[dataset] += data['label']
         original_labels[dataset] += data['original_label']
@@ -231,15 +234,13 @@ def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metr
     # compute precision at top-k
     labels_sorted = {}
     for dataset in datasets:
-        sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
-
-        for k_i in range(len(config['k_arr'][dataset])):
-            if len(sorted_idxs) < config['k_arr'][dataset][k_i]:
-                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = np.nan
-            else:
-                res['{}_precision_at_{}'.format(dataset, config['k_arr'][dataset][k_i])] = \
-                    np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
+        if dataset == 'predict':
+            continue
+        sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
+        labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
+        prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['k_arr'][dataset])
+        res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
+                    for k_val in config['k_arr'][dataset]})
 
     # save results in a numpy file
     res_fp = model_dir_sub / 'results.npy'
@@ -356,7 +357,7 @@ if __name__ == '__main__':
                              )
     logger.info(f'Using data from {tfrec_dir}')
 
-    # set configuration manually. Set to None to use a configuration from an HPO study
+    # initialize configuration dictionary. Can set configuration manually
     config = {}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
@@ -467,7 +468,7 @@ if __name__ == '__main__':
     online_preproc_params = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 6}
 
     n_models = 10  # number of models in the ensemble
-    n_epochs = 50  # number of epochs used to train each model
+    n_epochs = 300  # number of epochs used to train each model
     multi_class = False  # multi-class classification
     ce_weights_args = {'tfrec_dir': tfrec_dir, 'datasets': ['train'], 'label_fieldname': 'label', 'verbose': False}
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set

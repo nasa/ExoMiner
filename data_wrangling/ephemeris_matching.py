@@ -8,7 +8,7 @@ from scipy.spatial import distance
 import itertools
 
 # local
-from data_wrangling.utils_ephemeris_matching import find_first_epoch_after_this_time, create_binary_time_series
+from data_wrangling.old.utils_ephemeris_matching import find_first_epoch_after_this_time, create_binary_time_series
 
 
 #%% Pair TCEs across sectors based on their ephemeris

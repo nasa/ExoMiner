@@ -15,18 +15,15 @@ from hpbandster.core.worker import Worker
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
-import multiprocessing
+import matplotlib.pyplot as plt
+from pathlib import Path
+# import multiprocessing
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics
-from src.utils_train import LayerOutputCallback
 from src.models_keras import create_ensemble
-import paths
-
-import matplotlib.pyplot as plt
-# if 'home6' in paths.path_hpoconfigs:
-#     plt.switch_backend('agg')
+# import paths
 
 
 def _delete_model_files(model_dir):
@@ -36,8 +33,9 @@ def _delete_model_files(model_dir):
     :return:
     """
 
-    for model_filepath in model_dir.iter():
-        model_filepath.unlink(missing_ok=True)
+    for model_filepath in model_dir.iterdir():
+        # model_filepath.unlink(missing_ok=True)
+        model_filepath.unlink()
 
 
 def _ensemble_run(config, config_id, worker_id, budget, results_directory, features_set, tfrec_dir,
@@ -62,21 +60,13 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
 
     try:
 
-        # physical_devices = tf.config.list_physical_devices('GPU')
-        # if verbose:
-        #     print(f'List of GPUs available: {physical_devices}')
-        # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-        # logical_devices = tf.config.list_logical_devices('GPU')
-        # if verbose:
-        #     print(f'List of GPUs selected: {logical_devices}')
-
         # setup monitoring metrics
         if verbose:
-            print(f'[worker_{worker_id}] Setting up metrics for ensemble')
+            print(f'[worker_{worker_id},config{config_id}] Setting up metrics for ensemble')
         metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
 
         if verbose:
-            print(f'[worker_{worker_id}] Setting up additional callbacks for ensemble')
+            print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks for ensemble')
         config['callbacks_list_temp'] = []
         # config['callbacks_list_temp'].append(
         #     callbacks.TensorBoard(log_dir=results_directory / 'logs' /
@@ -107,7 +97,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
 
         # compile ensemble
         if verbose:
-            print(f'[worker_{worker_id}] Compiling ensemble...')
+            print(f'[worker_{worker_id},config{config_id}] Compiling ensemble...')
         if config['optimizer'] == 'Adam':
             ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
                                                              beta_1=0.9,
@@ -139,7 +129,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
                                    )
 
         if verbose:
-            print(f'[worker_{worker_id}] Evaluating ensemble')
+            print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble')
         # evaluate on the test set at the end of the training only
         # initialize results dictionary for the evaluated datasets
         res = {
@@ -152,7 +142,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
         for dataset in config['datasets']:
 
             if verbose:
-                print(f'[worker_{worker_id}] Evaluating ensemble on dataset {dataset}')
+                print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble on dataset {dataset}')
 
             # input function for evaluating on each dataset
             eval_input_fn = InputFn(file_pattern=tfrec_dir + f'/{dataset}*',
@@ -180,20 +170,20 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
 
     except Exception as e:
         if verbose:
-            print(f'[worker_{worker_id}] Error while evaluating ensemble: {e}')
-            print(f'[worker_{worker_id}] Deleting model files...')
-        _delete_model_files(results_directory / f'models_rank{worker_id}')
+            print(f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble: {e}')
+            print(f'[worker_{worker_id},config{config_id}] Deleting model files...')
+        _delete_model_files(Path(results_directory) / f'models_rank{worker_id}')
         sys.stdout.flush()
         # q.put({'Error while evaluating ensemble': e})
         # exit()
-        return {f'[worker_{worker_id}] Error while evaluating ensemble': e}
+        return {f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble': e}
 
     if verbose:
-        print(f'[worker_{worker_id}] Deleting model files...')
-    _delete_model_files(results_directory / f'models_rank{worker_id}')
+        print(f'[worker_{worker_id},config{config_id}] Deleting model files...')
+    _delete_model_files(Path(results_directory) / f'models_rank{worker_id}')
 
     if verbose:
-        print(f'[worker_{worker_id}] Finished ensemble evaluation.')
+        print(f'[worker_{worker_id},config{config_id}] Finished ensemble evaluation.')
 
     sys.stdout.flush()
 
@@ -222,16 +212,8 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
     try:
 
-        # physical_devices = tf.config.list_physical_devices('GPU')
-        # if verbose:
-        #     print(f'List of GPUs available: {physical_devices}')
-        # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-        # logical_devices = tf.config.list_logical_devices('GPU')
-        # if verbose:
-        #     print(f'List of GPUs selected: {logical_devices}')
-
         if verbose:
-            print(f'[worker_{worker_id}] Setting up input functions...')
+            print(f'[worker_{worker_id},config{config_id}] Setting up input functions...')
         # input function for training on the training set
         train_input_fn = InputFn(file_pattern=tfrec_dir + '/train*',
                                  batch_size=config['batch_size'],
@@ -254,11 +236,11 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
         # setup monitoring metrics
         if verbose:
-            print(f'[worker_{worker_id}] Setting up metrics...')
+            print(f'[worker_{worker_id},config{config_id}] Setting up metrics...')
         metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
 
         if verbose:
-            print(f'[worker_{worker_id}] Setting up additional callbacks...')
+            print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks...')
         config['callbacks_list_temp'] = []
 
         # if model_i == 0:
@@ -278,30 +260,16 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         #                                        embeddings_metadata=None)
         #     )
         #
-        #     # Custom callbacks
-        #     file_writer = tf.summary.create_file_writer(logdir=os.path.join(results_directory, 'logs',
-        #                                                                     'config{}_budget{:.0f}_model{}_'
-        #                                                                     'log'.format(config_id,
-        #                                                                                  int(budget),
-        #                                                                                  model_i),
-        #                                                                     'train'),
-        #                                                 filename_suffix='custom')
-        #
-        #     config['callbacks_list_temp'].append(LayerOutputCallback(input_fn=train_input_fn(),
-        #                                                              batch_size=config['batch_size'],
-        #                                                              layer_name='convbranch_wscalar_concat',
-        #                                                              summary_writer=file_writer,
-        #                                                              buckets=30,
-        #                                                              description='Input to the FC block'))
+
 
         # instantiate Keras model
         if verbose:
-            print(f'[worker_{worker_id}] Instantiating model...')
+            print(f'[worker_{worker_id},config{config_id}] Instantiating model...')
         model = BaseModel(config, features_set).kerasModel
 
         # compile model
         if verbose:
-            print(f'[worker_{worker_id}] Compiling model...')
+            print(f'[worker_{worker_id},config{config_id}] Compiling model...')
         if config['optimizer'] == 'Adam':
             model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
                                                     beta_1=0.9,
@@ -333,7 +301,7 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
                           )
 
         if verbose:
-            print(f'[worker_{worker_id}] Training model {model_i}...')
+            print(f'[worker_{worker_id},config{config_id}] Training model {model_i}...')
         # fit the model to the training data
         history = model.fit(x=train_input_fn(),
                             y=None,
@@ -358,7 +326,7 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         res = history.history
 
         if verbose:
-            print(f'[worker_{worker_id}] Evaluating model on the test set')
+            print(f'[worker_{worker_id},config{config_id}] Evaluating model on the test set')
 
         # evaluate on the test set at the end of the training only
         res_eval = model.evaluate(x=test_input_fn(),
@@ -378,9 +346,9 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         # plot model architecture
         if model_i == 0:
             if verbose:
-                print(f'[worker_{worker_id}] Plotting model')
+                print(f'[worker_{worker_id},config{config_id}] Plotting model')
             plot_model(model,
-                       to_file=results_directory / f'config{config}_model.svg',
+                       to_file=results_directory / f'config{config_id}_model.svg',
                        show_shapes=True,
                        show_layer_names=True,
                        rankdir='TB',
@@ -391,14 +359,14 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
     except Exception as e:
         if verbose:
-            print(f'[worker_{worker_id}] Error during model fit: {e}')
+            print(f'[worker_{worker_id},config{config_id}] Error during model fit: {e}')
         sys.stdout.flush()
         # q.put({'Error during model fit': e})
         # exit()
-        return {f'[worker_{worker_id}] Error during model fit': e}
+        return {f'[worker_{worker_id},config{config_id}] Error during model fit': e}
 
     if verbose:
-        print(f'[worker_{worker_id}] Finished model fit.')
+        print(f'[worker_{worker_id},config{config_id}] Finished model fit.')
 
     sys.stdout.flush()
 
@@ -501,8 +469,8 @@ class TransitClassifier(Worker):
         res_models = {}
         for model_i in range(self.ensemble_n):
 
-            printstr = f'[worker_{self.worker_id_custom}] Training model {model_i + 1}({self.ensemble_n}): ' \
-                       f'{int(budget)} epochs'
+            printstr = f'[worker_{self.worker_id_custom},config{config_id}] Training model ' \
+                       f'{model_i + 1}({self.ensemble_n}): {int(budget)} epochs'
 
             print(printstr)
             sys.stdout.flush()
@@ -538,103 +506,14 @@ class TransitClassifier(Worker):
                                          self.gpu_id,
                                          self.verbose)
 
-            if f'[worker_{self.worker_id_custom}] Error during model fit' in res_model_i:
+            if f'[worker_{self.worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
                 if self.verbose:
-                    print(f'[worker_{self.worker_id_custom}] Error in model fit.')
+                    print(f'[worker_{self.worker_id_custom},config{config_id}] Error in model fit.')
                     sys.stdout.flush()
 
                 return {'loss': np.inf,
                         'info': f'Error during model fit: '
-                                f'{res_model_i[f"[worker_{self.worker_id_custom}] Error during model fit"]}'}
-
-            # config['callbacks_list_temp'] = []
-            # config['callbacks_list_temp'].append(
-            #     tf.keras.callbacks.TensorBoard(log_dir=os.path.join(self.results_directory, 'logs',
-            #                                                         'config{}_budget{:.0f}_model{}_'
-            #                                                         'log'.format(config_id, int(budget), model_i)),
-            #                                    histogram_freq=1,
-            #                                    write_graph=True,
-            #                                    write_images=True,
-            #                                    update_freq='epoch',
-            #                                    profile_batch=0,
-            #                                    embeddings_freq=0,
-            #                                    embeddings_metadata=None)
-            # )
-            #
-            # # try:
-            #
-            # # instantiate Keras model
-            # model = self.BaseModel(config, self.features_set, self.scalar_params_idxs).kerasModel
-            #
-            # # compile model
-            # if config['optimizer'] == 'Adam':
-            #     model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
-            #                                             beta_1=0.9,
-            #                                             beta_2=0.999,
-            #                                             epsilon=1e-8,
-            #                                             amsgrad=False,
-            #                                             name='Adam',  # optimizer
-            #                                             ),
-            #                   # loss function to minimize
-            #                   loss=losses.BinaryCrossentropy(from_logits=False,
-            #                                                  label_smoothing=0,
-            #                                                  name='binary_crossentropy'),
-            #                   # list of metrics to monitor
-            #                   metrics=metrics_list,
-            #                   )
-            #
-            # else:
-            #     model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-            #                                            momentum=config['sgd_momentum'],
-            #                                            nesterov=False,
-            #                                            name='SGD',  # optimizer
-            #                                            ),
-            #                   # loss function to minimize
-            #                   loss=losses.BinaryCrossentropy(from_logits=False,
-            #                                                  label_smoothing=0,
-            #                                                  name='binary_crossentropy'),
-            #                   # list of metrics to monitor
-            #                   metrics=metrics_list,
-            #                   )
-            #
-            # # fit the model to the training data
-            # history = model.fit(x=train_input_fn(),
-            #                     y=None,
-            #                     batch_size=None,
-            #                     epochs=int(budget),
-            #                     verbose=1,
-            #                     callbacks=config['callbacks_list'] + config['callbacks_list_temp'],
-            #                     validation_split=0.,
-            #                     validation_data=val_input_fn(),
-            #                     shuffle=True,  # does the input function shuffle for every epoch?
-            #                     class_weight=None,
-            #                     sample_weight=None,
-            #                     initial_epoch=0,
-            #                     steps_per_epoch=None,
-            #                     validation_steps=None,
-            #                     max_queue_size=10,  # used for generator or keras.utils.Sequence input only
-            #                     workers=1,  # same
-            #                     use_multiprocessing=False  # same
-            #                     )
-            #
-            # # get records of loss and metrics for the training and validation sets
-            # res_i = history.history
-            #
-            # # evaluate on the test set at the end of the training only
-            # res_i_eval = model.evaluate(x=test_input_fn(),
-            #                             y=None,
-            #                             batch_size=None,
-            #                             verbose=0,
-            #                             sample_weight=None,
-            #                             steps=None,
-            #                             callbacks=None,
-            #                             max_queue_size=10,
-            #                             workers=1,
-            #                             use_multiprocessing=False)
-            #
-            # # add test set metrics and loss to result
-            # for metric_name_i, metric_name in enumerate(model.metrics_names):
-            #     res_i['test_{}'.format(metric_name)] = res_i_eval[metric_name_i]
+                                f'{res_model_i[f"[worker_{self.worker_id_custom},config{config_id}] Error during model fit"]}'}
 
             # add results for this model to the results for the ensemble
             if len(res_models.keys()) == 0:
@@ -642,22 +521,6 @@ class TransitClassifier(Worker):
             else:
                 for metric_name in res_models:
                     res_models[metric_name].append(res_model_i[metric_name])
-
-            # # plot model architecture
-            # if model_i == 0:
-            #     plot_model(model,
-            #                to_file=os.path.join(self.results_directory, 'config{}_model.svg'.format(config_id)),
-            #                show_shapes=True,
-            #                show_layer_names=True,
-            #                rankdir='TB',
-            #                expand_nested=False,
-            #                dpi=48)
-
-            # except Exception as e:
-            # print('Exception: {}'.format(e))
-            # gpu_str = ''  # 'List of GPUs available to rank {}: {}'.format(self.worker_id_custom, logical_devices)
-            # sys.stdout.flush()
-            # return {'loss': np.inf, 'info': '{}, error: {}'.format(gpu_str, e)}
 
         # get ensemble average metrics and loss
         for metric in res_models:
@@ -702,19 +565,19 @@ class TransitClassifier(Worker):
                                          self.ensemble_n
                                          )
 
-        if f'[worker_{self.worker_id_custom}] Error while evaluating ensemble' in res_ensemble:
+        if f'[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
             if self.verbose:
-                print(f'[worker_{self.worker_id_custom}] Error in ensemble run subprocess')
+                print(f'[worker_{self.worker_id_custom},config{config_id}] Error in ensemble run subprocess')
                 sys.stdout.flush()
 
             return {'loss': np.inf,
                     'info': 'Error while evaluating ensemble: '
-                            f'{res_ensemble[f"[worker_{self.worker_id_custom}] Error while evaluating ensemble"]}'
+                            f'{res_ensemble[f"[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
                     }
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}
-        np.save(self.results_directory / f'config{config}_budget{budget:.0f}_ensemblemetrics.npy', res_total)
+        np.save(self.results_directory / f'config{config_id}_budget{budget:.0f}_ensemblemetrics.npy', res_total)
 
         # draw loss and evaluation metric plots for the model on this given budget
         # self.draw_plots(res, config_id)
@@ -737,7 +600,7 @@ class TransitClassifier(Worker):
                    }
 
         print('#' * 100)
-        print(f'Finished evaluating configuration {config_id} on worker {self.worker_id_custom} using a budget of '
+        print(f'[worker_{self.worker_id_custom},config{config_id}] Finished evaluating configuration using a budget of '
               f'{int(budget)}')
         for k in res_hpo:
             if k != 'info':
@@ -751,7 +614,8 @@ class TransitClassifier(Worker):
         return res_hpo
 
     def draw_plots(self, res, config_id):
-        """ Draw loss and evaluation metric plots.
+        """ Draw loss and evaluation metric plots. This function would plot the average performance of the models
+        instead of the performance of the ensemble.
 
         :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
         for the test set. Each metric/loss has a dictionary with 3 keys: 'central tendency', 'all scores' and

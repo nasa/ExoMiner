@@ -1,3 +1,5 @@
+""" Analyze the distribution of scalar features. """
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -533,14 +535,20 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 #%% Plot histograms of non-normalized scalar features from the TCE table
 
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
-          'prad-period_12-2-2020'
+          'rba_cnt0n_3-26-2021'
 os.makedirs(saveDir, exist_ok=True)
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec.csv')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv')
 
+# remove rogue TCEs
+tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] != 1]
 # remove Possible Planet KOIs
 tceTbl = tceTbl.loc[~((tceTbl['fpwg_disp_status'] == 'POSSIBLE PLANET') & (tceTbl['koi_disposition'] != 'CONFIRMED'))]
+# remove KOIs not used (not Confirmed, CFP, CFA KOIs)
+tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'].isin(['CERTIFIED FA', 'CERTIFIED FP'])) | (tceTbl['koi_disposition'] == 'CONFIRMED') | (tceTbl['koi_disposition'].isna())]
+
+# tceTbl['tce_num_transits'] += 1
+# tceTbl['tce_rb_tcount0_trnorm'] = tceTbl['tce_rb_tcount0'] / tceTbl['tce_num_transits']
 
 features = [
     # 'tce_albedo',
@@ -556,8 +564,8 @@ features = [
     # 'tce_depth_err',
     # 'tce_duration',
     # 'tce_duration_err',
-    'tce_prad',
-    'tce_period',
+    # 'tce_prad',
+    # 'tce_period',
     # 'tce_period_err',
     # 'tce_dikco_msky',
     # 'tce_dikco_msky_err',
@@ -573,6 +581,11 @@ features = [
     # 'tce_fwm_pdeco',
     # 'tce_fwm_pdeco_err',
     # 'tce_max_mult_ev',
+    # 'tce_rb_tcount0_trnorm',
+    # 'tce_impact',
+    # 'tce_prad',
+    # 'mag',
+    'tce_rb_tcount0n'
 ]
 
 bins = {
@@ -589,8 +602,8 @@ bins = {
     # 'tce_depth_err': np.linspace(-1, 100, 50, endpoint=True),
     # 'tce_duration': np.linspace(0, 100, 50, endpoint=True),
     # 'tce_duration_err': np.linspace(-1, 20, 50, endpoint=True),
-    'tce_prad': np.linspace(0, 20, 100, endpoint=True),
-    'tce_period': np.linspace(0, 800, 100, endpoint=True),
+    # 'tce_prad': np.linspace(0, 20, 100, endpoint=True),
+    # 'tce_period': np.linspace(0, 800, 100, endpoint=True),
     # 'tce_period_err': np.linspace(0, 0.1, 100, endpoint=True),
     # 'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
     # 'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
@@ -605,7 +618,11 @@ bins = {
     # 'tce_fwm_prao_err': np.linspace(0, 1e-1, 50, endpoint=True),
     # 'tce_fwm_pdeco': np.linspace(-1e-1, 1e-1, 50, endpoint=True),
     # 'tce_fwm_pdeco_err': np.linspace(0, 1e-1, 50, endpoint=True),
-    # 'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True)
+    # 'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True),
+    # 'tce_impact': np.linspace(0, 1, 100, endpoint=True),
+    # 'tce_rb_tcount0_trnorm': np.linspace(0, 1, 100, endpoint=True),
+    # 'mag': np.linspace(0, 20, 100, endpoint=True),
+    'tce_rb_tcount0n': np.linspace(0, 1, 100, endpoint=True)
 }
 
 log_yscale = [
@@ -626,6 +643,7 @@ log_yscale = [
     'tce_duration',
     'tce_period',
     'wst_depth',
+    'tce_rb_tcount0n'
 ]
 
 for feature in features:
@@ -637,10 +655,10 @@ for feature in features:
         tceTbl[feature] *= 15
 
     stats = {
-        'median': np.median(tceTbl[feature]),
-        'mean': np.mean(tceTbl[feature]),
-        'std_rob': mad_std(tceTbl[feature]),
-        'std': np.std(tceTbl[feature], ddof=1),
+        'median': np.nanmedian(tceTbl[feature]),
+        'mean': np.nanmean(tceTbl[feature]),
+        'std_rob': mad_std(tceTbl.loc[~tceTbl[feature].isna(), feature]),
+        'std': np.nanstd(tceTbl[feature], ddof=1),
         'min': np.min(tceTbl[feature]),
         'max': np.max(tceTbl[feature])
     }

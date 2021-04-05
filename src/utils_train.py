@@ -7,6 +7,8 @@ Utility functions used during training, evaluating and predicting.
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
+import pandas as pd
 
 # local
 import paths
@@ -76,7 +78,8 @@ def phase_shift(timeseries_tensor, bin_shift):
 
 class LayerOutputCallback(tf.keras.callbacks.Callback):
 
-    def __init__(self, input_fn, batch_size, layer_name, summary_writer, buckets, description='custom'):
+    def __init__(self, input_fn, batch_size, layer_name, summary_writer, buckets, log_dir, num_batches=None,
+                 description='custom', ensemble=False):
         """ Callback that writes to a histogram summary the output of a given layer.
 
         :param input_fn: input function
@@ -84,7 +87,10 @@ class LayerOutputCallback(tf.keras.callbacks.Callback):
         :param layer_name: str, name of the layer
         :param summary_writer: summary writer
         :param buckets: int, bucket size
+        :param log_dir:
+        :param num_batches: int, number of batches to extract
         :param description: str, optional description
+        :param ensemble: bool, True if dealing with an ensemble of models.
         """
 
         super(LayerOutputCallback, self).__init__()
@@ -93,7 +99,11 @@ class LayerOutputCallback(tf.keras.callbacks.Callback):
         self.layer_name = layer_name
         self.summary_writer = summary_writer
         self.description = description
+        self.log_dir = log_dir
         self.buckets = buckets
+        self.ensemble = ensemble
+        self.num_batches = num_batches if num_batches is not None else np.inf
+        self.csv_fp = Path(self.log_dir) / f'{self.layer_name}.csv'
 
     # def on_batch_end(self, batch, logs=None):
     #
@@ -115,6 +125,82 @@ class LayerOutputCallback(tf.keras.callbacks.Callback):
     #                 with self.summaryWriter.as_default():
     #                     tf.summary.histogram(data=tf.convert_to_tensor(batch_output_layer, dtype=tf.float32), name='{}_output'.format(self.layer_name), step=batch, buckets=30, description='aaa')
 
+    def get_data(self):
+
+        if self.ensemble:
+            models_in_ensemble = [l for l in self.model.layers if 'model' in l.name]
+            data = []
+            for model in models_in_ensemble:
+                data_model = []
+                layer = [l for l in model.layers if l.name == self.layer_name][0]
+                get_layer_output = tf.keras.backend.function(inputs=model.input, outputs=layer.output)
+                for batch_i, (batch_input, batch_label) in enumerate(self.input_fn):
+                    batch_output_layer = get_layer_output(batch_input)
+                    data_batch = np.concatenate([batch_output_layer, np.expand_dims(batch_label.numpy(), axis=1)],
+                                                axis=1)
+                    data_model.append(data_batch)
+                    if len(data_model) == self.num_batches:
+                        break
+                data.append(data_model)
+        else:
+            layer = [l for l in self.model.layers if l.name == self.layer_name][0]
+            get_layer_output = tf.keras.backend.function(inputs=self.model.input, outputs=layer.output)
+            data = []
+            for batch_i, (batch_input, batch_label) in enumerate(self.input_fn):
+                batch_output_layer = get_layer_output(batch_input)
+                data_batch = np.concatenate([batch_output_layer, np.expand_dims(batch_label.numpy(), axis=1)],
+                                                axis=1)
+                data.append(data_batch)
+                if len(data) == self.num_batches:
+                    break
+
+        return data
+
+    def write_to_csv(self, data):
+
+        if self.ensemble:
+            for model_i, model_data in enumerate(data):
+                model_csv_fp = self.csv_fp.parent / f'{self.csv_fp.stem}_model{model_i + 1}.csv'
+                for batch_data in model_data:
+                    data_df = pd.DataFrame(batch_data)
+                    if model_csv_fp.exists():
+                        data_df.to_csv(model_csv_fp, index=False, mode='a', header=None)
+                    else:
+                        data_df.to_csv(model_csv_fp, index=False, mode='w')
+        else:
+            for batch_data in data:
+                data_df = pd.DataFrame(batch_data)
+                if self.csv_fp.exists():
+                    data_df.to_csv(self.csv_fp, index=False, mode='a', header=None)
+                else:
+                    data_df.to_csv(self.csv_fp, index=False, mode='w')
+
+    # def on_predict_end(self, logs=None):
+    #
+    #     data = self.get_data()
+    #     with self.summary_writer.as_default():
+    #
+    #         tf.summary.histogram(data=tf.convert_to_tensor([data], dtype=tf.float32),
+    #                              name=self.layer_name,
+    #                              step=1,
+    #                              buckets=self.buckets,
+    #                              description=self.description
+    #                              )
+
+    def on_test_end(self, logs=None):
+
+        data = self.get_data()
+
+        self.write_to_csv(data)
+
+        # with self.summary_writer.as_default():
+        #     tf.summary.histogram(data=tf.convert_to_tensor([np.ndarray.flatten(np.array(data))], dtype=tf.float32),
+        #                          name=self.layer_name,
+        #                          step=1,
+        #                          buckets=self.buckets,
+        #                          description=self.description
+        #                          )
+
     def on_epoch_end(self, epoch, logs=None):
         """ Write to a summary the output of a given layer at the end of each epoch.
 
@@ -123,19 +209,16 @@ class LayerOutputCallback(tf.keras.callbacks.Callback):
         :return:
         """
 
-        layer = [l for l in self.model.layers if l.name == self.layer_name][0]
-        get_layer_output = tf.keras.backend.function(inputs=self.model.input, outputs=layer.output)
-        data = []
-        for batch_i, (batch_input, batch_label) in enumerate(self.input_fn):
-            if batch_i == 0:
-                batch_output_layer = get_layer_output(batch_input)
-                data.append(batch_output_layer)
+        data = self.get_data()
 
         with self.summary_writer.as_default():
 
             tf.summary.histogram(data=tf.convert_to_tensor([data], dtype=tf.float32),
-                                 name='{}_output'.format(self.layer_name), step=epoch, buckets=self.buckets,
-                                 description=self.description)
+                                 name=self.layer_name,
+                                 step=epoch,
+                                 buckets=self.buckets,
+                                 description=self.description
+                                 )
 
 
 def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):

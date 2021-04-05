@@ -1,8 +1,10 @@
+""" Implementation of models. """
+
+# 3rd party
 import tensorflow as tf
 import operator
 from tensorflow.keras import regularizers
 from tensorflow import keras
-# import sys
 
 
 class CNN1dPlanetFinderv1(object):
@@ -576,9 +578,9 @@ class CNN1dPlanetFinderv2(object):
                 if 'local_weak_secondary_view' in branch:
                     scalar_input = tf.keras.layers.Concatenate(axis=1, name='wks_scalar_input')(
                         [
-                        self.inputs['tce_maxmes_norm'],
-                        self.inputs['tce_albedo_stat_norm'],
-                        self.inputs['tce_ptemp_stat_norm'],
+                        # self.inputs['tce_maxmes_norm'],
+                        # self.inputs['tce_albedo_stat_norm'],
+                        # self.inputs['tce_ptemp_stat_norm'],
                         self.inputs['wst_depth_norm']
                         ])
 
@@ -1492,8 +1494,6 @@ def create_inputs(features):
     """ Create input layers for the input features.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
-    :param scalar_param_idxs: list, choose indexes of scalar parameters to be extracted as features. None to get all of
-    them in the TFRecords
     :return:
         inputs: dictionary, each key-value pair is a feature_name: feature
     """
@@ -1504,7 +1504,7 @@ def create_inputs(features):
 
         input = tf.keras.Input(shape=features[feature]['dim'],
                                batch_size=None,
-                               name='{}'.format(feature),
+                               name=f'{feature}',
                                dtype=features[feature]['dtype'],
                                sparse=False,
                                tensor=None,

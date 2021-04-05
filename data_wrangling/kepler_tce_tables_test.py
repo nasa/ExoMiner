@@ -539,3 +539,25 @@ for tce_i, tce in tps_tbl.iterrows():
     #     count_tces['sec_phase'] += 1
 
 tps_tbl.to_csv(tps_tbl_fp.parent / 'keplerTPS_KSOP2536_dr25_symsecphase_confirmedkoiperiod.csv', index=False)
+
+#%%
+
+# def fun(a):
+#     a = [3*el for el in a]
+#     print(f'a inside: {a}')
+#     a = [3 * el for el in a]
+#
+# a = [np.array([1,2,3]),np.array([4,5,6])]
+#
+# fun(a)
+#
+# print(a
+#       )
+
+from pathlib import Path
+import pandas as pd
+
+experiment_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/plot_confirmed-cfp_3-2-2021_test_centroidnocorr/')
+
+csv_file = pd.concat([pd.read_csv(el) for el in experiment_dir.iterdir() if el.suffix == '.csv'])
+csv_file.to_csv(experiment_dir / 'all_shards.csv', index=False)

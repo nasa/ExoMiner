@@ -8,7 +8,7 @@ from pathlib import Path
 
 experimentRootDir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/')
 
-experiment = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_nopps_ckoiper_testvalswitched'
+experiment = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_configK_allfeatures_fc4stellar_fc4dv'
 
 # saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/misclassified_analysis/'
 saveDir = experimentRootDir / experiment / 'misclassified_analysis'

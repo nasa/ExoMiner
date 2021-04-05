@@ -20,7 +20,7 @@ import paths
 
 #%% load results from a HPO study
 
-study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+study = 'ConfigL'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -218,7 +218,7 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(
 # returns the best configuration over time/over cumulative budget
 nmodels = 3
 hpo_loss = 'val_auc_pr'  # 'pr auc'
-budget_chosen = 'all'  # 50.0  # 'all
+budget_chosen = 6  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
@@ -240,13 +240,13 @@ for run_i, run in enumerate(timesorted_allruns):
 
     if budget_chosen != 'all':
 
-        if run.budget != budget_chosen:
+        if int(run.budget) != budget_chosen:
             continue
 
     if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
 
         if run.loss < bconfig_loss:
-            print('Best config so far: {} ({} on budget {})'. format(run.config_id, run.loss, run.budget))
+            print('Best config so far: {} ({} on budget {})'. format(run.config_id, run.loss, int(run.budget)))
 
         # add timestamp and cumulated budget to the arrays
         cum_budget_vec.append(cum_budget)
@@ -264,7 +264,7 @@ for run_i, run in enumerate(timesorted_allruns):
                     break
             else:  # did not find the file for that run
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
-                                                                                                    run.budget))
+                                                                                                    int(run.budget)))
 
             # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
             # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()[hpo_loss]['all scores'])

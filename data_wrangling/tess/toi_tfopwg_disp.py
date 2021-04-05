@@ -1,20 +1,25 @@
-""" Script used to add TFOPWG disposition to rankings."""
+""" Script used to:
+
+1) add TFOPWG disposition and matching distance to rankings.
+2) plot histogram of matching distance for different dispositions.
+3) plot histogram of scores for different dispositions.
+4) show confusion matrix for different dispositions.
+
+"""
 
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-#%%
+#%% Add TFOPWG disposition and matching distance to ranking
 
 toi_exofop_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/NASA_Exoplanet_Archive_TOI_lists/'
                               'TOI_2021.01.12_15.08.41.csv', header=71)
 matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
                            'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05_1-8-2021.csv')
 
-ranking_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/'
-                          'tess_g301-l31_6tr_spline_nongapped_spoctois_configK_wsphase/'
-                          'ensemble_ranked_predictions_predictset.csv')
+ranking_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/tess_g301-l31_6tr_spline_nongapped_configK_timeseries_stellar/ensemble_ranked_predictions_predictset.csv')
 ranking_tbl = pd.read_csv(ranking_tbl_fp)
 
 ranking_tbl['tfopwg_disp'] = np.nan
@@ -36,8 +41,10 @@ for toi_i, toi in ranking_tbl.iterrows():
 ranking_tbl['oi'] = ranking_tbl['oi'].apply(lambda x: str(np.round(x, 2)))
 ranking_tbl.to_csv(ranking_tbl_fp.parent / f'{ranking_tbl_fp.stem}_tfopwg_disp_matchingdist.csv', index=False)
 
-#%%
+#%% Histogram of correctly classified and misclassified KP for matching distance to the TCE
 
+ranking_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/tess_g301-l31_6tr_spline_nongapped_configK_timeseries_stellar/ensemble_ranked_predictions_predictset_tfopwg_disp_matchingdist.csv')
+ranking_tbl = pd.read_csv(ranking_tbl_fp)
 ranking_tbl = ranking_tbl.loc[ranking_tbl['original_label'] == 'KP']
 
 bins = np.linspace(0, 1, 21)
@@ -54,3 +61,36 @@ ax.set_xlim([0, 1])
 ax.legend()
 ax.set_title('Known Planets')
 f.savefig(ranking_tbl_fp.parent / 'hist_KP_matchingdist_class.png')
+
+#%% Histogram of scores for different dispositions
+
+ranking_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/tess_g301-l31_6tr_spline_nongapped_configK_timeseries_stellar/ensemble_ranked_predictions_predictset_tfopwg_disp_matchingdist.csv')
+ranking_tbl = pd.read_csv(ranking_tbl_fp)
+
+disp_type = 'tfopwg_disp'
+bins = np.linspace(0, 1, 21)
+
+f, ax = plt.subplots()
+for disp in ['PC']:  # ranking_tbl[disp_type].unique():
+    ax.hist(ranking_tbl.loc[ranking_tbl[disp_type] == disp, 'score'], bins, label=f'{disp}', edgecolor='k')
+ax.set_xlabel('Score')
+ax.set_ylabel('Counts')
+# ax.set_yscale('log')
+ax.set_xlim([0, 1])
+ax.legend()
+ax.set_title(f'{disp_type}')
+f.savefig(ranking_tbl_fp.parent / f'hist_score_{disp_type}_cp_kp.png')
+
+#%% Show classification and misclassifications for different dispositions
+
+ranking_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/tess_g301-l31_6tr_spline_nongapped_configK_timeseries_stellar/ensemble_ranked_predictions_predictset_tfopwg_disp_matchingdist.csv')
+
+disp_type = 'tfopwg_disp'
+for disp in ranking_tbl[disp_type].unique():
+    print(f'Disposition {disp}')
+    print(f'Total: {len(ranking_tbl.loc[ranking_tbl[disp_type] == disp])}')
+    print(f'PC: {len(ranking_tbl.loc[(ranking_tbl[disp_type] == disp) & (ranking_tbl["predicted class"] == 1)])}')
+    print(f'Non-PC: {len(ranking_tbl.loc[(ranking_tbl[disp_type] == disp) & (ranking_tbl["predicted class"] == 0)])}')
+
+
+
