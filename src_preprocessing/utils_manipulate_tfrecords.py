@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.preprocess import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc, \
-    centering_and_normalization
+from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.preprocess import centering_and_normalization
 
 
 def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tceIdentifier='tce_plnt_num',

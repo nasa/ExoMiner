@@ -16,7 +16,7 @@ from data_wrangling.old.utils_ephemeris_matching import create_binary_time_serie
 res_dir = Path(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 res_dir.mkdir(exist_ok=True)
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/3-11-2021/')
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/')
 
 toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists_spoc_nomissingpephem.csv')
 

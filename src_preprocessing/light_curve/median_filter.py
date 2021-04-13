@@ -47,10 +47,16 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
   Returns:
     1D NumPy array of size num_bins containing the median y-values of uniformly
     spaced bins on the x-axis.
+    1D Numpy array of size num_bins containing the the timestamp of the bin.
+    1D NumPy array of size num_bins containing the MAD std y-values of uniformly
+    spaced bins on the x-axis.
+    1D NumPy array of size num_bins containing the number of y-values in each one of the uniformly
+    spaced bins on the x-axis.
 
   Raises:
     ValueError: If an argument has an inappropriate value.
   """
+
     if num_bins < 2:
         raise ValueError("num_bins must be at least 2. Got: {}".format(num_bins))
 
@@ -85,9 +91,11 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
     bin_spacing = (x_max - x_min - bin_width) / (num_bins - 1)
 
     # Bins with no y-values will fall back to the global median.
-    result = np.repeat(np.median(y), num_bins)
+    # result = np.repeat(np.median(y), num_bins)
+    result = np.nan * np.ones(num_bins, dtype='float')
     result_var = np.zeros(num_bins)
-    result_time = np.ones(num_bins)
+    result_time = np.zeros(num_bins)
+    bin_counts = np.zeros(num_bins, dtype='uint64')
 
     # Find the first element of x >= x_min. This loop is guaranteed to produce
     # a valid index because we know that x_min <= x[-1].
@@ -119,10 +127,11 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
             result_var[i] = stats.mad_std(y[j_start:j_end])
             # _, result[i], result_var[i] = stats.sigma_clipped_stats(y[j_start:j_end], sigma=2, maxiters=10)
 
-            result_time[i] = bin_min + bin_width / 2
+        bin_counts[i] = j_end - j_start
+        result_time[i] = bin_min + bin_width / 2
 
         # Advance the bin.
         bin_min += bin_spacing
         bin_max += bin_spacing
 
-    return result, result_time, result_var
+    return result, result_time, result_var, bin_counts

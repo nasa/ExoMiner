@@ -680,7 +680,28 @@ class CNN1dPlanetFinderv2(object):
             net = tf.keras.layers.Concatenate(name='convbranch_concat', axis=-1)(
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
-        scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_dv_scalar_input')(
+        # scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_dv_scalar_input')(
+        #     [
+        #         self.inputs['tce_steff_norm'],
+        #         self.inputs['tce_slogg_norm'],
+        #         self.inputs['tce_smet_norm'],
+        #         self.inputs['tce_sradius_norm'],
+        #         self.inputs['tce_smass_norm'],
+        #         self.inputs['tce_sdens_norm'],
+        #         self.inputs['tce_cap_stat_norm'],
+        #         self.inputs['tce_hap_stat_norm'],
+        #         self.inputs['tce_rb_tcount0_norm'],
+        #         self.inputs['boot_fap_norm'],
+        #         self.inputs['tce_period_norm'],
+        #         self.inputs['tce_prad_norm']
+        #     ])
+
+        # net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')([
+        #     net,
+        #     scalar_input
+        # ])
+
+        stellar_scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_scalar_input')(
             [
                 self.inputs['tce_steff_norm'],
                 self.inputs['tce_slogg_norm'],
@@ -688,17 +709,69 @@ class CNN1dPlanetFinderv2(object):
                 self.inputs['tce_sradius_norm'],
                 self.inputs['tce_smass_norm'],
                 self.inputs['tce_sdens_norm'],
-                self.inputs['tce_cap_stat_norm'],
-                self.inputs['tce_hap_stat_norm'],
-                self.inputs['tce_rb_tcount0_norm'],
-                self.inputs['boot_fap_norm'],
-                self.inputs['tce_period_norm'],
-                self.inputs['tce_prad_norm']
             ])
+
+        stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                    kernel_regularizer=regularizers.l2(
+                                        self.config['decay_rate']),
+                                    activation=None,
+                                    use_bias=True,
+                                    kernel_initializer='glorot_uniform',
+                                    bias_initializer='zeros',
+                                    bias_regularizer=None,
+                                    activity_regularizer=None,
+                                    kernel_constraint=None,
+                                    bias_constraint=None,
+                                    name='fc_stellar_scalar')(stellar_scalar_input)
+
+        if self.config['non_lin_fn'] == 'lrelu':
+            stellar_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_stellar_scalar')(stellar_scalar_fc_output)
+        elif self.config['non_lin_fn'] == 'relu':
+            stellar_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_stellar_scalar')(stellar_scalar_fc_output)
+        elif self.config['non_lin_fn'] == 'prelu':
+            stellar_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                        alpha_regularizer=None,
+                                        alpha_constraint=None,
+                                        shared_axes=[1],
+                                        name='fc_prelu_fc_relu_stellar_scalar')(stellar_scalar_fc_output)
+
+        dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
+            self.inputs['tce_cap_stat_norm'],
+            self.inputs['tce_hap_stat_norm'],
+            self.inputs['tce_rb_tcount0_norm'],
+            self.inputs['boot_fap_norm'],
+            self.inputs['tce_period_norm'],
+            self.inputs['tce_prad_norm']
+        ])
+
+        dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                    kernel_regularizer=regularizers.l2(
+                                        self.config['decay_rate']),
+                                    activation=None,
+                                    use_bias=True,
+                                    kernel_initializer='glorot_uniform',
+                                    bias_initializer='zeros',
+                                    bias_regularizer=None,
+                                    activity_regularizer=None,
+                                    kernel_constraint=None,
+                                    bias_constraint=None,
+                                    name='fc_dv_scalar')(dv_scalar_input)
+
+        if self.config['non_lin_fn'] == 'lrelu':
+            dv_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_dv_scalar')(dv_scalar_fc_output)
+        elif self.config['non_lin_fn'] == 'relu':
+            dv_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_dv_scalar')(dv_scalar_fc_output)
+        elif self.config['non_lin_fn'] == 'prelu':
+            dv_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                        alpha_regularizer=None,
+                                        alpha_constraint=None,
+                                        shared_axes=[1],
+                                        name='fc_prelu_fc_relu_dv_scalar')(dv_scalar_fc_output)
 
         net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')([
             net,
-            scalar_input
+            stellar_scalar_fc_output,
+            dv_scalar_fc_output
         ])
 
         if self.config['batch_norm']:

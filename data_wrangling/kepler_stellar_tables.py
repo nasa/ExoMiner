@@ -125,7 +125,7 @@ print(keplerStellarTbl[colsKeplerStellarTbl].isna().sum(axis=0))
 keplerStellarTbl.to_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/KIC_tables/'
                         'q1_q17_dr25_stellar_plus_supp_gaiadr2_missingvaluestosolar.csv', index=False)
 
-#%% Update Kepler Q1-Q!7 DR25 TCE table (~34k TCEs) with the latest stellar parameters
+#%% Update Kepler Q1-Q17 DR25 TCE table (~34k TCEs) with the latest stellar parameters
 
 stellar_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/KIC_tables/'
                           'q1_q17_dr25_stellar_plus_supp_gaiadr2_missingvaluestosolar.csv')

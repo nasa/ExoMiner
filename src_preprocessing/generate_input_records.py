@@ -203,7 +203,7 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
     # defined columns in the shard table
     tceColumns = ['target_id', config['tce_identifier']]
-    columnsDf = tceColumns + ['augmentation_idx', 'shard']
+    # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
     tf_logging.info(f'{config["process_i"]}: Processing {shard_size} items in shard {shard_name}')

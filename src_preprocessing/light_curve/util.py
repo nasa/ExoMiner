@@ -45,6 +45,49 @@ def phase_fold_time(time, period, t0):
   return result
 
 
+def phase_fold_time_aug(time, period, t0):
+    """ Creates a phase-folded time vector. Performs data augmentation by sampling transits with replacement for a
+    total number equal to the original.
+
+    result[i] is the unique number in [-period / 2, period / 2)
+    such that result[i] = time[i] - t0 + k_i * period, for some integer k_i.
+
+    Args:
+    time: 1D numpy array of time values.
+    period: A positive real scalar; the period to fold over.
+    t0: The center of the resulting folded vector; this value is mapped to 0.
+
+    Returns:
+    result_sampled: 1D numpy array with the sampled phase-folded time array.
+    sampled_idxs: 1D nunpy array with the indices of the sampled transits.
+    num_transits: int, number of transits in the time series.
+    """
+
+    half_period = period / 2
+    result = np.mod(time + (half_period - t0), period)
+    result -= half_period
+
+    # get the first index after -pi/2
+    edge_idxs = np.where(np.diff(result) < 0)[0] + 1
+    # add the first and last indices in the array
+    edge_idxs = np.concatenate([[0], edge_idxs, [len(result)]])
+
+    # define the boundary indices for each transit
+    start_end_idxs = list(zip(edge_idxs[:-1], edge_idxs[1:]))
+
+    # number of transits in the time series
+    num_transits = len(start_end_idxs)
+
+    # sample with replacement transits
+    transit_idxs = np.random.randint(0, num_transits, size=num_transits)
+    sampled_idxs = np.concatenate([np.arange(start_end_idxs[transit_idx][0], start_end_idxs[transit_idx][1])
+                                   for transit_idx in transit_idxs])
+
+    result_sampled = result[sampled_idxs]
+
+    return result_sampled, sampled_idxs, num_transits
+
+
 def split(all_time, all_time_series, gap_width=0.75, centroid=False, add_info=None):
     """ Splits a light curve on discontinuities (gaps).
 

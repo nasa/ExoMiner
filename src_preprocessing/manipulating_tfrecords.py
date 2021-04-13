@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # local
-from src_preprocessing.preprocess import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc, \
-    centering_and_normalization
+from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_manipulate_tfrecords import create_shard, update_labels, plot_features_example
 
@@ -27,7 +27,7 @@ tceIdentifier = 'tce_plnt_num'  # TCE identifier
 
 #%% define directories
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff')
+srcTfrecDir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/odd_even_check_flag_PCs_AFPs_corrected')
 srcTfrecTbls = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                        file.stem.startswith('shard')])
 
@@ -40,7 +40,7 @@ for srcTfrecTbl in srcTfrecTbls:
     else:
         srcTfrecTblMerge = pd.concat([srcTfrecTblMerge, srcTfrecDf])
 
-srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=True)
+srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
 
 #%% create new TFRecords based on the original ones
 
@@ -48,26 +48,26 @@ srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=True)
 # datasetTblDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/old/bug_with_transitduration_amplified/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
-# datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
-# datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in ['train', 'val', 'test']}
+datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
+datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in ['train', 'val', 'test']}
 
 # get only TCEs with tce_plnt_num = 1
 # datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
 
 # get TCEs not used for training nor evaluation
-datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                                     'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_'
-                                     'renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv')
-              }
-# remove rogue TCEs
-datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
-# remove CONFIRMED KOIs
-datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['koi_disposition'] != 'CONFIRMED']
-# remove CFP and CFA KOIs
-datasetTbl['predict'] = datasetTbl['predict'].loc[~((datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FP') |
-                        (datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FA'))]
-# remove non-KOIs
-datasetTbl['predict'] = datasetTbl['predict'].loc[~(datasetTbl['predict']['kepoi_name'].isna())]
+# datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+#                                      'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_'
+#                                      'renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv')
+#               }
+# # remove rogue TCEs
+# datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
+# # remove CONFIRMED KOIs
+# datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['koi_disposition'] != 'CONFIRMED']
+# # remove CFP and CFA KOIs
+# datasetTbl['predict'] = datasetTbl['predict'].loc[~((datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FP') |
+#                         (datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FA'))]
+# # remove non-KOIs
+# datasetTbl['predict'] = datasetTbl['predict'].loc[~(datasetTbl['predict']['kepoi_name'].isna())]
 
 numTces = {}
 for dataset in datasetTbl:
@@ -109,7 +109,7 @@ for shardTuple in shardTuples:
 print(checkNumTcesInDatasets)
 
 srcTbl = pd.read_csv(os.path.join(srcTfrecDir / 'merged_shards.csv'), index_col=0)
-destTfrecDir = Path(str(srcTfrecDir) + '_starshuffle_experiment_notused')
+destTfrecDir = Path(str(srcTfrecDir) + '_starshuffle_experiment')
 destTfrecDir.mkdir(exist_ok=True)
 omitMissing = True
 nProcesses = 15
@@ -155,7 +155,7 @@ for tfrecFile in tfrecFiles:
 
 #%% update labels with a given set of dispositions
 
-# srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-tps_g301-l31_6tr_spline_gapped1_flux-loe-lwks-centroid-centroidfdl-6stellar-stdts_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_starshuffle_experiment')
 destTfrecDir = Path(str(srcTfrecDir) + '-labels')
 destTfrecDir.mkdir(exist_ok=True)
 
@@ -209,7 +209,7 @@ assert np.sum(countExamples) == 0
 
 #%% compute normalization statistics for scalar parameters, timeseries, ...
 
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_starshuffle_experiment')
 
 # get only training set TFRecords
 tfrecTrainFiles = [file for file in tfrecDir.iterdir() if file.stem.startswith('train-shard')]
@@ -221,8 +221,8 @@ num_bins_glob = 301  # 2001
 
 scalarParams = {
     # stellar parameters
-    'tce_steff': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-                  'clip_factor': 20, 'dtype': 'int'},
+    'tce_steff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+                  'clip_factor': 20, 'dtype': 'float'},
     'tce_slogg': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                   'clip_factor': 20, 'dtype': 'float'},
     'tce_smet': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
@@ -233,7 +233,7 @@ scalarParams = {
                   'clip_factor': 20, 'dtype': 'float'},
     'tce_sdens': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                   'clip_factor': 20, 'dtype': 'float'},
-    'mag': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+    'mag': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                   'clip_factor': 20, 'dtype': 'float'},
     # secondary
     'tce_maxmes': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
@@ -355,16 +355,17 @@ for scalarParam in scalarParams:
     scalarParamVals = scalarParamsDict[scalarParam]
 
     # remove missing values so that they do not contribute to the normalization statistics
-    # if not np.isnan(scalarParams[scalarParam]['missing_value']):
     if scalarParams[scalarParam]['missing_value'] is not None:
         if scalarParam == 'wst_depth':
             scalarParamVals = scalarParamVals[np.where(scalarParamVals > scalarParams[scalarParam]['missing_value'])]
-        elif np.isnan(scalarParams[scalarParam]['missing_value']):
-            scalarParamVals = scalarParamVals[~np.isnan(scalarParamVals)]
         else:
             scalarParamVals = scalarParamVals[np.where(scalarParamVals != scalarParams[scalarParam]['missing_value'])]
 
-    # log transform the data
+    # remove non-finite values
+    # scalarParamVals = scalarParamVals[~np.isnan(scalarParamVals)]
+    scalarParamVals = scalarParamVals[np.isfinite(scalarParamVals)]
+
+    # log transform the data (assumes data is non-negative after adding eps)
     if scalarParams[scalarParam]['log_transform']:
 
         # add constant value
@@ -446,6 +447,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
     :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
     :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
     :param normStats: dict, normalization statistics used for normalizing the data
+    :param auxParams: dict, auxiliary parameters needed for normalization
     :return:
     """
 
@@ -463,8 +465,9 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             example = tf.train.Example()
             example.ParseFromString(string_record)
 
-            # normalize scalar parameters
             normalizedFeatures = {}
+
+            # normalize scalar parameters
             for scalarParam in normStats['scalar_params']:
                 # get the scalar value from the example
                 if normStats['scalar_params'][scalarParam]['info']['dtype'] == 'int':
@@ -472,54 +475,54 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                 elif normStats['scalar_params'][scalarParam]['info']['dtype'] == 'float':
                     scalarParamVal = np.array(example.features.feature[scalarParam].float_list.value)
 
-                # remove missing values so that they do not contribute to the normalization statistics
-                # for wst_depth, replace values smaller than missing_value by the replace value
+                replace_flag = False
+                # check if there is a placeholder for missing value
                 if normStats['scalar_params'][scalarParam]['info']['missing_value'] is not None:
-                    if scalarParamVal < normStats['scalar_params'][scalarParam]['info']['missing_value'] and \
-                            scalarParam == 'wst_depth':
-                        scalarParamVal = normStats['scalar_params'][scalarParam]['info']['replace_value']
-                    # replace missing value by the median
+                    if scalarParam in ['wst_depth']:
+                        replace_flag = scalarParamVal < \
+                                       normStats['scalar_params'][scalarParam]['info']['missing_value']
                     else:
-                        if np.isnan(scalarParamVal) or \
-                                scalarParamVal == normStats['scalar_params'][scalarParam]['info']['missing_value']:
-                            scalarParamVal = normStats['scalar_params'][scalarParam]['median']
+                        replace_flag = scalarParamVal == \
+                                       normStats['scalar_params'][scalarParam]['info']['missing_value']
 
-                else:  # in the case that the value is not a missing value
-                    # log transform the data
-                    if normStats['scalar_params'][scalarParam]['info']['log_transform']:
-                        # add constant value
-                        if not np.isnan(normStats['scalar_params'][scalarParam]['info']['log_transform_eps']):
-                            scalarParamVal += normStats['scalar_params'][scalarParam]['info']['log_transform_eps']
+                if ~np.isfinite(scalarParamVal):  # always replace if value is non-finite
+                    replace_flag = True
 
-                        scalarParamVal = np.log10(scalarParamVal)
+                if replace_flag:
+                    # replace by a defined value
+                    if normStats['scalar_params'][scalarParam]['info']['replace_value'] is not None:
+                        scalarParamVal = normStats['scalar_params'][scalarParam]['info']['replace_value']
+                    else:  # replace by the median
+                        scalarParamVal = normStats['scalar_params'][scalarParam]['median']
 
-                    # clipping the data
-                    # if not np.isnan(normStats['scalar_params']['info'][scalarParam]['clip_factor']):
-                    #     scalarParamVal = np.clip([scalarParamVal],
-                    #                              normStats['scalar_params']['median'][scalarParam] -
-                    #                              normStats['scalar_params']['info'][scalarParam]['clip_factor'] *
-                    #                              normStats['scalar_params']['mad_std'][scalarParam],
-                    #                              normStats['scalar_params']['median'][scalarParam] +
-                    #                              normStats['scalar_params']['info'][scalarParam]['clip_factor'] *
-                    #                              normStats['scalar_params']['mad_std'][scalarParam]
-                    #                              )[0]
-                    if not np.isnan(normStats['scalar_params'][scalarParam]['info']['clip_factor']):
-                        scalarParamVal = np.clip([scalarParamVal],
-                                                 normStats['scalar_params'][scalarParam]['median'] -
-                                                 normStats['scalar_params'][scalarParam]['info']['clip_factor'] *
-                                                 normStats['scalar_params'][scalarParam]['mad_std'],
-                                                 normStats['scalar_params'][scalarParam]['median'] +
-                                                 normStats['scalar_params'][scalarParam]['info']['clip_factor'] *
-                                                 normStats['scalar_params'][scalarParam]['mad_std']
-                                                 )[0]
+                # log transform the data (assumes data is non-negative after adding eps)
+                # assumes that the median is already log-transformed, but not any possible replace value
+                if normStats['scalar_params'][scalarParam]['info']['log_transform'] and \
+                        not (replace_flag and scalarParamVal == normStats['scalar_params'][scalarParam]['median']):
 
+                    # add constant value
+                    if not np.isnan(normStats['scalar_params'][scalarParam]['info']['log_transform_eps']):
+                        scalarParamVal += normStats['scalar_params'][scalarParam]['info']['log_transform_eps']
+
+                    scalarParamVal = np.log10(scalarParamVal)
+
+                # clipping the data
+                if not np.isnan(normStats['scalar_params'][scalarParam]['info']['clip_factor']):
+                    scalarParamVal = np.clip([scalarParamVal],
+                                             normStats['scalar_params'][scalarParam]['median'] -
+                                             normStats['scalar_params'][scalarParam]['info']['clip_factor'] *
+                                             normStats['scalar_params'][scalarParam]['mad_std'],
+                                             normStats['scalar_params'][scalarParam]['median'] +
+                                             normStats['scalar_params'][scalarParam]['info']['clip_factor'] *
+                                             normStats['scalar_params'][scalarParam]['mad_std']
+                                             )[0]
+
+                # TODO: add value to avoid division by zero?
                 # standardization
-                # scalarParamVal = (scalarParamVal - normStats['scalar_params']['median'][scalarParam]) /  \
-                #                  normStats['scalar_params']['mad_std'][scalarParam]
                 scalarParamVal = (scalarParamVal - normStats['scalar_params'][scalarParam]['median']) /  \
                                  normStats['scalar_params'][scalarParam]['mad_std']
 
-                # tceScalarParams[normStats['scalar_params']['info'][scalarParam]['idx']] = scalarParamVal
+                # add standardized feature to dictionary of standardized features
                 normalizedFeatures[f'{scalarParam}_norm'] = [scalarParamVal]
 
             # normalize FDL centroid time series
@@ -603,9 +606,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             loc_centr_view_medind_std = loc_centr_view - np.median(loc_centr_view)
             loc_centr_view_medind_std /= normStats['centroid']['local_centr_view']['std']
 
-            # add features to the example in the TFRecord
             normalizedFeatures.update({
-                # 'scalar_params': tceScalarParams,
                 'local_centr_fdl_view_norm': loc_centr_fdl_view_norm,
                 'global_centr_fdl_view_norm': glob_centr_fdl_view_norm,
                 'global_centr_view_std_clip': glob_centr_view_std_clip,
@@ -616,6 +617,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                 'local_centr_view_medind_std': loc_centr_view_medind_std
             })
 
+            # add features to the example in the TFRecord
             for normalizedFeature in normalizedFeatures:
                 example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
                                                allow_overwrite=True)
@@ -623,18 +625,18 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             writer.write(example.SerializeToString())
 
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment_notused')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_starshuffle_experiment-labels')
 destTfrecDir = Path(str(srcTfrecDir) + '-normalized')
 destTfrecDir.mkdir(exist_ok=True)
 srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
 auxParams = {
-    'nr_transit_durations': 6,  # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+    'nr_transit_durations': 5,  # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
     'num_bins_loc': 31,  # 31, 201
     'num_bins_glob': 301  # 301, 2001
 }
 
-normStatsDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment')
+normStatsDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_starshuffle_experiment')
 
 # load normalization statistics
 normStats = {
@@ -666,7 +668,7 @@ print('Normalization finished.')
 #%% Check final preprocessed data
 
 # TFRecord directory
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment_notused-normalized')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_starshuffle_experiment-labels-normalized')
 # create plot directory if it does not exist
 plotDir = tfrecDir / 'plots_all_views'
 plotDir.mkdir(exist_ok=True)

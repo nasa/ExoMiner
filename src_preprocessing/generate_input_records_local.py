@@ -27,7 +27,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    config['tfrecords_base_name'] = 'bin_time_9049550-1'
+    config['tfrecords_base_name'] = 'test_excluded_kepler_tces_4-13-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -105,25 +105,25 @@ def create_preprocessing_config():
         # 'transit_depth',
         'tce_max_mult_ev',
         # secondary parameters
-        # 'tce_maxmes',
+        'tce_maxmes',
         'tce_maxmesd',
         # 'wst_robstat',
-        'wst_depth',
-        'tce_ptemp_stat',
-        'tce_albedo_stat',
+        # 'wst_depth',
+        # 'tce_ptemp_stat',
+        # 'tce_albedo_stat',
         # odd-even
         # 'tce_bin_oedp_stat',
         # centroid
-        'tce_fwm_stat',
-        'tce_dikco_msky',
-        'tce_dikco_msky_err',
-        'tce_dicco_msky',
-        'tce_dicco_msky_err',
+        # 'tce_fwm_stat',
+        # 'tce_dikco_msky',
+        # 'tce_dikco_msky_err',
+        # 'tce_dicco_msky',
+        # 'tce_dicco_msky_err',
         # other diagnostics
-        'tce_cap_stat',
-        'tce_hap_stat',
-        'tce_rb_tcount0',
-        'boot_fap',
+        # 'tce_cap_stat',
+        # 'tce_hap_stat',
+        # 'tce_rb_tcount0',
+        # 'boot_fap',
         # stellar parameters
         'tce_smass',
         'tce_sdens',
@@ -133,7 +133,7 @@ def create_preprocessing_config():
         'tce_sradius',
         'mag',
         # transit fit parameters
-        # 'tce_impact',
+        'tce_impact',
         'tce_prad',
     ]
 
@@ -158,8 +158,7 @@ def create_preprocessing_config():
 
     elif config['satellite'] == 'tess':
 
-        # config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/tce_table_03-19-2021_1054/tess_tce_s1-s34_thr0.25_renamedcols.csv'
-        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/12-4-2020/tois_stellar_nosectornan_tcesparams_renamedcols.csv'
+        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/exofop_toilists_spoc_nomissingpephem_sectors.csv'
 
         config['lc_data_dir'] = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 
@@ -200,7 +199,7 @@ def _process_file_shard(tce_table, file_name, eph_table):
     shard_size = len(tce_table)
 
     tceColumns = ['target_id', config['tce_identifier']]
-    columnsDf = tceColumns + ['augmentation_idx', 'shard']
+    # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
     tf_logging.info(f'{process_name}: Processing {shard_size} items in shard {shard_name}')

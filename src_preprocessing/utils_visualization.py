@@ -428,7 +428,7 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
         f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
                                                                   tce['label'], target_coords))
         plt.savefig(
-            os.path.join(savedir, '{}_{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors,
+            os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors,
                                                               tce.label, basename)))
     plt.close()
 
@@ -887,9 +887,9 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     :return:
     """
 
-    gs = gridspec.GridSpec(4, 2)
-
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
+
+    gs = gridspec.GridSpec(4, 2)
 
     f = plt.figure(figsize=(20, 14))
 
@@ -903,57 +903,70 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     #         binned_timeseries['Global Flux'][1] - binned_timeseries['Global Flux'][2], 'b--')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (day)')
-    ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
+    # ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
 
-    left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
-    right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
+    # left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
+    # right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
     ax = plt.subplot(gs[1, 0])
-    ax.scatter(timeseries['Flux'][0][left_idx:right_idx] * 24, timeseries['Flux'][1][left_idx:right_idx],
+    # ax.scatter(timeseries['Flux'][0][left_idx:right_idx] * 24, timeseries['Flux'][1][left_idx:right_idx],
+    #            color='k', s=5)
+    ax.scatter(timeseries['Flux'][0] * 24, timeseries['Flux'][1],
                color='k', s=5)
     ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='b')
     ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'b')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (hour)')
-    ax.set_xlim([timeseries['Flux'][0][left_idx] * 24, timeseries['Flux'][0][right_idx] * 24])
+    # ax.set_xlim([timeseries['Flux'][0][left_idx] * 24, timeseries['Flux'][0][right_idx] * 24])
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
 
     if 'Weak Secondary Flux' in timeseries:
-        left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
-        right_idx = np.where(timeseries['Weak Secondary Flux'][0] < local_view_time_interval)[0][-1]
+        # left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
+        # right_idx = np.where(timeseries['Weak Secondary Flux'][0] < local_view_time_interval)[0][-1]
         ax = plt.subplot(gs[1, 1])
-        ax.scatter(timeseries['Weak Secondary Flux'][0][left_idx:right_idx] * 24,
-                   timeseries['Weak Secondary Flux'][1][left_idx:right_idx], color='k', s=5)
+        # ax.scatter(timeseries['Weak Secondary Flux'][0][left_idx:right_idx] * 24,
+        #            timeseries['Weak Secondary Flux'][1][left_idx:right_idx], color='k', s=5)
+        ax.scatter(timeseries['Weak Secondary Flux'][0] * 24,
+                   timeseries['Weak Secondary Flux'][1], color='k', s=5)
         ax.scatter(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
                    binned_timeseries['Local Weak Secondary Flux'][1], color='b')
         ax.plot(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
                 binned_timeseries['Local Weak Secondary Flux'][1], 'b')
         ax.set_ylabel('Relative Flux')
         ax.set_xlabel('Phase (hour)')
-        ax.set_xlim([timeseries['Weak Secondary Flux'][0][left_idx] * 24,
-                     timeseries['Weak Secondary Flux'][0][right_idx] * 24])
+        # ax.set_xlim([timeseries['Weak Secondary Flux'][0][left_idx] * 24,
+        #              timeseries['Weak Secondary Flux'][0][right_idx] * 24])
+        ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
         ax.set_title('Weak Secondary Phase : {:.4f} Days'.format(tce['tce_maxmesd']))
 
-    left_idx = np.where(timeseries['Odd Flux'][0] > -local_view_time_interval)[0][0]
-    right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
     ax = plt.subplot(gs[2, 0])
-    ax.scatter(timeseries['Odd Flux'][0][left_idx:right_idx] * 24, timeseries['Odd Flux'][1][left_idx:right_idx],
-               color='k', s=5)
+    if len(timeseries['Odd Flux'][0]) > 0:
+        # left_idx = np.where(timeseries['Odd Flux'][0] > -local_view_time_interval)[0][0]
+        # right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
+        # ax.scatter(timeseries['Odd Flux'][0][left_idx:right_idx] * 24, timeseries['Odd Flux'][1][left_idx:right_idx],
+        #            color='k', s=5)
+        ax.scatter(timeseries['Odd Flux'][0] * 24, timeseries['Odd Flux'][1], color='k', s=5)
     ax.scatter(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='b')
     ax.plot(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'b')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (hour)')
-    ax.set_xlim([timeseries['Odd Flux'][0][left_idx] * 24, timeseries['Odd Flux'][0][right_idx] * 24])
+    # ax.set_xlim([timeseries['Odd Flux'][0][left_idx] * 24, timeseries['Odd Flux'][0][right_idx] * 24])
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Odd')
 
-    left_idx = np.where(timeseries['Even Flux'][0] > -local_view_time_interval)[0][0]
-    right_idx = np.where(timeseries['Even Flux'][0] < local_view_time_interval)[0][-1]
     ax = plt.subplot(gs[2, 1])
-    ax.scatter(timeseries['Even Flux'][0][left_idx:right_idx] * 24, timeseries['Even Flux'][1][left_idx:right_idx],
-               color='k', s=5)
+    if len(timeseries['Even Flux'][0]) > 0:
+        # left_idx = np.where(timeseries['Even Flux'][0] > -local_view_time_interval)[0][0]
+        # right_idx = np.where(timeseries['Even Flux'][0] < local_view_time_interval)[0][-1]
+        # ax.scatter(timeseries['Even Flux'][0][left_idx:right_idx] * 24, timeseries['Even Flux'][1][left_idx:right_idx],
+        #            color='k', s=5)
+        ax.scatter(timeseries['Even Flux'][0] * 24, timeseries['Even Flux'][1], color='k', s=5)
     ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='b')
     ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'b')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (hour)')
-    ax.set_xlim([timeseries['Even Flux'][0][left_idx] * 24, timeseries['Even Flux'][0][right_idx] * 24])
+    # ax.set_xlim([timeseries['Even Flux'][0][left_idx] * 24, timeseries['Even Flux'][0][right_idx] * 24])
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Even')
 
     ax = plt.subplot(gs[3, 0])
@@ -964,23 +977,27 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
             binned_timeseries['Global Centroid Offset Distance'][1], 'b')
     ax.set_ylabel('Offset distance (arcsec)')
     ax.set_xlabel('Phase (day)')
-    ax.set_xlim([timeseries['Centroid Offset Distance'][0][0],
-                 timeseries['Centroid Offset Distance'][0][-1]])
+    # ax.set_xlim([timeseries['Centroid Offset Distance'][0][0],
+    #              timeseries['Centroid Offset Distance'][0][-1]])
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
 
-    left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
-    right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
+    # left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
+    # right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
     ax = plt.subplot(gs[3, 1])
-    ax.scatter(timeseries['Centroid Offset Distance'][0][left_idx:right_idx] * 24,
-            timeseries['Centroid Offset Distance'][1][left_idx:right_idx],
-            color='k', s=5)
+    # ax.scatter(timeseries['Centroid Offset Distance'][0][left_idx:right_idx] * 24,
+    #         timeseries['Centroid Offset Distance'][1][left_idx:right_idx],
+    #            color='k', s=5)
+    ax.scatter(timeseries['Centroid Offset Distance'][0] * 24, timeseries['Centroid Offset Distance'][1],
+               color='k', s=5)
     ax.scatter(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
                binned_timeseries['Local Centroid Offset Distance'][1], color='b')
     ax.plot(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
             binned_timeseries['Local Centroid Offset Distance'][1], 'b')
     ax.set_ylabel('Offset distance (arcsec)')
     ax.set_xlabel('Phase (hour)')
-    ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
-                 timeseries['Centroid Offset Distance'][0][right_idx] * 24])
+    # ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
+    #              timeseries['Centroid Offset Distance'][0][right_idx] * 24])
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
 
     plt.subplots_adjust(
         hspace=0.526,

@@ -29,7 +29,7 @@ toi_tbl.to_csv(toi_dir / 'tois_spoc_nomissingephemerides.csv', index=False)
 
 #%% EXOFOP TOI catalog
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/3-11-2021/')
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/')
 
 toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists.csv')
 
@@ -40,10 +40,10 @@ toi_tbl.to_csv(toi_dir / 'exofop_toilists_tbjd.csv', index=False)
 num_tois = len(toi_tbl)
 print(f'Total number of TOIs: {num_tois}')
 
-# remove QLP TOIs
-toi_tbl = toi_tbl.loc[toi_tbl['Source'] == 'spoc']
-print(f'Total number of TOIs after removing QLP TOIs: {len(toi_tbl)} ({num_tois - len(toi_tbl)})')
-num_tois = len(toi_tbl)
+# # remove QLP TOIs
+# toi_tbl = toi_tbl.loc[toi_tbl['Source'] == 'spoc']
+# print(f'Total number of TOIs after removing QLP TOIs: {len(toi_tbl)} ({num_tois - len(toi_tbl)})')
+# num_tois = len(toi_tbl)
 
 for param in ['Epoch (BJD)', 'Period (days)', 'Duration (hours)', 'Depth (ppm)', 'Sectors']:
     if param in ['Period (days)']:
@@ -69,13 +69,13 @@ singlesector_tce_tbls = {int(file.stem.split('-')[1][1:]): pd.read_csv(file, hea
                          for file in singlesector_tce_dir.iterdir() if 'tcestats' in file.name and file.suffix == '.csv'}
 singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
 
-matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/03-12-2021_1308/tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv')
+matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/04-12-2021_1316/tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv')
 # remove TOIs whose closest TCE matching distance is above the matching threshold
 matching_thr = 0.25
 matching_tbl = matching_tbl.loc[matching_tbl['matching_dist_0'] <= matching_thr]
 
 
-toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/3-11-2021/exofop_toilists_spoc_nomissingpephem.csv')
+toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/exofop_toilists_spoc_nomissingpephem.csv')
 toi_tbl = pd.read_csv(toi_tbl_fp)
 print(f'Total number of TOIs: {len(toi_tbl)}')
 
@@ -210,7 +210,7 @@ print(toi_tbl['TFOPWG Disposition'].value_counts())
 
 ra_dec_deg = SkyCoord(ra=toi_tbl['RA'].to_numpy(), dec=toi_tbl['Dec'].to_numpy(), unit=(u.hourangle, u.degree),
                                                  frame='icrs')
-toi_tbl['ra_deg'], toi_tbl['dec_deg'] =  ra_dec_deg.ra.value, ra_dec_deg.dec.value
+toi_tbl['ra_deg'], toi_tbl['dec_deg'] = ra_dec_deg.ra.value, ra_dec_deg.dec.value
 
 toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_ra_dec_deg.csv', index=False)
 
@@ -226,7 +226,8 @@ tic_fields = {
     'tic_ra': 'ra',
     'tic_dec': 'dec',
     'kic_id': 'KIC',
-    'gaia_id': 'GAIA'
+    'gaia_id': 'GAIA',
+    'tic_tmag': 'Tmag',
 }
 
 catalog_data = Catalogs.query_criteria(catalog='TIC', ID=toi_tbl['TIC ID'].unique().tolist()).to_pandas()
@@ -242,7 +243,8 @@ tic_map = {
     'Stellar Eff Temp (K)': 'tic_teff',
     'Stellar log(g) (cm/s^2)': 'tic_logg',
     'Stellar Radius (R_Sun)': 'tic_rad',
-    'Stellar Metallicity': 'tic_met'
+    'Stellar Metallicity': 'tic_met',
+    'TESS Mag': 'tic_tmag',
 }
 
 toi_params_cnt = []
@@ -292,8 +294,8 @@ rename_dict = {
     'TFOPWG Disposition': 'label',
     # 'TIC Right Ascension': 'ra',
     # 'TIC Declination': 'dec',
-    # 'TMag Value': 'mag',
-    # 'TMag Uncertainty': 'mag_err',
+    'TESS Mag': 'mag',
+    # 'TESS Mag err': 'mag_err',
     # 'Epoch Value': 'tce_time0bk',
     # 'Epoch Error': 'tce_time0bk_err',
     # 'Orbital Period Value': 'tce_period',
@@ -328,7 +330,7 @@ toi_tbl.rename(columns=rename_dict, inplace=True)
 
 # change data type in columns
 type_dict = {
-    'tce_steff': int,
+    # 'tce_steff': int,
     'sectors': str,
     'oi': str
 }
