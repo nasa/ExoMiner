@@ -12,7 +12,7 @@ plt.switch_backend('agg')
 DEGREETOARCSEC = 3600
 
 
-def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedir, basename):
+def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedir, basename, centroid=False):
     """ Creates and saves a 2x1 figure with plots that show the ephemeris pulse train and the flux time-series for
     a given TCE.
 
@@ -26,20 +26,40 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     :return:
     """
 
-    f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
+    if not centroid:
+        f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
 
-    for i in range(len(all_time)):
-        ax[0].plot(all_time[i], binary_time_all[i], 'b')
-        ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-    ax[0].set_title('Binary time-series')
-    ax[0].set_ylabel('Binary amplitude (it-oot)')
+        for i in range(len(all_time)):
+            ax[0].plot(all_time[i], binary_time_all[i], 'b')
+            ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+        ax[0].set_title('Binary time-series')
+        ax[0].set_ylabel('Binary amplitude (it-oot)')
 
-    for i in range(len(all_time)):
-        ax[1].plot(all_time[i], all_flux[i], 'b')
-        ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-    ax[1].set_title('Flux')
-    ax[1].set_ylabel('Amplitude')
-    ax[1].set_xlabel('Time [day]')
+        for i in range(len(all_time)):
+            ax[1].plot(all_time[i], all_flux[i], 'b')
+            ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+        ax[1].set_title('Flux')
+        ax[1].set_ylabel('Amplitude')
+        ax[1].set_xlabel('Time [day]')
+    else:
+        f, ax = plt.subplots(3, 1, sharex=True, figsize=(14, 8))
+
+        for i in range(len(all_time)):
+            ax[0].plot(all_time[i], binary_time_all[i], 'b')
+            ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+        ax[0].set_title('Binary time-series')
+        ax[0].set_ylabel('Binary amplitude (it-oot)')
+
+        for i in range(len(all_time)):
+            ax[1].plot(all_time[i], all_flux['x'][i], 'b')
+            ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+        ax[1].set_ylabel('RA [deg]')
+        ax[1].set_title('Centroid')
+        for i in range(len(all_time)):
+            ax[2].plot(all_time[i], all_flux['y'][i], 'b')
+            ax[2].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+        ax[2].set_ylabel('Dec [deg]')
+        ax[2].set_xlabel('Time [day]')
 
     if config['satellite'] == 'kepler':
         f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))

@@ -43,6 +43,7 @@ from src_preprocessing.utils_ephemeris import create_binary_time_series, find_fi
 from src_preprocessing import tess_io
 from src_preprocessing.utils_odd_even import create_odd_even_views, phase_fold_and_sort_light_curve_odd_even
 from src_preprocessing.utils_imputing import impute_binned_ts
+from src_preprocessing.utils_preprocessing import count_transits
 
 
 def is_pfe():
@@ -680,7 +681,7 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 5175986 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['1028246-2', '2855603-2', '6388827-2', '7699478-2', '8561063-3', '8416523-1', '5451336-1']:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5769403-1', '5769403-3', '5769403-4']:
     # if tce['oi'] == 822.01:
     #     tce['tce_time0bk'] = 132.06741
     #     tce['tce_period'] = 0.868324
@@ -815,7 +816,7 @@ def _process_tce(tce, table, config, conf_dict):
                                                                                   tce['tce_duration'],
                                                                                   time[finite_idx][0]),
                                                  duration_gapped,
-                                                 tce['tce_period'])
+                                                 tce['tce_period']) if np.any(finite_idx) else []
                        for time, finite_idx in zip(data['all_time'], finite_idxs)]
 
     # get out-of-transit indices for the centroid time series
@@ -1124,6 +1125,13 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
 
+    if plot_preprocessing_tce:
+        utils_visualization.plot_binseries_flux(all_time, all_centroids, binary_time_all,
+                                                tce, config,
+                                                os.path.join(config['output_dir'], 'plots'),
+                                                f'2_binarytimeseries_centroid_aug{tce["augmentation_idx"]}',
+                                                centroid=True)
+
     # spline fitting and normalization - fit a piecewise-cubic spline with default arguments
     # FIXME: wouldn't it be better to fit a spline to oot values or a Savitzky Golay filter
     #  (as Jeff and Doug mentioned)?
@@ -1247,8 +1255,11 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
         #                                        np.cos(target_position[1] * np.pi / 180)) +
         #                              np.square(all_centroids_corr['y'][i] - target_position[1]))
         #                      for i in range(len(all_centroids_corr['x']))]
-        all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0]) *
-                                               np.cos(all_centroids['y'][i] * np.pi / 180)) +
+        # all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0]) *
+        #                                        np.cos(all_centroids['y'][i] * np.pi / 180)) +
+        #                              np.square(all_centroids['y'][i] - target_position[1]))
+        #                      for i in range(len(all_centroids['x']))]
+        all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0])) +
                                      np.square(all_centroids['y'][i] - target_position[1]))
                              for i in range(len(all_centroids['x']))]
         # distance from oot
@@ -1725,19 +1736,25 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     inds_bin_nan = {}
 
     # phase folding for odd and even time series
-    (odd_time, odd_flux, num_transits['flux_odd']), \
-    (even_time, even_flux, num_transits['flux_even']) = phase_fold_and_sort_light_curve_odd_even(data['time'],
+    (odd_time, odd_flux, _, odd_time_nophased), \
+    (even_time, even_flux, _, even_time_nophased) = phase_fold_and_sort_light_curve_odd_even(data['time'],
                                                                                                  data['flux'],
                                                                                                  tce['tce_period'],
                                                                                                  tce['tce_time0bk'],
                                                                                                  augmentation=False)
+    num_transits['flux_odd'] = count_transits(odd_time_nophased, tce['tce_period'], tce['tce_time0bk'],
+                                              tce['tce_duration'])
+    num_transits['flux_even'] = count_transits(even_time_nophased, tce['tce_period'], tce['tce_time0bk'],
+                                             tce['tce_duration'])
 
     # phase folding for flux time series
-    time, flux, num_transits['flux'] = phase_fold_and_sort_light_curve(data['time'],
+    time, flux, _ = phase_fold_and_sort_light_curve(data['time'],
                                                                        data['flux'],
                                                                        tce['tce_period'],
                                                                        tce['tce_time0bk'],
                                                                        augmentation=False)
+    num_transits['flux'] = count_transits(data['time'], tce['tce_period'], tce['tce_time0bk'],
+                                               tce['tce_duration'])
 
     # phase folding for centroid time series
     time_centroid_dist, centroid_dist, \
@@ -1746,6 +1763,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                tce['tce_period'],
                                                                tce['tce_time0bk'],
                                                                augmentation=False)
+    num_transits['centroid'] = count_transits(data['time_centroid_dist'], tce['tce_period'], tce['tce_time0bk'],
+                                               tce['tce_duration'])
 
     # phase folding for the weak secondary flux time series
     time_noprimary, flux_noprimary, num_transits['wks'] = phase_fold_and_sort_light_curve(data['time_wksecondaryflux'],
@@ -1754,6 +1773,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                                           tce['tce_time0bk'] +
                                                                                           tce['tce_maxmesd'],
                                                                                           augmentation=False)
+    num_transits['wks'] = count_transits(data['time_wksecondaryflux'], tce['tce_period'], tce['tce_time0bk'] + tce['tce_maxmesd'],
+                                              tce['tce_duration'])
 
     # same for FDL centroid time-series
     # phase folding for flux and centroid time series
@@ -1763,6 +1784,9 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                    tce['tce_period'],
                                                                    tce['tce_time0bk'],
                                                                    augmentation=False)
+    num_transits['centroid_fdl'] = count_transits(data['time_centroid_distFDL'], tce['tce_period'],
+                                         tce['tce_time0bk'],
+                                         tce['tce_duration'])
 
     phasefolded_timeseries = {'Flux': (time, flux),
                               'Odd Flux': (odd_time, odd_flux),

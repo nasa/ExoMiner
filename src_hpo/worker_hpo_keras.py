@@ -818,7 +818,7 @@ class TransitClassifier(Worker):
 
         # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
 
-        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
+        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value=1e-2, log=True)
         # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp_fast', 'inv_exp_slow'])
 
         optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
 from astropy.stats import mad_std
+from pathlib import Path
 
 #%% Non-normalized bootstrap FA probability from the TCE table
 
@@ -296,68 +297,133 @@ ax.grid(True)
 
 #%% Check scalar features after normalization
 
-# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_globalbinwidthaslocal_starshuffle_experiment-labels-norm'
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_gbal_splinenew_nongapped_flux-centroid-oddeven-wks-scalar_starshuffle_experiment-labels-norm_rollingband'
-# tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/tfrecordskeplerdr25_g2001-l201_spline_nongapped_flux-centroid_selfnormalized-oddeven-wks-scalar_centrmedcmaxncorr_starshuffle_experiment-labels-norm'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment-labels-normalized_nopps'
 
-scalarFeaturesNames = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'boot_fap', 'tce_smass', 'tce_sdens',
-                       'tce_cap_stat', 'tce_hap_stat']
-# scalarFeaturesNames = ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'boot_fap', 'tce_smass', 'tce_sdens',
-#                        'tce_cap_stat', 'tce_hap_stat', 'tce_rb_tcount0']
+res_dir = Path(tfrecDir) / 'scalar_hist_norm'
+res_dir.mkdir(exist_ok=True)
 
-scalarFeatures = []
+scalarFeaturesNames = [
+    # stellar
+    'tce_steff_norm',
+    'tce_slogg_norm',
+    'tce_smet_norm',
+    'tce_sradius_norm',
+    'boot_fap_norm',
+    'tce_smass_norm',
+    'tce_sdens_norm',
+    'mag_norm',
+    # dv diagnostics
+    'tce_rb_tcount0n_norm',
+    'tce_cap_stat_norm',
+    'tce_hap_stat_norm',
+    # other tce fit parameters
+    'tce_prad_norm',
+    'tce_period_norm',
+    # secondary
+    'wst_depth_norm',
+    'tce_maxmes_norm',
+    'tce_albedo_stat_norm',
+    'tce_ptemp_stat_norm',
+    # dv centroid stats
+    'tce_fwm_stat_norm',
+    'tce_dikco_msky_norm',
+    'tce_dikco_msky_err_norm',
+    'tce_dicco_msky_norm',
+    'tce_dicco_msky_err_norm',
+                       ]
+
+bins = {
+    # stellar parameters
+    'tce_steff_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_slogg_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_smet_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_smass_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_sradius_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_sdens_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'mag_norm': np.linspace(-20, 20, 100, endpoint=True),
+    # dv diagnostics
+    'boot_fap_norm': np.linspace(-2, 2, 100, endpoint=True),
+    'tce_cap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_hap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_rb_tcount0n_norm': np.linspace(-10, 1, 100, endpoint=True),
+    # tce fit parameters
+    'tce_prad_norm': np.linspace(-20, 30, 100, endpoint=True),
+    'tce_period_norm': np.linspace(-20, 30, 100, endpoint=True),
+    # secondary
+    'wst_depth_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_maxmes_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_albedo_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_ptemp_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    # centroid dv stats
+    'tce_fwm_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_dikco_msky_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_dikco_msky_err_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_dicco_msky_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_dicco_msky_err_norm': np.linspace(-20, 30, 100, endpoint=True),
+}
+
+scalarFeatures = {scalar_param_name: [] for scalar_param_name in scalarFeaturesNames}
 
 tfrecFiles = [os.path.join(tfrecDir, tfrecFile) for tfrecFile in os.listdir(tfrecDir) if 'shard' in tfrecFile]
 
 for tfrecFile in tfrecFiles:
 
-    record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
+    # record_iterator = tf.python_io.tf_record_iterator(path=tfrecFile)
+    # iterate through the shard
+    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecFile))
 
-    for string_i, string_record in enumerate(record_iterator):
+    # for string_i, string_record in enumerate(record_iterator):
+    for string_record in tfrecord_dataset.as_numpy_iterator():
+
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        scalarFeatures.append(np.array(example.features.feature['scalar_params'].float_list.value, dtype='float')[np.array([0, 1, 2, 3, 7, 8, 9, 10, 11])])
+        for scalar_param_name in scalarFeaturesNames:
+            scalarFeatures[scalar_param_name].append(example.features.feature[scalar_param_name].float_list.value[0])
+
+        # scalarFeatures.append(np.array(example.features.feature['scalar_params'].float_list.value, dtype='float')[np.array([0, 1, 2, 3, 7, 8, 9, 10, 11])])
         # scalarFeatures.append(np.array(example.features.feature['scalar_params'].float_list.value, dtype='float')[
         #                           np.array([0, 1, 2, 3, 7, 8, 9, 10, 11, 12])])
 
-scalarFeatures = np.array(scalarFeatures)
+# scalarFeatures = np.array(scalarFeatures)
 
-bins = {
-    'tce_steff': np.linspace(-4, 13, 100, endpoint=True),
-    'tce_slogg': np.linspace(-11, 3, 100, endpoint=True),
-    'tce_smet': np.linspace(-8, 3, 100, endpoint=True),
-    'boot_fap': np.linspace(-2, 2, 100, endpoint=True),
-    'tce_smass': np.linspace(-3, 6, 100, endpoint=True),
-    'tce_sradius': np.linspace(-2, 15, 100, endpoint=True),
-    'tce_sdens': np.linspace(-1, 15, 100, endpoint=True),
-    'tce_cap_stat': np.linspace(-15, 40, 100, endpoint=True),
-    'tce_hap_stat': np.linspace(-10, 40, 100, endpoint=True),
-    'tce_rb_tcount0': np.linspace(-1, 30, 100, endpoint=True)
-}
-for i in [4]:  # range(len(scalarFeaturesNames)):
+# for i in [4]:  # range(len(scalarFeaturesNames)):
+for scalar_param_name in scalarFeaturesNames:
 
-    smean = np.mean(scalarFeatures[:, i])
-    smedian = np.median(scalarFeatures[:, i])
-    sstd = np.std(scalarFeatures[:, i])
-    smin = np.min(scalarFeatures[:, i])
-    smax = np.max(scalarFeatures[:, i])
+    # smean = np.mean(scalarFeatures[:, i])
+    # smedian = np.median(scalarFeatures[:, i])
+    # sstd = np.std(scalarFeatures[:, i])
+    # smin = np.min(scalarFeatures[:, i])
+    # smax = np.max(scalarFeatures[:, i])
+
+    smean = np.mean(scalarFeatures[scalar_param_name])
+    smedian = np.median(scalarFeatures[scalar_param_name])
+    sstd = np.std(scalarFeatures[scalar_param_name])
+    smin = np.min(scalarFeatures[scalar_param_name])
+    smax = np.max(scalarFeatures[scalar_param_name])
+    smadstd = mad_std(scalarFeatures[scalar_param_name])
 
     f, ax = plt.subplots()
-    ax.hist(scalarFeatures[:, i], bins='auto' if scalarFeaturesNames[i] not in bins else bins[scalarFeaturesNames[i]],
-            edgecolor='k')
+    ax.hist(scalarFeatures[scalar_param_name], bins='auto' if scalar_param_name not in bins else
+    bins[scalar_param_name], edgecolor='k')
     ax.axvline(x=smedian, c='y', label='median')
     ax.axvline(x=smean, c='g', label='mean')
     ax.axvline(x=smin, c='r', label='min')
     ax.axvline(x=smax, c='r', label='max')
+    ax.axvline(x=smedian + smadstd, c='c')
+    ax.axvline(x=smedian - smadstd, c='c')
     ax.set_ylabel('Counts')
-    ax.set_xlabel('{}'.format(scalarFeaturesNames[i]))
-    ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Min: {:.2f} |Max: {:.2f}'.format(smean, smedian, sstd,
-                                                                                                   smin, smax))
+    # ax.set_xlabel('{}'.format(scalarFeaturesNames[i]))
+    ax.set_xlabel('{}'.format(scalar_param_name))
+    ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n MAD Std: {:.2f} | Std: {:.2f} |'
+                 ' Min: {:.2f} |Max: {:.2f}'.format(smean, smedian, smadstd, sstd, smin, smax))
     # ax.set_yscale('log')
-    ax.set_xlim(bins[scalarFeaturesNames[i]][[0, -1]])
+    if scalar_param_name in bins:
+        ax.set_xlim(bins[scalar_param_name][[0, -1]])
     ax.legend()
     # f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/normalized_scalar_parameters/hist_{}-norm_keplerq1q7dr25.png'.format(scalarFeaturesNames[i]))
+    f.savefig(res_dir / f'hist_{scalar_param_name}.png')
+    plt.close()
     # plt.close('all')
 
 #%% Analyze MES
@@ -535,10 +601,10 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 #%% Plot histograms of non-normalized scalar features from the TCE table
 
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
-          'rba_cnt0n_3-26-2021'
+          'all_scalars_4-14-2021'
 os.makedirs(saveDir, exist_ok=True)
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv')
+tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_nanstellar.csv')
 
 # remove rogue TCEs
 tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] != 1]
@@ -553,25 +619,25 @@ tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'].isin(['CERTIFIED FA', 'CERTIFIED
 features = [
     # 'tce_albedo',
     # 'tce_albedo_err',
-    # 'tce_albedo_stat',
+    'tce_albedo_stat',
     # 'tce_ptemp',
     # 'tce_ptemp_err',
-    # 'tce_ptemp_stat',
-    # 'wst_depth',
-    # 'tce_maxmes',
+    'tce_ptemp_stat',
+    'wst_depth',
+    'tce_maxmes',
     # 'tce_eqt',
-    # 'transit_depth',
+    'transit_depth',
     # 'tce_depth_err',
     # 'tce_duration',
     # 'tce_duration_err',
-    # 'tce_prad',
-    # 'tce_period',
+    'tce_prad',
+    'tce_period',
     # 'tce_period_err',
-    # 'tce_dikco_msky',
-    # 'tce_dikco_msky_err',
-    # 'tce_dicco_msky',
-    # 'tce_dicco_msky_err',
-    # 'tce_fwm_stat',
+    'tce_dikco_msky',
+    'tce_dikco_msky_err',
+    'tce_dicco_msky',
+    'tce_dicco_msky_err',
+    'tce_fwm_stat',
     # 'tce_fwm_srao',
     # 'tce_fwm_srao_err',
     # 'tce_fwm_sdeco',
@@ -583,33 +649,42 @@ features = [
     # 'tce_max_mult_ev',
     # 'tce_rb_tcount0_trnorm',
     # 'tce_impact',
-    # 'tce_prad',
-    # 'mag',
-    'tce_rb_tcount0n'
+    'tce_prad',
+    'mag',
+    'tce_rb_tcount0n',
+    'tce_smass',
+    'tce_steff',
+    'tce_slogg',
+    'tce_smet',
+    'tce_sradius',
+    'tce_sdens',
+    'boot_fap',
+    'tce_cap_stat',
+    'tce_hap_stat',
 ]
 
 bins = {
     # 'tce_eqt': np.linspace(-1e4, 1e4, 50, endpoint=True),
     # 'tce_albedo': np.linspace(0, 100, 50, endpoint=True),
     # 'tce_albedo_err': np.linspace(-10, 100, 50, endpoint=True),
-    # 'tce_albedo_stat': np.linspace(-4, 4, 50, endpoint=True),
+    'tce_albedo_stat': np.linspace(-4, 4, 50, endpoint=True),
     # 'tce_ptemp': np.linspace(0, 1e4, 50, endpoint=True),
     # 'tce_ptemp_err': np.linspace(-10, 1e3, 50, endpoint=True),
-    # 'tce_ptemp_stat': np.linspace(-10, 10, 50, endpoint=True),
-    # 'tce_maxmes': np.linspace(0, 100, 50, endpoint=True),
-    # 'wst_depth': np.linspace(-1e4, 1e4, 100, endpoint=True),
-    # 'transit_depth': np.linspace(0, 1e4, 50, endpoint=True),
+    'tce_ptemp_stat': np.linspace(-10, 30, 100, endpoint=True),
+    'tce_maxmes': np.linspace(0, 100, 50, endpoint=True),
+    'wst_depth': np.linspace(-2e4, 2e4, 100, endpoint=True),
+    'transit_depth': np.linspace(0, 2e4, 50, endpoint=True),
     # 'tce_depth_err': np.linspace(-1, 100, 50, endpoint=True),
     # 'tce_duration': np.linspace(0, 100, 50, endpoint=True),
     # 'tce_duration_err': np.linspace(-1, 20, 50, endpoint=True),
-    # 'tce_prad': np.linspace(0, 20, 100, endpoint=True),
-    # 'tce_period': np.linspace(0, 800, 100, endpoint=True),
+    'tce_prad': np.linspace(0, 20, 100, endpoint=True),
+    'tce_period': np.linspace(0, 800, 100, endpoint=True),
     # 'tce_period_err': np.linspace(0, 0.1, 100, endpoint=True),
-    # 'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
-    # 'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
-    # 'tce_dicco_msky': np.linspace(0, 20, 50, endpoint=True),
-    # 'tce_dicco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
-    # 'tce_fwm_stat': np.linspace(0, 1000, 50, endpoint=True),
+    'tce_dikco_msky': np.linspace(0, 20, 50, endpoint=True),
+    'tce_dikco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    'tce_dicco_msky': np.linspace(0, 20, 50, endpoint=True),
+    'tce_dicco_msky_err': np.linspace(-1, 10, 50, endpoint=True),
+    'tce_fwm_stat': np.linspace(0, 1000, 50, endpoint=True),
     # 'tce_fwm_srao': np.linspace(-100, 100, 50, endpoint=True),
     # 'tce_fwm_srao_err': np.linspace(-100, 100, 50, endpoint=True),
     # 'tce_fwm_sdeco': np.linspace(-100, 100, 50, endpoint=True),
@@ -621,8 +696,17 @@ bins = {
     # 'tce_max_mult_ev': np.linspace(7.1, 1000, 50, endpoint=True),
     # 'tce_impact': np.linspace(0, 1, 100, endpoint=True),
     # 'tce_rb_tcount0_trnorm': np.linspace(0, 1, 100, endpoint=True),
-    # 'mag': np.linspace(0, 20, 100, endpoint=True),
-    'tce_rb_tcount0n': np.linspace(0, 1, 100, endpoint=True)
+    'mag': np.linspace(0, 20, 100, endpoint=True),
+    'tce_rb_tcount0n': np.linspace(0, 1, 100, endpoint=True),
+           'tce_smass': np.linspace(0, 4, 100, endpoint=True),
+       'tce_steff': np.linspace(2000, 20000, 100, endpoint=True),
+       'tce_slogg': np.linspace(-6, 6, 100, endpoint=True),
+       'tce_smet': np.linspace(-2, 2, 100, endpoint=True),
+       'tce_sradius': np.linspace(0, 10, 100, endpoint=True),
+       'tce_sdens': np.linspace(0, 100, 100, endpoint=True),
+       'boot_fap': np.logspace(-34, 0, 100, endpoint=True),
+       'tce_cap_stat': np.linspace(-20, 20, 100, endpoint=True),
+       'tce_hap_stat': np.linspace(-20, 20, 100, endpoint=True),
 }
 
 log_yscale = [
@@ -643,7 +727,16 @@ log_yscale = [
     'tce_duration',
     'tce_period',
     'wst_depth',
-    'tce_rb_tcount0n'
+    'tce_rb_tcount0n',
+    'boot_fap',
+    'tce_ptemp_stat',
+    'tce_maxmes',
+    'tce_sdens',
+    'tce_albedo_stat'
+]
+
+log_xscale = [
+    'boot_fap'
 ]
 
 for feature in features:
@@ -668,15 +761,15 @@ for feature in features:
     f, ax = plt.subplots()
     tceTbl[feature].hist(bins=bins[feature], edgecolor='k')
     ax.axvline(x=stats['median'], c='y', label='median')
-    ax.axvline(x=stats['median'] + stats['std_rob'], c='g', label='med+std_rob')
-    ax.axvline(x=stats['median'] - stats['std_rob'], c='b', label='med-std_rob')
+    ax.axvline(x=stats['median'] + 20 * stats['std_rob'], c='r', label='med+20*std_rob')
+    ax.axvline(x=stats['median'] - 20 * stats['std_rob'], c='r', label='med-20*std_rob')
     ax.set_ylabel('Counts')
     ax.set_xlabel('{}'.format(feature))
-    ax.set_title('Mean: {:.2f} | Median: {:.2f} |\n Std: {:.2f} | Std Rob: {:.2f} | Min: {:.2f} '
-                 '|Max: {:.2f}'.format(stats['mean'],
-                                       stats['median'],
-                                       stats['std'],
+    ax.set_title('Median: {:.2f} | MAD Std: {:.2f} |\n Mean: {:.2f} | Std: {:.2f} | Min: {:.2f} '
+                 '|Max: {:.2f}'.format(stats['median'],
                                        stats['std_rob'],
+                                       stats['mean'],
+                                       stats['std'],
                                        stats['min'],
                                        stats['max']
                                        )
@@ -685,9 +778,10 @@ for feature in features:
     ax.legend()
     if feature in log_yscale:
         ax.set_yscale('log')
-    # ax.set_xscale('log')
+    if feature in log_xscale:
+        ax.set_xscale('log')
     f.savefig(os.path.join(saveDir, 'hist_{}_keplerq1q7dr25.svg'.format(feature)))
-    # plt.close()
+    plt.close()
 
     labels = ['PC', 'AFP', 'NTP']
     zorder = {'PC': 3, 'AFP': 2, 'NTP': 1}
@@ -706,4 +800,5 @@ for feature in features:
         ax.set_yscale('log')
     # ax.set_xscale('log')
     f.savefig(os.path.join(saveDir, 'hist_{}_keplerq1q7dr25_pc-afp-ntp.svg'.format(feature)))
-    # plt.close()
+    plt.close()
+

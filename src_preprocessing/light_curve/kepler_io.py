@@ -299,21 +299,22 @@ def read_kepler_light_curve(filenames,
 
             light_curve = hdu_list[light_curve_extension].data
 
-            if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
+            # if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
+            if prefer_psfcentr:
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
-                if _has_finite(light_curve.MOM_CENTR1):
-                    # correct centroid time series using the POS_CORR (position correction) time series which take into
-                    # account DVA, pointing drift and thermal transients - based on PSF centroids, so not the best
-                    # approach to correct systematics in the MOM (flux-weighted) centroids
-                    centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
-                                             light_curve.MOM_CENTR2 - light_curve.POS_CORR2
-                    # centroid_x, centroid_y = light_curve.MOM_CENTR1, \
-                    #                          light_curve.MOM_CENTR2
+                # if _has_finite(light_curve.MOM_CENTR1):
+                # correct centroid time series using the POS_CORR (position correction) time series which take into
+                # account DVA, pointing drift and thermal transients - based on PSF centroids, so not the best
+                # approach to correct systematics in the MOM (flux-weighted) centroids
+                centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
+                                         light_curve.MOM_CENTR2 - light_curve.POS_CORR2
+                # centroid_x, centroid_y = light_curve.MOM_CENTR1, \
+                #                          light_curve.MOM_CENTR2
 
-                    centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-                else:
-                    continue  # no data
+                centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+                # else:
+                #     continue  # no data
 
             # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
             if centroid_radec:

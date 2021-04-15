@@ -27,7 +27,7 @@ tceIdentifier = 'tce_plnt_num'  # TCE identifier
 
 #%% define directories
 
-srcTfrecDir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/odd_even_check_flag_PCs_AFPs_corrected')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins')
 srcTfrecTbls = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                        file.stem.startswith('shard')])
 
@@ -215,9 +215,9 @@ tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords
 tfrecTrainFiles = [file for file in tfrecDir.iterdir() if file.stem.startswith('train-shard')]
 
 # get out-of-transit indices for the local and global views
-nr_transit_durations = 6  # 2 * 2.5 + 1  # 2 * 4 + 1  # number of transit durations (2*n+1, n on each side of the transit)
-num_bins_loc = 31  # 201
-num_bins_glob = 301  # 2001
+nr_transit_durations = 5  # number of transit durations in the local view
+num_bins_loc = 31  # number of bins for local view
+num_bins_glob = 301  # number of bins for global view
 
 scalarParams = {
     # stellar parameters
@@ -240,19 +240,10 @@ scalarParams = {
                    'clip_factor': 20, 'dtype': 'float'},
     'wst_depth': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                   'clip_factor': 20, 'dtype': 'float', 'replace_value': 0},
-    # 'tce_albedo': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                'clip_factor': np.nan, 'dtype': 'float'},
     'tce_albedo_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                         'dtype': 'float'},
-    # 'tce_ptemp': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #               'clip_factor': np.nan, 'dtype': 'float'},
     'tce_ptemp_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                        'dtype': 'float'},
-    # 'wst_robstat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                 'clip_factor': np.nan, 'dtype': 'float'},
-    # odd-even
-    # 'tce_bin_oedp_stat': {'missing_value': np.nan, 'log_transform': True, 'log_transform_eps': 1e-32,
-    #                       'clip_factor': np.nan, 'dtype': 'float'},
     # other diagnostics
     'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
                  'clip_factor': 20, 'dtype': 'float'},
@@ -260,34 +251,24 @@ scalarParams = {
                      'clip_factor': 20, 'dtype': 'float'},
     'tce_hap_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                      'clip_factor': 20, 'dtype': 'float'},
-    'tce_rb_tcount0n': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+    'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                         'clip_factor': 20, 'dtype': 'float'},
     # centroid
     'tce_fwm_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                      'dtype': 'float'},
-    'tce_dikco_msky': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    'tce_dikco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float'},
-    'tce_dicco_msky': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    'tce_dicco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float'},
-    'tce_dikco_msky_err': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    'tce_dikco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
                            'clip_factor': 20, 'dtype': 'float'},
-    'tce_dicco_msky_err': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    'tce_dicco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
                            'clip_factor': 20, 'dtype': 'float'},
     # flux
     'transit_depth': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float'},
-    # 'tce_depth_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                   'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_duration': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                  'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_duration_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                      'clip_factor': np.nan, 'dtype': 'float'},
     'tce_period': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                    'clip_factor': 20, 'dtype': 'float'},
-    # 'tce_period_err': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                    'clip_factor': np.nan, 'dtype': 'float'},
-    # 'tce_max_mult_ev': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-    #                     'clip_factor': np.nan, 'dtype': 'float'},
     'tce_prad': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                  'clip_factor': 20, 'dtype': 'float'}
 }

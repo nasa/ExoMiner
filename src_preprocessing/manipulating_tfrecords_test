@@ -1786,3 +1786,35 @@ for src_tfrec in src_tfrecs:
 print(f'Number of TCEs removed/kept: {tces_stats}')
 logger.info(f'Number of TCEs removed/kept:\n{tces_stats}')
 
+#%%
+
+tfrec_src_dir_fp = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment-labels-normalized_nopps'
+
+tfrec_src_dir = Path(tfrec_src_dir_fp)
+
+src_tfrecs = [file_path for file_path in tfrec_src_dir.iterdir() if 'shard' in file_path.stem]
+
+tce_identifier = 'tce_plnt_num'
+
+scalar_param_lst = []
+
+for src_tfrec in src_tfrecs:
+
+    tfrecord_dataset = tf.data.TFRecordDataset(str(src_tfrec))
+
+    for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
+
+        # target_id = example.features.feature['target_id'].int64_list.value[0]
+        # tce_id = example.features.feature[tce_identifier].int64_list.value[0]
+
+        scalar_param_lst.append(example.features.feature['boot_fap_norm'].float_list.value[0])
+
+f, ax = plt.subplots()
+ax.hist(scalar_param_lst)
+ax.set_xlabel('boot_fap_norm')
+ax.set_ylabel('Counts')
+ax.set_yscale('log')
+f.savefig('/home/msaragoc/Downloads/aa.png')

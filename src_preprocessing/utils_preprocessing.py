@@ -130,3 +130,30 @@ def _count_num_bins(x, x_max, x_min, bin_width, num_bins):
         bin_max += bin_spacing
 
     return pts_per_bin  # , bin_time_idx
+
+
+def count_transits(time, period, epoch, duration, num_cadences_min=1):
+    """ Count number of transits. A transit is considered valid if at least num_cadences_min exist.
+
+    :param time: NumPy array, timestamp array
+    :param period: float, orbital period
+    :param epoch: float, epoch
+    :param duration:  float, transit duration
+    :param num_cadences_min: int, minimum number of candences to consider the transit valid
+    :return:
+        int, number of valid transits
+    """
+
+    # find first transit midpoint
+    mid_transit_time = epoch - period * np.ceil((time[0] - epoch) / period)
+    mid_transit_times = [mid_transit_time]
+
+    while True:
+        mid_transit_time += period
+        mid_transit_times.append(mid_transit_time)
+        if mid_transit_time > time[-1]:
+            break
+
+    return np.sum([len(np.where((time >= mid_transit_time - duration / 2) &
+                                (time <= mid_transit_time + duration / 2))[0]) >= num_cadences_min
+                   for mid_transit_time in mid_transit_times])

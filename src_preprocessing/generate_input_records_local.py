@@ -27,7 +27,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    config['tfrecords_base_name'] = 'test_excluded_kepler_tces_4-13-2021'
+    config['tfrecords_base_name'] = 'tces_no_oddoreven_dvshowsboth_4-15-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -235,10 +235,10 @@ def _process_file_shard(tce_table, file_name, eph_table):
                         examplesDf = exampleDf
                         firstTceInDf = False
                     else:
-                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv')
+                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv', index_col=0)
                         examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
-                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=False)
+                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
 
             num_processed += 1
             if not num_processed % 1:

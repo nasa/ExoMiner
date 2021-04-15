@@ -48,6 +48,7 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              32: ("2020324010417", "200"),
              33: ("2020351194500", "203"),
              34: ("2021014023720", "204"),
+             35: ("2021039152502", "205")
              }
 
 
@@ -187,15 +188,16 @@ def read_tess_light_curve(filenames,
 
             light_curve = hdu_list[light_curve_extension].data
 
-            if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
+            # if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
+            if prefer_psfcentr:
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
-                if _has_finite(light_curve.MOM_CENTR1):
-                    centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
-                                             light_curve.MOM_CENTR2 - light_curve.POS_CORR2
-                    centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-                else:
-                    continue  # no data
+                # if _has_finite(light_curve.MOM_CENTR1):
+                centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
+                                         light_curve.MOM_CENTR2 - light_curve.POS_CORR2
+                centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+                # else:
+                #     continue  # no data
 
             # get components required for the transformation from CCD pixel coordinates to world coordinates RA and
             # Dec

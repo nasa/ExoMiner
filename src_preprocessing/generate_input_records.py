@@ -238,10 +238,10 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                         examplesDf = exampleDf
                         firstTceInDf = False
                     else:
-                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv')
+                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv', index_col=0)
                         examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
-                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=False)
+                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
 
             num_processed += 1
             if config['n_processes'] < 50 or config['process_i'] == 0:

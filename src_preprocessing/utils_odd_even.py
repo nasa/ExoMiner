@@ -81,7 +81,9 @@ def phase_fold_and_sort_light_curve_odd_even(time, timeseries, period, t0, augme
 
     # get odd and even values
     odd_time = np.take(time, odd_indices)
+    odd_time_nophased = np.array(odd_time)
     even_time = np.take(time, even_indices)
+    even_time_nophased = np.array(even_time)
     odd_timeseries = np.take(timeseries, odd_indices)
     even_timeseries = np.take(timeseries, even_indices)
 
@@ -116,7 +118,7 @@ def phase_fold_and_sort_light_curve_odd_even(time, timeseries, period, t0, augme
 
     # assert(len(odd_time) + len(even_time) - len(time) == 0 and len(set(odd_time) & set(even_time)) == 0)
 
-    return (odd_result, odd_timeseries, num_transits_odd), (even_result, even_timeseries, num_transits_even)
+    return (odd_result, odd_timeseries, num_transits_odd, odd_time_nophased), (even_result, even_timeseries, num_transits_even, even_time_nophased)
 
 
 def compute_oot_it_var_oddeven(odd_time, odd_flux, even_time, even_flux, t_min_local, t_max_local):

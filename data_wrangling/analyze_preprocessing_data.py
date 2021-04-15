@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 
 #%%
 
-res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff')
+res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins')
 res_tbl = pd.read_csv(res_dir / 'merged_shards.csv')
-res_tbl.drop(columns='Unnamed: 0', inplace=True)
+# res_tbl.drop(columns='Unnamed: 0', inplace=True)
 
-tce_tbl = pd.read_csv('//data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff.csv')
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_nanstellar.csv')
 
 dataset_tbls_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
-dataset_tbls = {fp.stem[:-3]: pd.read_csv(fp) for fp in dataset_tbls_dir.iterdir()}
+dataset_tbls = {fp.stem[:-3]: pd.read_csv(fp) for fp in dataset_tbls_dir.iterdir() if fp.suffix == '.csv'}
 
 #%% add dispositions from the TCE table
 
@@ -75,7 +75,10 @@ disp_col = 'label'
 dispositions = ['PC', 'AFP', 'NTP']
 f, ax = plt.subplots()
 bar_center_pts = np.linspace(0.5, 0.5 * len(dispositions), len(dispositions))
-count_disp = [len(res_tbl.loc[(res_tbl['odd_even_flag'] != 'ok') & (res_tbl[disp_col] == disp)])
+# count_disp = [len(res_tbl.loc[(res_tbl['odd_even_flag'] != 'ok') & (res_tbl[disp_col] == disp)])
+#               for disp in dispositions]
+count_disp = [len(res_tbl.loc[(res_tbl['odd_even_flag'] != 'replaced bins 0 (odd) 0 (even) 0 (both)') &
+                              (res_tbl[disp_col] == disp)])
               for disp in dispositions]
 ax.bar(bar_center_pts, count_disp, edgecolor='k', align='center', width=0.5)
 ax.set_xticks(bar_center_pts)
@@ -305,7 +308,7 @@ for disp in dispositions:
     f.savefig(figure_dir / f'sigma_it_odd_vs_sigma_it_even_scatter_{disp}.png')
     plt.close()
 
-bins = np.
+# bins = np.
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.hist(np.abs(res_tbl.loc[res_tbl[disp_col] == disp, 'sigma_it_odd'] -
