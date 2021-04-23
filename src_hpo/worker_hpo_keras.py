@@ -130,6 +130,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
 
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble')
+
         # evaluate on the test set at the end of the training only
         # initialize results dictionary for the evaluated datasets
         res = {
@@ -348,7 +349,7 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
             if verbose:
                 print(f'[worker_{worker_id},config{config_id}] Plotting model')
             plot_model(model,
-                       to_file=results_directory / f'config{config_id}_model.svg',
+                       to_file=results_directory / f'config{config_id}_model.png',
                        show_shapes=True,
                        show_layer_names=True,
                        rankdir='TB',
@@ -551,29 +552,42 @@ class TransitClassifier(Worker):
         # sys.stdout.flush()
         # p.join()
 
-        with tf.device(f'/gpu:{self.gpu_id}'):
-            res_ensemble = _ensemble_run(config,
-                                         config_id,
-                                         self.worker_id_custom,
-                                         budget,
-                                         self.results_directory,
-                                         self.features_set,
-                                         self.tfrec_dir,
-                                         self.gpu_id,
-                                         self.verbose,
-                                         self.model_dir_rank,
-                                         self.ensemble_n
-                                         )
+        if self.ensemble_n > 1:
+            with tf.device(f'/gpu:{self.gpu_id}'):
+                res_ensemble = _ensemble_run(config,
+                                             config_id,
+                                             self.worker_id_custom,
+                                             budget,
+                                             self.results_directory,
+                                             self.features_set,
+                                             self.tfrec_dir,
+                                             self.gpu_id,
+                                             self.verbose,
+                                             self.model_dir_rank,
+                                             self.ensemble_n
+                                             )
 
-        if f'[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
-            if self.verbose:
-                print(f'[worker_{self.worker_id_custom},config{config_id}] Error in ensemble run subprocess')
-                sys.stdout.flush()
+            if f'[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
+                if self.verbose:
+                    print(f'[worker_{self.worker_id_custom},config{config_id}] Error in ensemble run subprocess')
+                    sys.stdout.flush()
 
-            return {'loss': np.inf,
-                    'info': 'Error while evaluating ensemble: '
-                            f'{res_ensemble[f"[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
-                    }
+                return {'loss': np.inf,
+                        'info': 'Error while evaluating ensemble: '
+                                f'{res_ensemble[f"[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
+                        }
+        else:
+            res_ensemble = {}
+            for metric_name, metric_val in res_models.items():
+                if 'test' in metric_name or 'val' in metric_name:
+                    metric_name_aux = metric_name
+                else:
+                    metric_name_aux = f'train_{metric_name}'
+
+                if isinstance(metric_val['all scores'][0], list):
+                    res_ensemble[metric_name_aux] = metric_val['all scores'][0][-1]
+                else:
+                    res_ensemble[metric_name_aux] = metric_val['all scores'][0]
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}

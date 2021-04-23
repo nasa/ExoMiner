@@ -144,8 +144,11 @@ def count_transits(time, period, epoch, duration, num_cadences_min=1):
         int, number of valid transits
     """
 
+    if len(time) == 0:
+        return 0
+
     # find first transit midpoint
-    mid_transit_time = epoch - period * np.ceil((time[0] - epoch) / period)
+    mid_transit_time = epoch + period * np.ceil((time[0] - epoch) / period)
     mid_transit_times = [mid_transit_time]
 
     while True:

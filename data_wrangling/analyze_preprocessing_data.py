@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 #%%
 
-res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins')
+res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
 res_tbl = pd.read_csv(res_dir / 'merged_shards.csv')
 # res_tbl.drop(columns='Unnamed: 0', inplace=True)
 

@@ -17,9 +17,7 @@ save_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/koi-tce_
 koi_cum_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/'
                           'cumulative_2020.02.21_10.29.22.csv', header=90)
 # load TCE table
-tce_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'\
-             'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_'\
-             'symsecphase.csv'
+tce_tbl_fp = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 # remove non-KOIs from the TCE table
 tce_tbl = tce_tbl.loc[~tce_tbl['kepoi_name'].isna()].reset_index(inplace=False, drop=True)
@@ -141,6 +139,19 @@ for col_i in range(len(tce_cols)):
     ax.grid(True)
     f.savefig(save_dir / '{}.png'.format(plot_col_name[col_i]))
     plt.close()
+
+#%%##
+f, ax = plt.subplots(figsize=(6, 5))
+ax.scatter(tce_tbl['tce_period'], tce_tbl['koi_period'], s=5, zorder=4, c='b', alpha=0.4)
+ax.plot([0, 360], [0, 720], color='r', label=r'$Factor = 2$', linestyle='dashed', zorder=1, alpha=0.3)
+ax.plot([0, 720], [0, 360], color='g', label=r'$Factor = 0.5$', linestyle='dashed', zorder=2, alpha=0.3)
+ax.legend()
+ax.set_xlabel('TCE Orbital Period (day)', fontsize=12)
+ax.set_xlim([0, 800])
+ax.set_ylim([0, 800])
+ax.set_ylabel('KOI Orbital Period (day)', fontsize=12)
+ax.tick_params(labelsize=12)
+ax.grid(True)
 
 #%% Replace TCE parameters by KOI parameters
 

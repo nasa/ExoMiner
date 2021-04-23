@@ -27,19 +27,19 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    config['tfrecords_base_name'] = 'tces_no_oddoreven_dvshowsboth_4-15-2021'
+    config['tfrecords_base_name'] = 'test_tois_4-22-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
-                                   'Kepler',  # either 'Kepler' of 'TESS'
-                                   'Q1-Q17_DR25'
+                                   'TESS',  # either 'Kepler' of 'TESS'
+                                   # 'Q1-Q17_DR25'
                                    )
 
     # output directory
     config['output_dir'] = config['tfrecords_dir'] / config['tfrecords_base_name']
 
-    config['satellite'] = 'kepler'  # choose from: 'kepler', 'tess'
-    config['tce_identifier'] = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
+    config['satellite'] = 'tess'  # choose from: 'kepler', 'tess'
+    config['tce_identifier'] = 'oi'  # either 'tce_plnt_num' or 'oi'
 
     # if True, it augments the dataset by applying augmentation techniques to the TCE data
     config['augmentation'] = False
@@ -108,22 +108,24 @@ def create_preprocessing_config():
         'tce_maxmes',
         'tce_maxmesd',
         # 'wst_robstat',
-        # 'wst_depth',
-        # 'tce_ptemp_stat',
-        # 'tce_albedo_stat',
+        'wst_depth',
+        'tce_ptemp_stat',
+        'tce_albedo_stat',
         # odd-even
         # 'tce_bin_oedp_stat',
         # centroid
         # 'tce_fwm_stat',
-        # 'tce_dikco_msky',
-        # 'tce_dikco_msky_err',
-        # 'tce_dicco_msky',
-        # 'tce_dicco_msky_err',
+        'tce_dikco_msky',
+        'tce_dikco_msky_err',
+        'tce_dicco_msky',
+        'tce_dicco_msky_err',
         # other diagnostics
-        # 'tce_cap_stat',
-        # 'tce_hap_stat',
+        'tce_cap_stat',
+        'tce_hap_stat',
+        # 'tce_cap_hap_stat_diff',
         # 'tce_rb_tcount0',
-        # 'boot_fap',
+        # 'tce_rb_tcount0n',
+        'boot_fap',
         # stellar parameters
         'tce_smass',
         'tce_sdens',
@@ -133,7 +135,7 @@ def create_preprocessing_config():
         'tce_sradius',
         'mag',
         # transit fit parameters
-        'tce_impact',
+        # 'tce_impact',
         'tce_prad',
     ]
 
@@ -158,7 +160,7 @@ def create_preprocessing_config():
 
     elif config['satellite'] == 'tess':
 
-        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/exofop_toilists_spoc_nomissingpephem_sectors.csv'
+        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv'
 
         config['lc_data_dir'] = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
 

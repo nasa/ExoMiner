@@ -681,10 +681,10 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 5175986 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5769403-1', '5769403-3', '5769403-4']:
-    # if tce['oi'] == 822.01:
-    #     tce['tce_time0bk'] = 132.06741
-    #     tce['tce_period'] = 0.868324
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['3239945-1', '6933567-1', '8561063-3', '8416523-1', '9663113-2']:
+    # if tce['oi'] == 1936.01:
+        # tce['tce_time0bk'] = 1354.4262
+        # tce['tce_period'] = 0.941451
     #     tce['sectors'] = '29 30'
     #     print(tce)
     # else:
@@ -2164,29 +2164,30 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # non-normalized views that need to be normalized using statistics from the training set
         glob_centr_fdl_view, _, _, _ = global_view(time_centroid_dist_fdl,
                                                    centroid_dist_fdl,
-                                                tce['tce_period'],
+                                                   tce['tce_period'],
                                                    tce=tce,
-                                                centroid=True,
-                                                normalize=False,
-                                                centering=False,
-                                                num_bins=config['num_bins_glob'],
-                                                bin_width_factor=config['bin_width_factor_glob'],
-                                                report={'config': config, 'tce': tce, 'view': 'global_centr_fdl_view'},
-                                                tce_duration=tce['tce_duration']
-                                                )
+                                                   centroid=True,
+                                                   normalize=False,
+                                                   centering=False,
+                                                   num_bins=config['num_bins_glob'],
+                                                   bin_width_factor=config['bin_width_factor_glob'],
+                                                   report={'config': config, 'tce': tce,
+                                                           'view': 'global_centr_fdl_view'},
+                                                   tce_duration=tce['tce_duration']
+                                                   )
         loc_centr_fdl_view, _, _, _ = local_view(time_centroid_dist_fdl,
                                                  centroid_dist_fdl,
-                                              tce['tce_period'],
+                                                 tce['tce_period'],
                                                  tce['tce_duration'],
                                                  tce=tce,
-                                              centroid=True,
-                                              normalize=False,
-                                              centering=False,
-                                              num_durations=config['num_durations'],
-                                              num_bins=config['num_bins_loc'],
-                                              bin_width_factor=config['bin_width_factor_loc'],
-                                              report={'config': config, 'tce': tce, 'view': 'local_centr_fdl_view'}
-                                              )
+                                                 centroid=True,
+                                                 normalize=False,
+                                                 centering=False,
+                                                 num_durations=config['num_durations'],
+                                                 num_bins=config['num_bins_loc'],
+                                                 bin_width_factor=config['bin_width_factor_loc'],
+                                                 report={'config': config, 'tce': tce, 'view': 'local_centr_fdl_view'}
+                                                 )
 
         # if plot_preprocessing_tce:
         #     utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
@@ -2307,6 +2308,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     for stat, val in odd_even_stats.items():
         example_util.set_float_feature(ex, stat, [val])
 
+    # TODO: add this feature to the TCE table or compute it here?
+    # add ghost diagnostic statistic difference
+    example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
+
     # data for preprocessing table
     if config['satellite'] == 'tess':
         example_stats['sectors'] = tce['sectors']
@@ -2320,17 +2325,17 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     example_stats['mid_global_flux_shift'] = np.argmin(glob_flux_view) - int(config['num_bins_glob'] / 2)
     example_stats['transit_depth_hat'] = (1 - views['local_flux_view'][int(config['num_bins_loc'] / 2)]) * 1e6
     example_stats['transit_depth_hat_std'] = loc_flux_view_var[int(config['num_bins_loc'] / 2)] / \
-                                             num_transits['flux'] * 1e6
+                                             np.sqrt(max(num_transits['flux'], 1)) * 1e6
     example_stats['transit_depth_odd_hat'] = (1 - views['local_flux_odd_view'][int(config['num_bins_loc'] / 2)]) * 1e6
     example_stats['transit_depth_odd_hat_std'] = loc_flux_odd_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                 num_transits['flux_odd'] * 1e6
+                                                 np.sqrt(max(num_transits['flux_odd'], 1)) * 1e6
     example_stats['transit_depth_even_hat'] = (1 - views['local_flux_even_view'][int(config['num_bins_loc'] / 2)]) * 1e6
     example_stats['transit_depth_even_hat_std'] = loc_flux_even_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                  num_transits['flux_even'] * 1e6
+                                                  np.sqrt(max(num_transits['flux_even'], 1)) * 1e6
     example_stats['wks_transit_depth_hat'] = (1 - views['local_weak_secondary_view'][int(config['num_bins_loc'] / 2)]) \
                                              * 1e6
     example_stats['wks_transit_depth_hat_std'] = loc_weak_secondary_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                 num_transits['wks'] * 1e6
+                                                 np.sqrt(max(1, num_transits['wks'])) * 1e6
     for param in ['avg_oot_centroid_offset', 'std_oot_centroid_offset', 'peak_centroid_offset', 'transit_depth_hat',
                   'transit_depth_hat_std', 'transit_depth_odd_hat', 'transit_depth_odd_hat_std',
                   'transit_depth_even_hat', 'transit_depth_even_hat_std', 'wks_transit_depth_hat',
@@ -2340,6 +2345,6 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         example_util.set_int64_feature(ex, param, [example_stats[param]])
     # add number of empty bins
     for view_name, val in inds_bin_nan.items():
-        example_stats[f'empty_bins_{view_name}'] = len(val)
+        example_stats[f'empty_bins_{view_name}'] = val['oot'].sum() + val['it'].sum()
 
     return ex, example_stats

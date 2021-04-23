@@ -578,9 +578,9 @@ class CNN1dPlanetFinderv2(object):
                 if 'local_weak_secondary_view' in branch:
                     scalar_input = tf.keras.layers.Concatenate(axis=1, name='wks_scalar_input')(
                         [
-                        # self.inputs['tce_maxmes_norm'],
-                        # self.inputs['tce_albedo_stat_norm'],
-                        # self.inputs['tce_ptemp_stat_norm'],
+                        self.inputs['tce_maxmes_norm'],
+                        self.inputs['tce_albedo_stat_norm'],
+                        self.inputs['tce_ptemp_stat_norm'],
                         self.inputs['wst_depth_norm']
                         ])
 
@@ -596,7 +596,8 @@ class CNN1dPlanetFinderv2(object):
                             self.inputs['tce_dikco_msky_err_norm'],
                             self.inputs['tce_dicco_msky_norm'],
                             self.inputs['tce_dicco_msky_err_norm'],
-                            self.inputs['tce_fwm_stat_norm']
+                            self.inputs['tce_fwm_stat_norm'],
+                            self.inputs['mag_norm'],
                         ])
 
                     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -606,6 +607,20 @@ class CNN1dPlanetFinderv2(object):
 
                 elif 'local_flux_view' in branch:
                     scalar_input = self.inputs['transit_depth_norm']
+
+                    net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+                        net,
+                        scalar_input
+                    ])
+
+                elif 'local_flux_oddeven_views' in branch:
+                    scalar_input = tf.keras.layers.Concatenate(axis=1, name='oddeven_scalar_input')(
+                        [
+                            self.inputs['sigma_oot_odd'],
+                            self.inputs['sigma_it_odd'],
+                            self.inputs['sigma_oot_even'],
+                            self.inputs['sigma_it_even'],
+                        ])
 
                     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
                         net,
@@ -713,7 +728,7 @@ class CNN1dPlanetFinderv2(object):
 
         stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
                                     kernel_regularizer=regularizers.l2(
-                                        self.config['decay_rate']),
+                                        self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
                                     activation=None,
                                     use_bias=True,
                                     kernel_initializer='glorot_uniform',
@@ -736,9 +751,10 @@ class CNN1dPlanetFinderv2(object):
                                         name='fc_prelu_fc_relu_stellar_scalar')(stellar_scalar_fc_output)
 
         dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
-            self.inputs['tce_cap_stat_norm'],
-            self.inputs['tce_hap_stat_norm'],
-            self.inputs['tce_rb_tcount0_norm'],
+            # self.inputs['tce_cap_stat_norm'],
+            # self.inputs['tce_hap_stat_norm'],
+            self.inputs['tce_cap_hap_stat_diff_norm'],
+            self.inputs['tce_rb_tcount0n_norm'],
             self.inputs['boot_fap_norm'],
             self.inputs['tce_period_norm'],
             self.inputs['tce_prad_norm']
@@ -746,7 +762,7 @@ class CNN1dPlanetFinderv2(object):
 
         dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
                                     kernel_regularizer=regularizers.l2(
-                                        self.config['decay_rate']),
+                                        self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
                                     activation=None,
                                     use_bias=True,
                                     kernel_initializer='glorot_uniform',
@@ -815,7 +831,7 @@ class CNN1dPlanetFinderv2(object):
             if self.config['decay_rate'] is not None:
                 net = tf.keras.layers.Dense(units=fc_neurons,
                                             kernel_regularizer=regularizers.l2(
-                                                self.config['decay_rate']),
+                                                self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
                                             activation=None,
                                             use_bias=True,
                                             kernel_initializer='glorot_uniform',

@@ -297,7 +297,7 @@ ax.grid(True)
 
 #%% Check scalar features after normalization
 
-tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_starshuffle_experiment-labels-normalized_nopps'
+tfrecDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized'
 
 res_dir = Path(tfrecDir) / 'scalar_hist_norm'
 res_dir.mkdir(exist_ok=True)
@@ -314,11 +314,13 @@ scalarFeaturesNames = [
     'mag_norm',
     # dv diagnostics
     'tce_rb_tcount0n_norm',
-    'tce_cap_stat_norm',
-    'tce_hap_stat_norm',
+    # 'tce_cap_stat_norm',
+    # 'tce_hap_stat_norm',
+    'tce_cap_hap_stat_diff',
     # other tce fit parameters
     'tce_prad_norm',
     'tce_period_norm',
+    'transit_depth_norm',
     # secondary
     'wst_depth_norm',
     'tce_maxmes_norm',
@@ -343,12 +345,14 @@ bins = {
     'mag_norm': np.linspace(-20, 20, 100, endpoint=True),
     # dv diagnostics
     'boot_fap_norm': np.linspace(-2, 2, 100, endpoint=True),
-    'tce_cap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
-    'tce_hap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    # 'tce_cap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    # 'tce_hap_stat_norm': np.linspace(-20, 20, 100, endpoint=True),
+    'tce_cap_hap_stat_diff': np.linspace(-20, 20, 100, endpoint=True),
     'tce_rb_tcount0n_norm': np.linspace(-10, 1, 100, endpoint=True),
     # tce fit parameters
     'tce_prad_norm': np.linspace(-20, 30, 100, endpoint=True),
     'tce_period_norm': np.linspace(-20, 30, 100, endpoint=True),
+    'transit_depth_norm': np.linspace(-20, 20, 100, endpoint=True),
     # secondary
     'wst_depth_norm': np.linspace(-20, 20, 100, endpoint=True),
     'tce_maxmes_norm': np.linspace(-20, 20, 100, endpoint=True),
@@ -601,7 +605,7 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 #%% Plot histograms of non-normalized scalar features from the TCE table
 
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
-          'all_scalars_4-14-2021'
+          'ghost_diagnostic_4-19-2021'
 os.makedirs(saveDir, exist_ok=True)
 
 tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_nanstellar.csv')
@@ -616,28 +620,30 @@ tceTbl = tceTbl.loc[(tceTbl['fpwg_disp_status'].isin(['CERTIFIED FA', 'CERTIFIED
 # tceTbl['tce_num_transits'] += 1
 # tceTbl['tce_rb_tcount0_trnorm'] = tceTbl['tce_rb_tcount0'] / tceTbl['tce_num_transits']
 
+tceTbl['tce_cap_hap_diff_stat'] = tceTbl['tce_cap_stat'] - tceTbl['tce_hap_stat']
+
 features = [
     # 'tce_albedo',
     # 'tce_albedo_err',
-    'tce_albedo_stat',
+    # 'tce_albedo_stat',
     # 'tce_ptemp',
     # 'tce_ptemp_err',
-    'tce_ptemp_stat',
-    'wst_depth',
-    'tce_maxmes',
+    # 'tce_ptemp_stat',
+    # 'wst_depth',
+    # 'tce_maxmes',
     # 'tce_eqt',
-    'transit_depth',
+    # 'transit_depth',
     # 'tce_depth_err',
     # 'tce_duration',
     # 'tce_duration_err',
-    'tce_prad',
-    'tce_period',
+    # 'tce_prad',
+    # 'tce_period',
     # 'tce_period_err',
-    'tce_dikco_msky',
-    'tce_dikco_msky_err',
-    'tce_dicco_msky',
-    'tce_dicco_msky_err',
-    'tce_fwm_stat',
+    # 'tce_dikco_msky',
+    # 'tce_dikco_msky_err',
+    # 'tce_dicco_msky',
+    # 'tce_dicco_msky_err',
+    # 'tce_fwm_stat',
     # 'tce_fwm_srao',
     # 'tce_fwm_srao_err',
     # 'tce_fwm_sdeco',
@@ -649,18 +655,19 @@ features = [
     # 'tce_max_mult_ev',
     # 'tce_rb_tcount0_trnorm',
     # 'tce_impact',
-    'tce_prad',
-    'mag',
-    'tce_rb_tcount0n',
-    'tce_smass',
-    'tce_steff',
-    'tce_slogg',
-    'tce_smet',
-    'tce_sradius',
-    'tce_sdens',
-    'boot_fap',
-    'tce_cap_stat',
-    'tce_hap_stat',
+    # 'tce_prad',
+    # 'mag',
+    # 'tce_rb_tcount0n',
+    # 'tce_smass',
+    # 'tce_steff',
+    # 'tce_slogg',
+    # 'tce_smet',
+    # 'tce_sradius',
+    # 'tce_sdens',
+    # 'boot_fap',
+    # 'tce_cap_stat',
+    # 'tce_hap_stat',
+    'tce_cap_hap_diff_stat',
 ]
 
 bins = {
@@ -705,8 +712,9 @@ bins = {
        'tce_sradius': np.linspace(0, 10, 100, endpoint=True),
        'tce_sdens': np.linspace(0, 100, 100, endpoint=True),
        'boot_fap': np.logspace(-34, 0, 100, endpoint=True),
-       'tce_cap_stat': np.linspace(-20, 20, 100, endpoint=True),
-       'tce_hap_stat': np.linspace(-20, 20, 100, endpoint=True),
+       'tce_cap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
+       'tce_hap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
+    'tce_cap_hap_diff_stat': np.linspace(-2000, 2000, 100, endpoint=True),
 }
 
 log_yscale = [
@@ -732,7 +740,10 @@ log_yscale = [
     'tce_ptemp_stat',
     'tce_maxmes',
     'tce_sdens',
-    'tce_albedo_stat'
+    'tce_albedo_stat',
+    'tce_hap_stat',
+    'tce_cap_stat',
+    'tce_cap_hap_diff_stat',
 ]
 
 log_xscale = [
@@ -802,3 +813,34 @@ for feature in features:
     f.savefig(os.path.join(saveDir, 'hist_{}_keplerq1q7dr25_pc-afp-ntp.svg'.format(feature)))
     plt.close()
 
+#%%
+
+dispositions = {'PC': {'zorder':3, 'c': 'k', 'marker': 'o', 's': 8},
+                'AFP': {'zorder':2, 'c': 'b', 'marker': '+', 's': 10},
+                'NTP': {'zorder':1, 'c': 'g', 'marker': '^', 's': 8}
+                }
+
+f, ax = plt.subplots()
+for disp in dispositions:
+    tceTbl_aux = tceTbl.loc[tceTbl['label'] == disp]
+    ax.scatter(tceTbl_aux['tce_cap_stat'], tceTbl_aux['tce_hap_stat'], s=dispositions[disp]['s'], label=disp, marker=dispositions[disp]['marker'], c=dispositions[disp]['c'])
+tceTbl_aux = tceTbl.loc[tceTbl['tce_cap_stat'] > tceTbl['tce_hap_stat']]
+ax.scatter(tceTbl_aux['tce_cap_stat'], tceTbl_aux['tce_hap_stat'], s=8, label='cap>hap', marker='1', c='c')
+ax.set_ylabel('tce_hap_stat')
+ax.set_xlabel('tce_cap_stat')
+ax.legend()
+ax.set_xlim([0, 2000])
+ax.set_ylim([0, 2000])
+
+bins = np.linspace(-2000, 2000, 100)
+for disp in dispositions:
+    f, ax = plt.subplots()
+    tceTbl_aux = tceTbl.loc[tceTbl['label'] == disp]
+    ax.hist(tceTbl_aux['tce_cap_stat'] - tceTbl_aux['tce_hap_stat'], bins, edgecolor='k')
+    ax.set_ylabel('Counts')
+    ax.set_xlabel('tce_cap_stat - tce_hap_stat')
+    ax.set_yscale('log')
+    ax.set_title(f'{disp}')
+    # ax.legend()
+    # ax.set_xlim([0, 2000])
+    # ax.set_ylim([0, 2000])

@@ -329,7 +329,7 @@ if __name__ == '__main__':
 
     # name of the study
     # study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per'
-    study = 'test_cv_data'
+    study = 'test_new_design_oe_sigma_kpmag_rba_cnt_n_ghost_stat_diff'
 
     # results directory
     save_path = Path(paths.pathtrainedmodels) / study
@@ -349,11 +349,7 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs,
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-'
-                             'centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_'
-                             'confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_'
-                             'flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_'
-                             'correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized'
                              )
     logger.info(f'Using data from {tfrec_dir}')
 
@@ -365,7 +361,8 @@ if __name__ == '__main__':
                 'glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
     # set the configuration from an HPO study
     if hpo_study is not None:
-        hpo_path = Path(paths.path_hpoconfigs) / hpo_study
+        # hpo_path = Path(paths.path_hpoconfigs) / hpo_study
+        hpo_path = Path('/data5/tess_project/git_repo/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)') / hpo_study
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_study}')
 
         # get ID to config mapping
@@ -422,14 +419,24 @@ if __name__ == '__main__':
         'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
         'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        # odd-even views
+        # odd-even flux related features
         'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # centroid views
+        'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_it_even': {'dim': (1,), 'dtype': tf.float32},
+        # centroid related features
         # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
         'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # secondary related features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
@@ -440,17 +447,13 @@ if __name__ == '__main__':
         'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # centroid related features
-        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
         'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},

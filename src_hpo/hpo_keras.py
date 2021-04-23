@@ -145,10 +145,14 @@ if __name__ == '__main__':
     if rank != 0:
         time.sleep(20)
 
-    print(f'[rank_{rank}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
-    print(f'[rank_{rank}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
+    try:
+        print(f'[rank_{rank}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+        print(f'[rank_{rank}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
+    except:
+        print(f'[rank_{rank}] No CUDA environment variables exist.')
 
-    n_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(','))  # number of GPUs visible to the process
+    # n_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(','))  # number of GPUs visible to the process
+    n_gpus = 1
     if rank == 0:
         print(f'Number of GPUs selected per node = {n_gpus}')
     gpu_id = rank % n_gpus
@@ -161,45 +165,59 @@ if __name__ == '__main__':
 
     study = 'hpo_test'  # name of the HPO study
 
-    config = {'branches': ['global_flux_view_fluxnorm',
-                           'local_flux_view_fluxnorm',
-                           'local_flux_oddeven_views',
-                           'global_centr_view_std_noclip',
-                           'local_centr_view_std_noclip',
-                           # 'local_weak_secondary_view_fluxnorm',
-                           'local_weak_secondary_view_selfnorm'
-                           ]
-              }
+    config = {'branches':
+        [
+            'global_flux_view_fluxnorm',
+            'local_flux_view_fluxnorm',
+            'local_flux_oddeven_views',
+            'global_centr_view_std_noclip',
+            'local_centr_view_std_noclip',
+            # 'local_weak_secondary_view_fluxnorm',
+            # 'local_weak_secondary_view_selfnorm',
+            'local_weak_secondary_view_max_flux-wks_norm',
+        ]
+    }
 
     # features to be extracted from the dataset
     features_set = {
+        # flux features
         'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
         'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
-        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        # odd and even flux features
         'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
+        'sigma_it_even': {'dim': (1,), 'dtype': tf.float32},
+        # weak secondary flux features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
         'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # centroid features
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
         'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # DV diagnostics
         'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
+        # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
@@ -215,7 +233,7 @@ if __name__ == '__main__':
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps_secparams_prad_period'
+                             '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized'
                              )
 
     multi_class = False  # multiclass classification
@@ -263,7 +281,7 @@ if __name__ == '__main__':
         'hpo_loss': 'auc_pr',
         # number of models trained per configuration evaluated on a given budget
         # used to decrease the variability due to random weights initialization
-        'ensemble_n': 1,
+        'ensemble_n': 2,
         'nic_name': 'lo',  # 'ib0' or 'lo'; 'ib0' to run on a cluster, 'lo' to run on a local host
         'verbose': 1,
         'experiment_config': config,

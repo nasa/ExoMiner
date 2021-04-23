@@ -1818,3 +1818,30 @@ ax.set_xlabel('boot_fap_norm')
 ax.set_ylabel('Counts')
 ax.set_yscale('log')
 f.savefig('/home/msaragoc/Downloads/aa.png')
+
+#%% add tce_cap_stat - tce_hap_stat feature to the TFRecords
+
+src_tfrecs_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins')
+src_tfrecs = [fp for fp in src_tfrecs_dir.iterdir() if 'shard' in fp.stem and '.csv' not in fp.suffix]
+
+tfrec_dest_dir = src_tfrecs_dir.parent / f'{src_tfrecs_dir.name}_caphap_stat_diff'
+tfrec_dest_dir.mkdir(exist_ok=True)
+
+for src_tfrec in src_tfrecs:
+
+    with tf.io.TFRecordWriter(str(tfrec_dest_dir / src_tfrec.name)) as writer:
+
+        tfrecord_dataset = tf.data.TFRecordDataset(str(src_tfrec))
+
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            tce_cap_stat = example.features.feature['tce_cap_stat'].float_list.value[0]
+            tce_hap_stat = example.features.feature['tce_hap_stat'].float_list.value[0]
+
+            example_util.set_float_feature(example, 'tce_cap_hap_stat_diff', [tce_cap_stat - tce_hap_stat],
+                                           allow_overwrite=True)
+
+            writer.write(example.SerializeToString())
