@@ -23,11 +23,11 @@ plt.switch_backend('TkAgg')
 
 #%% variables used across the script
 
-tceIdentifier = 'tce_plnt_num'  # TCE identifier
+tceIdentifier = 'oi'  # TCE identifier
 
 #%% define directories
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021')
 srcTfrecTbls = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                        file.stem.startswith('shard')])
 
@@ -48,17 +48,15 @@ srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
 # datasetTblDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/old/bug_with_transitduration_amplified/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
-datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
-datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in ['train', 'val', 'test']}
+# datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
+# datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in ['train', 'val', 'test']}
 
 # get only TCEs with tce_plnt_num = 1
 # datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
 
 # get TCEs not used for training nor evaluation
-# datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-#                                      'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_'
-#                                      'renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv')
-#               }
+datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv')
+              }
 # # remove rogue TCEs
 # datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
 # # remove CONFIRMED KOIs
@@ -141,7 +139,11 @@ for tfrecFile in tfrecFiles:
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        if tceIdentifier == 'tce_plnt_num':
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        else:
+            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
         foundTce = datasetTbl[dataset].loc[(datasetTbl[dataset]['target_id'] == targetIdTfrec) &
@@ -193,7 +195,10 @@ for tfrecFile in tfrecFiles:
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        if tceIdentifier == 'tce_plnt_num':
+            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        else:
+            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
@@ -608,7 +613,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             writer.write(example.SerializeToString())
 
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels')
+srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_starshuffle_experiment')
 destTfrecDir = Path(str(srcTfrecDir) + '-normalized')
 destTfrecDir.mkdir(exist_ok=True)
 srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
@@ -635,6 +640,8 @@ normStats = {
 # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
 #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
 #                                          'transit_depth', 'tce_duration', 'tce_period']}
+normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+                              if key not in ['tce_fwm_stat', 'tce_rb_tcount0n']}
 # normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
 
 nProcesses = 15
@@ -651,14 +658,14 @@ print('Normalization finished.')
 #%% Check final preprocessed data
 
 # TFRecord directory
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_starshuffle_experiment-normalized')
 # create plot directory if it does not exist
 plotDir = tfrecDir / 'plots_all_views'
 plotDir.mkdir(exist_ok=True)
 # get filepaths to TFRecord files
 tfrecFiles = [file for file in tfrecDir.iterdir() if 'shard' in file.stem]
 
-tceIdentifier = 'tce_plnt_num'  # 'tce_plnt_num', 'oi'
+tceIdentifier = 'oi'  # 'tce_plnt_num', 'oi'
 
 # set views to be plotted
 views = [
@@ -726,9 +733,9 @@ scalarParams = [
     # 'tce_hap_stat',
     'tce_cap_hap_stat_diff',
     # 'tce_rb_tcount0',
-    'tce_rb_tcount0n',
+    # 'tce_rb_tcount0n',
     # centroid
-    'tce_fwm_stat',
+    # 'tce_fwm_stat',
     'tce_dikco_msky',
     'tce_dikco_msky_err',
     'tce_dicco_msky',
@@ -744,7 +751,7 @@ scalarParams = [
 ]
 
 # set this to get the normalized scalar parameters
-tceOfInterest = '8611832-1'  # (6500206, 2)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
+tceOfInterest = '101.01'  # (6500206, 2)  # (9773869, 1) AFP with clear in-transit shift, (8937762, 1) nice PC, (8750094, 1)  # (8611832, 1)
 scheme = (3, 6)
 basename = 'all_views'  # basename for figures
 # probPlot = 1.01  # probability threshold for plotting
@@ -766,11 +773,8 @@ for tfrecFile in tfrecFiles:
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
         if tceIdentifier == 'oi':
-            tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
-            # tceid = str(tceIdentifierTfrec).split('.')
-            # tceid = f'{tceid[0]}.{tceid[1][:2]}'
-            tceid = np.round(tceIdentifierTfrec, decimals=2)
-            # aaa
+            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+            tceid = f'{tceIdentifierTfrec}'
         else:
             tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
             tceid = f'{targetIdTfrec}-{tceIdentifierTfrec}'

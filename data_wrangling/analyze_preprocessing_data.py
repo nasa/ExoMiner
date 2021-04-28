@@ -9,28 +9,33 @@ import matplotlib.pyplot as plt
 
 #%%
 
-res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+res_dir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021')
 res_tbl = pd.read_csv(res_dir / 'merged_shards.csv')
 # res_tbl.drop(columns='Unnamed: 0', inplace=True)
 
-tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_nanstellar.csv')
+tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv')
 
-dataset_tbls_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
-dataset_tbls = {fp.stem[:-3]: pd.read_csv(fp) for fp in dataset_tbls_dir.iterdir() if fp.suffix == '.csv'}
+# dataset_tbls_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
+# dataset_tbls = {fp.stem[:-3]: pd.read_csv(fp) for fp in dataset_tbls_dir.iterdir() if fp.suffix == '.csv'}
+dataset_tbls = {'predict': tce_tbl}
 
 #%% add dispositions from the TCE table
 
-add_fields = ['label', 'koi_disposition', 'fpwg_disp_status', 'tce_period', 'tce_duration', 'tce_time0bk',
-              'transit_depth', 'tce_max_mult_ev', 'tce_model_snr', 'wst_depth', 'tce_maxmes','tce_fwm_stat',
-              'tce_fwm_srao', 'tce_fwm_sdeco', 'tce_fwm_prao', 'tce_fwm_pdeco', 'tce_dicco_msky', 'tce_dikco_msky',
-              'koi_comment']
+# add_fields = ['label', 'koi_disposition', 'fpwg_disp_status', 'tce_period', 'tce_duration', 'tce_time0bk',
+#               'transit_depth', 'tce_max_mult_ev', 'tce_model_snr', 'wst_depth', 'tce_maxmes','tce_fwm_stat',
+#               'tce_fwm_srao', 'tce_fwm_sdeco', 'tce_fwm_prao', 'tce_fwm_pdeco', 'tce_dicco_msky', 'tce_dikco_msky',
+#               'koi_comment']
+add_fields = ['label', 'TESS Disposition', 'tce_period', 'tce_duration', 'tce_time0bk',
+              'transit_depth', 'tce_max_mult_ev', 'tce_model_snr', 'wst_depth', 'tce_maxmes',
+              'tce_dicco_msky', 'tce_dikco_msky', 'Comments']
 for field in add_fields:
     res_tbl[field] = np.nan
 
 for tce_i, tce in res_tbl.iterrows():
 
-    tce_found = tce_tbl.loc[(tce_tbl['target_id'] == tce['target_id']) &
-                            (tce_tbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+    # tce_found = tce_tbl.loc[(tce_tbl['target_id'] == tce['target_id']) &
+    #                         (tce_tbl['tce_plnt_num'] == tce['tce_plnt_num'])]
+    tce_found = tce_tbl.loc[tce_tbl['oi'] == tce['oi']]
 
     if len(tce_found) == 1:
         res_tbl.loc[tce_i, add_fields] = tce_found[add_fields].values[0]
@@ -50,6 +55,8 @@ for tce_i, tce in res_tbl.iterrows():
         if len(tce_found) == 1:
             res_tbl.loc[tce_i, add_fields] = dataset_tbl_name
             break
+
+# res_tbl['set'] = 'predict'
 
 #%%
 
@@ -71,8 +78,10 @@ figure_dir.mkdir(exist_ok=True)
 
 #%% analyze odd-even flag
 
-disp_col = 'label'
-dispositions = ['PC', 'AFP', 'NTP']
+disp_col = 'TESS Disposition'
+# dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['KP', 'CP', 'PC', 'APC', 'FP', 'FA']
+dispositions = ['KP', 'CP', 'PC', 'EB', 'O']
 f, ax = plt.subplots()
 bar_center_pts = np.linspace(0.5, 0.5 * len(dispositions), len(dispositions))
 # count_disp = [len(res_tbl.loc[(res_tbl['odd_even_flag'] != 'ok') & (res_tbl[disp_col] == disp)])
@@ -92,7 +101,8 @@ f.savefig(figure_dir / 'odd_even_flag_hist.png')
 
 # bins = np.linspace(0, 100, 10, endpoint=True)
 bins = np.logspace(-2, 2, 20, endpoint=True)
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
+dispositions = ['KP', 'CP', 'PC', 'APC', 'FP', 'FA']
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.hist(res_tbl.loc[res_tbl[disp_col] == disp, 'avg_oot_centroid_offset'], bins, edgecolor='k')
@@ -173,7 +183,7 @@ for disp in dispositions:
 
 #%% analyze estimated transit depth vs DV transit depth
 
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.scatter(res_tbl.loc[res_tbl[disp_col] == disp, 'transit_depth_hat'],
@@ -197,7 +207,7 @@ for disp in dispositions:
 
 #%% analyze estimated weak secondary transit depth vs DV weak secondary transit depth
 
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.scatter(res_tbl.loc[res_tbl[disp_col] == disp, 'wks_transit_depth_hat'],
@@ -222,7 +232,7 @@ for disp in dispositions:
 #%% analyze bin shift
 
 bins = np.linspace(0, 15, 16, endpoint=True)
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.hist(np.abs(res_tbl.loc[res_tbl[disp_col] == disp, 'mid_local_flux_shift']), bins, edgecolor='k')
@@ -235,7 +245,7 @@ for disp in dispositions:
     plt.close()
 
 bins = np.linspace(0, 150, 31, endpoint=True)
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
 for disp in dispositions:
     f, ax = plt.subplots()
     ax.hist(np.abs(res_tbl.loc[res_tbl[disp_col] == disp, 'mid_global_flux_shift']), bins, edgecolor='k')
@@ -248,7 +258,7 @@ for disp in dispositions:
     plt.close()
 
 feature_cols = ['transit_depth', 'tce_max_mult_ev', 'tce_model_snr', 'num_transits_flux']
-dispositions = ['PC', 'AFP', 'NTP']
+# dispositions = ['PC', 'AFP', 'NTP']
 disp_col = 'label'
 for feature_col in feature_cols:
     for disp in dispositions:

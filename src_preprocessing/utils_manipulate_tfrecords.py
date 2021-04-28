@@ -49,7 +49,14 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
                         example.ParseFromString(string_record)
 
                         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-                        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+                        if tceIdentifier == 'tce_plnt_num':
+                            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+                        else:  # OIs, because when saving float with two decimal cases to TFRecord it sometimes messes
+                            # it up
+                            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+                            # tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
+
+                        # print(targetIdTfrec, tce['target_id'], tceIdentifierTfrec, tce[tceIdentifier])
                         assert targetIdTfrec == tce['target_id'] and tceIdentifierTfrec == tce[tceIdentifier]
 
                         tceFoundInTfrecordFlag = True
@@ -94,7 +101,11 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
             example.ParseFromString(string_record)
 
             tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            if tceIdentifier == 'tce_plnt_num':
+                targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            else:
+                # targetIdTfrec = example.features.feature['target_id'].float_list.value[0]
+                targetIdTfrec = round(example.features.feature['target_id'].float_list.value[0], 2)
 
             foundTce = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
                                   (tceTbl[tceIdentifier] == tceIdentifierTfrec)]

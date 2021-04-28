@@ -680,18 +680,18 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    # if tce['target_id'] == 5175986 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
+    if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
     # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['3239945-1', '6933567-1', '8561063-3', '8416523-1', '9663113-2']:
-    # if tce['oi'] == 1936.01:
+    # if tce['oi'] == 1692.02:
         # tce['tce_time0bk'] = 1354.4262
         # tce['tce_period'] = 0.941451
     #     tce['sectors'] = '29 30'
-    #     print(tce)
-    # else:
-    #     return None
+        print(tce)
+    else:
+        return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 

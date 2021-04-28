@@ -786,10 +786,25 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
                 datum[field] = example.features.feature[field].int64_list.value[0]
             elif data_fields[field] == 'string':
                 if field == 'original_label':
-                    datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                    try:
+                        datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                    except:
+                        datum['original_label'] = ''
 
-                if field == 'label' and label_map is not None:
-                    datum[field] = label_map[example.features.feature['label'].bytes_list.value[0].decode("utf-8")]
+                elif field == 'label' and label_map is not None:
+                    try:
+                        datum[field] = label_map[example.features.feature[field].bytes_list.value[0].decode("utf-8")]
+                    except:
+                        datum[field] = -1
+
+                elif field == 'TESS Disposition':
+                    try:
+                        datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
+                    except:
+                        datum[field] = ''
+
+                else:
+                    datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
 
             elif data_fields[field] == 'float_list':
                 datum[field] = example.features.feature[field].float_list.value

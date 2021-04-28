@@ -91,12 +91,13 @@ def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metr
 
         # data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file), ['label', 'original_label'],
         #                               config['label_map'], filt=filter_data[dataset])
-        data = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file),
+        data_tfrec = get_data_from_tfrecord(os.path.join(data_dir, tfrec_file),
                                       {'label': 'string', 'original_label': 'string'},
                                       config['label_map'])
 
-        labels[dataset] += data['label']
-        original_labels[dataset] += data['original_label']
+
+        labels[dataset] += data_tfrec['label']
+        original_labels[dataset] += data_tfrec['original_label']
 
     # convert from list to numpy array
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in datasets}
@@ -236,8 +237,8 @@ def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metr
     for dataset in datasets:
         if dataset == 'predict':
             continue
-        sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
-        labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
+        sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
+        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
         prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['k_arr'][dataset])
         res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
                     for k_val in config['k_arr'][dataset]})
@@ -286,7 +287,7 @@ def run_main(config, n_epochs, data_dir, base_model, res_dir, model_id, opt_metr
     if model_id == 1:
         # save plot of model
         plot_model(model,
-                   to_file=res_dir / 'model.svg',
+                   to_file=res_dir / 'model.png',
                    show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
@@ -468,7 +469,7 @@ if __name__ == '__main__':
     logger.info(f'Feature set: {features_set}')
 
     data_augmentation = False  # if True, uses online data augmentation in the training set
-    online_preproc_params = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 6}
+    online_preproc_params = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 5}
 
     n_models = 10  # number of models in the ensemble
     n_epochs = 300  # number of epochs used to train each model

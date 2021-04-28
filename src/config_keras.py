@@ -16,7 +16,8 @@ label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary clas
              'tess': {True: {"PC": 1,
                              "NTP": 0,
                              "EB": 2,
-                             "BEB": 2},
+                             "BEB": 2
+                             },
                       False: {"PC": 1,
                               "NTP": 0,
                               "EB": 0,
@@ -24,8 +25,10 @@ label_map = {'kepler': {True: {"PC": 1,  # True: multi-class, False: binary clas
                               "KP": 1,
                               'CP': 1,
                               'FP': 0,
+                              'FA': 0,
                               'APC': 0,
-                              'O': 0}}}
+                              'O': 0,
+                              '': -1}}}
 
 
 def add_default_missing_params(config):

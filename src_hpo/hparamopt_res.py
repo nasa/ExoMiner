@@ -20,7 +20,7 @@ import paths
 
 #%% load results from a HPO study
 
-study = 'ConfigL'
+study = 'hpo_test'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -218,7 +218,7 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(
 # returns the best configuration over time/over cumulative budget
 nmodels = 3
 hpo_loss = 'val_auc_pr'  # 'pr auc'
-budget_chosen = 6  # 'all'  # 50.0  # 'all
+budget_chosen = 50  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
