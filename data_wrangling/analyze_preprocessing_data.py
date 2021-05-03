@@ -357,3 +357,308 @@ for disp in dispositions:
     plt.close()
 
 #%%
+
+# res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+res_dir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021/')
+res_tbl = pd.read_csv(res_dir / 'merged_shards_disp_set.csv')
+
+cols = ['sigma_oot_odd', 'sigma_it_odd', 'sigma_oot_even', 'sigma_it_even']
+disp_col = 'label'
+dispositions = ['KP', 'APC', 'PC', 'CP', 'FA', 'FP']  # res_tbl[disp_col].unique()
+# dispositions = ['PC', 'AFP', 'NTP']
+
+# bins = np.linspace(0, 1e-1, 100)
+bins = np.logspace(-8, -1, 100)
+for col in cols:
+    f, ax = plt.subplots(3, 2, figsize=(16, 12))
+    ax = ax.reshape((np.prod(ax.shape),))
+    # ax.hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k', label=f'{disp}')
+    for disp_i, disp in enumerate(dispositions):
+        ax[disp_i].hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k')
+    # ax.legend()
+        ax[disp_i].set_ylabel('Count')
+    # ax[disp_i].set_xlabel(f'{col}')
+        ax[disp_i].set_title(f'{disp}')
+        # ax[disp_i].set_yscale('log')
+        ax[disp_i].set_xscale('log')
+    f.suptitle(f'{col}')
+    # ax.set_yscale('log')
+    # f.subplots_adjust(top=0.96,
+# bottom=0.066,
+# left=0.044,
+# right=0.991,
+# hspace=0.376,
+# wspace=0.098)
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col}_disp_linear.png')
+    plt.close()
+
+    f, ax = plt.subplots()
+    ax.hist(res_tbl[col], bins, edgecolor='k')
+    ax.set_ylabel('Count')
+    ax.set_title(f'{col}')
+    # ax.set_yscale('log')
+    ax.set_xscale('log')
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col}_linear.png')
+    plt.close()
+
+#%%
+
+res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+# res_dir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021/')
+res_tbl = pd.read_csv(res_dir / 'merged_shards_disp_set.csv')
+
+cols = ['num_transits_flux_odd', 'num_transits_flux_even', 'num_transits_flux']
+disp_col = 'label'
+# dispositions = ['KP', 'APC', 'PC', 'CP', 'FA', 'FP']  # res_tbl[disp_col].unique()
+dispositions = ['PC', 'AFP', 'NTP']
+
+# bins = np.linspace(0, 1, 100)
+bins = np.logspace(0, 3, 100)
+for col in cols:
+    f, ax = plt.subplots(3, 1, figsize=(16, 12))
+    ax = ax.reshape((np.prod(ax.shape),))
+    # ax.hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k', label=f'{disp}')
+    for disp_i, disp in enumerate(dispositions):
+        ax[disp_i].hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k')
+    # ax.legend()
+        ax[disp_i].set_ylabel('Count')
+    # ax[disp_i].set_xlabel(f'{col}')
+        ax[disp_i].set_title(f'{disp}')
+        # ax[disp_i].set_yscale('log')
+        ax[disp_i].set_xscale('log')
+    f.suptitle(f'{col}')
+    # ax.set_yscale('log')
+    # f.subplots_adjust(top=0.96,
+# bottom=0.066,
+# left=0.044,
+# right=0.991,
+# hspace=0.376,
+# wspace=0.098)
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col}_disp_linear.png')
+    plt.close()
+
+    f, ax = plt.subplots()
+    ax.hist(res_tbl[col], bins, edgecolor='k')
+    ax.set_ylabel('Count')
+    ax.set_title(f'{col}')
+    # ax.set_yscale('log')
+    ax.set_xscale('log')
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col}_linear.png')
+    plt.close()
+
+#%%
+
+# res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+res_dir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021/')
+res_tbl = pd.read_csv(res_dir / 'merged_shards_disp_set.csv')
+
+cols = [
+    ('sigma_oot_odd', 'num_transits_flux_odd'),
+    ('sigma_it_odd', 'num_transits_flux_odd'),
+    ('sigma_oot_even', 'num_transits_flux_even'),
+    ('sigma_it_even', 'num_transits_flux_even'),
+        ]
+disp_col = 'label'
+dispositions = ['KP', 'APC', 'PC', 'CP', 'FA', 'FP']  # res_tbl[disp_col].unique()
+# dispositions = ['PC', 'AFP', 'NTP']
+
+# bins = np.linspace(0, 1e-1, 100)
+bins = np.logspace(-4, 1, 100)
+for col in cols:
+    f, ax = plt.subplots(3, 2, figsize=(16, 12))
+    ax = ax.reshape((np.prod(ax.shape),))
+    # ax.hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k', label=f'{disp}')
+    for disp_i, disp in enumerate(dispositions):
+        ax[disp_i].hist(res_tbl.loc[res_tbl[disp_col] == disp][col[0]] * res_tbl.loc[res_tbl[disp_col] == disp][col[1]] ** 2, bins, edgecolor='k')
+    # ax.legend()
+        ax[disp_i].set_ylabel('Count')
+    # ax[disp_i].set_xlabel(f'{col}')
+        ax[disp_i].set_title(f'{disp}')
+        # ax[disp_i].set_yscale('log')
+        ax[disp_i].set_xscale('log')
+    f.suptitle(f'{col[0]} non-normalized')
+    # ax.set_yscale('log')
+    # f.subplots_adjust(top=0.96,
+# bottom=0.066,
+# left=0.044,
+# right=0.991,
+# hspace=0.376,
+# wspace=0.098)
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col[0]}_nonnormalized_disp_linear.png')
+    plt.close()
+
+    f, ax = plt.subplots()
+    ax.hist(res_tbl[col[0]] * res_tbl[col[1]] ** 2, bins, edgecolor='k')
+    ax.set_ylabel('Count')
+    ax.set_title(f'{col[0]} non-normalized')
+    # ax.set_yscale('log')
+    ax.set_xscale('log')
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col[0]}_nonnormalized_linear.png')
+    plt.close()
+
+#%%
+
+from fpdf import FPDF
+
+plots_dir = Path('/home/msaragoc/Downloads/odd_even_sigma_plots')
+
+imgs_fps = [
+"hist_num_transits_flux_linear_kepler.png",
+"hist_num_transits_flux_linear_tess.png",
+"hist_num_transits_flux_disp_linear_kepler.png",
+"hist_num_transits_flux_disp_linear_tess.png",
+
+# "hist_num_transits_flux_even_disp_linear_kepler.png",
+# "hist_num_transits_flux_even_disp_linear_tess.png",
+# "hist_num_transits_flux_even_linear_kepler.png",
+# "hist_num_transits_flux_even_linear_tess.png",
+
+# "hist_num_transits_flux_odd_disp_linear_kepler.png",
+# "hist_num_transits_flux_odd_disp_linear_tess.png",
+# "hist_num_transits_flux_odd_linear_kepler.png",
+# "hist_num_transits_flux_odd_linear_tess.png",
+
+"hist_sigma_it_even_linear_kepler.png",
+"hist_sigma_it_even_linear_tess.png",
+"hist_sigma_it_even_disp_kepler_linear.png",
+# "hist_sigma_it_even_disp_kepler.png",
+"hist_sigma_it_even_disp_tess_linear.png",
+# "hist_sigma_it_even_disp_tess.png",
+# "hist_sigma_it_even_kepler.png",
+# "hist_sigma_it_even_tess.png",
+
+"hist_sigma_it_odd_linear_kepler.png",
+"hist_sigma_it_odd_linear_tess.png",
+# "hist_sigma_it_odd_disp_kepler.png",
+"hist_sigma_it_odd_disp_linear_kepler.png",
+"hist_sigma_it_odd_disp_linear_tess.png",
+# "hist_sigma_it_odd_disp_tess.png",
+# "hist_sigma_it_odd_kepler.png",
+# "hist_sigma_it_odd_tess.png",
+
+"hist_sigma_oot_even_linear_kepler.png",
+"hist_sigma_oot_even_linear_tess.png",
+# "hist_sigma_oot_even_disp_kepler.png",
+"hist_sigma_oot_even_disp_linear_kepler.png",
+"hist_sigma_oot_even_disp_linear_tess.png",
+# "hist_sigma_oot_even_disp_tess.png",
+# "hist_sigma_oot_even_kepler.png",
+# "hist_sigma_oot_even_tess.png",
+
+"hist_sigma_oot_odd_linear_kepler.png",
+"hist_sigma_oot_odd_linear_tess.png",
+# "hist_sigma_oot_odd_tess.png",
+# "hist_sigma_oot_odd_disp_kepler.png",
+"hist_sigma_oot_odd_disp_linear_kepler.png",
+"hist_sigma_oot_odd_disp_linear_tess.png",
+# "hist_sigma_oot_odd_disp_tess.png",
+# "hist_sigma_oot_odd_kepler.png",
+
+"hist_sigma_it_even_nonnormalized_linear_kepler.png",
+"hist_sigma_it_even_nonnormalized_linear_tess.png",
+"hist_sigma_it_even_nonnormalized_disp_linear_kepler.png",
+"hist_sigma_it_even_nonnormalized_disp_linear_tess.png",
+
+"hist_sigma_it_odd_nonnormalized_linear_kepler.png",
+"hist_sigma_it_odd_nonnormalized_linear_tess.png",
+"hist_sigma_it_odd_nonnormalized_disp_linear_kepler.png",
+"hist_sigma_it_odd_nonnormalized_disp_linear_tess.png",
+
+"hist_sigma_oot_even_nonnormalized_linear_kepler.png",
+"hist_sigma_oot_even_nonnormalized_linear_tess.png",
+"hist_sigma_oot_even_nonnormalized_disp_linear_kepler.png",
+"hist_sigma_oot_even_nonnormalized_disp_linear_tess.png",
+
+"hist_sigma_oot_odd_nonnormalized_linear_kepler.png",
+"hist_sigma_oot_odd_nonnormalized_linear_tess.png",
+"hist_sigma_oot_odd_nonnormalized_disp_linear_kepler.png",
+"hist_sigma_oot_odd_nonnormalized_disp_linear_tess.png",
+
+]
+
+imgs_fps = [plots_dir / img_fn for img_fn in imgs_fps]
+
+pdf = FPDF()
+pdf.set_font('Arial', 'B', 12)
+# for img_fp in sorted(plots_dir.iterdir()):
+for img_fp in imgs_fps:
+    pdf.add_page()
+    if 'num_transits' in img_fp.name:
+        text = 'Number of transits'
+    elif 'nonnormalized' in img_fp.name:
+        text = 'MAD std'
+    else:
+        text = 'Standard error of the mean (MAD std / sqrt(num_transits))'
+
+    if 'disp' in img_fp.name:
+        text += ' per disposition'
+
+    if 'kepler' in img_fp.name:
+        text += ' - Kepler'
+    elif 'tess' in img_fp.name:
+        text += ' - TESS'
+
+    pdf.cell(0, 0, text, align='C')
+    pdf.image(str(img_fp), 5, 25, 200, 150)
+    # break
+pdf.output('/home/msaragoc/Downloads/num_transits_sigma_oddeven_keplervstess_4-29-2021.pdf', 'F')
+
+#%%
+
+res_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff')
+# res_dir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021/')
+res_tbl = pd.read_csv(res_dir / 'merged_shards_disp_set.csv')
+
+cols = [
+    ('sigma_oot_odd', 'num_transits_flux_odd', 'transit_depth_hat'),
+    ('sigma_it_odd', 'num_transits_flux_odd', 'transit_depth_hat'),
+    ('sigma_oot_even', 'num_transits_flux_even', 'transit_depth_hat'),
+    ('sigma_it_even', 'num_transits_flux_even', 'transit_depth_hat'),
+        ]
+disp_col = 'label'
+# dispositions = ['KP', 'APC', 'PC', 'CP', 'FA', 'FP']  # res_tbl[disp_col].unique()
+dispositions = ['PC', 'AFP', 'NTP']
+
+# bins = np.linspace(0, 1e-1, 100)
+bins = np.logspace(-6, -2, 100)
+for col in cols:
+    f, ax = plt.subplots(3, 1, figsize=(16, 12))
+    ax = ax.reshape((np.prod(ax.shape),))
+    # ax.hist(res_tbl.loc[res_tbl[disp_col] == disp][col], bins, edgecolor='k', label=f'{disp}')
+    for disp_i, disp in enumerate(dispositions):
+        ax[disp_i].hist(res_tbl.loc[res_tbl[disp_col] == disp][col[0]] *
+                        (res_tbl.loc[res_tbl[disp_col] == disp][col[1]] ** 2) /
+                        res_tbl.loc[res_tbl[disp_col] == disp][col[2]], bins, edgecolor='k')
+    # ax.legend()
+        ax[disp_i].set_ylabel('Count')
+    # ax[disp_i].set_xlabel(f'{col}')
+        ax[disp_i].set_title(f'{disp}')
+        # ax[disp_i].set_yscale('log')
+        ax[disp_i].set_xscale('log')
+    f.suptitle(f'{col[0]} MAD normalized by min flux')
+    # ax.set_yscale('log')
+    # f.subplots_adjust(top=0.96,
+# bottom=0.066,
+# left=0.044,
+# right=0.991,
+# hspace=0.376,
+# wspace=0.098)
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col[0]}_nonnormalized_minflux_disp_linear.png')
+    plt.close()
+
+    f, ax = plt.subplots()
+    ax.hist(res_tbl[col[0]] * (res_tbl[col[1]] ** 2) / res_tbl[col[2]], bins, edgecolor='k')
+    ax.set_ylabel('Count')
+    ax.set_title(f'{col[0]} MAD normalized by min flux')
+    # ax.set_yscale('log')
+    ax.set_xscale('log')
+    f.tight_layout()
+    f.savefig(res_dir / 'analysis_plots' / f'hist_{col[0]}_nonnormalized_minflux_linear.png')
+    plt.close()

@@ -636,6 +636,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         'sigma_it_odd': sigma_it_odd / max(1, num_tr_odd),
         'sigma_oot_even': sigma_oot_even / max(1, num_tr_even),
         'sigma_it_even': sigma_it_even / max(1, num_tr_even)
+        # 'std_oot_odd':
     }
 
     return loc_flux_odd_view, binned_time_odd, loc_flux_odd_view_var, loc_flux_even_view, binned_time_even, \

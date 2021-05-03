@@ -214,10 +214,11 @@ assert np.sum(countExamples) == 0
 
 #%% compute normalization statistics for scalar parameters, timeseries, ...
 
-tfrecDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment')
+tfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021')
 
 # get only training set TFRecords
 tfrecTrainFiles = [file for file in tfrecDir.iterdir() if file.stem.startswith('train-shard')]
+# tfrecTrainFiles = [file for file in tfrecDir.iterdir() if file.stem.startswith('shard') and not file.name.endswith('.csv')]
 
 # get out-of-transit indices for the local and global views
 nr_transit_durations = 5  # number of transit durations in the local view
@@ -258,11 +259,11 @@ scalarParams = {
     #                  'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     'tce_cap_hap_stat_diff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                               'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-    'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
+    # 'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    #                     'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     # centroid
-    'tce_fwm_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-                     'dtype': 'float', 'replace_value': None},
+    # 'tce_fwm_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
+    #                  'dtype': 'float', 'replace_value': None},
     'tce_dikco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     'tce_dicco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,

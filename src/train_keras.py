@@ -444,16 +444,13 @@ if __name__ == '__main__':
         'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
         'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
         'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
         'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},

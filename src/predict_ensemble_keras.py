@@ -254,7 +254,7 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
 if __name__ == '__main__':
 
     # name of the study
-    study = 'tess-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_onlytimeseries_stellar_4-26-2021'
+    study = 'tess-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_allparameterstess_nocentroid_nodicco_nosigmaoe_nodepth_noprad_noperiod_4-28-2021'
 
     # results directory
     save_path = Path(paths.pathresultsensemble) / study
@@ -325,7 +325,7 @@ if __name__ == '__main__':
     generate_csv_pred = True
 
     # get models for the ensemble
-    models_study = 'keplerdr25-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_onlytimeseries_stellar_4-26-2021'  # study
+    models_study = 'keplerdr25-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_allparameterstess_nocentroid_nodicco_nosigmaoe_nodepth_noprad_noperiod_4-28-2021'  # study
     models_dir = Path(paths.pathtrainedmodels) / models_study / 'models'
     models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
                         model_dir.stem]
@@ -399,28 +399,26 @@ if __name__ == '__main__':
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
         'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # centroid features
-        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
         # 'global_centr_fdl_view_norm': {'dim': (2001, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (201, 1), 'dtype': tf.float32},
         # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
-        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
