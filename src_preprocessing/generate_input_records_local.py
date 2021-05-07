@@ -13,6 +13,7 @@ from tensorflow.compat.v1 import logging as tf_logging
 # import logging
 from pathlib import Path
 import json
+from datetime import datetime
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -26,20 +27,20 @@ def create_preprocessing_config():
     config = {}
 
     # TFRecords base name
-    # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams'
-    config['tfrecords_base_name'] = '9705459-2_checkoddeven_4-27-2021'
+    # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
+    config['tfrecords_base_name'] = 'check_quality_flags_5-6-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
-                                   'Kepler',  # either 'Kepler' of 'TESS'
-                                   'Q1-Q17_DR25'
+                                   'TESS',  # either 'Kepler' of 'TESS'
+                                   # 'Q1-Q17_DR25'
                                    )
 
     # output directory
     config['output_dir'] = config['tfrecords_dir'] / config['tfrecords_base_name']
 
-    config['satellite'] = 'kepler'  # choose from: 'kepler', 'tess'
-    config['tce_identifier'] = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
+    config['satellite'] = 'tess'  # choose from: 'kepler', 'tess'
+    config['tce_identifier'] = 'oi'  # either 'tce_plnt_num' or 'oi'
 
     # if True, it augments the dataset by applying augmentation techniques to the TCE data
     config['augmentation'] = False

@@ -16,6 +16,7 @@ from tensorflow.compat.v1 import logging as tf_logging
 from tensorflow.io import TFRecordWriter
 from pathlib import Path
 import json
+from datetime import datetime
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -29,8 +30,7 @@ def create_preprocessing_config():
     config = {}
 
     # TFRecords base name
-    config['tfrecords_base_name'] = 'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-' \
-                                    'centroid_fdl-6stellar-bfap-ghost-rollingband'
+    config['tfrecords_base_name'] = f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords')
@@ -126,7 +126,7 @@ def create_preprocessing_config():
     config['num_bins_loc'] = 31  # number of bins in the local view
     config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
     config['bin_width_factor_loc'] = 0.16
-    config['num_durations'] = 2.5  # number of transit duration to include in the local view: 2 * num_durations + 1
+    config['num_durations'] = 2.5  # number of transit duration to include in the local view: 2 * num_durations
 
     # True to load denoised centroid time-series instead of the raw from the FITS files
     config['get_denoised_centroids'] = False

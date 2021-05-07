@@ -188,14 +188,14 @@ def read_tess_light_curve(filenames,
 
             light_curve = hdu_list[light_curve_extension].data
 
-            # if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
             if prefer_psfcentr:
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
                 # if _has_finite(light_curve.MOM_CENTR1):
                 centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
                                          light_curve.MOM_CENTR2 - light_curve.POS_CORR2
-                centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
+
+            centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
                 # else:
                 #     continue  # no data
 
@@ -236,8 +236,9 @@ def read_tess_light_curve(filenames,
 
             w = wcs.WCS(hdu_list['APERTURE'].header)
             pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
-            world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=False)
-            centroid_ra, centroid_dec = world[:, 0], world[:, 1]
+            world = w.wcs_pix2world(pixcrd, 0, ra_dec_order=False)
+            # RA and Dec centroids
+            centroid_x, centroid_y = world[:, 0], world[:, 1]
 
         time = light_curve.TIME
         flux = light_curve.PDCSAP_FLUX
@@ -245,18 +246,32 @@ def read_tess_light_curve(filenames,
         if not time.size:
             continue  # No data.
 
+        # use quality flags to remove cadences
+        MAX_BIT = 16
+        BITS = [2048, 4096, 32768]
+        flags = {bit: np.binary_repr(bit).zfill(MAX_BIT).find('1') for bit in BITS}
+        qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
+        inds_keep = True * np.ones(len(qflags), dtype='bool')
+
+        for flag_bit in flags:
+            qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
+            inds_keep[qflags_bit] = False
+
+        time = time[inds_keep]
+        flux = flux[inds_keep]
+        centroid_x = centroid_x[inds_keep]
+        centroid_y = centroid_y[inds_keep]
+        centroid_fdl_x = centroid_fdl_x[inds_keep]
+        centroid_fdl_y = centroid_fdl_y[inds_keep]
+
         # Possibly interpolate missing time values.
         if interpolate_missing_time:
             time = util.interpolate_missing_time(time, light_curve.CADENCENO)
 
         data['all_time'].append(time)
         data['all_flux'].append(flux)
-        if centroid_radec:
-            data['all_centroids']['x'].append(centroid_ra)
-            data['all_centroids']['y'].append(centroid_dec)
-        else:
-            data['all_centroids']['x'].append(centroid_x)
-            data['all_centroids']['y'].append(centroid_y)
+        data['all_centroids']['x'].append(centroid_x)
+        data['all_centroids']['y'].append(centroid_y)
 
         data['all_centroids_px']['x'].append(centroid_fdl_x)
         data['all_centroids_px']['y'].append(centroid_fdl_y)

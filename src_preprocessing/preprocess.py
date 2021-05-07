@@ -668,11 +668,6 @@ def _process_tce(tce, table, config, conf_dict):
     # cfpTbl = pd.read_csv('/home/msaragoc/Downloads/fpwg_2020.10.02_15.25.08.csv', header=10)
     # koiTTVs = cfpTbl.loc[cfpTbl['fpwg_comment'].str.contains('TTV', na=False)]['kepoi_name'].values
 
-    # rankingTbl = rankingTbl.loc[(rankingTbl['original_label'] == 'KP') & (rankingTbl['predicted class'] == 0)]
-    # rankingTbl = rankingTbl[-20:]
-    # rankingTbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/num_tces_per_disp/tce_counts_per_target.csv')
-    # rankingTbl = rankingTbl.loc[rankingTbl['label'] == 'PC']
-    #
     # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id']) &
     #                       (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
     # if len(rankingTbl.loc[rankingTbl['oi'] == tce['oi']]) == 1:
@@ -680,12 +675,12 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['3239945-1', '6933567-1', '8561063-3', '8416523-1', '9663113-2']:
-    # if tce['oi'] == 1692.02:
-        # tce['tce_time0bk'] = 1354.4262
+    # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['9002278-4']:
+    if tce['oi'] in [1774.01]:
+        # tce['tce_time0bk'] = 1325.726
         # tce['tce_period'] = 0.941451
-    #     tce['sectors'] = '29 30'
+        # tce['sectors'] = '1'
         print(tce)
     else:
         return None
@@ -1221,9 +1216,12 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     #                       for coord in all_centroids}
     # only it centroid
     all_centroids_corr = {coord: [-(all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term /
-                                  (1, np.cos(all_centroids['y'][i] * np.pi / 180))[coord == 'x'] + avg_centroid_oot[coord]
+                                  (1, np.cos(all_centroids['y'][i] * np.pi / 180))[coord == 'x'] +
+                                  avg_centroid_oot[coord]
                                   for i in range(len(all_centroids[coord]))]
                           for coord in all_centroids}
+    # all_centroids_corr = {coord: [all_centroids[coord][i] for i in range(len(all_centroids[coord]))]
+    #                       for coord in all_centroids}
     # correction performed using quarter average oot estimates
     # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord][i]) * transitdepth_term) /
     #                               (1, np.cos(all_centroids['y'][i] * np.pi / 180))[coord == 'x'] +
@@ -1245,28 +1243,19 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
                                                      f'5_correctedcentroidtimeseries_aug{tce["augmentation_idx"]}')
 
     if config['px_coordinates']:
+        # TODO: map target position from celestial coordinates to CCD frame
         # compute the euclidean distance of the corrected centroid time series to the target star position
         all_centroid_dist = [np.sqrt(np.square(all_centroids['x'][i] - target_position[0]) +
                                      np.square(all_centroids['y'][i] - target_position[1]))
                              for i in range(len(all_centroids['x']))]
     else:
         # compute the angular distance of the corrected centroid time series to the target star position
-        # all_centroid_dist = [np.sqrt(np.square((all_centroids_corr['x'][i] - target_position[0]) *
-        #                                        np.cos(target_position[1] * np.pi / 180)) +
-        #                              np.square(all_centroids_corr['y'][i] - target_position[1]))
-        #                      for i in range(len(all_centroids_corr['x']))]
-        # all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0]) *
-        #                                        np.cos(all_centroids['y'][i] * np.pi / 180)) +
+        # all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0])) +
         #                              np.square(all_centroids['y'][i] - target_position[1]))
         #                      for i in range(len(all_centroids['x']))]
-        all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0])) +
-                                     np.square(all_centroids['y'][i] - target_position[1]))
+        all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - tce['ra'])) +
+                                     np.square(all_centroids['y'][i] - tce['dec']))
                              for i in range(len(all_centroids['x']))]
-        # distance from oot
-        # all_centroid_dist = [np.sqrt(np.square(all_centroids_corr['x'][i]) +
-        #                              np.square(all_centroids_corr['y'][i]))
-        #                      for i in range(len(all_centroids_corr['x']))]
-
 
     # # get the across quarter average oot estimate using only finite and oot values
     # avg_centroid_oot_dist_global = np.median(np.concatenate([all_centroid_dist[i][oot_idxs[i]]
@@ -1521,10 +1510,11 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
     """
 
     # binning using median
-    view, time_bins, view_var, _ = median_filter.median_filter(time, flux, num_bins, bin_width, t_min, t_max)
+    view, time_bins, view_var, bin_counts = median_filter.median_filter(time, flux, num_bins, bin_width, t_min, t_max)
 
     # impute missing bin values
     view, inds_nan = impute_binned_ts(time_bins, view, time, flux, tce['tce_period'], tce['tce_duration'])
+
     # variability of bins without any values is set to the std of the phase folded time series
     view_var[np.isnan(view_var)] = mad_std(flux, ignore_nan=True)
 
@@ -1536,7 +1526,7 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
     if normalize:
         view = normalize_view(view, val=None, centroid=centroid, **kwargs)
 
-    return view, time_bins, view_var, inds_nan
+    return view, time_bins, view_var, inds_nan, bin_counts
 
 
 def normalize_view(view, val=None, centroid=False, **kwargs):
@@ -1729,6 +1719,11 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         report_exclusion(config, tce, 'No data[time] before creating views.')
         return None
 
+    # time interval for the transit
+    t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
+                                   min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
+
+    # initialize dictionary with data for the preprocessing table
     example_stats = {}
     # initialize number of transits per time series dictionary
     num_transits = {}
@@ -1738,23 +1733,29 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     # phase folding for odd and even time series
     (odd_time, odd_flux, _, odd_time_nophased), \
     (even_time, even_flux, _, even_time_nophased) = phase_fold_and_sort_light_curve_odd_even(data['time'],
-                                                                                                 data['flux'],
-                                                                                                 tce['tce_period'],
-                                                                                                 tce['tce_time0bk'],
-                                                                                                 augmentation=False)
-    num_transits['flux_odd'] = count_transits(odd_time_nophased, tce['tce_period'], tce['tce_time0bk'],
+                                                                                             data['flux'],
+                                                                                             tce['tce_period'],
+                                                                                             tce['tce_time0bk'],
+                                                                                             augmentation=False)
+    num_transits['flux_odd'] = count_transits(odd_time_nophased,
+                                              tce['tce_period'],
+                                              tce['tce_time0bk'],
                                               tce['tce_duration'])
-    num_transits['flux_even'] = count_transits(even_time_nophased, tce['tce_period'], tce['tce_time0bk'],
-                                             tce['tce_duration'])
+    num_transits['flux_even'] = count_transits(even_time_nophased,
+                                               tce['tce_period'],
+                                               tce['tce_time0bk'],
+                                               tce['tce_duration'])
 
     # phase folding for flux time series
     time, flux, _ = phase_fold_and_sort_light_curve(data['time'],
-                                                                       data['flux'],
-                                                                       tce['tce_period'],
-                                                                       tce['tce_time0bk'],
-                                                                       augmentation=False)
-    num_transits['flux'] = count_transits(data['time'], tce['tce_period'], tce['tce_time0bk'],
-                                               tce['tce_duration'])
+                                                    data['flux'],
+                                                    tce['tce_period'],
+                                                    tce['tce_time0bk'],
+                                                    augmentation=False)
+    num_transits['flux'] = count_transits(data['time'],
+                                          tce['tce_period'],
+                                          tce['tce_time0bk'],
+                                          tce['tce_duration'])
 
     # phase folding for centroid time series
     time_centroid_dist, centroid_dist, \
@@ -1763,8 +1764,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                tce['tce_period'],
                                                                tce['tce_time0bk'],
                                                                augmentation=False)
-    num_transits['centroid'] = count_transits(data['time_centroid_dist'], tce['tce_period'], tce['tce_time0bk'],
-                                               tce['tce_duration'])
+    num_transits['centroid'] = count_transits(data['time_centroid_dist'],
+                                              tce['tce_period'],
+                                              tce['tce_time0bk'],
+                                              tce['tce_duration'])
 
     # phase folding for the weak secondary flux time series
     time_noprimary, flux_noprimary, num_transits['wks'] = phase_fold_and_sort_light_curve(data['time_wksecondaryflux'],
@@ -1773,8 +1776,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                                           tce['tce_time0bk'] +
                                                                                           tce['tce_maxmesd'],
                                                                                           augmentation=False)
-    num_transits['wks'] = count_transits(data['time_wksecondaryflux'], tce['tce_period'], tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                              tce['tce_duration'])
+    num_transits['wks'] = count_transits(data['time_wksecondaryflux'],
+                                         tce['tce_period'],
+                                         tce['tce_time0bk'] + tce['tce_maxmesd'],
+                                         tce['tce_duration'])
 
     # same for FDL centroid time-series
     # phase folding for flux and centroid time series
@@ -1784,9 +1789,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                    tce['tce_period'],
                                                                    tce['tce_time0bk'],
                                                                    augmentation=False)
-    num_transits['centroid_fdl'] = count_transits(data['time_centroid_distFDL'], tce['tce_period'],
-                                         tce['tce_time0bk'],
-                                         tce['tce_duration'])
+    num_transits['centroid_fdl'] = count_transits(data['time_centroid_distFDL'],
+                                                  tce['tce_period'],
+                                                  tce['tce_time0bk'],
+                                                  tce['tce_duration'])
 
     phasefolded_timeseries = {'Flux': (time, flux),
                               'Odd Flux': (odd_time, odd_flux),
@@ -1826,452 +1832,471 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                            phasefolded_timeseries_posout
                                                            )
 
-    try:
-        # check if there is no odd/even time and replace by the other
-        # odd_time, odd_flux, num_transits['flux_odd'], even_time, even_flux, num_transits['flux_even'], odd_even_flag = \
-        #     check_odd_even_phasefolded_local(odd_time,
-        #                                      odd_flux,
-        #                                      num_transits['flux_odd'],
-        #                                      even_time,
-        #                                      even_flux,
-        #                                      num_transits['flux_even'],
-        #                                      int(config['num_bins_loc'] / (2 * config['num_durations'] + 1)),
-        #                                      tce['tce_duration'] * config['bin_width_factor_loc'],
-        #                                      max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2),
-        #                                      min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
-        #                                      )
-        # # odd_even_flag = 'not used'
-        #
-        # sigma_oot_odd, sigma_it_odd, sigma_oot_even, sigma_it_even = compute_oot_it_var_oddeven(
-        #     odd_time,
-        #     odd_flux,
-        #     even_time,
-        #     even_flux,
-        #     max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2),
-        #     min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
-        # )
-        loc_flux_odd_view, binned_time_odd, loc_flux_odd_view_var, loc_flux_even_view, binned_time_even, \
-        loc_flux_even_view_var, odd_even_flag, odd_even_stats, inds_bin_nan['local_flux_odd'], \
-        inds_bin_nan['local_flux_even'] = \
-            create_odd_even_views(odd_time,
-                                  odd_flux,
-                                  even_time,
-                                  even_flux,
-                                  num_transits['flux_odd'],
-                                  num_transits['flux_even'],
-                                  tce,
-                                  config)
+    # try:
 
-        phasefolded_timeseries['Odd Flux'] = (odd_time, odd_flux)
-        phasefolded_timeseries['Even Flux'] = (even_time, even_flux)
+    # make output proto
+    ex = tf.train.Example()
 
-        # make output proto
-        ex = tf.train.Example()
+    # initialize binned time series
+    binned_timeseries = {}
 
-        # initialize binned time series
-        binned_timeseries = {}
+    # preprocess odd and even flux time series to create local views and related processed data
+    odd_data, even_data, odd_even_flag = \
+        create_odd_even_views(odd_time,
+                              odd_flux,
+                              even_time,
+                              even_flux,
+                              num_transits['flux_odd'],
+                              num_transits['flux_even'],
+                              tce,
+                              config)
 
-        # create global flux view
-        glob_flux_view, binned_time, glob_flux_view_var, inds_bin_nan['global_flux'] = global_view(time,
-                                                                         flux,
-                                                                      tce['tce_period'],
-                                                                         tce=tce,
-                                                                      normalize=False,
-                                                                      centering=False,
-                                                                      num_bins=config['num_bins_glob'],
-                                                                      bin_width_factor=config['bin_width_factor_glob'],
-                                                                      report={'config': config, 'tce': tce,
-                                                                              'view': 'global_flux_view'},
-                                                                      tce_duration=tce['tce_duration']
-                                                                      )
-        binned_timeseries['Global Flux'] = (binned_time, glob_flux_view, glob_flux_view_var)
+    phasefolded_timeseries['Odd Flux'] = (odd_time, odd_flux)
+    phasefolded_timeseries['Even Flux'] = (even_time, even_flux)
 
-        # create local flux view
-        loc_flux_view, binned_time, loc_flux_view_var, inds_bin_nan['local_flux'] = local_view(time,
-                                                                      flux,
-                                                                   tce['tce_period'],
-                                                                      tce['tce_duration'],
-                                                                      tce=tce,
-                                                                   normalize=False,
-                                                                   centering=False,
-                                                                   num_durations=config['num_durations'],
-                                                                   num_bins=config['num_bins_loc'],
-                                                                   bin_width_factor=config['bin_width_factor_loc'],
-                                                                   report={'config': config, 'tce': tce,
-                                                                           'view': 'local_flux_view'}
-                                                                   )
-        binned_timeseries['Local Flux'] = (binned_time, loc_flux_view, loc_flux_view_var)
+    binned_timeseries['Local Odd Flux'] = (odd_data['binned_time'], odd_data['local_flux_view'],
+                                           odd_data['local_flux_view_se'])
+    binned_timeseries['Local Even Flux'] = (even_data['binned_time'], even_data['local_flux_view'],
+                                            even_data['local_flux_view_se'])
 
-        binned_timeseries['Local Odd Flux'] = (binned_time_odd, loc_flux_odd_view, loc_flux_odd_view_var)
-        binned_timeseries['Local Even Flux'] = (binned_time_even, loc_flux_even_view, loc_flux_even_view_var)
+    # create global flux view
+    glob_flux_view, binned_time, glob_flux_view_var, inds_bin_nan['global_flux'], bin_counts = \
+        global_view(time,
+                    flux,
+                    tce['tce_period'],
+                    tce=tce,
+                    normalize=False,
+                    centering=False,
+                    num_bins=config['num_bins_glob'],
+                    bin_width_factor=config['bin_width_factor_glob'],
+                    report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
+                    tce_duration=tce['tce_duration']
+                    )
 
-        # create local view for the weak secondary flux
-        loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, inds_bin_nan['local_wks'] = \
-            local_view(time_noprimary,
-                       flux_noprimary,
-                       tce['tce_period'],
-                       tce['tce_duration'],
-                       tce=tce,
-                       normalize=False,
-                       centering=False,
-                       num_durations=config['num_durations'],
-                       num_bins=config['num_bins_loc'],
-                       bin_width_factor=config['bin_width_factor_loc'],
-                       report={'config': config,
-                               'tce': tce,
-                               'view': 'local_wks_view'}
-                       )
-        binned_timeseries['Local Weak Secondary Flux'] = (binned_time, loc_weak_secondary_view,
-                                                          loc_weak_secondary_view_var)
+    bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+    glob_flux_view_var /= np.sqrt(bin_counts)
+    binned_timeseries['Global Flux'] = (binned_time, glob_flux_view, glob_flux_view_var)
 
-        # if plot_preprocessing_tce:
-        #     utils_visualization.plot_wks(glob_view, glob_view_weak_secondary, tce, config,
-        #                                  os.path.join(config['output_dir'], 'plots'), '8_wks_test')
+    # create local flux view
+    loc_flux_view, binned_time, loc_flux_view_var, inds_bin_nan['local_flux'], bin_counts = \
+        local_view(time,
+                   flux,
+                   tce['tce_period'],
+                   tce['tce_duration'],
+                   tce=tce,
+                   normalize=False,
+                   centering=False,
+                   num_durations=config['num_durations'],
+                   num_bins=config['num_bins_loc'],
+                   bin_width_factor=config['bin_width_factor_loc'],
+                   report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
+                   )
 
-        flux_views = {'global_flux_view': glob_flux_view,
-                      'local_flux_view': loc_flux_view,
-                      'local_flux_odd_view': loc_flux_odd_view,
-                      'local_flux_even_view': loc_flux_even_view,
+    bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+    loc_flux_view_var /= np.sqrt(bin_counts)
+    binned_timeseries['Local Flux'] = (binned_time, loc_flux_view, loc_flux_view_var)
+
+    flux_views = {'global_flux_view': glob_flux_view,
+                  'local_flux_view': loc_flux_view,
+                  'local_flux_odd_view': odd_data['local_flux_view'],
+                  'local_flux_even_view': even_data['local_flux_view'],
+                  }
+
+    flux_views_var = {'global_flux_view': glob_flux_view_var,
+                      'local_flux_view': loc_flux_view_var,
+                      'local_flux_odd_view': odd_data['local_flux_view_se'],
+                      'local_flux_even_view': even_data['local_flux_view_se'],
                       }
 
-        flux_views_var = {'global_flux_view': glob_flux_view_var / max(1, num_transits['flux']),
-                          'local_flux_view': loc_flux_view_var / max(1, num_transits['flux']),
-                          'local_flux_odd_view': loc_flux_odd_view_var / max(1, num_transits['flux_odd']),
-                          'local_flux_even_view': loc_flux_even_view_var / max(1, num_transits['flux_even']),
-                          }
+    # create local view for the weak secondary flux
+    loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, inds_bin_nan['local_wks'], bin_counts = \
+        local_view(time_noprimary,
+                   flux_noprimary,
+                   tce['tce_period'],
+                   tce['tce_duration'],
+                   tce=tce,
+                   normalize=False,
+                   centering=False,
+                   num_durations=config['num_durations'],
+                   num_bins=config['num_bins_loc'],
+                   bin_width_factor=config['bin_width_factor_loc'],
+                   report={'config': config, 'tce': tce, 'view': 'local_wks_view'}
+                   )
 
-        # get median and std statistics for global and local flux views
-        flux_views_stats = {'median': {'global': np.median(flux_views['global_flux_view']),
-                                       'local': np.median(flux_views['local_flux_view'])}}
-        flux_views_stats['min'] = {'global': np.abs(np.min(flux_views['global_flux_view'] -
-                                                           flux_views_stats['median']['global'])),
-                                   'local': np.abs(np.min(flux_views['local_flux_view'] -
-                                                          flux_views_stats['median']['local']))}
+    bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+    loc_weak_secondary_view_var /= np.sqrt(bin_counts)
+    binned_timeseries['Local Weak Secondary Flux'] = (binned_time,
+                                                      loc_weak_secondary_view,
+                                                      loc_weak_secondary_view_var
+                                                      )
 
-        # center by the flux view median and normalize by the flux view absolute minimum
-        views_aux = {}
-        for flux_view in flux_views:
-            views_aux[f'{flux_view}_fluxnorm'] = \
-                centering_and_normalization(flux_views[flux_view],
-                                            flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-                                            flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-        flux_views.update(views_aux)
-        views_aux = {}
-        for flux_view in flux_views_var:
-            views_aux[f'{flux_view}_fluxnorm'] = \
-                centering_and_normalization(flux_views_var[flux_view],
-                                            0,
-                                            flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-        flux_views_var.update(views_aux)
+    # if plot_preprocessing_tce:
+    #     utils_visualization.plot_wks(glob_view, glob_view_weak_secondary, tce, config,
+    #                                  os.path.join(config['output_dir'], 'plots'), '8_wks_test')
 
-        # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
-        weak_secondary_flux_views = {
-                                     'local_weak_secondary_view': loc_weak_secondary_view
-                                     }
-        weak_secondary_flux_views_var = {
-                                     'local_weak_secondary_view': loc_weak_secondary_view_var / max(1, num_transits['wks'])
-                                     }
-        views_aux = {}
-        for flux_view in weak_secondary_flux_views:
+    # get median and std statistics for global and local flux views
+    flux_views_stats = {'median': {'global': np.median(flux_views['global_flux_view']),
+                                   'local': np.median(flux_views['local_flux_view'])}}
+    flux_views_stats['min'] = {'global': np.abs(np.min(flux_views['global_flux_view'] -
+                                                       flux_views_stats['median']['global'])),
+                               'local': np.abs(np.min(flux_views['local_flux_view'] -
+                                                      flux_views_stats['median']['local']))}
 
-            weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
-            norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] -
-                                                          weak_secondary_view_median))
+    # center by the flux view median and normalize by the flux view absolute minimum
+    views_aux = {}
+    for flux_view in flux_views:
+        views_aux[f'{flux_view}_fluxnorm'] = \
+            centering_and_normalization(flux_views[flux_view],
+                                        flux_views_stats['median'][('local', 'global')['global' in flux_view]],
+                                        flux_views_stats['min'][('local', 'global')['global' in flux_view]],
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+    flux_views.update(views_aux)
+    views_aux = {}
+    for flux_view in flux_views_var:
+        views_aux[f'{flux_view}_fluxnorm'] = \
+            centering_and_normalization(flux_views_var[flux_view],
+                                        0,
+                                        flux_views_stats['min'][('local', 'global')['global' in flux_view]],
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+    flux_views_var.update(views_aux)
 
-            # normalize by self absolute minimum
-            views_aux[f'{flux_view}_selfnorm'] = \
-                centering_and_normalization(weak_secondary_flux_views[flux_view],
-                                            weak_secondary_view_median,
-                                            norm_wks_factor_selfnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-            # normalize by flux absolute minimum
-            norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
-            views_aux[f'{flux_view}_fluxnorm'] = \
-                centering_and_normalization(weak_secondary_flux_views[flux_view],
-                                            flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-                                            norm_wks_factor_fluxnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-            # normalize by max between flux absolute minimum and wks flux absolute minimum
-            norm_wks_factor_fluxselfnorm = max(norm_wks_factor_fluxnorm, norm_wks_factor_selfnorm),
-            views_aux[f'{flux_view}_max_flux-wks_norm'] = \
-                centering_and_normalization(weak_secondary_flux_views[flux_view],
-                                            flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-                                            norm_wks_factor_fluxselfnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-        weak_secondary_flux_views.update(views_aux)
-        views_aux = {}
-        for flux_view in weak_secondary_flux_views_var:
-
-            weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
-            norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] -
-                                                     weak_secondary_view_median))
-
-            # normalize by self absolute minimum
-            views_aux[f'{flux_view}_selfnorm'] = \
-                centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-                                            0,
-                                            norm_wks_factor_selfnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-            # normalize by flux absolute minimum
-            norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
-            views_aux[f'{flux_view}_fluxnorm'] = \
-                centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-                                            0,
-                                            norm_wks_factor_fluxnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-            # normalize by max between flux absolute minimum and wks flux absolute minimum
-            norm_wks_factor_fluxselfnorm = max(norm_wks_factor_selfnorm, norm_wks_factor_fluxnorm)
-            views_aux[f'{flux_view}_max_flux-wks_norm'] = \
-                centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-                                            0,
-                                            norm_wks_factor_fluxselfnorm,
-                                            report={'config': config, 'tce': tce, 'view': flux_view}
-                                            )
-        weak_secondary_flux_views_var.update(views_aux)
-
-        # get centroid views
-        glob_centr_view, binned_time, glob_centr_view_var, inds_bin_nan['global_centroid'] = global_view(time_centroid_dist,
-                                                                           centroid_dist,
-                                                                        tce['tce_period'],
-                                                                           tce=tce,
-                                                                        centroid=True,
-                                                                        normalize=False,
-                                                                        centering=False,
-                                                                        num_bins=config['num_bins_glob'],
-                                                                        bin_width_factor=config['bin_width_factor_glob'],
-                                                                        report={'config': config, 'tce': tce,
-                                                                                'view': 'global_centr_view'},
-                                                                        tce_duration=tce['tce_duration']
-                                                                        )
-        binned_timeseries['Global Centroid Offset Distance'] = (binned_time, glob_centr_view, glob_centr_view_var)
-        loc_centr_view, binned_time, loc_centr_view_var, inds_bin_nan['local_centroid'] = local_view(time_centroid_dist,
-                                                                        centroid_dist,
-                                                                     tce['tce_period'],
-                                                                        tce['tce_duration'],
-                                                                        tce=tce,
-                                                                     centroid=True,
-                                                                     normalize=False,
-                                                                     centering=False,
-                                                                     num_durations=config['num_durations'],
-                                                                     num_bins=config['num_bins_loc'],
-                                                                     bin_width_factor=config['bin_width_factor_loc'],
-                                                                     report={'config': config, 'tce': tce,
-                                                                             'view': 'local_centr_view'}
-                                                                     )
-        binned_timeseries['Local Centroid Offset Distance'] = (binned_time, loc_centr_view, loc_centr_view_var)
-
-        # if plot_preprocessing_tce:
-        #     utils_visualization.plot_centroids_views(glob_centr_view, loc_centr_view, tce, config,
-        #                                              os.path.join(config['output_dir'], 'plots'),
-        #                                              f'7_non-normalized_centroid_views_aug{tce["augmentation_idx"]}')
-
-        # get median statistics for global and local centroid views
-        centr_views_stats = {'median': {'global': np.median(glob_centr_view),
-                                        'local': np.median(loc_centr_view)}
-                             }
-
-        # median centering, absolute and max normalization of the centroid views
-        # removes magnitude and direction of shift; describes shift relative to oot only
-        # defined in [0, 1]
-        glob_centr_view_medc_abs_maxn = centering_and_normalization(glob_centr_view,
-                                                                    centr_views_stats['median']['global'],
-                                                                    1,
-                                                                    # np.max(glob_centr_view - centr_views_stats['median']['global']),
-                                                                    report={'config': config, 'tce': tce,
-                                                                            'view': 'global_centr_view_medcmaxn'}
-                                                                    )
-        glob_centr_view_medc_abs_maxn = np.abs(glob_centr_view_medc_abs_maxn)
-        normval = np.max(glob_centr_view_medc_abs_maxn)
-        if normval != 0:
-            glob_centr_view_medc_abs_maxn /= normval
-        else:
-            print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
-            report_exclusion(config, tce,
-                             f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
-
-        loc_centr_view_medc_abs_maxn = centering_and_normalization(loc_centr_view,
-                                                                   centr_views_stats['median']['local'],
-                                                                   1,
-                                                                   # np.max(loc_centr_view - centr_views_stats['median']['local']),
-                                                                   report={'config': config, 'tce': tce,
-                                                                           'view': 'local_centr_view_medcmaxn'}
-                                                                   )
-        loc_centr_view_medc_abs_maxn = np.abs(loc_centr_view_medc_abs_maxn)
-        normval = np.max(loc_centr_view_medc_abs_maxn)
-        if normval != 0:
-            loc_centr_view_medc_abs_maxn /= normval
-        else:
-            print('Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
-            report_exclusion(config, tce,
-                             f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
-
-        # median centering, max absolute normalization of the centroid views
-        # removes magnitude of shift, but keeps direction of shift from oot relative to the target star
-        # closer to -1, closer to target star; closer to 0, closer to oot; closer to 1, further from target star
-        # defined in [-1, 1]
-        glob_centr_view_medc_maxabsn = centering_and_normalization(glob_centr_view,
-                                                                   centr_views_stats['median']['global'],
-                                                                   1,
-                                                                   # np.max(glob_centr_view - centr_views_stats['median']['global']),
-                                                                   report={'config': config, 'tce': tce,
-                                                                           'view': 'global_centr_view_medcmaxn'}
-                                                                   )
-        normval = np.max(np.abs(glob_centr_view_medc_maxabsn))
-        if normval != 0:
-            glob_centr_view_medc_maxabsn /= normval
-        else:
-            print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
-            report_exclusion(config, tce,
-                             f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
-
-        loc_centr_view_medc_maxabsn = centering_and_normalization(loc_centr_view,
-                                                                  centr_views_stats['median']['local'],
-                                                                  1,
-                                                                  # np.max(loc_centr_view - centr_views_stats['median']['local']),
-                                                                  report={'config': config, 'tce': tce,
-                                                                          'view': 'local_centr_view_medcmaxn'}
-                                                                  )
-        normval = np.max(np.abs(loc_centr_view_medc_maxabsn))
-        if normval != 0:
-            loc_centr_view_medc_maxabsn /= normval
-        else:
-            print('Dividing view by 0. Returning the non-normalized view.')
-            report_exclusion(config, tce,
-                             f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn_dir.')
-
-        # median normalization for centroid views
-        # centroid is normalized by oot value, which is set to around 1
-        # the shift is scaled by oot, so bound is not defined [P/N, 1] or [1, P/N]
-        glob_centr_view_mn = centering_and_normalization(glob_centr_view, 0, centr_views_stats['median']['global'],
-                                                         report={'config': config, 'tce': tce,
-                                                                 'view': 'global_centr_view_medn'}
-                                                         )
-        loc_centr_view_mn = centering_and_normalization(loc_centr_view, 0, centr_views_stats['median']['local'],
-                                                        report={'config': config, 'tce': tce,
-                                                                'view': 'local_centr_view_medn'}
-                                                        )
-
-        # FDL centroid normalization
-        # non-normalized views that need to be normalized using statistics from the training set
-        glob_centr_fdl_view, _, _, _ = global_view(time_centroid_dist_fdl,
-                                                   centroid_dist_fdl,
-                                                   tce['tce_period'],
-                                                   tce=tce,
-                                                   centroid=True,
-                                                   normalize=False,
-                                                   centering=False,
-                                                   num_bins=config['num_bins_glob'],
-                                                   bin_width_factor=config['bin_width_factor_glob'],
-                                                   report={'config': config, 'tce': tce,
-                                                           'view': 'global_centr_fdl_view'},
-                                                   tce_duration=tce['tce_duration']
-                                                   )
-        loc_centr_fdl_view, _, _, _ = local_view(time_centroid_dist_fdl,
-                                                 centroid_dist_fdl,
+    # create local flux view for detecting non-centered transits
+    loc_flux_view_shift, _, _, _, _ = local_view(time,
+                                                 flux,
                                                  tce['tce_period'],
                                                  tce['tce_duration'],
                                                  tce=tce,
-                                                 centroid=True,
                                                  normalize=False,
                                                  centering=False,
-                                                 num_durations=config['num_durations'],
+                                                 num_durations=5,
                                                  num_bins=config['num_bins_loc'],
                                                  bin_width_factor=config['bin_width_factor_loc'],
-                                                 report={'config': config, 'tce': tce, 'view': 'local_centr_fdl_view'}
+                                                 report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                                                  )
+    flux_views['local_flux_view_shift'] = loc_flux_view_shift
+    med_view = np.median(flux_views['local_flux_view_shift'])
+    flux_views['local_flux_view_shift_fluxnorm'] = \
+        centering_and_normalization(flux_views['local_flux_view_shift'],
+                                    med_view,
+                                    np.abs(np.min(flux_views['local_flux_view_shift'] - med_view)),
+                                    report={'config': config, 'tce': tce, 'view': 'local_flux_view_shift'})
 
-        # if plot_preprocessing_tce:
-        #     utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
-        #                                              os.path.join(config['output_dir'], 'plots'),
-        #                                              '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
+    # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
+    weak_secondary_flux_views = {
+                                 'local_weak_secondary_view': loc_weak_secondary_view
+                                 }
+    weak_secondary_flux_views_var = {
+                                 'local_weak_secondary_view': loc_weak_secondary_view_var
+                                 }
+    views_aux = {}
+    for flux_view in weak_secondary_flux_views:
 
-        centr_views = {'global_centr_view': glob_centr_view,
-                       'local_centr_view': loc_centr_view,
-                       'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
-                       'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
-                       'global_centr_view_medn': glob_centr_view_mn,
-                       'local_centr_view_medn': loc_centr_view_mn,
-                       'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
-                       'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
-                       'global_centr_fdl_view': glob_centr_fdl_view,
-                       'local_centr_fdl_view': loc_centr_fdl_view
+        weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
+        norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] - weak_secondary_view_median))
+
+        # normalize by self absolute minimum
+        views_aux[f'{flux_view}_selfnorm'] = \
+            centering_and_normalization(weak_secondary_flux_views[flux_view],
+                                        weak_secondary_view_median,
+                                        norm_wks_factor_selfnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+        # normalize by flux absolute minimum
+        norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
+        views_aux[f'{flux_view}_fluxnorm'] = \
+            centering_and_normalization(weak_secondary_flux_views[flux_view],
+                                        flux_views_stats['median'][('local', 'global')['global' in flux_view]],
+                                        norm_wks_factor_fluxnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+        # normalize by max between flux absolute minimum and wks flux absolute minimum
+        norm_wks_factor_fluxselfnorm = max(norm_wks_factor_fluxnorm, norm_wks_factor_selfnorm),
+        views_aux[f'{flux_view}_max_flux-wks_norm'] = \
+            centering_and_normalization(weak_secondary_flux_views[flux_view],
+                                        flux_views_stats['median'][('local', 'global')['global' in flux_view]],
+                                        norm_wks_factor_fluxselfnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+    weak_secondary_flux_views.update(views_aux)
+
+    views_aux = {}
+    for flux_view in weak_secondary_flux_views_var:
+
+        weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
+        norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] -
+                                                 weak_secondary_view_median))
+
+        # normalize by self absolute minimum
+        views_aux[f'{flux_view}_selfnorm'] = \
+            centering_and_normalization(weak_secondary_flux_views_var[flux_view],
+                                        0,
+                                        norm_wks_factor_selfnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+        # normalize by flux absolute minimum
+        norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
+        views_aux[f'{flux_view}_fluxnorm'] = \
+            centering_and_normalization(weak_secondary_flux_views_var[flux_view],
+                                        0,
+                                        norm_wks_factor_fluxnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+        # normalize by max between flux absolute minimum and wks flux absolute minimum
+        norm_wks_factor_fluxselfnorm = max(norm_wks_factor_selfnorm, norm_wks_factor_fluxnorm)
+        views_aux[f'{flux_view}_max_flux-wks_norm'] = \
+            centering_and_normalization(weak_secondary_flux_views_var[flux_view],
+                                        0,
+                                        norm_wks_factor_fluxselfnorm,
+                                        report={'config': config, 'tce': tce, 'view': flux_view}
+                                        )
+    weak_secondary_flux_views_var.update(views_aux)
+
+    # get centroid views
+    glob_centr_view, binned_time, glob_centr_view_var, inds_bin_nan['global_centroid'], bin_counts = \
+        global_view(time_centroid_dist,
+                    centroid_dist,
+                    tce['tce_period'],
+                    tce=tce,
+                    centroid=True,
+                    normalize=False,
+                    centering=False,
+                    num_bins=config['num_bins_glob'],
+                    bin_width_factor=config['bin_width_factor_glob'],
+                    report={'config': config, 'tce': tce,
+                            'view': 'global_centr_view'},
+                    tce_duration=tce['tce_duration']
+                    )
+
+    bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+    glob_centr_view_var /= np.sqrt(bin_counts)
+    binned_timeseries['Global Centroid Offset Distance'] = (binned_time, glob_centr_view, glob_centr_view_var)
+
+    loc_centr_view, binned_time, loc_centr_view_var, inds_bin_nan['local_centroid'], bin_counts = \
+        local_view(time_centroid_dist,
+                   centroid_dist,
+                   tce['tce_period'],
+                   tce['tce_duration'],
+                   tce=tce,
+                   centroid=True,
+                   normalize=False,
+                   centering=False,
+                   num_durations=config['num_durations'],
+                   num_bins=config['num_bins_loc'],
+                   bin_width_factor=config['bin_width_factor_loc'],
+                   report={'config': config, 'tce': tce,
+                           'view': 'local_centr_view'}
+                   )
+
+    bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+    loc_centr_view_var /= np.sqrt(bin_counts)
+    binned_timeseries['Local Centroid Offset Distance'] = (binned_time, loc_centr_view, loc_centr_view_var)
+
+    # if plot_preprocessing_tce:
+    #     utils_visualization.plot_centroids_views(glob_centr_view, loc_centr_view, tce, config,
+    #                                              os.path.join(config['output_dir'], 'plots'),
+    #                                              f'7_non-normalized_centroid_views_aug{tce["augmentation_idx"]}')
+
+    # # get median statistics for global and local centroid views
+    # centr_views_stats = {'median': {'global': np.median(glob_centr_view),
+    #                                 'local': np.median(loc_centr_view)}
+    #                      }
+    #
+    # # median centering, absolute and max normalization of the centroid views
+    # # removes magnitude and direction of shift; describes shift relative to oot only
+    # # defined in [0, 1]
+    # glob_centr_view_medc_abs_maxn = centering_and_normalization(glob_centr_view,
+    #                                                             centr_views_stats['median']['global'],
+    #                                                             1,
+    #                                                             # np.max(glob_centr_view - centr_views_stats['median']['global']),
+    #                                                             report={'config': config, 'tce': tce,
+    #                                                                     'view': 'global_centr_view_medcmaxn'}
+    #                                                             )
+    # glob_centr_view_medc_abs_maxn = np.abs(glob_centr_view_medc_abs_maxn)
+    # normval = np.max(glob_centr_view_medc_abs_maxn)
+    # if normval != 0:
+    #     glob_centr_view_medc_abs_maxn /= normval
+    # else:
+    #     print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
+    #     report_exclusion(config, tce,
+    #                      f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
+    #
+    # loc_centr_view_medc_abs_maxn = centering_and_normalization(loc_centr_view,
+    #                                                            centr_views_stats['median']['local'],
+    #                                                            1,
+    #                                                            # np.max(loc_centr_view - centr_views_stats['median']['local']),
+    #                                                            report={'config': config, 'tce': tce,
+    #                                                                    'view': 'local_centr_view_medcmaxn'}
+    #                                                            )
+    # loc_centr_view_medc_abs_maxn = np.abs(loc_centr_view_medc_abs_maxn)
+    # normval = np.max(loc_centr_view_medc_abs_maxn)
+    # if normval != 0:
+    #     loc_centr_view_medc_abs_maxn /= normval
+    # else:
+    #     print('Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
+    #     report_exclusion(config, tce,
+    #                      f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
+    #
+    # # median centering, max absolute normalization of the centroid views
+    # # removes magnitude of shift, but keeps direction of shift from oot relative to the target star
+    # # closer to -1, closer to target star; closer to 0, closer to oot; closer to 1, further from target star
+    # # defined in [-1, 1]
+    # glob_centr_view_medc_maxabsn = centering_and_normalization(glob_centr_view,
+    #                                                            centr_views_stats['median']['global'],
+    #                                                            1,
+    #                                                            # np.max(glob_centr_view - centr_views_stats['median']['global']),
+    #                                                            report={'config': config, 'tce': tce,
+    #                                                                    'view': 'global_centr_view_medcmaxn'}
+    #                                                            )
+    # normval = np.max(np.abs(glob_centr_view_medc_maxabsn))
+    # if normval != 0:
+    #     glob_centr_view_medc_maxabsn /= normval
+    # else:
+    #     print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
+    #     report_exclusion(config, tce,
+    #                      f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
+    #
+    # loc_centr_view_medc_maxabsn = centering_and_normalization(loc_centr_view,
+    #                                                           centr_views_stats['median']['local'],
+    #                                                           1,
+    #                                                           # np.max(loc_centr_view - centr_views_stats['median']['local']),
+    #                                                           report={'config': config, 'tce': tce,
+    #                                                                   'view': 'local_centr_view_medcmaxn'}
+    #                                                           )
+    # normval = np.max(np.abs(loc_centr_view_medc_maxabsn))
+    # if normval != 0:
+    #     loc_centr_view_medc_maxabsn /= normval
+    # else:
+    #     print('Dividing view by 0. Returning the non-normalized view.')
+    #     report_exclusion(config, tce,
+    #                      f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn_dir.')
+    #
+    # # median normalization for centroid views
+    # # centroid is normalized by oot value, which is set to around 1
+    # # the shift is scaled by oot, so bound is not defined [P/N, 1] or [1, P/N]
+    # glob_centr_view_mn = centering_and_normalization(glob_centr_view, 0, centr_views_stats['median']['global'],
+    #                                                  report={'config': config, 'tce': tce,
+    #                                                          'view': 'global_centr_view_medn'}
+    #                                                  )
+    # loc_centr_view_mn = centering_and_normalization(loc_centr_view, 0, centr_views_stats['median']['local'],
+    #                                                 report={'config': config, 'tce': tce,
+    #                                                         'view': 'local_centr_view_medn'}
+    #                                                 )
+
+    # FDL centroid normalization
+    # non-normalized views that need to be normalized using statistics from the training set
+    glob_centr_fdl_view, _, _, _, _ = global_view(time_centroid_dist_fdl,
+                                                  centroid_dist_fdl,
+                                                  tce['tce_period'],
+                                                  tce=tce,
+                                                  centroid=True,
+                                                  normalize=False,
+                                                  centering=False,
+                                                  num_bins=config['num_bins_glob'],
+                                                  bin_width_factor=config['bin_width_factor_glob'],
+                                                  report={'config': config, 'tce': tce,
+                                                          'view': 'global_centr_fdl_view'},
+                                                  tce_duration=tce['tce_duration']
+                                                  )
+    loc_centr_fdl_view, _, _, _, _ = local_view(time_centroid_dist_fdl,
+                                                centroid_dist_fdl,
+                                                tce['tce_period'],
+                                                tce['tce_duration'],
+                                                tce=tce,
+                                                centroid=True,
+                                                normalize=False,
+                                                centering=False,
+                                                num_durations=config['num_durations'],
+                                                num_bins=config['num_bins_loc'],
+                                                bin_width_factor=config['bin_width_factor_loc'],
+                                                report={'config': config, 'tce': tce,
+                                                        'view': 'local_centr_fdl_view'}
+                                                )
+
+    # if plot_preprocessing_tce:
+    #     utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
+    #                                              os.path.join(config['output_dir'], 'plots'),
+    #                                              '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
+
+    centr_views = {'global_centr_view': glob_centr_view,
+                   'local_centr_view': loc_centr_view,
+                   # 'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
+                   # 'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
+                   # 'global_centr_view_medn': glob_centr_view_mn,
+                   # 'local_centr_view_medn': loc_centr_view_mn,
+                   # 'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
+                   # 'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
+                   'global_centr_fdl_view': glob_centr_fdl_view,
+                   'local_centr_fdl_view': loc_centr_fdl_view
+                   }
+
+    centr_views_var = {'global_centr_view': glob_centr_view_var,
+                       'local_centr_view': loc_centr_view_var,
                        }
 
-        centr_views_var = {'global_centr_view': glob_centr_view_var / max(1, num_transits['centroid']),
-                           'local_centr_view': loc_centr_view_var / max(1, num_transits['centroid']),
-                           }
+    # initialize dictionary with the views that will be stored in the TFRecords example for this TCE
+    views = {}
+    views.update(flux_views)
+    views.update(weak_secondary_flux_views)
+    views.update(centr_views)
 
-        # initialize dictionary with the views that will be stored in the TFRecords example for this TCE
-        views = {}
-        views.update(flux_views)
-        views.update(weak_secondary_flux_views)
-        views.update(centr_views)
+    views_var = {}
+    views_var.update(flux_views_var)
+    views_var.update(weak_secondary_flux_views_var)
+    views_var.update(centr_views_var)
 
-        views_var = {}
-        views_var.update(flux_views_var)
-        views_var.update(weak_secondary_flux_views_var)
-        views_var.update(centr_views_var)
+    if plot_preprocessing_tce:
+        # CHANGE NUMBER OF VIEWS PLOTTED!!!
+        views_to_plot = ['global_flux_view',
+                         'local_flux_view',
+                         'local_flux_odd_view',
+                         'local_flux_even_view',
+                         'global_flux_view_fluxnorm',
+                         'local_flux_view_fluxnorm',
+                         'local_flux_odd_view_fluxnorm',
+                         'local_flux_even_view_fluxnorm',
+                         'local_weak_secondary_view',
+                         'local_weak_secondary_view_selfnorm',
+                         'local_weak_secondary_view_max_flux-wks_norm',
+                         'local_weak_secondary_view_fluxnorm',
+                         'global_centr_view',
+                         'local_centr_view',
+                         'global_centr_fdl_view',
+                         'local_centr_fdl_view'
+                         ]
+        views_plot = {view_name: view for view_name, view in views.items() if view_name in views_to_plot}
+        utils_visualization.plot_all_views(views_plot, tce, config, (4, 4),
+                                           os.path.join(config['output_dir'], 'plots'),
+                                           f'8_final_views_aug{tce["augmentation_idx"]}',
+                                           num_transits)
 
-        if plot_preprocessing_tce:
-            # CHANGE NUMBER OF VIEWS PLOTTED!!!
-            views_to_plot = ['global_flux_view',
-                             'local_flux_view',
-                             'local_flux_odd_view',
-                             'local_flux_even_view',
-                             'global_flux_view_fluxnorm',
-                             'local_flux_view_fluxnorm',
-                             'local_flux_odd_view_fluxnorm',
-                             'local_flux_even_view_fluxnorm',
-                             'local_weak_secondary_view',
-                             'local_weak_secondary_view_selfnorm',
-                             'local_weak_secondary_view_max_flux-wks_norm',
-                             'local_weak_secondary_view_fluxnorm',
-                             'global_centr_view',
-                             'local_centr_view',
-                             'global_centr_fdl_view',
-                             'local_centr_fdl_view'
-                             ]
-            views_plot = {view_name: view for view_name, view in views.items() if view_name in views_to_plot}
-            utils_visualization.plot_all_views(views_plot, tce, config, (4, 4),
+        utils_visualization.plot_phasefolded_and_binned(phasefolded_timeseries,
+                                                        binned_timeseries,
+                                                        tce,
+                                                        config,
+                                                        os.path.join(config['output_dir'], 'plots'),
+                                                        f'8_phasefoldedbinned_timeseries_'
+                                                        f'aug{tce["augmentation_idx"]}'
+                                                        )
+
+        views_var_plot = views_var
+        utils_visualization.plot_all_views_var({view_name: view for view_name, view in views.items()
+                                                if view_name in views_var_plot},
+                                               views_var_plot,
+                                               tce, config, (4, 4),
                                                os.path.join(config['output_dir'], 'plots'),
-                                               f'8_final_views_aug{tce["augmentation_idx"]}',
+                                               f'8_final_views_with_var_aug{tce["augmentation_idx"]}',
                                                num_transits)
+        # utils_visualization.plot_all_views(views_var_plot,
+        #                                    tce, config, (4, 4),
+        #                                    os.path.join(config['output_dir'], 'plots'),
+        #                                    f'8_final_views_var_aug{tce["augmentation_idx"]}',
+        #                                    num_transits)
 
-            utils_visualization.plot_phasefolded_and_binned(phasefolded_timeseries,
-                                                            binned_timeseries,
-                                                            tce,
-                                                            config,
-                                                            os.path.join(config['output_dir'], 'plots'),
-                                                            f'8_phasefoldedbinned_timeseries_'
-                                                            f'aug{tce["augmentation_idx"]}'
-                                                            )
-
-            views_var_plot = views_var
-            utils_visualization.plot_all_views_var({view_name: view for view_name, view in views.items()
-                                                    if view_name in views_var_plot},
-                                                   views_var_plot,
-                                                   tce, config, (4, 4),
-                                                   os.path.join(config['output_dir'], 'plots'),
-                                                   f'8_final_views_with_var_aug{tce["augmentation_idx"]}',
-                                                   num_transits)
-            # utils_visualization.plot_all_views(views_var_plot,
-            #                                    tce, config, (4, 4),
-            #                                    os.path.join(config['output_dir'], 'plots'),
-            #                                    f'8_final_views_var_aug{tce["augmentation_idx"]}',
-            #                                    num_transits)
-
-    except Exception as e:
-        report_exclusion(config, tce, 'Error when creating views', stderr=e)
-        return None
+    # except Exception as e:
+    #     report_exclusion(config, tce, 'Error when creating views', stderr=e)
+    #     return None
 
     # check if time series have NaN values
     for view in views:
@@ -2304,9 +2329,17 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     for view in num_transits:
         example_util.set_int64_feature(ex, f'{view}_num_transits', [num_transits[view]])
 
-    # add odd and even stats
-    for stat, val in odd_even_stats.items():
-        example_util.set_float_feature(ex, stat, [val])
+    # add odd and even non timeseries features
+    for field in odd_data:
+        if field not in ['local_flux_view', 'local_flux_view_se', 'binned_time']:
+            if 'se_oot' in field:  # normalize oot SE by normalization factor used for both odd and even flux views
+                example_util.set_float_feature(ex, f'odd_{field}',
+                                               [odd_data[field] / flux_views_stats['min']['local']])
+                example_util.set_float_feature(ex, f'even_{field}',
+                                               [even_data[field] / flux_views_stats['min']['local']])
+            else:
+                example_util.set_float_feature(ex, f'odd_{field}', [odd_data[field]])
+                example_util.set_float_feature(ex, f'even_{field}', [even_data[field]])
 
     # TODO: add this feature to the TCE table or compute it here?
     # add ghost diagnostic statistic difference
@@ -2315,36 +2348,62 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     # data for preprocessing table
     if config['satellite'] == 'tess':
         example_stats['sectors'] = tce['sectors']
+
     example_stats.update({f'num_transits_{view}': num_tr for view, num_tr in num_transits.items()})
-    example_stats.update(odd_even_stats)
+    example_stats.update({f'odd_{key}': val for key, val in odd_data.items()
+                          if key not in ['local_flux_view', 'local_flux_view_se', 'binned_time']})
+    example_stats.update({f'even_{key}': val for key, val in even_data.items()
+                          if key not in ['local_flux_view', 'local_flux_view_se', 'binned_time']})
     example_stats['odd_even_flag'] = odd_even_flag
-    example_stats['avg_oot_centroid_offset'] = np.median(glob_centr_view)
-    example_stats['std_oot_centroid_offset'] = mad_std(glob_centr_view)
-    example_stats['peak_centroid_offset'] = np.max(loc_centr_view) - example_stats['avg_oot_centroid_offset']
+
+    glob_centr_oot_bins = (binned_timeseries['Global Centroid Offset Distance'][0] < t_min_transit) | \
+                          (binned_timeseries['Global Centroid Offset Distance'][0] > t_max_transit)
+    loc_centr_it_bins = (binned_timeseries['Local Centroid Offset Distance'][0] >= t_min_transit) & \
+                        (binned_timeseries['Local Centroid Offset Distance'][0] <= t_max_transit)
+    example_stats['avg_oot_centroid_offset'] = np.median(glob_centr_view[glob_centr_oot_bins])
+    example_stats['std_oot_centroid_offset'] = mad_std(glob_centr_view[glob_centr_oot_bins])
+    example_stats['peak_centroid_offset'] = np.max(loc_centr_view[loc_centr_it_bins]) - \
+                                            example_stats['avg_oot_centroid_offset']
+
     example_stats['mid_local_flux_shift'] = np.argmin(loc_flux_view) - int(config['num_bins_loc'] / 2)
     example_stats['mid_global_flux_shift'] = np.argmin(glob_flux_view) - int(config['num_bins_glob'] / 2)
-    example_stats['transit_depth_hat'] = (1 - views['local_flux_view'][int(config['num_bins_loc'] / 2)]) * 1e6
-    example_stats['transit_depth_hat_std'] = loc_flux_view_var[int(config['num_bins_loc'] / 2)] / \
-                                             np.sqrt(max(num_transits['flux'], 1)) * 1e6
-    example_stats['transit_depth_odd_hat'] = (1 - views['local_flux_odd_view'][int(config['num_bins_loc'] / 2)]) * 1e6
-    example_stats['transit_depth_odd_hat_std'] = loc_flux_odd_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                 np.sqrt(max(num_transits['flux_odd'], 1)) * 1e6
-    example_stats['transit_depth_even_hat'] = (1 - views['local_flux_even_view'][int(config['num_bins_loc'] / 2)]) * 1e6
-    example_stats['transit_depth_even_hat_std'] = loc_flux_even_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                  np.sqrt(max(num_transits['flux_even'], 1)) * 1e6
-    example_stats['wks_transit_depth_hat'] = (1 - views['local_weak_secondary_view'][int(config['num_bins_loc'] / 2)]) \
-                                             * 1e6
-    example_stats['wks_transit_depth_hat_std'] = loc_weak_secondary_view_var[int(config['num_bins_loc'] / 2)] / \
-                                                 np.sqrt(max(1, num_transits['wks'])) * 1e6
-    for param in ['avg_oot_centroid_offset', 'std_oot_centroid_offset', 'peak_centroid_offset', 'transit_depth_hat',
-                  'transit_depth_hat_std', 'transit_depth_odd_hat', 'transit_depth_odd_hat_std',
-                  'transit_depth_even_hat', 'transit_depth_even_hat_std', 'wks_transit_depth_hat',
-                  'wks_transit_depth_hat_std']:
-        example_util.set_float_feature(ex, param, [example_stats[param]])
-    for param in ['mid_local_flux_shift', 'mid_global_flux_shift']:
-        example_util.set_int64_feature(ex, param, [example_stats[param]])
-    # add number of empty bins
-    for view_name, val in inds_bin_nan.items():
-        example_stats[f'empty_bins_{view_name}'] = val['oot'].sum() + val['it'].sum()
+
+    loc_flux_it_bins = (binned_timeseries['Local Flux'][0] >= t_min_transit) & \
+                       (binned_timeseries['Local Flux'][0] <= t_max_transit)
+    ind = np.argmin(views['local_flux_view'][loc_flux_it_bins])
+    example_stats['transit_depth_hat'] = (1 - views['local_flux_view'][loc_flux_it_bins][ind]) * 1e6
+    example_stats['transit_depth_hat_se'] = loc_flux_view_var[loc_flux_it_bins][ind] * 1e6
+
+    loc_flux_odd_it_bins = (binned_timeseries['Local Odd Flux'][0] >= t_min_transit) & \
+                           (binned_timeseries['Local Odd Flux'][0] <= t_max_transit)
+    ind = np.argmin(views['local_flux_odd_view'][loc_flux_odd_it_bins])
+    example_stats['transit_depth_odd_hat'] = (1 - views['local_flux_odd_view'][loc_flux_odd_it_bins][ind]) * 1e6
+    example_stats['transit_depth_odd_hat_se'] = odd_data['local_flux_view_se'][loc_flux_odd_it_bins][ind] * 1e6
+
+    loc_flux_even_it_bins = (binned_timeseries['Local Even Flux'][0] >= t_min_transit) & \
+                           (binned_timeseries['Local Even Flux'][0] <= t_max_transit)
+    ind = np.argmin(views['local_flux_even_view'][loc_flux_even_it_bins])
+    example_stats['transit_depth_even_hat'] = (1 - views['local_flux_even_view'][loc_flux_even_it_bins][ind]) * 1e6
+    example_stats['transit_depth_even_hat_se'] = even_data['local_flux_view_se'][loc_flux_even_it_bins][ind] * 1e6
+
+    loc_flux_wks_it_bins = (binned_timeseries['Local Weak Secondary Flux'][0] >= t_min_transit) & \
+                           (binned_timeseries['Local Weak Secondary Flux'][0] <= t_max_transit)
+    ind = np.argmin(views['local_weak_secondary_view'][loc_flux_wks_it_bins])
+    example_stats['wks_transit_depth_hat'] = (1 - views['local_weak_secondary_view'][loc_flux_wks_it_bins][ind]) * 1e6
+    example_stats['wks_transit_depth_hat_se'] = loc_weak_secondary_view_var[loc_flux_wks_it_bins][ind] * 1e6
+
+    # add number of missing bins for each view (excluding odd and even local views)
+    for key in inds_bin_nan:
+        example_stats[f'{key}_num_bins_it_nan'] = inds_bin_nan[key]['it'].sum()
+        example_stats[f'{key}_num_bins_oot_nan'] = inds_bin_nan[key]['oot'].sum()
+
+    # for param in ['avg_oot_centroid_offset', 'std_oot_centroid_offset', 'peak_centroid_offset', 'transit_depth_hat',
+    #               'transit_depth_hat_std', 'transit_depth_odd_hat', 'transit_depth_odd_hat_se',
+    #               'transit_depth_even_hat', 'transit_depth_even_hat_std', 'wks_transit_depth_hat',
+    #               'wks_transit_depth_hat_std']:
+    #     example_util.set_float_feature(ex, param, [example_stats[param]])
+    #
+    # for param in ['mid_local_flux_shift', 'mid_global_flux_shift']:
+    #     example_util.set_int64_feature(ex, param, [example_stats[param]])
 
     return ex, example_stats
