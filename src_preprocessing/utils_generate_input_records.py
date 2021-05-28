@@ -78,10 +78,9 @@ def get_tess_tce_table(config):
         tce_table: pandas DataFrame, table with ephemeris table
     """
 
-    # read the CSV file of TESS TOIs.
-    # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
-    # tce_table = pd.read_csv(config['input_tce_csv_file'], comment="#")
+    # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    tce_table = tce_table.astype(dtype={'sectors': str})
 
     # convert transit duration from hour to day
     tce_table["tce_duration"] /= 24

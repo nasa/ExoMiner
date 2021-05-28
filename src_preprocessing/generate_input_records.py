@@ -62,6 +62,16 @@ def create_preprocessing_config():
     config['gap_with_confidence_level'] = False
     config['gap_confidence_level'] = 0.75
 
+    # binning parameters
+    config['num_bins_glob'] = 301  # number of bins in the global view
+    config['num_bins_loc'] = 31  # number of bins in the local view
+    config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
+    config['bin_width_factor_loc'] = 0.16
+    config['num_durations'] = 2.5  # number of transit duration to include in the local view: 2 * num_durations
+
+    # # True to load denoised centroid time-series instead of the raw from the FITS files
+    # config['get_denoised_centroids'] = False
+
     # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
     # (world coordinates)
     config['px_coordinates'] = False
@@ -84,6 +94,10 @@ def create_preprocessing_config():
     config['pos_outlier_removal'] = False
     config['pos_outlier_removal_sigma'] = 5
     config['pos_outlier_removal_fill'] = True
+
+    config['tess_px_scale'] = 21  # 21 arcseconds per pixel
+    config['kepler_px_scale'] = 3.98  # 3.98 arcseconds per pixel
+    config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
 
     # list with the names of the scalar parameters from the TCE table to be added to the plot of the preprocessed views
     config['scalar_params'] = [
@@ -120,16 +134,6 @@ def create_preprocessing_config():
         'tce_smet',
         'tce_sradius',
     ]
-
-    # binning parameters
-    config['num_bins_glob'] = 301  # number of bins in the global view
-    config['num_bins_loc'] = 31  # number of bins in the local view
-    config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
-    config['bin_width_factor_loc'] = 0.16
-    config['num_durations'] = 2.5  # number of transit duration to include in the local view: 2 * num_durations
-
-    # True to load denoised centroid time-series instead of the raw from the FITS files
-    config['get_denoised_centroids'] = False
 
     if config['satellite'].startswith('kepler'):
 

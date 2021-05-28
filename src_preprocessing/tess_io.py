@@ -248,7 +248,7 @@ def read_tess_light_curve(filenames,
 
         # use quality flags to remove cadences
         MAX_BIT = 16
-        BITS = [2048, 4096, 32768]
+        BITS = []  # [2048, 4096, 32768]
         flags = {bit: np.binary_repr(bit).zfill(MAX_BIT).find('1') for bit in BITS}
         qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
         inds_keep = True * np.ones(len(qflags), dtype='bool')
@@ -257,6 +257,7 @@ def read_tess_light_curve(filenames,
             qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
             inds_keep[qflags_bit] = False
 
+        inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
         time = time[inds_keep]
         flux = flux[inds_keep]
         centroid_x = centroid_x[inds_keep]

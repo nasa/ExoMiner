@@ -120,11 +120,13 @@ def read_light_curve(tce, config):
         (RA, Dec) or local CCD (x, y) pixel coordinates
 
     Raises:
-      IOError: If the light curve files for this target cannot be found.
+        IOError: If the light curve files for this target cannot be found.
     """
 
-    # gets all file paths for the FITS files for this target
-    if config['satellite'] == 'kepler':
+    # gets data from the lc FITS files for the TCE's target star
+    if config['satellite'] == 'kepler':  # Kepler
+
+        # get lc FITS files for the respective target star
         file_names = kepler_io.kepler_filenames(config['lc_data_dir'],
                                                 tce.target_id,
                                                 injected_group=config['injected_group'])
@@ -143,9 +145,12 @@ def read_light_curve(tce, config):
                                                  scramble_type=config['scramble_type'],
                                                  invert=config['invert'])
 
-    else:
+    else:  # TESS
+
+        # get sectors for the run
         sectors = [int(sect) for sect in tce['sectors'].split(' ')]
 
+        # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
         file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
 
         if not file_names:
@@ -676,14 +681,14 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['9002278-4']:
-    if tce['oi'] in [1774.01]:
-        # tce['tce_time0bk'] = 1325.726
-        # tce['tce_period'] = 0.941451
-        # tce['sectors'] = '1'
-        print(tce)
-    else:
-        return None
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['9455556-2']:
+    # if tce['oi'] in [1774.01]:
+    # tce['tce_time0bk'] = 1325.726
+    # tce['tce_period'] = 0.941451
+    # tce['sectors'] = '1'
+    # print(tce)
+    # else:
+    #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = True  # False
@@ -1802,7 +1807,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                               'Centroid Offset Distance FDL': (time_centroid_dist_fdl, centroid_dist_fdl)
                               }
 
-    # remove positive outliers from the phasefolded flux time series
+    # remove positive outliers from the phase folded flux time series
     if config['pos_outlier_removal']:
         phasefolded_timeseries_posout = {ts: (np.array(ts_arr[0]), np.array(ts_arr[1]))
                                          for ts, ts_arr in phasefolded_timeseries.items() if 'Flux' in ts}
@@ -2230,6 +2235,11 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                    'global_centr_fdl_view': glob_centr_fdl_view,
                    'local_centr_fdl_view': loc_centr_fdl_view
                    }
+
+    # adjust TESS centroids to Kepler by dividing by pixel scale factor
+    if config['satellite'] == 'tess':
+        centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
+        centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
 
     centr_views_var = {'global_centr_view': glob_centr_view_var,
                        'local_centr_view': loc_centr_view_var,

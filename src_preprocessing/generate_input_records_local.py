@@ -28,7 +28,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
-    config['tfrecords_base_name'] = 'check_quality_flags_5-6-2021'
+    config['tfrecords_base_name'] = 'testing_tce_table_tess_5-28-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -40,7 +40,7 @@ def create_preprocessing_config():
     config['output_dir'] = config['tfrecords_dir'] / config['tfrecords_base_name']
 
     config['satellite'] = 'tess'  # choose from: 'kepler', 'tess'
-    config['tce_identifier'] = 'oi'  # either 'tce_plnt_num' or 'oi'
+    config['tce_identifier'] = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
 
     # if True, it augments the dataset by applying augmentation techniques to the TCE data
     config['augmentation'] = False
@@ -97,6 +97,10 @@ def create_preprocessing_config():
     config['pos_outlier_removal_sigma'] = 5
     config['pos_outlier_removal_fill'] = True
 
+    config['tess_px_scale'] = 21  # 21 arcseconds per pixel
+    config['kepler_px_scale'] = 3.98  # 3.98 arcseconds per pixel
+    config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
+
     # list with the names of the scalar parameters from the TCE table to be added to the plot of the preprocessed views
     config['scalar_params'] = [
         # 'sectors',
@@ -140,18 +144,12 @@ def create_preprocessing_config():
         'tce_prad',
     ]
 
-    # path to updated TCE table, PDC time series fits files and confidence level dictionary
+    # path to TCE table, lightcurve FITS files and confidence level dictionary
     if config['satellite'].startswith('kepler'):
 
         # TCE table filepath
         config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                                       'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
-        #                      'keplerTPS_KSOP2536_dr25_symsecphase_confirmedkoiperiod.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Scrambled_Q1-Q17_DR25/' \
-        #                      'kplr_dr25_scr1_tces_stellar_processed_withlabels.csv'
-        # input_tce_csv_file = '/data5/tess_project/Data/Ephemeris_tables/Kepler/TPS_tables/Q1-Q17_DR25/' \
-        #                      'keplerTPS_KSOP2536_nontces.csv'
+                                       'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_5-28-2021.csv'
 
         # FITS files directory
         config['lc_data_dir'] = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
@@ -161,9 +159,11 @@ def create_preprocessing_config():
 
     elif config['satellite'] == 'tess':
 
-        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv'
+        # config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv'
+        config[
+            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/tess_tces_s1-s35_recomputed_params.csv'
 
-        config['lc_data_dir'] = '/data5/tess_project/Data/TESS_TOI_fits(MAST)'
+        config['lc_data_dir'] = '/data5/tess_project/Data/TESS_lc_fits'
 
         config['dict_savedir'] = ''
 

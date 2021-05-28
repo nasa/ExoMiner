@@ -70,8 +70,6 @@ for sector_tce_tbl in sector_tce_tbls:
             if col not in sector_tce_tbls[sector_tce_tbl]:
                 sector_tce_tbls[sector_tce_tbl][col] = np.nan
 
-toi_cols = ['TOI', 'TESS Disposition', 'TFOPWG Disposition', 'Period (days)', 'Duration (hours)', 'Depth (ppm)',
-            'Epoch (TBJD)', 'Epoch (BJD)', 'TOI Sectors', 'Comments']
 tce_tbl = pd.DataFrame(columns=list(sector_tce_tbls['31'].columns) + toi_cols + ['match_dist'])
 
 toi_tbl.rename(columns={'Sectors': 'TOI Sectors'}, inplace=True)
@@ -124,7 +122,10 @@ for toi_i, toi in tqdm(matching_tbl.iterrows()):
 tce_tbl_fp = Path(res_dir / f'tess_tce_s1-s34_thr{match_thr}.csv')
 tce_tbl.to_csv(tce_tbl_fp, index=False)
 
-#%% Get TIC parameters from TIC
+# %% Get TIC parameters from TIC
+
+tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/tess_tces_s1-s35.csv')
+tce_tbl = pd.read_csv(tce_tbl_fp)
 
 tic_fields = {
     'tic_teff': 'Teff',
@@ -148,14 +149,18 @@ tic_fields = {
     'tic_version': 'version'
 }
 
-catalog_data = Catalogs.query_criteria(catalog='TIC', ID=toi_tbl['TIC ID'].unique().tolist()).to_pandas()
+# catalog_data = Catalogs.query_criteria(catalog='TIC', ID=toi_tbl['TIC ID'].unique().tolist()).to_pandas()
+catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tce_tbl['target_id'].unique().tolist()).to_pandas()
 
 for tic_i, tic in catalog_data.iterrows():
-    tce_tbl.loc[tce_tbl['ticid'] == int(tic['ID']), tic_fields.keys()] = tic[tic_fields.values()].values
+    # tce_tbl.loc[tce_tbl['ticid'] == int(tic['ID']), tic_fields.keys()] = tic[tic_fields.values()].values
+    tce_tbl.loc[tce_tbl['target_id'] == int(tic['ID']), tic_fields.keys()] = tic[tic_fields.values()].values
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_ticparams.csv', index=False)
 
-#%% Update TIC parameters for the TOIs
+# %% Update TIC parameters for the TCEs
+
+tce_tbl = pd.read_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_ticparams.csv')
 
 tic_map = {
     'tce_steff': 'tic_teff',
@@ -167,57 +172,83 @@ tic_map = {
     'tce_smet': 'tic_met',
     # 'tce_smet_err': 'tic_met_err',
     # 'tce_smass': 'tic_mass',
-    'tce_sdensity': 'tic_rho',
-    # 'tce_sdensity_err': 'tic_rho_err'
+    'tce_sdens': 'tic_rho',
+    # 'tce_sdensity_err': 'tic_rho_err',
+    'ra': 'tic_ra',
+    'dec': 'tic_dec',
+    'mag': 'tic_tmag'
 }
 
-tce_params_cnt = []
-for tce_i, tce in tce_tbl.iterrows():
-    tce_params_cnt_aux = 0
-    for param in tic_map.keys():
-        if np.isnan(tce[param]):
-            tce_tbl.loc[tce_i, [param]] = tce[tic_map[param]]
-            tce_tbl.loc[tce_i, [f'{param}_err']] = tce[f'{tic_map[param]}_err']
-            tce_params_cnt_aux += 1
-    tce_params_cnt.append(tce_params_cnt_aux)
+# check how many TCEs have Solar parameters
+solar_val = {'tic_teff': 5780.0, 'tic_logg': 4.438, 'tic_rad': 1.0, 'tic_met': 0.0, 'tic_rho': 1.0}
+for tce_param, tic_param in tic_map.items():
+    print(
+        f'{tic_param} TCE (TIC) missing values: {tce_tbl[tce_param].isna().sum()} ({tce_tbl[tic_param].isna().sum()})')
+    if tic_param not in ['tic_ra', 'tic_dec', 'tic_tmag']:
+        a = tce_tbl.loc[tce_tbl[tic_param] != solar_val[tic_param]]
+    else:
+        a = tce_tbl.copy(deep=True)
+    print(f'TCE {a[tce_param].value_counts().idxmax()}: {a[tce_param].value_counts().max()}')
+    print(f'TIC {tce_tbl[tic_param].value_counts().idxmax()}: {tce_tbl[tic_param].value_counts().max()}')
 
-print(f'Number of TCEs with stellar parameters changed from TIC: {len(np.where(np.array(tce_params_cnt) > 0)[0])}')
+tce_stellar_names, tic_stellar_names = [], []
+for param in tic_map.keys():
+    tce_stellar_names.append(f'{param}')
+    tic_stellar_names.append(f'{tic_map[param]}')
+    if param not in ['ra', 'dec']:
+        tce_stellar_names.append(f'{param}_err')
+        tic_stellar_names.append(f'{tic_map[param]}_err')
+
+# DV populates missing values for stellar parameters with Solar parameters; TIC does not
+# tce_params_cnt = []
+for tce_i, tce in tce_tbl.iterrows():
+    # tce_params_cnt_aux = 0
+    tce_tbl.loc[tce_i, tce_stellar_names] = tce[tic_stellar_names].values
+    # for param in tic_map.keys():
+    #     # if np.isnan(tce[param]):
+    #     tce_tbl.loc[tce_i, [param]] = tce[tic_map[param]]
+    #     if param not in ['ra', 'dec']:
+    #         tce_tbl.loc[tce_i, [f'{param}_err']] = tce[f'{tic_map[param]}_err']
+    # tce_params_cnt_aux += 1
+    # tce_params_cnt.append(tce_params_cnt_aux)
+
+# print(f'Number of TCEs with stellar parameters changed from TIC: {len(np.where(np.array(tce_params_cnt) > 0)[0])}')
 
 tce_tbl.rename(columns={'tic_mass': 'tce_smass', 'tic_mass_err': 'tce_smass_err'}, inplace=True)
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_stellarparams_updated.csv', index=False)
 
-#%% Rename columns
+# %% Rename columns
 
 # choose one disposition as the label column
 tce_tbl['label'] = tce_tbl['TFOPWG Disposition']
 
 # rename columns
 rename_dict = {
-    'ticid': 'target_id',
-    'TOI': 'oi',
+    # 'ticid': 'target_id',
+    # 'TOI': 'oi',
     # 'TOI Disposition': 'label',
     # 'TFOPWG Disposition': 'label',
     'tce_depth': 'transit_depth',
-    'tic_ra': 'ra',
-    'tic_dec': 'dec',
-    'tic_tmag': 'mag',
-    'tic_tmag_err': 'mag_err',
-    'tce_time0bt': 'tce_time0bk',
-    'tce_time0bt_err': 'tce_time0bk_err',
-    'tce_sdensity': 'tce_sdens',
-    'tce_sdensity_err': 'tce_dens_err',
-    'tce_ws_maxmesd': 'tce_maxmesd',
-    'tce_ws_maxmes': 'tce_maxmes'
+    # 'tic_ra': 'ra',
+    # 'tic_dec': 'dec',
+    # 'tic_tmag': 'mag',
+    # 'tic_tmag_err': 'mag_err',
+    # 'tce_time0bt': 'tce_time0bk',
+    # 'tce_time0bt_err': 'tce_time0bk_err',
+    # 'tce_sdensity': 'tce_sdens',
+    # 'tce_sdensity_err': 'tce_dens_err',
+    # 'tce_ws_maxmesd': 'tce_maxmesd',
+    # 'tce_ws_maxmes': 'tce_maxmes'
 
 }
 tce_tbl.rename(columns=rename_dict, inplace=True)
 
 # change data type in columns
 type_dict = {
-    'tce_steff': int,
+    # 'tce_steff': int,
     'sectors': str,
-    'oi': str
+    # 'oi': str
 }
 tce_tbl = tce_tbl.astype(dtype=type_dict)
 
@@ -231,6 +262,8 @@ fields_to_check = [
     'tce_duration',
     'transit_depth',
     'tce_maxmesd',
+    'ra',
+    'dec'
     # 'wst_depth',
     # 'tce_maxmes',
     # 'tce_prad',
@@ -238,7 +271,7 @@ fields_to_check = [
 
 for field in fields_to_check:
     print(f'Field {field}: {len(tce_tbl.loc[tce_tbl[field].isna()])} missing values')
-    if field not in ['tce_maxmesd']:
+    if field not in ['tce_maxmesd', 'ra', 'dec']:
         print(f'Field {field}: {len(tce_tbl.loc[tce_tbl[field] <= 0])} non-positive values')
 
 #%% Check if fields used as scalar parameters are valid
@@ -254,7 +287,8 @@ fields_to_check = [
     'tce_slogg',
     'tce_sradius',
     'tce_smass',
-    'tce_sdens'
+    'tce_sdens',
+    'mag'
 ]
 
 for field in fields_to_check:
@@ -295,7 +329,16 @@ ax.set_xlabel('Sector')
 ax.set_xticks(list(tce_sector_counts.keys()))
 f.savefig(tce_tbl_fp.parent / 'hist_single-sector_tces.png')
 
-#%% Check if there is more than one TCE per target star in the same sector that was matched to the same TOI
+bins = np.linspace(0, 40, 41, endpoint=True)
+f, ax = plt.subplots()
+ax.hist(tce_tbl['TOI'].value_counts().values, bins=bins, edgecolor='k')
+ax.set_ylabel('Number of TOIs')
+ax.set_xlabel('Number of TCEs per TOI')
+ax.set_yscale('log')
+ax.set_xlim([bins[0], bins[-1]])
+f.savefig(tce_tbl_fp.parent / 'hist_num_tces_per_toi.png')
+
+# %% Check if there is more than one TCE per target star in the same sector that was matched to the same TOI
 
 unique_tois = tce_tbl['oi'].unique()
 

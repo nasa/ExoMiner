@@ -1,11 +1,15 @@
+import multiprocessing
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-from tqdm import tqdm
-import copy
+import matplotlib.pyplot as plt
+import logging
 
-#%% Create csv DV TCE files from the original mat files
+# from tqdm import tqdm
+# import copy
+
+# %% Create csv DV TCE files from the original mat files
 
 dv_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files')
 
@@ -43,14 +47,86 @@ for mat_run_fp in mat_runs_fps:
 
     tce_tbl.to_csv(csv_save_dir / f'{mat_run_fp.stem}.csv', index=False)
 
-#%% match TCEs to TOIs
+
+# %% create TCE table with data also from matched TOIs
+
+
+def match_tces_to_tois(res_tbl_cols, sector, tce_tbl, toi_tbl, matching_tbl):
+    """ Create a TCE table for a given sector run (single- or multi-sector run) where TCEs are matched to TOIs.
+
+    :param res_tbl_cols: list, result TCE table columns
+    :param sector: str, sector run
+    :param tce_tbl: pandas DataFrame, TCE table for the sector run
+    :param toi_tbl: pandas DataFrame, TOI table
+    :param matching_tbl: pandas DataFrame, TOI-TCE matching table
+    :return:
+        res_tbl: pandas DataFrame, result TCE table with TCEs matched to TOIs for the sector run
+    """
+
+    res_tbl = pd.DataFrame(columns=res_tbl_cols)
+
+    for tce_i, tce in tce_tbl.iterrows():
+
+        if tce_i % 50 == 0:
+            print(f'[Sector {sector}] Iterating over TCE {tce_i + 1}/{len(tce_tbl)}')
+
+        tce['tce_sectors'] = sector
+        for col in toi_cols:
+            tce[col] = np.nan
+        tce['match_dist'] = np.nan
+
+        # get TOIs from the same TIC as the TCE
+        tois_tic = matching_tbl.loc[matching_tbl['TIC'] == tce['target_id']]
+
+        if len(tois_tic) > 0:
+
+            toi_for_this_tce = (np.nan, np.inf)
+
+            for toi_i, toi in tois_tic.iterrows():
+
+                # get TCEs in the same run that are matched to the TOI
+                tces_toi_sector = [(float(tce_toi.split('_')[1]), tce_toi_i)
+                                   for tce_toi_i, tce_toi in enumerate(toi['Matched TCEs'].split(' '))
+                                   if tce_toi.split('_')[0] == sector]
+
+                # check if this TCE is the closest match to the TOI in this run
+                if len(tces_toi_sector) > 0 and tces_toi_sector[0][0] == tce['tce_plnt_num']:
+
+                    if toi[f'matching_dist_{tces_toi_sector[0][1]}'] < toi_for_this_tce[1]:
+                        toi_for_this_tce = (toi['TOI ID'], toi[f'matching_dist_{tces_toi_sector[0][1]}'])
+
+            if not np.isnan(toi_for_this_tce[0]):
+                matched_toi = toi_tbl.loc[toi_tbl['TOI'] == toi_for_this_tce[0]]
+
+                for col in toi_cols:
+                    tce[col] = matched_toi[col].item()
+
+                tce[f'match_dist'] = toi_for_this_tce[1]
+
+        # add TCE to TCE table
+        res_tbl = res_tbl.append(tce[res_tbl_cols], ignore_index=True)
+
+    return res_tbl
+
+
+# if __name__ == '__main__':
 
 # results directory
-res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/tce_match_toi_5-5-2021')
+res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/tce_match_toi_5-7-2021')
 res_dir.mkdir(exist_ok=True)
+
+# set up logger
+logger = logging.getLogger(name='match_tces_to_tois')
+logger_handler = logging.FileHandler(filename=res_dir / 'match_tces_to_tois.log', mode='w')
+logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+logger.setLevel(logging.INFO)
+logger_handler.setFormatter(logger_formatter)
+logger.addHandler(logger_handler)
+logger.info(f'Starting run...')
 
 # get TCE tables
 tce_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files')
+logger.info(f'TCE tables directory: {tce_root_dir}')
 
 multisector_tce_dir = tce_root_dir / 'multi-sector' / 'csv_tables'
 singlesector_tce_dir = tce_root_dir / 'single-sector' / 'csv_tables'
@@ -60,12 +136,14 @@ sector_tce_tbls.update({f'{int(file.stem[14:16])}-{int(file.stem[16:18])}': pd.r
                         for file in multisector_tce_dir.iterdir()})
 
 # get TOI-TCE matching table
-matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/04-16-2021_1625/'
-                           'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv')
+matching_tbl_fp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/04-16-2021_1625/' \
+                  'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv'
+matching_tbl = pd.read_csv(matching_tbl_fp)
+logger.info(f'Matching TOI-TCE table: {matching_tbl_fp}')
 
 # remove TOIs not matched to any TCE
 matching_tbl = matching_tbl.loc[~matching_tbl['Matched TCEs'].isna()]
-print(f'Number of TOIs before thresholding the matching distance to the closest TCE: {len(matching_tbl)}')
+logger.info(f'Number of TOIs before thresholding the matching distance to the closest TCE: {len(matching_tbl)}')
 
 # remove TOIs whose closest TCE matching distance is above the matching threshold
 # matching_thr = 0.25
@@ -74,12 +152,14 @@ print(f'Number of TOIs before thresholding the matching distance to the closest 
 #       f'{len(matching_tbl)}')
 
 # get TOI table
-toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem.csv')
+toi_tbl_fp = Path(
+    '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem.csv')
 toi_tbl = pd.read_csv(toi_tbl_fp)
-print(f'Total number of TOIs: {len(toi_tbl)}')
+logger.info(f'TOI table: {toi_tbl_fp}')
+logger.info(f'Total number of TOIs: {len(toi_tbl)}')
 
-print(toi_tbl['TESS Disposition'].value_counts())
-print(toi_tbl['TFOPWG Disposition'].value_counts())
+logger.info(toi_tbl['TESS Disposition'].value_counts())
+logger.info(toi_tbl['TFOPWG Disposition'].value_counts())
 
 # choose columns to rename in the TCE tables
 fields_to_add = {
@@ -130,13 +210,13 @@ fields_to_add = {
     'radius_value': 'tce_sradius',
     'radius_uncertainty': 'tce_sradius_err',
     'stellarDensity_value': 'tce_sdens',
-    'stellarDensity_uncertainty': 'tce_dens_err',
+    'stellarDensity_uncertainty': 'tce_sdens_err',
     'effectiveTemp_value': 'tce_steff',
     'effectiveTemp_uncertainty': 'tce_steff_err',
     'log10SurfaceGravity_value': 'tce_slogg',
     'log10SurfaceGravity_uncertainty': 'tce_slogg_err',
     'log10Metallicity_value': 'tce_smet',
-    'log10Metallicity_uncertainty': 'tce_met_err',
+    'log10Metallicity_uncertainty': 'tce_smet_err',
     'allTransitsFit_equilibriumTempKelvin_value': 'tce_eqt',
     'allTransitsFit_equilibriumTempKelvin_uncertainty': 'tce_eqt_err',
     'planetCandidate.weakSecondaryStruct.maxMes': 'tce_maxmes',
@@ -165,11 +245,15 @@ fields_to_add = {
     'secondaryEventResults.planetParameters.planetEffectiveTemp_value': 'tce_ptemp',
     'secondaryEventResults.planetParameters.planetEffectiveTemp_uncertainty': 'tce_ptemp_err',
     'secondaryEventResults.comparisonTests.albedoComparisonStatistic_value': 'tce_albedo_stat',
+    'secondaryEventResults.comparisonTests.albedoComparisonStatistic_significance': 'tce_albedo_stat_err',
     'secondaryEventResults.comparisonTests.tempComparisonStatistic_value': 'tce_ptemp_stat',
+    'secondaryEventResults.comparisonTests.tempComparisonStatistic_significance': 'tce_ptemp_stat_err',
     'allTransitsFit_effectiveStellarFlux_value': 'tce_insol',
     'allTransitsFit_effectiveStellarFlux_uncertainty': 'tce_insol_err',
     'ghostDiagnosticResults.coreApertureCorrelationStatistic_value': 'tce_cap_stat',
+    'ghostDiagnosticResults.coreApertureCorrelationStatistic_significance': 'tce_cap_stat_err',
     'ghostDiagnosticResults.haloApertureCorrelationStatistic_value': 'tce_hap_stat',
+    'ghostDiagnosticResults.haloApertureCorrelationStatistic_significance': 'tce_hap_stat_err',
     'planetCandidate.observedTransitCount': 'tce_num_transits_obs',
     'planetCandidate.expectedTransitCount': 'tce_num_transits',
     'planetCandidate.weakSecondaryStruct.depthPpm_value': 'wst_depth',
@@ -182,67 +266,103 @@ for sector_tce_tbl in sector_tce_tbls:
     sector_tce_tbls[sector_tce_tbl].rename(columns=fields_to_add, inplace=True)
 
 # initialize TCE table
-tce_tbl_cols = list(fields_to_add.values())
 toi_cols = ['TOI', 'TESS Disposition', 'TFOPWG Disposition', 'Period (days)', 'Duration (hours)', 'Depth (ppm)',
             'Epoch (TBJD)', 'Epoch (BJD)', 'Sectors', 'Comments']
-tce_tbl = pd.DataFrame(columns=list(fields_to_add.values()) + toi_cols + ['tce_sectors', 'match_dist'])
+# tce_tbl_cols = list(fields_to_add.values()) + toi_cols + ['tce_sectors', 'match_dist']
+# tce_tbl = pd.DataFrame(columns=tce_tbl_cols)
 
 # match_thr = np.inf  # inf does not work if there are NaN distances
 
 toi_tbl.reset_index(inplace=True)
-tces_not_matched = []
-for toi_i, toi in tqdm(matching_tbl.iterrows()):
 
-    if toi_i % 50 == 0:
-        print(f'Iterated through {toi_i}/{len(matching_tbl)} TOIs...\n{len(tce_tbl)} TCEs added to the table.')
+tce_tbl_cols = list(fields_to_add.values()) + toi_cols + ['tce_sectors', 'match_dist']
 
-    toi_disp = toi_tbl.loc[toi_tbl['TOI'] == toi['TOI ID'], toi_cols]
+n_processes = 15
+pool = multiprocessing.Pool(processes=n_processes)
+jobs = [(tce_tbl_cols, sector, sector_tce_tbls[sector], toi_tbl[toi_cols], matching_tbl)
+        for sector_tce_tbl_i, sector in enumerate(sector_tce_tbls)]
+async_results = [pool.apply_async(match_tces_to_tois, job) for job in jobs]
+pool.close()
 
-    # list of TCEs matched to the TOI; force only one TCE match per run
-    tces_seen = []
+tce_tbl = pd.concat([async_result.get() for async_result in async_results], axis=0, ignore_index=True)
 
-    matched_tces = toi['Matched TCEs'].split(' ')
-    target_id = toi['TIC']
+# for sector in sector_tce_tbls:
+#     for tce_i, tce in sector_tce_tbls[sector].iterrows():
+#
+#         if tce_i % 50 == 0:
+#             print(f'[Sector {sector}] Iterating over TCE {tce_i + 1}/{len(sector_tce_tbls[sector])}')
+#
+#         tce['tce_sectors'] = sector
+#         for col in toi_cols:
+#             tce[col] = np.nan
+#         tce['match_dist'] = np.nan
+#
+#         # get TOIs from the same TIC as the TCE
+#         tois_tic = matching_tbl.loc[matching_tbl['TIC'] == tce['target_id']]
+#
+#         if len(tois_tic) > 0:
+#
+#             toi_for_this_tce = (np.nan, np.inf)
+#
+#             for toi_i, toi in tois_tic.iterrows():
+#                 # get TCEs in the same run that are matched to the TOI
+#                 tces_toi_sector = [(tce_toi.split('_')[1], tce_toi_i)
+#                                    for tce_toi_i, tce_toi in enumerate(toi['Matched TCEs'].split(' '))
+#                                    if tce_toi.split('_')[0] == sector]
+#                 # check if this TCE is the closest match to the TOI in this run
+#                 if len(tces_toi_sector) > 0 and tces_toi_sector[0][0] == tce['tce_plnt_num']:
+#                     if toi[f'matching_dist_{tces_toi_sector[0][1]}'] < toi_for_this_tce[1]:
+#                         toi_for_this_tce = (toi['TOI ID'], toi[f'matching_dist_{tces_toi_sector[0][1]}'])
+#
+#             if not np.isnan(toi_for_this_tce[0]):
+#                 toi_disp = toi_tbl.loc[toi_tbl['TOI'] == toi_for_this_tce[0], toi_cols]
+#
+#                 for col in toi_cols:
+#                     tce[col] = toi_disp[col].item()
+#
+#                 tce[f'match_dist'] = toi_for_this_tce[1]
+#
+#         # add TCE to TCE table
+#         tce_tbl = tce_tbl.append(tce[tce_tbl.columns], ignore_index=True)
 
-    # do not match TCE if the matching distance is aboce the matching threshold
-    for matched_tce_i in range(len(matched_tces)):
-        # if toi[f'matching_dist_{matched_tce_i}'] > match_thr:
-        #     break
+logger.info(f'Number of TCEs matched to TOIs: {(~tce_tbl["match_dist"].isna()).sum()}')
 
-        sector_str, tce_plnt_num = matched_tces[matched_tce_i].split('_')
-        tce_plnt_num = int(tce_plnt_num.split('.')[0])
+logger.info(tce_tbl['TESS Disposition'].value_counts())
+logger.info(tce_tbl['TFOPWG Disposition'].value_counts())
 
-        tce = copy.deepcopy(sector_tce_tbls[sector_str].loc[(sector_tce_tbls[sector_str]['target_id'] == target_id) &
-                                                            (sector_tce_tbls[sector_str]['tce_plnt_num'] ==
-                                                             tce_plnt_num)])
+# rename columns
+tce_tbl.rename(columns={'Sectors': 'toi_sectors', 'tce_sectors': 'sectors'}, inplace=True)
 
-        # if '-' not in sector_str:
-        tce['tce_sectors'] = sector_str
-        # else:
-        #     s_sector, e_sector = sector_str.split('-')
-        #     multi_sector = [str(el) for el in list(range(int(s_sector), int(e_sector) + 1))]
-        #     tce['tce_sectors'] = ' '.join(multi_sector)
+# change data type for columns
+tce_tbl = tce_tbl.astype({'target_id': np.int, 'tce_plnt_num': np.int, 'sectors': np.str})
 
-        # do not match TCE if a TCE from the same run was previously matched
-        if tce['tce_sectors'].values[0] in tces_seen:
-            tces_not_matched.append((f'{tce["target_id"]}.{tce["tce_plnt_num"]}', sector_str))
-            continue
-        else:
-            tces_seen.append(tce['tce_sectors'].values[0])
 
-        tce['match_dist'] = toi[f'matching_dist_{matched_tce_i}']
+def _map_to_sector_string(sector_run):
+    if '-' not in sector_run.values[0]:
+        return sector_run.values[0]
+    else:
+        s_sector, e_sector = sector_run.values[0].split('-')
+        multi_sector = [str(el) for el in list(range(int(s_sector), int(e_sector) + 1))]
+        return ' '.join(multi_sector)
 
-        # add data from matched TOI
-        for col in toi_disp:
-            tce[col] = toi_disp[col].item()
 
-        # add TCE to TCE table
-        tce_tbl = pd.concat([tce_tbl, tce[tce_tbl.columns]], axis=0, ignore_index=True)
-
-        # aaaa
-
-print(toi_tbl['TESS Disposition'].value_counts())
-print(toi_tbl['TFOPWG Disposition'].value_counts())
+# map sectors to expected format
+tce_tbl['sectors'] = tce_tbl[['sectors']].apply(_map_to_sector_string, axis=1)
 
 tce_tbl_fp = Path(res_dir / f'tess_tces_s1-s35.csv')
 tce_tbl.to_csv(tce_tbl_fp, index=False)
+
+# plot histogram of matching distances
+bins = np.linspace(0, 1, 21, endpoint=True)
+f, ax = plt.subplots(1, 2, figsize=(12, 8))
+ax[0].hist(tce_tbl['match_dist'], bins=bins, edgecolor='k')
+ax[0].set_ylabel('Counts')
+ax[0].set_yscale('log')
+ax[0].set_xlabel('Matching distance to closest TOI')
+ax[0].set_xlim([bins[0], bins[-1]])
+ax[1].hist(tce_tbl['match_dist'], bins=bins, edgecolor='k', cumulative=True)
+ax[1].set_ylabel('Cumulative Counts')
+# ax[1].set_yscale('log')
+ax[1].set_xlabel('Matching distance to closest TOI')
+ax[1].set_xlim([bins[0], bins[-1]])
+f.savefig(res_dir / 'hist_match_dist.png')

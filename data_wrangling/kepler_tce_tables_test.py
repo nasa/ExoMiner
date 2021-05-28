@@ -542,18 +542,6 @@ tps_tbl.to_csv(tps_tbl_fp.parent / 'keplerTPS_KSOP2536_dr25_symsecphase_confirme
 
 #%%
 
-# def fun(a):
-#     a = [3*el for el in a]
-#     print(f'a inside: {a}')
-#     a = [3 * el for el in a]
-#
-# a = [np.array([1,2,3]),np.array([4,5,6])]
-#
-# fun(a)
-#
-# print(a
-#       )
-
 from pathlib import Path
 import pandas as pd
 

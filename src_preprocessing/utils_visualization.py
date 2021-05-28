@@ -283,14 +283,16 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
 
     # provide coordinate relative to the target
     if target_center:
-        centroids = {'x': [(centroids_arr - target_coords[0]) * np.cos(target_coords[1] * np.pi / 180)
-                           for centroids_arr in all_centroids['x']],
-                     'y': [(centroids_arr - target_coords[1]) for centroids_arr in all_centroids['y']]}
+        all_centroids = {'x': [(centroids_arr - target_coords[0])  # * np.cos(target_coords[1] * np.pi / 180)
+                               for centroids_arr in all_centroids['x']],
+                         'y': [(centroids_arr - target_coords[1]) for centroids_arr in all_centroids['y']]}
+        avg_centroid_oot = {'x': avg_centroid_oot['x'] - target_coords[0],
+                            'y': avg_centroid_oot['y'] - target_coords[1]}
 
     # convert from degree to arcsec
     if not config['px_coordinates']:
-        centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in all_centroids[coord]]
-                     for coord in all_centroids}
+        all_centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in all_centroids[coord]]
+                         for coord in all_centroids}
         target_coords = [coord * DEGREETOARCSEC for coord in target_coords]
 
         avg_centroid_oot = {coord: DEGREETOARCSEC * avg_centroid_oot[coord] for coord in avg_centroid_oot}
@@ -298,9 +300,9 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
         #                     for coord in avg_centroid_oot}
 
     centroid_oot = {coord: [centroids[np.where(binary_time == 0)] for binary_time, centroids in
-                           zip(binary_time_all, all_centroids[coord])] for coord in centroids}
+                            zip(binary_time_all, all_centroids[coord])] for coord in all_centroids}
     centroid_it = {coord: [centroids[np.where(binary_time == 1)] for binary_time, centroids in
-                           zip(binary_time_all, all_centroids[coord])] for coord in centroids}
+                           zip(binary_time_all, all_centroids[coord])] for coord in all_centroids}
 
     all_time_oot = [time[np.where(binary_time == 0)] for time, binary_time in zip(all_time, binary_time_all)]
     all_time_it = [time[np.where(binary_time == 1)] for time, binary_time in zip(all_time, binary_time_all)]
@@ -386,7 +388,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
 
 
 def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_coords, tce, config, savedir,
-                             basename):
+                             basename, target_center=True):
     """ Creates and saves a 2x2 figure with plots that show the corrected centroid time-series and the respective
     out-of-transit centroid, as well as the target position, for a given TCE.
 
@@ -400,6 +402,13 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
     :param basename: str, added to the figure filename
     :return:
     """
+
+    if target_center:
+        all_centroids = {'x': [(centroids_arr - target_coords[0])  # * np.cos(target_coords[1] * np.pi / 180)
+                               for centroids_arr in all_centroids['x']],
+                         'y': [(centroids_arr - target_coords[1]) for centroids_arr in all_centroids['y']]}
+        avg_centroid_oot = {'x': avg_centroid_oot['x'] - target_coords[0],
+                            'y': avg_centroid_oot['y'] - target_coords[1]}
 
     if not config['px_coordinates']:
         all_centroids = {coord: [3600 * centroids_arr for centroids_arr in all_centroids[coord]]
