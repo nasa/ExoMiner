@@ -691,7 +691,7 @@ def _process_tce(tce, table, config, conf_dict):
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True  # False
+    plot_preprocessing_tce = False  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
