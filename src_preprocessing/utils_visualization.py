@@ -1,4 +1,4 @@
-""" Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
+""" zzzAuxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
 
 # 3rd party
 import os
