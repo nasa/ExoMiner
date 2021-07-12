@@ -465,8 +465,7 @@ def perform_bin_replacement_oddeven(bin_values_odd, bin_counts_odd, bin_values_e
     """ Replace bin values and counts between odd and even missing bins.
 
     :param bin_values_odd: list of Numpy arrays, each NumPy array contains the values of the odd phase folded time
-    series
-    for a given bin
+    series for a given bin
     :param bin_values_even: list of Numpy arrays, each NumPy array contains the values of the even phase folded
     time series for a given bin
     :param bin_counts_odd: NumPy array, number of cadences per bin for odd view
@@ -484,11 +483,12 @@ def perform_bin_replacement_oddeven(bin_values_odd, bin_counts_odd, bin_values_e
     # replace bins for odd
     for bin_i in np.where(bins_repl['odd_to_even'])[0]:
         bin_values_odd[bin_i] = bin_values_even[bin_i]
-        bin_counts_odd[bin_i] = bin_values_even[bin_i]
+        bin_counts_odd[bin_i] = bin_counts_even[bin_i]
 
+    # replace bins for even
     for bin_i in np.where(bins_repl['even_to_odd'])[0]:
         bin_values_even[bin_i] = bin_values_odd[bin_i]
-        bin_counts_even[bin_i] = bin_values_odd[bin_i]
+        bin_counts_even[bin_i] = bin_counts_odd[bin_i]
 
     return bin_values_odd, bin_counts_odd, bin_values_even, bin_counts_even
 
@@ -638,8 +638,8 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
                                             bins_repl)
 
         # add median count to every missing bin to avoid division by zero
-        bin_counts_odd[bin_counts_odd == 0] = np.median(bin_counts_odd)
-        bin_counts_even[bin_counts_even == 0] = np.median(bin_counts_even)
+        bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
+        bin_counts_even[bin_counts_even == 0] = max(1, np.median(bin_counts_even))
 
     else:  # copy values from one to the other
 
@@ -672,7 +672,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)
 
         # add median count to missing bins to avoid division by zero
-        bin_counts_odd[bin_counts_odd == 0] = np.median(bin_counts_odd)
+        bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
 
         # given that odd and even are a the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
