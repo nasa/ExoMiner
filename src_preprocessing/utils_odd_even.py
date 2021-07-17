@@ -663,10 +663,10 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
 
         if 'odd' in odd_even_flag:
             inds_nan_even_init = inds_nan
-            inds_nan_odd_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan}
+            inds_nan_odd_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
         else:
             inds_nan_odd_init = inds_nan
-            inds_nan_even_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan}
+            inds_nan_even_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
 
         inds_nan_var = np.isnan(loc_flux_odd_view_var)
         loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)

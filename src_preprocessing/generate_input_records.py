@@ -16,7 +16,6 @@ from tensorflow.compat.v1 import logging as tf_logging
 from tensorflow.io import TFRecordWriter
 from pathlib import Path
 import json
-from datetime import datetime
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -30,7 +29,8 @@ def create_preprocessing_config():
     config = {}
 
     # TFRecords base name
-    config['tfrecords_base_name'] = f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
+    config[
+        'tfrecords_base_name'] = f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.datetime.now().strftime("%m-%d-%Y_%H-%M")}'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords')
@@ -110,22 +110,22 @@ def create_preprocessing_config():
         'tce_maxmes',
         'tce_maxmesd',
         # 'wst_robstat',
-        'wst_depth',
-        'tce_ptemp_stat',
-        'tce_albedo_stat',
+        # 'wst_depth',
+        # 'tce_ptemp_stat',
+        # 'tce_albedo_stat',
         # odd-even
         # 'tce_bin_oedp_stat',
         # centroid
-        'tce_fwm_stat',
-        'tce_dikco_msky',
-        'tce_dikco_msky_err',
-        'tce_dicco_msky',
-        'tce_dicco_msky_err',
+        # 'tce_fwm_stat',
+        # 'tce_dikco_msky',
+        # 'tce_dikco_msky_err',
+        # 'tce_dicco_msky',
+        # 'tce_dicco_msky_err',
         # other diagnostics
-        'tce_cap_stat',
-        'tce_hap_stat',
-        'tce_rb_tcount0',
-        'boot_fap',
+        # 'tce_cap_stat',
+        # 'tce_hap_stat',
+        # 'tce_rb_tcount0',
+        # 'boot_fap',
         # stellar parameters
         'tce_smass',
         'tce_sdens',
@@ -133,6 +133,10 @@ def create_preprocessing_config():
         'tce_slogg',
         'tce_smet',
         'tce_sradius',
+        'mag',
+        # transit fit parameters
+        # 'tce_impact',
+        'tce_prad',
     ]
 
     if config['satellite'].startswith('kepler'):
@@ -170,8 +174,7 @@ def create_preprocessing_config():
         config['input_tce_csv_file'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/TESS/' \
                                        ''
 
-        config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/TESS/pdc-lc/' \
-                                'pdc-tce-time-series-fits'
+        config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/TESS/pdc-lc/'
 
         config['dict_savedir'] = ''
 
@@ -301,6 +304,9 @@ def main():
     _process_file_shard(tce_table, file_name_i, eph_table, config)
 
     tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
+
+    if config['process_i'] == 0:
+        tf_logging.info(f'END-PI:{config["output_dir"]}')
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
-    config['tfrecords_base_name'] = 'testing_tce_table_tess_5-28-2021'
+    config['tfrecords_base_name'] = 'test_tesss1-s35_tcesdv_errors_7-16-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -107,7 +107,7 @@ def create_preprocessing_config():
         # 'tce_period',
         # 'tce_duration',
         # 'tce_time0bk',
-        # 'transit_depth',
+        'transit_depth',
         'tce_max_mult_ev',
         # secondary parameters
         'tce_maxmes',
