@@ -714,7 +714,7 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
                                                     tce[config['scalar_params'][scalarParam_i]])
         elif config['scalar_params'][scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
             scalarParamsStr += '{}={}  '.format(config['scalar_params'][scalarParam_i],
-                                                int(tce[config['scalar_params'][scalarParam_i]]))
+                                                tce[config['scalar_params'][scalarParam_i]])
         else:
             scalarParamsStr += '{}={:.4f}  '.format(config['scalar_params'][scalarParam_i],
                                                     tce[config['scalar_params'][scalarParam_i]])

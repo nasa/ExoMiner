@@ -291,6 +291,7 @@ idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_trans
 
 # our centroid time series normalization statistics parameters
 centroidList = ['global_centr_view', 'local_centr_view']
+# centroidList = ['global_centr_view_', 'local_centr_view', 'global_centr_view_adjscl', 'local_centr_view_adjscl']
 centroidDict = {timeSeries: [] for timeSeries in centroidList}
 
 # get data out of the training set TFRecords

@@ -28,7 +28,6 @@ Authors:
 import numpy as np
 import tensorflow as tf
 import os
-import socket
 from astropy.stats import mad_std
 
 # local
@@ -42,64 +41,10 @@ from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxco
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 from src_preprocessing import tess_io
 from src_preprocessing.utils_odd_even import create_odd_even_views, phase_fold_and_sort_light_curve_odd_even
-from src_preprocessing.utils_imputing import impute_binned_ts
+from src_preprocessing.utils_imputing import impute_binned_ts, imputing_gaps
 from src_preprocessing.utils_preprocessing import count_transits
-
-
-def is_pfe():
-    """ Returns boolean which indicates whether this script is being run on Pleiades or local computer. """
-
-    nodename = os.uname().nodename
-
-    if nodename[:3] == 'pfe':
-        return True
-
-    if nodename[0] == 'r':
-        try:
-            int(nodename[-1])
-            return True
-        except ValueError:
-            return False
-
-    return False
-
-
-def report_exclusion(config, tce, id_str, stderr=None):
-    """ Error log is saved into a txt file with the reasons why a given TCE was not preprocessed.
-
-    :param config: dict with parameters for the preprocessing. Check the Config class
-    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
-    :param id_str: str, contains info on the cause of exclusion
-    :param stderr: str, error
-    :return:
-    """
-
-    # create path to exclusion logs directory
-    savedir = os.path.join(config['output_dir'], 'exclusion_logs')
-
-    # create exclusion logs directory if it does not exist
-    os.makedirs(savedir, exist_ok=True)
-
-    # TODO: what if TESS changes to multi-sector analysis; sector becomes irrelevant...
-    if config['satellite'] == 'kepler':
-        main_str = f'Kepler ID {tce.target_id} TCE {tce[config["tce_identifier"]]}'
-    else:  # 'tess'
-        main_str = f'TIC ID {tce.target_id} TCE {tce[config["tce_identifier"]]} Sector(s) {tce.sectors}'
-
-    if is_pfe():
-
-        # get node id
-        node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
-
-        # write to exclusion log pertaining to this process and node
-        with open(os.path.join(savedir, 'exclusions_{}_{}-{}.txt'.format(config['process_i'], node_id,
-                                                                         main_str.replace(" ", ""))),
-                  "a") as myfile:
-            myfile.write('{}, {}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))
-    else:
-        # write to exclusion log locally
-        with open(os.path.join(savedir, 'exclusions-{}.txt'.format(main_str.replace(" ", ""))), "a") as myfile:
-            myfile.write('{}, {}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))
+from src_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.utils_gapping import gap_this_tce, gap_other_tces
 
 
 def read_light_curve(tce, config):
@@ -135,7 +80,7 @@ def read_light_curve(tce, config):
             if not config['omit_missing']:
                 raise IOError(f'Failed to find .fits files in {config["lc_data_dir"]} for Kepler ID {tce.target_id}')
             else:
-                report_exclusion(config, tce, 'No available lightcurve .fits files')
+                report_exclusion(config, tce, 'No available lightcurve FITS files')
                 return None
 
         return kepler_io.read_kepler_light_curve(file_names,
@@ -157,73 +102,23 @@ def read_light_curve(tce, config):
             if not config['omit_missing']:
                 raise IOError(f'Failed to find .fits files in {config["lc_data_dir"]} for TESS ID {tce.target_id}')
             else:
-                report_exclusion(config, tce, 'No available lightcurve .fits files')
+                report_exclusion(config, tce, 'No available lightcurve FITS files')
                 return None
 
-        return tess_io.read_tess_light_curve(file_names,
-                                             centroid_radec=not config['px_coordinates'],
-                                             prefer_psfcentr=config['prefer_psfcentr'],
-                                             light_curve_extension=config['light_curve_extension'],
-                                             invert=config['invert']
-                                             )
+        fits_data, fits_files_not_read = tess_io.read_tess_light_curve(file_names,
+                                                                       centroid_radec=not config['px_coordinates'],
+                                                                       prefer_psfcentr=config['prefer_psfcentr'],
+                                                                       light_curve_extension=config[
+                                                                           'light_curve_extension'],
+                                                                       invert=config['invert']
+                                                                       )
 
+        if len(fits_files_not_read) > 0:
+            report_exclusion(config, tce, 'FITS files not read correctly')
+            if len(fits_files_not_read) == len(file_names):
+                return None
 
-def get_gap_indices(flux, checkfuncs=None):
-    """ Finds gaps in time series data (where time series is one of [0, nan, inf, -inf])
-
-    :param flux:  flux time-series
-    :return:
-        id_dict: dict with start and end indices of each gap in flux time series
-    """
-
-    # maybe only the checks requested should be performed
-    checkfuncdict = {0: flux == 0,
-                     'nan': np.isnan(flux),
-                     'inf': np.isinf(flux),
-                     '-inf': np.isinf(-flux)}
-
-    # set which checks to do
-    checkfuncs = checkfuncdict if not checkfuncs else {i: checkfuncdict[i] for i in checkfuncs}
-
-    id_dict = {}
-    for checkstr, checkfunc in checkfuncs.items():
-        arr = np.where(checkfunc)[0]
-
-    #     id_dict_type = {}
-    #     count = 0
-    #     for i in range(len(arr)):
-    #         if count not in id_dict_type:
-    #             id_dict_type[count] = [arr[i], -1]
-    #         if i + 1 <= len(arr) - 1 and arr[i + 1] - arr[i] > 1:
-    #             id_dict_type[count] = [id_dict_type[count][0], arr[i]]
-    #             count += 1
-    #         else:
-    #             if arr[i] - arr[i - 1] > 1:
-    #                 id_dict_type[count] = [arr[i], arr[i]]
-    #             else:
-    #                 id_dict_type[count] = [id_dict_type[count][0], arr[i]]
-    #     id_dict[checkstr] = id_dict_type
-
-        ####
-        # CASE NO GAPS
-        if len(arr) == 0:
-            id_dict[checkstr] = []  # {}  # EMPTY DICT, NONE?
-        # CASE ONLY ONE SINGLE IDX GAP
-        elif len(arr) == 1:
-            id_dict[checkstr] = [[arr[0], arr[0] + 1]]  # {0: [arr[0], arr[0] + 1]}
-        # CASE TWO OR MORE IDXS GAP OR MORE THAN ONE GAP
-        # id_dict_type = {}  # WHY IS IT A DICT??? IT COULD BE A SIMPLE LIST!!!!!!!!!
-        id_dict_type = []
-        arr_diff = np.diff(arr)
-        jump_idxs = np.where(arr_diff > 1)[0]
-        jump_idxs += 1
-        jump_idxs = np.insert(jump_idxs, [0, len(jump_idxs)], [0, len(arr)])
-        for start, end in zip(jump_idxs[:-1], jump_idxs[1:]):
-            # id_dict_type[len(id_dict_type)] = [start, end]
-            id_dict_type.append([start, end])
-        id_dict[checkstr] = id_dict_type
-
-    return id_dict
+        return fits_data
 
 
 def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
@@ -306,353 +201,6 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
     return timeseries_interp
 
 
-def impute_transits(timeseries, transit_pulse_train, centroid=False):
-    """ Impute transits by linearly interpolating them using as boundary values the out-of-transit median in windows
-    around the transits. These windows have the same width as transit.
-
-    :param timeseries: list of numpy arrays, time-series; if centroid is True, then it is a dictionary with a list of
-    numpy arrays for each coordinate ('x' and 'y')
-    :param transit_pulse_train: list of numpy arrays, binary arrays that are 1's for in-transit cadences and 0 otherwise
-    :param centroid: bool, treats time-series as centroid time-series ('x' and 'y') if True
-    :return:
-        timeseries_interp: list of numpy arrays, time-series linearly interpolated at the transits; if centroid is True,
-         then it is a dictionary with a list of numpy arrays for each coordinate ('x' and 'y')
-    """
-
-    # initialize variables
-    if centroid:
-        num_arrs = len(timeseries['x'])
-        timeseries_interp = {'x': [], 'y': []}
-    else:
-        num_arrs = len(timeseries)
-        timeseries_interp = []
-
-    for i in range(num_arrs):
-
-        if centroid:
-            timeseries_interp['x'].append(np.array(timeseries['x'][i]))
-            timeseries_interp['y'].append(np.array(timeseries['y'][i]))
-        else:
-            timeseries_interp.append(np.array(timeseries[i]))
-
-        idxs_it = np.where(transit_pulse_train[i] == 1)[0]
-        if len(idxs_it) == 0:  # no transits in the array
-            continue
-
-        idxs_lim = np.where(np.diff(idxs_it) > 1)[0] + 1
-
-        start_idxs = np.insert(idxs_lim, 0, 0)
-        end_idxs = np.append(idxs_lim, len(idxs_it))
-
-        for start_idx, end_idx in zip(start_idxs, end_idxs):
-
-            numcadences_win = idxs_it[end_idx - 1] - idxs_it[start_idx] + 1
-
-            # boundary issue - do nothing, since the whole array is a transit; does this happen?
-            if idxs_it[start_idx] == 0 and idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:
-                continue
-
-            if idxs_it[start_idx] == 0:  # boundary issue start - constant value end
-
-                if centroid:
-                    val_interp = {'x': np.median(timeseries['x'][i][idxs_it[end_idx - 1] + 1:min(len(timeseries['x'][i]), idxs_it[end_idx - 1] + 1 + numcadences_win)]),
-                                  'y': np.median(timeseries['y'][i][idxs_it[end_idx - 1] + 1:min(len(timeseries['y'][i]), idxs_it[end_idx - 1] + 1 + numcadences_win)])}
-                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp['x']
-                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp['y']
-
-                else:
-                    val_interp = np.median(timeseries[i][idxs_it[end_idx - 1] + 1:min(len(timeseries[i]), idxs_it[end_idx - 1] + 1 + numcadences_win)])
-                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp
-
-            elif idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
-
-                if centroid:
-                    val_interp = {'x': np.median(timeseries['x'][i][max(0, idxs_it[start_idx] - numcadences_win):idxs_it[start_idx] + 1]),
-                                  'y': np.median(timeseries['y'][i][max(0, idxs_it[start_idx] - numcadences_win):idxs_it[start_idx] + 1])}
-
-                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp['x']
-                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp['y']
-                else:
-                    val_interp = np.median(timeseries[i][max(0, idxs_it[start_idx] - numcadences_win):idxs_it[start_idx] + 1])
-                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = val_interp
-
-            else:  # linear interpolation
-                idxs_interp = np.array([idxs_it[start_idx] - 1, idxs_it[end_idx - 1] + 1])
-                idxs_to_interp = np.arange(idxs_it[start_idx], idxs_it[end_idx - 1] + 1)
-
-                if centroid:
-                    val_interp = {'x': np.array([np.median(timeseries['x'][i][max(0, idxs_interp[0] - numcadences_win):idxs_interp[0] + 1]),
-                                                np.median(timeseries['x'][i][idxs_interp[1]:min(len(timeseries['x'][i]), idxs_interp[1] + numcadences_win) + 1])]),
-                                  'y': np.array([np.median(timeseries['y'][i][max(0, idxs_interp[0] - numcadences_win):idxs_interp[0] + 1]),
-                                                np.median(timeseries['y'][i][idxs_interp[1]:min(len(timeseries['y'][i]), idxs_interp[1] + numcadences_win) + 1])])}
-                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
-                        np.interp(idxs_to_interp, idxs_interp, val_interp['x'])
-                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
-                        np.interp(idxs_to_interp, idxs_interp, val_interp['y'])
-
-                else:
-                    val_interp = np.array([np.median(timeseries[i][max(0, idxs_interp[0] - numcadences_win):idxs_interp[0] + 1]),
-                                           np.median(timeseries[i][idxs_interp[1]:min(len(timeseries[i]), idxs_interp[1] + numcadences_win) + 1])])
-
-                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
-                        np.interp(idxs_to_interp, idxs_interp, val_interp)
-
-    return timeseries_interp
-
-
-def gap_this_tce(all_time, tce, gap_pad=0):
-    """ Remove from the time series the cadences that belong to the TCE in the light curve. These values are set to
-    NaN.
-
-    :param all_time: list of NumPy arrays, cadences
-    :param tce: row of pandas DataFrame, main TCE ephemeris
-    :param gap_pad: extra pad on both sides of the gapped TCE transit duration
-    :return:
-        gapped_idxs: list of numpy arrays, gapped indices
-    """
-
-    gapped_idxs = []
-
-    if 'tce_maxmesd' in tce:
-        # transit_duration = min(tce['tce_duration'] * (1 + 2 * gap_pad), np.abs(tce['tce_maxmesd']))
-        # transit_duration = min(tce['tce_duration'] * gap_pad, np.abs(tce['tce_maxmesd']))
-        phase_sec = np.abs(tce['tce_maxmesd'])
-        if 2 * tce['tce_duration'] < phase_sec:
-            transit_duration = gap_pad * tce['tce_duration']
-        else:
-            transit_duration = tce['tce_duration'] + phase_sec
-
-        transit_duration = min(transit_duration, phase_sec - 0.5 * tce['tce_duration'])
-    else:
-        transit_duration = tce['tce_duration'] * gap_pad
-
-    for i in range(len(all_time)):
-
-        begin_time, end_time = all_time[i][0], all_time[i][-1]
-
-        # get timestamp of the first transit of the gapped TCE in the current time array
-        epoch = find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], begin_time)
-
-        # create binary time-series for this time interval based on the ephemeris of the gapped TCE
-        bintransit_ts = create_binary_time_series(all_time[i], epoch, transit_duration, tce['tce_period'])
-
-        # get indexes of in-transit cadences for the gapped TCE in this time array
-        transit_idxs = np.where(bintransit_ts == 1)
-
-        gapped_idxs.append(transit_idxs)
-
-    return gapped_idxs
-
-
-def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0, keep_overlap=False):
-    """ Remove from the time series the cadences that belong to other TCEs in the light curve. These values are set to
-    NaN.
-
-    :param all_time: list of numpy arrays, cadences
-    :param tce: row of pandas DataFrame, main TCE ephemeris
-    :param table: pandas DataFrame, TCE ephemeris table
-    :param config: dict, preprocessing parameters
-    :param conf_dict: dict, keys are a tuple (Kepler ID, TCE planet number) and the values are the confidence level used
-     when gapping (between 0 and 1)
-    :param gap_pad: extra pad on both sides of the gapped TCE transit duration
-    :param keep_overlap: bool, if True overlapping cadences between TCE of interest and gapped TCEs are preserved
-    :return:
-        gapped_idxs: list of NumPy arrays, gapped cadences
-    """
-
-    gapped_idxs = []
-
-    # get gapped TCEs ephemeris
-    if config['satellite'] == 'kepler':  # Kepler
-        # get the ephemeris for TCEs in the same target star
-        gap_ephems = table.loc[(table['target_id'] == tce.target_id) &
-                               (table[config['tce_identifier']] != tce[config['tce_identifier']])][['tce_period',
-                                                                                                    'tce_duration',
-                                                                                                    'tce_time0bk']]
-    else:  # TESS
-        # gap_ephems = table.loc[(table['target_id'] == tce.tic) &
-        #                        (table['sector'] == tce.sector) &
-        #                        (table[config['tce_identifier']] != tce[config['tce_identifier']])]
-
-        # # if sector column exists in the TCE table
-        # if 'sector' in table:
-
-        # get observed sectors for the current TCE
-        sectors = np.array([int(sect) for sect in tce['sectors'].split(' ')])
-
-        # get ephemeris for the TCEs which belong to the same target star
-        candidateGapTceTable = table.loc[(table['target_id'] == tce.target_id) &
-                                         (table[config['tce_identifier']] != tce[config['tce_identifier']])][[
-            'tce_period',
-            'tce_duration',
-            'tce_time0bk',
-            'sectors']]
-
-        # get TCEs whose observed sectors overlap with the observed sectors for the current TCE
-        candidatesRemoved = []
-        gapSectors = []
-        for i, candidate in candidateGapTceTable.iterrows():
-
-            candidateSectors = np.array([int(sect) for sect in candidate['sectors'].split(' ')])
-
-            # get only overlapping sectors
-            sectorsIntersection = np.intersect1d(sectors, candidateSectors)
-            if len(sectorsIntersection) > 0:
-                gapSectors.append(sectorsIntersection)
-            else:
-                candidatesRemoved.append(i)
-
-        # remove candidates that do not have any overlapping sectors
-        gap_ephems = candidateGapTceTable.drop(candidateGapTceTable.index[candidatesRemoved],
-                                               inplace=False).reset_index()
-
-        # else:  # if not, gap all TCEs that belong to the same target star
-        #
-        #     gap_ephems = table.loc[(table['target_id'] == tce.target_id) &
-        #                            (table[config['tce_identifier']] != tce[config['tce_identifier']])][['tce_period',
-        #                                                                                           'tce_duration',
-        #                                                                                           'tce_time0bk']]
-        #
-        #     gapSectors = {gtce_i: add_info['sector'] for gtce_i in range(len(gap_ephems))}
-
-    # if gapping with confidence level, remove those gapped TCEs that are not in the confidence dict
-    # TODO: currently only implemented for Kepler
-    if config['gap_with_confidence_level'] and config['satellite'] == 'kepler':
-        poplist = []
-        for index, gapped_tce in gap_ephems.iterrows():
-            if (tce.kepid, gapped_tce[config['tce_identifier']]) not in conf_dict or \
-                    conf_dict[(tce.target_id, gapped_tce[config['tce_identifier']])] < config['gap_confidence_level']:
-                poplist += [gapped_tce[config['tce_identifier']]]
-
-        gap_ephems = gap_ephems.loc[gap_ephems[config['tce_identifier']].isin(poplist)]
-    elif config['gap_with_confidence_level'] and config['satellite'] == 'tess':
-        raise NotImplementedError('Using confidence level for gapping TCEs not implemented for TESS.')
-
-    # get transit duration of the TCE of interest
-    transit_duration_main = tce['tce_duration'] * (1 + 2 * gap_pad)
-
-    # gap cadences for all other TCEs in the same target star
-    for i in range(len(all_time)):
-
-        begin_time, end_time = all_time[i][0], all_time[i][-1]
-
-        transit_idxs_gappedtces = []
-
-        # find gapped cadences for each TCE
-        for ephem_i, ephem in gap_ephems.iterrows():
-
-            # gap more than transit duration to account for inaccuracies in the ephemeris estimates
-            # ephem['tce_duration'] = ephem['tce_duration'] * (1 + 2 * gap_pad)
-            # ephem['tce_duration'] = max(min(ephem['tce_duration'] * (1 + 2 * gap_pad), ephem['tce_period'] / 10),
-            #                             ephem['tce_duration'])
-            duration_gapped = ephem['tce_duration'] * (1 + 2 * gap_pad)
-
-            # for TESS, check if this time array belongs to one of the overlapping sectors
-            if config['satellite'] != 'kepler' and add_info['sectors'][i] not in gapSectors[ephem_i]:
-                continue
-
-            # get timestamp of the first transit of the gapped TCE in the current time array
-            epoch = find_first_epoch_after_this_time(ephem['tce_time0bk'], ephem['tce_period'], begin_time)
-
-            # create binary time-series for this time interval based on the ephemeris of the gapped TCE
-            bintransit_ts = create_binary_time_series(all_time[i], epoch, duration_gapped, ephem['tce_period'])
-
-            # get indexes of in-transit cadences for the gapped TCE in this time array
-            transit_idxs = np.where(bintransit_ts == 1)[0]
-
-            transit_idxs_gappedtces.extend(list(transit_idxs))
-
-        if keep_overlap:  # do not gap cadences that belong to the TCE of interest
-
-            # get timestamp of the first transit of the main TCE in the current time array
-            epoch_main = find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], begin_time)
-
-            # create binary time-series for this time interval based on the ephemeris of the main TCE
-            bintransit_ts_main = create_binary_time_series(all_time[i], epoch_main, transit_duration_main,
-                                                           tce['tce_period'])
-
-            # get indexes of in-transit cadences for the main TCE in this time array
-            transit_idxs_main = np.where(bintransit_ts_main == 1)[0]
-
-            # exclude from gapped indices the indices of the in-transit cadences for the main TCE
-            transit_idxs_gappedtces = np.setdiff1d(transit_idxs_gappedtces, transit_idxs_main)
-
-        gapped_idxs.append(np.array(transit_idxs_gappedtces))
-
-    return gapped_idxs
-
-
-def gap_tces(all_time, ephem, config):
-    """ Get gapped indices for a given set of one or more TCEs to be gapped.
-
-    :param all_time: list of Numpy arrays, timestamps
-    :param ephem: list of ephemeris of TCEs to be gapped
-    :param config: dict, preprocessing parameters
-    :return:
-        all_transit_idxs: list of Numpy arrays containing boolean arrays with True value for gapped indices
-        imputed_time: list of Numpy arrays, timestamps for gapped time
-    """
-
-    all_transit_idxs = []
-    imputed_time = []
-
-    for time_i in range(len(all_time)):
-
-        transit_idxs = np.zeros(len(all_time[time_i]), dtype='bool')
-        for ephem_i in range(len(ephem)):
-
-            # # for TESS, check if this time array belongs to one of the overlapping sectors
-            # if config['satellite'] != 'kepler' and add_info['sector'][i] not in gapSectors[real_ephem_i]:
-            #     continue
-
-            begin_time, end_time = all_time[time_i][0], all_time[time_i][-1]
-
-            # get timestamp of the first transit of the gapped TCE in the current time array
-            epoch = find_first_epoch_after_this_time(ephem['tce_time0bk'][ephem_i], ephem['tce_period'][ephem_i],
-                                                     begin_time)
-
-            # create binary time-series for this time interval based on the ephemeris of the gapped TCE
-            bintransit_ts = create_binary_time_series(all_time[time_i], epoch, ephem['tce_duration'][ephem_i],
-                                                      ephem_i['tce_period'])
-
-            # add indices of in-transit cadences for the gapped TCE in this time array
-            transit_idxs = np.logical_or(transit_idxs, bintransit_ts)
-
-        # get gapped cadences to be imputed
-        if config['gap_imputed'] and len(transit_idxs) > 0:
-            imputed_time.append(all_time[time_i][transit_idxs])
-
-        all_transit_idxs.append(transit_idxs)
-
-    return all_transit_idxs, imputed_time
-
-
-def imputing_gaps(time, timeseries, all_gap_time):
-    """ Imputing missing time with Gaussian noise computed taking into account global statistics of the data.
-
-    :param time: list of Numpy arrays, contains the non-gapped timestamps
-    :param timeseries: list of Numpy arrays, 1D time-series
-    :param all_gap_time: list of Numpy arrays, gapped timestamps
-    :return:
-        time: list of Numpy arrays, now with added gapped timestamps
-        timeseries: list of Numpy arrays, now with imputed data
-
-    TODO: compute statistics using only datapoints from cadences close to the gapped time intervals and also in o.o.t
-          values.
-    """
-
-    med = np.median(timeseries)
-    # robust std estimator of the time series
-    std_rob_estm = np.median(np.abs(timeseries - med['flux'])) * 1.4826
-
-    for gap_time in all_gap_time:
-        imputed_timeseries = med + np.random.normal(0, std_rob_estm, time.shape)
-        timeseries.append(imputed_timeseries.astype(timeseries[0].dtype))
-        time.append(gap_time, time.astype(time[0].dtype))
-
-    return time, timeseries
-
-
 def _process_tce(tce, table, config, conf_dict):
     """ Processes the time-series and scalar features for the TCE and returns an Example proto.
 
@@ -682,7 +230,7 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['415937547-1']:  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['97486585-1']:  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
     # if tce['oi'] in [1774.01]:
     # tce['tce_time0bk'] = 1325.726
     # tce['tce_period'] = 0.941451
@@ -1193,7 +741,10 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     #     for i in range(len(all_centroids[coord])):
     #         all_centroids[coord][i][np.where(all_centroids[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
     #         all_centroids[coord][i][np.where(all_centroids[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-    avg_centroid_oot = {coord: np.median(np.concatenate(all_centroids[coord])) for coord in all_centroids}
+    try:
+        avg_centroid_oot = {coord: np.median(np.concatenate(all_centroids[coord])) for coord in all_centroids}
+    except:
+        return [], []
 
     # compute the new average oot after the spline fitting and normalization
     # TODO: how to compute the average oot? mean, median, other...
@@ -1723,6 +1274,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     if len(data['time']) == 0:
         print(tce)
         report_exclusion(config, tce, 'No data[time] before creating views.')
+        return None
+
+    if len(data['time_centroid_dist']) == 0:
+        report_exclusion(config, tce, 'No preprocessed time series for centroid.')
         return None
 
     # time interval for the transit
