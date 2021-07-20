@@ -58,13 +58,13 @@ def get_tic_dv_report_and_summary(tic, download_dir, verbose=False):
 
 if __name__ == "__main__":
 
-    kic_list = [12935144]
-    download_dir = ''
+    kic_list = []  # [8561063, 3239945, 6933567, 8416523, 9663113]
+    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/confirmed_koi_tce_to_koi_period_secondary_7-1-2021/'
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
-    tic_list = [50365310]
-    download_dir = ''
+    tic_list = [40797468]
+    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
     for tic in tic_list:
         get_tic_dv_report_and_summary(tic, download_dir, verbose=False)
 
@@ -81,14 +81,14 @@ if __name__ == "__main__":
     # # data_products = Observations.get_product_list(obs_table)
     #
     # prod = Observations.download_products(obs_products_filter, download_dir='/home/msaragoc/Downloads/')
-
-    obs_table = Observations.query_criteria(target_name='50365310',
-                                            obs_collection='TESS',
-                                            # dataproduct_type='timeseries'
-                                            obs_id='*-s',
-                                            )
-    obs_products = Observations.get_product_list(obs_table)
-    obs_products_filter = Observations.filter_products(obs_products, extension='pdf')
-    # data_products = Observations.get_product_list(obs_table)
-
-    prod = Observations.download_products(obs_products_filter, download_dir='/home/msaragoc/Downloads/')
+    #
+    # obs_table = Observations.query_criteria(target_name='50365310',
+    #                                         obs_collection='TESS',
+    #                                         # dataproduct_type='timeseries'
+    #                                         obs_id='*-s',
+    #                                         )
+    # obs_products = Observations.get_product_list(obs_table)
+    # obs_products_filter = Observations.filter_products(obs_products, extension='pdf')
+    # # data_products = Observations.get_product_list(obs_table)
+    #
+    # prod = Observations.download_products(obs_products_filter, download_dir='/home/msaragoc/Downloads/')
