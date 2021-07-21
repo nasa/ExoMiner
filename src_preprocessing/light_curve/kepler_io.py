@@ -232,31 +232,32 @@ def read_kepler_light_curve(filenames,
                             ):
     """ Reads data from FITS files for a Kepler target star.
 
-  Args:
-    filenames: A list of .fits files containing time and flux measurements.
-    light_curve_extension: Name of the HDU 1 extension containing light curves.
-    scramble_type: What scrambling procedure to use: 'SCR1', 'SCR2', or 'SCR3'
-      (pg 9: https://exoplanetarchive.ipac.caltech.edu/docs/KSCI-19114-002.pdf).
-    interpolate_missing_time: Whether to interpolate missing (NaN) time values.
-      This should only affect the output if scramble_type is specified (NaN time
-      values typically come with NaN flux values, which are removed anyway, but
-      scrambing decouples NaN time values from NaN flux values).
-    centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
-      and Dec, or not
-    prefer_psfcentr: bool, if True, uses PSF centroids when available
-    invert: bool, if True, inverts time series
+    Args:
+        filenames: A list of .fits files containing time and flux measurements.
+        light_curve_extension: Name of the HDU 1 extension containing light curves.
+        scramble_type: What scrambling procedure to use: 'SCR1', 'SCR2', or 'SCR3'
+          (pg 9: https://exoplanetarchive.ipac.caltech.edu/docs/KSCI-19114-002.pdf).
+        interpolate_missing_time: Whether to interpolate missing (NaN) time values.
+          This should only affect the output if scramble_type is specified (NaN time
+          values typically come with NaN flux values, which are removed anyway, but
+          scrambing decouples NaN time values from NaN flux values).
+        centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
+          and Dec, or not
+        prefer_psfcentr: bool, if True, uses PSF centroids when available
+        invert: bool, if True, inverts time series
 
-  Returns:
-  data: dictionary with data extracted from the FITS files
-    - all_time: A list of numpy arrays; the time values of the light curve.
-    - all_flux: A list of numpy arrays; the flux values of the light curve.
-    - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values
-    of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
-    - sectors: A list with the observation sectors
-    - target_postiion: A list of two elements which correspond to the target star position, either in world
-    (RA, Dec) or local CCD (x, y) pixel coordinates
-    - module: A list with the module IDs
-    - quarter: A list with the observed quarters
+    Returns:
+        data: dictionary with data extracted from the FITS files
+            - all_time: A list of numpy arrays; the time values of the light curve.
+            - all_flux: A list of numpy arrays; the flux values of the light curve.
+            - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values
+            of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
+            - target_postiion: A list of two elements which correspond to the target star position, either in world
+            (RA, Dec) or local CCD (x, y) pixel coordinates
+            - module: A list with the module IDs
+            - quarter: A list with the observed quarters
+        files_not_read: list of FITS files that were not read correctly
+
   """
 
     # initialize data dict
@@ -270,12 +271,7 @@ def read_kepler_light_curve(filenames,
         'target_position': []
     }
 
-    def _has_finite(array):
-        for i in array:
-            if np.isfinite(i):
-                return True
-
-        return False
+    files_not_read = []
 
     # iterate through the FITS files for the target star
     for filename in filenames:
@@ -359,6 +355,11 @@ def read_kepler_light_curve(filenames,
         if not time.size:
             continue  # No data.
 
+        # check if arrays have the same size
+        if not len(time) == len(flux) == len(centroid_x) == len(centroid_y):
+            files_not_read.append(filename)
+            continue
+
         # use quality flags to remove cadences
         MAX_BIT = 16
         BITS = []  # [2048, 4096, 32768]
@@ -427,4 +428,4 @@ def read_kepler_light_curve(filenames,
         data['all_flux'] = [flux - 2 * np.median(flux) for flux in data['all_flux']]
         data['all_flux'] = [-1 * flux for flux in data['all_flux']]
 
-    return data
+    return data, files_not_read

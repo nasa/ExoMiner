@@ -1,3 +1,6 @@
+""" I/O utility functions for the preprocessing pipeline. """
+
+# 3rd party
 import os
 import socket
 

@@ -83,12 +83,20 @@ def read_light_curve(tce, config):
                 report_exclusion(config, tce, 'No available lightcurve FITS files')
                 return None
 
-        return kepler_io.read_kepler_light_curve(file_names,
-                                                 centroid_radec=not config['px_coordinates'],
-                                                 prefer_psfcentr=config['prefer_psfcentr'],
-                                                 light_curve_extension=config['light_curve_extension'],
-                                                 scramble_type=config['scramble_type'],
-                                                 invert=config['invert'])
+        data, fits_files_not_read = kepler_io.read_kepler_light_curve(file_names,
+                                                                      centroid_radec=not config['px_coordinates'],
+                                                                      prefer_psfcentr=config['prefer_psfcentr'],
+                                                                      light_curve_extension=config[
+                                                                          'light_curve_extension'],
+                                                                      scramble_type=config['scramble_type'],
+                                                                      invert=config['invert'])
+
+        if len(fits_files_not_read) > 0:
+            report_exclusion(config, tce, 'FITS files not read correctly')
+            if len(fits_files_not_read) == len(file_names):
+                return None
+
+        return data
 
     else:  # TESS
 
@@ -272,6 +280,7 @@ def _process_tce(tce, table, config, conf_dict):
     # get cadence, flux and centroid data for the tce
     data_fits = read_light_curve(tce, config)
 
+    # TODO: do we need this check?
     if data_fits is None:
         report_exclusion(config, tce, 'Empty arrays')
         return None
@@ -741,10 +750,8 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     #     for i in range(len(all_centroids[coord])):
     #         all_centroids[coord][i][np.where(all_centroids[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
     #         all_centroids[coord][i][np.where(all_centroids[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-    try:
-        avg_centroid_oot = {coord: np.median(np.concatenate(all_centroids[coord])) for coord in all_centroids}
-    except:
-        return [], []
+
+    avg_centroid_oot = {coord: np.median(np.concatenate(all_centroids[coord])) for coord in all_centroids}
 
     # compute the new average oot after the spline fitting and normalization
     # TODO: how to compute the average oot? mean, median, other...
@@ -949,38 +956,50 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
         add_info_centr = None
 
     # preprocess flux time series
-    time, flux = flux_preprocessing(data['all_time'],
-                                    data['all_flux'],
-                                    data['gap_time'],
-                                    tce,
-                                    config,
-                                    plot_preprocessing_tce)
+    try:
+        time, flux = flux_preprocessing(data['all_time'],
+                                        data['all_flux'],
+                                        data['gap_time'],
+                                        tce,
+                                        config,
+                                        plot_preprocessing_tce)
+    except:
+        time, flux = None, None
 
     # # preprocess weak secondary flux time series
-    time_wksecondaryflux, wksecondaryflux = weak_secondary_flux_preprocessing(data['all_time_noprimary'],
-                                                                              data['all_flux_noprimary'],
-                                                                              data['gap_time_noprimary'],
-                                                                              tce,
-                                                                              config,
-                                                                              plot_preprocessing_tce)
+    try:
+        time_wksecondaryflux, wksecondaryflux = weak_secondary_flux_preprocessing(data['all_time_noprimary'],
+                                                                                  data['all_flux_noprimary'],
+                                                                                  data['gap_time_noprimary'],
+                                                                                  tce,
+                                                                                  config,
+                                                                                  plot_preprocessing_tce)
+    except:
+        time_wksecondaryflux, wksecondaryflux = None, None
 
     # preprocess centroid time series
-    time_centroid, centroid_dist = centroid_preprocessing(data['all_time_centroids'],
-                                                          data['all_centroids'],
-                                                          data['avg_centroid_oot'],
-                                                          data['target_position'],
-                                                          add_info_centr,
-                                                          data['gap_time'],
-                                                          tce, config, plot_preprocessing_tce)
+    try:
+        time_centroid, centroid_dist = centroid_preprocessing(data['all_time_centroids'],
+                                                              data['all_centroids'],
+                                                              data['avg_centroid_oot'],
+                                                              data['target_position'],
+                                                              add_info_centr,
+                                                              data['gap_time'],
+                                                              tce, config, plot_preprocessing_tce)
+    except:
+        time_centroid, centroid_dist = None, None
 
     # preprocess FDL centroid time series
-    time_centroidFDL, centroid_distFDL = centroidFDL_preprocessing(data['all_time_nongapped'],
-                                                                   data['all_centroids_px'],
-                                                                   add_info_centr,
-                                                                   [],
-                                                                   tce,
-                                                                   config,
-                                                                   plot_preprocessing_tce)
+    try:
+        time_centroidFDL, centroid_distFDL = centroidFDL_preprocessing(data['all_time_nongapped'],
+                                                                       data['all_centroids_px'],
+                                                                       add_info_centr,
+                                                                       [],
+                                                                       tce,
+                                                                       config,
+                                                                       plot_preprocessing_tce)
+    except:
+        time_centroidFDL, centroid_distFDL = None, None
 
     # dictionary with preprocessed time series used to generate views
     data_views = {}
@@ -1271,14 +1290,20 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
       quantities, .... it returns None if some exception while creating these features occurs
     """
 
-    if len(data['time']) == 0:
-        print(tce)
-        report_exclusion(config, tce, 'No data[time] before creating views.')
-        return None
+    # if len(data['time']) == 0:
+    #     print(tce)
+    #     report_exclusion(config, tce, 'No data[time] before creating views.')
+    #     return None
+    #
+    # if len(data['time_centroid_dist']) == 0:
+    #     report_exclusion(config, tce, 'No preprocessed time series for centroid.')
+    #     return None
 
-    if len(data['time_centroid_dist']) == 0:
-        report_exclusion(config, tce, 'No preprocessed time series for centroid.')
-        return None
+    # check if data for all views is valid after preprocessing the raw time series
+    for key, val in data.items():
+        if val is None:
+            report_exclusion(config, tce, f'No data before creating views for {key}.')
+            return None
 
     # time interval for the transit
     t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \

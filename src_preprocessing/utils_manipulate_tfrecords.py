@@ -1,3 +1,5 @@
+""" Utility functions used to manipulate the processed TFRecords. """
+
 # 3rd party
 import tensorflow as tf
 import os
@@ -294,6 +296,18 @@ def normalize_timeseries_features(destTfrecDir, srcTfrecFile, normStats, auxPara
 
 def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme,
                           basename='', display=False):
+    """ Plot example (TCE/OI) stored into a shard (TFRecord).
+
+    :param viewsDict: dict, time series views to be plotted
+    :param scalarParamsStr: str, string with scalar parameters to be displayed as title
+    :param tceid: TCE/OI ID
+    :param labelTfrec: str, disposition/label
+    :param plotDir: Path, plot directory
+    :param scheme: tuple/list, plots configuration
+    :param basename: str, additional name for the figure
+    :param display: bool, if True displays figure using Matplotlib
+    :return:
+    """
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(22, 12))
     k = 0

@@ -1,4 +1,4 @@
-""" General utility function for preprocessing. """
+""" General utility functions for preprocessing. """
 
 # 3rd party
 import numpy as np
