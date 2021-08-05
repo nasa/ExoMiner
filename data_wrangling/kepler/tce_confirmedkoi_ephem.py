@@ -4,8 +4,9 @@ TCEs.
 """
 
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # %% Only replace TCE period by KOI period for Confirmed KOIs whose period significantly changed
 # (e.g., TCE period is a multiple of the KOI period)
@@ -52,7 +53,7 @@ def update_albedo_and_ptemp(x):
 
 
 tce_tbl = pd.read_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_5-28-2021.csv')
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_7-26-2021.csv')
 
 koi_tce_period_same = tce_tbl["tce_period"] == tce_tbl["koi_period"]
 
@@ -66,5 +67,5 @@ tce_tbl.loc[koi_tce_period_same, ['tce_albedo', 'tce_ptemp']] = \
     tce_tbl.loc[koi_tce_period_same, ['tce_eqt']].apply(update_albedo_and_ptemp, axis=1)
 
 tce_tbl.to_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_recomputedparams_7-2-2021.csv',
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiffsec_recomputedparams_7-26-2021.csv',
     index=False)

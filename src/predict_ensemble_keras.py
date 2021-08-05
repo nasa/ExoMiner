@@ -2,9 +2,10 @@
 Perform inference using an ensemble of Tensorflow Keras models.
 """
 
+import os
 # 3rd party
 import sys
-import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -27,7 +28,6 @@ from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics, compute_precision_at_k
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
-from src.utils_train import LayerOutputCallback
 
 
 def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets, fields, generate_csv_pred,
@@ -45,6 +45,10 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
     :param callbacks_dict: dict, callbacks
     :return:
     """
+
+    # save features and config
+    np.save(res_dir / 'features_set', features_set)
+    np.save(res_dir / 'config', config)
 
     verbose = False if 'home6' in paths.path_hpoconfigs else True
 
@@ -73,7 +77,6 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
     # create ensemble
     model_list = []
     for model_i, model_filepath in enumerate(models_filepaths):
-
         model = load_model(filepath=model_filepath, compile=False)
         model._name = f'model{model_i}'
 
@@ -83,8 +86,19 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
 
     ensemble_model.summary()
 
+    # save model
+    ensemble_model.save(res_dir / 'ensemble_model.h5')
+    # plot ensemble model and save the figure
+    keras.utils.plot_model(ensemble_model,
+                           to_file=res_dir / 'ensemble.png',
+                           show_shapes=False,
+                           show_layer_names=True,
+                           rankdir='TB',
+                           expand_nested=False,
+                           dpi=96)
+
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
+    metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
 
     # compile model - set optimizer, loss and metrics
     if config['optimizer'] == 'Adam':
@@ -127,7 +141,11 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
                                 batch_size=config['batch_size'],
                                 mode=tf.estimator.ModeKeys.EVAL,
                                 label_map=config['label_map'],
-                                features_set=features_set)
+                                features_set=features_set,
+                                data_augmentation=False,
+                                online_preproc_params=None,
+                                filter_data=None,
+                                )
 
         for callback_name in callbacks_dict:
             if 'layer' in callback_name:
@@ -237,26 +255,14 @@ def run_main(config, features_set, data_dir, res_dir, models_filepaths, datasets
             data_df.sort_values(by='score', ascending=False, inplace=True)
             data_df.to_csv(res_dir / f'ensemble_ranked_predictions_{dataset}set.csv', index=False)
 
-    # save model, features and config used for training this model
-    ensemble_model.save(res_dir / 'ensemble_model.h5')
-    np.save(res_dir / 'features_set', features_set)
-    np.save(res_dir / 'config', config)
-    # plot ensemble model and save the figure
-    keras.utils.plot_model(ensemble_model,
-                           to_file=res_dir / 'ensemble.png',
-                           show_shapes=False,
-                           show_layer_names=True,
-                           rankdir='TB',
-                           expand_nested=False,
-                           dpi=96)
-
 
 if __name__ == '__main__':
 
     # name of the study
-    study = 'tess-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_allparameterstess_nocentroid_nodicco_nosigmaoe_nodepth_noprad_noperiod_4-28-2021'
+    study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
 
     # results directory
+    paths.pathresultsensemble = '/data5/tess_project/experiments/current_experiments/results_ensemble/'
     save_path = Path(paths.pathresultsensemble) / study
     save_path.mkdir(exist_ok=True)
 
@@ -270,41 +276,38 @@ if __name__ == '__main__':
     logger.info(f'Starting run {study}...')
 
     # TFRecord files directory
-    # tfrec_dir = os.path.join(paths.path_tfrecs,
-    #                          'Kepler',
-    #                          'Q1-Q17_DR25',
-    #                          'tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized'
-    #                          )
     tfrec_dir = os.path.join(paths.path_tfrecs,
-                             'TESS',
-                             'tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_starshuffle_experiment-normalized')
+                             'Kepler',
+                             'Q1-Q17_DR25',
+                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
+                             )
 
     logger.info(f'Using data from {tfrec_dir}')
 
     # datasets used; choose from 'train', 'val', 'test', 'predict' - needs to follow naming of TFRecord files
-    # datasets = ['train', 'val', 'test']
-    datasets = ['predict']
+    datasets = ['train', 'val', 'test']
+    # datasets = ['predict']
 
     logger.info(f'Datasets to be evaluated/tested: {datasets}')
 
     # fields to be extracted from the TFRecords and that show up in the ranking created for each dataset
     # set to None if not adding other fields
     fields = {'target_id': 'int_scalar',
-              # 'tce_plnt_num': 'int_scalar',
-              'oi': 'float_scalar',
+              'tce_plnt_num': 'int_scalar',
+              # 'oi': 'float_scalar',
               'label': 'string',
-              'TESS Disposition': 'string',
+              # 'TESS Disposition': 'string',
               'tce_period': 'float_scalar',
               'tce_duration': 'float_scalar',
               'tce_time0bk': 'float_scalar',
               'original_label': 'string',
               'transit_depth': 'float_scalar',
-              'tce_max_mult_ev': 'float_scalar',
-              'tce_prad': 'float_scalar',
-              'sigma_oot_odd': 'float_scalar',
-              'sigma_it_odd': 'float_scalar',
-              'sigma_oot_even': 'float_scalar',
-              'sigma_it_even': 'float_scalar',
+              # 'tce_max_mult_ev': 'float_scalar',
+              # 'tce_prad': 'float_scalar',
+              # 'sigma_oot_odd': 'float_scalar',
+              # 'sigma_it_odd': 'float_scalar',
+              # 'sigma_oot_even': 'float_scalar',
+              # 'sigma_it_even': 'float_scalar',
               }
     # fields = ['target_id', 'label', 'tce_plnt_num', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label']
     # fields = ['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration', 'tce_time0bk', 'original_label',
@@ -320,12 +323,13 @@ if __name__ == '__main__':
                        'verbose': False
                        }
     use_kepler_ce = False  # use weighted CE loss based on the class proportions in the training set
-    satellite = 'tess'  # if 'kepler' in tfrec_dir else 'tess
+    satellite = 'kepler'  # if 'kepler' in tfrec_dir else 'tess
 
     generate_csv_pred = True
 
     # get models for the ensemble
-    models_study = 'keplerdr25-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_allparameterstess_nocentroid_nodicco_nosigmaoe_nodepth_noprad_noperiod_4-28-2021'  # study
+    models_study = study
+    paths.pathtrainedmodels = '/data5/tess_project/experiments/current_experiments/trained_models/'
     models_dir = Path(paths.pathtrainedmodels) / models_study / 'models'
     models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
                         model_dir.stem]
@@ -335,10 +339,11 @@ if __name__ == '__main__':
     config = {}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    hpo_study = 'experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    hpo_study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
 
     # set the configuration from a HPO study
     if hpo_study is not None:
+        paths.path_hpoconfigs = '/data5/tess_project/experiments/hpo_configs'
         hpo_study_fp = Path(paths.path_hpoconfigs) / hpo_study
         res = utils_hpo.logged_results_to_HBS_result(hpo_study_fp, f'_{hpo_study_fp.name}')
         # get ID to config mapping
@@ -367,7 +372,7 @@ if __name__ == '__main__':
         # 'init_conv_filters': 4,
         # 'kernel_size': 5,
         # 'kernel_stride': 1,
-        'non_lin_fn': 'prelu',  # 'relu',
+        # 'non_lin_fn': 'prelu',  # 'relu',
         # 'optimizer': 'Adam',
         # 'lr': 1e-5,
         # 'batch_size': 64,
@@ -385,12 +390,12 @@ if __name__ == '__main__':
 
     features_set = {
         # flux related features
-        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'global_flux_view_fluxnorm': {'dim': (2001, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (201, 1), 'dtype': tf.float32},
         # 'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # odd-even flux features
-        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
         # 'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
         # 'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
@@ -398,35 +403,35 @@ if __name__ == '__main__':
         # secondary flux features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # centroid features
         # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
         # 'global_centr_fdl_view_norm': {'dim': (2001, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (201, 1), 'dtype': tf.float32},
         # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
-        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
-        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
         # tce parameters
         # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},

@@ -1,22 +1,24 @@
 """ Create TESS TCE tables. """
 
-from pathlib import Path
-import pandas as pd
-from datetime import datetime
-import numpy as np
 import copy
-from tqdm import tqdm
-from astroquery.mast import Catalogs
-import matplotlib.pyplot as plt
+from datetime import datetime
+from pathlib import Path
 
-#%% Create TCE table with the TCEs matched to the TOIs
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from astroquery.mast import Catalogs
+from tqdm import tqdm
+
+# %% Create TCE table with the TCEs matched to the TOIs
 
 res_dir = Path(f'/data5/tess_project/Data/Ephemeris_tables/TESS/tce_table_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 res_dir.mkdir(exist_ok=True)
 
 match_thr = 0.25
 
-toi_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/3-11-2021/exofop_toilists_spoc_nomissingpephem.csv')
+toi_tbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/3-11-2021/exofop_toilists_spoc_nomissingpephem.csv')
 matching_tbl = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/03-12-2021_1308/tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv')
 matching_tbl = matching_tbl.loc[~matching_tbl['Matched TCEs'].isna()]
 
@@ -246,10 +248,15 @@ tce_tbl.rename(columns=rename_dict, inplace=True)
 
 # change data type in columns
 type_dict = {
-    # 'tce_steff': int,
-    'sectors': str,
-    # 'oi': str
+    'label': 'str',
+    'TFOPWG Disposition': 'str',
+    'TESS Disposition': 'str',
+    'sectors': 'str',
+    'kic_id': 'str',
+    'Comments': 'str',
+    'toi_sectors': 'str'
 }
+
 tce_tbl = tce_tbl.astype(dtype=type_dict)
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_renamedcols.csv', index=False)

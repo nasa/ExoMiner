@@ -5,11 +5,12 @@
 
 # 3rd party
 import multiprocessing
-import pandas as pd
-import msgpack
-import numpy as np
 import os
 from pathlib import Path
+
+import msgpack
+import numpy as np
+import pandas as pd
 
 # %% Combine data from Q1-Q17 DR25 stellar and supplemental stellar tables
 

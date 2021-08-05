@@ -1,8 +1,9 @@
 """ Generate preprocessed TFRecords locally. """
 
+import os
 # 3rd party
 import sys
-import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import multiprocessing
 import numpy as np
@@ -13,7 +14,6 @@ from tensorflow.compat.v1 import logging as tf_logging
 # import logging
 from pathlib import Path
 import json
-from datetime import datetime
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -28,7 +28,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
-    config['tfrecords_base_name'] = 'test_tesss1-s35_tcesdv_errors_7-16-2021'
+    config['tfrecords_base_name'] = 'tic100100827.1_7-30-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',

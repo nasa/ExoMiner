@@ -24,7 +24,7 @@ from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
 
 # local
-from src.models_keras import CNN1dPlanetFinderv1, CNN1dPlanetFinderv2
+from src.models_keras import Astronet
 from src import config_keras
 from src_hpo.worker_hpo_keras import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
@@ -104,16 +104,17 @@ def run_main(hpo_config):
         res = hpo.run(n_iterations=hpo_config['n_iterations'])
 
         # save kde parameters
-        kde_models_bdgt = hpo.config_generator.kde_models
-        kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
-        for bdgt in kde_models_bdgt:
-            for est in kde_models_bdgt[bdgt]:
-                kde_models_bdgt_params[bdgt][est] = [kde_models_bdgt[bdgt][est].data,
-                                                     kde_models_bdgt[bdgt][est].data_type,
-                                                     kde_models_bdgt[bdgt][est].bw]
-        kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
+        if hpo_config['rank'] != 0:
+            kde_models_bdgt = hpo.config_generator.kde_models
+            kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
+            for bdgt in kde_models_bdgt:
+                for est in kde_models_bdgt[bdgt]:
+                    kde_models_bdgt_params[bdgt][est] = [kde_models_bdgt[bdgt][est].data,
+                                                         kde_models_bdgt[bdgt][est].data_type,
+                                                         kde_models_bdgt[bdgt][est].bw]
+            kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
 
-        np.save(hpo_config['results_directory'] + '/kde_models_params.npy', kde_models_bdgt_params)
+            np.save(hpo_config['results_directory'] / 'kde_models_params.npy', kde_models_bdgt_params)
 
     else:  # run random search
         hpo = RandomSearch(configspace=TransitClassifier.get_configspace(),
@@ -133,7 +134,7 @@ def run_main(hpo_config):
     name_server.shutdown()
 
     # analyse and save results
-    analyze_results(res, hpo_config, hpo_config['results_directory'], hpo_config['study'])
+    analyze_results(res, hpo_config)
 
 
 if __name__ == '__main__':
@@ -157,83 +158,86 @@ if __name__ == '__main__':
         print(f'Number of GPUs selected per node = {n_gpus}')
     gpu_id = rank % n_gpus
 
+    # setting GPU
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # "0, 1"
 
     print(f'[rank_{rank}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
     print(f'[rank_{rank}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
-    study = 'hpo_test'  # name of the HPO study
+    study = 'hpo_test_astronet_oom_config_68_0_2'  # name of the HPO study
 
     config = {'branches':
         [
             'global_flux_view_fluxnorm',
             'local_flux_view_fluxnorm',
-            'local_flux_oddeven_views',
-            'global_centr_view_std_noclip',
-            'local_centr_view_std_noclip',
+            # 'local_flux_oddeven_views',
+            # 'global_centr_view_std_noclip',
+            # 'local_centr_view_std_noclip',
+            # 'global_centr_fdl_view_norm',
+            # 'local_centr_fdl_view_norm',
             # 'local_weak_secondary_view_fluxnorm',
             # 'local_weak_secondary_view_selfnorm',
-            'local_weak_secondary_view_max_flux-wks_norm',
+            # 'local_weak_secondary_view_max_flux-wks_norm',
         ]
     }
 
     # features to be extracted from the dataset
     features_set = {
         # flux features
-        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'global_flux_view_fluxnorm': {'dim': (2001, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (201, 1), 'dtype': tf.float32},
+        # 'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # odd and even flux features
-        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
-        'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
-        'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
-        'sigma_it_even': {'dim': (1,), 'dtype': tf.float32},
+        # 'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
+        # 'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
+        # 'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
+        # 'sigma_it_even': {'dim': (1,), 'dtype': tf.float32},
         # weak secondary flux features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_albedo_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_ptemp_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # centroid features
-        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
-        # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        'mag_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        # 'global_centr_fdl_view_norm': {'dim': (2001, 1), 'dtype': tf.float32},
+        # 'local_centr_fdl_view_norm': {'dim': (201, 1), 'dtype': tf.float32},
+        # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # DV diagnostics
-        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
-        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
         # tce parameters
-        'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
     }
 
     # data directory
     tfrec_dir = os.path.join(paths.path_tfrecs, 
                              'Kepler',
                              'Q1-Q17_DR25',
-                             '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_oereplbins_caphap_stat_diff_starshuffle_experiment-labels-normalized'
+                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
                              )
 
     multi_class = False  # multiclass classification
@@ -250,7 +254,8 @@ if __name__ == '__main__':
 
     # add missing architecture parameters in hpo with default values
     config = config_keras.add_default_missing_params(config=config)
-    config['non_lin_fn'] = 'prelu'
+    # config['non_lin_fn'] = 'prelu'
+    # config['batch_size'] = 64  # for Astronet
 
     # previous run directory; used to warmup start model based optimizers
     prev_run_study = None
@@ -266,9 +271,9 @@ if __name__ == '__main__':
         'study': study,
         'optimizer': 'bohb',  # types of hyperparameter optimizers available: 'random_search', 'bohb'
         # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
-        'min_budget': 6,  # 6
-        'max_budget': 50,  # 50
-        'n_iterations': 400,
+        'min_budget': 1,  # 6
+        'max_budget': 10,  # 50
+        'n_iterations': 1,
         # BOHB and BO parameters; check [1]
         'bohb_params': {'top_n_percent': 15,
                         'num_samples': 64,
@@ -286,7 +291,7 @@ if __name__ == '__main__':
         'verbose': 1,
         'experiment_config': config,
         'features_set': features_set,
-        'base_model': CNN1dPlanetFinderv2,
+        'base_model': Astronet,  # CNN1dPlanetFinderv2,
         # 'online_preproc_params': online_preproc_params,
         'filter_data': None,  # data used to filer the datasets; use None if not filtering
         'tfrec_dir': tfrec_dir,

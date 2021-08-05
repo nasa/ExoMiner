@@ -160,3 +160,16 @@ def count_transits(time, period, epoch, duration, num_cadences_min=1):
     return np.sum([len(np.where((time >= mid_transit_time - duration / 2) &
                                 (time <= mid_transit_time + duration / 2))[0]) >= num_cadences_min
                    for mid_transit_time in mid_transit_times])
+
+
+def min_max_normalization(arr, max_val, min_val):
+    """ Min-max normalization.
+
+    :param arr: array
+    :param max_val: float, max val
+    :param min_val: float, min val
+    :return:
+        normalized array
+    """
+
+    return (arr - min_val) / (max_val - min_val)

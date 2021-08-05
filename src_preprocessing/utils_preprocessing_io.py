@@ -54,8 +54,8 @@ def report_exclusion(config, tce, id_str, stderr=None):
         with open(os.path.join(savedir, 'exclusions_{}_{}-{}.txt'.format(config['process_i'], node_id,
                                                                          main_str.replace(" ", ""))),
                   "a") as myfile:
-            myfile.write('{}, {}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))
+            myfile.write('{}\n{}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))
     else:
         # write to exclusion log locally
         with open(os.path.join(savedir, 'exclusions-{}.txt'.format(main_str.replace(" ", ""))), "a") as myfile:
-            myfile.write('{}, {}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))
+            myfile.write('{}\n{}\n{}'.format(main_str, id_str, (stderr, '')[stderr is None]))

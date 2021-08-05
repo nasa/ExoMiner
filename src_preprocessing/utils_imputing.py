@@ -80,7 +80,7 @@ def imputing_gaps(time, timeseries, all_gap_time):
 
     med = np.median(timeseries)
     # robust std estimator of the time series
-    std_rob_estm = np.median(np.abs(timeseries - med['flux'])) * 1.4826
+    std_rob_estm = mad_std(timeseries)
 
     for gap_time in all_gap_time:
         imputed_timeseries = med + np.random.normal(0, std_rob_estm, time.shape)

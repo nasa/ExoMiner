@@ -1,10 +1,11 @@
-""" Recalculate derived planetary parameters for Kepler data."""
+""" Recalculate derived planetary parameters for TESS data."""
 
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
 # 3rd party
 import pandas as pd
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 
 # local
 from data_wrangling.compute_derived_parameters import estimate_sma, estimate_plnt_eq_temp, estimate_plnt_radius, \
@@ -13,15 +14,14 @@ from data_wrangling.compute_derived_parameters import estimate_sma, estimate_pln
 
 # %% recompute derived planetary parameters based on updated stellar parameters
 
-res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/')
 
-tce_tbl_fp = res_dir / \
-             'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_5-24-2021.csv'
+tce_tbl_fp = res_dir / 'tess_tces_s1-s35_renamedcols.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # add parameters from original table
-tce_tbl_orig = pd.read_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/q1_q17_dr25_tce_planet_params/'
-                           'q1_q17_dr25_tce_2021.05.13_15.04.35.csv', header=67)
+tce_tbl_orig = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/tess_tces_s1-s35.csv')
 orig_params = [
     'tce_steff',
     'tce_steff_err',
@@ -31,10 +31,10 @@ orig_params = [
     'tce_sradius_err',
     'tce_smet',
     'tce_smet_err',
-    # 'tce_sdens',
-    # 'tce_sdens_err',
-    # 'mag',
-    # 'mag_err',
+    'tce_sdens',
+    'tce_sdens_err',
+    'mag',
+    'mag_err',
     'tce_prad',
     'tce_prad_err',
     'tce_sma',
@@ -53,6 +53,10 @@ orig_params = [
 cols_to_keep = {col: f'{col}_orig' for col in orig_params}
 tce_tbl = pd.concat([tce_tbl,
                      tce_tbl_orig.rename(columns=cols_to_keep, inplace=False)[list(cols_to_keep.values())]], axis=1)
+# # add stellar effective temperature from original table because it is needed to compute the planet eff. temp. based on
+# # the original planet eff. temp. value
+# tce_tbl_orig = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/tess_tces_s1-s35.csv')
+# tce_tbl[['tce_steff_orig', 'tce_steff_err_orig']] = tce_tbl_orig[['tce_steff', 'tce_steff_err']]
 
 # set missing stellar eff. temp., surface gravity and radius (NaNs) to 0 and -1 for values and uncertainties,
 # respectively
@@ -65,17 +69,17 @@ for tce_i, tce in tce_tbl.iterrows():
     if tce_i % 500 == 0:
         print(f'Updating derived planetary parameters for TCE {tce_i + 1}({len(tce_tbl)})')
 
-    if tce['updated_stellar_derived'] == 0:
-        continue
+    # if tce['updated_stellar_derived'] == 0:
+    #     continue
 
     # compute planet radius
-    tce_tbl.loc[tce_i, ['tce_prad', 'tce_prad_err']] = estimate_plnt_radius(tce['tce_ror'],
-                                                                            tce['tce_sradius'],
-                                                                            tce['tce_ror_err'],
-                                                                            tce['tce_sradius_err'])
+    tce[['tce_prad', 'tce_prad_err']] = estimate_plnt_radius(tce['tce_ror'],
+                                                             tce['tce_sradius'],
+                                                             tce['tce_ror_err'],
+                                                             tce['tce_sradius_err'])
 
     # compute semi-major axis
-    tce_tbl.loc[tce_i, ['tce_sma', 'tce_sma_err']] = \
+    tce[['tce_sma', 'tce_sma_err']] = \
         estimate_sma(tce['tce_period'],
                      tce['tce_sradius'],
                      tce['tce_slogg'],
@@ -84,11 +88,11 @@ for tce_i, tce in tce_tbl.iterrows():
                      tce['tce_slogg_err'])
 
     # check if semi-major axis is larger than stellar radius plus planet radius
-    tce_tbl.loc[tce_i, ['tce_sma', 'tce_sma_err']] = \
+    tce[['tce_sma', 'tce_sma_err']] = \
         check_valid_sma(tce['tce_sma'], tce['tce_sma_err'], tce['tce_sradius'], tce['tce_prad'])
 
     # compute insolation flux
-    tce_tbl.loc[tce_i, ['tce_insol', 'tce_insol_err']] = \
+    tce[['tce_insol', 'tce_insol_err']] = \
         estimate_eff_stellar_flux(tce['tce_sradius'],
                                   tce['tce_sma'],
                                   tce['tce_steff'],
@@ -99,7 +103,7 @@ for tce_i, tce in tce_tbl.iterrows():
                                   )
 
     # compute planet equilibrium temperature
-    tce_tbl.loc[tce_i, ['tce_eqt', 'tce_eqt_err']] = \
+    tce[['tce_eqt', 'tce_eqt_err']] = \
         estimate_plnt_eq_temp(tce['tce_steff'],
                               tce['tce_sradius'],
                               tce['tce_sma'],
@@ -111,10 +115,10 @@ for tce_i, tce in tce_tbl.iterrows():
                               tce['tce_sma_err'])
 
     # check if planet equilibrium temperature is smaller than stellr effective temperature
-    tce_tbl.loc[tce_i, ['tce_eqt', 'tce_eqt_err']] = \
+    tce[['tce_eqt', 'tce_eqt_err']] = \
         check_valid_plnt_eq_temp(tce['tce_eqt'], tce['tce_eqt_err'], tce['tce_steff'])
 
-    tce_tbl.loc[tce_i, ['tce_ptemp', 'tce_ptemp_err']] = \
+    tce[['tce_ptemp', 'tce_ptemp_err']] = \
         estimate_new_plnt_eff_temp(
             tce['tce_ptemp_orig'],
             tce['tce_steff_orig'],
@@ -125,10 +129,10 @@ for tce_i, tce in tce_tbl.iterrows():
         )
 
     # compute planet effective temperature comparison stat
-    tce_tbl.loc[tce_i, ['tce_ptemp_stat']] = \
+    tce[['tce_ptemp_stat']] = \
         compute_plnt_eff_temp_stat(tce['tce_ptemp'], tce['tce_eqt'], tce['tce_ptemp_err'], tce['tce_eqt_err'])
 
-    tce_tbl.loc[tce_i, ['tce_albedo', 'tce_albedo_err']] = \
+    tce[['tce_albedo', 'tce_albedo_err']] = \
         estimate_new_sec_geo_albedo(
             tce['tce_albedo_orig'],
             tce['tce_prad_orig'],
@@ -141,8 +145,8 @@ for tce_i, tce in tce_tbl.iterrows():
             tce['tce_prad_err'],
             tce['tce_sma_err'])
 
-    # check if planet equilibrium temperature is smaller than stellr effective temperature
-    tce_tbl.loc[tce_i, ['tce_albedo', 'tce_albedo_err']] = \
+    # check if secondary geometric albedo is valid
+    tce[['tce_albedo', 'tce_albedo_err']] = \
         check_valid_sec_geo_albedo(tce['tce_albedo'],
                                    tce['tce_albedo_err'],
                                    tce['tce_sma'],
@@ -153,8 +157,10 @@ for tce_i, tce in tce_tbl.iterrows():
                                    tce['wst_depth'])
 
     # compute albedo comparison stat
-    tce_tbl.loc[tce_i, ['tce_albedo_stat']] = \
+    tce[['tce_albedo_stat']] = \
         compute_sec_geo_albedo_stat(tce['tce_albedo'], tce['tce_albedo_err'])
+
+    tce_tbl.loc[tce_i] = tce
 
 # %% plot parameters in recomputed table vs original table
 
@@ -181,13 +187,16 @@ plot_cols = {
     'tce_smet_err': {'lim': [0, 1]},
     'tce_sradius': {'lim': [0, 10]},
     'tce_sradius_err': {'lim': [0, 10]},
-    # 'tce_sdens': {'lim': [0, 100]},
-    # 'tce_sdens_err': {'lim': [0, 100]},
+    'tce_sdens': {'lim': [0, 100]},
+    'tce_sdens_err': {'lim': [0, 100]},
     # 'tce_smass',
     # 'tce_smass_err'
-    # 'mag': {'lim': [0, 20]},
-    # 'mag_err': {'lim': [0, 20]},
+    'mag': {'lim': [0, 20]},
+    'mag_err': {'lim': [0, 20]},
 }
+
+# tce_tbl_old = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/'
+#                           'tess_tces_s1-s35_ticparams.csv')
 
 for col in plot_cols:
     if 'err' in col:
@@ -213,6 +222,7 @@ for col in plot_cols:
     ax[0].set_xlim(plot_cols[col]['lim'])
     ax[0].set_ylim(plot_cols[col]['lim'])
     ax[1].set_xlim(plot_cols[col]['lim'])
+    ax[1].set_ylim([0, 1])
     ax[0].grid(True)
     ax[1].grid(True)
     f.savefig(res_dir / f'scatter_{col}.png')
@@ -257,6 +267,4 @@ for param in parameters:
         tce_tbl.loc[tce_tbl[param] == 0, param] = np.nan
         tce_tbl.loc[tce_tbl[f'{param}_orig'] == 0, f'{param}_orig'] = np.nan
 
-tce_tbl.to_csv(res_dir /
-               'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_5-28-2021.csv',
-               index=False)
+tce_tbl.to_csv(res_dir / 'tess_tces_s1-s35_recomputed_params.csv', index=False)

@@ -2,17 +2,18 @@
 Utility functions for the hyperparameter optimizer script.
 """
 
+import json
 # 3rd party
 import os
-# import tensorflow as tf
-import numpy as np
 import pickle
+
 # import statsmodels.api as sm
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
-import json
+# import tensorflow as tf
+import numpy as np
 from hpbandster.core.base_iteration import Datum
 
 
@@ -153,18 +154,16 @@ def check_run_id(run_id, shared_directory, worker=False):
     return run_id
 
 
-def analyze_results(result, args, shared_dir, run_id):
+def analyze_results(result, hpo_config):
     """ Save results from the HPO study in a pickle file and plot study analysis plots.
 
     :param result: HPO res object
-    :param args:
-    :param shared_dir: str, shared directory by the workers (result directory)
-    :param run_id: str, study name id
+    :param hpo_config: dict, HPO parameters
     :return:
     """
 
     # save results in a pickle file
-    with open(os.path.join(shared_dir, 'results_%s.pkl' % run_id), 'wb') as fh:
+    with open(hpo_config['results_directory'] / f'results_{hpo_config["study"]}.pkl', 'wb') as fh:
         pickle.dump(result, fh)
 
     # get the 'dict' that translates config ids to the actual configurations
@@ -183,9 +182,9 @@ def analyze_results(result, args, shared_dir, run_id):
     print('A total of %i unique configurations were sampled.' % len(id2conf.keys()))
     print('A total of %i runs were executed.' % len(all_runs))
     print('Total budget corresponds to %.1f full function evaluations.'
-          % (sum([r.budget for r in all_runs]) / args.max_budget))
+          % (sum([r.budget for r in all_runs]) / hpo_config['max_budget']))
     print('Total budget corresponds to %.1f full function evaluations.'
-          % (sum([r.budget for r in all_runs]) / args.max_budget))
+          % (sum([r.budget for r in all_runs]) / hpo_config['max_budget']))
     print('The run took  %.1f seconds to complete.'
           % (all_runs[-1].time_stamps['finished'] - all_runs[0].time_stamps['started']))
 
@@ -219,7 +218,7 @@ def analyze_results(result, args, shared_dir, run_id):
 
     for figname, fig in figs.items():
         fig.set_size_inches(10, 8)
-        fig.savefig(os.path.join(shared_dir, figname + '.png'), bbox_inches='tight')
+        fig.savefig(hpo_config['results_directory'] / f'{figname}.png', bbox_inches='tight')
 
     # if 'nobackup' not in shared_dir:
     #     plt.show()
@@ -374,10 +373,9 @@ def logged_results_to_HBS_result(directory, run_id):
 
 
 if __name__ == '__main__':
-
-    num_iterations = 100
+    num_iterations = 1
     eta = 2
-    bmin, bmax = 5, 50
+    bmin, bmax = 1, 10
     print('Total number of runs,total budget: {}'.format(estimate_BOHB_runs(num_iterations, eta, bmin, bmax)))
 
     train_time = 0.5  # assuming that models on average take 30 minutes to train on 50 epochs

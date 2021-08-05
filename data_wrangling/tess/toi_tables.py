@@ -1,13 +1,14 @@
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astroquery.mast import Catalogs
-import matplotlib.pyplot as plt
-from astropy.io import fits
 
-#%% MAST TOI catalog
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astroquery.mast import Catalogs
+
+# %% MAST TOI catalog
 
 toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TOI_catalogs/2-18-2021')
 
@@ -29,7 +30,7 @@ toi_tbl.to_csv(toi_dir / 'tois_spoc_nomissingephemerides.csv', index=False)
 
 #%% EXOFOP TOI catalog
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/')
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/7-30-2021/')
 
 toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists.csv')
 

@@ -1,14 +1,15 @@
-import pandas as pd
-import numpy as np
-import msgpack
-import matplotlib.pyplot as plt
-import os
 import multiprocessing
+import os
+
+import matplotlib.pyplot as plt
+import msgpack
+import numpy as np
+import pandas as pd
 from astropy.io import fits
 
 from src_preprocessing.light_curve.kepler_io import kepler_filenames
 
-#%% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
+# %% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
 # last time updated? Provenance all except star radius: KIC, J-K, Pinsonneault, Spectroscopy, Photometry,
 # Transits or EBs, Asteroseismology, Solar (when unknown parameters)
 # Provenance for stellar radius: DSEP, MULT

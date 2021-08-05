@@ -1,13 +1,14 @@
-import pandas as pd
-import numpy as np
-from scipy import io
-import matplotlib.pyplot as plt
+import logging
 # from astropy.stats import mad_std
 import random
 from pathlib import Path
-import logging
 
-#%% Check transit depth for Kepler dataset
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy import io
+
+# %% Check transit depth for Kepler dataset
 
 tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/'
                       'q1_q17_dr25_tce_2019.03.12_updt_tcert_extendedtceparams_updt_normstellarparamswitherrors.csv')

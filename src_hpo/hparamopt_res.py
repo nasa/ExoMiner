@@ -2,25 +2,26 @@
 Evaluate a hyperparameter optimization study using BOHB, BO and RS implementation by Falkner et al.
 """
 
-# 3rd party
-# import hpbandster.core.result as hpres
-import matplotlib.pyplot as plt
-import hpbandster.visualization as hpvis
-import numpy as np
-import matplotlib.colors as mcolors
 # import matplotlib.cm as mcm
 import glob
 # import random
 import os
 
+import hpbandster.visualization as hpvis
+import matplotlib.colors as mcolors
+# 3rd party
+# import hpbandster.core.result as hpres
+import matplotlib.pyplot as plt
+import numpy as np
+
+import paths
 # local
 from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logger
-import paths
 
+# %% load results from a HPO study
 
-#%% load results from a HPO study
-
-study = 'hpo_test'
+paths.path_hpoconfigs = '/data5/tess_project/experiments/hpo_configs/'
+study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

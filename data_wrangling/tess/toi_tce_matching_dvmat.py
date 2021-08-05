@@ -2,17 +2,19 @@
 
 # 3rd party
 import multiprocessing
+from datetime import datetime
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from scipy.spatial import distance
-import numpy as np
-from datetime import datetime
-import matplotlib.pyplot as plt
 
 # local
 from data_wrangling.old.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
-#%%
+
+# %%
 
 
 def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces):
@@ -28,12 +30,16 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                                            tEnd=toi['Epoch (TBJD)'] + toi['Period (days)'],
                                            samplingInterval=sampling_interval)
 
-    for toi_sector in toi_sectors:
+    for toi_sector in toi_sectors:  # iterate through the sectors the TOI was observed
 
         # check the single sector run table
-        tce_tbl_aux = singlesector_tce_tbls[toi_sector]
+        if toi_sector in singlesector_tce_tbls:
+            tce_tbl_aux = singlesector_tce_tbls[toi_sector]
 
-        tce_found = tce_tbl_aux.loc[tce_tbl_aux['catId'] == toi['TIC ID']]
+            # get TCEs in the run for the same TIC
+            tce_found = tce_tbl_aux.loc[tce_tbl_aux['catId'] == toi['TIC ID']]
+        else:
+            tce_found = []
 
         if len(tce_found) > 0:
 
@@ -41,6 +47,7 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
                 tceid = tce['planetIndexNumber']
 
+                # size of the template is set to larger orbital period between TOI and TCE
                 phase = max(toi['Period (days)'], tce['allTransitsFit_orbitalPeriodDays_value'])
 
                 # find phase difference of TCE to the TOI
@@ -48,7 +55,7 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                 # tce['allTransitsFit_orbitalPeriodDays_value'],
                 # toi['Epoch (TBJD)'])
 
-                if phase == toi['Period (days)']:
+                if phase == toi['Period (days)']:  # if TOI orbital period is larger, keep the TOI template
                     toi_bin_ts = toi_bin_ts_max
                 else:
                     toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
@@ -65,20 +72,26 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                                                        tEnd=toi['Epoch (TBJD)'] + phase,
                                                        samplingInterval=sampling_interval)
 
+                # compute distance between TOI and TCE templates as cosine distance
                 match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
 
+                # set matching distance if it is smaller than the matching threshold
                 if match_distance < match_thr:
                     matching_dist_dict[f'{toi_sector}_{tceid}'] = match_distance
 
         # check the multi sector runs tables
         for multisector_tce_tbl in multisector_tce_tbls:
+
             if toi_sector >= multisector_tce_tbl[0] and toi_sector <= multisector_tce_tbl[1]:
 
+                # get multi-sector run TCE table
                 tce_tbl_aux = multisector_tce_tbls[multisector_tce_tbl]
 
+                # get TCEs in the run for the same TIC
                 tce_found = tce_tbl_aux.loc[tce_tbl_aux['catId'] == toi['TIC ID']]
 
                 if len(tce_found) > 0:
+
                     for tce_i, tce in tce_found.iterrows():
 
                         tceid = tce['planetIndexNumber']
@@ -86,19 +99,19 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                         phase = max(toi['Period (days)'], tce['allTransitsFit_orbitalPeriodDays_value'])
 
                         # find phase difference of TCE to the TOI
-                        phase_diff = 0  # find_nearest_epoch_to_this_time(tce['allTransitsFit_transitEpochBtjd_value'],
-                        # tce['allTransitsFit_orbitalPeriodDays_value'],
-                        # toi['Epoch (TBJD)'])
+                        phase_diff = find_nearest_epoch_to_this_time(tce['allTransitsFit_transitEpochBtjd_value'],
+                                                                     tce['allTransitsFit_orbitalPeriodDays_value'],
+                                                                     toi['Epoch (TBJD)'])
 
                         if phase == toi['Period (days)']:
                             toi_bin_ts = toi_bin_ts_max
                         else:
                             toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                                               duration=toi['Duration (hours)'] / 24,
-                                                               period=toi['Period (days)'],
-                                                               tStart=toi['Epoch (TBJD)'],
-                                                               tEnd=toi['Epoch (TBJD)'] + phase,
-                                                               samplingInterval=sampling_interval)
+                                                                   duration=toi['Duration (hours)'] / 24,
+                                                                   period=toi['Period (days)'],
+                                                                   tStart=toi['Epoch (TBJD)'],
+                                                                   tEnd=toi['Epoch (TBJD)'] + phase,
+                                                                   samplingInterval=sampling_interval)
 
                         tce_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'] + phase_diff,
                                                                duration=tce['allTransitsFit_transitDurationHours_value']
@@ -152,17 +165,17 @@ def match_set_tois_tces(toi_tbl, tbl_i, match_tbl_cols, singlesector_tce_tbls, m
 
 # %% Matching between TOIs and TCEs using the cosine distance between period templates
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     # set results directory
     res_dir = Path(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
                    f'{datetime.now().strftime("%m-%d-%Y_%H%M")}')
     res_dir.mkdir(exist_ok=True)
 
     # get TOI table
-    toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/')
-
-    toi_cols = ['TOI', 'TIC ID', 'Sectors', 'Period (days)', 'Duration (hours)', 'Epoch (TBJD)']
+    toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/7-30-2021/')
+    # columns to be used from the TOI table
+    toi_cols = ['TOI', 'TIC ID', 'Sectors', 'Period (days)', 'Duration (hours)', 'Epoch (TBJD)', 'Depth (ppm)']
     toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists_nomissingpephem.csv', usecols=toi_cols)
 
     # get DV TCE tables for single- and multi-sector runs
@@ -182,6 +195,7 @@ if __name__ == '__main__':
     match_thr = np.inf  # np.inf  # 0.25
     sampling_interval = 0.00001  # approximately 1 min
 
+    # maximum number of TCEs associated with a TOI
     max_num_tces = len(singlesector_tce_tbls) + len(multisector_tce_tbls)
 
     match_tbl_cols = ['TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}' for i in range(max_num_tces)]

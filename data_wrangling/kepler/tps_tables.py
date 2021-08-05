@@ -1,7 +1,6 @@
+import numpy as np
 import pandas as pd
 from scipy import io
-import numpy as np
-import random
 
 #%% Get TPS TCE table from mat file
 

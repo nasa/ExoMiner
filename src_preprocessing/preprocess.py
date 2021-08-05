@@ -24,27 +24,28 @@ Authors:
 
 """
 
+import os
+
 # 3rd party
 import numpy as np
 import tensorflow as tf
-import os
 from astropy.stats import mad_std
 
+from src_preprocessing import tess_io
+from src_preprocessing import utils_visualization
 # local
 from src_preprocessing.light_curve import kepler_io
 from src_preprocessing.light_curve import median_filter
 from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.third_party.kepler_spline import kepler_spline
-from src_preprocessing import utils_visualization
 from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
-from src_preprocessing import tess_io
-from src_preprocessing.utils_odd_even import create_odd_even_views, phase_fold_and_sort_light_curve_odd_even
+from src_preprocessing.utils_gapping import gap_this_tce, gap_other_tces
 from src_preprocessing.utils_imputing import impute_binned_ts, imputing_gaps
+from src_preprocessing.utils_odd_even import create_odd_even_views, phase_fold_and_sort_light_curve_odd_even
 from src_preprocessing.utils_preprocessing import count_transits
 from src_preprocessing.utils_preprocessing_io import report_exclusion
-from src_preprocessing.utils_gapping import gap_this_tce, gap_other_tces
 
 
 def read_light_curve(tce, config):
@@ -122,11 +123,49 @@ def read_light_curve(tce, config):
                                                                        )
 
         if len(fits_files_not_read) > 0:
-            report_exclusion(config, tce, 'FITS files not read correctly')
+            warn_string = ''
+            for el in fits_files_not_read:
+                warn_string += f'{el[0]}:{el[1]}\n'
+            report_exclusion(config, tce, warn_string)
             if len(fits_files_not_read) == len(file_names):
+                report_exclusion(config, tce, 'No FITS files were read.')
                 return None
 
         return fits_data
+
+
+def check_inputs(data):
+    """ Check data coming from the lc FITS files.
+
+    :param data: dict, data read from the lc FITS files
+    :return:
+        err, list with errors for the data read
+    """
+
+    errs = []
+
+    # no centroid data available from the FITS files
+    # assuming that if there is not 'x' component, there is also not 'y' component
+    # assuming there is other data; otherwise, it wouldn't get here
+    # setting centroid to target star position if the number of valid cadences is less than 100
+    # 0.5% observation time in one TESS sector
+    # setting centroid pixel to zero
+    if np.isnan(np.concatenate(data['all_centroids']['x'])).sum() >= 100:
+        errs.append('no centroid data')
+
+        # report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
+        #
+        # data['all_centroids']['x'] = [tce['ra'] * np.ones(len(data['all_time'][arr_i]))
+        #                               for arr_i in range(len(data['all_time']))]
+        # data['all_centroids']['y'] = [tce['dec'] * np.ones(len(data['all_time'][arr_i]))
+        #                               for arr_i in range(len(data['all_time']))]
+        #
+        # data['all_centroids_px']['x'] = [np.zeros(len(data['all_time'][arr_i]))
+        #                                  for arr_i in range(len(data['all_time']))]
+        # data['all_centroids_px']['y'] = [np.zeros(len(data['all_time'][arr_i]))
+        #                                  for arr_i in range(len(data['all_time']))]
+
+    return errs
 
 
 def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
@@ -209,6 +248,31 @@ def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
     return timeseries_interp
 
 
+def remove_non_finite_values(arrs):
+    """ Remove cadences with non-finite values (NaN or infinite) for timestamps or timeseries in each array. Some these
+    values come from: gapping the timeseries, missing time values from the FITS files.
+
+    :param arrs: list, arrays to be checked for non-finite values.
+    :return:
+        list, arrays without non-finite values.
+    """
+
+    num_arrs = len(arrs)
+    num_sub_arrs = len(arrs[0])
+
+    for sub_arr_i in range(num_sub_arrs):  # assuming same size for all arrays
+        finite_idxs = []
+
+        for arr in arrs:
+            finite_idxs.append(np.isfinite(arr[sub_arr_i]))
+        finite_idxs = np.logical_and.reduce(finite_idxs)
+
+        for arr_i in range(num_arrs):
+            arrs[arr_i][sub_arr_i] = arrs[arr_i][sub_arr_i][finite_idxs]
+
+    return arrs
+
+
 def _process_tce(tce, table, config, conf_dict):
     """ Processes the time-series and scalar features for the TCE and returns an Example proto.
 
@@ -223,6 +287,10 @@ def _process_tce(tce, table, config, conf_dict):
     """
 
     # import pandas as pd
+    # import pickle
+    # with open('/data5/tess_project/Data/tfrecords/TESS/tfrecordstessS1S35-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_07-20-2021_13-39/exclusion_logs/tces_not_preprocessed.pkl', 'rb') as fp:
+    #     tces_not_read = pickle.load(fp)
+
     # rankingTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff/merged_shards_disp_set.csv')
     # rankingTbl = rankingTbl.loc[(rankingTbl['mid_global_flux_shift'].abs() >= 15) & (rankingTbl['label'] == 'PC')]
     # rankingTbl = rankingTbl.loc[(rankingTbl['odd_even_flag'] != 'ok') & (rankingTbl['label'].isin(['PC', 'AFP']))]
@@ -238,7 +306,8 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['97486585-1']:  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['100100827-2']:  #  and tce['sectors'] == '14':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
     # if tce['oi'] in [1774.01]:
     # tce['tce_time0bk'] = 1325.726
     # tce['tce_period'] = 0.941451
@@ -274,18 +343,14 @@ def _process_tce(tce, table, config, conf_dict):
             tce[ephemeris] = tce[ephemeris] * (1 - config['aug_noise_factor'],
                                                1 + config['aug_noise_factor'])[tce['augmentation_idx'] == 1]
 
-    # initialize data dict
-    data = {}
-
     # get cadence, flux and centroid data for the tce
-    data_fits = read_light_curve(tce, config)
+    data = read_light_curve(tce, config)
 
-    # TODO: do we need this check?
-    if data_fits is None:
-        report_exclusion(config, tce, 'Empty arrays')
+    if data is None:
+        report_exclusion(config, tce, 'Empty arrays from reading FITS file.')
         return None
 
-    data.update(data_fits)
+    data['errors'] = check_inputs(data)
 
     if config['satellite'] == 'kepler':
         add_info = {'quarter': data['quarter'], 'module': data['module']}
@@ -348,45 +413,9 @@ def _process_tce(tce, table, config, conf_dict):
     # non-gapped time array required for FDL centroid time-series
     data['all_time_nongapped'] = [np.array(el) for el in data['all_time']]
 
-    # estimate the global (across quarters) average out-of-transit centroid position before gapping TCEs
-    if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                              tce['tce_period'])
-    else:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
-    # remove NaNs
-    # centroid time-series
-    joint_timeseries = ['all_time', 'all_centroids']
-    finite_idxs = []
-    for arr_i in range(len(data[joint_timeseries[0]])):
-        finite_idxs_aux = []
-        for timeseries in joint_timeseries:
-            if 'time' not in timeseries:
-                finite_idxs_aux.append(np.isfinite(data[timeseries]['x'][arr_i]))
-                finite_idxs_aux.append(np.isfinite(data[timeseries]['y'][arr_i]))
-            else:
-                finite_idxs_aux.append(np.isfinite(data[timeseries][arr_i]))
-        finite_idxs.append(np.logical_and.reduce(finite_idxs_aux))
-
-    # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_all = [create_binary_time_series(time[finite_idx],
-                                                 find_first_epoch_after_this_time(tce['tce_time0bk'],
-                                                                                  tce['tce_duration'],
-                                                                                  time[finite_idx][0]),
-                                                 duration_gapped,
-                                                 tce['tce_period']) if np.any(finite_idx) else []
-                       for time, finite_idx in zip(data['all_time'], finite_idxs)]
-
-    # get out-of-transit indices for the centroid time series
-    centroid_oot = {coord: [centroids[finite_idx][np.where(binary_time == 0)] for binary_time, centroids, finite_idx in
-                            zip(binary_time_all, data['all_centroids'][coord], finite_idxs)]
-                    for coord in data['all_centroids']}
-    # estimate average out-of-transit centroid as the median across quarters - same as they do in the Kepler pipeline
-    # TODO: how to compute the average oot? mean, median, other...
-    data['avg_centroid_oot'] = {coord: np.nanmedian(np.concatenate(centroid_oot[coord])) for coord in centroid_oot}
-
     # gap cadences belonging to the transits of other TCEs in the same target star
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
+    timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']  # timeseries to be gapped
     data['gap_time'] = None
     if config['gapped']:
         gapped_idxs = gap_other_tces(data['all_time'],
@@ -397,7 +426,6 @@ def _process_tce(tce, table, config, conf_dict):
                                      conf_dict,
                                      gap_pad=config['gap_padding'],
                                      keep_overlap=config['gap_keep_overlap'])
-        timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']
         if config['gap_imputed']:
             data['gap_time'] = []
         # set to NaN gapped cadences in the time series
@@ -412,67 +440,6 @@ def _process_tce(tce, table, config, conf_dict):
                     data[timeseries][arr_i][gapped_idxs[arr_i]] = np.nan
             if config['gap_imputed']:
                 data['gap_time'].append(data['all_time'][arr_i][gapped_idxs[arr_i]])
-
-    data['all_time_centroids'] = [np.array(time) for time in data['all_time']]
-
-    # remove timestamps with NaN or infinite time, or time-series value in each quarter
-    # at least some of these NaNs come from gapping the time series
-    # other NaNs can come from missing time values from the FITS files
-    # flux time-series
-    joint_timeseries = ['all_time', 'all_flux']
-    for arr_i in range(len(data[joint_timeseries[0]])):
-        finite_idxs = []
-        for timeseries in joint_timeseries:
-            finite_idxs.append(np.isfinite(data[timeseries][arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs)
-        for timeseries in joint_timeseries:
-            data[timeseries][arr_i] = data[timeseries][arr_i][finite_idxs]
-
-    # centroid time-series
-    joint_timeseries = ['all_time_centroids', 'all_centroids']
-    for arr_i in range(len(data[joint_timeseries[0]])):
-        finite_idxs = []
-        for timeseries in joint_timeseries:
-            if 'time' not in timeseries:
-                finite_idxs.append(np.isfinite(data[timeseries]['x'][arr_i]))
-                finite_idxs.append(np.isfinite(data[timeseries]['y'][arr_i]))
-            else:
-                finite_idxs.append(np.isfinite(data[timeseries][arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs)
-        for timeseries in joint_timeseries:
-            if 'time' not in timeseries:
-                data[timeseries]['x'][arr_i] = data[timeseries]['x'][arr_i][finite_idxs]
-                data[timeseries]['y'][arr_i] = data[timeseries]['y'][arr_i][finite_idxs]
-            else:
-                data[timeseries][arr_i] = data[timeseries][arr_i][finite_idxs]
-
-    # weak secondary flux time-series
-    joint_timeseries = ['all_time_noprimary', 'all_flux_noprimary']
-    for arr_i in range(len(data[joint_timeseries[0]])):
-        finite_idxs = []
-        for timeseries in joint_timeseries:
-            finite_idxs.append(np.isfinite(data[timeseries][arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs)
-        for timeseries in joint_timeseries:
-            data[timeseries][arr_i] = data[timeseries][arr_i][finite_idxs]
-
-    # same for FDL centroid time-series and non-gapped time array
-    joint_timeseries = ['all_time_nongapped', 'all_centroids_px']
-    for arr_i in range(len(data[joint_timeseries[0]])):
-        finite_idxs = []
-        for timeseries in joint_timeseries:
-            if 'time' not in timeseries:
-                finite_idxs.append(np.isfinite(data[timeseries]['x'][arr_i]))
-                finite_idxs.append(np.isfinite(data[timeseries]['y'][arr_i]))
-            else:
-                finite_idxs.append(np.isfinite(data[timeseries][arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs)
-        for timeseries in joint_timeseries:
-            if 'time' not in timeseries:
-                data[timeseries]['x'][arr_i] = data[timeseries]['x'][arr_i][finite_idxs]
-                data[timeseries]['y'][arr_i] = data[timeseries]['y'][arr_i][finite_idxs]
-            else:
-                data[timeseries][arr_i] = data[timeseries][arr_i][finite_idxs]
 
     # if plot_preprocessing_tce:
     #     utils_visualization.plot_centroids(data['all_time_centroids'],
@@ -504,6 +471,8 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
         time: list of NumPy arrays, timestamps for preprocessed flux time seriesed
         flux: list of NumPy arrays, preprocessed flux time series
     """
+
+    all_time, all_flux = remove_non_finite_values([all_time, all_flux])
 
     # split on gaps
     # flux time-series
@@ -577,6 +546,8 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         flux_noprimary: list of NumPy arrays, preprocessed weak secondary flux time series
     """
 
+    all_time, all_flux_noprimary = remove_non_finite_values([all_time, all_flux_noprimary])
+
     all_time, all_flux_noprimary, _ = util.split(all_time, all_flux_noprimary, gap_width=config['gapWidth'])
 
     # add gap after and before transit based on transit duration
@@ -629,15 +600,15 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
     return time, flux_noprimary
 
 
-def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_position, add_info, gap_time, tce, config,
+def centroid_preprocessing(all_time, all_centroids, target_position, add_info, gap_time, tce, config,
                            plot_preprocessing_tce):
     """ Preprocess the centroid time series.
 
     :param all_time: list of NumPy arrays, timestamps
     :param all_centroids: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to a list of
     NumPy arrays for the respective centroid coordinate time series
-    :param avg_centroid_oot: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to the
-    estimate of the average out-of-transit centroid
+    # :param avg_centroid_oot: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to the
+    # estimate of the average out-of-transit centroid
     :param target_position: list, target star position in 'x' and 'y'
     :param add_info: dictionary, additional information such as quarters and modules
     :param gap_time: list of NumPy arrays, gapped timestamps
@@ -649,6 +620,10 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
         centroid_dist: NumPy array, preprocessed centroid time series which is an estimate of the distance of the
         transit to the target
     """
+
+    all_time, all_centroids['x'], all_centroids['y'] = remove_non_finite_values([all_time,
+                                                                                 all_centroids['x'],
+                                                                                 all_centroids['y']])
 
     all_time, all_centroids, add_info = util.split(all_time, all_centroids, add_info=add_info, centroid=True,
                                                    gap_width=config['gapWidth'])
@@ -682,6 +657,14 @@ def centroid_preprocessing(all_time, all_centroids, avg_centroid_oot, target_pos
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, all_time)]
+
+    # get out-of-transit indices for the centroid time series
+    centroid_oot = {coord: [centroids[np.where(binary_time == 0)] for binary_time, centroids in
+                            zip(binary_time_all, all_centroids[coord])]
+                    for coord in all_centroids}
+    # estimate average out-of-transit centroid as the median across quarters - same as they do in the Kepler pipeline
+    # TODO: how to compute the average oot? mean, median, other...
+    avg_centroid_oot = {coord: np.nanmedian(np.concatenate(centroid_oot[coord])) for coord in centroid_oot}
 
     if plot_preprocessing_tce:
         utils_visualization.plot_binseries_flux(all_time, all_centroids, binary_time_all,
@@ -873,6 +856,10 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
      Learning." The Astrophysical Journal Letters 869.1 (2018): L7.
      """
 
+    all_time, all_centroids['x'], all_centroids['y'] = remove_non_finite_values([all_time,
+                                                                                 all_centroids['x'],
+                                                                                 all_centroids['y']])
+
     all_time, all_centroids, add_info = util.split(all_time, all_centroids, gap_width=config['gapWidth'], centroid=True,
                                                    add_info=add_info)
 
@@ -979,13 +966,14 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
 
     # preprocess centroid time series
     try:
-        time_centroid, centroid_dist = centroid_preprocessing(data['all_time_centroids'],
+        time_centroid, centroid_dist = centroid_preprocessing(data['all_time'],
                                                               data['all_centroids'],
-                                                              data['avg_centroid_oot'],
                                                               data['target_position'],
                                                               add_info_centr,
                                                               data['gap_time'],
-                                                              tce, config, plot_preprocessing_tce)
+                                                              tce,
+                                                              config,
+                                                              plot_preprocessing_tce)
     except:
         time_centroid, centroid_dist = None, None
 
@@ -1011,21 +999,9 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     data_views['wksecondaryflux'] = wksecondaryflux
     data_views['time_centroid_distFDL'] = time_centroidFDL
     data_views['centroid_distFDL'] = centroid_distFDL
+    data_views['errors'] = data['errors']
 
     return data_views
-
-
-def min_max_normalization(arr, max_val, min_val):
-    """ Min-max normalization.
-
-    :param arr: array
-    :param max_val: float, max val
-    :param min_val: float, min val
-    :return:
-        normalized array
-    """
-
-    return (arr - min_val) / (max_val - min_val)
 
 
 def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=False):
@@ -1275,6 +1251,28 @@ def remove_positive_outliers(time, ts, sigma, fill=False):
     return time, ts, idxs_out
 
 
+def check_inputs_generate_example(data, tce, config):
+    """ Check inputs to the function that phase folds and bins the preprocessed timeseries to create the input views.
+
+    :param data: dict, containing the preprocessed timeseries.
+    :param tce: pandas Series, TCE ephemeris, parameters and diagnostics from DV.
+    :param config: dict, preprocessing parameters
+    :return:
+        data, dict containing the preprocessed timeseries after checking inputs and ajusting them accordingly.
+    """
+
+    if 'no centroid data' in data['errors']:
+        report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
+
+        data['time_centroid_dist'] = np.array(data['time'])
+        data['centroid_dist'] = np.zeros(len(data['time']))
+
+        data['time_centroid_distFDL'] = np.array(data['time'])
+        data['centroid_distFDL'] = np.zeros(len(data['time']))
+
+    return data
+
+
 def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     """ Generates a tf.train.Example representing an input TCE.
 
@@ -1290,14 +1288,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
       quantities, .... it returns None if some exception while creating these features occurs
     """
 
-    # if len(data['time']) == 0:
-    #     print(tce)
-    #     report_exclusion(config, tce, 'No data[time] before creating views.')
-    #     return None
-    #
-    # if len(data['time_centroid_dist']) == 0:
-    #     report_exclusion(config, tce, 'No preprocessed time series for centroid.')
-    #     return None
+    data = check_inputs_generate_example(data, tce, config)
 
     # check if data for all views is valid after preprocessing the raw time series
     for key, val in data.items():
@@ -1508,6 +1499,30 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                        bin_width_factor=config['bin_width_factor_loc'],
                        report={'config': config, 'tce': tce, 'view': 'local_wks_view'}
                        )
+        # set local wks view to Gaussian noise using statistics from global weak secondary view when there is not data to
+        # create the local view
+        if np.all(np.isnan(loc_weak_secondary_view)):
+            report_exclusion(config, tce,
+                             f'No data available for local weak secondary view. Setting it to Gaussian noise using statistics from the global wks view.')
+            mu, sigma = np.nanmedian(flux_noprimary), mad_std(flux_noprimary, ignore_nan=True)
+            rng = np.random.default_rng()
+            loc_weak_secondary_view = rng.normal(mu, sigma, len(loc_weak_secondary_view))
+            loc_weak_secondary_view_var = sigma * np.ones(len(loc_flux_view_var))
+            _, _, _, _, bin_counts = \
+                global_view(time_noprimary,
+                            flux_noprimary,
+                            tce['tce_period'],
+                            tce=tce,
+                            normalize=False,
+                            centering=False,
+                            num_bins=config['num_bins_glob'],
+                            bin_width_factor=config['bin_width_factor_glob'],
+                            report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
+                            tce_duration=tce['tce_duration']
+                            )
+            mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
+            bin_counts = rng.normal(mu, sigma, len(loc_weak_secondary_view))
+            bin_counts[bin_counts < 0] = 1
 
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
         loc_weak_secondary_view_var /= np.sqrt(bin_counts)

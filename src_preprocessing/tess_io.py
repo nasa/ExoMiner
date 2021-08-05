@@ -4,10 +4,11 @@ Utility I/O functions for TESS data.
 
 # 3rd party
 import os
-from tensorflow.io import gfile
-from astropy.io import fits
+
 import numpy as np
 from astropy import wcs
+from astropy.io import fits
+from tensorflow.io import gfile
 
 # local
 from src_preprocessing.light_curve import util
@@ -170,6 +171,8 @@ def read_tess_light_curve(filenames,
     # iterate through the FITS files for the target star
     for filename in filenames:
 
+        basename = os.path.basename(filename)
+
         try:
             with fits.open(filename, ignoring_missing_end=True) as hdu_list:
 
@@ -242,11 +245,14 @@ def read_tess_light_curve(filenames,
             flux = light_curve.PDCSAP_FLUX
 
             if not time.size:
+                files_not_read.append((basename, 'No data available.'))
                 continue  # No data.
 
             # check if arrays have the same size
             if not len(time) == len(flux) == len(centroid_x) == len(centroid_y):
-                files_not_read.append(filename)
+                files_not_read.append((basename, f'Time series do not have the same size (Timestamps {time.size}, '
+                                                 f'PDC flux {flux.size}, '
+                                                 f'FW centroid {centroid_x.size}|{centroid_y.size}).'))
                 continue
 
             # use quality flags to remove cadences
@@ -285,7 +291,7 @@ def read_tess_light_curve(filenames,
             data['sectors'].append(sector)
 
         except:
-            files_not_read.append(filename)
+            files_not_read.append((basename, 'FITS file not read correctly.'))
 
     # inverts light curve
     if invert:

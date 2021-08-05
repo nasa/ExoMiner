@@ -2,32 +2,34 @@
 validation and test sets, normalizing features, ...
 """
 
-# 3rd party
-import pandas as pd
-import os
-import tensorflow as tf
-import numpy as np
 import itertools
 import multiprocessing
-from astropy import stats
-import matplotlib.pyplot as plt
+import os
 from pathlib import Path
 
-# local
-from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+import matplotlib.pyplot as plt
+import numpy as np
+# 3rd party
+import pandas as pd
+import tensorflow as tf
+from astropy import stats
+
 from src_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_manipulate_tfrecords import create_shard, update_labels, plot_features_example
+# local
+from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 plt.switch_backend('TkAgg')
 
-#%% variables used across the script
+# %% variables used across the script
 
-tceIdentifier = 'oi'  # TCE identifier
+tceIdentifier = 'tce_plnt_num'  # TCE identifier
 
-#%% define directories
+# %% define directories
 
-srcTfrecDir = Path('/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021_data/tfrecordstess-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_4-23-2021')
+srcTfrecDir = Path(
+    '/data5/tess_project/Data/tfrecords/TESS/tfrecordstessS1S35-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_07-18-2021_15-33_data/tfrecordstessS1S35-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_07-18-2021_15-33')
 srcTfrecTbls = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                        file.stem.startswith('shard')])
 

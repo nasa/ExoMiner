@@ -8,7 +8,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import callbacks, losses, optimizers
+from tensorflow.keras import losses, optimizers
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
@@ -18,6 +18,7 @@ from tensorflow.keras import backend as K
 import matplotlib.pyplot as plt
 from pathlib import Path
 # import multiprocessing
+# from memory_profiler import profile
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn
@@ -26,6 +27,7 @@ from src.models_keras import create_ensemble
 # import paths
 
 
+# @profile
 def _delete_model_files(model_dir):
     """ Remove files from the model directory.
 
@@ -38,6 +40,7 @@ def _delete_model_files(model_dir):
         model_filepath.unlink()
 
 
+# @profile
 def _ensemble_run(config, config_id, worker_id, budget, results_directory, features_set, tfrec_dir,
                   gpu_id, verbose, model_dir_rank, ensemble_n):
     """ Evaluate the ensemble.
@@ -157,7 +160,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
             res_eval = ensemble_model.evaluate(x=eval_input_fn(),
                                                y=None,
                                                batch_size=None,
-                                               verbose=verbose,
+                                               verbose=verbose if '/home6' not in model_dir_rank else False,
                                                sample_weight=None,
                                                steps=None,
                                                callbacks=None,
@@ -192,6 +195,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
     return res
 
 
+# @profile
 def _model_run(config, config_id, worker_id, budget, model_i, results_directory, features_set,
                tfrec_dir, BaseModel, gpu_id, verbose):
     """ Train and evaluate a model.
@@ -308,7 +312,7 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
                             y=None,
                             batch_size=None,
                             epochs=int(budget),
-                            verbose=verbose,
+                            verbose=verbose if '/home6' not in str(results_directory) else False,
                             callbacks=config['callbacks_list'] + config['callbacks_list_temp'],
                             validation_split=0.,
                             validation_data=val_input_fn(),
@@ -333,7 +337,7 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         res_eval = model.evaluate(x=test_input_fn(),
                                   y=None,
                                   batch_size=None,
-                                  verbose=verbose,
+                                  verbose=False,  # verbose if '/home6' not in str(results_directory) else False,
                                   sample_weight=None,
                                   steps=None,
                                   callbacks=None,
@@ -373,6 +377,101 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
     # q.put(res)
     return res
+
+
+# @profile
+def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, config, results_directory, features_set,
+                     tfrec_dir, BaseModel, verbose, model_dir_rank):
+    # initialize results variable
+    res_models = {}
+    for model_i in range(ensemble_n):
+
+        if verbose:
+            printstr = f'[worker_{worker_id_custom},config{config_id}] Training model ' \
+                       f'{model_i + 1}({ensemble_n}): {int(budget)} epochs'
+
+            print(printstr)
+            sys.stdout.flush()
+
+        with tf.device(f'/gpu:{gpu_id}'):
+            res_model_i = _model_run(config,
+                                     config_id,
+                                     worker_id_custom,
+                                     budget,
+                                     model_i,
+                                     results_directory,
+                                     features_set,
+                                     tfrec_dir,
+                                     BaseModel,
+                                     gpu_id,
+                                     verbose)
+
+        if f'[worker_{worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
+            if verbose:
+                print(f'[worker_{worker_id_custom},config{config_id}] Error in model fit.')
+                sys.stdout.flush()
+
+            return {'loss': np.inf,
+                    'info': f'Error during model fit: '
+                            f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'}
+
+        # add results for this model to the results for the ensemble
+        if len(res_models.keys()) == 0:
+            res_models = {key: [val] for key, val in res_model_i.items()}
+        else:
+            for metric_name in res_models:
+                res_models[metric_name].append(res_model_i[metric_name])
+
+    # get ensemble average metrics and loss
+    for metric in res_models:
+        # res[metric] = {'all scores': res[metric],
+        #                         'median': np.median(res[metric], axis=0),
+        #                         'mad': np.median(np.abs(res[metric] -
+        #                                                 np.median(res[metric], axis=0)), axis=0)}
+        res_models[metric] = {'all scores': res_models[metric],
+                              'central tendency': np.mean(res_models[metric], axis=0),
+                              # TODO: check sqrt and decide if we want to print/save the model variability
+                              'deviation': np.std(res_models[metric], axis=0, ddof=1) / np.sqrt(ensemble_n)}
+
+    if ensemble_n > 1:
+        with tf.device(f'/gpu:{gpu_id}'):
+            res_ensemble = _ensemble_run(config,
+                                         config_id,
+                                         worker_id_custom,
+                                         budget,
+                                         results_directory,
+                                         features_set,
+                                         tfrec_dir,
+                                         gpu_id,
+                                         verbose,
+                                         model_dir_rank,
+                                         ensemble_n
+                                         )
+
+        if f'[worker_{worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
+            if verbose:
+                print(f'[worker_{worker_id_custom},config{config_id}] Error in ensemble run subprocess')
+                sys.stdout.flush()
+
+            return {'loss': np.inf,
+                    'info': 'Error while evaluating ensemble: '
+                            f'{res_ensemble[f"[worker_{worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
+                    }
+    else:
+        res_ensemble = {}
+        for metric_name, metric_val in res_models.items():
+            if 'test' in metric_name or 'val' in metric_name:
+                metric_name_aux = metric_name
+            else:
+                metric_name_aux = f'train_{metric_name}'
+
+            if isinstance(metric_val['all scores'][0], list):
+                res_ensemble[metric_name_aux] = metric_val['all scores'][0][-1]
+            else:
+                res_ensemble[metric_name_aux] = metric_val['all scores'][0]
+
+    # q.put([res_ensemble, res_models])
+    return res_ensemble, res_models
 
 
 class TransitClassifier(Worker):
@@ -418,6 +517,7 @@ class TransitClassifier(Worker):
 
         self.verbose = config_args['verbose']
 
+    # @profile
     def compute(self, config_id, config, budget, working_directory, *args, **kwargs):
         """ Evaluate a sampled configuration.
 
@@ -440,154 +540,42 @@ class TransitClassifier(Worker):
         # merge sampled and fixed configurations
         config.update(self.base_config)
 
-        # # input function for training on the training set
-        # train_input_fn = InputFn(file_pattern=self.tfrec_dir + '/train*',
-        #                          batch_size=config['batch_size'],
-        #                          mode=tf.estimator.ModeKeys.TRAIN,
-        #                          label_map=config['label_map'],
-        #                          data_augmentation=config['data_augmentation'],
-        #                          features_set=self.features_set,
-        #                          scalar_params_idxs=self.scalar_params_idxs)
-        #
-        # # input functions for evaluating on the validation and test sets
-        # val_input_fn = InputFn(file_pattern=self.tfrec_dir + '/val*',
-        #                        batch_size=config['batch_size'],
-        #                        mode=tf.estimator.ModeKeys.EVAL,
-        #                        label_map=config['label_map'],
-        #                        features_set=self.features_set,
-        #                        scalar_params_idxs=self.scalar_params_idxs)
-        # test_input_fn = InputFn(file_pattern=self.tfrec_dir + '/test*',
-        #                         batch_size=config['batch_size'],
-        #                         mode=tf.estimator.ModeKeys.EVAL,
-        #                         label_map=config['label_map'],
-        #                         features_set=self.features_set,
-        #                         scalar_params_idxs=self.scalar_params_idxs)
-        #
-        # # setup monitoring metrics
-        # metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
-
-        # initialize results variable
-        res_models = {}
-        for model_i in range(self.ensemble_n):
-
-            printstr = f'[worker_{self.worker_id_custom},config{config_id}] Training model ' \
-                       f'{model_i + 1}({self.ensemble_n}): {int(budget)} epochs'
-
-            print(printstr)
-            sys.stdout.flush()
-
-            # q = multiprocessing.Queue()
-            # p = multiprocessing.Process(target=_model_run, args=(config,
-            #                                                      config_id,
-            #                                                      self.worker_id_custom,
-            #                                                      budget,
-            #                                                      model_i,
-            #                                                      self.results_directory,
-            #                                                      self.features_set,
-            #                                                      self.tfrec_dir,
-            #                                                      self.BaseModel,
-            #                                                      self.gpu_id,
-            #                                                      q,
-            #                                                      self.verbose))
-            # p.start()
-            # res_model_i = q.get()
-            # sys.stdout.flush()
-            # p.join()
-
-            with tf.device(f'/gpu:{self.gpu_id}'):
-                res_model_i = _model_run(config,
-                                         config_id,
-                                         self.worker_id_custom,
-                                         budget,
-                                         model_i,
-                                         self.results_directory,
-                                         self.features_set,
-                                         self.tfrec_dir,
-                                         self.BaseModel,
-                                         self.gpu_id,
-                                         self.verbose)
-
-            if f'[worker_{self.worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
-                if self.verbose:
-                    print(f'[worker_{self.worker_id_custom},config{config_id}] Error in model fit.')
-                    sys.stdout.flush()
-
-                return {'loss': np.inf,
-                        'info': f'Error during model fit: '
-                                f'{res_model_i[f"[worker_{self.worker_id_custom},config{config_id}] Error during model fit"]}'}
-
-            # add results for this model to the results for the ensemble
-            if len(res_models.keys()) == 0:
-                res_models = {key: [val] for key, val in res_model_i.items()}
-            else:
-                for metric_name in res_models:
-                    res_models[metric_name].append(res_model_i[metric_name])
-
-        # get ensemble average metrics and loss
-        for metric in res_models:
-            # res[metric] = {'all scores': res[metric],
-            #                         'median': np.median(res[metric], axis=0),
-            #                         'mad': np.median(np.abs(res[metric] -
-            #                                                 np.median(res[metric], axis=0)), axis=0)}
-            res_models[metric] = {'all scores': res_models[metric],
-                                  'central tendency': np.mean(res_models[metric], axis=0),
-                                  #TODO: check sqrt and decide if we want to print/save the model variability
-                                  'deviation': np.std(res_models[metric], axis=0, ddof=1) / np.sqrt(self.ensemble_n)}
+        budget = int(budget)
 
         # q = multiprocessing.Queue()
-        # p = multiprocessing.Process(target=_ensemble_run, args=(config,
-        #                                                         config_id,
-        #                                                         self.worker_id_custom,
-        #                                                         budget,
-        #                                                         self.results_directory,
-        #                                                         self.features_set,
-        #                                                         self.tfrec_dir,
-        #                                                         self.gpu_id,
-        #                                                         q,
-        #                                                         self.verbose,
-        #                                                         self.model_dir_rank,
-        #                                                         self.ensemble_n))
+        # p = multiprocessing.Process(target=_evaluate_config, args=(self.ensemble_n,
+        #                                                            self.worker_id_custom,
+        #                                                            config_id,
+        #                                                            budget,
+        #                                                            self.gpu_id,
+        #                                                            config,
+        #                                                            self.results_directory,
+        #                                                            self.features_set,
+        #                                                            self.tfrec_dir,
+        #                                                            self.BaseModel,
+        #                                                            self.verbose,
+        #                                                            self.model_dir_rank,
+        #                                                            q
+        #                                                            ))
         # p.start()
-        # res_ensemble = q.get()
+        # res_ensemble, res_models = q.get()
         # sys.stdout.flush()
         # p.join()
 
-        if self.ensemble_n > 1:
-            with tf.device(f'/gpu:{self.gpu_id}'):
-                res_ensemble = _ensemble_run(config,
-                                             config_id,
-                                             self.worker_id_custom,
-                                             budget,
-                                             self.results_directory,
-                                             self.features_set,
-                                             self.tfrec_dir,
-                                             self.gpu_id,
-                                             self.verbose,
-                                             self.model_dir_rank,
-                                             self.ensemble_n
-                                             )
-
-            if f'[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
-                if self.verbose:
-                    print(f'[worker_{self.worker_id_custom},config{config_id}] Error in ensemble run subprocess')
-                    sys.stdout.flush()
-
-                return {'loss': np.inf,
-                        'info': 'Error while evaluating ensemble: '
-                                f'{res_ensemble[f"[worker_{self.worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
-                        }
-        else:
-            res_ensemble = {}
-            for metric_name, metric_val in res_models.items():
-                if 'test' in metric_name or 'val' in metric_name:
-                    metric_name_aux = metric_name
-                else:
-                    metric_name_aux = f'train_{metric_name}'
-
-                if isinstance(metric_val['all scores'][0], list):
-                    res_ensemble[metric_name_aux] = metric_val['all scores'][0][-1]
-                else:
-                    res_ensemble[metric_name_aux] = metric_val['all scores'][0]
+        res_ensemble, res_models = _evaluate_config(
+            self.ensemble_n,
+            self.worker_id_custom,
+            config_id,
+            budget,
+            self.gpu_id,
+            config,
+            self.results_directory,
+            self.features_set,
+            self.tfrec_dir,
+            self.BaseModel,
+            self.verbose,
+            self.model_dir_rank,
+        )
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}
@@ -627,6 +615,7 @@ class TransitClassifier(Worker):
 
         return res_hpo
 
+    # @profile
     def draw_plots(self, res, config_id):
         """ Draw loss and evaluation metric plots. This function would plot the average performance of the models
         instead of the performance of the ensemble.
@@ -737,6 +726,7 @@ class TransitClassifier(Worker):
         f.savefig(self.results_directory / f'config{config_id}_budget{epochs[-1]}_prcurve.png')
         plt.close()
 
+    # @profile
     def draw_plots_ensemble(self, res_ensemble, res_models, config_id, budget):
         """ Draw loss and evaluation metric plots for the ensemble.
 
@@ -821,6 +811,7 @@ class TransitClassifier(Worker):
         # f.savefig(self.results_directory / f'config{config_id}_budget{epochs[-1]}_prcurve.png')
         # plt.close()
 
+    # @profile
     @staticmethod
     def get_configspace():
         """ Build the hyperparameter configuration space.
@@ -882,7 +873,7 @@ class TransitClassifier(Worker):
         num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5,
                                                                 default_value=3)
 
-        num_fc_conv_units = CSH.CategoricalHyperparameter('num_fc_conv_units', [4, 8, 16, 32])
+        # num_fc_conv_units = CSH.CategoricalHyperparameter('num_fc_conv_units', [4, 8, 16, 32])
         dropout_ratefc_conv = CSH.UniformFloatHyperparameter('dropout_rate_fc_conv', lower=0.001, upper=0.2,
                                                              default_value=0.2, log=True)
 
@@ -899,7 +890,7 @@ class TransitClassifier(Worker):
             pool_size_glob,
             pool_stride,
             pool_size_loc,
-            num_fc_conv_units,
+            # num_fc_conv_units,
             dropout_ratefc_conv,
             init_fc_neurons,
             num_fc_layers,

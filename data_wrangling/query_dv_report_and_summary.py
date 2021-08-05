@@ -63,7 +63,7 @@ if __name__ == "__main__":
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
-    tic_list = [40797468]
+    tic_list = [100100827]
     download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
     for tic in tic_list:
         get_tic_dv_report_and_summary(tic, download_dir, verbose=False)

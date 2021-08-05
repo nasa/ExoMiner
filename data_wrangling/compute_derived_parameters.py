@@ -238,7 +238,7 @@ def estimate_new_sec_geo_albedo(sg_albedo, plnt_radius, sma, plnt_radius_new, sm
     # if np.any(np.isnan([tr_depth_unc, plnt_radius_unc, sma_unc, sg_albedo])):
     #     sg_albedo_unc = np.nan
     # else:
-    if sg_albedo_unc == -1 or sma_unc == -1 or plnt_radius_unc == -1 or sma_unc == -1 or sma_unc_new == -1 or \
+    if sg_albedo_unc == -1 or sma_unc == -1 or plnt_radius_unc == -1 or sma_unc_new == -1 or \
             plnt_radius_unc_new == -1 or sg_albedo_new == 0:
         sg_albedo_unc_new = -1
     else:
@@ -247,6 +247,8 @@ def estimate_new_sec_geo_albedo(sg_albedo, plnt_radius, sma, plnt_radius_new, sm
                                                     (2 * plnt_radius_unc / plnt_radius) ** 2 +
                                                     (2 * sma_unc_new / sma_new) ** 2 +
                                                     (2 * plnt_radius_unc_new / plnt_radius_new) ** 2)
+        if np.isnan(sg_albedo_unc_new):
+            sg_albedo_unc_new = -1
 
     return sg_albedo_new, sg_albedo_unc_new
 
@@ -314,6 +316,8 @@ def estimate_new_plnt_eff_temp(plnt_eff_temp, st_eff_temp, st_eff_temp_new, plnt
                                                             (st_eff_temp_unc / st_eff_temp) ** 2 +
                                                             (st_eff_temp_unc_new / st_eff_temp_new) ** 2
                                                             )
+        if np.isnan(plnt_eff_temp_unc_new):
+            plnt_eff_temp_unc_new = -1
 
     return plnt_eff_temp_new, plnt_eff_temp_unc_new
 
