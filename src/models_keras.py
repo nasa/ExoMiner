@@ -396,9 +396,9 @@ class CNN1dPlanetFinderv2(object):
             else 'glorot_uniform'
 
         cnn_layers = {}
-        for branch_i, branch in enumerate(self.branches):
+        for branch_i, branch in enumerate(self.branches):  # create a convolutional branch
 
-            if branch == 'local_flux_oddeven_views':
+            if branch == 'local_flux_oddeven_views':  # for odd and even views, inputs are combined as two channels
 
                 input_branch = \
                     tf.keras.layers.Concatenate(axis=2,
@@ -418,7 +418,7 @@ class CNN1dPlanetFinderv2(object):
             # get pool size for the given view
             pool_size = self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
 
-            for conv_block_i in range(n_blocks):
+            for conv_block_i in range(n_blocks):  # create convolutional blocks
 
                 num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
 
@@ -432,7 +432,7 @@ class CNN1dPlanetFinderv2(object):
                           'padding': 'same'
                           }
 
-                for seq_conv_block_i in range(self.config['conv_ls_per_block']):
+                for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
 
                     if branch == 'local_flux_oddeven_views':
                         net = tf.keras.layers.Conv2D(dilation_rate=1,
@@ -487,7 +487,7 @@ class CNN1dPlanetFinderv2(object):
                                                        strides=self.config['pool_stride'],
                                                        name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
 
-            if branch == 'local_flux_oddeven_views':
+            if branch == 'local_flux_oddeven_views':  # subtract extracted features for odd and even views branch
                 net = tf.split(net, 2, axis=1, name='split_oe')
                 net = tf.keras.layers.Subtract(name='subtract_oe')(net)
                 # net = tf.keras.layers.Permute((2, 3, 1), name='permute2_oe')(net)  # needed for Conv2D
@@ -522,12 +522,12 @@ class CNN1dPlanetFinderv2(object):
             #                                 alpha_constraint=None,
             #                                 shared_axes=[1],
             #                                 name='fc_prelu_{}'.format(branch))(net)
-
+            #
             # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)  # needed for Conv2D
+            #
+            # net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
-
-            # add scalar input
+            # concatenate corresponding scalar features to the flattened vector of features from the convolutional branch
             if 'local_weak_secondary_view' in branch:
                 scalar_input = tf.keras.layers.Concatenate(axis=1, name='wks_scalar_input')(
                     [
@@ -535,8 +535,8 @@ class CNN1dPlanetFinderv2(object):
                         self.inputs['tce_albedo_stat_norm'],
                         self.inputs['tce_ptemp_stat_norm'],
                         self.inputs['wst_depth_norm'],
-                        self.inputs['tce_period_norm'],
-                        self.inputs['tce_prad_norm'],
+                        # self.inputs['tce_period_norm'],
+                        # self.inputs['tce_prad_norm'],
                     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -552,7 +552,7 @@ class CNN1dPlanetFinderv2(object):
                         self.inputs['tce_dicco_msky_norm'],
                         self.inputs['tce_dicco_msky_err_norm'],
                         self.inputs['tce_fwm_stat_norm'],
-                        self.inputs['mag_norm'],
+                        # self.inputs['mag_norm'],
                     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -568,7 +568,7 @@ class CNN1dPlanetFinderv2(object):
                     scalar_input
                 ])
 
-            elif 'local_flux_oddeven_views' in branch:
+            elif 'Alocal_flux_oddeven_views' in branch:
                 scalar_input = tf.keras.layers.Concatenate(axis=1, name='oddeven_scalar_input')(
                     [
                         # self.inputs['sigma_oot_odd'],
@@ -584,49 +584,52 @@ class CNN1dPlanetFinderv2(object):
                     scalar_input
                 ])
 
-            net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
-                                        kernel_regularizer=None,
-                                        activation=None,
-                                        use_bias=True,
-                                        kernel_initializer='glorot_uniform',
-                                        bias_initializer='zeros',
-                                        bias_regularizer=None,
-                                        activity_regularizer=None,
-                                        kernel_constraint=None,
-                                        bias_constraint=None,
-                                        name='fc_{}'.format(branch))(net)
+            # add FC layer that extracts features from the combined feature vector of features from the convolutional
+            # branch (flattened) and corresponding scalar features
+            if self.config['num_fc_conv_units'] > 0:
+                net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
+                                            kernel_regularizer=None,
+                                            activation=None,
+                                            use_bias=True,
+                                            kernel_initializer='glorot_uniform',
+                                            bias_initializer='zeros',
+                                            bias_regularizer=None,
+                                            activity_regularizer=None,
+                                            kernel_constraint=None,
+                                            bias_constraint=None,
+                                            name='fc_{}'.format(branch))(net)
 
-            # net = tf.expand_dims(net, axis=-1)
-            # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
-            #                              kernel_size=net.shape[1],
-            #                              strides=1,
-            #                              padding='valid',
-            #                              kernel_initializer=weight_initializer,
-            #                              dilation_rate=1,
-            #                              activation=None,
-            #                              use_bias=True,
-            #                              bias_initializer='zeros',
-            #                              kernel_regularizer=None,
-            #                              bias_regularizer=None,
-            #                              activity_regularizer=None,
-            #                              kernel_constraint=None,
-            #                              bias_constraint=None,
-            #                              name='conv_{}'.format(branch),
-            #                              )(net)
+                # net = tf.expand_dims(net, axis=-1)
+                # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
+                #                              kernel_size=net.shape[1],
+                #                              strides=1,
+                #                              padding='valid',
+                #                              kernel_initializer=weight_initializer,
+                #                              dilation_rate=1,
+                #                              activation=None,
+                #                              use_bias=True,
+                #                              bias_initializer='zeros',
+                #                              kernel_regularizer=None,
+                #                              bias_regularizer=None,
+                #                              activity_regularizer=None,
+                #                              kernel_constraint=None,
+                #                              bias_constraint=None,
+                #                              name='conv_{}'.format(branch),
+                #                              )(net)
 
-            if self.config['non_lin_fn'] == 'lrelu':
-                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
-            elif self.config['non_lin_fn'] == 'relu':
-                net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
-            elif self.config['non_lin_fn'] == 'prelu':
-                net = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                            alpha_regularizer=None,
-                                            alpha_constraint=None,
-                                            shared_axes=[1],
-                                            name='fc_prelu_{}'.format(branch))(net)
-            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
+                if self.config['non_lin_fn'] == 'lrelu':
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'relu':
+                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'prelu':
+                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                alpha_regularizer=None,
+                                                alpha_constraint=None,
+                                                shared_axes=[1],
+                                                name='fc_prelu_{}'.format(branch))(net)
+                # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+                net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
 
             cnn_layers[branch] = net
 
@@ -708,13 +711,14 @@ class CNN1dPlanetFinderv2(object):
                                         name='fc_prelu_stellar_scalar')(stellar_scalar_fc_output)
 
         dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
-            # self.inputs['tce_cap_stat_norm'],
-            # self.inputs['tce_hap_stat_norm'],
-            self.inputs['tce_cap_hap_stat_diff_norm'],
-            self.inputs['tce_rb_tcount0n_norm'],
+            self.inputs['tce_cap_stat_norm'],
+            self.inputs['tce_hap_stat_norm'],
+            # self.inputs['tce_cap_hap_stat_diff_norm'],
+            # self.inputs['tce_rb_tcount0n_norm'],
+            self.inputs['tce_rb_tcount0_norm'],
             self.inputs['boot_fap_norm'],
-            # self.inputs['tce_period_norm'],
-            # self.inputs['tce_prad_norm']
+            self.inputs['tce_period_norm'],
+            self.inputs['tce_prad_norm']
         ])
 
         dv_scalar_fc_output = tf.keras.layers.Dense(units=4,

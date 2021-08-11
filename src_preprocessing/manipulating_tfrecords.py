@@ -2,22 +2,21 @@
 validation and test sets, normalizing features, ...
 """
 
+# 3rd party
 import itertools
 import multiprocessing
 import os
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
-# 3rd party
 import pandas as pd
 import tensorflow as tf
 from astropy import stats
 
+# local
 from src_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_manipulate_tfrecords import create_shard, update_labels, plot_features_example
-# local
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 plt.switch_backend('TkAgg')

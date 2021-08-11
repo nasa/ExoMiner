@@ -1,192 +1,83 @@
-""" Script used to match TOIs to TCEs from different single- and multi-sector runs. """
+"""
+Script used to match TOIs to TCEs from different single- and multi-sector runs using DV TCE tables available in the
+MAST.
+"""
 
 # 3rd party
 from pathlib import Path
 import pandas as pd
-from scipy.spatial import distance
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
+import multiprocessing
 
 # local
-from data_wrangling.old.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
+from data_wrangling.tess.toi_tce_ephemeris import match_set_tois_tces, get_bin_ts_toi_tce
 
 #%% Matching between TOIs and TCEs using the cosine distance between period templates
 
-res_dir = Path(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+res_dir = Path(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
+               f'{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 res_dir.mkdir(exist_ok=True)
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-12-2021/')
+# load TOI catalog
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/7-30-2021')
+toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists_nomissingpephem.csv')
 
-toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists_spoc_nomissingpephem.csv')
-
+# load TCE tables
 tce_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_ephemeris')
-
 multisector_tce_dir = tce_root_dir / 'multi-sector runs'
 singlesector_tce_dir = tce_root_dir / 'single-sector runs'
 
 multisector_tce_tbls = {(int(file.stem.split('-')[1][1:]), int(file.stem.split('-')[2][1:5])): pd.read_csv(file,
                                                                                                            header=6)
                         for file in multisector_tce_dir.iterdir() if 'tcestats' in file.name and file.suffix == '.csv'}
+# filter runs
+multisector_tce_tbls = {sector_run: tbl for sector_run, tbl in multisector_tce_tbls.items() if sector_run == (1, 36)}
 singlesector_tce_tbls = {int(file.stem.split('-')[1][1:]): pd.read_csv(file, header=6)
-                         for file in singlesector_tce_dir.iterdir() if 'tcestats' in file.name and file.suffix == '.csv'}
-singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
+                         for file in singlesector_tce_dir.iterdir()
+                         if 'tcestats' in file.name and file.suffix == '.csv'}
+# filter runs
+singlesector_tce_tbls = {sector_run: tbl for sector_run, tbl in singlesector_tce_tbls.items() if sector_run > 35}
+# singlesector_tce_tbls[21].drop_duplicates(subset='tceid', inplace=True, ignore_index=True)
 
-map_tce_tbl_names = {'<=30': {'period': 'orbitalPeriodDays', 'epoch': 'transitEpochBtjd', 'duration': 'transitDurationHours'},
-                     '>30': {'period': 'tce_period', 'epoch': 'tce_time0bt', 'duration': 'tce_duration'},
-                     }
+map_tce_tbl_names = {
+    '<=30': {'period': 'orbitalPeriodDays', 'epoch': 'transitEpochBtjd', 'duration': 'transitDurationHours'},
+    '>30': {'period': 'tce_period', 'epoch': 'tce_time0bt', 'duration': 'tce_duration'},
+}
 
+# threshold used to accept matching
 match_thr = np.inf  # np.inf  # 0.25
-sampling_interval = 0.00001  # approximately 1 min
+sampling_interval = 0.00001  # sampling interval used to create binary time series; approximately 1 min (TESS is 2min)
 
-# toi_tce_match = {}
-# cols = [
-    # 'orbitalPeriodDays',
-    # 'transitDepthPpm',
-    # 'transitDurationHours',
-    # 'transitEpochBtjd',
-    # 'ws_mes',
-    # 'ws_mesphase',
-    # 'mes'
-# ]
+# set maximum number of TCEs as total number of runs
 max_num_tces = len(singlesector_tce_tbls) + len(multisector_tce_tbls)
-matching_tbl = pd.DataFrame(columns=['Full TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}'
-                                                                              for i in range(max_num_tces)])
-for toi_i, toi in toi_tbl.iterrows():
 
-    if toi_i % 50 == 0:
-        print(f'Matched {toi_i} ouf of {len(toi_tbl)}...')
+# renaming columns to names expected by the matching function
+toi_tbl.rename(columns={'Epoch (TBJD)': 'epoch', 'Duration (hours)': 'duration', 'Period (days)': 'period',
+                        'TIC ID': 'target_id'}, inplace=True)
+tce_tbls_col_mapper = {'ticid': 'target_id', 'tce_plnt_num': 'tce_plnt_num', 'tce_period': 'period',
+                       'tce_time0bt': 'epoch', 'tce_duration': 'duration'}
+singlesector_tce_tbls = {sector_run: tbl.rename(columns=tce_tbls_col_mapper)
+                         for sector_run, tbl in singlesector_tce_tbls.items()}
+multisector_tce_tbls = {sector_run: tbl.rename(columns=tce_tbls_col_mapper)
+                        for sector_run, tbl in multisector_tce_tbls.items()}
 
-    # if toi['Full TOI ID'] == 137.01:
-    #     aaaa
-    # else:
-    #     continue
+match_tbl_cols = ['TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}' for i in range(max_num_tces)]
+n_processes = 15
+tbl_jobs = np.array_split(toi_tbl, n_processes)
+pool = multiprocessing.Pool(processes=n_processes)
+jobs = [(tbl_job.reset_index(inplace=False), tbl_job_i) +
+        (match_tbl_cols, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces,
+         res_dir) for tbl_job_i, tbl_job in enumerate(tbl_jobs)]
+async_results = [pool.apply_async(match_set_tois_tces, job) for job in jobs]
+pool.close()
 
-    # toi_tce_match[toi['Full TOI ID']] = {}
-
-    # toi_tceid = '{}-{}'.format(f'{toi["TIC"]}'.zfill(11), f'{toi["Signal ID"]}'.zfill(2))
-
-    # toi_sectors = [int(sector) for sector in toi['Sectors'].split(' ')]
-    toi_sectors = [int(sector) for sector in toi['Sectors'].split(',')]
-
-    # toi_bin_ts = create_binary_time_series(epoch=toi['Epoch Value'],
-    #                                        duration=toi['Transit Duration Value'] / 24,
-    #                                        period=toi['Orbital Period Value'],
-    #                                        tStart=toi['Epoch Value'],
-    #                                        tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-    #                                        samplingInterval=sampling_interval)
-    toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                           duration=toi['Duration (hours)'] / 24,
-                                           period=toi['Period (days)'],
-                                           tStart=toi['Epoch (TBJD)'],
-                                           tEnd=toi['Epoch (TBJD)'] + toi['Period (days)'],
-                                           samplingInterval=sampling_interval)
-
-    matching_dist_dict = {}
-
-    for toi_sector in toi_sectors:
-
-        if toi_sector <= 30:
-            tce_ephem_name = map_tce_tbl_names['<=30']
-        else:
-            tce_ephem_name = map_tce_tbl_names['>30']
-
-        # check the single sector run table
-        tce_tbl_aux = singlesector_tce_tbls[toi_sector]
-        # tce_found = tce_tbl_aux.loc[tce_tbl_aux['tceid'] == toi_tceid]
-        # tce_found = tce_tbl_aux.loc[tce_tbl_aux['ticid'] == toi['TIC']]
-        tce_found = tce_tbl_aux.loc[tce_tbl_aux['ticid'] == toi['TIC ID']]
-
-        if len(tce_found) > 0:
-
-            for tce_i, tce in tce_found.iterrows():
-                tceid = int(tce['tceid'].split('-')[1])
-
-                # epoch_aux = find_nearest_epoch_to_this_time(tce['transitEpochBtjd'],
-                #                                             tce['orbitalPeriodDays'],
-                #                                             toi['Epoch Value'])
-                epoch_aux = find_nearest_epoch_to_this_time(tce[tce_ephem_name['epoch']],
-                                                            tce[tce_ephem_name['period']],
-                                                            toi['Epoch (TBJD)'])
-                # epoch_shift = np.abs(p1[2] - p2[2]) / p1[1]
-                # e2 = np.abs(round(epoch_shift) - epoch_shift) * p1[1]
-                # tce_bin_ts = create_binary_time_series(epoch=epoch_aux,
-                #                                        duration=tce['transitDurationHours'] / 24,
-                #                                        period=tce['orbitalPeriodDays'],
-                #                                        tStart=toi['Epoch Value'],
-                #                                        tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-                #                                        samplingInterval=sampling_interval)
-                tce_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                                       duration=tce[tce_ephem_name['duration']] / 24,
-                                                       period=tce[tce_ephem_name['period']],
-                                                       tStart=toi['Epoch (TBJD)'],
-                                                       tEnd=toi['Epoch (TBJD)'] + toi['Period (days)'],
-                                                       samplingInterval=sampling_interval)
-
-                match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
-
-                if match_distance < match_thr:
-                    # toi_tce_match[toi['Full TOI ID']][toi_sector] = tce_found
-                    matching_dist_dict[f'{toi_sector}_{tceid}'] = match_distance
-
-        # check the multi sector runs tables
-        for multisector_tce_tbl in multisector_tce_tbls:
-            if toi_sector >= multisector_tce_tbl[0] and toi_sector <= multisector_tce_tbl[1]:
-                tce_tbl_aux = multisector_tce_tbls[multisector_tce_tbl]
-                # tce_found = tce_tbl_aux.loc[tce_tbl_aux['tceid'] == toi_tceid]
-                # tce_found = tce_tbl_aux.loc[tce_tbl_aux['ticid'] == toi['TIC']]
-                tce_found = tce_tbl_aux.loc[tce_tbl_aux['ticid'] == toi['TIC ID']]
-
-                if len(tce_found) > 0:
-                    for tce_i, tce in tce_found.iterrows():
-
-                        tceid = int(tce['tceid'].split('-')[1])
-
-                        # epoch_aux = find_nearest_epoch_to_this_time(tce['transitEpochBtjd'],
-                        #                                             tce['orbitalPeriodDays'],
-                        #                                             toi['Epoch Value'])
-                        epoch_aux = find_nearest_epoch_to_this_time(tce['transitEpochBtjd'],
-                                                                    tce['orbitalPeriodDays'],
-                                                                    toi['Epoch (TBJD)'])
-                        # epoch_shift = np.abs(p1[2] - p2[2]) / p1[1]
-                        # e2 = np.abs(round(epoch_shift) - epoch_shift) * p1[1]
-                        # tce_bin_ts = create_binary_time_series(epoch=epoch_aux,
-                        #                                        duration=tce['transitDurationHours'] / 24,
-                        #                                        period=tce['orbitalPeriodDays'],
-                        #                                        tStart=toi['Epoch Value'],
-                        #                                        tEnd=toi['Epoch Value'] + toi['Orbital Period Value'],
-                        #                                        samplingInterval=sampling_interval)
-                        tce_bin_ts = create_binary_time_series(epoch=epoch_aux,
-                                                               duration=tce['transitDurationHours'] / 24,
-                                                               period=tce['orbitalPeriodDays'],
-                                                               tStart=toi['Epoch (TBJD)'],
-                                                               tEnd=toi['Epoch (TBJD)'] + toi['Period (days)'],
-                                                               samplingInterval=sampling_interval)
-
-                        # TODO: add epsilon to avoid nan value when one of the vectors is zero?
-                        match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
-
-                        if match_distance < match_thr:
-                            # toi_tce_match[toi['Full TOI ID']][(multisector_tce_tbl[0], multisector_tce_tbl[1])] = \
-                            #     tce_found[cols]
-                            matching_dist_dict[f'{multisector_tce_tbl[0]}-{multisector_tce_tbl[1]}_{tceid}'] = \
-                                match_distance
-
-    matching_dist_dict = {k: v for k, v in sorted(matching_dist_dict.items(), key=lambda x: x[1])}
-    # data_to_tbl = {'Full TOI ID': [toi['Full TOI ID']], 'TIC': [toi['TIC']],
-    #                'Matched TCEs': ' '.join(list(matching_dist_dict.keys()))}
-    data_to_tbl = {'Full TOI ID': [toi['TOI']], 'TIC': [toi['TIC ID']],
-                   'Matched TCEs': ' '.join(list(matching_dist_dict.keys()))}
-    matching_dist_arr = list(matching_dist_dict.values())
-    for i in range(max_num_tces):
-        if i < len(matching_dist_arr):
-            data_to_tbl[f'matching_dist_{i}'] = [matching_dist_arr[i]]
-        else:
-            data_to_tbl[f'matching_dist_{i}'] = [np.nan]
-    matching_tbl = pd.concat([matching_tbl, pd.DataFrame(data=data_to_tbl)], axis=0)
+matching_tbl = pd.concat([match_tbl_job.get() for match_tbl_job in async_results], axis=0)
 
 matching_tbl.to_csv(res_dir / f'tois_matchedtces_ephmerismatching_thr{match_thr}_samplint{sampling_interval}.csv',
                     index=False)
+
 
 #%% Plot histograms for matching distance
 
@@ -206,3 +97,30 @@ ax.set_xlabel('Matching distance')
 ax.set_ylabel('Normalized Cumulative Counts')
 ax.set_xlim([0, 1])
 f.savefig(res_dir / 'cumhist_norm_matching_dist_0.png')
+
+
+#%% Plot binary time series between TOI and TCE
+
+toi_id = 185.01
+toi = toi_tbl.loc[toi_tbl['TOI'] == toi_id].squeeze()
+tce_id = '100100827'.zfill(11) + '-01'
+tce = singlesector_tce_tbls[2].loc[singlesector_tce_tbls[2]['tceid'] == tce_id].squeeze()
+phase = max(toi['period'], tce['period'])
+
+tce['epoch'] = toi['epoch']
+# tce['period'] = toi['period'] + toi['period'] / 2
+toi_bin_ts, tce_bin_ts, match_dist = get_bin_ts_toi_tce(toi, tce, sampling_interval)
+nsamples = len(toi_bin_ts)
+phase_range = np.around(np.linspace(-phase / 2, phase / 2, nsamples, endpoint=True), 3)
+
+f, ax = plt.subplots()
+ax.plot(toi_bin_ts)
+ax.plot(tce_bin_ts, 'r--')
+xticks_val = np.linspace(0, nsamples - 1, 10, endpoint=True, dtype='int')
+ax.set_xticks(np.arange(nsamples)[xticks_val])
+ax.set_xticklabels(phase_range[xticks_val], rotation=0)
+ax.set_xlabel('Phase (day)')
+ax.set_ylabel('Transit ephemerides template')
+ax.set_title(f'Matching distance={match_dist:.4f}')
+f.suptitle(f'TOI {toi_id} | TCE {tce_id}')
+f.savefig(f'/home/msaragoc/Downloads/{toi_id}_{tce_id}_ephem_template_matching.svg')

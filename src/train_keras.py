@@ -9,6 +9,8 @@ import os
 # 3rd party
 import sys
 
+import baseline_configs
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -25,7 +27,7 @@ import logging
 import paths
 from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_dataio import get_data_from_tfrecord
-from src.models_keras import Astronet
+from src.models_keras import Astronet, CNN1dPlanetFinderv2, Exonet, MLPPlanetFinder
 import src.config_keras
 from src.utils_metrics import get_metrics, compute_precision_at_k
 from src_hpo import utils_hpo
@@ -332,7 +334,7 @@ if __name__ == '__main__':
 
     # name of the study
     # study = 'keplerdr25-dv_g301-l31_6tr_spline_nongapped_norobovetterkois_starshuffle_configK_secsymphase_wksnormmaxflux-wks_corrprimgap_ptempstat_albedostat_wstdepth_fwmstat_nopps_ckoiper_secparams_prad_per'
-    study = 'test_OOM_config_bohb'
+    study = 'test_exominer_paper_astronet_config'
 
     # results directory
     save_path = Path(paths.pathtrainedmodels) / study
@@ -353,7 +355,8 @@ if __name__ == '__main__':
                              'Kepler',
                              'Q1-Q17_DR25',
                              # 'tfrecordskeplerdr25-se_std_oot_07-09-2021_data/tfrecordskeplerdr25-se_std_oot_07-09-2021_starshuffle_experiment-labels-normalized'
-                             'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
+                             # 'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
+                             'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps_secparams_prad_period'
                              )
     logger.info(f'Using data from {tfrec_dir}')
 
@@ -361,13 +364,13 @@ if __name__ == '__main__':
     config = {}
 
     # name of the HPO study from which to get a configuration; config needs to be set to None
-    # hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-' \
-    #             'glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
-    hpo_study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
+    hpo_study = 'ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-' \
+                'glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract'
+    # hpo_study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
     # set the configuration from an HPO study
     if hpo_study is not None:
         # hpo_path = Path(paths.path_hpoconfigs) / hpo_study
-        hpo_path = Path('/data5/tess_project/experiments/hpo_configs/') / hpo_study
+        hpo_path = Path('/data5/tess_project/experiments/hpo_configs/') / 'experiments_paper(9-14-2020_to_1-19-2021)' / hpo_study
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_study}')
 
         # get ID to config mapping
@@ -375,7 +378,6 @@ if __name__ == '__main__':
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
-        config_id_hpo = (68, 0, 2)
         config = id2config[config_id_hpo]['config']
 
         # select a specific config based on its ID
@@ -386,7 +388,8 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = Astronet  # CNN1dPlanetFinderv2
+    BaseModel = CNN1dPlanetFinderv2  # CNN1dPlanetFinderv2
+    config = baseline_configs.astronet
     config.update({
         # 'num_loc_conv_blocks': 2,
         # 'num_glob_conv_blocks': 5,
@@ -404,6 +407,8 @@ if __name__ == '__main__':
         # 'lr': 1e-5,
         # 'batch_size': 64,
         # 'dropout_rate': 0,
+        'dropout_rate_fc_conv': 0,
+        'num_fc_conv_units': 0,
     })
     # select convolutional branches
     config['branches'] = [
@@ -411,23 +416,23 @@ if __name__ == '__main__':
         'local_flux_view_fluxnorm',
         # 'global_centr_fdl_view_norm',
         # 'local_centr_fdl_view_norm',
-        # 'local_flux_oddeven_views',
-        # 'global_centr_view_std_noclip',
-        # 'local_centr_view_std_noclip',
+        'local_flux_oddeven_views',
+        'global_centr_view_std_noclip',
+        'local_centr_view_std_noclip',
         # 'local_weak_secondary_view_fluxnorm',
         # 'local_weak_secondary_view_selfnorm',
-        # 'local_weak_secondary_view_max_flux-wks_norm'
+        'local_weak_secondary_view_max_flux-wks_norm'
     ]
 
     # choose features set
     features_set = {
         # flux related features
-        'global_flux_view_fluxnorm': {'dim': (2001, 1), 'dtype': tf.float32},
-        'local_flux_view_fluxnorm': {'dim': (201, 1), 'dtype': tf.float32},
-        # 'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'global_flux_view_fluxnorm': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_flux_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'transit_depth_norm': {'dim': (1,), 'dtype': tf.float32},
         # odd-even flux related features
-        # 'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_odd_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
+        'local_flux_even_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'sigma_oot_odd': {'dim': (1,), 'dtype': tf.float32},
         # 'sigma_it_odd': {'dim': (1,), 'dtype': tf.float32},
         # 'sigma_oot_even': {'dim': (1,), 'dtype': tf.float32},
@@ -437,38 +442,39 @@ if __name__ == '__main__':
         # centroid related features
         # 'global_centr_fdl_view_norm': {'dim': (301, 1), 'dtype': tf.float32},
         # 'local_centr_fdl_view_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
-        # 'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'global_centr_view_std_noclip': {'dim': (301, 1), 'dtype': tf.float32},
+        'local_centr_view_std_noclip': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_fwm_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dikco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_dicco_msky_err_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'mag_norm': {'dim': (1,), 'dtype': tf.float32},
         # secondary related features
         # 'local_weak_secondary_view_fluxnorm': {'dim': (31, 1), 'dtype': tf.float32},
         # 'local_weak_secondary_view_selfnorm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
-        # 'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'local_weak_secondary_view_max_flux-wks_norm': {'dim': (31, 1), 'dtype': tf.float32},
+        'tce_maxmes_norm': {'dim': (1,), 'dtype': tf.float32},
+        'wst_depth_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_albedo_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_ptemp_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # other diagnostic parameters
-        # 'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_cap_hap_stat_diff_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
-        # 'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smet_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_slogg_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_smass_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_sradius_norm': {'dim': (1,), 'dtype': tf.float32},
         # tce parameters
-        # 'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_prad_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_period_norm': {'dim': (1,), 'dtype': tf.float32},
     }
     logger.info(f'Feature set: {features_set}')
 

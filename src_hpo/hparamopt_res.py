@@ -21,7 +21,7 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logg
 # %% load results from a HPO study
 
 paths.path_hpoconfigs = '/data5/tess_project/experiments/hpo_configs/'
-study = 'bohb_keplerq1q17dr25_astronet_7-27-2021'
+study = 'bohb_keplerq1q17dr25_exonet_8-4-2021'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

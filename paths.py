@@ -24,4 +24,4 @@ pathtrainedmodels = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/t
 pathsavefigs_preprocessing = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
 
 # path cv experiments
-path_cv_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv_experiments/'
+path_cv_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/'
