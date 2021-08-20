@@ -1,17 +1,18 @@
 """ Prepare dataset into folds for cross-validation. """
 
+import logging
+import multiprocessing
+from datetime import datetime
 # 3rd party
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
-import logging
-from datetime import datetime
-import multiprocessing
+import pandas as pd
 
 # local
 from src_cv.utils_cv import create_shard_fold
 
-#%% set up CV experiment variables
+# %% set up CV experiment variables
 
 experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
 data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
@@ -59,12 +60,16 @@ tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
 
-# shuffle per target stars
-logger.info('Shuffling TCE table per target stars...')
-target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
-rng.shuffle(target_star_grps)
-tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
-# tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
+# # shuffle per target stars
+# logger.info('Shuffling TCE table per target stars...')
+# target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+# rng.shuffle(target_star_grps)
+# tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
+# # tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
+
+# shuffle per TCE
+logger.info('Shuffling TCE table per TCE...')
+tce_tbl = tce_tbl.sample(frac=1, random_state=rnd_seed).reset_index(drop=True)
 
 tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False)
 
@@ -79,33 +84,50 @@ tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False)
 
 # split TCE table into n fold tables (all TCEs from the same target star should be in the same table)
 logger.info(f'Split TCE table into {n_folds} fold TCE tables...')
-target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
-target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
-for fold_i, target_stars_split in enumerate(target_stars_splits):
-    fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])
+
+# # split at the target star level
+# target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+# target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
+# for fold_i, target_stars_split in enumerate(target_stars_splits):
+#     fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])
+#     # shuffle TCEs in each fold
+#     fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
+#                                        axis=0).reset_index(drop=True)
+#     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+
+# split at the TCE level
+tce_splits = np.array_split(range(len(tce_tbl)), n_folds, axis=0)
+for fold_i, tce_split in enumerate(tce_splits):
+    fold_tce_tbl = tce_tbl[tce_split[0]:tce_split[-1] + 1]
     # shuffle TCEs in each fold
     fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
                                        axis=0).reset_index(drop=True)
     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
 
-#%% build TFRecord dataset based on the fold TCE tables
+# %% build TFRecord dataset based on the fold TCE tables
 
-data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30')
+data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-17-2021_03-57')
 shard_tbls_dir = data_dir / 'shard_tables'
 
 tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
                       'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar'
                       '-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/')
+# tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+#                       'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-'
+#                       '6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/')
 
 src_tfrec_dir = tfrec_dir_root / \
                 'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-' \
                 'bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_' \
                 'experiment-labels-norm_nopps_secparams_prad_period'
+# src_tfrec_dir = tfrec_dir_root / 'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-' \
+#                                  'centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_' \
+#                                  'confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
 # logger.info(f'Source TFRecord directory: {src_tfrec_dir}')
 
 dest_tfrec_dir = data_dir / 'tfrecords'
 dest_tfrec_dir.mkdir(exist_ok=True)
-# logger.info(f'Destination TFRecord directory: {dest_tfrec_dir}')
+logger.info(f'Destination TFRecord directory: {dest_tfrec_dir}')
 
 src_tfrec_tbl = pd.read_csv(src_tfrec_dir / 'shards_tce_tbl.csv')
 shard_tbls_fps = sorted(list(shard_tbls_dir.iterdir()))

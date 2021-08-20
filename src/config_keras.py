@@ -74,7 +74,7 @@ def add_default_missing_params(config):
     return config
 
 
-def add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config=None):
+def add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args=None, config=None):
     """ Adds parameters related to the dataset used - Kepler/TESS, binary/multi class, labels' map, centroid data,
     CE weights,...
 

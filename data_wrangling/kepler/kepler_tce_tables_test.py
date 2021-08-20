@@ -473,7 +473,7 @@ for tce_i, tce in tce_tbl.iterrows():
         tce_plnt_eff_temp_est, tce_plnt_eff_temp_unc_est = estimate_plnt_eff_temp(tce['tce_steff'],
                                                                                   tce['tce_steff_err'],
                                                                                   primary_tce['transit_depth'].values[
-                                                                                      0] * 1e-6,
+                                                                                      0],
                                                                                   primary_tce['tce_depth_err'].values[
                                                                                       0] * 1e-6,
                                                                                   tce['tce_ror'],

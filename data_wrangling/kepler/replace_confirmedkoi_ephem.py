@@ -3,10 +3,16 @@ Script used to replace orbital period and epoch for Confirmed KOIs that have sig
 TCEs.
 """
 
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+
+def update_albedo_and_ptemp(x):
+    return pd.Series(data={'tce_albedo': 1, 'tce_ptemp': x['tce_eqt']})
+
 
 # %% Only replace TCE period by KOI period for Confirmed KOIs whose period significantly changed
 # (e.g., TCE period is a multiple of the KOI period)
@@ -48,10 +54,6 @@ tce_tbl.to_csv(
 # and planet effective temperature comparison statistics to zero
 
 
-def update_albedo_and_ptemp(x):
-    return pd.Series(data={'tce_albedo': 1, 'tce_ptemp': x['tce_eqt']})
-
-
 tce_tbl = pd.read_csv(
     '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_7-26-2021.csv')
 
@@ -69,3 +71,40 @@ tce_tbl.loc[koi_tce_period_same, ['tce_albedo', 'tce_ptemp']] = \
 tce_tbl.to_csv(
     '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiffsec_recomputedparams_7-26-2021.csv',
     index=False)
+
+# %%
+
+tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
+              '19-08-21_07:21/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase.csv')
+
+logging.basicConfig(filename=tbl_fp.parent / f'confirmed_kois_ephem.log',
+                    level=logging.INFO,
+                    format='%(message)s',
+                    filemode='w')
+
+tce_tbl = pd.read_csv(tbl_fp)
+logging.info(f'Using TCE table: {tbl_fp}')
+
+thr = 0.3
+logging.info(f'Using threshold: {thr}')
+
+confkois_ephem_replaced = []
+for tce_i, tce in tce_tbl.iterrows():
+    if tce['koi_disposition'] == 'CONFIRMED':  # look only at Confirmed KOIs
+
+        if np.abs(tce['tce_period'] - tce['koi_period']) / \
+                max(tce['tce_period'], tce['koi_period']) > thr:  # period difference is more than thr * 100%
+            tce_tbl.loc[tce_i, ['tce_period', 'tce_time0bk']] = tce[['koi_period', 'koi_time0bk']].values
+
+            tce_tbl.loc[tce_i, ['wst_depth', 'tce_maxmes', 'tce_albedo_stat', 'tce_ptemp_stat']] = 0
+            tce_tbl.loc[tce_i, ['tce_albedo', 'tce_ptemp']] = np.array([1, tce_tbl.loc[tce_i, 'tce_eqt']])
+
+            confkois_ephem_replaced.append((tce['target_id'], tce['tce_plnt_num']))
+
+logging.info(f'TCE count: {len(confkois_ephem_replaced)} '
+             f'({len(tce_tbl.loc[tce_tbl["koi_disposition"] == "CONFIRMED"])} Confirmed KOIs)')
+logging.info(f'TCEs affected: {confkois_ephem_replaced}')
+
+tce_tbl_fp_out = tbl_fp.parent / f'{tbl_fp.stem}_cpkoiperiod.csv'
+logging.info(f'Saving TCE table: {tce_tbl_fp_out}')
+tce_tbl.to_csv(tce_tbl_fp_out, index=False)

@@ -1,25 +1,25 @@
 # 3rd party
-import pandas as pd
-import tensorflow as tf
 import multiprocessing
-from astropy import stats
+
 import numpy as np
 import pandas as pd
-from tensorflow.keras.utils import plot_model as plot_model
-from tensorflow.keras.models import load_model
+import tensorflow as tf
+from astropy import stats
 from tensorflow.keras import losses, optimizers
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import plot_model as plot_model
 
-# local
-from src_preprocessing.tf_util import example_util
-from src_preprocessing.preprocess import centering_and_normalization
-from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
-from src.utils_metrics import get_metrics
-from src.models_keras import create_ensemble
 import src.utils_predict as utils_predict
 import src.utils_train as utils_train
-from src.utils_visualization import plot_class_distribution, plot_precision_at_k
+from src.models_keras import create_ensemble
 from src.utils_dataio import InputFnCV as InputFn
 from src.utils_dataio import get_data_from_tfrecord
+from src.utils_metrics import get_metrics
+from src.utils_visualization import plot_class_distribution, plot_precision_at_k
+from src_preprocessing.preprocess import centering_and_normalization
+# local
+from src_preprocessing.tf_util import example_util
+from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 
 def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl):
@@ -606,9 +606,8 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
                                  res_dir / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg')
 
 
-def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
-                     logger, verbose=False):
-
+def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
+                  logger, verbose=False):
     datasets = list(data_fps.keys())
 
     # instantiate variable to get data from the TFRecords
@@ -799,3 +798,128 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                rankdir='TB',
                expand_nested=False,
                dpi=96)
+
+
+def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
+                     logger, verbose=False):
+    datasets = list(data_fps.keys())
+
+    # instantiate variable to get data from the TFRecords
+    data = {dataset: {field: [] for field in data_fields} for dataset in datasets}
+    for dataset in datasets:
+        for data_fp in data_fps[dataset]:
+            data_aux = get_data_from_tfrecord(str(data_fp), data_fields, config['label_map'])
+
+            for field in data_aux:
+                data[dataset][field].extend(data_aux[field])
+
+    # convert from list to numpy array
+    # TODO: should make this a numpy array from the beginning
+    for dataset in datasets:
+        data[dataset]['label'] = np.array(data[dataset]['label'])
+        data[dataset]['original_label'] = np.array(data[dataset]['original_label'])
+
+    # create ensemble
+    model_list = []
+    for model_i, model_filepath in enumerate(models_filepaths):
+        model = load_model(filepath=model_filepath, compile=False)
+        model._name = f'model{model_i}'
+
+        model_list.append(model)
+
+    ensemble_model = create_ensemble(features=features_set, models=model_list)
+
+    ensemble_model.summary()
+
+    # set up metrics to be monitored
+    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
+
+    # compile model - set optimizer, loss and metrics
+    if config['optimizer'] == 'Adam':
+        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+                                                         beta_1=0.9,
+                                                         beta_2=0.999,
+                                                         epsilon=1e-8,
+                                                         amsgrad=False,
+                                                         name='Adam'),  # optimizer
+                               # loss function to minimize
+                               loss=losses.BinaryCrossentropy(from_logits=False,
+                                                              label_smoothing=0,
+                                                              name='binary_crossentropy'),
+                               # list of metrics to monitor
+                               metrics=metrics_list)
+
+    else:
+        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
+                                                        momentum=config['sgd_momentum'],
+                                                        nesterov=False,
+                                                        name='SGD'),  # optimizer
+                               # loss function to minimize
+                               loss=losses.BinaryCrossentropy(from_logits=False,
+                                                              label_smoothing=0,
+                                                              name='binary_crossentropy'),
+                               # list of metrics to monitor
+                               metrics=metrics_list)
+
+    # predict on given datasets - needed for computing the output distribution and produce a ranking
+    scores = {dataset: [] for dataset in datasets}
+    for dataset in scores:
+        print(f'[ensemble] Predicting on dataset {dataset}...')
+
+        predict_input_fn = InputFn(filepaths=data_fps[dataset],
+                                   batch_size=config['batch_size'],
+                                   mode='PREDICT',
+                                   label_map=config['label_map'],
+                                   features_set=features_set)
+
+        scores[dataset] = ensemble_model.predict(predict_input_fn(),
+                                                 batch_size=None,
+                                                 verbose=verbose,
+                                                 steps=None,
+                                                 callbacks=None,
+                                                 max_queue_size=10,
+                                                 workers=1,
+                                                 use_multiprocessing=False)
+
+    # initialize dictionary to save the classification scores for each dataset evaluated
+    scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
+    for dataset in datasets:
+        # threshold for classification
+        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
+
+    # sort predictions per class based on ground truth labels
+    output_cl = {dataset: {} for dataset in data_fps}
+    for dataset in output_cl:
+        if dataset != 'predict':
+            for original_label in config['label_map']:
+                # get predictions for each original class individually to compute histogram
+                output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
+                                                                              original_label)]
+        else:
+            output_cl[dataset]['NTP'] = scores[dataset]
+
+    print('[ensemble] Plotting evaluation results...')
+    # draw evaluation plots
+    for dataset in datasets:
+        plot_class_distribution(output_cl[dataset],
+                                res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
+
+    # generate rankings for each evaluated dataset
+    if generate_csv_pred:
+
+        print('[ensemble] Generating csv file(s) with ranking(s)...')
+
+        # add predictions to the data dict
+        for dataset in data_fps:
+            data[dataset]['score'] = scores[dataset].ravel()
+            data[dataset]['predicted class'] = scores_classification[dataset].ravel()
+
+        # write results to a txt file
+        for dataset in data_fps:
+            print(f'[ensemble] Saving ranked predictions in dataset {dataset} to '
+                  f'{res_dir / f"ranked_predictions_{dataset}"}...')
+            data_df = pd.DataFrame(data[dataset])
+
+            # sort in descending order of output
+            data_df.sort_values(by='score', ascending=False, inplace=True)
+            data_df.to_csv(res_dir / f'ensemble_ranked_predictions_{dataset}set.csv', index=False)

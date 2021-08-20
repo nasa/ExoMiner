@@ -7,6 +7,7 @@ import itertools
 import multiprocessing
 import os
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -254,16 +255,16 @@ scalarParams = {
     # other diagnostics
     'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
                  'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-    # 'tce_cap_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    # 'tce_cap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
     #                  'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-    # 'tce_hap_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+    # 'tce_hap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
     #                  'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     'tce_cap_hap_stat_diff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                               'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     # 'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
     #                     'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
     # centroid
-    # 'tce_fwm_stat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
+    # 'tce_fwm_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
     #                  'dtype': 'float', 'replace_value': None},
     'tce_dikco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
