@@ -1,17 +1,17 @@
-""" Run cross-validation experiment. """
+""" Run inference using cross-validation experiment. """
 
 # 3rd party
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
 import logging
 # from datetime import datetime
 import tensorflow as tf
-from tensorflow.keras import callbacks
+# from tensorflow.keras import callbacks
 # import itertools
-import copy
 # import shutil
 import time
 import argparse
@@ -21,112 +21,76 @@ import json
 import multiprocessing
 
 # local
-import paths
 from src.models_keras import CNN1dPlanetFinderv2
 import src.config_keras
 from src_hpo import utils_hpo
-from utils.utils_dataio import is_jsonable
-from src_cv.utils_cv import processing_data_run, train_model, eval_ensemble
+from utils_label_noise.utils_dataio import is_jsonable
+from src_cv.utils_cv import predict_ensemble, normalize_data
 
 
-def cv_run(cv_dir, data_shards_fps, run_params, logger=None):
+def cv_pred_run(res_dir, cv_iter_dir, run_params, logger=None):
     """ Run one iteration of CV.
 
-    :param cv_dir: Path, directory for the CV iteration
-    :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
-    respectively, for this CV iteration
+    :param res_dir: Path, results directory
+    :param cv_iter_dir: Path, CV iteration directory.
     :param run_params: dict, configuration parameters for the CV ru
     :param logger: logger for the CV run
     :return:
     """
 
-    cv_run_dir = cv_dir / f'cv_iter_{run_params["cv_id"]}'
+    cv_run_dir = res_dir / f'cv_iter_{run_params["cv_id"]}'
     cv_run_dir.mkdir(exist_ok=True)
-
-    # split training folds into training and validation sets by randomly selecting one of the folds as the validation
-    # set
-    data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
-
-    logger.info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
-
-    with open(cv_run_dir / 'fold_split.json', 'w') as cv_run_file:
-        json.dump({dataset: [str(fp) for fp in data_shards_fps_eval[dataset]] for dataset in data_shards_fps_eval},
-                  cv_run_file)
 
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     logger.info(f'[cv_iter_{run_params["cv_id"]}] Normalizing data for CV iteration')
-    data_shards_fps_eval = processing_data_run(data_shards_fps_eval, run_params, cv_run_dir, logger)
 
-    # sequential training
-    for model_id in range(run_params['n_models']):  # train N models
-        logger.info(f'[cv_iter_{run_params["cv_id"]}] Training model {model_id + 1} out of {run_params["n_models"]} on '
-                    f'{run_params["n_epochs"]} epochs...')
+    norm_data_dir = cv_run_dir / 'norm_data'
+    norm_data_dir.mkdir(exist_ok=True)
 
-        # with tf.device(run_params['dev_train']):
-        #     train_model(model_id,
-        #                 run_params['base_model'],
-        #                 run_params['n_epochs'],
-        #                 run_params['config'],
-        #                 run_params['features_set'],
-        #                 {dataset: fps for dataset, fps in data_shards_fps_eval.items() if
-        #                  dataset != 'test'},
-        #                 cv_run_dir,
-        #                 run_params['online_preproc_params'],
-        #                 run_params['data_augmentation'],
-        #                 run_params['callbacks_dict'],
-        #                 run_params['opt_metric'],
-        #                 run_params['min_optmetric'],
-        #                 logger,
-        #                 run_params['verbose'],
-        #                 )
-        p = multiprocessing.Process(target=train_model,
-                                    args=(
-                                        model_id,
-                                        run_params['base_model'],
-                                        run_params['n_epochs'],
-                                        run_params['config'],
-                                        run_params['features_set'],
-                                        {dataset: fps for dataset, fps in data_shards_fps_eval.items() if
-                                         dataset != 'test'},
-                                        cv_run_dir,
-                                        run_params['online_preproc_params'],
-                                        run_params['data_augmentation'],
-                                        run_params['callbacks_dict'],
-                                        run_params['opt_metric'],
-                                        run_params['min_optmetric'],
-                                        logger,
-                                        run_params['verbose'],
-                                    ))
-        p.start()
-        p.join()
-        # p.close()
+    # load normalization statistics
+    norm_stats_dir = cv_iter_dir / 'norm_stats'
+    norm_stats = {
+        'scalar_params': np.load(norm_stats_dir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+        'fdl_centroid': np.load(norm_stats_dir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(norm_stats_dir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+    }
+    norm_stats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
+    norm_stats['scalar_params']['tce_rb_tcount0']['info']['dtype'] = 'float'
 
-    logger.info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble')
+    pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
+    jobs = [(file, norm_stats, run_params['norm'], norm_data_dir)
+            for file in run_params['data_fps']]
+    async_results = [pool.apply_async(normalize_data, job) for job in jobs]
+    pool.close()
+    for async_result in async_results:
+        async_result.get()
+
+    data_shards_fps_norm = {'predict': [norm_data_dir / file.name for file in run_params['data_fps']]}
+
+    logger.info(f'[cv_iter_{run_params["cv_id"]}] Running inference')
     # get the filepaths for the trained models
-    models_dir = cv_run_dir / 'models'
+    models_dir = cv_iter_dir / 'models'
     models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
                         model_dir.stem]
 
     # evaluate ensemble
     # with tf.device(run_params['dev_predict']):
-        # predict_ensemble(models_filepaths,
-        #                  run_params['config'],
-        #                  run_params['features_set'],
-        #                  data_shards_fps_eval,
-        #                  run_params['data_fields'],
-        #                  run_params['generate_csv_pred'],
-        #                  cv_run_dir,
-        #                  logger,
-        #                  run_params['verbose'],
-        #                  )
-    p = multiprocessing.Process(target=eval_ensemble,
+    # predict_ensemble(models_filepaths,
+    #                  run_params['config'],
+    #                  run_params['features_set'],
+    #                  data_shards_fps_eval,
+    #                  run_params['data_fields'],
+    #                  run_params['generate_csv_pred'],
+    #                  cv_run_dir,
+    #                  logger,
+    #                  run_params['verbose'],
+    #                  )
+    p = multiprocessing.Process(target=predict_ensemble,
                                 args=(
                                     models_filepaths,
                                     run_params['config'],
                                     run_params['features_set'],
-                                    data_shards_fps_eval,
+                                    data_shards_fps_norm,
                                     run_params['data_fields'],
                                     run_params['generate_csv_pred'],
                                     cv_run_dir,
@@ -142,8 +106,7 @@ def cv_run(cv_dir, data_shards_fps, run_params, logger=None):
     # # TODO: delete the models as well?
 
 
-def cv():
-
+def cv_pred():
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
@@ -185,28 +148,30 @@ def cv():
     run_params = {}
 
     # name of the experiment
-    run_params['cv_experiment'] = 'cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_8-23-2021'
-
-    # cv root directory
-    run_params['cv_dir'] = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/')
+    run_params['cv_experiment'] = 'predict_not_used_8-11-2021'
 
     # data directory
-    run_params['data_dir'] = run_params['cv_dir'] / 'tfrecords'
+    run_params['data_dir'] = Path(
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_predict_tcesnotused_scalarnorm_tsnorm')
+    run_params['data_fps'] = [fp for fp in run_params['data_dir'].iterdir() if fp.is_file()
+                              and fp.name.startswith('predict-shard')]
 
     # cv experiment directory
-    run_params['cv_experiment_dir'] = Path(paths.path_cv_experiments) / run_params['cv_experiment']
-    run_params['cv_experiment_dir'].mkdir(exist_ok=True)
+    run_params['cv_experiment_dir'] = Path(
+        '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_8-11-2021')
+
+    run_params['res_dir'] = run_params['cv_experiment_dir'] / run_params['cv_experiment']
+    run_params['res_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary
-    run_params['data_shards_fns'] = np.load(run_params['cv_dir'] / 'cv_folds_runs.npy', allow_pickle=True)
-    run_params['data_shards_fps'] = [{dataset: [run_params['data_dir'] / fold for fold in cv_iter[dataset]]
-                                      for dataset in cv_iter} for cv_iter in run_params['data_shards_fns']]
+    run_params['cv_iters'] = [fp for fp in run_params['cv_experiment_dir'].iterdir() if fp.is_dir()
+                              and fp.name.startswith('cv_iter')]
 
-    if rank >= len(run_params['data_shards_fps']):
+    if rank >= len(run_params['cv_iters']):
         return
 
     # set up logger
-    logger = logging.getLogger(name=f'cv_run_rank_{rank}')
+    logger = logging.getLogger(name=f'cv_pred_run_rank_{rank}')
     logger_handler = logging.FileHandler(filename=run_params['cv_experiment_dir'] / f'cv_run_{rank}.log', mode='w')
     # logger_handler_stream = logging.StreamHandler(sys.stdout)
     # logger_handler_stream.setLevel(logging.INFO)
@@ -226,26 +191,23 @@ def cv():
     run_params['n_processes_norm_data'] = 15
     run_params['verbose'] = True
 
-    run_params['rnd_seed'] = 2
-    run_params['rng'] = np.random.default_rng(seed=run_params['rnd_seed'])
-
     # normalization information for the scalar parameters
     run_params['scalar_params'] = {
         # stellar parameters
-        'tce_steff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_steff': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'int', 'replace_value': None},
-        'tce_slogg': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_slogg': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_smet': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_smet': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_sradius': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_sradius': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                         'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_smass': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_smass': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_sdens': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_sdens': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         # secondary
-        'tce_maxmes': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_maxmes': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'wst_depth': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float', 'replace_value': 0},
@@ -256,14 +218,12 @@ def cv():
         # other diagnostics
         'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
                      'clip_factor': np.nan, 'dtype': 'float', 'replace_value': None},
-        'tce_cap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_cap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                          'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_hap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+        'tce_hap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                          'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        # 'tce_rb_tcount0': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-        #                    'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
-        'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                            'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
+        'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                           'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
         # centroid
         'tce_fwm_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                          'dtype': 'float', 'replace_value': None},
@@ -286,7 +246,7 @@ def cv():
 
     run_params['norm'] = {
         # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
-        'nr_transit_durations': 5,
+        'nr_transit_durations': 6,
         'num_bins_loc': 31,  # 31, 201
         'num_bins_glob': 301  # 301, 2001
     }
@@ -300,7 +260,8 @@ def cv():
     # set the configuration from an HPO study
     if hpo_study is not None:
         # hpo_path = Path(paths.path_hpoconfigs) / hpo_study
-        hpo_path = Path('/data5/tess_project/experiments/hpo_configs/') / 'experiments_paper(9-14-2020_to_1-19-2021)' / hpo_study
+        hpo_path = Path(
+            '/data5/tess_project/experiments/hpo_configs/') / 'experiments_paper(9-14-2020_to_1-19-2021)' / hpo_study
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_study}')
 
         # get ID to config mapping
@@ -386,7 +347,6 @@ def cv():
         'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
@@ -402,44 +362,18 @@ def cv():
 
     logger.info(f'Feature set: {run_params["features_set"]}')
 
-    run_params['data_augmentation'] = False  # if True, uses online data augmentation in the training set
-    run_params['online_preproc_params'] = {'num_bins_global': 301, 'num_bins_local': 31, 'num_transit_dur': 6}
-
-    run_params['n_models'] = 2  # number of models in the ensemble
-    run_params['n_epochs'] = 2  # number of epochs used to train each model
     run_params['multi_class'] = False  # multi-class classification
-    run_params['ce_weights_args'] = {
-        'tfrec_dir': run_params['cv_experiment_dir'] / 'tfrecords',
-        'datasets': ['train'],
-        'label_fieldname': 'label',
-        'verbose': False
-    }
-    run_params['use_kepler_ce'] = False  # use weighted CE loss based on the class proportions in the training set
     run_params['satellite'] = 'kepler'  # if 'kepler' in tfrec_dir else 'tess'
-
-    run_params['opt_metric'] = 'auc_pr'  # choose which metric to plot side by side with the loss
-    run_params['min_optmetric'] = False  # if lower value is better set to True
 
     # callbacks list
     run_params['callbacks_dict'] = {}
-
-    # early stopping callback
-    run_params['callbacks_dict']['early_stopping'] = callbacks.EarlyStopping(
-        monitor=f'val_{run_params["opt_metric"]}',
-        min_delta=0,
-        patience=20,
-        verbose=1,
-        mode='max',
-        baseline=None,
-        restore_best_weights=True
-    )
 
     # add dataset parameters
     config = src.config_keras.add_dataset_params(
         run_params['satellite'],
         run_params['multi_class'],
-        run_params['use_kepler_ce'],
-        run_params['ce_weights_args'],
+        False,
+        None,
         config
     )
 
@@ -451,60 +385,59 @@ def cv():
 
     run_params['data_fields'] = {
         'target_id': 'int_scalar',
-              'tce_plnt_num': 'int_scalar',
-              # 'oi': 'float_scalar',
-              'label': 'string',
-              # 'TESS Disposition': 'string',
-              'tce_period': 'float_scalar',
-              'tce_duration': 'float_scalar',
-              'tce_time0bk': 'float_scalar',
-              'original_label': 'string',
-              'transit_depth': 'float_scalar',
-              # 'tce_max_mult_ev': 'float_scalar',
-              # 'tce_prad': 'float_scalar',
-              # 'sigma_oot_odd': 'float_scalar',
-              # 'sigma_it_odd': 'float_scalar',
-              # 'sigma_oot_even': 'float_scalar',
-              # 'sigma_it_even': 'float_scalar',
-              }
+        'tce_plnt_num': 'int_scalar',
+        # 'oi': 'float_scalar',
+        'label': 'string',
+        # 'TESS Disposition': 'string',
+        'tce_period': 'float_scalar',
+        'tce_duration': 'float_scalar',
+        'tce_time0bk': 'float_scalar',
+        'original_label': 'string',
+        'transit_depth': 'float_scalar',
+        # 'tce_max_mult_ev': 'float_scalar',
+        # 'tce_prad': 'float_scalar',
+        # 'sigma_oot_odd': 'float_scalar',
+        # 'sigma_it_odd': 'float_scalar',
+        # 'sigma_oot_even': 'float_scalar',
+        # 'sigma_it_even': 'float_scalar',
+    }
     run_params['generate_csv_pred'] = True
 
     # save feature set used
     if rank == 0:
-        np.save(run_params['cv_experiment_dir'] / 'features_set.npy', run_params['features_set'])
+        np.save(run_params['res_dir'] / 'features_set.npy', run_params['features_set'])
         # save configuration used
-        np.save(run_params['cv_experiment_dir'] / 'config.npy', run_params['config'])
+        np.save(run_params['res_dir'] / 'config.npy', run_params['config'])
 
         # save the JSON file with training-evaluation parameters that are JSON serializable
         json_dict = {key: val for key, val in run_params.items() if is_jsonable(val)}
-        with open(run_params['cv_experiment_dir'] / 'cv_params.json', 'w') as cv_run_file:
+        with open(run_params['res_dir'] / 'cv_params.json', 'w') as cv_run_file:
             json.dump(json_dict, cv_run_file)
 
     # run each CV iteration sequentially
-    for cv_id, cv_iter in enumerate(run_params['data_shards_fps']):
-        logger.info(f'[cv_iter_{cv_iter}] Running CV iteration {cv_id} (out of {len(run_params["data_shards_fps"])}): '
-                    f'{cv_iter}')
+    for cv_id, cv_iter in enumerate(run_params['cv_iters']):
+        logger.info(f'[cv_iter_{cv_iter}] Running prediction for CV iteration {cv_id} '
+                    f'(out of {len(run_params["cv_iters"])}): {cv_iter}')
         run_params['cv_id'] = cv_id
-        cv_run(
-               run_params['cv_experiment_dir'],
-               cv_iter,
-               run_params,
-               logger
-               )
+        cv_pred_run(
+            run_params['res_dir'],
+            cv_iter,
+            run_params,
+            logger
+        )
 
     # # run each CV iteration in parallel
     # cv_id = rank
-    # logger.info(f'Running CV iteration {cv_id} (out of {len(run_params["data_shards_fps"])}): '
-    #             f'{run_params["data_shards_fps"][cv_id]}')
+    # logger.info(f'Running prediciton for CV iteration {cv_id} (out of {len(run_params["cv_iters"])}): '
+    #             f'{cv_iter}')
     # run_params['cv_id'] = cv_id
     # cv_run(
-    #     run_params['cv_experiment_dir'],
-    #     run_params['data_shards_fps'][cv_id],
+    #     run_params['res_dir'],
+    #     cv_iter,
     #     run_params,
     #     logger
     # )
 
 
 if __name__ == '__main__':
-
-    cv()
+    cv_pred()

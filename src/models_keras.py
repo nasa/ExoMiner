@@ -714,8 +714,8 @@ class CNN1dPlanetFinderv2(object):
             self.inputs['tce_cap_stat_norm'],
             self.inputs['tce_hap_stat_norm'],
             # self.inputs['tce_cap_hap_stat_diff_norm'],
-            # self.inputs['tce_rb_tcount0n_norm'],
-            self.inputs['tce_rb_tcount0_norm'],
+            self.inputs['tce_rb_tcount0n_norm'],
+            # self.inputs['tce_rb_tcount0_norm'],
             self.inputs['boot_fap_norm'],
             self.inputs['tce_period_norm'],
             self.inputs['tce_prad_norm']

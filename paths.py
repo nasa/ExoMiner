@@ -25,3 +25,6 @@ pathsavefigs_preprocessing = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data
 
 # path cv experiments
 path_cv_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/'
+
+# path label noise experiments
+path_label_noise_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise/'

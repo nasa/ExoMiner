@@ -12,15 +12,15 @@ import pandas as pd
 # local
 from src_cv.utils_cv import create_shard_fold
 
-# %% set up CV experiment variables
+# %% set up label noise experiment variables
 
-experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
-data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
+experiment = f'label_noise_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
+data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/label_noise/{experiment}')
 data_dir.mkdir(exist_ok=True)
 
 # set up logger
-logger = logging.getLogger(name='train-eval_run')
-logger_handler = logging.FileHandler(filename=data_dir / f'cv_run.log', mode='w')
+logger = logging.getLogger(name='label_noise_run')
+logger_handler = logging.FileHandler(filename=data_dir / f'label_noise_run.log', mode='w')
 logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
 logger.setLevel(logging.INFO)
 logger_handler.setFormatter(logger_formatter)
@@ -31,12 +31,10 @@ rnd_seed = 24
 logger.info(f'Setting random seed to {rnd_seed}')
 rng = np.random.default_rng(rnd_seed)
 
-n_folds = 10  # which is also the number of shards
-logger.info(f'Number of folds used for CV: {n_folds}')
-# n_models = 10
-# logger.info(f'Number of models in the ensemble: {n_models}')
+label_noise = np.linspace(0, 1, 21, endpoint=True)  # which is also the number of shards
+logger.info(f'Fraction of the training set affected by labeling noise: {label_noise}')
 
-#%% prepare the shards for CV by splitting the TCE table into shards (n folds)
+# %% prepare the shards for CV by splitting the TCE table into shards (n folds)
 
 shard_tbls_dir = data_dir / 'shard_tables'
 shard_tbls_dir.mkdir(exist_ok=True)
@@ -60,63 +58,66 @@ tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
 
-# shuffle per target stars
-logger.info('Shuffling TCE table per target stars...')
-target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
-rng.shuffle(target_star_grps)
-tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
-# tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
+# # shuffle per target stars
+# logger.info('Shuffling TCE table per target stars...')
+# target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+# rng.shuffle(target_star_grps)
+# tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
+# # tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
 
-# # shuffle per TCE
-# logger.info('Shuffling TCE table per TCE...')
-# tce_tbl = tce_tbl.sample(frac=1, random_state=rnd_seed).reset_index(drop=True)
+# shuffle per TCE
+logger.info('Shuffling TCE table per TCE...')
+tce_tbl = tce_tbl.sample(frac=1, random_state=rnd_seed).reset_index(drop=True)
 
 tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False)
 
-# define test set for paper dataset as one of the folds
-test_set_tbl = pd.read_csv(dataset_tbls_dir / 'testset.csv')
-test_set_tbl['tceid'] = test_set_tbl[['target_id', 'tce_plnt_num']].apply(
-    lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-fold_tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
-fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold9.csv', index=False)
-n_folds -= 1
-tce_tbl = tce_tbl.loc[~tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
+# # define test set for paper dataset as one of the folds
+# test_set_tbl = pd.read_csv(dataset_tbls_dir / 'testset.csv')
+# test_set_tbl['tceid'] = test_set_tbl[['target_id', 'tce_plnt_num']].apply(
+#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
+# fold_tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
+# fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold9.csv', index=False)
+# n_folds -= 1
+# tce_tbl = tce_tbl.loc[~tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
 
 # split TCE table into n fold tables (all TCEs from the same target star should be in the same table)
 logger.info(f'Split TCE table into {n_folds} fold TCE tables...')
 
-# split at the target star level
-target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
-target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
-for fold_i, target_stars_split in enumerate(target_stars_splits):
-    fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])
-    # shuffle TCEs in each fold
-    fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
-                                       axis=0).reset_index(drop=True)
-    fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
-
-# # split at the TCE level
-# tce_splits = np.array_split(range(len(tce_tbl)), n_folds, axis=0)
-# for fold_i, tce_split in enumerate(tce_splits):
-#     fold_tce_tbl = tce_tbl[tce_split[0]:tce_split[-1] + 1]
+# # split at the target star level
+# target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+# target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
+# for fold_i, target_stars_split in enumerate(target_stars_splits):
+#     fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])
 #     # shuffle TCEs in each fold
 #     fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
 #                                        axis=0).reset_index(drop=True)
 #     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
 
+# split at the TCE level
+tce_splits = np.array_split(range(len(tce_tbl)), n_folds, axis=0)
+for fold_i, tce_split in enumerate(tce_splits):
+    fold_tce_tbl = tce_tbl[tce_split[0]:tce_split[-1] + 1]
+    # shuffle TCEs in each fold
+    fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
+                                       axis=0).reset_index(drop=True)
+    fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+
 # %% build TFRecord dataset based on the fold TCE tables
 
-data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30')
+data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-17-2021_03-57')
 shard_tbls_dir = data_dir / 'shard_tables'
 
-tfrec_dir_root = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/')
+tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
+                      'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar'
+                      '-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/')
 # tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
 #                       'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-centroidfdl-'
 #                       '6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/')
 
 src_tfrec_dir = tfrec_dir_root / \
-                'tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized'
+                'tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-' \
+                'bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_starshuffle_' \
+                'experiment-labels-norm_nopps_secparams_prad_period'
 # src_tfrec_dir = tfrec_dir_root / 'tfrecordskeplerdr25-dv_g2001-l201_9tr_spline_gapped1-5_flux-loe-lwks-centroid-' \
 #                                  'centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_' \
 #                                  'confirmedkoiperiod_starshuffle_experiment-labels-norm_nopps'
@@ -142,7 +143,7 @@ tces_not_found_df = pd.DataFrame(tces_not_found,
                                  columns=['target_id', 'tce_plnt_num'])
 tces_not_found_df.to_csv(data_dir / 'tces_not_found.csv', index=False)
 
-#%% Create CV run
+# %% Create CV run
 
 data_shards_fps = list(dest_tfrec_dir.iterdir())
 data_shards = [data_shards_fp.name for data_shards_fp in data_shards_fps]
