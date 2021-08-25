@@ -1,3 +1,6 @@
+""" Combine predicitons from all CV folds. """
+
+# 3rd party
 from pathlib import Path
 
 import pandas as pd
@@ -5,7 +8,7 @@ import pandas as pd
 # %% Combine predictions from all CV iterations in the used dataset
 
 cv_run_dir = Path('/data5/tess_project/experiments/current_experiments/cv_experiments/'
-                  'cv_keplerq1q17dr25_exonet_ourconfig_8-14-2021')
+                  'cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_split_tce_8-24-2021')
 
 cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
@@ -21,7 +24,7 @@ ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', i
 # %% Combine predictions from all CV iterations in the not-used dataset
 
 cv_pred_run_dir = Path('/data5/tess_project/experiments/current_experiments/cv_experiments/'
-                       'cv_keplerq1q17dr25_exominer_configk_8-11-2021/predict_not_used_8-11-2021')
+                       'cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_8-23-2021/predict_not_used_8-24-2021')
 
 cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 

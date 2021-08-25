@@ -1,9 +1,9 @@
 """ Prepare dataset into folds for cross-validation. """
 
+# 3rd party
 import logging
 import multiprocessing
 from datetime import datetime
-# 3rd party
 from pathlib import Path
 
 import numpy as np
@@ -106,7 +106,7 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
 
 # %% build TFRecord dataset based on the fold TCE tables
 
-data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30')
+data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-17-2021_03-57')
 shard_tbls_dir = data_dir / 'shard_tables'
 
 tfrec_dir_root = Path(

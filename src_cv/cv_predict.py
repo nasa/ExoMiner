@@ -54,8 +54,8 @@ def cv_pred_run(res_dir, cv_iter_dir, run_params, logger=None):
         'fdl_centroid': np.load(norm_stats_dir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
         'centroid': np.load(norm_stats_dir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
     }
-    norm_stats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
-    norm_stats['scalar_params']['tce_rb_tcount0']['info']['dtype'] = 'float'
+    # norm_stats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
+    # norm_stats['scalar_params']['tce_rb_tcount0']['info']['dtype'] = 'float'
 
     pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
     jobs = [(file, norm_stats, run_params['norm'], norm_data_dir)
@@ -148,17 +148,18 @@ def cv_pred():
     run_params = {}
 
     # name of the experiment
-    run_params['cv_experiment'] = 'predict_not_used_8-11-2021'
+    run_params['cv_experiment'] = 'predict_not_used_8-24-2021'
 
     # data directory
     run_params['data_dir'] = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_data/tfrecordskeplerdr25-dv_g301-l31_6tr_spline_nongapped_flux-loe-lwks-centroid-centroidfdl-6stellar-bfap-ghost-rollband-stdts_secsymphase_correctprimarygapping_confirmedkoiperiod_predict_tcesnotused_scalarnorm_tsnorm')
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_predict_tcesnotused')
     run_params['data_fps'] = [fp for fp in run_params['data_dir'].iterdir() if fp.is_file()
                               and fp.name.startswith('predict-shard')]
 
     # cv experiment directory
     run_params['cv_experiment_dir'] = Path(
-        '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_8-11-2021')
+        '/data5/tess_project/experiments/current_experiments/cv_experiments/'
+        'cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_8-23-2021')
 
     run_params['res_dir'] = run_params['cv_experiment_dir'] / run_params['cv_experiment']
     run_params['res_dir'].mkdir(exist_ok=True)
@@ -222,8 +223,10 @@ def cv_pred():
                          'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'tce_hap_stat': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
                          'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
-                           'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
+        # 'tce_rb_tcount0': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+        #                    'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
+        'tce_rb_tcount0n': {'missing_value': np.nan, 'log_transform': False, 'log_transform_eps': np.nan,
+                            'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
         # centroid
         'tce_fwm_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                          'dtype': 'float', 'replace_value': None},
@@ -347,7 +350,8 @@ def cv_pred():
         'boot_fap_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},

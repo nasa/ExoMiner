@@ -1,9 +1,9 @@
 """ Create shard TCE table that makes tracking of location of TCEs in the shards easier. """
 
+# 3rd party
 from pathlib import Path
 
 import pandas as pd
-# 3rd party
 import tensorflow as tf
 
 tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'

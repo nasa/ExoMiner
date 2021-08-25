@@ -191,7 +191,7 @@ def cv():
     run_params['cv_dir'] = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/')
 
     # data directory
-    run_params['data_dir'] = run_params['cv_dir'] / 'tfrecords'
+    run_params['data_dir'] = run_params['cv_dir'] / 'data_exominer_configK_newsec_rbacnt0n' / 'tfrecords'
 
     # cv experiment directory
     run_params['cv_experiment_dir'] = Path(paths.path_cv_experiments) / run_params['cv_experiment']
@@ -233,7 +233,7 @@ def cv():
     run_params['scalar_params'] = {
         # stellar parameters
         'tce_steff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'int', 'replace_value': None},
+                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'tce_slogg': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'tce_smet': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
@@ -263,7 +263,7 @@ def cv():
         # 'tce_rb_tcount0': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
         #                    'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
         'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                            'clip_factor': np.nan, 'dtype': 'int', 'replace_value': None},
+                            'clip_factor': np.nan, 'dtype': 'float', 'replace_value': None},
         # centroid
         'tce_fwm_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
                          'dtype': 'float', 'replace_value': None},
@@ -387,7 +387,7 @@ def cv():
         'tce_cap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_hap_stat_norm': {'dim': (1,), 'dtype': tf.float32},
         # 'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
-        'tce_rb_tcount0_norm': {'dim': (1,), 'dtype': tf.float32},
+        'tce_rb_tcount0n_norm': {'dim': (1,), 'dtype': tf.float32},
         # stellar parameters
         'tce_sdens_norm': {'dim': (1,), 'dtype': tf.float32},
         'tce_steff_norm': {'dim': (1,), 'dtype': tf.float32},

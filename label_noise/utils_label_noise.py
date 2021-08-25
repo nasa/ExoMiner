@@ -1,3 +1,5 @@
+""" Utility functions for label noise injection. """
+
 # 3rd party
 import multiprocessing
 
@@ -539,6 +541,15 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
     # instantiate Keras model
     model = base_model(config, features_set).kerasModel
 
+    model.summary(print_fn=logger.info)
+    plot_model(model,
+               to_file=model_dir_sub / 'model.png',
+               show_shapes=False,
+               show_layer_names=True,
+               rankdir='TB',
+               expand_nested=False,
+               dpi=96)
+
     # setup metrics to be monitored
     metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
 
@@ -660,7 +671,7 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
 
     ensemble_model = create_ensemble(features=features_set, models=model_list)
 
-    ensemble_model.summary()
+    ensemble_model.summary(print_fn=logger.info)
 
     # set up metrics to be monitored
     metrics_list = get_metrics(clf_threshold=config['clf_thr'])

@@ -1,3 +1,7 @@
+"""
+Utility functions for CV.
+"""
+
 # 3rd party
 import multiprocessing
 
@@ -9,6 +13,7 @@ from tensorflow.keras import losses, optimizers
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import plot_model as plot_model
 
+# local
 import src.utils_predict as utils_predict
 import src.utils_train as utils_train
 from src.models_keras import create_ensemble
@@ -17,7 +22,6 @@ from src.utils_dataio import get_data_from_tfrecord
 from src.utils_metrics import get_metrics
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src_preprocessing.preprocess import centering_and_normalization
-# local
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
@@ -514,6 +518,15 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
     # instantiate Keras model
     model = base_model(config, features_set).kerasModel
 
+    model.summary(print_fn=logger.info)
+    plot_model(model,
+               to_file=model_dir_sub / 'model.png',
+               show_shapes=False,
+               show_layer_names=True,
+               rankdir='TB',
+               expand_nested=False,
+               dpi=96)
+
     # setup metrics to be monitored
     metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
 
@@ -635,7 +648,7 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
 
     ensemble_model = create_ensemble(features=features_set, models=model_list)
 
-    ensemble_model.summary()
+    ensemble_model.summary(print_fn=logger.info)
 
     # set up metrics to be monitored
     metrics_list = get_metrics(clf_threshold=config['clf_thr'])
