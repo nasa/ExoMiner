@@ -28,14 +28,15 @@ for param in ['Epoch Value', 'Orbital Period Value', 'Transit Duration Value', '
 
 toi_tbl.to_csv(toi_dir / 'tois_spoc_nomissingephemerides.csv', index=False)
 
-#%% EXOFOP TOI catalog
+# %% EXOFOP TOI catalog
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/7-30-2021/')
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/9-10-2021/')
 
-toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists.csv')
+toi_tbl = pd.read_csv(toi_dir / f'exofop_tess_tois.csv', header=1)
 
 # compute TESS BJD
-toi_tbl['Epoch (TBJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
+# toi_tbl['Epoch (TBJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
+toi_tbl['Epoch (TBJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
 toi_tbl.to_csv(toi_dir / 'exofop_toilists_tbjd.csv', index=False)
 
 num_tois = len(toi_tbl)
@@ -46,11 +47,11 @@ print(f'Total number of TOIs: {num_tois}')
 # print(f'Total number of TOIs after removing QLP TOIs: {len(toi_tbl)} ({num_tois - len(toi_tbl)})')
 # num_tois = len(toi_tbl)
 
-for param in ['Epoch (BJD)', 'Period (days)', 'Duration (hours)', 'Depth (ppm)', 'Sectors']:
+for param in ['Epoch (TBJD)', 'Period (days)', 'Duration (hours)', 'Depth (ppm)', 'Sectors']:
     if param in ['Period (days)']:
         toi_tbl = toi_tbl.loc[toi_tbl[param] != 0]
-    else:
-        toi_tbl = toi_tbl.loc[~toi_tbl[param].isna()]
+
+    toi_tbl = toi_tbl.loc[~toi_tbl[param].isna()]
     print(f'Total number of TOIs after removing TOIs without {param}: {len(toi_tbl)} ({num_tois - len(toi_tbl)})')
     num_tois = len(toi_tbl)
 
@@ -92,7 +93,7 @@ toi_tbl = toi_tbl.loc[toi_tbl['TOI'].isin(matching_tbl.loc[~matching_tbl['Matche
 print(f'Number of TOIs after removing those not matched to any TCE: {len(toi_tbl)}')
 
 fields_to_add = {
-    'old':
+    'src_old':
         {
             'tce_plnt_num': 'planetNumber',
             'tce_period_dv': 'orbitalPeriodDays',
@@ -192,13 +193,17 @@ for toi_i, toi in toi_tbl.iterrows():
         if '-' in matched_tce_sector_str:
             sector_start, sector_end = matched_tce_sector_str.split('-')
             tce_tbl = multisector_tce_tbls[(int(sector_start), int(sector_end))]
-            toi_tbl.loc[toi_i, list(fields_to_add['old'].keys())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
-                                                                           list(fields_to_add['old'].values())].values[0]
+            toi_tbl.loc[toi_i, list(fields_to_add['src_old'].keys())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
+                                                                                    list(fields_to_add[
+                                                                                             'src_old'].values())].values[
+                0]
         else:
             tce_tbl = singlesector_tce_tbls[int(matched_tce_sector_str)]
             if int(matched_tce_sector_str) <= 30:
-                toi_tbl.loc[toi_i, list(fields_to_add['old'].keys())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
-                                                                           list(fields_to_add['old'].values())].values[0]
+                toi_tbl.loc[toi_i, list(fields_to_add['src_old'].keys())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
+                                                                                        list(fields_to_add[
+                                                                                                 'src_old'].values())].values[
+                    0]
             else:
                 toi_tbl.loc[toi_i, list(fields_to_add['new'].keys())] = tce_tbl.loc[(tce_tbl['tceid'] == toi_tceid),
                                                                            list(fields_to_add['new'].values())].values[0]

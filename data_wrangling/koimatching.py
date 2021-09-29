@@ -1,11 +1,11 @@
-import pandas as pd
-import numpy as np
 import os
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from src_preprocessing.get_dv_files import get_dv_files
 
-#%% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the
+# %% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the
 # 'koi_datalink_dvs' field and updating the labels using the KOI dispositions from the Cumulative KOI list
 
 # logging.basicConfig(filename='/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/'
@@ -212,7 +212,7 @@ print('Number of FALSE POSITIVE matched: {} out of {}'.format(fp_matched,
                                                               len(oldKoiTbl.loc[oldKoiTbl['koi_disposition'] ==
                                                                                 'FALSE POSITIVE'])))
 
-#%% get TCEs for the KOIs that changed their disposition from the old KOI cumulative list to the new one
+#%% get TCEs for the KOIs that changed their disposition from the src_old KOI cumulative list to the new one
 
 columnsKoi = ['kepid', 'kepoi_name', 'koi_disposition', 'koi_fpflag_nt', 'koi_fpflag_co', 'koi_fpflag_ec',
               'koi_period', 'koi_time0bk', 'koi_duration']
@@ -270,13 +270,13 @@ rankingTblUpdatedKois.to_csv('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepl
                              'dr25tcert_spline_gapped_glflux-lcentr-loe-6stellar_glfluxconfig/'
                              '{}koisupdatedonly.csv'.format(rankingSet), index=False)
 
-# predicted PCs that were not PCs according to old label but now are
+# predicted PCs that were not PCs according to src_old label but now are
 newPCsDetected = len(rankingTbl.loc[(rankingTbl['predicted class'] == 1) &
                                     (rankingTbl['new_label'] == 'PC') &
                                     (rankingTbl['label'] == 0)])
 numNewPcs = len(rankingTbl.loc[(rankingTbl['new_label'] == 'PC') & (rankingTbl['label'] == 0)])
 
-# predicted non-PCs that were PCs according to old label but now are
+# predicted non-PCs that were PCs according to src_old label but now are
 newNonPcsDetected = len(rankingTbl.loc[(rankingTbl['predicted class'] == 0) &
                                        (rankingTbl['new_label'] == 'AFP') &
                                        (rankingTbl['label'] == 1)])

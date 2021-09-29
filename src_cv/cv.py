@@ -22,8 +22,8 @@ import multiprocessing
 
 # local
 import paths
-from src.models_keras import CNN1dPlanetFinderv2
-import src.config_keras
+from models.models_keras import CNN1dPlanetFinderv2
+import models.config_keras
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_jsonable
 from src_cv.utils_cv import processing_data_run, train_model, eval_ensemble
@@ -435,7 +435,7 @@ def cv():
     )
 
     # add dataset parameters
-    config = src.config_keras.add_dataset_params(
+    config = models.config_keras.add_dataset_params(
         run_params['satellite'],
         run_params['multi_class'],
         run_params['use_kepler_ce'],
@@ -444,7 +444,7 @@ def cv():
     )
 
     # add missing parameters in hpo with default values
-    config = src.config_keras.add_default_missing_params(config=config)
+    config = models.config_keras.add_default_missing_params(config=config)
 
     logger.info(f'Final configuration used: {config}')
     run_params['config'] = config

@@ -21,8 +21,8 @@ import json
 import multiprocessing
 
 # local
-from src.models_keras import CNN1dPlanetFinderv2
-import src.config_keras
+from models.models_keras import CNN1dPlanetFinderv2
+import models.config_keras
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_jsonable
 from src_cv.utils_cv import predict_ensemble, normalize_data
@@ -373,7 +373,7 @@ def cv_pred():
     run_params['callbacks_dict'] = {}
 
     # add dataset parameters
-    config = src.config_keras.add_dataset_params(
+    config = models.config_keras.add_dataset_params(
         run_params['satellite'],
         run_params['multi_class'],
         False,
@@ -382,7 +382,7 @@ def cv_pred():
     )
 
     # add missing parameters in hpo with default values
-    config = src.config_keras.add_default_missing_params(config=config)
+    config = models.config_keras.add_default_missing_params(config=config)
 
     logger.info(f'Final configuration used: {config}')
     run_params['config'] = config

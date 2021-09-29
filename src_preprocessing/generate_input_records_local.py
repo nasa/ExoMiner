@@ -28,7 +28,7 @@ def create_preprocessing_config():
 
     # TFRecords base name
     # config['tfrecords_base_name'] = 'tfrecordstess_spoctois_g301-l31_spline_nongapped_flux-loe-wks-centroid-noDV_nosecparams_{datetime.now().strftime("%m-%d-%Y_%H-%M")}'
-    config['tfrecords_base_name'] = 'tic100100827.1_7-30-2021'
+    config['tfrecords_base_name'] = 'tess_tces_s1-s40_9-16-2021'
 
     # TFRecords root directory
     config['tfrecords_dir'] = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords',
@@ -148,8 +148,8 @@ def create_preprocessing_config():
     if config['satellite'].startswith('kepler'):
 
         # TCE table filepath
-        config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
-                                       'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_recomputedparams_5-28-2021.csv'
+        config[
+            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/19-08-21_07:21/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n.csv'
 
         # FITS files directory
         config['lc_data_dir'] = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
@@ -161,7 +161,7 @@ def create_preprocessing_config():
 
         # config['input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv'
         config[
-            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/5-10-2021/tess_tces_s1-s35_recomputed_params.csv'
+            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv'
 
         config['lc_data_dir'] = '/data5/tess_project/Data/TESS_lc_fits'
 
@@ -299,6 +299,7 @@ def main():
         tce_table = shuffle_tce(tce_table, seed=config['shuffle_seed'])
         print('Shuffled TCE Table')
 
+    # tce_table = (tce_table.loc[tce_table['label'].isin(['KP', 'CP', 'FP'])]).sample(n=20).reset_index(drop=True)
     file_shards = create_shards(config, tce_table)
 
     # launch subprocesses for the file shards

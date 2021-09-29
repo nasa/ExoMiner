@@ -39,7 +39,7 @@ from src_preprocessing.light_curve import median_filter
 from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.third_party.kepler_spline import kepler_spline
-from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
+from side_analysis.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 from src_preprocessing.utils_gapping import gap_this_tce, gap_other_tces
 from src_preprocessing.utils_imputing import impute_binned_ts, imputing_gaps
@@ -307,7 +307,8 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['100100827-2']:  #  and tce['sectors'] == '14':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['7431665-2']:  #  and tce['sectors'] == '14':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}'.format(tce['target_id']) in ['7431665']:
     # if tce['oi'] in [1774.01]:
     # tce['tce_time0bk'] = 1325.726
     # tce['tce_period'] = 0.941451
@@ -751,7 +752,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
 
     # compute the corrected centroid time-series normalized by the transit depth fraction and centered on the avg oot
     # centroid position
-    transit_depth = tce['transit_depth'] + 1
+    transit_depth = tce['transit_depth'] + 1  # avoid zero transit depth
     transitdepth_term = (1e6 - transit_depth) / transit_depth
     # avg_centroid_oot = {coord: avg_centroid_oot[coord] * 1.15 for coord in avg_centroid_oot}
     # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /
@@ -1921,10 +1922,14 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():
+
         if name == 'Public Comment':  # can add special characters that are not serializable in the TFRecords
             continue
         try:
-            example_util.set_feature(ex, name, [value])
+            if isinstance(value, str):
+                example_util.set_bytes_feature(ex, name, [value])
+            else:
+                example_util.set_feature(ex, name, [value])
         except:
             report_exclusion(config, tce, f'Could not set up this TCE table parameter: {name}.')
             print(name, value)
@@ -1933,7 +1938,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     for view in num_transits:
         example_util.set_int64_feature(ex, f'{view}_num_transits', [num_transits[view]])
 
-    # add odd and even non timeseries features
+    # add odd and even scalar features
     for field in odd_data:
         if field not in ['local_flux_view', 'local_flux_view_se', 'binned_time']:
             if 'se_oot' in field:  # normalize oot SE by normalization factor used for both odd and even flux views

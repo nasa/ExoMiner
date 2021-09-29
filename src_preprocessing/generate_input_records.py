@@ -16,6 +16,8 @@ from tensorflow.compat.v1 import logging as tf_logging
 from tensorflow.io import TFRecordWriter
 from pathlib import Path
 import json
+import multiprocessing
+import numpy as np
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -30,10 +32,11 @@ def create_preprocessing_config():
 
     # TFRecords base name
     config[
-        'tfrecords_base_name'] = f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.datetime.now().strftime("%m-%d-%Y_%H-%M")}'
+        'tfrecords_base_name'] = 'test_local'  # f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.datetime.now().strftime("%m-%d-%Y_%H-%M")}'
 
     # TFRecords root directory
-    config['tfrecords_dir'] = Path('/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords')
+    config['tfrecords_dir'] = Path('/data5/tess_project/Data/tfrecords')
+    # config['tfrecords_dir'] = Path('/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords')
 
     # output directory
     config['output_dir'] = config['tfrecords_dir'] / 'Kepler' / 'Q1-Q17_DR25' / config['tfrecords_base_name']
@@ -144,9 +147,12 @@ def create_preprocessing_config():
         # TCE table filepath
 
         # q1-q17 dr25 DV TCEs
-        config['input_tce_csv_file'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
-                                       'Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_' \
-                                       'norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv'
+        # config['input_tce_csv_file'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/' \
+        #                                'Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_' \
+        #                                'norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv'
+        config[
+            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/19-08-21_07:21/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n.csv'
+
         # # q1-q17 dr25 TPS TCE-1s
         # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'tps/keplerTPS_KSOP2536_dr25.csv'
@@ -162,8 +168,9 @@ def create_preprocessing_config():
 
         # PDC light curve FITS files root directory
         # q1-q17 dr25 TCEs
-        config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
-                                'pdc-tce-time-series-fits'
+        # config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
+        #                         'pdc-tce-time-series-fits'
+        config['lc_data_dir'] = '/data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits'
         # q1-q17 dr25 TCEs + non-TCEs
         # config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/Kepler/DR25/' \
         #                         'dr_25_all_final'
@@ -183,19 +190,23 @@ def create_preprocessing_config():
     config['shuffle_seed'] = 24
 
     # multiprocessing parameters
-    config['using_mpi'] = True
+    config['using_mpi'] = False  # set to True to use MPI; otherwise uses Python multiprocessing.Pool module
 
-    config['process_i'] = MPI.COMM_WORLD.rank
-    config['n_processes'] = MPI.COMM_WORLD.size
-
-    print(f'Process {config["process_i"]} ({config["n_processes"]})')
-    sys.stdout.flush()
+    if config['using_mpi']:
+        config['process_i'] = MPI.COMM_WORLD.rank
+        config['n_shards'] = MPI.COMM_WORLD.size
+        print(f'Process {config["process_i"]} ({config["n_shards"]})')
+        sys.stdout.flush()
+    else:
+        config['process_i'] = -1
+        config['n_shards'] = 10
+        config['n_processes'] = 10
 
     return config
 
 
 def _process_file_shard(tce_table, file_name, eph_table, config):
-    """ Processes a single file shard.
+    """ Processes a single file shard using an MPI process.
 
     Args:
     tce_table: Pandas DataFrame, containing the TCEs in the shard.
@@ -251,7 +262,7 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
 
             num_processed += 1
-            if config['n_processes'] < 50 or config['process_i'] == 0:
+            if config['process_i'] == 0:
                 if not num_processed % 10:
                     if config['process_i'] == 0:
                         cur_time = int(datetime.datetime.now().strftime("%s"))
@@ -265,12 +276,101 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
                     tf_logging.info(printstr)
 
-    if config['n_processes'] < 50:
+    if config['n_shards'] < 50:
         tf_logging.info(f'{config["process_i"]}: Wrote {shard_size} items in shard {shard_name}')
 
 
-def main():
+def _process_file_shard_local(tce_table, file_name, eph_table):
+    """ Processes a single file shard locally.
 
+    Args:
+    tce_table: Pandas DataFrame, containing the TCEs ephemeris in the shard
+    file_name: Path, output TFRecord filename
+    eph_table: Pandas DataFrame, containing the complete TCEs ephemeris database - needed when gapping TCEs from the
+               data
+    config: dict, preprocessing parameters
+    """
+
+    # get preprocessing configuration parameters
+    config = create_preprocessing_config()
+
+    process_name = multiprocessing.current_process().name
+    shard_name = file_name.name
+    shard_size = len(tce_table)
+
+    tceColumns = ['target_id', config['tce_identifier']]
+    # columnsDf = tceColumns + ['augmentation_idx', 'shard']
+    firstTceInDf = True
+
+    tf_logging.info(f'{process_name}: Processing {shard_size} items in shard {shard_name}')
+
+    # load confidence dictionary
+    confidence_dict = pickle.load(open(config['dict_savedir'], 'rb')) if config['gap_with_confidence_level'] else {}
+
+    with TFRecordWriter(str(file_name)) as writer:
+
+        num_processed = 0
+
+        for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
+            tf_logging.info(f'{process_name}: Processing TCE {tce["target_id"]}-{tce[config["tce_identifier"]]} in '
+                            f'shard {shard_name}')
+
+            # preprocess TCE and add it to the TFRecord
+            for example_i in range(config['num_examples_per_tce']):
+
+                tce['augmentation_idx'] = example_i
+
+                example = _process_tce(tce, eph_table, config, confidence_dict)
+
+                if example is not None:
+                    example, example_stats = example
+                    writer.write(example.SerializeToString())
+
+                    tceData = {column: [tce[column]] for column in tceColumns}
+                    tceData['shard'] = [shard_name]
+                    tceData['augmentation_idx'] = [example_i]
+                    tceData.update({key: [val] for key, val in example_stats.items()})
+                    exampleDf = pd.DataFrame(data=tceData)  # , columns=columnsDf)
+                    if firstTceInDf:
+                        examplesDf = exampleDf
+                        firstTceInDf = False
+                    else:
+                        examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv', index_col=0)
+                        examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
+
+                    examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
+
+            num_processed += 1
+            if not num_processed % 1:
+                tf_logging.info(f'{process_name}: Processed {num_processed}/{shard_size} items in shard {shard_name}')
+
+    tf_logging.info(f'{process_name}: Finished processing {shard_size} items in shard {shard_name}')
+
+
+def create_shards(config, tce_table):
+    """ Distributes TCEs across shards for preprocessing.
+
+    :param config: dict, preprocessing parameters
+    :param tce_table: Pandas DataFrame, TCE table
+    :return:
+       list, subset of the TCE table for each shard
+    """
+
+    file_shards = []
+
+    tf_logging.info(f'Partitioned {len(tce_table)} TCEs into {config["n_shards"]} shards')
+    boundaries = np.linspace(0, len(tce_table), config['n_shards'] + 1).astype(np.int)
+
+    for i in range(config['n_shards']):
+        start = boundaries[i]
+        end = boundaries[i + 1]
+        filename = config['output_dir'] / f'shard-{i:05d}-of-{config["n_shards"]:05d}'
+        file_shards.append((tce_table[start:end], filename, tce_table))
+
+    return file_shards
+
+
+def main():
     # get the configuration parameters
     config = create_preprocessing_config()
 
@@ -297,20 +397,42 @@ def main():
         tce_table = shuffle_tce(tce_table, seed=config['shuffle_seed'])
         print('Shuffled TCE Table')
 
-    node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
-    filename = f'shard-{config["process_i"]:05d}-of-{config["n_processes"]:05d}-node-{node_id:s}'
-    file_name_i = config['output_dir'] / filename
+    if config['using_mpi']:  # use MPI
 
-    _process_file_shard(tce_table, file_name_i, eph_table, config)
+        node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
+        filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
+        file_name_i = config['output_dir'] / filename
 
-    tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
+        _process_file_shard(tce_table, file_name_i, eph_table, config)
 
-    if config['process_i'] == 0:
-        tf_logging.info(f'END-PI:{config["output_dir"]}')
+        tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
+
+        if config['process_i'] == 0:
+            tf_logging.info(f'END-PI:{config["output_dir"]}')
+
+    else:  # use multiprocessing.Pool
+
+        # tce_table = (tce_table.loc[tce_table['label'].isin(['KP', 'CP', 'FP'])]).sample(n=20).reset_index(drop=True)
+        file_shards = create_shards(config, tce_table)
+
+        # launch subprocesses for the file shards
+        # n_process = min(config.num_shards, config.num_worker_processes)
+        tf_logging.info(
+            f'Launching {config["n_processes"]} processes for {config["n_shards"]} total file '
+            f'shards')
+
+        pool = multiprocessing.Pool(processes=config['n_shards'])
+        async_results = [pool.apply_async(_process_file_shard_local, file_shard) for file_shard in file_shards]
+        pool.close()
+
+        # async_result.get() to ensure any exceptions raised by the worker processes are raised here
+        for async_result in async_results:
+            async_result.get()
+
+        tf_logging.info(f'Finished processing {config["n_shards"]} total file shards')
 
 
 if __name__ == "__main__":
-
     tf_logging.set_verbosity(tf_logging.INFO)
 
     main()

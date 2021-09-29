@@ -29,7 +29,7 @@ tceIdentifier = 'tce_plnt_num'  # TCE identifier
 # %% define directories
 
 srcTfrecDir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021')
+    '/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-17-2021_17-16')
 srcTfrecTbls = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                        file.stem.startswith('shard')])
 
@@ -47,7 +47,7 @@ srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
 # %% create new TFRecords based on the original ones
 
 # load train, val and test datasets
-# datasetTblDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/old/bug_with_transitduration_amplified/' \
+# datasetTblDir = '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/src_old/bug_with_transitduration_amplified/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_data/' \
 #                 'tfrecordskeplerdr25_g2001-l201_spline_gapped_flux-centroid_selfnormalized-oddeven-wks-scalar_starshuffle_experiment'
 datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')

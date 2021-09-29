@@ -166,19 +166,19 @@ for tfrecFile in tfrecFiles:
 print(count_i)
 print(count_label)
 
-#%% Testing tensorflow device selection
+# %% Testing tensorflow device selection
 
 # import os
 import tensorflow as tf
+
 tf.debugging.set_log_device_placement(True)
 from tensorflow.keras import losses, optimizers
 from pathlib import Path
-import multiprocessing
 import time
 
 # import src
-from src.models_keras import CNN1dPlanetFinderv2
-from src import config_keras
+from models.models_keras import CNN1dPlanetFinderv2
+from models import config_keras
 from src_hpo import utils_hpo
 from src.utils_dataio import InputFnv2 as InputFn
 import paths

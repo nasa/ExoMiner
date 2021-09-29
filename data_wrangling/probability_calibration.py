@@ -1,28 +1,25 @@
 """ Performing probability calibration. """
 
-from sklearn.calibration import calibration_curve
-import pandas as pd
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
-from tensorflow.keras import losses, optimizers, Model
-from tensorflow.keras.models import load_model
+import pandas as pd
 import tensorflow as tf
-from sklearn.linear_model import LogisticRegression as LR
-from sklearn.model_selection import LeaveOneOut, cross_val_score
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.calibration import calibration_curve
 from sklearn.isotonic import IsotonicRegression
+from tensorflow.keras import Model
+from tensorflow.keras.models import load_model
 
-from src.utils_dataio import InputFnv2 as InputFn
-from src.models_keras import create_ensemble, create_inputs
-from src.utils_metrics import get_metrics
-from src import config_keras
-from src_hpo import utils_hpo
-from src.utils_dataio import get_data_from_tfrecord
 import paths
+from models import config_keras
+from models.models_keras import create_inputs
+from src.utils_dataio import InputFnv2 as InputFn
+from src.utils_dataio import get_data_from_tfrecord
+from src_hpo import utils_hpo
 
 
-#%%
+# %%
 
 def compute_ece(acc, conf, num_per_bin, num_total):
     """ Compute expected calibration error.

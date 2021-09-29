@@ -1,0 +1,304 @@
+"""
+Perform normalization of source  TFRecords files using computed normalization statistics.
+"""
+
+# 3rd party
+from pathlib import Path
+import multiprocessing
+import numpy as np
+import tensorflow as tf
+
+# local
+from src_preprocessing.tf_util import example_util
+from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.preprocess import centering_and_normalization
+
+
+def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
+    # get out-of-transit indices for the global views
+    transitDuration = example.features.feature['tce_duration'].float_list.value[0]
+    orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
+    idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(auxParams['num_bins_glob'],
+                                                                transitDuration,
+                                                                orbitalPeriod)
+    # compute oot global and local flux views std
+    glob_flux_view_std = \
+        np.std(
+            np.array(example.features.feature['global_'
+                                              'flux_view_'
+                                              'fluxnorm'].float_list.value)[idxs_nontransitcadences_glob],
+            ddof=1)
+    loc_flux_view_std = \
+        np.std(
+            np.array(
+                example.features.feature['local_'
+                                         'flux_view_'
+                                         'fluxnorm'].float_list.value)[idxs_nontransitcadences_loc], ddof=1)
+
+    # center and normalize FDL centroid time series
+    glob_centr_fdl_view = np.array(example.features.feature['global_centr_fdl_view'].float_list.value)
+    glob_centr_fdl_view_norm = \
+        centering_and_normalization(glob_centr_fdl_view,
+                                    normStatsFDLCentroid['global_centr_fdl_view']['oot_median'],
+                                    normStatsFDLCentroid['global_centr_fdl_view']['oot_std']
+                                    )
+    glob_centr_fdl_view_norm *= glob_flux_view_std / \
+                                np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
+    loc_centr_fdl_view = np.array(example.features.feature['local_centr_fdl_view'].float_list.value)
+    loc_centr_fdl_view_norm = \
+        centering_and_normalization(loc_centr_fdl_view,
+                                    normStatsFDLCentroid['local_centr_fdl_view']['oot_median'],
+                                    normStatsFDLCentroid['local_centr_fdl_view']['oot_std']
+                                    )
+    loc_centr_fdl_view_norm *= loc_flux_view_std / np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc],
+                                                          ddof=1)
+
+    norm_centr_fdl_feat = {
+        'local_centr_fdl_view_norm': loc_centr_fdl_view_norm,
+        'global_centr_fdl_view_norm': glob_centr_fdl_view_norm,
+    }
+
+    return norm_centr_fdl_feat
+
+
+def normalize_scalar_parameters(example, normStatsScalars):
+    norm_scalar_feat = {f'{scalar_param}_norm': np.nan for scalar_param in normStatsScalars}
+
+    # normalize scalar parameters
+    for scalarParam in normStatsScalars:
+        # get the scalar value from the example
+        if normStatsScalars[scalarParam]['info']['dtype'] == 'int':
+            scalarParamVal = np.array(example.features.feature[scalarParam].int64_list.value)
+        elif normStatsScalars[scalarParam]['info']['dtype'] == 'float':
+            scalarParamVal = np.array(example.features.feature[scalarParam].float_list.value)
+
+        replace_flag = False
+        # check if there is a placeholder for missing value
+        if normStatsScalars[scalarParam]['info']['missing_value'] is not None:
+            if scalarParam in ['wst_depth']:
+                replace_flag = scalarParamVal < \
+                               normStatsScalars[scalarParam]['info']['missing_value']
+            else:
+                replace_flag = scalarParamVal == \
+                               normStatsScalars[scalarParam]['info']['missing_value']
+
+        if ~np.isfinite(scalarParamVal):  # always replace if value is non-finite
+            replace_flag = True
+
+        if replace_flag:
+            # replace by a defined value
+            if normStatsScalars[scalarParam]['info']['replace_value'] is not None:
+                scalarParamVal = normStatsScalars[scalarParam]['info']['replace_value']
+            else:  # replace by the median
+                scalarParamVal = normStatsScalars[scalarParam]['median']
+
+        # log transform the data (assumes data is non-negative after adding eps)
+        # assumes that the median is already log-transformed, but not any possible replace value
+        if normStatsScalars[scalarParam]['info']['log_transform'] and \
+                not (replace_flag and scalarParamVal == normStatsScalars[scalarParam]['median']):
+
+            # add constant value
+            if not np.isnan(normStatsScalars[scalarParam]['info']['log_transform_eps']):
+                scalarParamVal += normStatsScalars[scalarParam]['info']['log_transform_eps']
+
+            scalarParamVal = np.log10(scalarParamVal)
+
+        # clipping the data
+        if not np.isnan(normStatsScalars[scalarParam]['info']['clip_factor']):
+            scalarParamVal = np.clip([scalarParamVal],
+                                     normStatsScalars[scalarParam]['median'] -
+                                     normStatsScalars[scalarParam]['info']['clip_factor'] *
+                                     normStatsScalars[scalarParam]['mad_std'],
+                                     normStatsScalars[scalarParam]['median'] +
+                                     normStatsScalars[scalarParam]['info']['clip_factor'] *
+                                     normStatsScalars[scalarParam]['mad_std']
+                                     )[0]
+
+        # TODO: add value to avoid division by zero?
+        # standardization
+        scalarParamVal = (scalarParamVal - normStatsScalars[scalarParam]['median']) / \
+                         normStatsScalars[scalarParam]['mad_std']
+
+        # add standardized feature to dictionary of standardized features
+        norm_scalar_feat[f'{scalarParam}_norm'] = [scalarParamVal]
+
+    return norm_scalar_feat
+
+
+def normalize_centroid(example, normStatsCentroid):
+    norm_centroid_feat = {}
+
+    glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
+    loc_centr_view = np.array(example.features.feature['local_centr_view'].float_list.value)
+
+    # 1) clipping to physically meaningful distance in arcsec
+    glob_centr_view_std_clip = np.clip(glob_centr_view,
+                                       a_max=normStatsCentroid['global_centr_view']['clip_value'],
+                                       a_min=None)
+    glob_centr_view_std_clip = centering_and_normalization(glob_centr_view_std_clip,
+                                                           # normStats['centroid']['global_centr_view']['median_'
+                                                           #                                            'clip'],
+                                                           np.median(glob_centr_view_std_clip),
+                                                           normStatsCentroid['global_centr_view']['std_clip'])
+
+    loc_centr_view_std_clip = np.clip(loc_centr_view,
+                                      a_max=normStatsCentroid['local_centr_view']['clip_value'],
+                                      a_min=None)
+    loc_centr_view_std_clip = centering_and_normalization(loc_centr_view_std_clip,
+                                                          # normStats['centroid']['local_centr_view']['median_'
+                                                          #                                           'clip'],
+                                                          np.median(loc_centr_view_std_clip),
+                                                          normStatsCentroid['local_centr_view']['std_clip'])
+    norm_centroid_feat.update({'global_centr_view_std_clip': glob_centr_view_std_clip,
+                               'local_centr_view_std_clip': loc_centr_view_std_clip})
+
+    # 2) no clipping
+    glob_centr_view_std_noclip = centering_and_normalization(glob_centr_view,
+                                                             # normStats['centroid']['global_centr_'
+                                                             #                       'view']['median'],
+                                                             np.median(glob_centr_view),
+                                                             normStatsCentroid['global_centr_view']['std'])
+    loc_centr_view_std_noclip = centering_and_normalization(loc_centr_view,
+                                                            # normStats['centroid']['local_centr_view']['median'],
+                                                            np.median(loc_centr_view),
+                                                            normStatsCentroid['local_centr_view']['std'])
+    norm_centroid_feat.update({'global_centr_view_std_noclip': glob_centr_view_std_noclip,
+                               'local_centr_view_std_noclip': loc_centr_view_std_noclip})
+
+    # # 3) center each centroid individually using their median and divide by the standard deviation of the
+    # # training set
+    # glob_centr_view_medind_std = glob_centr_view - np.median(glob_centr_view)
+    # glob_centr_view_medind_std /= normStatsCentroid['global_centr_view']['std']
+    # loc_centr_view_medind_std = loc_centr_view - np.median(loc_centr_view)
+    # loc_centr_view_medind_std /= normStatsCentroid['local_centr_view']['std']
+
+    # 4) normalize adjusted scale centroid for TESS
+    if 'global_centr_view_adjscl_median' in normStatsCentroid:
+        glob_centr_view_adjscl = np.array(example.features.feature['global_centr_view_adjscl'].float_list.value)
+        loc_centr_view_adjscl = np.array(example.features.feature['local_centr_view_adjscl'].float_list.value)
+        glob_centr_view_std_noclip_adjscl = centering_and_normalization(glob_centr_view_adjscl,
+                                                                        # normStats['centroid']['global_centr_'
+                                                                        #                       'view']['median'],
+                                                                        np.median(glob_centr_view_adjscl),
+                                                                        normStatsCentroid['global_centr_view'][
+                                                                            'std_adjscl'])
+        loc_centr_view_std_noclip_adjscl = centering_and_normalization(loc_centr_view_adjscl,
+                                                                       # normStats['centroid']['local_centr_view']['median'],
+                                                                       np.median(loc_centr_view_adjscl),
+                                                                       normStatsCentroid['local_centr_view'][
+                                                                           'std_adjscl'])
+        norm_centroid_feat.update({'global_centr_view_std_noclip_adjscl': glob_centr_view_std_noclip_adjscl,
+                                   'local_centr_view_std_noclip_adjscl': loc_centr_view_std_noclip_adjscl})
+
+    return norm_centroid_feat
+
+
+def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
+    """ Normalize examples in TFRecords.
+
+    :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
+    :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
+    :param normStats: dict, normalization statistics used for normalizing the data
+    :param auxParams: dict, auxiliary parameters needed for normalization
+    :return:
+    """
+
+    # get out-of-transit indices for the local views
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(auxParams['num_bins_loc'],
+                                                              auxParams['nr_transit_durations'])  # same for all TCEs
+
+    with tf.io.TFRecordWriter(str(destTfrecDir / srcTfrecFile.name)) as writer:
+
+        # iterate through the source shard
+        tfrecord_dataset = tf.data.TFRecordDataset(str(srcTfrecFile))
+
+        for string_record in tfrecord_dataset.as_numpy_iterator():
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            normalizedFeatures = {}
+
+            # normalize scalar features
+            if 'scalar_params' in normStats:
+                norm_scalar_feat = normalize_scalar_parameters(example, normStats['scalar_params'])
+                normalizedFeatures.update(norm_scalar_feat)
+
+            # normalize FDL centroid time series
+            if 'fdl_centroid' in normStats:
+                norm_centr_fdl_feat = normalize_fdl_centroid(example,
+                                                             normStats['fdl_centroid'],
+                                                             auxParams,
+                                                             idxs_nontransitcadences_loc)
+                normalizedFeatures.update(norm_centr_fdl_feat)
+
+            # normalize centroid time series
+            if 'centroid' in normStats:
+                norm_centr_feat = normalize_centroid(example, normStats['centroid'])
+                normalizedFeatures.update(norm_centr_feat)
+
+            # add features to the example in the TFRecord
+            for normalizedFeature in normalizedFeatures:
+                example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
+                                               allow_overwrite=True)
+
+            writer.write(example.SerializeToString())
+
+
+# %% source TFRecord directory
+
+srcTfrecDir = Path(
+    '/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23_data/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23_experiment')
+# destination TFRecord
+destTfrecDirName = '-normalized_kepler'
+destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{destTfrecDirName}'
+destTfrecDir.mkdir(exist_ok=True)
+
+# auxiliary parameters needed for normalization of some features
+auxParams = {
+    'nr_transit_durations': 5,
+    # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+    'num_bins_loc': 31,  # 31, 201
+    'num_bins_glob': 301  # 301, 2001
+}
+
+nProcesses = 15  # number of processes in parallel
+
+# normalization stats directory
+normStatsDir = Path(
+    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-se_std_oot_07-09-2021_data/tfrecordskeplerdr25-se_std_oot_07-09-2021_starshuffle_experiment/')
+
+# get source TFRecords file paths to be normalized
+srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
+
+# load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
+normStats = {
+    'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+    'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+    'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+}
+# for TPS
+# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+#                                          'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
+# for TESS
+# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+#                                          'transit_depth', 'tce_duration', 'tce_period']}
+normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+                              if key not in ['tce_fwm_stat', 'tce_rb_tcount0n']}
+for param in ['global_centr_view', 'local_centr_view']:
+    normStats['centroid'][param]['median_adsjcl'] = normStats['centroid'][param]['median']
+    normStats['centroid'][param]['std_adsjcl'] = normStats['centroid'][param]['std']
+
+# normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
+
+pool = multiprocessing.Pool(processes=nProcesses)
+jobs = [(destTfrecDir, file, normStats, auxParams) for file in srcTfrecFiles]
+async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
+pool.close()
+
+for async_result in async_results:
+    async_result.get()
+
+print('Normalization finished.')

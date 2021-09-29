@@ -43,7 +43,7 @@ def report_exclusion(config, tce, id_str, stderr=None):
     if config['satellite'] == 'kepler':
         main_str = f'Kepler ID {tce.target_id} TCE {tce[config["tce_identifier"]]}'
     else:  # 'tess'
-        main_str = f'TIC ID {tce.target_id} TCE {tce[config["tce_identifier"]]} Sector(s) {tce.sectors}'
+        main_str = f'TIC ID {tce.target_id} TCE {tce[config["tce_identifier"]]} Sector(s) {tce.sector_run}'
 
     if is_pfe():
 

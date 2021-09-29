@@ -211,12 +211,12 @@ def estimate_new_sec_geo_albedo(sg_albedo, plnt_radius, sma, plnt_radius_new, sm
                                 plnt_radius_unc=np.nan, sma_unc=np.nan, plnt_radius_unc_new=np.nan, sma_unc_new=np.nan):
     """ Update secondary geometric albedo with new values for the planet radius and semi-major axis.
 
-    :param sg_albedo: old secondary geometric albedo
+    :param sg_albedo: src_old secondary geometric albedo
     :param plnt_radius: planet radius, in Earth radii
     :param sma: semi-major axis, in AU
     :param plnt_radius_new: new planet radius, in Earth radii
     :param sma_new: new semi-major axis, in AU
-    :param sg_albedo_unc: uncertainty for the old secondary geometric albedo
+    :param sg_albedo_unc: uncertainty for the src_old secondary geometric albedo
     :param plnt_radius_unc: planet radius uncertainty (ppm)
     :param sma_unc: semi-major axis uncertainty (AU)
     :param plnt_radius_unc_new: uncertainty for the new planet radius (Earth radii)
@@ -290,11 +290,11 @@ def estimate_new_plnt_eff_temp(plnt_eff_temp, st_eff_temp, st_eff_temp_new, plnt
                                st_eff_temp_unc=np.nan, st_eff_temp_unc_new=np.nan):
     """ Update planet effective temperature with new values for the stellar effective temperature.
 
-    :param plnt_eff_temp: old planet effective temperature (K)
-    :param st_eff_temp: old stellar effective temperature (K)
+    :param plnt_eff_temp: src_old planet effective temperature (K)
+    :param st_eff_temp: src_old stellar effective temperature (K)
     :param st_eff_temp_new: new stellar effective temperature (K)
-    :param plnt_eff_temp_unc: old planet effective temperature uncertainty (K)
-    :param st_eff_temp_unc: old stellar effective temperature uncertainty (K)
+    :param plnt_eff_temp_unc: src_old planet effective temperature uncertainty (K)
+    :param st_eff_temp_unc: src_old stellar effective temperature uncertainty (K)
     :param  st_eff_temp_unc_new: new stellar effective temperature uncertainty (K)
     :return:
         planet effective temperature (K)

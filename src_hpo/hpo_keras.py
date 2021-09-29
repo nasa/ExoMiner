@@ -15,6 +15,7 @@ import time
 from mpi4py import MPI
 import numpy as np
 import logging
+
 logging.basicConfig(level=logging.WARNING)
 import tensorflow as tf
 from pathlib import Path
@@ -24,8 +25,8 @@ from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
 
 # local
-from src.models_keras import Astronet
-from src import config_keras
+from models.models_keras import Astronet
+from models import config_keras
 from src_hpo.worker_hpo_keras import TransitClassifier
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 import paths
@@ -75,7 +76,7 @@ def run_main(hpo_config):
                                        overwrite=False)
     # result_logger = hpres.json_result_logger(directory=args.results_directory, overwrite=False)
 
-    # Let us load the old run now to use its results to warmstart a new run with slightly
+    # Let us load the src_old run now to use its results to warmstart a new run with slightly
     # different budgets in terms of data points and epochs.
     # Note that the search space has to be identical though!
     # directory must contain a config.json and results.json for the same configuration space.'

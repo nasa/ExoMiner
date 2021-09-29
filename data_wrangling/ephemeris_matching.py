@@ -1,15 +1,15 @@
 """ Script created to perform ephemeris matching across TESS sectors. """
 
+import itertools
 # 3rd party
 import logging
+
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
-import itertools
 
 # local
-from data_wrangling.old.utils_ephemeris_matching import find_first_epoch_after_this_time, create_binary_time_series
-
+from data_wrangling.utils_ephemeris_matching import find_first_epoch_after_this_time, create_binary_time_series
 
 #%% Pair TCEs across sectors based on their ephemeris
 
@@ -292,7 +292,7 @@ for tic_i, tic_id in enumerate(tic_ids):
 
     for tce_i, tce_id in enumerate(matched_tces_table[tic_id]):
 
-        # print('TCE {}/{} - old TCEs: {}'.format(tce_i + 1, len(matched_tces_table[tic_id]), new_tce_df[[0, 1]].values))
+        # print('TCE {}/{} - src_old TCEs: {}'.format(tce_i + 1, len(matched_tces_table[tic_id]), new_tce_df[[0, 1]].values))
 
         if len(matched_tces_table[tic_id][tce_id]) == 1:
             # print('Only one TCE.')
@@ -302,14 +302,14 @@ for tic_i, tic_id in enumerate(tic_ids):
 
         if len(set(new_tce_df[2].values) & {'KP', 'CP'}) > 0:  # at least one KP/CP in the matched TCEs
             if len(np.unique(new_tce_df[2].values)) > 1:
-                print('TIC ID = {:.0f} - old TCEs: {}'.format(tic_id, new_tce_df[[0, 1]].values))
+                print('TIC ID = {:.0f} - src_old TCEs: {}'.format(tic_id, new_tce_df[[0, 1]].values))
             label = 'KP'
         elif len(set(new_tce_df[2].values) & {'EB', 'IS', 'V', 'O'}) > 0:  # at least one FP in the matched TCEs
             label = 'FP'
         else:  # all TCEs have 'PC' as disposition
             label = 'PC'
 
-        # print('TCE {}/{} - old TCEs: {}'.format(tce_i + 1, len(matched_tces_table[tic_id]), new_tce_df[[0, 1]].values))
+        # print('TCE {}/{} - src_old TCEs: {}'.format(tce_i + 1, len(matched_tces_table[tic_id]), new_tce_df[[0, 1]].values))
         # print('Old labels: {} -> new label: {}'.format(new_tce_df[2].values, label))
         # print('-' * 50)
 

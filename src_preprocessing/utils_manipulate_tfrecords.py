@@ -1,4 +1,4 @@
-""" Utility functions used to manipulate the processed TFRecords. """
+""" Utility functions used to manipulate TFRecords. """
 
 # 3rd party
 import tensorflow as tf
@@ -78,50 +78,6 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
 
                 raise ValueError(f'TCE for shard {shardFilename} not found in the TFRecords merged table:'
                                  f' {tce["target_id"]}-{tce[tceIdentifier]}.')
-
-
-def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing=True):
-    """ Update example label field in the TFRecords.
-
-    :param destTfrecDir: Path, destination TFRecord directory with data following the updated labels given
-    :param srcTfrecFile: Path, source TFRecord directory
-    :param tceTbl: pandas DataFrame, TCE table with labels for the TCEs
-    :param tceIdentifier: str, TCE identifier in the TCE table. Either `tce_plnt_num` or `oi`, it depends also on the
-    columns in the table
-    :param omitMissing: bool, if True it skips missing TCEs in the TCE table
-    :return:
-    """
-
-    with tf.io.TFRecordWriter(str(destTfrecDir / srcTfrecFile.name)) as writer:
-
-        # iterate through the source shard
-        tfrecord_dataset = tf.data.TFRecordDataset(str(srcTfrecFile))
-
-        for string_record in tfrecord_dataset.as_numpy_iterator():
-
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-
-            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-            if tceIdentifier == 'tce_plnt_num':
-                targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-            else:
-                # targetIdTfrec = example.features.feature['target_id'].float_list.value[0]
-                targetIdTfrec = round(example.features.feature['target_id'].float_list.value[0], 2)
-
-            foundTce = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
-                                  (tceTbl[tceIdentifier] == tceIdentifierTfrec)]
-
-            if len(foundTce) > 0:
-                tceLabel = foundTce['label'].values[0]
-                example_util.set_feature(example, 'label', [tceLabel], allow_overwrite=True)
-                writer.write(example.SerializeToString())
-            else:
-                if omitMissing:
-                    print(f'TCE {targetIdTfrec}-{tceIdentifierTfrec} not found in the TCE table.')
-                    continue
-
-                raise ValueError(f'TCE {targetIdTfrec}-{tceIdentifierTfrec} not found in the TCE table')
 
 
 def normalize_scalar_features(row, normStats):
@@ -294,8 +250,7 @@ def normalize_timeseries_features(destTfrecDir, srcTfrecFile, normStats, auxPara
             writer.write(example.SerializeToString())
 
 
-def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme,
-                          basename='', display=False):
+def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme, basename='', display=False):
     """ Plot example (TCE/OI) stored into a shard (TFRecord).
 
     :param viewsDict: dict, time series views to be plotted

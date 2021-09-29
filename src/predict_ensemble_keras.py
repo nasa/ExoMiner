@@ -22,8 +22,8 @@ from tensorflow.keras import callbacks
 import paths
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_dataio import InputFnv2 as InputFn
-from src.models_keras import create_ensemble
-import src.config_keras
+from models.models_keras import create_ensemble
+import models.config_keras
 from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics, compute_precision_at_k
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
@@ -380,10 +380,10 @@ if __name__ == '__main__':
     })
 
     # add dataset parameters
-    config = src.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
+    config = models.config_keras.add_dataset_params(satellite, multi_class, use_kepler_ce, ce_weights_args, config)
 
     # add missing parameters in hpo with default values
-    config = src.config_keras.add_default_missing_params(config=config)
+    config = models.config_keras.add_default_missing_params(config=config)
     # print('Configuration used: ', config)
 
     logger.info(f'Final configuration used: {config}')

@@ -48,7 +48,6 @@ def get_kepler_tce_table(config):
     """
 
     # read the CSV file of Kepler KOIs.
-    # tce_table = pd.read_csv(config.input_tce_csv_file, index_col="rowid", comment="#")
     tce_table = pd.read_csv(config['input_tce_csv_file'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
@@ -67,7 +66,7 @@ def get_kepler_tce_table(config):
 
         return shard_tce_table, tce_table
 
-    return tce_table
+    return tce_table, None
 
 
 def get_tess_tce_table(config):
@@ -80,7 +79,16 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    tce_table = tce_table.astype(dtype={'sectors': str})
+    tce_table = tce_table.astype(dtype={
+        'sectors': str,
+        'sector_run': str,
+        'TOI': str,
+        'label': str,
+        'toi_sectors': str,
+        'Comments': str,
+        'TESS Disposition': str,
+        'TFOPWG Disposition': str
+    })
 
     # convert transit duration from hour to day
     tce_table["tce_duration"] /= 24
@@ -99,7 +107,7 @@ def get_tess_tce_table(config):
 
         return shard_tce_table, tce_table
 
-    return tce_table
+    return tce_table, None
 
 
 def shuffle_tce(tce_table, seed=123):

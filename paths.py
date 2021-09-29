@@ -28,3 +28,5 @@ path_cv_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments
 
 # path label noise experiments
 path_label_noise_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise/'
+
+path_train_set_size_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trainset_size/'

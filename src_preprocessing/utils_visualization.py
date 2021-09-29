@@ -66,9 +66,9 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
 
     plt.close()
 
@@ -148,9 +148,9 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
                                                                        tce.label, basename)))
         else:
             ax[0].set_title(
-                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
             plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                           tce.sectors, tce.label, basename)))
+                                                                           tce.sector_run, tce.label, basename)))
 
         plt.close()
 
@@ -210,9 +210,9 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
                                                                        tce.label, basename)))
         else:
             f.suptitle(
-                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
             plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                           tce.sectors, tce.label, basename)))
+                                                                           tce.sector_run, tce.label, basename)))
 
         plt.close()
 
@@ -256,9 +256,9 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
 
     plt.close()
 
@@ -382,7 +382,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
                                                                                        tce['label'],
                                                                                        target_coords))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
 
     plt.close()
 
@@ -457,8 +457,9 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
         f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
                                                                   tce['label'], target_coords))
         plt.savefig(
-            os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors,
-                                                              tce.label, basename)))
+            os.path.join(savedir,
+                         '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run,
+                                                      tce.label, basename)))
     plt.close()
 
 
@@ -522,9 +523,9 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
                                                                    tce.label, basename)))
     else:
         f.suptitle(
-            'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+            'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -555,9 +556,9 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -593,9 +594,9 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -685,7 +686,7 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
                                                                    tce.label, basename)))
     else:
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -765,7 +766,7 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
                                                                    tce.label, basename)))
     else:
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                      tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -793,9 +794,9 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -821,9 +822,9 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -867,9 +868,9 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -898,9 +899,9 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()
 
 
@@ -1041,7 +1042,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                    tce.label, basename)))
     else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sectors, tce.label))
+        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sectors, tce.label, basename)))
+                                                                       tce.sector_run, tce.label, basename)))
     plt.close()

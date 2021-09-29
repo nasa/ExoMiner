@@ -16,7 +16,7 @@ from tensorflow.keras.utils import plot_model as plot_model
 # local
 import src.utils_predict as utils_predict
 import src.utils_train as utils_train
-from src.models_keras import create_ensemble
+from models.models_keras import create_ensemble
 from src.utils_dataio import InputFnCV as InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_metrics import get_metrics
@@ -518,14 +518,15 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
     # instantiate Keras model
     model = base_model(config, features_set).kerasModel
 
-    model.summary(print_fn=logger.info)
-    plot_model(model,
-               to_file=model_dir_sub / 'model.png',
-               show_shapes=False,
-               show_layer_names=True,
-               rankdir='TB',
-               expand_nested=False,
-               dpi=96)
+    if model_id == 0:
+        model.summary(print_fn=logger.info)
+        plot_model(model,
+                   to_file=model_dir_sub / 'model.png',
+                   show_shapes=False,
+                   show_layer_names=True,
+                   rankdir='TB',
+                   expand_nested=False,
+                   dpi=96)
 
     # setup metrics to be monitored
     metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
