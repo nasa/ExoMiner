@@ -8,7 +8,7 @@ from astropy.stats import mad_std
 # %% aggregate metrics and predictions for all sub runs
 
 exp_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/label_noise/label_noise_keplerq1q17dr25_0-0.5_NTPswitch_9-6-2021')
+    '/data5/tess_project/experiments/current_experiments/label_noise/label_noise_keplerq1q17dr25_0-0.5_AFPs_vespafpp_9-30-2021')
 
 runs_dirs = [fp for fp in exp_dir.iterdir() if fp.is_dir() and fp.name.startswith('run_iter')]
 
@@ -111,7 +111,7 @@ perf_metrics_lst = ['test_loss', 'test_binary_accuracy', 'test_precision', 'test
                     'test_precision_at_50', 'test_precision_at_150', 'test_precision_at_251']
 
 exp_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/label_noise/label_noise_keplerq1q17dr25_0-0.5_NTPswitch_9-6-2021')
+    '/data5/tess_project/experiments/current_experiments/label_noise/label_noise_keplerq1q17dr25_0-0.5_AFPs_vespafpp_9-30-2021')
 runs_dirs = [fp for fp in exp_dir.iterdir() if fp.is_dir() and fp.name.startswith('run_iter')]
 
 for dataset in ['train', 'val']:

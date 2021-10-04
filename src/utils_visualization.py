@@ -15,7 +15,6 @@ def plot_class_distribution(output_cl, save_path, norm=False, log=True):
     """
 
     bins = np.linspace(0, 1, 11, True)
-    dataset_names = {'train': 'Training set', 'val': 'Validation set', 'test': 'Test set', 'predict': 'Predict set'}
 
     hist, bin_edges = {}, {}
     for class_label in output_cl:

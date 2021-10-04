@@ -5,17 +5,27 @@ import numpy as np
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 import pandas as pd
 from pathlib import Path
+import matplotlib.pyplot as plt
+from tensorflow.keras.metrics import AUC, Precision, Recall
+
+# %%
 
 # filepath to ranking table produced by a model
-ranking_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/results_ensemble/tess-dv_g301-l31_5tr_spline_nongapped_norobovetterkois_starshuffle_configK_allparameterstess_nocentroid_nodicco_nosigmaoe_nodepth_noprad_noperiod_4-28-2021/ensemble_ranked_predictions_predictset.csv')
+exp_dir = Path(
+    '/data5/tess_project/experiments/current_experiments/tess_experiments/resuls_ensemble/tess_s1-40-dv_g301-l31_5tr_spline_nongapped_configK_onlyflux_9-24-2021/')
+ranking_tbl_fp = exp_dir / 'ensemble_ranked_predictions_predictset.csv'
 ranking_tbl = pd.read_csv(ranking_tbl_fp)
 
 # column used to get the dispositions
 disp_col = 'original_label'
 
 # how to deal with NaN or 'None' dispositions
-ranking_tbl.loc[(ranking_tbl[disp_col].isna()) | (ranking_tbl[disp_col] == 'None')] = 'N/A'
+ranking_tbl.loc[(ranking_tbl[disp_col].isna()) | (ranking_tbl[disp_col] == 'None'), disp_col] = 'NA'
 
+ranking_tbl.loc[ranking_tbl[disp_col] == 'NA', 'label'] = 0
+
+
+# %% Plot confusion matrix
 
 def _map_tess_disp_to_label_id(label, label_map):
     """ Map TESS disposition to label id encoded in the label_map dictionary.
@@ -32,8 +42,11 @@ def _map_tess_disp_to_label_id(label, label_map):
 label_map = {
     'PC': 1,
     'KP': 1,
+    'FP': 0,
+    'FA': 0,
     'EB': 0,
     'CP': 1,
+    'APC': 0,
     'O': 0,
     'N/A': -1,  # class for missing disposition
 }
@@ -71,9 +84,89 @@ disp_classes = sorted(np.append(ranking_tbl[disp_col].unique(), 'Misclf'))
 # plot confusion matrix and save it
 cmat_disp = ConfusionMatrixDisplay(cmat, display_labels=disp_classes)
 cmat_fig = cmat_disp.plot()
-cmat_fig.figure_.savefig(ranking_tbl_fp.parent / f'cmat_{disp_col}.pdf')
+cmat_fig.figure_.savefig(exp_dir / f'cmat_{disp_col}.png')
 
-#%% compute accuracy per class
+# %% Plot score distribution for different categories
 
+bins = np.linspace(0, 1, 11, True)
+norm = False
+log_y = True
 
+allowed_categories = ['NA']  # ['KP', 'CP', 'FP', 'FA']
+ranking_tbl_distr = ranking_tbl.loc[ranking_tbl['original_label'].isin(allowed_categories)]
+categories = ranking_tbl_distr['original_label'].unique()
+n_categories = len(categories)
 
+hist, bin_edges = {}, {}
+for class_label in categories:
+    counts_cl = list(np.histogram(ranking_tbl_distr.loc[ranking_tbl_distr['original_label'] == class_label, 'score'],
+                                  bins,
+                                  density=False,
+                                  range=(0, 1)))
+    if norm:
+        counts_cl[0] = counts_cl[0] / len(ranking_tbl_distr[class_label])
+    hist[class_label] = counts_cl[0]
+    bin_edges[class_label] = counts_cl[1]
+
+bins_multicl = np.linspace(0, 1, n_categories * 10 + 1, True)
+bin_width = bins_multicl[1] - bins_multicl[0]
+bins_cl = {}
+for i, class_label in enumerate(categories):
+    bins_cl[class_label] = [(bins_multicl[idx] + bins_multicl[idx + 1]) / 2
+                            for idx in range(i, len(bins_multicl) - 1, n_categories)]
+
+f, ax = plt.subplots()
+for class_label in categories:
+    ax.bar(bins_cl[class_label], hist[class_label], bin_width, label=class_label, edgecolor='k')
+if norm:
+    ax.set_ylabel('Class fraction')
+else:
+    ax.set_ylabel('Number of examples')
+ax.set_xlabel('Predicted output')
+ax.set_xlim([0, 1])
+if norm:
+    ax.set_ylim([0, 1])
+if log_y:
+    ax.set_yscale('log')
+ax.set_xticks(np.linspace(0, 1, 11, True))
+ax.legend()
+ax.set_title('Output distribution')
+plt.savefig(exp_dir / f'hist_score_{"-".join(allowed_categories)}.png')
+# plt.close()
+
+# %% Compute performance metrics
+
+allowed_categories = ['KP', 'CP', 'FP', 'FA']
+ranking_tbl_metric = ranking_tbl.loc[ranking_tbl['original_label'].isin(allowed_categories)]
+
+num_thresholds = 1000
+thrs = [0.5]
+threshold_range = list(np.linspace(0, 1, num=num_thresholds, endpoint=False))
+
+# compute metrics
+performance_metrics = {
+    'auc_pr': AUC(num_thresholds=num_thresholds,
+                  summation_method='interpolation',
+                  curve='PR',
+                  name='auc_pr'),
+    'auc_roc': AUC(num_thresholds=num_thresholds,
+                   summation_method='interpolation',
+                   curve='ROC',
+                   name='auc_roc'),
+
+    'precision': Precision(
+        thresholds=thrs,
+        name='precision'),
+
+    'recall': Recall(
+        thresholds=thrs,
+        name='recall')
+}
+
+performance_metrics_res = {metric: np.nan for metric in performance_metrics}
+for metric in performance_metrics:
+    performance_metrics[metric].update_state(ranking_tbl_metric['label'].tolist(), ranking_tbl_metric['score'].tolist())
+    performance_metrics_res[metric] = [performance_metrics[metric].result().numpy()]
+
+metrics_tbl = pd.DataFrame(performance_metrics_res)
+metrics_tbl.to_csv(exp_dir / 'metrics.csv', index=False)

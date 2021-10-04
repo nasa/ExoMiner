@@ -1,9 +1,8 @@
-""" Run cross-validation experiment. """
+""" Run label noise injection experiment. """
 
 # 3rd party
 import os
 import sys
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
@@ -20,6 +19,7 @@ import sys
 from mpi4py import MPI
 import json
 import multiprocessing
+import pandas as pd
 
 # local
 import paths
@@ -202,7 +202,7 @@ def run_label_noise_experiment():
     run_params = {}
 
     # name of the experiment
-    run_params['experiment'] = 'test_label_noise_kepler'
+    run_params['experiment'] = 'test_label_noise_kepler_vespa_afps'
 
     # root directory
     run_params['data_root_dir'] = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/')
@@ -233,7 +233,8 @@ def run_label_noise_experiment():
     run_params['rng'] = np.random.default_rng(seed=run_params['rnd_seed'])
 
     # probability transition matrix
-    tau_arr = np.linspace(0, 0.4, 5, endpoint=True)
+    tau_arr = np.array(
+        [0, 0.01, 0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.3, 0.4, 0.5])  # np.linspace(0, 0.4, 5, endpoint=True)
     classes = ['PC', 'AFP', 'NTP']
     num_classes = len(classes)
     run_params['prob_transition_mats'] = [
@@ -244,7 +245,9 @@ def run_label_noise_experiment():
                            [tau / (num_classes - 1), tau / (num_classes - 1), 1 - tau]])
          }
         for tau in tau_arr]
-    run_params['num_runs_per_tau'] = 2
+    run_params['num_runs_per_tau'] = 1
+    run_params['flip_table'] = pd.read_csv(
+        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/vespa_afps_9-30-2021/vespa_fpp_afps_keplerq1q17dr25_9-30-2021.csv')
 
     if rank >= len(run_params['prob_transition_mats']):
         return

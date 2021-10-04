@@ -10,6 +10,12 @@ The code in `src_preprocessing` is used to:
    normalizing features using statistics computed from the training set, selecting subsets of data from the original
    dataset).
 
+### Data Format
+
+This project uses TFRecord format to save the processed data to be ingested by the models. This format stores a sequence
+of binary records. Each TFRecord file has a set of examples (data points), each one with a given set of features. Check
+[TFRecord tutorial](https://www.tensorflow.org/tutorials/load_data/tfrecord) for more information.
+
 ### Preprocessing the data
 
 The main scripts involved in preprocessing the data are `src_preprocessing.generate_input_records.py`
@@ -23,6 +29,30 @@ Snippet of code to run the preprocessing pipeline with MPI (e.g. on a cluster):
 ```shell
 mpiexec -n $num_batches python src_preprocessing/generate_input_records.py  &>  log_py.txt
 ```
+
+#### Preprocessing steps
+
+The main preprocessing steps are (check `src_preprocessing.preprocess.py`):
+
+1. Get data from light curve FITS files for target stars of interest.
+   1. Timestamps array: timestamps associated to the recorded cadences (a cadence is a single observation, data point).
+   2. PDC-SAP flux time series (informally called 'flux'): consists of accumulated brightness for the pixels in the
+      optimal aperture for the given target star.
+   3. FW (flux-weighted) centroid time series: consists of weighted average location in celestial coordinates (RA and
+      Dec) of the of the pixels in the optimal aperture (brightness values are used as weights).
+3. Remove stellar variability noise by fitting a spline to the timeseries, since this phenomenon occurs usually at a
+   longer time scale than the transits.
+4. Phase fold the timeseries over the orbital period for the transit signal of interest.
+5. Create a binned version (usually called 'view') of the phase folded timeseries by averaging cadences in each bin.
+
+#### Features
+
+The features set in the TFRecords come from two sources:
+
+1. The different views created in `src_preprocessing.preprocess.generate_example_for_tce()`.
+2. Scalar features added to the TFRecords also in `src_preprocessing.preprocess.generate_example_for_tce()` that come
+   from the transit signal table used as input (e.g. transit depth, weak secondary MES, other statistics and diagnostics
+   computed in the DV module).
 
 ### Postprocessing the data
 

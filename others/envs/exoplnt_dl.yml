@@ -1,0 +1,14 @@
+name: exoplnt_dl
+channels:
+  - defaults
+dependencies:
+  - python=3.7
+  - mpi4py
+  - matplotlib
+  - astropy
+  - msgpack-python
+  - astroquery
+  - tqdm
+  - filprofiler
+  - numba
+prefix: /home/msaragoc/anaconda3/envs/exoplnt_dl

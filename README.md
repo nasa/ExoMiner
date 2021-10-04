@@ -44,7 +44,7 @@ The pipeline consists of the following main blocks:
 
 ## Data
 
-All data used in this project is publicly available. Generally, the data used consist of:
+All data used in this project are publicly available. Generally, the data used consist of:
 
 - Threshold Crossing Event (TCE) and Objects of Interest (e.g. KOI and TOI catalogs) tables available at places such as
   [NExSci](https://exoplanetarchive.ipac.caltech.edu/),
@@ -61,7 +61,7 @@ Models currently implemented:
 1. `ExoMiner`: Multi-branch Convolutional Neural Network (CNN) whose design is inspired in the different diagnostic
    tests used in the Data Validation (DV) module of the SPOC pipeline.
 
-![ExoMiner architecture.](others/DNN_architecture14.png)
+![ExoMiner architecture.](others/images/DNN_architecture14.png)
 
 2. Astronet: see https://github.com/google-research/exoplanet-ml and Shallue, Christopher J., and Andrew Vanderburg. "
    Identifying exoplanets with deep learning: A five-planet resonant chain around kepler-80 and an eighth planet around

@@ -2,7 +2,6 @@
 
 # 3rd party
 import multiprocessing
-
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -10,6 +9,8 @@ from tensorflow.keras import losses, optimizers
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import plot_model as plot_model
 
+# local
+from src_preprocessing.tf_util import example_util
 import src.utils_predict as utils_predict
 import src.utils_train as utils_train
 from models.models_keras import create_ensemble
@@ -17,8 +18,6 @@ from src.utils_dataio import InputFnCV as InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_metrics import get_metrics
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
-# local
-from src_preprocessing.tf_util import example_util
 
 
 def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
@@ -74,9 +73,14 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
     logger.info(f'[run_iter_{run_params["run_id"]}] Adding label noise to training set...')
 
     pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
-    jobs = [(file, run_params["prob_transition_mat_run"], noise_label_data_dir, run_params['rng'])
+    # flip dispositions based on probability transition matrix for the different categories
+    # jobs = [(file, run_params["prob_transition_mat_run"], noise_label_data_dir, run_params['rng'])
+    #         for file in data_shards_fps['train']]
+    # async_results = [pool.apply_async(switch_labels, job) for job in jobs]
+    # flip dispositions based on tau and table
+    jobs = [(file, run_params["prob_transition_mat_run"], noise_label_data_dir, run_params['flip_table'])
             for file in data_shards_fps['train']]
-    async_results = [pool.apply_async(switch_labels, job) for job in jobs]
+    async_results = [pool.apply_async(switch_labels_from_table, job) for job in jobs]
     pool.close()
     flip_label_tbl = pd.concat([async_result.get() for async_result in async_results])
     flip_label_tbl.to_csv(cv_run_dir / 'flip_label_trainset_tbl.csv', index=False)
@@ -570,6 +574,60 @@ def switch_labels(src_data_fp, prob_transition, dest_data_dir, rng):
             if flip:
                 # overwrite label
                 example_util.set_bytes_feature(example, 'label', [flip_label], allow_overwrite=True)
+
+            data_to_tbl.append([target_id, tce_plnt_num, label, flip_label, flip])
+
+            writer.write(example.SerializeToString())
+
+    flip_label_df = pd.DataFrame(data=data_to_tbl, columns=['target_id', 'tce_plnt_num', 'label', 'new_label', 'flip'])
+
+    return flip_label_df
+
+
+def switch_labels_from_table(src_data_fp, prob_transition, dest_data_dir, flip_tbl):
+    """ Switch label for each example with a given probability obtained from the probability transition matrix.
+
+    :param src_data_fp: Path, file path to source TFRecord
+    :param prob_transition: dict, probability transition values for each class
+    :param dest_data_dir: Path, destination data directory to store new TFRecord files
+    :param flip_tbl: pandas DataFrame, table used to flip items
+    :return:
+        flip_label_df: pandas Dataframe, describes flip label for each example in the TFRecord file
+    """
+
+    top_num_items_to_flip = int(prob_transition['tau'] * len(flip_tbl))
+    flip_tbl = flip_tbl.iloc[:top_num_items_to_flip]
+
+    data_to_tbl = []
+
+    with tf.io.TFRecordWriter(str(dest_data_dir / src_data_fp.name)) as writer:
+        # iterate through the source shard
+        tfrecord_dataset = tf.data.TFRecordDataset(str(src_data_fp))
+
+        for string_record in tfrecord_dataset.as_numpy_iterator():
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            # get label and other data for the example
+            target_id = example.features.feature['target_id'].int64_list.value[0]
+            tce_plnt_num = example.features.feature['tce_plnt_num'].int64_list.value[0]
+            label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+            tce_found = flip_tbl.loc[(flip_tbl['target_id'] == target_id) & (flip_tbl['tce_plnt_num'] == tce_plnt_num)]
+
+            flip = len(tce_found) == 1
+
+            if flip:
+                if label == 'PC':
+                    flip_label = 'AFP'
+                else:
+                    flip_label = 'PC'
+
+                # overwrite label
+                example_util.set_bytes_feature(example, 'label', [flip_label], allow_overwrite=True)
+            else:
+                flip_label = label
 
             data_to_tbl.append([target_id, tce_plnt_num, label, flip_label, flip])
 

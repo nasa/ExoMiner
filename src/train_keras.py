@@ -389,7 +389,7 @@ if __name__ == '__main__':
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = CNN1dPlanetFinderv2  # CNN1dPlanetFinderv2
-    config = baseline_configs.astronet
+    # config = baseline_configs.astronet
     config.update({
         # 'num_loc_conv_blocks': 2,
         # 'num_glob_conv_blocks': 5,
@@ -402,13 +402,13 @@ if __name__ == '__main__':
         # 'init_conv_filters': 4,
         # 'kernel_size': 5,
         # 'kernel_stride': 1,
-        # 'non_lin_fn': 'prelu',  # 'relu',
+        'non_lin_fn': 'prelu',  # 'relu',
         # 'optimizer': 'Adam',
         # 'lr': 1e-5,
         # 'batch_size': 64,
         # 'dropout_rate': 0,
-        'dropout_rate_fc_conv': 0,
-        'num_fc_conv_units': 0,
+        # 'dropout_rate_fc_conv': 0,
+        # 'num_fc_conv_units': 0,
     })
     # select convolutional branches
     config['branches'] = [
