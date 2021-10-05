@@ -1,4 +1,5 @@
 tests/
-/src_deployment/
-/side_analysis
-/old/
+src_deployment/
+side_analysis/
+old/
+.idea/

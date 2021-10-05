@@ -12,7 +12,7 @@ from tensorflow.keras.metrics import AUC, Precision, Recall
 
 # filepath to ranking table produced by a model
 exp_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/tess_experiments/resuls_ensemble/tess_s1-40-dv_g301-l31_5tr_spline_nongapped_configK_onlyflux_9-24-2021/')
+    '/data5/tess_project/experiments/current_experiments/tess_experiments/results_ensemble/tess_s1-40-dv_g301-l31_5tr_spline_nongapped_configK_flux_per_10-5-2021')
 ranking_tbl_fp = exp_dir / 'ensemble_ranked_predictions_predictset.csv'
 ranking_tbl = pd.read_csv(ranking_tbl_fp)
 
@@ -92,7 +92,7 @@ bins = np.linspace(0, 1, 11, True)
 norm = False
 log_y = True
 
-allowed_categories = ['NA']  # ['KP', 'CP', 'FP', 'FA']
+allowed_categories = ['PC', 'APC']  # ['KP', 'CP', 'FP', 'FA']
 ranking_tbl_distr = ranking_tbl.loc[ranking_tbl['original_label'].isin(allowed_categories)]
 categories = ranking_tbl_distr['original_label'].unique()
 n_categories = len(categories)
@@ -170,3 +170,15 @@ for metric in performance_metrics:
 
 metrics_tbl = pd.DataFrame(performance_metrics_res)
 metrics_tbl.to_csv(exp_dir / 'metrics.csv', index=False)
+
+# %% Join results from different experiments
+
+exp_root_dir = Path('/data5/tess_project/experiments/current_experiments/tess_experiments/results_ensemble/')
+exp_tbls = {exp_dir.name: pd.read_csv(exp_dir / 'metrics.csv')
+            for exp_dir in exp_root_dir.iterdir() if 'tess_s1-40' in exp_dir.name}
+
+for exp in exp_tbls.keys():
+    exp_tbls[exp].insert(0, 'experiment', exp)
+
+metrics_tbl = pd.concat(list(exp_tbls.values()))
+metrics_tbl.to_csv(exp_root_dir / 'metrics_tess_experiments.csv', index=False)

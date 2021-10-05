@@ -300,7 +300,7 @@ class InputFnv2(object):
         self.batch_size = batch_size
         self.label_map = label_map
         self.features_set = features_set
-        self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
+        self.data_augmentation = data_augmentation and self._mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
 
         self.shuffle_buffer_size = shuffle_buffer_size
@@ -423,7 +423,7 @@ class InputFnv2(object):
 
         label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
 
-        include_labels = self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]
+        include_labels = self._mode in ['TRAIN', 'EVAL']
 
         file_patterns = self._file_pattern.split(",")
         filenames = []
@@ -444,8 +444,7 @@ class InputFnv2(object):
         # shuffle the dataset if training
         # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
         #        set variables for buffer size and shuffle seed?
-        # if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        if self._mode == tf.estimator.ModeKeys.TRAIN:
+        if self._mode == 'TRAIN':
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
 
         # do not repeat the dataset

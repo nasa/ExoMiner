@@ -338,10 +338,11 @@ class CNN1dPlanetFinderv2(object):
         """
 
         # model configuration (parameters and hyperparameters)
-        self.config = config
+        self.config = config['config']
         self.features = features
 
-        if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
+        if self.config['multi_class'] or \
+                (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
@@ -366,19 +367,14 @@ class CNN1dPlanetFinderv2(object):
 
     def create_inputs(self):
 
-        inputs = {}
-
-        for feature in self.features:
-
-            input = tf.keras.Input(shape=self.features[feature]['dim'],
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
+        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
+                                          batch_size=None,
+                                          name=feature,
+                                          dtype=self.features[feature]['dtype'],
+                                          sparse=False,
+                                          tensor=None,
+                                          ragged=False)
+                  for feature in self.features}
 
         return inputs
 
@@ -568,7 +564,7 @@ class CNN1dPlanetFinderv2(object):
                     scalar_input
                 ])
 
-            elif 'Alocal_flux_oddeven_views' in branch:
+            elif 'alocal_flux_oddeven_views' in branch:
                 scalar_input = tf.keras.layers.Concatenate(axis=1, name='oddeven_scalar_input')(
                     [
                         # self.inputs['sigma_oot_odd'],
