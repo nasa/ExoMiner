@@ -6,6 +6,7 @@ paths:
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
+  # branches used in ExoMiner
   branches: [
       'global_flux_view_fluxnorm',
       'local_flux_view_fluxnorm',
@@ -140,13 +141,13 @@ label_map:
 #  O: 0
 
 metrics:
-  'clf_thr': 0.5
-  'num_thr': 1000
-  'top_k_arr':
+  'clf_thr': 0.5  # classification threshold
+  'num_thr': 1000  # number of thresholds used to compute some metrics
+  'top_k_arr': # values of k for computing precision-at-k
     'train': [ 100, 1000, 1818 ]
     'val': [ 50, 150, 222 ]
     'test': [ 50, 150, 251 ]
-  top_k_curve:
+  top_k_curve: # values of k for computing precision-at-k curve
     train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
     val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
