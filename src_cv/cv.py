@@ -49,7 +49,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
     data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
-    if run_params['config'] is not None:
+    if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
 
     with open(cv_run_dir / 'fold_split.json', 'w') as cv_run_file:
@@ -146,7 +146,8 @@ def cv():
     # tf.debugging.set_log_device_placement(True)
 
     for path_name, path_str in config['paths'].items():
-        config['paths'][path_name] = Path(path_str)
+        if path_str is not None:
+            config['paths'][path_name] = Path(path_str)
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary

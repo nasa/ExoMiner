@@ -1094,7 +1094,7 @@ class Astronet(object):
         """
 
         # model configuration (parameters and hyperparameters)
-        self.config = config
+        self.config = config['config']
         self.features = features
 
         # binary classification with sigmoid output layer
@@ -1118,24 +1118,14 @@ class Astronet(object):
 
     def create_inputs(self):
 
-        inputs = {}
-
-        for feature in self.features:
-
-            if feature == 'scalar_params' and self.scalar_params_idxs is not None:
-                input_feat_shape = len(self.scalar_params_idxs)
-            else:
-                input_feat_shape = self.features[feature]['dim']
-
-            input = tf.keras.Input(shape=input_feat_shape,
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
+        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
+                                          batch_size=None,
+                                          name=feature,
+                                          dtype=self.features[feature]['dtype'],
+                                          sparse=False,
+                                          tensor=None,
+                                          ragged=False)
+                  for feature in self.features}
 
         return inputs
 
@@ -1226,11 +1216,6 @@ class Astronet(object):
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
-        # concatenate scalar params
-        if 'scalar_params' in self.features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)([
-                pre_logits_concat, self.inputs['scalar_params']])
-
         return pre_logits_concat
 
     def build_fc_layers(self, net):
@@ -1314,11 +1299,10 @@ class Exonet(object):
 
         :param config: dict, model configuration for its parameters and hyperparameters
         :param features: dict, 'feature_name' : {'dim': tuple, 'dtype': (tf.int, tf.float, ...)}
-        :param scalar_params_idxs: list, containing indices of the scalar parameters that are used
         """
 
         # model configuration (parameters and hyperparameters)
-        self.config = config
+        self.config = config['config']
         self.features = features
 
         # binary classification with sigmoid output layer
@@ -1329,10 +1313,6 @@ class Exonet(object):
 
         # self.is_training = None
 
-        # # class-label weights for weighted loss
-        # # convert from numpy to tensor
-        # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
-
         self.inputs = self.create_inputs()
 
         # build the model
@@ -1342,20 +1322,14 @@ class Exonet(object):
 
     def create_inputs(self):
 
-        inputs = {}
-
-        for feature in self.features:
-            input_feat_shape = self.features[feature]['dim']
-
-            input = tf.keras.Input(shape=input_feat_shape,
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
+        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
+                                          batch_size=None,
+                                          name=feature,
+                                          dtype=self.features[feature]['dtype'],
+                                          sparse=False,
+                                          tensor=None,
+                                          ragged=False)
+                  for feature in self.features}
 
         return inputs
 
@@ -1453,11 +1427,6 @@ class Exonet(object):
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
-        # # concatenate scalar params (retrocompatiblity with src_old tfrecords)
-        # if 'scalar_params' in self.features:
-        #     pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)([
-        #         pre_logits_concat, self.inputs['scalar_params']])
-
         # concatenate stellar parameters
         pre_logits_concat = tf.keras.layers.Concatenate(axis=1, name='pre_logits_concat_scalar_params')(
             [
@@ -1553,13 +1522,11 @@ class Exonet_XS(object):
 
         :param config: dict, model configuration for its parameters and hyperparameters
         :param features: dict, 'feature_name' : {'dim': tuple, 'dtype': (tf.int, tf.float, ...)}
-        :param scalar_params_idxs: list, containing indices of the scalar parameters that are used
         """
 
         # model configuration (parameters and hyperparameters)
-        self.config = config
+        self.config = config['config']
         self.features = features
-        self.scalar_params_idxs = scalar_params_idxs
 
         # binary classification with sigmoid output layer
         self.output_size = 1
@@ -1568,10 +1535,6 @@ class Exonet_XS(object):
         self.branches = ['global_view', 'local_view']
 
         # self.is_training = None
-
-        # # class-label weights for weighted loss
-        # # convert from numpy to tensor
-        # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
         self.inputs = self.create_inputs()
 
@@ -1582,24 +1545,14 @@ class Exonet_XS(object):
 
     def create_inputs(self):
 
-        inputs = {}
-
-        for feature in self.features:
-
-            if feature == 'scalar_params' and self.scalar_params_idxs is not None:
-                input_feat_shape = len(self.scalar_params_idxs)
-            else:
-                input_feat_shape = self.features[feature]['dim']
-
-            input = tf.keras.Input(shape=input_feat_shape,
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
+        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
+                                          batch_size=None,
+                                          name=feature,
+                                          dtype=self.features[feature]['dtype'],
+                                          sparse=False,
+                                          tensor=None,
+                                          ragged=False)
+                  for feature in self.features}
 
         return inputs
 
@@ -1696,10 +1649,17 @@ class Exonet_XS(object):
             pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat', axis=-1)(
                 [branch_output[1] for branch_output in time_series_hidden_layers])
 
-        # concatenate scalar params
-        if 'scalar_params' in self.features:
-            pre_logits_concat = tf.keras.layers.Concatenate(name='pre_logits_concat_scalar_params', axis=-1)([
-                pre_logits_concat, self.inputs['scalar_params']])
+        # concatenate stellar parameters
+        pre_logits_concat = tf.keras.layers.Concatenate(axis=1, name='pre_logits_concat_scalar_params')(
+            [
+                pre_logits_concat,
+                self.inputs['tce_steff_norm'],
+                self.inputs['tce_slogg_norm'],
+                self.inputs['tce_smet_norm'],
+                self.inputs['tce_sradius_norm'],
+                self.inputs['tce_smass_norm'],
+                self.inputs['tce_sdens_norm'],
+            ])
 
         return pre_logits_concat
 
@@ -1785,19 +1745,14 @@ def create_inputs(features):
         inputs: dictionary, each key-value pair is a feature_name: feature
     """
 
-    inputs = {}
-
-    for feature in features:
-
-        input = tf.keras.Input(shape=features[feature]['dim'],
-                               batch_size=None,
-                               name=f'{feature}',
-                               dtype=features[feature]['dtype'],
-                               sparse=False,
-                               tensor=None,
-                               ragged=False)
-
-        inputs[feature] = input
+    inputs = {feature: tf.keras.Input(shape=features[feature]['dim'],
+                                      batch_size=None,
+                                      name=feature,
+                                      dtype=features[feature]['dtype'],
+                                      sparse=False,
+                                      tensor=None,
+                                      ragged=False)
+              for feature in features}
 
     return inputs
 
