@@ -174,6 +174,14 @@ label_map:
 metrics:
   'clf_thr': 0.5  # classification threshold
   'num_thr': 1000  # number of thresholds used to compute some metrics
+  'top_k_arr': # values of k for computing precision-at-k
+    'train': [ 100, 1000, 1818 ]
+    'val': [ 50, 150, 222 ]
+    'test': [ 50, 150, 251 ]
+  top_k_curve: # values of k for computing precision-at-k curve
+    train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
+    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+    test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
 verbose: true
 

@@ -735,7 +735,7 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
+        scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in data_fps}
@@ -746,7 +746,7 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
                 output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
                                                                               original_label)]
         else:
-            output_cl[dataset]['NTP'] = scores[dataset]
+            output_cl[dataset]['NA'] = scores[dataset]
 
     # compute precision at top-k
     labels_sorted = {}
@@ -756,12 +756,13 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
         sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
         labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
 
-        for k_i in range(len(config['k_arr'][dataset])):
-            if len(sorted_idxs) < config['k_arr'][dataset][k_i]:
-                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = np.nan
+        for k_i in range(len(config['metrics']['top_k_arr'][dataset])):
+            if len(sorted_idxs) < config['metrics']['top_k_arr'][dataset][k_i]:
+                res[f'{dataset}_precision_at_{config["metrics"]["top_k_arr"][dataset][k_i]}'] = np.nan
             else:
-                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = \
-                    np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
+                res[f'{dataset}_precision_at_{config["metrics"]["top_k_arr"][dataset][k_i]}'] = \
+                    np.sum(labels_sorted[dataset][-config['metrics']['top_k_arr'][dataset][k_i]:]) / \
+                    config['metrics']['top_k_arr'][dataset][k_i]
 
     # save evaluation metrics in a numpy file
     print('[ensemble] Saving metrics to a numpy file...')
@@ -773,13 +774,18 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
         plot_class_distribution(output_cl[dataset],
                                 res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
         if dataset != 'predict':
+            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
             utils_predict.plot_prcurve_roc(res, res_dir, dataset)
             plot_precision_at_k(labels_sorted[dataset],
-                                config['k_curve_arr'][dataset],
+                                k_curve_arr,
                                 res_dir / f'{dataset}')
 
     print('[ensemble] Saving metrics to a txt file...')
-    utils_predict.save_metrics_to_file(res_dir, res, datasets, ensemble_model.metrics_names, config['k_arr'],
+    utils_predict.save_metrics_to_file(res_dir,
+                                       res,
+                                       datasets,
+                                       ensemble_model.metrics_names,
+                                       config['metrics']['top_k_arr'],
                                        models_filepaths, print_res=True)
 
     # generate rankings for each evaluated dataset
