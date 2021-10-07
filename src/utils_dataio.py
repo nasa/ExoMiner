@@ -1,4 +1,4 @@
-""" Utilty functions for data I/O. """
+""" Utilty functions for data I/O for TFRecords and model ingestion. """
 
 # 3rd party
 import os
@@ -272,7 +272,7 @@ class InputFnv2(object):
     """Class that acts as a callable input function for the Estimator."""
 
     def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, shuffle_buffer_size=27000,
+                 online_preproc_params=None, filter_data=None, category_weights=None, shuffle_buffer_size=27000,
                  shuffle_seed=24, prefetch_buffer_nsamples=256):
         """Initializes the input function.
 
@@ -287,6 +287,8 @@ class InputFnv2(object):
         :param data_augmentation: bool, if True data augmentation is performed
         :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
         :param filter_data:
+        :param category_weights: dict, each key/val pair represents the weight for any sample associated with the
+        given category as key
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
         size guarantees perfect shuffling
         :param shuffle_seed: int, shuffle seed
@@ -308,6 +310,8 @@ class InputFnv2(object):
         self.prefetch_buffer_size = int(prefetch_buffer_nsamples / self.batch_size)
 
         self.filter_data = filter_data
+
+        self.category_weights = category_weights
 
     def __call__(self):
         """ Builds the input pipeline.
@@ -336,9 +340,18 @@ class InputFnv2(object):
                 label_field = {'label': tf.io.FixedLenFeature([], tf.string)}
                 parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
 
+            if self.category_weights is not None and self._mode == 'TRAIN':
+                category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
+                    keys=list(self.category_weights.keys()),
+                    values=list(self.category_weights.values()),
+                    key_dtype=tf.string,
+                    value_dtype=tf.float32)
+
+                label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
+                sample_weight = label_to_weight.lookup(parsed_label['label'])
+
             # prepare data augmentation
             if self.data_augmentation:
-
                 # Randomly reverse time series features with probability reverse_time_series_prob.
                 should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
 
@@ -411,7 +424,10 @@ class InputFnv2(object):
                 output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            return output, label_id
+            if self.category_weights is not None and self._mode == 'TRAIN':
+                return output, label_id, sample_weight
+            else:
+                return output, label_id
 
         # with tf.variable_scope('input_data'):
 
@@ -471,7 +487,8 @@ class InputFnCV(object):
     """ Class that acts as a callable input function for the Keras model for cross-validation. """
 
     def __init__(self, filepaths, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256):
+                 online_preproc_params=None, category_weights=None, shuffle_buffer_size=27000, shuffle_seed=24,
+                 prefetch_buffer_nsamples=256):
         """ Initializes the input function.
 
         :param filepaths: list, TFrecords filepaths
@@ -482,6 +499,8 @@ class InputFnCV(object):
         value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
         (can the dimension and data type be inferred from the tensors in the dataset?)
         :param data_augmentation: bool, if True data augmentation is performed
+        :param category_weights: dict, each key/val pair represents the weight for any sample associated with the
+        given category as key
         :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
         size guarantees perfect shuffling
@@ -498,6 +517,7 @@ class InputFnCV(object):
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
+        self.category_weights = category_weights
 
         self.shuffle_buffer_size = shuffle_buffer_size
         self.shuffle_seed = shuffle_seed
@@ -530,9 +550,17 @@ class InputFnCV(object):
                 label_field = {'label': tf.io.FixedLenFeature([], tf.string)}
                 parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
 
+            if self.category_weights is not None and self.mode == 'TRAIN':
+                category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
+                    keys=list(self.category_weights.keys()),
+                    values=list(self.category_weights.values()),
+                    key_dtype=tf.string,
+                    value_dtype=tf.float32)
+
+                label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
+                sample_weight = label_to_weight.lookup(parsed_label['label'])
             # prepare data augmentation
             if self.data_augmentation:
-
                 # Randomly reverse time series features with probability reverse_time_series_prob.
                 should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
 
@@ -605,7 +633,10 @@ class InputFnCV(object):
                 output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            return output, label_id
+            if self.category_weights is not None and self._mode == 'TRAIN':
+                return output, label_id, sample_weight
+            else:
+                return output, label_id
 
         # with tf.variable_scope('input_data'):
 
@@ -620,11 +651,6 @@ class InputFnCV(object):
         include_labels = self.mode in ['TRAIN', 'EVAL']
 
         filenames = [str(fp) for fp in self.filepaths]
-        # for p in self.filepaths:
-        #     matches = tf.io.gfile.glob(p)
-        #     if not matches:
-        #         raise ValueError(f'Found no input files matching {p}')
-        #     filenames.extend(matches)
 
         # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 

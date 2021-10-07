@@ -26,6 +26,7 @@ from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics, compute_precision_at_k
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
+from utils.utils_dataio import is_yamlble
 
 
 def run_main(config):
@@ -334,6 +335,11 @@ if __name__ == '__main__':
     # # save features and config
     # np.save(res_dir / 'features_set', ['features_set'])
     # np.save(res_dir / 'config', config)
+
+    # save the YAML file with training-evaluation parameters that are YAML serializable
+    json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+    with open(config['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+        yaml.dump(json_dict, cv_run_file)
 
     run_main(
         config=config,

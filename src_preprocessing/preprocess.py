@@ -39,7 +39,7 @@ from src_preprocessing.light_curve import median_filter
 from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.third_party.kepler_spline import kepler_spline
-from side_analysis.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
+from src_preprocessing.utils_centroid_preprocessing import kepler_transform_pxcoordinates_mod13
 from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 from src_preprocessing.utils_gapping import gap_this_tce, gap_other_tces
 from src_preprocessing.utils_imputing import impute_binned_ts, imputing_gaps

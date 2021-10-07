@@ -20,13 +20,14 @@ import yaml
 
 # local
 from models import baseline_configs
-from src.utils_dataio import InputFnv2 as InputFn
+from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
 from src.utils_dataio import get_data_from_tfrecord
 from models.models_keras import CNN1dPlanetFinderv2
 from src.utils_metrics import get_metrics, compute_precision_at_k
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
+from utils.utils_dataio import is_yamlble
 
 
 def run_main(config, base_model, model_id):
@@ -130,7 +131,8 @@ def run_main(config, base_model, model_id):
                              data_augmentation=config['training']['data_augmentation'],
                              online_preproc_params=config['training']['online_preprocessing_params'],
                              filter_data=filter_data['train'],
-                             features_set=config['features_set'])
+                             features_set=config['features_set'],
+                             category_weights=config['training']['category_weights'])
     val_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/val*',
                            batch_size=config['training']['batch_size'],
                            mode='EVAL',
@@ -142,7 +144,8 @@ def run_main(config, base_model, model_id):
                             mode='EVAL',
                             label_map=config['label_map'],
                             filter_data=filter_data['test'],
-                            features_set=config['features_set'])
+                            features_set=config['features_set'],
+                            )
 
     # fit the model to the training data
     print('Training model...')
@@ -273,7 +276,7 @@ def run_main(config, base_model, model_id):
 
 if __name__ == '__main__':
 
-    path_to_yaml = Path('/src/config_train.yaml')
+    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src/config_train.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -357,9 +360,6 @@ if __name__ == '__main__':
 
     logger.info(f'Feature set: {config["features_set"]}')
 
-    ce_weights_args = {'tfrec_dir': config['paths']['tfrec_dir'], 'datasets': ['train'], 'label_fieldname': 'label',
-                       'verbose': False}
-
     # early stopping callback
     config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
 
@@ -367,6 +367,12 @@ if __name__ == '__main__':
     config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])
 
     logger.info(f'Final configuration used: {config}')
+
+    if config['rank'] == 0:
+        # save the YAML file with training-evaluation parameters that are YAML serializable
+        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+        with open(config['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+            yaml.dump(json_dict, cv_run_file)
 
     # comment for multiprocessing using MPI
     for model_i in range(config["training"]["n_models"]):
