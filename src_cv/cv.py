@@ -235,7 +235,7 @@ def cv():
     # # run each CV iteration in parallel
     # cv_id = config['rank']
     # if config['logger'] is not None:
-    # config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
+    #     config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
     #             f'{config["data_shards_fps"][cv_id]}')
     # config['cv_id'] = cv_id
     # cv_run(

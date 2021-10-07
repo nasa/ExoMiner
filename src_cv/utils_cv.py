@@ -690,7 +690,7 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
         # logger.info(f'[ensemble] Evaluating on dataset {dataset}')
         # input function for evaluating on each dataset
         eval_input_fn = InputFn(filepaths=data_fps[dataset],
-                                batch_size=config['batch_size'],
+                                batch_size=config['training']['batch_size'],
                                 mode="EVAL",
                                 label_map=config['label_map'],
                                 features_set=config['features_set'])

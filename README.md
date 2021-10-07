@@ -78,7 +78,7 @@ For more detailed information check ***paper***.
 ## Credits
 
 - Active developers
-    - Hamed Valizadegan<sup>1,2</sup>, hvalizadegan@nasa.gov
+    - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
     - Hongbo Wei<sup>2</sup>
     - Kaylie Hausknecht<sup>2,6</sup>
