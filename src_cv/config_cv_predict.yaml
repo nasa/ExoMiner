@@ -5,12 +5,14 @@ rnd_seed: 2
 logger: null
 #experiment: &experiment_name
 paths:
+  # directory for predict run
   experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_test_10-6-2021
+  # path to CV run to be used to predict
+  cv_experiment_dir: /
   # TFRecord directory with the CV folds
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/data_exominer_configK_newsec_rbacnt0n/tfrecords
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
-  cv_folds: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/cv_folds_runs.npy
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
@@ -120,32 +122,15 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
-aux_params: # online data augmentation parameters and needed for normalization of some features
+aux_params: # needed for normalization of some features
   'num_bins_global': 301
   'num_bins_local': 31
   'num_transit_dur': 5
 
-training:
-  data_augmentation: false  # perform online data augmentation
-  n_models: 1  # number of models in the ensemble
-  n_epochs: 2  # number of epochs used to train each model
-  use_kepler_ce: false
-  opt_metric: auc_pr
+evaluation:
   batch_size: 32
-  category_weights: null  # weights for loss function
-#    PC: 1.0
-#    AFP: 1.0
-#    NTP: 1.0
 
-callbacks:
-  early_stopping:
-    monitor: val_auc_pr  # which metric to monitor for early stopping
-    min_delta: 0
-    patience: 20
-    verbose: 1
-    mode: max  # maximize/minimize monitored metric in early stopping
-    baseline: null
-    restore_best_weights: true
+callbacks: null
 #  tensorboard:
 #    histogram_freq: 1
 #    write_graph: true

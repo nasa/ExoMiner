@@ -106,6 +106,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
 
 def cv():
+
     path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_train.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -115,15 +116,13 @@ def cv():
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
     args = parser.parse_args()
 
-    config['ngpus_per_node'] = 1  # number of GPUs per node
-
     # uncomment for MPI multiprocessing
     rank = MPI.COMM_WORLD.rank
     config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
     config['size'] = MPI.COMM_WORLD.size
     print(f'Rank = {config["rank"]}/{config["size"] - 1}')
     sys.stdout.flush()
-    if rank != 0:
+    if config['rank'] != 0:
         time.sleep(2)
 
     try:
@@ -151,7 +150,7 @@ def cv():
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary
-    config['data_shards_fns'] = np.load(config['paths']['cv_folds_dir'], allow_pickle=True)
+    config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
     config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
                                   for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
 
@@ -235,14 +234,14 @@ def cv():
 
     # # run each CV iteration in parallel
     # cv_id = config['rank']
-    # logger.info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
+    # if config['logger'] is not None:
+    # config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
     #             f'{config["data_shards_fps"][cv_id]}')
     # config['cv_id'] = cv_id
     # cv_run(
-    #     config['experiment_dir'],
+    #     config['paths']['experiment_dir'],
     #     config['data_shards_fps'][cv_id],
     #     config,
-    #     logger
     # )
 
 

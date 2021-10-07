@@ -468,7 +468,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
     p = multiprocessing.Process(target=compute_normalization_stats,
                                 args=(run_params['scalar_params'],
                                       data_shards_fps['train'],
-                                      run_params['online_preprocessing_params'],
+                                      run_params['aux_params'],
                                       norm_stats_dir,
                                       False))
     p.start()
@@ -492,7 +492,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
     }
 
     pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
-    jobs = [(file, norm_stats, run_params['online_preprocessing_params'], norm_data_dir)
+    jobs = [(file, norm_stats, run_params['aux_params'], norm_data_dir)
             for file in np.concatenate(list(data_shards_fps.values()))]
     async_results = [pool.apply_async(normalize_data, job) for job in jobs]
     pool.close()
@@ -564,7 +564,7 @@ def train_model(config, model_id, data_fps, res_dir):
                              mode='TRAIN',
                              label_map=config['label_map'],
                              data_augmentation=config['training']['data_augmentation'],
-                             online_preproc_params=config['online_preprocessing_params'],
+                             online_preproc_params=config['aux_params'],
                              features_set=config['features_set'],
                              category_weights=config['training']['category_weights'])
     val_input_fn = InputFn(filepaths=data_fps['val'],
@@ -816,15 +816,14 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
                dpi=96)
 
 
-def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
-                     logger, verbose=False):
+def predict_ensemble(models_filepaths, config, data_fps, res_dir):
     datasets = list(data_fps.keys())
 
     # instantiate variable to get data from the TFRecords
-    data = {dataset: {field: [] for field in data_fields} for dataset in datasets}
+    data = {dataset: {field: [] for field in config['data_fields']} for dataset in datasets}
     for dataset in datasets:
         for data_fp in data_fps[dataset]:
-            data_aux = get_data_from_tfrecord(str(data_fp), data_fields, config['label_map'])
+            data_aux = get_data_from_tfrecord(str(data_fp), config['data_fields'], config['label_map'])
 
             for field in data_aux:
                 data[dataset][field].extend(data_aux[field])
@@ -843,16 +842,19 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=features_set, models=model_list)
+    if len(model_list) == 1:
+        ensemble_model = model_list[0]
+    else:
+        ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
 
     ensemble_model.summary()
 
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'])
 
     # compile model - set optimizer, loss and metrics
-    if config['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+    if config['metrics']['optimizer'] == 'Adam':
+        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['metriccs']['lr'],
                                                          beta_1=0.9,
                                                          beta_2=0.999,
                                                          epsilon=1e-8,
@@ -866,8 +868,8 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                                metrics=metrics_list)
 
     else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                        momentum=config['sgd_momentum'],
+        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['metrics']['lr'],
+                                                        momentum=config['metrics']['sgd_momentum'],
                                                         nesterov=False,
                                                         name='SGD'),  # optimizer
                                # loss function to minimize
@@ -883,14 +885,14 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
         print(f'[ensemble] Predicting on dataset {dataset}...')
 
         predict_input_fn = InputFn(filepaths=data_fps[dataset],
-                                   batch_size=config['batch_size'],
+                                   batch_size=config['evaluation']['batch_size'],
                                    mode='PREDICT',
                                    label_map=config['label_map'],
-                                   features_set=features_set)
+                                   features_set=config['features_set'])
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
-                                                 verbose=verbose,
+                                                 verbose=config['verbose'],
                                                  steps=None,
                                                  callbacks=None,
                                                  max_queue_size=10,
@@ -901,7 +903,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
+        scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in data_fps}
@@ -912,7 +914,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                 output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
                                                                               original_label)]
         else:
-            output_cl[dataset]['NTP'] = scores[dataset]
+            output_cl[dataset]['NA'] = scores[dataset]
 
     print('[ensemble] Plotting evaluation results...')
     # draw evaluation plots
@@ -921,7 +923,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                                 res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
 
     # generate rankings for each evaluated dataset
-    if generate_csv_pred:
+    if config['generate_csv_pred']:
 
         print('[ensemble] Generating csv file(s) with ranking(s)...')
 

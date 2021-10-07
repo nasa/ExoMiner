@@ -10,262 +10,41 @@ import tensorflow_probability as tfp
 from src.utils_train import phase_shift, phase_inversion, add_whitegaussiannoise
 
 
-class InputFn(object):
-    """Class that acts as a callable input function for the Estimator."""
+def filt_func(x, y):
+    """ Utility function used to filter examples from the dataset based on their target ID + TCE planet number
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, scalar_params_idxs=None, shuffle_buffer_size=27000,
-                 shuffle_seed=24, prefetch_buffer_nsamples=256):
-        """Initializes the input function.
+    :param x: feature tensor
+    :param y: label tensor
+    :return:
+        boolean tensor, True for valid examples, False otherwise
+    """
 
-        :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
-        May also be a comma-separated list of file patterns.
-        :param batch_size: int, batch size
-        :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
-        :param label_map: dict, map between class name and integer value
-        :param features_set: dict of the features to be extracted from the dataset, the key is the feature name and the
-        value is a dict with the dimension 'dim' of the feature and its data type 'dtype'
-        (can the dimension and data type be inferred from the tensors in the dataset?)
-        :param data_augmentation: bool, if True data augmentation is performed
-        :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
-        :param filter_data:
-        :param scalar_params_idxs: list, indexes of features to extract from the scalar features Tensor
-        :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
-        size guarantees perfect shuffling
-        :param shuffle_seed: int, shuffle seed
-        :param prefetch_buffer_nsamples: int, number of samples which when divided by the batch size gives the number of
-        batches prefetched
-        :return:
-        """
+    z1 = tf.as_string(x['filt_features']['target_id'])
+    z_ = tf.convert_to_tensor('_')
+    z2 = tf.as_string(x['filt_features']['tce_plnt_num'])
+    zj = tf.strings.join([z1, z_, z2])
 
-        self._file_pattern = file_pattern
-        self._mode = mode
-        self.batch_size = batch_size
-        self.label_map = label_map
-        self.features_set = features_set
-        self.data_augmentation = data_augmentation and self._mode == tf.estimator.ModeKeys.TRAIN
-        self.scalar_params_idxs = scalar_params_idxs
-        self.online_preproc_params = online_preproc_params
+    return tf.math.reduce_any(tf.math.equal(zj,
+                                            tf.convert_to_tensor(self.filter_data['target_id+tce_plnt_num'])))
 
-        self.shuffle_buffer_size = shuffle_buffer_size
-        self.shuffle_seed = shuffle_seed
-        self.prefetch_buffer_size = int(prefetch_buffer_nsamples / self.batch_size)
 
-        self.filter_data = filter_data
+def get_features_and_labels(x, y):
+    """ Utility function used to remove the features used to filter the dataset.
 
-    def __call__(self):
-        """ Builds the input pipeline.
+    :param x: feature tensor
+    :param y: label tensor
+    :return:
+        tuple, dict with features tensor, and label tensor
+    """
 
-        :return:
-            a tf.data.Dataset with features and labels
+    return {'time_series_features': x['time_series_features']}, y
 
-        """
 
-        def _example_parser(serialized_example):
-            """Parses a single tf.Example into feature and label tensors.
-
-            :param serialized_example: a single tf.Example
-            :return:
-                tuple, feature and label tensors
-            """
-
-            # get features names, shapes and data types to be extracted from the TFRecords
-            data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
-                           for feature_name, feature_info in self.features_set.items()}
-
-            # get labels if in TRAIN or EVAL mode
-            if include_labels:
-                data_fields['label'] = tf.io.FixedLenFeature([], tf.string)
-
-            # Parse the features.
-            parsed_features = tf.io.parse_single_example(serialized=serialized_example, features=data_fields)
-
-            # prepare data augmentation
-            if self.data_augmentation:
-
-                # Randomly reverse time series features with probability reverse_time_series_prob.
-                should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
-
-                # bin shifting
-                bin_shift = [-5, 5]
-                shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
-                                          dtype=tf.dtypes.int32, name='randuniform')
-
-                # get oot indices for Gaussian noise augmentation added to oot indices
-                tce_ephem = tf.io.parse_single_example(serialized=serialized_example,
-                                                       features={'tce_period':
-                                                                     tf.io.FixedLenFeature([], tf.float32),
-                                                                 'tce_duration':
-                                                                     tf.io.FixedLenFeature([], tf.float32)})
-
-                # TODO: number of bins and number of transits in the local view should also be an argument of the input
-                #  function
-                # boolean tensor for oot indices for global view
-                idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(self.online_preproc_params['num_bins_global'],
-                                                                            tce_ephem['tce_duration'],
-                                                                            tce_ephem['tce_period'])
-                # boolean tensor for oot indices for local view
-                idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(self.online_preproc_params['num_bins_local'],
-                                                                          self.online_preproc_params['num_transit_dur'])
-
-            # initialize feature output
-            output = {}
-
-            label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
-
-            for feature_name, value in parsed_features.items():
-
-                if 'oot' in feature_name:
-                    continue
-                # label
-                elif include_labels and feature_name == 'label':
-
-                    # map label to integer
-                    label_id = label_to_id.lookup(value)
-
-                    # Ensure that the label_id is non negative to verify a successful hash map lookup.
-                    assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
-                                                   ["Unknown label string:", value], name='assert_non-negativity')
-
-                    with tf.control_dependencies([assert_known_label]):
-                        label_id = tf.identity(label_id)
-
-                # scalar features (e.g, stellar, TCE, transit fit parameters)
-                elif feature_name == 'scalar_params':
-                    if self.scalar_params_idxs is None:
-                        output['scalar_params'] = value
-                    else:  # choose only some of the scalar_params based on their indexes
-                        output['scalar_params'] = tf.gather(value, indices=self.scalar_params_idxs, axis=0)
-
-                    # output['scalar_params'] = tf.concat([output['scalar_params'], parsed_features['tce_period_norm']], axis=0)
-
-                # time-series features
-                elif 'view' in feature_name:  # input_config.features[feature_name].is_time_series:
-
-                    # data augmentation
-                    if self.data_augmentation:
-
-                        # with tf.variable_scope('input_data/data_augmentation'):
-
-                        # add white gaussian noise
-                        if 'global' in feature_name:
-                            oot_values = tf.boolean_mask(value, idxs_nontransitcadences_glob)
-                        else:
-                            oot_values = tf.boolean_mask(value, idxs_nontransitcadences_loc)
-
-                        # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
-                        oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
-                        # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
-                        # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
-                        #                       name='oot_median')
-
-                        oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
-
-                        value = add_whitegaussiannoise(value, oot_median, oot_std)
-
-                        # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
-                        #                                parsed_features[feature_name + '_stdoot'])
-
-                        # invert phase
-                        value = phase_inversion(value, should_reverse)
-
-                        # phase shift some bins
-                        value = phase_shift(value, shift)
-
-                    output[feature_name] = value
-
-            # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            return output, label_id
-
-        def filt_func(x, y):
-            """ Utility function used to filter examples from the dataset based on their target ID + TCE planet number
-
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                boolean tensor, True for valid examples, False otherwise
-            """
-
-            z1 = tf.as_string(x['filt_features']['target_id'])
-            z_ = tf.convert_to_tensor('_')
-            z2 = tf.as_string(x['filt_features']['tce_plnt_num'])
-            zj = tf.strings.join([z1, z_, z2])
-
-            return tf.math.reduce_any(tf.math.equal(zj,
-                                                    tf.convert_to_tensor(self.filter_data['target_id+tce_plnt_num'])))
-
-        def get_features_and_labels(x, y):
-            """ Utility function used to remove the features used to filter the dataset.
-
-            :param x: feature tensor
-            :param y: label tensor
-            :return:
-                tuple, dict with features tensor, and label tensor
-            """
-
-            return {'time_series_features': x['time_series_features']}, y
-
-        # with tf.variable_scope('input_data'):
-
-        # Create a HashTable mapping label strings to integer ids.
-        table_initializer = tf.lookup.KeyValueTensorInitializer(
-            keys=list(self.label_map.keys()),
-            values=list(self.label_map.values()),
-            key_dtype=tf.string,
-            value_dtype=tf.int32)
-
-        label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
-
-        include_labels = self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]
-
-        file_patterns = self._file_pattern.split(",")
-        filenames = []
-        for p in file_patterns:
-            matches = tf.io.gfile.glob(p)
-            if not matches:
-                raise ValueError("Found no input files matching {}".format(p))
-            filenames.extend(matches)
-
-        # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
-
-        # create filename dataset based on the list of tfrecords filepaths
-        filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
-
-        # map a TFRecordDataset object to each tfrecord filepath
-        dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
-
-        # shuffle the dataset if training
-        # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
-        #        set variables for buffer size and shuffle seed?
-        # if self._mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        if self._mode == tf.estimator.ModeKeys.TRAIN:
-            dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
-
-        # do not repeat the dataset
-        dataset = dataset.repeat(1)
-
-        # map the example parser across the tfrecords dataset to extract the examples and manipulate them
-        # (e.g., real-time data augmentation, shuffling, ...)
-        # dataset = dataset.map(_example_parser, num_parallel_calls=4)
-        # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
-        # process asynchronously
-        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-        # filter the dataset based on the filtering features
-        if self.filter_data is not None:
-            dataset = dataset.filter(filt_func)
-
-            # remove the filtering features from the dataset
-            dataset = dataset.map(get_features_and_labels)
-
-        # creates batches by combining consecutive elements
-        dataset = dataset.batch(self.batch_size)
-
-        # prefetches batches determined by the buffer size chosen
-        # parallelized processing in the CPU with model computations in the GPU
-        dataset = dataset.prefetch(max(1, self.prefetch_buffer_size))
-
-        return dataset
+# if self.filter_data is not None:
+#     dataset = dataset.filter(filt_func)
+#
+#     # remove the filtering features from the dataset
+#     dataset = dataset.map(get_features_and_labels)
 
 
 class InputFnv2(object):
@@ -297,12 +76,12 @@ class InputFnv2(object):
         :return:
         """
 
-        self._file_pattern = file_pattern
-        self._mode = mode
+        self.file_pattern = file_pattern
+        self.mode = mode
         self.batch_size = batch_size
         self.label_map = label_map
         self.features_set = features_set
-        self.data_augmentation = data_augmentation and self._mode == 'TRAIN'
+        self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
 
         self.shuffle_buffer_size = shuffle_buffer_size
@@ -340,7 +119,7 @@ class InputFnv2(object):
                 label_field = {'label': tf.io.FixedLenFeature([], tf.string)}
                 parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
 
-            if self.category_weights is not None and self._mode == 'TRAIN':
+            if self.category_weights is not None and self.mode == 'TRAIN':
                 category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
                     keys=list(self.category_weights.keys()),
                     values=list(self.category_weights.values()),
@@ -424,7 +203,7 @@ class InputFnv2(object):
                 output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            if self.category_weights is not None and self._mode == 'TRAIN':
+            if self.category_weights is not None and self.mode == 'TRAIN':
                 return output, label_id, sample_weight
             else:
                 return output, label_id
@@ -439,9 +218,9 @@ class InputFnv2(object):
 
         label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
 
-        include_labels = self._mode in ['TRAIN', 'EVAL']
+        include_labels = self.mode in ['TRAIN', 'EVAL']
 
-        file_patterns = self._file_pattern.split(",")
+        file_patterns = self.file_pattern.split(",")
         filenames = []
         for p in file_patterns:
             matches = tf.io.gfile.glob(p)
@@ -460,7 +239,7 @@ class InputFnv2(object):
         # shuffle the dataset if training
         # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
         #        set variables for buffer size and shuffle seed?
-        if self._mode == 'TRAIN':
+        if self.mode == 'TRAIN':
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
 
         # do not repeat the dataset
@@ -633,7 +412,7 @@ class InputFnCV(object):
                 output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            if self.category_weights is not None and self._mode == 'TRAIN':
+            if self.category_weights is not None and self.mode == 'TRAIN':
                 return output, label_id, sample_weight
             else:
                 return output, label_id

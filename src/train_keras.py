@@ -371,7 +371,7 @@ if __name__ == '__main__':
     if config['rank'] == 0:
         # save the YAML file with training-evaluation parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-        with open(config['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+        with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
 
     # comment for multiprocessing using MPI
@@ -384,20 +384,10 @@ if __name__ == '__main__':
                  )
 
     # # uncomment for multiprocessing using MPI
-    # if rank < n_models:
-    #     print(f'Training model {rank + 1} out of {n_models} on {n_epochs}')
+    # if config['rank'] < config['training']['n_models']:
+    #     print(f'Training model {config["rank"] + 1} out of {config["training"]["n_models"]} on {config["training"]["n_epochs"}')
     #     sys.stdout.flush()
     #     run_main(config=config,
-    #              n_epochs=n_epochs,
-    #              data_dir=tfrec_dir,
     #              base_model=BaseModel,
-    #              res_dir=save_path,
-    #              model_id = rank + 1,
-    #              opt_metric=opt_metric,
-    #              min_optmetric=min_optmetric,
-    #              callbacks_dict=callbacks_dict,
-    #              features_set=features_set,
-    #              mpi_rank=rank,
-    #              data_augmentation=data_augmentation,
-    #              online_preproc_params=online_preproc_params,
+    #              model_id = config['rank'] + 1,
     #              )

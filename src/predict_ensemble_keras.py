@@ -68,7 +68,10 @@ def run_main(config):
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
+    if len(model_list) == 1:
+        ensemble_model = model_list[0]
+    else:
+        ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
 
     ensemble_model.summary()
 
@@ -338,7 +341,7 @@ if __name__ == '__main__':
 
     # save the YAML file with training-evaluation parameters that are YAML serializable
     json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-    with open(config['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+    with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
         yaml.dump(json_dict, cv_run_file)
 
     run_main(
