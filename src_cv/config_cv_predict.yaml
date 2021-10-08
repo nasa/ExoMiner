@@ -6,12 +6,11 @@ logger: null
 #experiment: &experiment_name
 paths:
   # directory for predict run
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_test_10-6-2021
+  experiment_dir: /data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_weightedloss_10-6-2021/predicted_not_used_10-7-2021
   # path to CV run to be used to predict
-  cv_experiment_dir: /
+  cv_experiment_dir: /data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_weightedloss_10-6-2021
   # TFRecord directory with the CV folds
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/data_exominer_configK_newsec_rbacnt0n/tfrecords
-  # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_predict_tcesnotused/
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 

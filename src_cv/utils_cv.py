@@ -859,8 +859,8 @@ def predict_ensemble(models_filepaths, config, data_fps, res_dir):
     metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'])
 
     # compile model - set optimizer, loss and metrics
-    if config['metrics']['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['metriccs']['lr'],
+    if config['config']['optimizer'] == 'Adam':
+        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                          beta_1=0.9,
                                                          beta_2=0.999,
                                                          epsilon=1e-8,
@@ -874,8 +874,8 @@ def predict_ensemble(models_filepaths, config, data_fps, res_dir):
                                metrics=metrics_list)
 
     else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['metrics']['lr'],
-                                                        momentum=config['metrics']['sgd_momentum'],
+        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                        momentum=config['config']['sgd_momentum'],
                                                         nesterov=False,
                                                         name='SGD'),  # optimizer
                                # loss function to minimize

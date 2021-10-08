@@ -57,7 +57,7 @@ def cv_pred_run(run_params, cv_iter_dir):
     # norm_stats['scalar_params']['tce_rb_tcount0']['info']['dtype'] = 'float'
 
     pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
-    jobs = [(file, norm_stats, run_params['norm'], norm_data_dir)
+    jobs = [(file, norm_stats, run_params['aux_params'], norm_data_dir)
             for file in run_params['data_fps']]
     async_results = [pool.apply_async(normalize_data, job) for job in jobs]
     pool.close()
@@ -133,10 +133,10 @@ def cv_pred():
         config['paths'][path_name] = Path(path_str)
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
 
-    config['data_fps'] = [fp for fp in config['tfrec_dir'].iterdir() if fp.is_file()
+    config['data_fps'] = [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.is_file()
                           and fp.name.startswith('predict-shard')]
     # cv iterations dictionary
-    config['cv_iters'] = [fp for fp in config['cv_experiment_dir'].iterdir() if fp.is_dir()
+    config['cv_iters'] = [fp for fp in config['paths']['cv_experiment_dir'].iterdir() if fp.is_dir()
                           and fp.name.startswith('cv_iter')]
 
     if config["rank"] >= len(config['cv_iters']):
