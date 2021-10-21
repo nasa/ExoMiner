@@ -1,8 +1,7 @@
-""" Implementation of models. """
-
-import operator
+""" Implementation of models using Keras functional API. """
 
 # 3rd party
+import operator
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import regularizers
@@ -25,29 +24,16 @@ class CNN1dPlanetFinderv1(object):
         self.scalar_params_idxs = scalar_params_idxs
 
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
-            self.output_size = max(config['label_map'].values()) + 1
+            self.output_size = len(config['label_map'])
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
-        # ['global_flux_view', 'local_flux_view', 'global_centr_view_medcmaxn',
-        #  'local_centr_view_medcmaxn', 'local_weak_secondary_view', 'local_flux_oddeven_views']
         if 'branches' not in self.config:
             self.branches = ['global_flux_view', 'local_flux_view']
         else:
             self.branches = self.config['branches']
 
         # self.is_training = None
-
-        # # if doing multiclassification or using softmax as output layer, the output has to be equal to the number of
-        # # classes
-        # if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
-        #     self.output_size = max(config['label_map'].values()) + 1
-        # else:  # binary classification with sigmoid output layer
-        #     self.output_size = 1
-        #
-        # # class-label weights for weighted loss
-        # # convert from numpy to tensor
-        # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
         self.inputs = self.create_inputs()
 
@@ -343,7 +329,7 @@ class CNN1dPlanetFinderv2(object):
 
         if self.config['multi_class'] or \
                 (not self.config['multi_class'] and self.config['force_softmax']):
-            self.output_size = max(config['label_map'].values()) + 1
+            self.output_size = len(config['label_map'])
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
@@ -899,17 +885,11 @@ class MLPPlanetFinder(object):
         self.features = features
 
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
-            self.output_size = max(config['label_map'].values()) + 1
+            self.output_size = len(config['label_map'])
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
-        # self.branches = self.config['branches']
-
         # self.is_training = None
-
-        # # class-label weights for weighted loss
-        # # convert from numpy to tensor
-        # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
         self.inputs = self.create_inputs()
 
@@ -920,18 +900,14 @@ class MLPPlanetFinder(object):
 
     def create_inputs(self):
 
-        inputs = {}
-
-        for feature in self.features:
-            input = tf.keras.Input(shape=self.features[feature]['dim'],
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
+        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
+                                          batch_size=None,
+                                          name=feature,
+                                          dtype=self.features[feature]['dtype'],
+                                          sparse=False,
+                                          tensor=None,
+                                          ragged=False)
+                  for feature in self.features}
 
         return inputs
 
@@ -1763,7 +1739,7 @@ def create_ensemble(features, models):
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
     :param models: list, list of Keras models
     :return:
-        Keras ensemble
+        Keras average ensemble
     """
 
     inputs = create_inputs(features=features)

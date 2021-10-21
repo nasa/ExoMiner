@@ -66,7 +66,8 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
         # setup monitoring metrics
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Setting up metrics for ensemble')
-        metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
+        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                                   num_thresholds=config['metrics']['num_thr'])
 
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks for ensemble')
@@ -101,8 +102,8 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
         # compile ensemble
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Compiling ensemble...')
-        if config['optimizer'] == 'Adam':
-            ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+        if config['config']['optimizer'] == 'Adam':
+            ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                              beta_1=0.9,
                                                              beta_2=0.999,
                                                              epsilon=1e-8,
@@ -118,8 +119,8 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
                                    )
 
         else:
-            ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                            momentum=config['sgd_momentum'],
+            ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                            momentum=config['config']['sgd_momentum'],
                                                             nesterov=False,
                                                             name='SGD',  # optimizer
                                                             ),
@@ -149,9 +150,9 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
                 print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble on dataset {dataset}')
 
             # input function for evaluating on each dataset
-            eval_input_fn = InputFn(file_pattern=tfrec_dir + f'/{dataset}*',
-                                    batch_size=config['batch_size'],
-                                    mode=tf.estimator.ModeKeys.EVAL,
+            eval_input_fn = InputFn(file_pattern=str(tfrec_dir) + f'/{dataset}*',
+                                    batch_size=config['training']['batch_size'],
+                                    mode='EVAL',
                                     label_map=config['label_map'],
                                     features_set=features_set
                                     )
@@ -160,7 +161,7 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
             res_eval = ensemble_model.evaluate(x=eval_input_fn(),
                                                y=None,
                                                batch_size=None,
-                                               verbose=verbose if '/home6' not in model_dir_rank else False,
+                                               verbose=verbose if '/home6' not in str(model_dir_rank) else False,
                                                sample_weight=None,
                                                steps=None,
                                                callbacks=None,
@@ -220,29 +221,30 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Setting up input functions...')
         # input function for training on the training set
-        train_input_fn = InputFn(file_pattern=tfrec_dir + '/train*',
-                                 batch_size=config['batch_size'],
-                                 mode=tf.estimator.ModeKeys.TRAIN,
+        train_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/train*',
+                                 batch_size=config['training']['batch_size'],
+                                 mode='TRAIN',
                                  label_map=config['label_map'],
-                                 data_augmentation=config['data_augmentation'],
+                                 data_augmentation=config['training']['data_augmentation'],
                                  features_set=features_set)
 
         # input functions for evaluating on the validation and test sets
-        val_input_fn = InputFn(file_pattern=tfrec_dir + '/val*',
-                               batch_size=config['batch_size'],
-                               mode=tf.estimator.ModeKeys.EVAL,
+        val_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/val*',
+                               batch_size=config['training']['batch_size'],
+                               mode='EVAL',
                                label_map=config['label_map'],
                                features_set=features_set)
-        test_input_fn = InputFn(file_pattern=tfrec_dir + '/test*',
-                                batch_size=config['batch_size'],
-                                mode=tf.estimator.ModeKeys.EVAL,
+        test_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/test*',
+                                batch_size=config['training']['batch_size'],
+                                mode='EVAL',
                                 label_map=config['label_map'],
                                 features_set=features_set)
 
         # setup monitoring metrics
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Setting up metrics...')
-        metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
+        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                                   num_thresholds=config['metrics']['num_thr'])
 
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks...')
@@ -266,17 +268,28 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         #     )
         #
 
-
         # instantiate Keras model
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Instantiating model...')
         model = BaseModel(config, features_set).kerasModel
 
+        # plot model architecture
+        if model_i == 0:
+            if verbose:
+                print(f'[worker_{worker_id},config{config_id}] Plotting model')
+            plot_model(model,
+                       to_file=results_directory / f'config{config_id}_model.png',
+                       show_shapes=True,
+                       show_layer_names=True,
+                       rankdir='TB',
+                       expand_nested=False,
+                       dpi=48)
+
         # compile model
         if verbose:
             print(f'[worker_{worker_id},config{config_id}] Compiling model...')
-        if config['optimizer'] == 'Adam':
-            model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+        if config['config']['optimizer'] == 'Adam':
+            model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                     beta_1=0.9,
                                                     beta_2=0.999,
                                                     epsilon=1e-8,
@@ -292,8 +305,8 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
                           )
 
         else:
-            model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                   momentum=config['sgd_momentum'],
+            model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                   momentum=config['config']['sgd_momentum'],
                                                    nesterov=False,
                                                    name='SGD',  # optimizer
                                                    ),
@@ -348,22 +361,12 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
         res.update({f'test_{metric_name}': metric_val for metric_name, metric_val in res_eval.items()})
 
-        # plot model architecture
-        if model_i == 0:
-            if verbose:
-                print(f'[worker_{worker_id},config{config_id}] Plotting model')
-            plot_model(model,
-                       to_file=results_directory / f'config{config_id}_model.png',
-                       show_shapes=True,
-                       show_layer_names=True,
-                       rankdir='TB',
-                       expand_nested=False,
-                       dpi=48)
-
         model.save(results_directory / f'models_rank{worker_id}' / f'model{model_i}.h5')
 
     except Exception as e:
         if verbose:
+            if 'convert Python' in str(e):
+                aaa
             print(f'[worker_{worker_id},config{config_id}] Error during model fit: {e}')
         sys.stdout.flush()
         # q.put({'Error during model fit': e})
@@ -383,7 +386,8 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, config, results_directory, features_set,
                      tfrec_dir, BaseModel, verbose, model_dir_rank):
     # initialize results variable
-    res_models = {}
+    res_models, res_ensemble = {}, {}
+
     for model_i in range(ensemble_n):
 
         if verbose:
@@ -406,14 +410,14 @@ def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, co
                                      gpu_id,
                                      verbose)
 
-        if f'[worker_{worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
+        if f'[worker_{worker_id_custom}, config{config_id}] Error during model fit' in res_model_i:
             if verbose:
                 print(f'[worker_{worker_id_custom},config{config_id}] Error in model fit.')
                 sys.stdout.flush()
 
             return {'loss': np.inf,
                     'info': f'Error during model fit: '
-                            f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'}
+                            f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'}, res_ensemble
 
         # add results for this model to the results for the ensemble
         if len(res_models.keys()) == 0:
@@ -453,10 +457,8 @@ def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, co
                 print(f'[worker_{worker_id_custom},config{config_id}] Error in ensemble run subprocess')
                 sys.stdout.flush()
 
-            return {'loss': np.inf,
-                    'info': 'Error while evaluating ensemble: '
-                            f'{res_ensemble[f"[worker_{worker_id_custom},config{config_id}] Error while evaluating ensemble"]}'
-                    }
+            return {'error': 'Error while evaluating ensemble: '
+                             f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, res_models
     else:
         res_ensemble = {}
         for metric_name, metric_val in res_models.items():
@@ -490,24 +492,18 @@ class TransitClassifier(Worker):
 
         self.worker_id_custom = str(worker_id_custom)  # worker id
 
-        self.results_directory = config_args['results_directory']  # directory to save results
+        self.results_directory = config_args['paths']['experiment_dir']  # directory to save results
         if 'home6' in self.results_directory.as_posix():
             plt.switch_backend('agg')
-        self.tfrec_dir = config_args['tfrec_dir']  # tfrecord directory
+        self.tfrec_dir = config_args['paths']['tfrec_dir']  # tfrecord directory
         self.model_dir_rank = config_args['model_dir_rank']  # model directory
 
         # base config that is fixed and it is not part of the evaluated configuration space
-        self.base_config = config_args['experiment_config']
+        self.base_config = config_args
 
         self.hpo_loss = config_args['hpo_loss']  # HPO loss (it has to be one of the metrics/loss being evaluated
 
         self.ensemble_n = config_args['ensemble_n']  # number of models trained per configuration
-
-        # # get cross-entropy class weights (weighted cross-entropy)
-        # if config_args.satellite == 'kepler' and not config_args.use_kepler_ce:
-        #     self.ce_weights = None
-        # else:
-        #     self.ce_weights = config_args.ce_weights
 
         self.features_set = config_args['features_set']
 
@@ -538,7 +534,8 @@ class TransitClassifier(Worker):
         """
 
         # merge sampled and fixed configurations
-        config.update(self.base_config)
+        run_config = self.base_config.copy()
+        run_config['config'].update(config)
 
         budget = int(budget)
 
@@ -568,7 +565,7 @@ class TransitClassifier(Worker):
             config_id,
             budget,
             self.gpu_id,
-            config,
+            run_config,
             self.results_directory,
             self.features_set,
             self.tfrec_dir,
@@ -582,35 +579,43 @@ class TransitClassifier(Worker):
         np.save(self.results_directory / f'config{config_id}_budget{budget:.0f}_ensemblemetrics.npy', res_total)
 
         # draw loss and evaluation metric plots for the model on this given budget
-        # self.draw_plots(res, config_id)
-        self.draw_plots_ensemble(res_ensemble, res_models, config_id, budget)
+        if 'error' not in res_ensemble:
+            # self.draw_plots(res, config_id)
+            self.draw_plots_ensemble(res_ensemble, res_models, config_id, budget)
 
-        # report HPO loss and additional metrics and loss
-        # hpo_loss_val = res['val_{}'.format(self.hpo_loss)]['central tendency'][-1]
-        # # add test metrics and loss
-        # info_dict = {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
-        #              for metric in res if 'test' in metric and len(res[metric]['central tendency'].shape) == 0}
-        # # add train and validation metrics and loss
-        # info_dict.update({metric: [float(res[metric]['central tendency'][-1]), float(res[metric]['deviation'][-1])]
-        #                  for metric in res if 'test' not in metric and len(res[metric]['central tendency'].shape) == 1})
-        hpo_loss_val = res_ensemble[f'val_{self.hpo_loss}']
-        # add metrics and loss
-        info_dict = {metric: res_ensemble[metric] for metric in res_ensemble if isinstance(res_ensemble[metric], float)}
+            # report HPO loss and additional metrics and loss
+            # hpo_loss_val = res['val_{}'.format(self.hpo_loss)]['central tendency'][-1]
+            # # add test metrics and loss
+            # info_dict = {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
+            #              for metric in res if 'test' in metric and len(res[metric]['central tendency'].shape) == 0}
+            # # add train and validation metrics and loss
+            # info_dict.update({metric: [float(res[metric]['central tendency'][-1]), float(res[metric]['deviation'][-1])]
+            #                  for metric in res if 'test' not in metric and len(res[metric]['central tendency'].shape) == 1})
 
-        res_hpo = {'loss': 1 - hpo_loss_val,  # HPO loss to be minimized
-                   'info': info_dict
-                   }
+            hpo_loss_val = res_ensemble[f'val_{self.hpo_loss}']
+            # add metrics and loss
+            info_dict = {metric: res_ensemble[metric] for metric in res_ensemble if
+                         isinstance(res_ensemble[metric], float)}
 
-        print('#' * 100)
-        print(f'[worker_{self.worker_id_custom},config{config_id}] Finished evaluating configuration using a budget of '
-              f'{int(budget)}')
-        for k in res_hpo:
-            if k != 'info':
-                print(f'HPO {k}: {res_hpo[k]}')
-            else:
-                for l in res_hpo[k]:
-                    print(f'{l}: {res_hpo[k][l]}')
-        print('#' * 100)
+            res_hpo = {'loss': 1 - hpo_loss_val,  # HPO loss to be minimized
+                       'info': info_dict
+                       }
+
+            print('#' * 100)
+            print(
+                f'[worker_{self.worker_id_custom},config{config_id}] Finished evaluating configuration using a budget of '
+                f'{int(budget)}')
+            for k in res_hpo:
+                if k != 'info':
+                    print(f'HPO {k}: {res_hpo[k]}')
+                else:
+                    for l in res_hpo[k]:
+                        print(f'{l}: {res_hpo[k][l]}')
+            print('#' * 100)
+
+        else:
+            res_hpo = {'loss': np.inf, 'info': res_ensemble['error']}
+
         sys.stdout.flush()
 
         return res_hpo
@@ -897,3 +902,41 @@ class TransitClassifier(Worker):
         ])
 
         return config_space
+
+
+def get_configspace(config_space_setup):
+    """ Build the hyper-parameter configuration space.
+
+    :param config_space_setup: dict,
+    :return: ConfigurationsSpace-Object
+    """
+
+    config_space = CS.ConfigurationSpace()
+
+    hyperparameters = {hyperparameter: None for hyperparameter in config_space_setup['hyperparameters']}
+
+    for hyperparameter_name, hyperparameter_params in config_space_setup['hyperparameters'].items():
+        if hyperparameter_params['type'] == 'uniform_float':
+            hyperparameters[hyperparameter_name] = CSH.UniformFloatHyperparameter(name=hyperparameter_name,
+                                                                                  **hyperparameter_params['parameters'])
+        elif hyperparameter_params['type'] == 'categorical':
+            hyperparameters[hyperparameter_name] = CSH.CategoricalHyperparameter(hyperparameter_name,
+                                                                                 hyperparameter_params['parameters'])
+
+        elif hyperparameter_params['type'] == 'uniform_integer':
+            hyperparameters[hyperparameter_name] = CSH.UniformIntegerHyperparameter(name=hyperparameter_name,
+                                                                                    **hyperparameter_params[
+                                                                                        'parameters'])
+
+    # add hyper-parameters
+    config_space.add_hyperparameters(list(hyperparameters.values()))
+
+    # add conditions
+    for condition_name, condition_params in config_space_setup['conditions'].items():
+        if condition_params['type'] == 'equal':
+            cond = CS.EqualsCondition(hyperparameters[condition_params['child']],
+                                      hyperparameters[condition_params['parent']],
+                                      condition_params['value'])
+            config_space.add_condition(cond)
+
+    return config_space

@@ -36,7 +36,7 @@ for cv_iter_dir in cv_iters_dirs:
 ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
 ranking_tbl_cv.to_csv(cv_pred_run_dir / 'ensemble_ranked_predictions_allfolds.csv', index=False)
 
-# %%
+# %% Get mean and std score across all folds for the prediction on the not-used dataset
 
 tbl = None
 for cv_iter_dir in cv_iters_dirs:
@@ -56,4 +56,4 @@ tbl[['target_id', 'tce_plnt_num', 'label', 'tce_period', 'tce_duration',
      'score_fold_4', 'score_fold_9',
      'score_fold_3', 'score_fold_7', 'score_fold_0', 'score_fold_2',
      'score_fold_8', 'score_fold_5', 'score_fold_1', 'score_fold_6', 'mean_score', 'std_score']].to_csv(
-    '/home/msaragoc/Downloads/ensemble_ranked_predictions_allfolds.csv', index=False)
+    cv_pred_run_dir / 'ensemble_ranked_predictions_allfolds_avg.csv', index=False)

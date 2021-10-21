@@ -2,17 +2,15 @@
 Utility functions for the hyperparameter optimizer script.
 """
 
-import json
 # 3rd party
+import json
 import os
 import pickle
-
 # import statsmodels.api as sm
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
-# import tensorflow as tf
 import numpy as np
 from hpbandster.core.base_iteration import Datum
 
@@ -163,7 +161,7 @@ def analyze_results(result, hpo_config):
     """
 
     # save results in a pickle file
-    with open(hpo_config['results_directory'] / f'results_{hpo_config["study"]}.pkl', 'wb') as fh:
+    with open(hpo_config['paths']['experiment_dir'] / f'results_{hpo_config["study"]}.pkl', 'wb') as fh:
         pickle.dump(result, fh)
 
     # get the 'dict' that translates config ids to the actual configurations
@@ -218,7 +216,7 @@ def analyze_results(result, hpo_config):
 
     for figname, fig in figs.items():
         fig.set_size_inches(10, 8)
-        fig.savefig(hpo_config['results_directory'] / f'{figname}.png', bbox_inches='tight')
+        fig.savefig(hpo_config['paths']['experiment_dir'] / f'{figname}.png', bbox_inches='tight')
 
     # if 'nobackup' not in shared_dir:
     #     plt.show()
