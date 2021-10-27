@@ -71,12 +71,12 @@ def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top, m
                         res_file.write(str_aux)
                         if print_res:
                             print(str_aux)
-
-                for k in prec_at_top[dataset]:
-                    str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
-                    res_file.write(str_aux)
-                    if print_res:
-                        print(str_aux)
+                if prec_at_top != None:
+                    for k in prec_at_top[dataset]:
+                        str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
+                        res_file.write(str_aux)
+                        if print_res:
+                            print(str_aux)
 
             res_file.write('\n')
 

@@ -248,8 +248,9 @@ def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
                 else:
                     print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-        for k in prec_at_top[dataset]:
-            print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+        if prec_at_top != None:
+            for k in prec_at_top[dataset]:
+                print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
                                     res['{}_precision_at_{}'.format(dataset, k)]))
 
     print('#' * 100)

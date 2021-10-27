@@ -23,7 +23,7 @@ from src.utils_dataio import get_data_from_tfrecord
 from src.utils_dataio import InputFnv2 as InputFn
 from models.models_keras import create_ensemble
 from src_hpo import utils_hpo
-from src.utils_metrics import get_metrics, compute_precision_at_k
+from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
 
@@ -83,35 +83,66 @@ def run_main(config):
                            dpi=96)
 
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'], num_thresholds=config['metrics']['num_thr'])
+    if not config['config']['multi_class']:
+        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'], num_thresholds=config['metrics']['num_thr'])
+    else:
+        metrics_list = get_metrics_multiclass()
 
     # compile model - set optimizer, loss and metrics
-    if config['config']['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                         beta_1=0.9,
-                                                         beta_2=0.999,
-                                                         epsilon=1e-8,
-                                                         amsgrad=False,
-                                                         name='Adam'),  # optimizer
-                               # loss function to minimize
-                               loss=losses.BinaryCrossentropy(from_logits=False,
-                                                              label_smoothing=0,
-                                                              name='binary_crossentropy'),
-                               # list of metrics to monitor
-                               metrics=metrics_list)
+    if not config['config']['multi_class']:
+        if config['config']['optimizer'] == 'Adam':
+            ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
+                                                             beta_1=0.9,
+                                                             beta_2=0.999,
+                                                             epsilon=1e-8,
+                                                             amsgrad=False,
+                                                             name='Adam'),  # optimizer
+                                   # loss function to minimize
+                                   loss=losses.BinaryCrossentropy(from_logits=False,
+                                                                  label_smoothing=0,
+                                                                  name='binary_crossentropy'),
+                                   # list of metrics to monitor
+                                   metrics=metrics_list)
+    
+        else:
+            ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                            momentum=config['config']['sgd_momentum'],
+                                                            nesterov=False,
+                                                            name='SGD'),  # optimizer
+                                   # loss function to minimize
+                                   loss=losses.BinaryCrossentropy(from_logits=False,
+                                                                  label_smoothing=0,
+                                                                  name='binary_crossentropy'),
+                                   # list of metrics to monitor
+                                   metrics=metrics_list)
 
-    else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                                        momentum=config['config']['sgd_momentum'],
-                                                        nesterov=False,
-                                                        name='SGD'),  # optimizer
-                               # loss function to minimize
-                               loss=losses.BinaryCrossentropy(from_logits=False,
-                                                              label_smoothing=0,
-                                                              name='binary_crossentropy'),
-                               # list of metrics to monitor
-                               metrics=metrics_list)
+    else: 
+        if config['config']['optimizer'] == 'Adam':
+            ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
+                                                             beta_1=0.9,
+                                                             beta_2=0.999,
+                                                             epsilon=1e-8,
+                                                             amsgrad=False,
+                                                             name='Adam'),  # optimizer
+                                   # loss function to minimize
+                                   loss=losses.SparseCategoricalCrossentropy(from_logits=False,
+                                                                  name='sparse_categorical_crossentropy'),
+                                   # list of metrics to monitor
+                                   metrics=metrics_list)
+    
+        else:
+            ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                            momentum=config['config']['sgd_momentum'],
+                                                            nesterov=False,
+                                                            name='SGD'),  # optimizer
+                                   # loss function to minimize
+                                   loss=losses.SparseCategoricalCrossentropy(from_logits=False,
+                                                                  name='sparse_categorical_crossentropy'),
+                                   # list of metrics to monitor
+                                   metrics=metrics_list)
 
+
+     
     # initialize results dictionary for the evaluated datasets
     res = {}
     for dataset in config['datasets']:
@@ -172,13 +203,15 @@ def run_main(config):
                                                  max_queue_size=10,
                                                  workers=1,
                                                  use_multiprocessing=False)
-
+        #print(scores[dataset])
     # initialize dictionary to save the classification scores for each dataset evaluated
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in config['datasets']}
     for dataset in config['datasets']:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
-
+        if not config['config']['multi_class']:
+            scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
+        else:
+            scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in config['datasets']}
     for dataset in output_cl:
@@ -191,16 +224,17 @@ def run_main(config):
             output_cl[dataset]['NA'] = scores[dataset]
 
     # compute precision at top-k
-    labels_sorted = {}
-    for dataset in config['datasets']:
-        if dataset == 'predict':
-            continue
-        sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
-        labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
-        prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
-        res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
-                    for k_val in config['metrics']['top_k_arr'][dataset]})
-
+    if not config['config']['multi_class']:
+        labels_sorted = {}
+        for dataset in config['datasets']:
+            if dataset == 'predict':
+                continue
+            sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
+            labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
+            prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
+            res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
+                        for k_val in config['metrics']['top_k_arr'][dataset]})
+    
     # save evaluation metrics in a numpy file
     print('Saving metrics to a numpy file...')
     np.save(config['paths']['experiment_dir'] / 'results_ensemble.npy', res)
@@ -210,17 +244,25 @@ def run_main(config):
     for dataset in config['datasets']:
         plot_class_distribution(output_cl[dataset],
                                 config['paths']['experiment_dir'] / f'ensemble_class_scoredistribution_{dataset}.png')
-        if dataset != 'predict':
-            plot_prcurve_roc(res, config['paths']['experiment_dir'], dataset)
-            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
-            plot_precision_at_k(labels_sorted[dataset],
-                                k_curve_arr,
-                                config['paths']['experiment_dir'] / f'{dataset}')
-
+        
+        if not config['config']['multi_class']:
+            if dataset != 'predict':
+                plot_prcurve_roc(res, config['paths']['experiment_dir'], dataset)
+                k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
+                plot_precision_at_k(labels_sorted[dataset],
+                                    k_curve_arr,
+                                    config['paths']['experiment_dir'] / f'{dataset}')
+    
     print('Saving metrics to a txt file...')
-    save_metrics_to_file(config['paths']['experiment_dir'], res, config['datasets'], ensemble_model.metrics_names,
-                         config['metrics']['top_k_arr'], config['paths']['models_filepaths'],
-                         print_res=True)
+    if not config['config']['multi_class']:
+        save_metrics_to_file(config['paths']['experiment_dir'], res, config['datasets'], ensemble_model.metrics_names,
+                             config['metrics']['top_k_arr'], config['paths']['models_filepaths'],
+                             print_res=True)
+    else:
+         save_metrics_to_file(config['paths']['experiment_dir'], res, config['datasets'], ensemble_model.metrics_names,
+                             None, config['paths']['models_filepaths'],
+                             print_res=True)
+        
     # print_metrics(res, config['datasets'], ensemble_model.metrics_names, config['metrics']['top_k_arr'])
 
     # generate rankings for each evaluated dataset
@@ -229,25 +271,40 @@ def run_main(config):
         print('Generating csv file(s) with ranking(s)...')
 
         # add predictions to the data dict
-        for dataset in config['datasets']:
-            data[dataset]['score'] = scores[dataset].ravel()
-            data[dataset]['predicted class'] = scores_classification[dataset].ravel()
+        if not config['config']['multi_class']:
+            for dataset in config['datasets']:
+                data[dataset]['score'] = scores[dataset].ravel()
+                data[dataset]['predicted class'] = scores_classification[dataset].ravel()
+        else:
+           for dataset in config['datasets']:
+                for i in np.array(list(config['multiclass_class_labels'].keys()), dtype=np.int32):
+                    data[dataset][f'score_{config["multiclass_class_labels"][i]}'] = scores[dataset][:,i]
+
+                data[dataset]['predicted class'] = scores_classification[dataset]
 
         # write results to a txt file
         for dataset in config['datasets']:
             print(f'Saving ranked predictions in dataset {dataset} to '
                   f'{config["paths"]["experiment_dir"] / f"ranked_predictions_{dataset}"}...')
+            
+            #for a in data[dataset].keys():
+            #    print([str(a), str(len(data[dataset][a])), str(data[dataset][a])])
+            
+
             data_df = pd.DataFrame(data[dataset])
 
             # sort in descending order of output
-            data_df.sort_values(by='score', ascending=False, inplace=True)
+            if not config['config']['multi_class']:
+                data_df.sort_values(by='score', ascending=False, inplace=True)
+            else:
+                data_df.sort_values(by=f'score_{config["multiclass_class_labels"][np.max(np.array(list(config["multiclass_class_labels"].keys())))]}', ascending=False, inplace=True)
             data_df.to_csv(config['paths']['experiment_dir'] / f'ensemble_ranked_predictions_{dataset}set.csv',
                            index=False)
 
 
 if __name__ == '__main__':
 
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src/config_predict.yaml')
+    path_to_yaml = Path('/home6/hwei1/codebase2/src/config_predict.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 

@@ -2,9 +2,9 @@ ngpus_per_node: 1
 rank: null
 #experiment: &experiment_name
 paths:
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_yaml_config
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
-  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  experiment_dir: /nobackupp12/hwei1/tess_project/experiments/trained_models/TESS_model_multiclass_PC_AFP_NTP
+  tfrec_dir: /nobackupp12/hwei1/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized_EB_RELABELED
+  hpo_dir: /nobackupp12/hwei1/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
   branches: [
       'global_flux_view_fluxnorm',
@@ -41,7 +41,7 @@ config:
   use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: false  # switch to multiclass classification
+  multi_class: true  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -97,21 +97,21 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 2  # number of models in the ensemble
-  n_epochs: 2  # number of epochs used to train each model
+  n_models: 10  # number of models in the ensemble
+  n_epochs: 100  # number of epochs used to train each model
   use_kepler_ce: false
-  opt_metric: auc_pr
+  opt_metric: loss
   batch_size: 32
   ce_weights: null
   filter_data: null
 
 callbacks:
   early_stopping:
-    monitor: val_auc_pr  # which metric to monitor for early stopping
+    monitor: val_loss  # which metric to monitor for early stopping
     min_delta: 0
     patience: 20
     verbose: 1
-    mode: max  # maximize/minimize monitored metric in early stopping
+    mode: min  # maximize/minimize monitored metric in early stopping
     baseline: null
     restore_best_weights: true
   tensorboard:
@@ -125,8 +125,9 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 1
-  AFP: 0
+  PC: 2
+  AFP: 1
+  AFP2: 1
   NTP: 0
   # TESS
 #  KP: 1

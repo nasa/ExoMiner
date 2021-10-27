@@ -41,6 +41,19 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
 
     return metrics_list
 
+def get_metrics_multiclass():
+    """ Setup metrics to be monitored for multiclass. 
+    
+    :return:
+        metrics_list: list, metrics to be monitored
+    """
+
+    acc = keras.metrics.SparseCategoricalAccuracy(name='accuracy')
+
+    metrics_list = [acc]
+
+    return metrics_list
+    
 
 def compute_precision_at_k(labels, k_vals):
     """ Computes precision at k.

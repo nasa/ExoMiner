@@ -346,7 +346,7 @@ class CNN1dPlanetFinderv2(object):
             self.output_size = max(config['label_map'].values()) + 1
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
-
+        
         if 'branches' not in self.config:
             self.branches = ['global_flux_view', 'local_flux_view']
         else:
@@ -897,7 +897,7 @@ class MLPPlanetFinder(object):
         # model configuration (parameters and hyperparameters)
         self.config = config
         self.features = features
-
+        
         if self.config['multi_class'] or (not self.config['multi_class'] and self.config['force_softmax']):
             self.output_size = max(config['label_map'].values()) + 1
         else:  # binary classification with sigmoid output layer
@@ -1815,6 +1815,9 @@ def create_ensemble(features, models):
 
     single_models_outputs = [model(inputs) for model in models]
 
-    outputs = tf.keras.layers.Average()(single_models_outputs)
+    if len(single_models_outputs) == 1:
+        outputs = tf.keras.layers.Average()(single_models_outputs + single_models_outputs)
+    else: 
+        outputs = tf.keras.layers.Average()(single_models_outputs)
 
     return keras.Model(inputs=inputs, outputs=outputs)
