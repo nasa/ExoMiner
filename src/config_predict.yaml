@@ -2,10 +2,10 @@ ngpus_per_node: 1
 rank: null
 #experiment: &experiment_name
 paths:
-  experiment_dir: /nobackupp12/hwei1/tess_project/experiments/results_ensemble/TESS_model_evaluate_multiclass_PC_AFP_NTP
-  models_dir: /nobackupp12/hwei1/tess_project/experiments/trained_models/TESS_model_multiclass_PC_AFP_NTP
-  tfrec_dir: /nobackupp12/hwei1/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized_EB_RELABELED
-  hpo_dir: /nobackupp12/hwei1/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/results_ensemble/test_category_weighted_samples_kepler
+  models_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_category_weighted_samples_kepler
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
+  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
 data_fields: # scalar data from TFRecords to add to ranking table
   'target_id': 'int_scalar'
@@ -111,9 +111,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
 evaluation:
-  use_kepler_ce: false
   batch_size: 32
-  ce_weights: null
   filter_data: null
 
 callbacks:

@@ -1,0 +1,241 @@
+ngpus_per_node: 1  # number of GPUs per node
+rank: null
+n_processes_norm_data: 15  # number of processes to parallelize data normalization for each CV iteration
+rnd_seed: 2
+logger: null
+#experiment: &experiment_name
+paths:
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_test_10-6-2021
+  # TFRecord directory with the CV folds
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/data_exominer_configK_newsec_rbacnt0n/tfrecords
+  # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
+  # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
+  cv_folds: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_08-11-2021_05-30/cv_folds_runs.npy
+  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+
+generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
+
+data_fields: # scalar data from TFRecords to add to ranking table
+  'target_id': 'int_scalar'
+  'tce_plnt_num': 'int_scalar'
+  #  'oi': 'float_scalar'
+  'label': 'string'  # REQUIRED to run script
+  #  'TESS Disposition': 'string'
+  'tce_period': 'float_scalar'
+  'tce_duration': 'float_scalar'
+  'tce_time0bk': 'float_scalar'
+  'original_label': 'string'
+  'transit_depth': 'float_scalar'
+#  'tce_max_mult_ev': 'float_scalar'
+#  'tce_prad': 'float_scalar'
+#  'sigma_oot_odd': 'float_scalar'
+#  'sigma_it_odd': 'float_scalar'
+#  'sigma_oot_even': 'float_scalar'
+#  'sigma_it_even': 'float_scalar'
+
+config:
+  # branches used in ExoMiner
+  branches: [
+      'global_flux_view_fluxnorm',
+      'local_flux_view_fluxnorm',
+    # 'global_centr_fdl_view_norm',
+    # 'local_centr_fdl_view_norm',
+      'local_flux_oddeven_views',
+      'global_centr_view_std_noclip',
+      'local_centr_view_std_noclip',
+    # 'local_weak_secondary_view_fluxnorm',
+    # 'local_weak_secondary_view_selfnorm',
+      'local_weak_secondary_view_max_flux-wks_norm'
+  ]
+  non_lin_fn: prelu
+  #  'num_loc_conv_blocks': 2
+  #  'num_glob_conv_blocks': 5
+  #  'init_fc_neurons': 512
+  #  'num_fc_layers': 4
+  #  'pool_size_loc': 7
+  #  'pool_size_glob': 5
+  #  'pool_stride': 2
+  #  'conv_ls_per_block': 2
+  #  'init_conv_filters': 4
+  #  'kernel_size': 5
+  #  'kernel_stride': 1
+  #  'optimizer': 'Adam'
+  #  'lr': 1.0e-5
+  #  'batch_size': 64
+  #  'dropout_rate': 0.0
+  #  'dropout_rate_fc_conv': 0.0
+  #  'num_fc_conv_units': 0
+  weight_initializer: null
+  force_softmax: false
+  use_kepler_ce: false
+  decay_rate: null
+  batch_norm: false
+  multi_class: false  # switch to multiclass classification
+
+features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+  global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  # odd-even flux related features
+  local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  #  odd_std_oot_bin: {'dim': [1,], 'dtype': float}
+  #  even_std_oot_bin: {'dim': [1,], 'dtype': float}
+  #  'odd_se_oot': {'dim': [1,], 'dtype': float}
+  #  'even_se_oot': {'dim': [1,], 'dtype': float}
+  # centroid related features
+  # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
+  # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
+  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  mag_norm: {'dim': [1,], 'dtype': float}
+  # secondary related features
+  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float},
+  # local_weak_secondary_view_selfnorm: {'dim': [31, 1], 'dtype': float},
+  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
+  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  # other diagnostic parameters
+  boot_fap_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
+  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
+  # stellar parameters
+  tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_steff_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smet_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce parameters
+  tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+
+aux_params: # online data augmentation parameters and needed for normalization of some features
+  'num_bins_global': 301
+  'num_bins_local': 31
+  'num_transit_dur': 5
+
+training:
+  data_augmentation: false  # perform online data augmentation
+  n_models: 1  # number of models in the ensemble
+  n_epochs: 2  # number of epochs used to train each model
+  use_kepler_ce: false
+  opt_metric: auc_pr
+  batch_size: 32
+  category_weights: null  # weights for loss function
+#    PC: 1.0
+#    AFP: 1.0
+#    NTP: 1.0
+
+callbacks:
+  early_stopping:
+    monitor: val_auc_pr  # which metric to monitor for early stopping
+    min_delta: 0
+    patience: 20
+    verbose: 1
+    mode: max  # maximize/minimize monitored metric in early stopping
+    baseline: null
+    restore_best_weights: true
+#  tensorboard:
+#    histogram_freq: 1
+#    write_graph: true
+#    write_images: false
+#    update_freq: epoch
+#    profile_batch: 2
+#    embeddings_metadata: null
+#    embeddings_freq: 0
+
+label_map:
+  # Kepler
+  PC: 1
+  AFP: 0
+  NTP: 0
+  # TESS
+#  KP: 1
+#  CP: 1
+#  PC: 0
+#  FP: 0
+#  FA: 0
+#  EB: 0
+#  BEB: 0
+#  APC: 0
+#  O: 0
+
+metrics:
+  'clf_thr': 0.5  # classification threshold
+  'num_thr': 1000  # number of thresholds used to compute some metrics
+  'top_k_arr': # values of k for computing precision-at-k
+    'train': [ 100, 1000, 1818 ]
+    'val': [ 50, 150, 222 ]
+    'test': [ 50, 150, 251 ]
+  top_k_curve: # values of k for computing precision-at-k curve
+    train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
+    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+    test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+
+verbose: true
+
+# normalization information for computing statistics and standardizing scalar input features
+# must match scalar input features in the feature set
+scalar_params:
+  # stellar parameters
+  'tce_steff': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                 'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_slogg': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                 'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_smet': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_sradius': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                   'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_smass': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                 'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_sdens': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                 'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  # secondary
+  'tce_maxmes': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                  'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'wst_depth': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
+                 'clip_factor': 20, 'dtype': 'float', 'replace_value': 0 }
+  'tce_albedo_stat': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null, 'clip_factor': 20,
+                       'dtype': 'float', 'replace_value': null }
+  'tce_ptemp_stat': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null, 'clip_factor': 20,
+                      'dtype': 'float', 'replace_value': null }
+  # other diagnostics
+  'boot_fap': { 'missing_value': -1, 'log_transform': true, 'log_transform_eps': 1.0e-32,
+                'clip_factor': null, 'dtype': 'float', 'replace_value': null }
+  'tce_cap_stat': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
+                    'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_hap_stat': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
+                    'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  # 'tce_rb_tcount0': {'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+  #                    'clip_factor': null, 'dtype': 'int', 'replace_value': null}
+  'tce_rb_tcount0n': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                       'clip_factor': null, 'dtype': 'float', 'replace_value': null }
+  # centroid
+  'tce_fwm_stat': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null, 'clip_factor': 20,
+                    'dtype': 'float', 'replace_value': null }
+  'tce_dikco_msky': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
+                      'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_dicco_msky': { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
+                      'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_dikco_msky_err': { 'missing_value': -1, 'log_transform': false, 'log_transform_eps': null,
+                          'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_dicco_msky_err': { 'missing_value': -1, 'log_transform': false, 'log_transform_eps': null,
+                          'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  # TCE parameters
+  'transit_depth': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                     'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_period': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                  'clip_factor': 20, 'dtype': 'float', 'replace_value': null }
+  'tce_prad': { 'missing_value': null, 'log_transform': false, 'log_transform_eps': null,
+                'clip_factor': 20, 'dtype': 'float', 'replace_value': null }

@@ -1,0 +1,301 @@
+ngpus_per_node: 1  # number of GPUs per node
+rank: null
+
+paths:
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/hpo_configs/test_yaml
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
+  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  prev_run_dir: null  # warm-up from previous HPO run
+
+optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
+# if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
+min_budget: 1  # 6  # budget in this case is number of epochs a given configuration is evaluated on
+max_budget: 10  # 50
+n_iterations: 1
+eta: 2  # down-sampling rate, must be greater or equal to 2, hyperband parameter; check [1]
+# BOHB and BO parameters
+bohb_params:
+  top_n_percent: 15
+  num_samples: 64
+  random_fraction: 0.333
+  bandwidth_factor: 3
+  min_bandwidth: 1.0e-3
+hpo_loss: auc_pr  # metric used to evaluate the performance of a given configuration on the validation set
+# number of models trained per configuration evaluated on a given budget
+# used to decrease the variability due to random weights initialization
+ensemble_n: 2
+nic_name: lo  # 'ib0' or 'lo'; 'ib0' to run on a cluster, 'lo' to run on a local host
+
+config: # fixed parameters
+  # branches used in ExoMiner
+  branches: [
+      'global_flux_view_fluxnorm',
+      'local_flux_view_fluxnorm',
+    # 'global_centr_fdl_view_norm',
+    # 'local_centr_fdl_view_norm',
+      'local_flux_oddeven_views',
+      'global_centr_view_std_noclip',
+      'local_centr_view_std_noclip',
+    # 'local_weak_secondary_view_fluxnorm',
+    # 'local_weak_secondary_view_selfnorm',
+      'local_weak_secondary_view_max_flux-wks_norm'
+  ]
+  non_lin_fn: prelu
+  #  'num_loc_conv_blocks': 2
+  #  'num_glob_conv_blocks': 5
+  #  'init_fc_neurons': 512
+  #  'num_fc_layers': 4
+  #  'pool_size_loc': 7
+  #  'pool_size_glob': 5
+  #  'pool_stride': 2
+  #  'conv_ls_per_block': 2
+  #  'init_conv_filters': 4
+  #  'kernel_size': 5
+  #  'kernel_stride': 1
+  #  'optimizer': 'Adam'
+  #  'lr': 1.0e-5
+  #  'batch_size': 64
+  #  'dropout_rate': 0.0
+  #  'dropout_rate_fc_conv': 0.0
+  #  'num_fc_conv_units': 0
+  weight_initializer: null
+  force_softmax: false
+  use_kepler_ce: false
+  decay_rate: null
+  batch_norm: false
+  multi_class: false  # switch to multiclass classification
+
+features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+  global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  # odd-even flux related features
+  local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  #  odd_std_oot_bin: {'dim': [1,], 'dtype': float}
+  #  even_std_oot_bin: {'dim': [1,], 'dtype': float}
+  #  'odd_se_oot': {'dim': [1,], 'dtype': float}
+  #  'even_se_oot': {'dim': [1,], 'dtype': float}
+  # centroid related features
+  # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
+  # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
+  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  mag_norm: {'dim': [1,], 'dtype': float}
+  # secondary related features
+  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float},
+  # local_weak_secondary_view_selfnorm: {'dim': [31, 1], 'dtype': float},
+  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
+  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  # other diagnostic parameters
+  boot_fap_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
+  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
+  # stellar parameters
+  tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_steff_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smet_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce parameters
+  tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+
+training:
+  data_augmentation: false  # perform online data augmentation
+  online_preprocessing_params: # online data augmentation parameters
+    'num_bins_global': 301
+    'num_bins_local': 31
+    'num_transit_dur': 5
+  n_models: 1  # number of models in the ensemble
+  n_epochs: 300  # number of epochs used to train each model
+  use_kepler_ce: false
+  opt_metric: auc_pr
+  batch_size: 32
+  ce_weights: null
+  filter_data: null
+  category_weights:
+    PC: 1.0
+    AFP: 1.0
+    NTP: 1.0
+
+callbacks:
+  early_stopping:
+    monitor: val_auc_pr  # which metric to monitor for early stopping
+    min_delta: 0
+    patience: 20
+    verbose: 1
+    mode: max  # maximize/minimize monitored metric in early stopping
+    baseline: null
+    restore_best_weights: true
+  tensorboard:
+    histogram_freq: 1
+    write_graph: true
+    write_images: false
+    update_freq: epoch
+    profile_batch: 2
+    embeddings_metadata: null
+    embeddings_freq: 0
+
+label_map:
+  # Kepler
+  PC: 1
+  AFP: 0  # [1,0,0]
+  #  AFP2: [1, 0, 0]
+  NTP: 0
+  # TESS
+#  KP: 1
+#  CP: 1
+#  PC: 0
+#  FP: 0
+#  FA: 0
+#  EB: 0
+#  BEB: 0
+#  APC: 0
+#  O: 0
+
+metrics:
+  'clf_thr': 0.5  # classification threshold
+  'num_thr': 1000  # number of thresholds used to compute some metrics
+#  'top_k_arr': # values of k for computing precision-at-k
+#    'train': [ 100, 1000, 1818 ]
+#    'val': [ 50, 150, 222 ]
+#    'test': [ 50, 150, 251 ]
+#  top_k_curve: # values of k for computing precision-at-k curve
+#    train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
+#    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+#    test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+
+datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
+verbose: true
+satellite: kepler
+
+configuration_space:
+  hyperparameters: # hyper-parameters to be optimized (they will overwrite hyper-parameters set in config
+    lr: # name (should match name expected in model function)
+      type: uniform_float  # type of hyper-parameter
+      parameters:
+        lower: 1.0e-6
+        upper: 1.0e-1
+        default_value: 1e-2
+        log: true
+    optimizer:
+      type: categorical
+      parameters: [ 'Adam', 'SGD' ]
+    sgd_momentum:
+      type: uniform_float
+      parameters:
+        lower: 1.0e-3
+        upper: 0.99
+        default_value: 0.9
+        log: true
+
+    #  batch_size:
+    #    type: categorical
+    #    parameters: [ 4, 8, 26, 32, 64, 128, 256 ]
+
+    #    weight_initializer:
+    #      type: categorical
+    #      parameters: [ 'he', 'glorot' ]
+
+    #    batch_norm:
+    #      type: categorical
+    #      parameters: [ true, false' ]
+
+    #    non_lin_fn:
+    #      type: categorical
+    #      parameters: [ 'relu', 'prelu' ]
+
+    num_loc_conv_blocks:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 5
+        default_value: 2
+    num_glob_conv_blocks:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 5
+        default_value: 3
+    conv_ls_per_block:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+    init_conv_filters:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 6
+        default_value: 4
+    kernel_size:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 8
+        default_value: 2
+    kernel_stride:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 2
+        default_value: 1
+
+    pool_size_loc:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 8
+        default_value: 2
+    pool_size_glob:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 8
+        default_value: 2
+
+    dropout_rate_fc_conv:
+      type: uniform_float
+      parameters:
+        lower: 1.0e-3
+        upper: 2.0e-1
+        default_value: 0.2
+        log: true
+
+    num_fc_layers:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 4
+        default_value: 2
+    init_fc_neurons:
+      type: categorical
+      parameters: [ 32, 64, 128, 256, 512 ]
+    dropout_rate:
+      type: uniform_float
+      parameters:
+        lower: 1.0e-3
+        upper: 2.0e-1
+        default_value: 0.2
+        log: true
+
+  conditions:
+    sgd_momentum:
+      type: equal
+      child: sgd_momentum
+      parent: optimizer
+      value: SGD

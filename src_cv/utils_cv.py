@@ -102,8 +102,8 @@ def compute_normalization_stats(scalar_params, train_data_fps, aux_params, norm_
     ts_centr_fdl = ['global_centr_fdl_view', 'local_centr_fdl_view']
     ts_centr_fdl_data = {ts: [] for ts in ts_centr_fdl}
 
-    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(aux_params['num_bins_loc'],
-                                                              aux_params['nr_transit_durations'])  # same for all TCEs
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(aux_params['num_bins_local'],
+                                                              aux_params['num_transit_dur'])  # same for all TCEs
 
     # our centroid time series normalization statistics parameters
     ts_centr = ['global_centr_view', 'local_centr_view']
@@ -132,7 +132,7 @@ def compute_normalization_stats(scalar_params, train_data_fps, aux_params, norm_
             # get FDL centroid time series data
             transitDuration = example.features.feature['tce_duration'].float_list.value[0]
             orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(aux_params['num_bins_glob'],
+            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(aux_params['num_bins_global'],
                                                                         transitDuration,
                                                                         orbitalPeriod)
             for ts in ts_centr_fdl:
@@ -176,7 +176,7 @@ def compute_normalization_stats(scalar_params, train_data_fps, aux_params, norm_
         if scalar_params[scalar_param]['log_transform']:
 
             # add constant value
-            if not np.isnan(scalar_params[scalar_param]['log_transform_eps']):
+            if scalar_params[scalar_param]['log_transform_eps'] is not None:
                 scalar_param_vals += scalar_params[scalar_param]['log_transform_eps']
 
             scalar_param_vals = np.log10(scalar_param_vals)
@@ -275,8 +275,8 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
     """
 
     # get out-of-transit indices for the local views
-    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(aux_params['num_bins_loc'],
-                                                              aux_params['nr_transit_durations'])  # same for all TCEs
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(aux_params['num_bins_local'],
+                                                              aux_params['num_transit_dur'])  # same for all TCEs
 
     with tf.io.TFRecordWriter(str(norm_data_dir / src_data_fp.name)) as writer:
 
@@ -323,21 +323,21 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
                     not (replace_flag and scalar_param_val == norm_stats['scalar_params'][scalar_param]['median']):
 
                     # add constant value
-                    if not np.isnan(norm_stats['scalar_params'][scalar_param]['info']['log_transform_eps']):
+                    if norm_stats['scalar_params'][scalar_param]['info']['log_transform_eps'] is not None:
                         scalar_param_val += norm_stats['scalar_params'][scalar_param]['info']['log_transform_eps']
 
                     scalar_param_val = np.log10(scalar_param_val)
 
                 # clipping the data
-                if not np.isnan(norm_stats['scalar_params'][scalar_param]['info']['clip_factor']):
+                if norm_stats['scalar_params'][scalar_param]['info']['clip_factor'] is not None:
                     scalar_param_val = np.clip([scalar_param_val],
-                                             norm_stats['scalar_params'][scalar_param]['median'] -
-                                             norm_stats['scalar_params'][scalar_param]['info']['clip_factor'] *
-                                             norm_stats['scalar_params'][scalar_param]['mad_std'],
-                                             norm_stats['scalar_params'][scalar_param]['median'] +
-                                             norm_stats['scalar_params'][scalar_param]['info']['clip_factor'] *
-                                             norm_stats['scalar_params'][scalar_param]['mad_std']
-                                             )[0]
+                                               norm_stats['scalar_params'][scalar_param]['median'] -
+                                               norm_stats['scalar_params'][scalar_param]['info']['clip_factor'] *
+                                               norm_stats['scalar_params'][scalar_param]['mad_std'],
+                                               norm_stats['scalar_params'][scalar_param]['median'] +
+                                               norm_stats['scalar_params'][scalar_param]['info']['clip_factor'] *
+                                               norm_stats['scalar_params'][scalar_param]['mad_std']
+                                               )[0]
                 # TODO: replace by clipping after standardization with [-clip_factor, clip_factor]
 
                 # standardization
@@ -351,7 +351,7 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
             # get out-of-transit indices for the global views
             transit_duration = example.features.feature['tce_duration'].float_list.value[0]
             orbital_period = example.features.feature['tce_period'].float_list.value[0]
-            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(aux_params['num_bins_glob'],
+            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(aux_params['num_bins_global'],
                                                                         transit_duration,
                                                                         orbital_period)
             # compute oot global and local flux views std
@@ -453,12 +453,12 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
             writer.write(example.SerializeToString())
 
 
-def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
-
+def processing_data_run(data_shards_fps, run_params, cv_run_dir):
     norm_stats_dir = cv_run_dir / 'norm_stats'
     norm_stats_dir.mkdir(exist_ok=True)
 
-    logger.info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
     # if run_params['cv_id'] == 1:
     #     aaa
     # with tf.device('/gpu:0'):
@@ -468,7 +468,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
     p = multiprocessing.Process(target=compute_normalization_stats,
                                 args=(run_params['scalar_params'],
                                       data_shards_fps['train'],
-                                      run_params['norm'],
+                                      run_params['aux_params'],
                                       norm_stats_dir,
                                       False))
     p.start()
@@ -479,7 +479,8 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
     #                                   norm_stats_dir,
     #                                   False)
 
-    logger.info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data')
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data')
     norm_data_dir = cv_run_dir / 'norm_data'
     norm_data_dir.mkdir(exist_ok=True)
 
@@ -491,7 +492,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
     }
 
     pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
-    jobs = [(file, norm_stats, run_params['norm'], norm_data_dir)
+    jobs = [(file, norm_stats, run_params['aux_params'], norm_data_dir)
             for file in np.concatenate(list(data_shards_fps.values()))]
     async_results = [pool.apply_async(normalize_data, job) for job in jobs]
     pool.close()
@@ -504,22 +505,22 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir, logger=None):
     return data_shards_fps_norm
 
 
-def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, res_dir, online_preproc_params,
-                data_augmentation, callbacks_dict, opt_metric, min_optmetric, logger, verbose=False):
-
+def train_model(config, model_id, data_fps, res_dir):
     model_dir = res_dir / 'models'
     model_dir.mkdir(exist_ok=True)
     model_dir_sub = model_dir / f'model{model_id}'
     model_dir_sub.mkdir(exist_ok=True)
 
-    if 'tensorboard' in callbacks_dict:
-        callbacks_dict['tensorboard'].log_dir = model_dir_sub
+    if 'tensorboard' in config['callbacks']:
+        config['callbacks']['tensorboard']['obj'].log_dir = model_dir_sub
+    callbacks_list = [config['callbacks'][callback_config]['obj'] for callback_config in config['callbacks']]
 
     # instantiate Keras model
-    model = base_model(config, features_set).kerasModel
+    model = config['base_model'](config, config['features_set']).kerasModel
 
     if model_id == 0:
-        model.summary(print_fn=logger.info)
+        if config['logger'] is not None:
+            model.summary(print_fn=config['logger'].info)
         plot_model(model,
                    to_file=model_dir_sub / 'model.png',
                    show_shapes=False,
@@ -529,10 +530,10 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
                    dpi=96)
 
     # setup metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['clf_thr'], num_thresholds=config['num_thr'])
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'], num_thresholds=config['metrics']['num_thr'])
 
-    if config['optimizer'] == 'Adam':
-        model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+    if config['config']['optimizer'] == 'Adam':
+        model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                 beta_1=0.9,
                                                 beta_2=0.999,
                                                 epsilon=1e-8,
@@ -546,8 +547,8 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
                       metrics=metrics_list)
 
     else:
-        model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                               momentum=config['sgd_momentum'],
+        model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                               momentum=config['config']['sgd_momentum'],
                                                nesterov=False,
                                                name='SGD'),  # optimizer
                       # loss function to minimize
@@ -559,26 +560,27 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
 
     # input function for training, validation and test
     train_input_fn = InputFn(filepaths=data_fps['train'],
-                             batch_size=config['batch_size'],
+                             batch_size=config['training']['batch_size'],
                              mode='TRAIN',
                              label_map=config['label_map'],
-                             data_augmentation=data_augmentation,
-                             online_preproc_params=online_preproc_params,
-                             features_set=features_set)
+                             data_augmentation=config['training']['data_augmentation'],
+                             online_preproc_params=config['aux_params'],
+                             features_set=config['features_set'],
+                             category_weights=config['training']['category_weights'])
     val_input_fn = InputFn(filepaths=data_fps['val'],
-                           batch_size=config['batch_size'],
+                           batch_size=config['training']['batch_size'],
                            mode='EVAL',
                            label_map=config['label_map'],
-                           features_set=features_set)
+                           features_set=config['features_set'])
 
     # fit the model to the training data
     # logger.info(f'[model_{model_id}] Training model...')
     history = model.fit(x=train_input_fn(),
                         y=None,
                         batch_size=None,
-                        epochs=n_epochs,
-                        verbose=verbose,
-                        callbacks=list(callbacks_dict.values()),
+                        epochs=config['training']['n_epochs'],
+                        verbose=config['verbose'],
+                        callbacks=callbacks_list,
                         validation_split=0.,
                         validation_data=val_input_fn(),
                         shuffle=True,  # does the input function shuffle for every epoch?
@@ -605,30 +607,29 @@ def train_model(model_id, base_model, n_epochs, config, features_set, data_fps, 
     print(f'[model_{model_id}] Plotting evaluation results...')
     epochs = np.arange(1, len(res['loss']) + 1)
     # choose epoch associated with the best value for the metric
-    if 'early_stopping' in callbacks_dict:
-        if min_optmetric:
-            ep_idx = np.argmin(res[f'val_{opt_metric}'])
+    if 'early_stopping' in config['callbacks']:
+        if config['callbacks']['early_stopping']['mode'] == 'min':
+            ep_idx = np.argmin(res[config['callbacks']['early_stopping']['monitor']])
         else:
-            ep_idx = np.argmax(res[f'val_{opt_metric}'])
+            ep_idx = np.argmax(res[config['callbacks']['early_stopping']['monitor']])
     else:
         ep_idx = -1
     # plot evaluation loss and metric curves
     utils_train.plot_loss_metric(res,
                                  epochs,
                                  ep_idx,
-                                 opt_metric,
+                                 config['training']['opt_metric'],
                                  res_dir / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg')
 
 
-def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
-                  logger, verbose=False):
+def eval_ensemble(models_filepaths, config, data_fps, res_dir):
     datasets = list(data_fps.keys())
 
     # instantiate variable to get data from the TFRecords
-    data = {dataset: {field: [] for field in data_fields} for dataset in datasets}
+    data = {dataset: {field: [] for field in config['data_fields']} for dataset in datasets}
     for dataset in datasets:
         for data_fp in data_fps[dataset]:
-            data_aux = get_data_from_tfrecord(str(data_fp), data_fields, config['label_map'])
+            data_aux = get_data_from_tfrecord(str(data_fp), config['data_fields'], config['label_map'])
 
             for field in data_aux:
                 data[dataset][field].extend(data_aux[field])
@@ -647,16 +648,17 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=features_set, models=model_list)
+    ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
 
-    ensemble_model.summary(print_fn=logger.info)
+    if config['logger'] is not None:
+        ensemble_model.summary(print_fn=config['logger'].info)
 
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'])
 
     # compile model - set optimizer, loss and metrics
-    if config['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+    if config['config']['optimizer'] == 'Adam':
+        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                          beta_1=0.9,
                                                          beta_2=0.999,
                                                          epsilon=1e-8,
@@ -670,8 +672,8 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
                                metrics=metrics_list)
 
     else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                        momentum=config['sgd_momentum'],
+        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                        momentum=config['config']['sgd_momentum'],
                                                         nesterov=False,
                                                         name='SGD'),  # optimizer
                                # loss function to minimize
@@ -688,16 +690,16 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
         # logger.info(f'[ensemble] Evaluating on dataset {dataset}')
         # input function for evaluating on each dataset
         eval_input_fn = InputFn(filepaths=data_fps[dataset],
-                                batch_size=config['batch_size'],
+                                batch_size=config['training']['batch_size'],
                                 mode="EVAL",
                                 label_map=config['label_map'],
-                                features_set=features_set)
+                                features_set=config['features_set'])
 
         # evaluate model in the given dataset
         res_eval = ensemble_model.evaluate(x=eval_input_fn(),
                                            y=None,
                                            batch_size=None,
-                                           verbose=verbose,
+                                           verbose=config['verbose'],
                                            sample_weight=None,
                                            steps=None,
                                            callbacks=None,
@@ -715,14 +717,14 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
         print(f'[ensemble] Predicting on dataset {dataset}...')
 
         predict_input_fn = InputFn(filepaths=data_fps[dataset],
-                                   batch_size=config['batch_size'],
+                                   batch_size=config['training']['batch_size'],
                                    mode='PREDICT',
                                    label_map=config['label_map'],
-                                   features_set=features_set)
+                                   features_set=config['features_set'])
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
-                                                 verbose=verbose,
+                                                 verbose=config['verbose'],
                                                  steps=None,
                                                  callbacks=None,
                                                  max_queue_size=10,
@@ -733,7 +735,7 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
+        scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in data_fps}
@@ -744,7 +746,7 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
                 output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
                                                                               original_label)]
         else:
-            output_cl[dataset]['NTP'] = scores[dataset]
+            output_cl[dataset]['NA'] = scores[dataset]
 
     # compute precision at top-k
     labels_sorted = {}
@@ -754,12 +756,13 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
         sorted_idxs = np.argsort(scores[dataset], axis=0).squeeze()
         labels_sorted[dataset] = data[dataset]['label'][sorted_idxs].squeeze()
 
-        for k_i in range(len(config['k_arr'][dataset])):
-            if len(sorted_idxs) < config['k_arr'][dataset][k_i]:
-                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = np.nan
+        for k_i in range(len(config['metrics']['top_k_arr'][dataset])):
+            if len(sorted_idxs) < config['metrics']['top_k_arr'][dataset][k_i]:
+                res[f'{dataset}_precision_at_{config["metrics"]["top_k_arr"][dataset][k_i]}'] = np.nan
             else:
-                res[f'{dataset}_precision_at_{config["k_arr"][dataset][k_i]}'] = \
-                    np.sum(labels_sorted[dataset][-config['k_arr'][dataset][k_i]:]) / config['k_arr'][dataset][k_i]
+                res[f'{dataset}_precision_at_{config["metrics"]["top_k_arr"][dataset][k_i]}'] = \
+                    np.sum(labels_sorted[dataset][-config['metrics']['top_k_arr'][dataset][k_i]:]) / \
+                    config['metrics']['top_k_arr'][dataset][k_i]
 
     # save evaluation metrics in a numpy file
     print('[ensemble] Saving metrics to a numpy file...')
@@ -771,17 +774,22 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
         plot_class_distribution(output_cl[dataset],
                                 res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
         if dataset != 'predict':
+            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
             utils_predict.plot_prcurve_roc(res, res_dir, dataset)
             plot_precision_at_k(labels_sorted[dataset],
-                                config['k_curve_arr'][dataset],
+                                k_curve_arr,
                                 res_dir / f'{dataset}')
 
     print('[ensemble] Saving metrics to a txt file...')
-    utils_predict.save_metrics_to_file(res_dir, res, datasets, ensemble_model.metrics_names, config['k_arr'],
+    utils_predict.save_metrics_to_file(res_dir,
+                                       res,
+                                       datasets,
+                                       ensemble_model.metrics_names,
+                                       config['metrics']['top_k_arr'],
                                        models_filepaths, print_res=True)
 
     # generate rankings for each evaluated dataset
-    if generate_csv_pred:
+    if config['generate_csv_pred']:
 
         print('[ensemble] Generating csv file(s) with ranking(s)...')
 
@@ -814,15 +822,14 @@ def eval_ensemble(models_filepaths, config, features_set, data_fps, data_fields,
                dpi=96)
 
 
-def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fields, generate_csv_pred, res_dir,
-                     logger, verbose=False):
+def predict_ensemble(models_filepaths, config, data_fps, res_dir):
     datasets = list(data_fps.keys())
 
     # instantiate variable to get data from the TFRecords
-    data = {dataset: {field: [] for field in data_fields} for dataset in datasets}
+    data = {dataset: {field: [] for field in config['data_fields']} for dataset in datasets}
     for dataset in datasets:
         for data_fp in data_fps[dataset]:
-            data_aux = get_data_from_tfrecord(str(data_fp), data_fields, config['label_map'])
+            data_aux = get_data_from_tfrecord(str(data_fp), config['data_fields'], config['label_map'])
 
             for field in data_aux:
                 data[dataset][field].extend(data_aux[field])
@@ -841,16 +848,19 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
 
         model_list.append(model)
 
-    ensemble_model = create_ensemble(features=features_set, models=model_list)
+    if len(model_list) == 1:
+        ensemble_model = model_list[0]
+    else:
+        ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
 
     ensemble_model.summary()
 
     # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['clf_thr'])
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'])
 
     # compile model - set optimizer, loss and metrics
-    if config['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['lr'],
+    if config['config']['optimizer'] == 'Adam':
+        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
                                                          beta_1=0.9,
                                                          beta_2=0.999,
                                                          epsilon=1e-8,
@@ -864,8 +874,8 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                                metrics=metrics_list)
 
     else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['lr'],
-                                                        momentum=config['sgd_momentum'],
+        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
+                                                        momentum=config['config']['sgd_momentum'],
                                                         nesterov=False,
                                                         name='SGD'),  # optimizer
                                # loss function to minimize
@@ -881,14 +891,14 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
         print(f'[ensemble] Predicting on dataset {dataset}...')
 
         predict_input_fn = InputFn(filepaths=data_fps[dataset],
-                                   batch_size=config['batch_size'],
+                                   batch_size=config['evaluation']['batch_size'],
                                    mode='PREDICT',
                                    label_map=config['label_map'],
-                                   features_set=features_set)
+                                   features_set=config['features_set'])
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
-                                                 verbose=verbose,
+                                                 verbose=config['verbose'],
                                                  steps=None,
                                                  callbacks=None,
                                                  max_queue_size=10,
@@ -899,7 +909,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8') for dataset in datasets}
     for dataset in datasets:
         # threshold for classification
-        scores_classification[dataset][scores[dataset] >= config['clf_thr']] = 1
+        scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
 
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in data_fps}
@@ -910,7 +920,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                 output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
                                                                               original_label)]
         else:
-            output_cl[dataset]['NTP'] = scores[dataset]
+            output_cl[dataset]['NA'] = scores[dataset]
 
     print('[ensemble] Plotting evaluation results...')
     # draw evaluation plots
@@ -919,7 +929,7 @@ def predict_ensemble(models_filepaths, config, features_set, data_fps, data_fiel
                                 res_dir / f'ensemble_class_scoredistribution_{dataset}.png')
 
     # generate rankings for each evaluated dataset
-    if generate_csv_pred:
+    if config['generate_csv_pred']:
 
         print('[ensemble] Generating csv file(s) with ranking(s)...')
 
