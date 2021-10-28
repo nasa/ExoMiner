@@ -2,8 +2,8 @@ ngpus_per_node: 1
 rank: null
 #experiment: &experiment_name
 paths:
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/results_ensemble/test_category_weighted_samples_kepler
-  models_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_category_weighted_samples_kepler
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/results_ensemble/test_multiclass_hongbo
+  models_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_multiclass_hongbo
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
@@ -60,7 +60,8 @@ config:
   use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: false  # switch to multiclass classification
+  multi_class: true  # switch to multiclass classification
+
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -125,8 +126,9 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 1
-  AFP: 0
+  PC: 2
+  AFP: 1
+  AFP2: 1
   NTP: 0
   # TESS
 #  KP: 1
@@ -138,6 +140,11 @@ label_map:
 #  BEB: 0
 #  APC: 0
 #  O: 0
+
+#multiclass_class_labels:
+#  2: 'PC'
+#  1: 'AFP'
+#  0: 'NTP'
 
 metrics:
   'clf_thr': 0.5  # classification threshold
@@ -152,6 +159,6 @@ metrics:
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
 # datasets in which the ensemble is run - same name convention as used for the TFRecords
-datasets: [ 'train', 'val', 'test' ]
+datasets: [ 'test' ]
 verbose: true
 satellite: kepler

@@ -287,10 +287,9 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
                     else:
                         res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-            if prec_at_top is not None:
-                for k in prec_at_top[dataset]:
-                    res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                                     res['{}_precision_at_{}'.format(dataset, k)]))
+            for k in prec_at_top[dataset]:
+                res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                                 res['{}_precision_at_{}'.format(dataset, k)]))
 
             res_file.write('\n')
 

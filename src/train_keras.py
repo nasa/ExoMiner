@@ -22,8 +22,8 @@ import yaml
 from models import baseline_configs
 from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
 from src.utils_dataio import get_data_from_tfrecord
-from models.models_keras import CNN1dPlanetFinderv2
-from src.utils_metrics import get_metrics, compute_precision_at_k
+from models.models_keras import CNN1dPlanetFinderv2, compile_model
+from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
@@ -95,33 +95,14 @@ def run_main(config, base_model, model_id):
         model.summary()
 
     # setup metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'], num_thresholds=config['metrics']['num_thr'])
-
-    if config['config']['optimizer'] == 'Adam':
-        model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                beta_1=0.9,
-                                                beta_2=0.999,
-                                                epsilon=1e-8,
-                                                amsgrad=False,
-                                                name='Adam'),  # optimizer
-                      # loss function to minimize
-                      loss=losses.BinaryCrossentropy(from_logits=False,
-                                                     label_smoothing=0,
-                                                     name='binary_crossentropy'),
-                      # list of metrics to monitor
-                      metrics=metrics_list)
-
+    if not config['config']['multi_class']:
+        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                                   num_thresholds=config['metrics']['num_thr'])
     else:
-        model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                               momentum=config['config']['sgd_momentum'],
-                                               nesterov=False,
-                                               name='SGD'),  # optimizer
-                      # loss function to minimize
-                      loss=losses.BinaryCrossentropy(from_logits=False,
-                                                     label_smoothing=0,
-                                                     name='binary_crossentropy'),
-                      # list of metrics to monitor
-                      metrics=metrics_list)
+        metrics_list = get_metrics_multiclass()
+
+    # compile model - set optimizer, loss and metrics
+    model = compile_model(model, config, metrics_list)
 
     # input function for training, validation and test
     train_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/train*',
@@ -225,11 +206,15 @@ def run_main(config, base_model, model_id):
     for dataset in config['datasets']:
         if dataset == 'predict':
             continue
-        sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-        labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
-        prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
-        res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
-                    for k_val in config['metrics']['top_k_arr'][dataset]})
+        if not config['config']['multi_class']:
+            sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
+            labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
+            prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
+            res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
+                        for k_val in config['metrics']['top_k_arr'][dataset]})
+        else:
+            res.update({f'{dataset}_precision_at_{k_val}': np.nan
+                        for k_val in config['metrics']['top_k_arr'][dataset]})
 
     # save results in a numpy file
     res_fp = model_dir_sub / 'results.npy'
@@ -258,14 +243,15 @@ def run_main(config, base_model, model_id):
     # plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx,
     # os.path.join(res_dir, 'model{}_prec_rec_auc.svg'.format(model_id)))
     # plot pr curve
-    plot_pr_curve(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_prec_rec.svg')
-    # plot roc
-    plot_roc(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_roc.svg')
-    # plot precision-at-k and misclassfied-at-k examples curves
-    for dataset in config['datasets']:
-        k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
-        plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
-                            config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
+    if not config['config']['multi_class']:
+        plot_pr_curve(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_prec_rec.svg')
+        # plot roc
+        plot_roc(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_roc.svg')
+        # plot precision-at-k and misclassfied-at-k examples curves
+        for dataset in config['datasets']:
+            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
+            plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
+                                config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, config['datasets'], ep_idx, model.metrics_names,
@@ -277,6 +263,7 @@ def run_main(config, base_model, model_id):
 if __name__ == '__main__':
 
     path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src/config_train.yaml')
+
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -371,13 +358,13 @@ if __name__ == '__main__':
     if config['rank'] == 0:
         # save the YAML file with training-evaluation parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-        with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+        with open(config['paths']['experiment_dir'] / 'train_params.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
 
     # comment for multiprocessing using MPI
     for model_i in range(config["training"]["n_models"]):
-        print(
-            f'Training model {model_i + 1} out of {config["training"]["n_models"]} on {config["training"]["n_epochs"]} epochs...')
+        print(f'Training model {model_i + 1} out of {config["training"]["n_models"]} on '
+              f'{config["training"]["n_epochs"]} epochs...')
         run_main(config=config,
                  base_model=BaseModel,
                  model_id=model_i + 1,
@@ -385,9 +372,10 @@ if __name__ == '__main__':
 
     # # uncomment for multiprocessing using MPI
     # if config['rank'] < config['training']['n_models']:
-    #     print(f'Training model {config["rank"] + 1} out of {config["training"]["n_models"]} on {config["training"]["n_epochs"}')
+    #     print(f'Training model {config["rank"] + 1} out of {config["training"]["n_models"]} on '
+    #           f'{config["training"]["n_epochs"]}')
     #     sys.stdout.flush()
     #     run_main(config=config,
     #              base_model=BaseModel,
-    #              model_id = config['rank'] + 1,
+    #              model_id=config['rank'] + 1,
     #              )

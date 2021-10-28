@@ -4,7 +4,8 @@
 import operator
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import regularizers
+from tensorflow.keras import regularizers, losses, optimizers
+import numpy as np
 
 
 class CNN1dPlanetFinderv1(object):
@@ -329,7 +330,7 @@ class CNN1dPlanetFinderv2(object):
 
         if self.config['multi_class'] or \
                 (not self.config['multi_class'] and self.config['force_softmax']):
-            self.output_size = len(config['label_map'])
+            self.output_size = len(np.unique(list(config['label_map'].values())))
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
@@ -1746,6 +1747,45 @@ def create_ensemble(features, models):
 
     single_models_outputs = [model(inputs) for model in models]
 
-    outputs = tf.keras.layers.Average()(single_models_outputs)
+    if len(single_models_outputs) == 1:
+        outputs = single_models_outputs
+    else:
+        outputs = tf.keras.layers.Average()(single_models_outputs)
 
     return keras.Model(inputs=inputs, outputs=outputs)
+
+
+def compile_model(model, config, metrics_list):
+    """ Compile model.
+
+    :param model: Keras model
+    :param config: dict, configuration parameters
+    :param metrics_list: list, monitored metrics
+    :return:
+        compiled model
+    """
+
+    # set loss
+    if config['config']['multi_class']:  # multiclass
+        model_loss = losses.SparseCategoricalCrossentropy(from_logits=False, name='sparse_categorical_crossentropy')
+    else:
+        model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
+
+    # set optimizer
+    if config['config']['optimizer'] == 'Adam':
+        model_optimizer = optimizers.Adam(learning_rate=config['config']['lr'],
+                                          beta_1=0.9,
+                                          beta_2=0.999,
+                                          epsilon=1e-8,
+                                          amsgrad=False,
+                                          name='Adam')
+    else:  # SGD
+        model_optimizer = optimizers.SGD(learning_rate=config['config']['lr'],
+                                         momentum=config['config']['sgd_momentum'],
+                                         nesterov=False,
+                                         name='SGD')
+
+    # compile model with chosen optimizer, loss and monitored metrics
+    model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
+
+    return model
