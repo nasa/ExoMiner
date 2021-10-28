@@ -130,9 +130,10 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 1
-  AFP: 0
-  NTP: 0
+  PC: [0,0,1]
+  AFP: [1,0,0]
+  AFP2: [1, 0, 0]
+  NTP: [0,1,0]
   # TESS
 #  KP: 1
 #  CP: 1
