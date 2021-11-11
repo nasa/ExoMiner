@@ -105,10 +105,10 @@ training:
   batch_size: 32
   ce_weights: null
   filter_data: null
-  category_weights:
-    PC: 1.0
-    AFP: 1.0
-    NTP: 1.0
+  category_weights: null
+#    PC: 1.0
+#    AFP: 1.0
+#    NTP: 1.0
 
 callbacks:
   early_stopping:
@@ -130,9 +130,9 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 2
-  AFP: 1
-  AFP2: 1
+  PC: 1
+  AFP: 0
+  # AFP2: 1
   NTP: 0
   # TESS
 #  KP: 1

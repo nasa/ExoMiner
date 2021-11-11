@@ -16,10 +16,10 @@ from tensorflow.keras.utils import plot_model as plot_model
 # local
 import src.utils_predict as utils_predict
 import src.utils_train as utils_train
-from models.models_keras import create_ensemble
+from models.models_keras import create_ensemble, compile_model
 from src.utils_dataio import InputFnCV as InputFn
 from src.utils_dataio import get_data_from_tfrecord
-from src.utils_metrics import get_metrics
+from src.utils_metrics import get_metrics, get_metrics_multiclass
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util import example_util
@@ -506,6 +506,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
 
 
 def train_model(config, model_id, data_fps, res_dir):
+
     model_dir = res_dir / 'models'
     model_dir.mkdir(exist_ok=True)
     model_dir_sub = model_dir / f'model{model_id}'
@@ -523,40 +524,18 @@ def train_model(config, model_id, data_fps, res_dir):
             model.summary(print_fn=config['logger'].info)
         plot_model(model,
                    to_file=model_dir_sub / 'model.png',
-                   show_shapes=False,
+                   show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
                    expand_nested=False,
                    dpi=96)
 
     # setup metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'], num_thresholds=config['metrics']['num_thr'])
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                               num_thresholds=config['metrics']['num_thr'])
 
-    if config['config']['optimizer'] == 'Adam':
-        model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                beta_1=0.9,
-                                                beta_2=0.999,
-                                                epsilon=1e-8,
-                                                amsgrad=False,
-                                                name='Adam'),  # optimizer
-                      # loss function to minimize
-                      loss=losses.BinaryCrossentropy(from_logits=False,
-                                                     label_smoothing=0,
-                                                     name='binary_crossentropy'),
-                      # list of metrics to monitor
-                      metrics=metrics_list)
-
-    else:
-        model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                               momentum=config['config']['sgd_momentum'],
-                                               nesterov=False,
-                                               name='SGD'),  # optimizer
-                      # loss function to minimize
-                      loss=losses.BinaryCrossentropy(from_logits=False,
-                                                     label_smoothing=0,
-                                                     name='binary_crossentropy'),
-                      # list of metrics to monitor
-                      metrics=metrics_list)
+    # compile model - set optimizer, loss and metrics
+    model = compile_model(model, config, metrics_list)
 
     # input function for training, validation and test
     train_input_fn = InputFn(filepaths=data_fps['train'],
@@ -653,35 +632,24 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
     if config['logger'] is not None:
         ensemble_model.summary(print_fn=config['logger'].info)
 
-    # set up metrics to be monitored
-    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'])
+    # save model
+    ensemble_model.save(res_dir / 'ensemble_model.h5')
+
+    # plot ensemble model and save the figure
+    plot_model(ensemble_model,
+               to_file=res_dir / 'ensemble.png',
+               show_shapes=True,
+               show_layer_names=True,
+               rankdir='TB',
+               expand_nested=False,
+               dpi=96)
+
+    # setup metrics to be monitored
+    metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                               num_thresholds=config['metrics']['num_thr'])
 
     # compile model - set optimizer, loss and metrics
-    if config['config']['optimizer'] == 'Adam':
-        ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                         beta_1=0.9,
-                                                         beta_2=0.999,
-                                                         epsilon=1e-8,
-                                                         amsgrad=False,
-                                                         name='Adam'),  # optimizer
-                               # loss function to minimize
-                               loss=losses.BinaryCrossentropy(from_logits=False,
-                                                              label_smoothing=0,
-                                                              name='binary_crossentropy'),
-                               # list of metrics to monitor
-                               metrics=metrics_list)
-
-    else:
-        ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                                        momentum=config['config']['sgd_momentum'],
-                                                        nesterov=False,
-                                                        name='SGD'),  # optimizer
-                               # loss function to minimize
-                               loss=losses.BinaryCrossentropy(from_logits=False,
-                                                              label_smoothing=0,
-                                                              name='binary_crossentropy'),
-                               # list of metrics to monitor
-                               metrics=metrics_list)
+    ensemble_model = compile_model(ensemble_model, config, metrics_list)
 
     # initialize results dictionary for the evaluated datasets
     res = {}
@@ -807,19 +775,6 @@ def eval_ensemble(models_filepaths, config, data_fps, res_dir):
             # sort in descending order of output
             data_df.sort_values(by='score', ascending=False, inplace=True)
             data_df.to_csv(res_dir / f'ensemble_ranked_predictions_{dataset}set.csv', index=False)
-
-    # save model, features and config used for training this model
-    ensemble_model.save(res_dir / 'ensemble_model.h5')
-    # np.save(res_dir / 'features_set', features_set)
-    # np.save(res_dir / 'config', config)
-    # plot ensemble model and save the figure
-    plot_model(ensemble_model,
-               to_file=res_dir / 'ensemble.png',
-               show_shapes=False,
-               show_layer_names=True,
-               rankdir='TB',
-               expand_nested=False,
-               dpi=96)
 
 
 def predict_ensemble(models_filepaths, config, data_fps, res_dir):

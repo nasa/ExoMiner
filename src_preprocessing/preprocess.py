@@ -307,7 +307,9 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['7431665-2']:  #  and tce['sectors'] == '14':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['7431665-1']:  #  and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['207425167-1_22']:
+    # if '{}'.format(tce['target_id']) in ['1025986']:
     # if '{}'.format(tce['target_id']) in ['7431665']:
     # if tce['oi'] in [1774.01]:
     # tce['tce_time0bk'] = 1325.726

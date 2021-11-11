@@ -22,11 +22,9 @@ import multiprocessing
 import yaml
 
 # local
-import paths
-from models.models_keras import CNN1dPlanetFinderv2
-import models.config_keras
+from models.models_keras import CNN1dPlanetFinderv2, CNN1dPlanetFinderParallel
 from src_hpo import utils_hpo
-from utils.utils_dataio import is_jsonable, is_yamlble
+from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run, train_model, eval_ensemble
 
 
@@ -196,7 +194,7 @@ def cv():
         config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = CNN1dPlanetFinderv2
+    config['base_model'] = CNN1dPlanetFinderParallel  # CNN1dPlanetFinderv2
 
     # choose features set
     for feature_name, feature in config['features_set'].items():

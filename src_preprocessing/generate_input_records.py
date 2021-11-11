@@ -32,14 +32,16 @@ def create_preprocessing_config():
 
     # TFRecords base name
     config[
-        'tfrecords_base_name'] = 'test_local'  # f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.datetime.now().strftime("%m-%d-%Y_%H-%M")}'
+        'tfrecords_base_name'] = 'kic_1025986_sinusoidal_11-10-2021'  # f'tfrecordskeplerdr25-dv_g2001-l201_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-6stellar-bfap-ghost-rollingband_{datetime.datetime.now().strftime("%m-%d-%Y_%H-%M")}'
 
     # TFRecords root directory
-    config['tfrecords_dir'] = Path('/data5/tess_project/Data/tfrecords')
+    config['tfrecords_dir'] = Path(
+        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/')  # Path('/data5/tess_project/Data/tfrecords')
     # config['tfrecords_dir'] = Path('/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords')
 
     # output directory
     config['output_dir'] = config['tfrecords_dir'] / 'Kepler' / 'Q1-Q17_DR25' / config['tfrecords_base_name']
+    # config['output_dir'] = config['tfrecords_dir'] / 'TESS' / config['tfrecords_base_name']
 
     config['satellite'] = 'kepler'  # choose from 'kepler', 'tess'
     config['tce_identifier'] = 'tce_plnt_num'  # either 'tce_plnt_num' or 'oi'
@@ -152,7 +154,6 @@ def create_preprocessing_config():
         #                                'norobovetterlabels_renamedcols_nomissingval_rmcandandfpkois_norogues.csv'
         config[
             'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/19-08-21_07:21/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n.csv'
-
         # # q1-q17 dr25 TPS TCE-1s
         # input_tce_csv_file = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/Kepler/Q1-Q17_DR25/' \
         #                      'tps/keplerTPS_KSOP2536_dr25.csv'
@@ -178,10 +179,11 @@ def create_preprocessing_config():
         config['dict_savedir'] = ''
 
     elif config['satellite'] == 'tess':
-        config['input_tce_csv_file'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/Ephemeris_tables/TESS/' \
-                                       ''
+        config[
+            'input_tce_csv_file'] = '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv'
 
-        config['lc_data_dir'] = '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/TESS/pdc-lc/'
+        config[
+            'lc_data_dir'] = '/data5/tess_project/Data/TESS_lc_fits'  # '/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/FITS_files/TESS/pdc-lc/'
 
         config['dict_savedir'] = ''
 

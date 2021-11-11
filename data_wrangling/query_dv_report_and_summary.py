@@ -58,8 +58,8 @@ def get_tic_dv_report_and_summary(tic, download_dir, verbose=False):
 
 if __name__ == "__main__":
 
-    kic_list = [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
-    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/'
+    kic_list = [7431665]  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
+    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
