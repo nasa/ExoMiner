@@ -9,10 +9,10 @@ from astroquery.mast import Catalogs
 
 # %%
 
-res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021')
 res_dir.mkdir(exist_ok=True)
 tce_tbl_fp = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/'
-                  '09-14-2021_1754/tess_tces_s1-s40_09-14-2021_1754.csv')
+                  '11-23-2021_1409/tess_tces_s1-s40_11-23-2021_1409.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # %% Get TIC parameters from TIC catalog

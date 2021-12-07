@@ -4,7 +4,6 @@ rank: null
 paths:
   experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/hpo_configs/test_yaml
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
-  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
   prev_run_dir: null  # warm-up from previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -57,7 +56,7 @@ config: # fixed parameters
   #  'batch_size': 64
   #  'dropout_rate': 0.0
   #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
+  num_fc_conv_units: 4  # number of neurons in FC layer at the end of the convolutional branch
   weight_initializer: null
   force_softmax: false
   use_kepler_ce: false
@@ -119,7 +118,6 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 1  # number of models in the ensemble
   n_epochs: 300  # number of epochs used to train each model
   use_kepler_ce: false
   opt_metric: auc_pr
@@ -132,22 +130,22 @@ training:
     NTP: 1.0
 
 callbacks:
-  early_stopping:
-    monitor: val_auc_pr  # which metric to monitor for early stopping
-    min_delta: 0
-    patience: 20
-    verbose: 1
-    mode: max  # maximize/minimize monitored metric in early stopping
-    baseline: null
-    restore_best_weights: true
-  tensorboard:
-    histogram_freq: 1
-    write_graph: true
-    write_images: false
-    update_freq: epoch
-    profile_batch: 2
-    embeddings_metadata: null
-    embeddings_freq: 0
+#  early_stopping:
+#    monitor: val_auc_pr  # which metric to monitor for early stopping
+#    min_delta: 0
+#    patience: 20
+#    verbose: 1
+#    mode: max  # maximize/minimize monitored metric in early stopping
+#    baseline: null
+#    restore_best_weights: true
+#  tensorboard:
+#    histogram_freq: 1
+#    write_graph: true
+#    write_images: false
+#    update_freq: epoch
+#    profile_batch: 2
+#    embeddings_metadata: null
+#    embeddings_freq: 0
 
 label_map:
   # Kepler
@@ -267,6 +265,12 @@ configuration_space:
         lower: 2
         upper: 8
         default_value: 2
+    pool_stride:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 2
+        default_value: 1
 
     dropout_rate_fc_conv:
       type: uniform_float

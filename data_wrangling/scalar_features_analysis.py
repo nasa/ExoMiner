@@ -8,6 +8,7 @@ import pandas as pd
 import tensorflow as tf
 from astropy.stats import mad_std
 from pathlib import Path
+from matplotlib.colors import LogNorm
 
 #%% Non-normalized bootstrap FA probability from the TCE table
 
@@ -606,10 +607,11 @@ f.savefig('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_
 #%% Plot histograms of non-normalized scalar features from the TCE table
 
 saveDir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/scalar_params_analysis/' \
-          'ghost_diagnostic_4-19-2021'
+          'tce_bin_oedp_tce_rob_stats_11-17-2021'
 os.makedirs(saveDir, exist_ok=True)
 
-tceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_confirmedkoiperiod_sec_rba_cnt0n_koiperiodonlydiff_nanstellar.csv')
+tceTbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/19-08-21_07:21/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n.csv')
 
 # remove rogue TCEs
 tceTbl = tceTbl.loc[tceTbl['tce_rogue_flag'] != 1]
@@ -668,7 +670,10 @@ features = [
     # 'boot_fap',
     # 'tce_cap_stat',
     # 'tce_hap_stat',
-    'tce_cap_hap_diff_stat',
+    # 'tce_cap_hap_diff_stat',
+    'tce_bin_oedp_stat',
+    'tce_robstat',
+    'tce_max_mult_ev',
 ]
 
 bins = {
@@ -706,16 +711,19 @@ bins = {
     # 'tce_rb_tcount0_trnorm': np.linspace(0, 1, 100, endpoint=True),
     'mag': np.linspace(0, 20, 100, endpoint=True),
     'tce_rb_tcount0n': np.linspace(0, 1, 100, endpoint=True),
-           'tce_smass': np.linspace(0, 4, 100, endpoint=True),
-       'tce_steff': np.linspace(2000, 20000, 100, endpoint=True),
-       'tce_slogg': np.linspace(-6, 6, 100, endpoint=True),
-       'tce_smet': np.linspace(-2, 2, 100, endpoint=True),
-       'tce_sradius': np.linspace(0, 10, 100, endpoint=True),
-       'tce_sdens': np.linspace(0, 100, 100, endpoint=True),
-       'boot_fap': np.logspace(-34, 0, 100, endpoint=True),
-       'tce_cap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
-       'tce_hap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
+    'tce_smass': np.linspace(0, 4, 100, endpoint=True),
+    'tce_steff': np.linspace(2000, 20000, 100, endpoint=True),
+    'tce_slogg': np.linspace(-6, 6, 100, endpoint=True),
+    'tce_smet': np.linspace(-2, 2, 100, endpoint=True),
+    'tce_sradius': np.linspace(0, 10, 100, endpoint=True),
+    'tce_sdens': np.linspace(0, 100, 100, endpoint=True),
+    'boot_fap': np.logspace(-34, 0, 100, endpoint=True),
+    'tce_cap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
+    'tce_hap_stat': np.linspace(-2000, 2000, 100, endpoint=True),
     'tce_cap_hap_diff_stat': np.linspace(-2000, 2000, 100, endpoint=True),
+    'tce_bin_oedp_stat': np.linspace(0, 100, 100, endpoint=True),
+    'tce_robstat': np.linspace(0, 100, 50, endpoint=True),
+    'tce_max_mult_ev': np.linspace(0, 100, 50, endpoint=True),
 }
 
 log_yscale = [
@@ -745,6 +753,8 @@ log_yscale = [
     'tce_hap_stat',
     'tce_cap_stat',
     'tce_cap_hap_diff_stat',
+    'tce_bin_oedp_stat',
+    'tce_robstat',
 ]
 
 log_xscale = [
@@ -845,3 +855,31 @@ for disp in dispositions:
     # ax.legend()
     # ax.set_xlim([0, 2000])
     # ax.set_ylim([0, 2000])
+
+# %% 2D  histogram robust statistic and MES
+
+f, ax = plt.subplots()
+histplt = ax.hist2d(tceTbl['tce_max_mult_ev'], tceTbl['tce_robstat'],
+                    bins=[bins['tce_max_mult_ev'], bins['tce_robstat']],
+                    edgecolor='k',
+                    norm=LogNorm())  # , density=True)
+ax.set_xlabel('TCE MES')
+ax.set_ylabel('TCE Robust statistic')
+f.colorbar(histplt[3])
+f.savefig(os.path.join(saveDir, 'hist2d_mes_robstat_keplerq1q7dr25.svg'))
+plt.close()
+
+for disp in ['PC', 'AFP', 'NTP']:
+    tceTbl_aux = tceTbl.loc[tceTbl['label'] == disp]
+
+    f, ax = plt.subplots()
+    histplt = ax.hist2d(tceTbl_aux['tce_max_mult_ev'], tceTbl_aux['tce_robstat'],
+                        bins=[bins['tce_max_mult_ev'], bins['tce_robstat']],
+                        edgecolor='k',
+                        norm=LogNorm())  # , density=True)
+    ax.set_xlabel('TCE MES')
+    ax.set_ylabel('TCE Robust statistic')
+    ax.set_title(f'{disp}')
+    f.colorbar(histplt[3])
+    f.savefig(os.path.join(saveDir, f'hist2d_mes_robstat_keplerq1q7dr25_{disp}.svg'))
+    plt.close()

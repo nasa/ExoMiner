@@ -245,60 +245,61 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             writer.write(example.SerializeToString())
 
 
-# %% source TFRecord directory
+if __name__ == '__main__':
 
-srcTfrecDir = Path(
-    '/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23_data/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23_experiment')
-# destination TFRecord
-destTfrecDirName = '-normalized_kepler'
-destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{destTfrecDirName}'
-destTfrecDir.mkdir(exist_ok=True)
+    # source TFRecord directory
+    srcTfrecDir = Path(
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
+    # destination TFRecord
+    destTfrecDirName = '-normalized'
+    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{destTfrecDirName}'
+    destTfrecDir.mkdir(exist_ok=True)
 
-# auxiliary parameters needed for normalization of some features
-auxParams = {
-    'nr_transit_durations': 5,
-    # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
-    'num_bins_loc': 31,  # 31, 201
-    'num_bins_glob': 301  # 301, 2001
-}
+    # auxiliary parameters needed for normalization of some features
+    auxParams = {
+        'nr_transit_durations': 5,
+        # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+        'num_bins_loc': 31,  # 31, 201
+        'num_bins_glob': 301  # 301, 2001
+    }
 
-nProcesses = 15  # number of processes in parallel
+    nProcesses = 15  # number of processes in parallel
 
-# normalization stats directory
-normStatsDir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-se_std_oot_07-09-2021_data/tfrecordskeplerdr25-se_std_oot_07-09-2021_starshuffle_experiment/')
+    # normalization stats directory
+    normStatsDir = Path(
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
 
-# get source TFRecords file paths to be normalized
-srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
+    # get source TFRecords file paths to be normalized
+    srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
-# load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
-normStats = {
-    'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-    'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-    'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
-}
-# for TPS
-# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
-#                                          'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
-# for TESS
-# normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-#                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
-#                                          'transit_depth', 'tce_duration', 'tce_period']}
-normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-                              if key not in ['tce_fwm_stat', 'tce_rb_tcount0n']}
-for param in ['global_centr_view', 'local_centr_view']:
-    normStats['centroid'][param]['median_adsjcl'] = normStats['centroid'][param]['median']
-    normStats['centroid'][param]['std_adsjcl'] = normStats['centroid'][param]['std']
+    # load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
+    normStats = {
+        'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+        'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+    }
+    # for TPS
+    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+    #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+    #                                          'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
+    # for TESS
+    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+    #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
+    #                                          'transit_depth', 'tce_duration', 'tce_period']}
+    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
+    #                               if key not in ['tce_fwm_stat', 'tce_rb_tcount0n']}
+    # for param in ['global_centr_view', 'local_centr_view']:  # add scaled centroid needed for TESS
+    #     normStats['centroid'][param]['median_adsjcl'] = normStats['centroid'][param]['median']
+    #     normStats['centroid'][param]['std_adsjcl'] = normStats['centroid'][param]['std']
 
-# normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
+    # normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
 
-pool = multiprocessing.Pool(processes=nProcesses)
-jobs = [(destTfrecDir, file, normStats, auxParams) for file in srcTfrecFiles]
-async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-pool.close()
+    pool = multiprocessing.Pool(processes=nProcesses)
+    jobs = [(destTfrecDir, file, normStats, auxParams) for file in srcTfrecFiles]
+    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
+    pool.close()
 
-for async_result in async_results:
-    async_result.get()
+    for async_result in async_results:
+        async_result.get()
 
-print('Normalization finished.')
+    print('Normalization finished.')

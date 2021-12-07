@@ -1,4 +1,4 @@
-""" Script used to analyze the performance of models on different sets of dispositions. """
+""" Script used to analyze the performance of models on different sets of dispositions for Kepler data. """
 
 import pandas as pd
 import os

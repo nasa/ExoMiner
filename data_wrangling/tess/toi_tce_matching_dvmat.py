@@ -22,7 +22,7 @@ if __name__ == '__main__':
     res_dir.mkdir(exist_ok=True)
 
     # get TOI table
-    toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/9-10-2021/')
+    toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/11-23-2021/')
     # columns to be used from the TOI table
     toi_cols = ['TOI', 'TIC ID', 'Sectors', 'Period (days)', 'Duration (hours)', 'Epoch (TBJD)', 'Depth (ppm)']
     toi_tbl = pd.read_csv(toi_dir / f'exofop_toilists_nomissingpephem.csv', usecols=toi_cols)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     max_num_tces = len(singlesector_tce_tbls) + len(multisector_tce_tbls)
 
     match_tbl_cols = ['TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}' for i in range(max_num_tces)]
-    n_processes = 15
+    n_processes = 10
     tbl_jobs = np.array_split(toi_tbl, n_processes)
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(tbl_job.reset_index(inplace=False), tbl_job_i) +

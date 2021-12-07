@@ -24,16 +24,16 @@ Authors:
 
 """
 
-import os
-
 # 3rd party
+import os
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from astropy.stats import mad_std
 
-from src_preprocessing import tess_io
-from src_preprocessing import utils_visualization
 # local
+from src_preprocessing import utils_visualization
+from src_preprocessing import tess_io
 from src_preprocessing.light_curve import kepler_io
 from src_preprocessing.light_curve import median_filter
 from src_preprocessing.light_curve import util
@@ -290,7 +290,7 @@ def _process_tce(tce, table, config, conf_dict):
     # import pickle
     # with open('/data5/tess_project/Data/tfrecords/TESS/tfrecordstessS1S35-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_07-20-2021_13-39/exclusion_logs/tces_not_preprocessed.pkl', 'rb') as fp:
     #     tces_not_read = pickle.load(fp)
-
+    # rankingTbl = pd.read_csv('/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_addnewval_12-1-2021/ranking_tbl_oddevenkoicomment_only_with_tcebinoedpstat.csv')
     # rankingTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff/merged_shards_disp_set.csv')
     # rankingTbl = rankingTbl.loc[(rankingTbl['mid_global_flux_shift'].abs() >= 15) & (rankingTbl['label'] == 'PC')]
     # rankingTbl = rankingTbl.loc[(rankingTbl['odd_even_flag'] != 'ok') & (rankingTbl['label'].isin(['PC', 'AFP']))]
@@ -307,10 +307,11 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['7431665-1']:  #  and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5769403-1']:  #  and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
     # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['207425167-1_22']:
-    # if '{}'.format(tce['target_id']) in ['1025986']:
+    # if '{}'.format(tce['target_id']) in ['9455556']:
     # if '{}'.format(tce['target_id']) in ['7431665']:
+    # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id'])  & (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
     # if tce['oi'] in [1774.01]:
     # tce['tce_time0bk'] = 1325.726
     # tce['tce_period'] = 0.941451
@@ -1566,6 +1567,12 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                             )
         flux_views_var.update(views_aux)
 
+        # normalize odd-even uncertainty by transit depth
+        odd_data['se_oot'] = odd_data['se_oot'] / flux_views_stats['min']['local']
+        odd_data['std_oot_bin'] = odd_data['std_oot_bin'] / flux_views_stats['min']['local']
+        even_data['se_oot'] = even_data['se_oot'] / flux_views_stats['min']['local']
+        even_data['std_oot_bin'] = even_data['std_oot_bin'] / flux_views_stats['min']['local']
+
         # create local flux view for detecting non-centered transits
         loc_flux_view_shift, _, _, _, _ = local_view(time,
                                                      flux,
@@ -1941,20 +1948,33 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         example_util.set_int64_feature(ex, f'{view}_num_transits', [num_transits[view]])
 
     # add odd and even scalar features
-    for field in odd_data:
-        if field not in ['local_flux_view', 'local_flux_view_se', 'binned_time']:
-            if 'se_oot' in field:  # normalize oot SE by normalization factor used for both odd and even flux views
-                example_util.set_float_feature(ex, f'odd_{field}',
-                                               [odd_data[field] / flux_views_stats['min']['local']])
-                example_util.set_float_feature(ex, f'even_{field}',
-                                               [even_data[field] / flux_views_stats['min']['local']])
-            else:
-                example_util.set_float_feature(ex, f'odd_{field}', [odd_data[field]])
-                example_util.set_float_feature(ex, f'even_{field}', [even_data[field]])
+    for field in ['se_oot', 'std_oot_bin']:
+        example_util.set_float_feature(ex, f'odd_{field}', [odd_data[field]])
+        example_util.set_float_feature(ex, f'even_{field}', [even_data[field]])
+
+        # provide adjusted odd-even SE due to TESS having higher sampling rate
+        if config['satellite'] == 'tess' and field == 'se_oot':
+            example_util.set_float_feature(ex, f'odd_{field}_adjsampl',
+                                           [odd_data[field] * config['tess_to_kepler_sampling_ratio']])
+            example_util.set_float_feature(ex, f'even_{field}_adjsampl',
+                                           [even_data[field] * config['tess_to_kepler_sampling_ratio']])
 
     # TODO: add this feature to the TCE table or compute it here?
     # add ghost diagnostic statistic difference
     example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
+
+    # add categorical magnitude
+    if config['satellite'] == 'kepler':
+        mag_cat = 1 if tce['mag'] > config['kepler_mag_cat_thr'] else 0
+    else:
+        mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
+    example_util.set_int64_feature(ex, 'mag_cat', [mag_cat])
+
+    # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor
+    if config['satellite'] == 'tess':
+        for centroid_scalar_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err']:
+            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [tce[centroid_scalar_feat] /
+                                                                            config['tess_to_kepler_px_scale_factor']])
 
     # data for preprocessing table
     if config['satellite'] == 'tess':

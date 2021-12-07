@@ -194,7 +194,7 @@ def cv():
         config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = CNN1dPlanetFinderParallel  # CNN1dPlanetFinderv2
+    config['base_model'] = CNN1dPlanetFinderv2  # CNN1dPlanetFinderv2
 
     # choose features set
     for feature_name, feature in config['features_set'].items():

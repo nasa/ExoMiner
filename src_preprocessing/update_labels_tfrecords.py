@@ -38,17 +38,17 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
             example.ParseFromString(string_record)
 
             tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-            if tceIdentifier == 'tce_plnt_num':
-                targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-            else:
-                # targetIdTfrec = example.features.feature['target_id'].float_list.value[0]
-                targetIdTfrec = round(example.features.feature['target_id'].float_list.value[0], 2)
+            # if tceIdentifier == 'tce_plnt_num':
+            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            # else:
+            #     # targetIdTfrec = example.features.feature['target_id'].float_list.value[0]
+            #     targetIdTfrec = round(example.features.feature['target_id'].float_list.value[0], 2)
 
             foundTce = tceTbl.loc[(tceTbl['target_id'] == targetIdTfrec) &
                                   (tceTbl[tceIdentifier] == tceIdentifierTfrec)]
 
             if len(foundTce) > 0:
-                tceLabel = foundTce['label'].values[0]
+                tceLabel = foundTce['original_label'].values[0]
                 example_util.set_feature(example, 'label', [tceLabel], allow_overwrite=True)
                 writer.write(example.SerializeToString())
             else:
@@ -64,21 +64,21 @@ def update_labels(destTfrecDir, srcTfrecFile, tceTbl, tceIdentifier, omitMissing
 # input parameters
 # source TFRecord directory
 srcTfrecDir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment')
+    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021')
 tceIdentifier = 'tce_plnt_num'  # unique identifier for TCEs (+ 'target_id')
-destTfrecDirName = '-labels'  # destination TFRecords directory name
+destTfrecDirName = 'labelsupdt'  # destination TFRecords directory name
 destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}_{destTfrecDirName}'
 destTfrecDir.mkdir(exist_ok=True)
 nProcesses = 15  # number of processes used in parallel
 omitMissing = True  # skip missing TCEs in the source TFRecords
 
 # dispositions coming from the experiment TCE table
-experimentTceTbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/'
-                               'q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_'
-                               'nomissingval_rmcandandfpkois_norogues.csv')
+experimentTceTbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
+experimentTceTbl.loc[experimentTceTbl['original_label'].isna(), ['original_label', 'label']] = 'UNK', -1
 
 # get source TFRecord file paths
-srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem]
+srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and not file.name.endswith('.csv')]
 
 pool = multiprocessing.Pool(processes=nProcesses)
 jobs = [(destTfrecDir, file, experimentTceTbl, tceIdentifier, omitMissing) for file in srcTfrecFiles]
@@ -106,18 +106,20 @@ for tfrecFile in tfrecFiles:
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        if tceIdentifier == 'tce_plnt_num':
-            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-        else:
-            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+        # if tceIdentifier == 'tce_plnt_num':
+        tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        # else:
+        #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
         targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
         labelTfrec = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+        # labelTfrec = example.features.feature['label'].float_list.value[0]
 
         tceLabelTbl = experimentTceTbl.loc[(experimentTceTbl['target_id'] == targetIdTfrec) &
-                                           (experimentTceTbl[tceIdentifier] == tceIdentifierTfrec)]['label'].values[0]
+                                           (experimentTceTbl[tceIdentifier] == tceIdentifierTfrec)]['original_label']
 
-        if tceLabelTbl != labelTfrec:
-            countExamplesShard += 1
+        if len(tceLabelTbl) == 1:
+            if tceLabelTbl.values[0] != labelTfrec:
+                countExamplesShard += 1
 
     countExamples.append(countExamplesShard)
 

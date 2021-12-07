@@ -233,8 +233,8 @@ if __name__ == "__main__":
 
     sampling_interval = 0.00001  # approximately 1 min
 
-    tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/'
-                      'DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')
+    tce_tbl_fp = Path(
+        '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_tecfluxtriage.csv')
     tce_tbl_cols = ['target_id', 'tce_plnt_num', 'sector_run', 'tce_period', 'tce_time0bk', 'tce_duration',
                     'match_dist',
                     'TFOPWG Disposition', 'TESS Disposition', 'TOI']
@@ -282,86 +282,88 @@ if __name__ == "__main__":
                              axis=0)
     matching_tbl.to_csv(res_dir / 'matching_tbl.csv', index=False)
 
-# %% Add TEC flux triage and labels
+    # consider only matches below threshold, when the period is similar (no multiple integer) and for the smallest
+    # planet number
 
-res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/tess_tce_eb_match/11-03-2021_1731')
-matching_tbl = pd.read_csv(res_dir / 'matching_tbl.csv')
-tce_tbl = pd.read_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv')
+    matching_eb_thr = 0.2  # matching threshold
 
-matching_tbl = matching_tbl.merge(
-    tce_tbl[['target_id', 'tce_plnt_num', 'sector_run', 'label', 'tec_fulltriage_pass', 'tec_fulltriage_comment']],
-    on=['target_id', 'tce_plnt_num', 'sector_run'], how='left', validate='one_to_one')
+    matching_tbl['target_sector_run'] = matching_tbl['target_id'].astype(str)
+    matching_tbl['target_sector_run'] = matching_tbl[['target_sector_run', 'sector_run']].agg('_'.join, axis=1)
 
-matching_tbl.to_csv(res_dir / 'matching_tbl_tecfluxtriage.csv', index=False)
+    matching_tbl['match_dist_eb_0_sngl'] = 2
+    matching_tbl['match_dist_eb_1_sngl'] = 2
+    for target_sector_run in matching_tbl['target_sector_run'].unique():
 
-# %% Consider only matches below threshold, when the period is similar (no multiple integer) and for the smallest planet number
+        for eb_i in [0, 1]:
+            # get TCEs for a given TIC and sector run that have same period as EB and are below the matching threshold
+            tces_in_target_sector_run = (matching_tbl['target_sector_run'] == target_sector_run) & \
+                                        (matching_tbl[f'tce_eb_period_multiple_int_{eb_i}'] == 1) & \
+                                        (matching_tbl[f'match_dist_eb_{eb_i}'] <= matching_eb_thr)
+            tces_found = matching_tbl.loc[tces_in_target_sector_run]
 
-matching_eb_thr = 0.2  # matching threshold
+            if len(tces_found) == 0:
+                continue
+            elif len(tces_found) == 1:
+                matching_tbl.loc[tces_in_target_sector_run, f'match_dist_eb_{eb_i}_sngl'] = \
+                    matching_tbl.loc[tces_in_target_sector_run, f'match_dist_eb_{eb_i}']
+            else:  # only match to EB the TCE with smallest planet number
+                idx_tce_chosen = tces_found['tce_plnt_num'].idxmin()
+                matching_tbl.loc[idx_tce_chosen, f'match_dist_eb_{eb_i}_sngl'] = \
+                    matching_tbl.loc[idx_tce_chosen, f'match_dist_eb_{eb_i}']
 
-matching_tbl['target_sector_run'] = matching_tbl['target_id'].astype(str)
-matching_tbl['target_sector_run'] = matching_tbl[['target_id_sector_run', 'sector_run']].agg('_'.join, axis=1)
-
-matching_tbl['match_dist_eb_0_sngl'] = 2
-matching_tbl['match_dist_eb_1_sngl'] = 2
-for target_sector_run in matching_tbl['target_sector_run'].unique():
-
-    for eb_i in [0, 1]:
-        # get TCEs for a given TIC and sector run that have same period as EB and are below the matching threshold
-        tces_in_target_sector_run = (matching_tbl['target_sector_run'] == target_sector_run) & \
-                                    (matching_tbl[f'tce_eb_period_multiple_int_{eb_i}'] == 1) & \
-                                    (matching_tbl[f'match_dist_eb_{eb_i}'] <= matching_eb_thr)
-        tces_found = matching_tbl.loc[tces_in_target_sector_run]
-
-        if len(tces_found) == 0:
+    # select the closest eb
+    eb_final_cols = ['eb_signal_id', 'eb_bjd0', 'eb_period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio',
+                     'eb_match_dist']
+    eb_chosen_cols = ['signal_id', 'bjd0', 'period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio',
+                      'match_dist_eb']
+    matching_tbl = pd.concat([matching_tbl,
+                              pd.DataFrame(data=np.nan * np.ones((len(matching_tbl), len(eb_final_cols))),
+                                           columns=eb_final_cols)], axis=1)
+    eb_i_match = matching_tbl[[f'match_dist_eb_{eb_i}_sngl' for eb_i in [0, 1]]].idxmin(axis=1)
+    for eb_i, eb in eb_i_match.items():
+        if matching_tbl.loc[eb_i, eb] == 2:
             continue
-        elif len(tces_found) == 1:
-            matching_tbl.loc[tces_in_target_sector_run, f'match_dist_eb_{eb_i}_sngl'] = \
-                matching_tbl.loc[tces_in_target_sector_run, f'match_dist_eb_{eb_i}']
-        else:  # only match to EB the TCE with smallest planet number
-            idx_tce_chosen = tces_found['tce_plnt_num'].idxmin()
-            matching_tbl.loc[idx_tce_chosen, f'match_dist_eb_{eb_i}_sngl'] = \
-                matching_tbl.loc[idx_tce_chosen, f'match_dist_eb_{eb_i}']
 
-# select the closest eb
-eb_final_cols = ['eb_signal_id', 'eb_bjd0', 'eb_period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio',
-                 'eb_match_dist']
-eb_chosen_cols = ['signal_id', 'bjd0', 'period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio', 'match_dist_eb']
-matching_tbl = pd.concat([matching_tbl,
-                          pd.DataFrame(data=np.nan * np.ones((len(matching_tbl), len(eb_final_cols))),
-                                       columns=eb_final_cols)], axis=1)
-eb_i_match = matching_tbl[[f'match_dist_eb_{eb_i}_sngl' for eb_i in [0, 1]]].idxmin(axis=1)
-for eb_i, eb in eb_i_match.items():
-    if matching_tbl.loc[eb_i, eb] == 2:
-        continue
+        eb_chosen = eb.split('_')[3]
+        matching_tbl.loc[eb_i, eb_final_cols] = \
+            matching_tbl.loc[eb_i, [f'{col}_{eb_chosen}' for col in eb_chosen_cols]].values
+        # aa
 
-    eb_chosen = eb.split('_')[3]
-    matching_tbl.loc[eb_i, eb_final_cols] = \
-        matching_tbl.loc[eb_i, [f'{col}_{eb_chosen}' for col in eb_chosen_cols]].values
-    # aa
+    matching_tbl.to_csv(res_dir / f'matching_tbl_thr_{matching_eb_thr}_sameperiod_smallestplntnum.csv', index=False)
 
-matching_tbl.to_csv(res_dir / f'matching_tbl_thr_{matching_eb_thr}_sameperiod_smallestplntnum.csv', index=False)
-
-# %%
-
-tce_tbl_fp = Path(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv')
-# tce_tbl_cols = ['target_id', 'tce_plnt_num', 'sector_run', 'tce_period', 'tce_time0bk', 'tce_duration', 'match_dist',
-#                 'TFOPWG Disposition', 'TESS Disposition']
-tce_tbl = pd.read_csv(tce_tbl_fp)  # [tce_tbl_cols]
-# tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
-
-matching_tbl = pd.read_csv(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/tess_tce_eb_match/11-03-2021_1731/matching_tbl_thr_0.2_sameperiod_smallestplntnum.csv')
-eb_final_cols = ['eb_signal_id', 'eb_bjd0', 'eb_period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio',
-                 'eb_match_dist']
-matching_tbl = matching_tbl[['target_id', 'tce_plnt_num', 'sector_run'] + eb_final_cols]
-
-tce_tbl_eb = tce_tbl.merge(matching_tbl, on=['target_id', 'tce_plnt_num', 'sector_run'], how='left',
-                           validate='one_to_one')
-
-# # assignment rule: 1) TCE did not pass flux triage; AND 2) the matching distance is larger than 0.3
-# tce_tbl_.loc[(tce_tbl_tec['tec_fluxtriage_pass'] == 0) &
-#                 ((tce_tbl_tec['match_dist'] > 0.3) | (tce_tbl_tec['match_dist'].isna())), 'label'] = 'NTP'
-
-tce_tbl_eb.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_eb.csv', index=False)
+# # %% Add TEC flux triage and labels
+#
+# res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/tess_tce_eb_match/11-03-2021_1731')
+# matching_tbl = pd.read_csv(res_dir / 'matching_tbl.csv')
+# tce_tbl = pd.read_csv(
+#     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv')
+#
+# matching_tbl = matching_tbl.merge(
+#     tce_tbl[['target_id', 'tce_plnt_num', 'sector_run', 'label', 'tec_fulltriage_pass', 'tec_fulltriage_comment']],
+#     on=['target_id', 'tce_plnt_num', 'sector_run'], how='left', validate='one_to_one')
+#
+# matching_tbl.to_csv(res_dir / 'matching_tbl_tecfluxtriage.csv', index=False)
+#
+# # %%
+#
+# tce_tbl_fp = Path(
+#     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv')
+# # tce_tbl_cols = ['target_id', 'tce_plnt_num', 'sector_run', 'tce_period', 'tce_time0bk', 'tce_duration', 'match_dist',
+# #                 'TFOPWG Disposition', 'TESS Disposition']
+# tce_tbl = pd.read_csv(tce_tbl_fp)  # [tce_tbl_cols]
+# # tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
+#
+# matching_tbl = pd.read_csv(
+#     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/tess_tce_eb_match/11-03-2021_1731/matching_tbl_thr_0.2_sameperiod_smallestplntnum.csv')
+# eb_final_cols = ['eb_signal_id', 'eb_bjd0', 'eb_period', 'tce_eb_period_multiple_int', 'tce_eb_period_ratio',
+#                  'eb_match_dist']
+# matching_tbl = matching_tbl[['target_id', 'tce_plnt_num', 'sector_run'] + eb_final_cols]
+#
+# tce_tbl_eb = tce_tbl.merge(matching_tbl, on=['target_id', 'tce_plnt_num', 'sector_run'], how='left',
+#                            validate='one_to_one')
+#
+# # # assignment rule: 1) TCE did not pass flux triage; AND 2) the matching distance is larger than 0.3
+# # tce_tbl_.loc[(tce_tbl_tec['tec_fluxtriage_pass'] == 0) &
+# #                 ((tce_tbl_tec['match_dist'] > 0.3) | (tce_tbl_tec['match_dist'].isna())), 'label'] = 'NTP'
+#
+# tce_tbl_eb.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_eb.csv', index=False)

@@ -4,7 +4,7 @@ Utility functions for CV.
 
 # 3rd party
 import multiprocessing
-
+import sys
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -12,6 +12,7 @@ from astropy import stats
 from tensorflow.keras import losses, optimizers
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import plot_model as plot_model
+import logging
 
 # local
 import src.utils_predict as utils_predict
@@ -26,7 +27,7 @@ from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 
-def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl):
+def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log=False):
     """ Create a TFRecord fold for cross-validation based on source TFRecords and fold TCE table.
 
     :param shard_tbl_fp: Path, shard TCE table file path
@@ -34,31 +35,49 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
     :param fold_i: int, fold id
     :param src_tfrec_dir: Path, source TFRecord directory
     :param src_tfrec_tbl: pandas Dataframe, maps example to a given TFRecord shard
+    :param log: bool, if True creates a logger
     :return:
         tces_not_found: list, each sublist contains the target id and tce planet number for TCEs not found in the source
         TFRecords
     """
 
+    if log:
+        # set up logger
+        logger = logging.getLogger(name=f'log_fold_{fold_i}')
+        logger_handler = logging.FileHandler(filename=dest_tfrec_dir.parent / f'create_tfrecord_fold_{fold_i}.log',
+                                             mode='w')
+        logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+        logger.setLevel(logging.INFO)
+        logger_handler.setFormatter(logger_formatter)
+        logger.addHandler(logger_handler)
+        logger.info(f'Starting run...')
+
     tces_not_found = []
 
+    if log:
+        logger.info(f'Reading fold TCE table: {shard_tbl_fp}')
     fold_tce_tbl = pd.read_csv(shard_tbl_fp)
 
     tfrec_new_fp = dest_tfrec_dir / f'shard-{f"{fold_i}".zfill(4)}'
+    if log:
+        logger.info(f'Destination TFRecord file: {tfrec_new_fp}')
 
+    if log:
+        logger.info('Start iterating over the fold TCE table...')
     n_tces_in_shard = 0
     # write examples in a new TFRecord shard
     with tf.io.TFRecordWriter(str(tfrec_new_fp)) as writer:
 
         for tce_i, tce in fold_tce_tbl.iterrows():
 
-            if tce_i + 1 % 50 == 0:
-                print(f'Iterating over fold table {fold_i} {fold_tce_tbl.name} '
-                      f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
+            if tce_i + 1 % 50 == 0 and log:
+                logger.info(f'Iterating over fold table {fold_i} {shard_tbl_fp.name} '
+                            f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
 
             # look for TCE in the source TFRecords table
             tce_found = src_tfrec_tbl.loc[(src_tfrec_tbl['target_id'] == tce['target_id']) &
-                                                              (src_tfrec_tbl['tce_plnt_num'] == tce['tce_plnt_num']),
-                                                              ['shard', 'example_i']]
+                                          (src_tfrec_tbl['tce_plnt_num'] == tce['tce_plnt_num']),
+                                          ['shard', 'example_i']]
 
             if len(tce_found) == 0:
                 tces_not_found.append([tce['target_id'], tce['tce_plnt_num']])
@@ -82,7 +101,10 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
 
         writer.close()
 
-        return tces_not_found
+    if log:
+        logger.info(f'Finished iterating over fold table {fold_i} {shard_tbl_fp.name}.')
+
+    return tces_not_found
 
 
 def compute_normalization_stats(scalar_params, train_data_fps, aux_params, norm_dir, verbose=None):

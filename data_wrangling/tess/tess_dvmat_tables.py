@@ -14,17 +14,17 @@ from data_wrangling.tess.tess_dvmat_tables_utils import match_tces_to_tois, _map
 if __name__ == '__main__':
 
     # results directory
-    res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/09-14-2021_1754')
+    res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/11-23-2021_1409')
     res_dir.mkdir(exist_ok=True)
 
     # CHECK INPUT TABLES
-    toi_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/'
-                      '9-10-2021/exofop_toilists_nomissingpephem.csv')
+    toi_tbl_fp = Path(
+        '/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/11-23-2021/exofop_toilists_nomissingpephem.csv')
     # TOI data to be added to the TCE table
     toi_cols = ['TOI', 'TESS Disposition', 'TFOPWG Disposition', 'Period (days)', 'Duration (hours)', 'Depth (ppm)',
-                'Epoch (TBJD)', 'Transit Epoch (BJD)', 'Sectors', 'Comments']
-    matching_tbl_fp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/09-14-2021_1754/' \
-                      'tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv'
+                'Epoch (TBJD)', 'Epoch (BJD)', 'Sectors', 'Comments']
+    matching_tbl_fp = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/toi_tce_matching/' \
+                      '11-23-2021_1409/tois_matchedtces_ephmerismatching_thrinf_samplint1e-05.csv'
 
     # set up logger
     logger = logging.getLogger(name='match_tces_to_tois')

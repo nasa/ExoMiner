@@ -8,16 +8,27 @@ from data_wrangling.utils_ephemeris_matching import create_binary_time_series, f
 
 
 def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces):
+    """ Match TOI to TCEs. The process consists of iterating through the sectors for which the TOI was observed. For
+    each sector, the TCEs from the respective sector run that are in the same TIC are compared against the TOI. The
+    matching is performed by measuring the cosine distance between the templates of the TOI and TCE. The templates are
+    built based on the ephemerides information of the two. The templates have the duration of the maximum period between
+    the two. The timestamp of the mid-transit of the closest TCE transit to the epoch of the TOI is estimated and used
+    to create the TCE template. The sampling interval determines the number of points in the templates and the matching
+    threshold is used to determined the successful match between the templates.
+
+    :param toi: row of pandas DataFrame, TOI ephemerides and data
+    :param singlesector_tce_tbls: list of pandas DataFrame, single-sector runs DV TCE tables
+    :param multisector_tce_tbls: list of pandas DataFrame, multi-sector runs DV TCE tables
+    :param match_thr: float, matching threshold
+    :param sampling_interval: float, sampling interval for pulse template time series
+    :param max_num_tces: int, maximum number of TCEs that can be matched to the TOI
+    :return:
+        data_to_tbl: dict, include TIC, TOI ID, matched TCEs and respective matching distances to TOI
+    """
+
     toi_sectors = [int(sector) for sector in toi['Sectors'].split(',')]
 
     matching_dist_dict = {}
-
-    toi_bin_ts_max = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                               duration=toi['Duration (hours)'] / 24,
-                                               period=toi['Period (days)'],
-                                               tStart=toi['Epoch (TBJD)'],
-                                               tEnd=toi['Epoch (TBJD)'] + toi['Period (days)'],
-                                               samplingInterval=sampling_interval)
 
     for toi_sector in toi_sectors:  # iterate through the sectors the TOI was observed
 
@@ -46,21 +57,18 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                     toi['Epoch (TBJD)']
                 )
 
-                if phase == toi['Period (days)']:  # if TOI orbital period is larger, keep the TOI template
-                    toi_bin_ts = toi_bin_ts_max
-                else:
-                    toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                                           duration=toi['Duration (hours)'] / 24,
-                                                           period=toi['Period (days)'],
-                                                           tStart=toi['Epoch (TBJD)'],
-                                                           tEnd=toi['Epoch (TBJD)'] + phase,
-                                                           samplingInterval=sampling_interval)
+                toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
+                                                       duration=toi['Duration (hours)'] / 24,
+                                                       period=toi['Period (days)'],
+                                                       tStart=toi['Epoch (TBJD)'] - phase / 2,
+                                                       tEnd=toi['Epoch (TBJD)'] + phase / 2,
+                                                       samplingInterval=sampling_interval)
 
                 tce_bin_ts = create_binary_time_series(epoch=closest_tce_epoch,
                                                        duration=tce['allTransitsFit_transitDurationHours_value'] / 24,
                                                        period=tce['allTransitsFit_orbitalPeriodDays_value'],
-                                                       tStart=toi['Epoch (TBJD)'],
-                                                       tEnd=toi['Epoch (TBJD)'] + phase,
+                                                       tStart=toi['Epoch (TBJD)'] - phase / 2,
+                                                       tEnd=toi['Epoch (TBJD)'] + phase / 2,
                                                        samplingInterval=sampling_interval)
 
                 # compute distance between TOI and TCE templates as cosine distance
@@ -98,22 +106,19 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                             tce['allTransitsFit_orbitalPeriodDays_value'],
                             toi['Epoch (TBJD)'])
 
-                        if phase == toi['Period (days)']:
-                            toi_bin_ts = toi_bin_ts_max
-                        else:
-                            toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
-                                                                   duration=toi['Duration (hours)'] / 24,
-                                                                   period=toi['Period (days)'],
-                                                                   tStart=toi['Epoch (TBJD)'],
-                                                                   tEnd=toi['Epoch (TBJD)'] + phase,
-                                                                   samplingInterval=sampling_interval)
+                        toi_bin_ts = create_binary_time_series(epoch=toi['Epoch (TBJD)'],
+                                                               duration=toi['Duration (hours)'] / 24,
+                                                               period=toi['Period (days)'],
+                                                               tStart=toi['Epoch (TBJD)'] - phase / 2,
+                                                               tEnd=toi['Epoch (TBJD)'] + phase / 2,
+                                                               samplingInterval=sampling_interval)
 
                         tce_bin_ts = create_binary_time_series(epoch=closest_tce_epoch,
                                                                duration=tce['allTransitsFit_transitDurationHours_value']
                                                                         / 24,
                                                                period=tce['allTransitsFit_orbitalPeriodDays_value'],
-                                                               tStart=toi['Epoch (TBJD)'],
-                                                               tEnd=toi['Epoch (TBJD)'] + phase,
+                                                               tStart=toi['Epoch (TBJD)'] - phase / 2,
+                                                               tEnd=toi['Epoch (TBJD)'] + phase / 2,
                                                                samplingInterval=sampling_interval)
 
                         if toi_bin_ts.sum() == 0 or tce_bin_ts.sum() == 0:
@@ -141,6 +146,21 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
 def match_set_tois_tces(toi_tbl, tbl_i, match_tbl_cols, singlesector_tce_tbls, multisector_tce_tbls, match_thr,
                         sampling_interval, max_num_tces, res_dir):
+    """ Match TOIs to TCEs.
+
+    :param toi_tbl: pandas DataFrame, TOIs
+    :param tbl_i: int, subset table id
+    :param match_tbl_cols: list, columns for matching table
+    :param singlesector_tce_tbls: list of pandas DataFrame, single-sector runs DV TCE tables
+    :param multisector_tce_tbls: list of pandas DataFrame, multi-sector runs DV TCE tables
+    :param match_thr: float, matching threshold
+    :param sampling_interval: float, sampling interval for pulse template time series
+    :param max_num_tces: int, maximum number of TCEs that can be matched to the TOI
+    :param res_dir: Path, results directory
+    :return:
+        matching_tbl: pandas DataFrame, TOI matching table
+    """
+
     matching_tbl = pd.DataFrame(columns=match_tbl_cols, data=np.zeros((len(toi_tbl), len(match_tbl_cols))))
 
     for toi_i, toi in toi_tbl.iterrows():

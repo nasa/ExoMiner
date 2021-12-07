@@ -203,7 +203,8 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
-    logger.info(f'Starting run {config["paths"]["experiment_dir"].name}...')
+    if config['rank'] == 0:
+        logger.info(f'Starting run {config["paths"]["experiment_dir"].name}...')
     logger.info(f'HPO run parameters: {config}')
 
     sys.stdout.flush()

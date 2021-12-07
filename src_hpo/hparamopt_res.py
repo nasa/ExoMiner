@@ -2,31 +2,30 @@
 Evaluate a hyperparameter optimization study using BOHB, BO and RS implementation by Falkner et al.
 """
 
+# 3rd party
 # import matplotlib.cm as mcm
 import glob
 # import random
 import os
-
 import hpbandster.visualization as hpvis
 import matplotlib.colors as mcolors
-# 3rd party
 # import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import numpy as np
 
-import paths
 # local
+import paths
 from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logger
 
 # %% load results from a HPO study
 
-paths.path_hpoconfigs = '/data5/tess_project/experiments/hpo_configs/'
-study = 'bohb_keplerq1q17dr25_exonet_8-4-2021'
+paths.path_hpoconfigs = '/data5/tess_project/experiments/current_experiments/hpo_configs/'
+study = 'config-C_11-17-2021'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
 ensemble_study = True
-nmodels = 3
+nmodels = 10
 # set which metric to be used when ranking configurations evaluated
 rankmetric = 'val_auc_pr'  # 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
@@ -217,7 +216,7 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(
 # best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
 
 # returns the best configuration over time/over cumulative budget
-nmodels = 3
+nmodels = 10
 hpo_loss = 'val_auc_pr'  # 'pr auc'
 budget_chosen = 50  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf

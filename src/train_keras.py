@@ -21,8 +21,7 @@ import yaml
 # local
 from models import baseline_configs
 from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
-from src.utils_dataio import get_data_from_tfrecord
-from models.models_keras import CNN1dPlanetFinderv2, compile_model
+from models.models_keras import ExoMiner, compile_model
 from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
@@ -337,7 +336,7 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = CNN1dPlanetFinderv2  # CNN1dPlanetFinderv2
+    BaseModel = ExoMiner  # CNN1dPlanetFinderv2
     # config['config']['parameters'].update(baseline_configs.astronet)
 
     # choose features set

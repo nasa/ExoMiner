@@ -1,0 +1,117 @@
+# output directory for TFRecords
+output_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/kepler_no_centroid_data_5769401.1_12-3-2021
+# TCE table
+input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv
+#input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp_tecfluxtriage.csv
+# light curve FITS file directory
+lc_data_dir: /data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits
+#lc_data_dir: /data5/tess_project/Data/TESS_lc_fits
+dict_savedir: null
+
+using_mpi: false  # use MPI
+
+shuffle: false
+shuffle_seed: 24
+
+satellite: kepler  # kepler or tess
+tce_identifier: tce_plnt_num
+
+# skips target IDs that are not in the FITS files
+omit_missing: true
+
+# plot figures for different preprocessing steps
+plot_figures: true
+
+num_bins_glob: 301  # number of bins in global views
+num_bins_loc: 31  # number of bins in local views
+# bin_width_factor_glob: 1 / num_bins_glob
+bin_width_factor_loc: 0.16
+num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
+
+# split arrays if consecutive cadences are more than gapWidth days apart
+gapWidth: 0.75
+
+# gapping other TCEs from the data
+gapped: false
+gap_keep_overlap: false
+gap_padding: 1
+gap_padding_primary: 3
+gap_imputed: false
+gap_with_confidence_level: false
+gap_confidence_level: 0.75
+
+# if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
+# (world coordinates)
+px_coordinates: false
+# use PSF centroid instead of FW centroid
+prefer_psfcentr: false
+
+# positive outlier removal
+pos_outlier_removal: false
+pos_outlier_removal_sigma: 5
+pos_outlier_removal_fill: true
+
+tess_px_scale: 21  # arcsec
+kepler_px_scale: 3.98  # arcsec
+#tess_to_kepler_px_scale_factor: tess_px_scale / kepler_px_scale
+
+tess_to_kepler_sampling_ratio: 15
+
+# magnitude threshold for categorical variable
+kepler_mag_cat_thr: 12
+tess_mag_cat_thr: 7
+
+# scalar parameters that show up in the plots of the preprocessed views
+scalar_params: [
+  # 'tce_period',
+  # 'tce_duration',
+  # 'tce_time0bk',
+    'transit_depth',
+    'tce_max_mult_ev',
+  # secondary parameters
+    'tce_maxmes',
+    'tce_maxmesd',
+    'wst_robstat',
+    'wst_depth',
+    'tce_ptemp_stat',
+    'tce_albedo_stat',
+  # odd-even
+    'tce_bin_oedp_stat',
+  # centroid
+    'tce_fwm_stat',
+    'tce_dikco_msky',
+    'tce_dikco_msky_err',
+    'tce_dicco_msky',
+    'tce_dicco_msky_err',
+  # other diagnostics
+    'tce_cap_stat',
+    'tce_hap_stat',
+    'tce_rb_tcount0',
+    'boot_fap',
+  # stellar parameters
+    'tce_smass',
+    'tce_sdens',
+    'tce_steff',
+    'tce_slogg',
+    'tce_smet',
+    'tce_sradius',
+    'mag',
+  # transit fit parameters
+  # 'tce_impact',
+    'tce_prad',
+]
+
+# data augmentation
+augmentation: false
+num_examples_per_tce: 1
+aug_noise_factor: 0.05
+tce_min_err:
+  tce_period: 6.39723e-9
+  tce_duration: 0.000385  # in days
+  tce_time0bk: 2.44455e-6
+
+# simulated Kepler data options
+injected_group: false
+light_curve_extension: LIGHTCURVE
+scramble_type: null
+invert: false

@@ -69,10 +69,11 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  odd_std_oot_bin: {'dim': [1,], 'dtype': float}
-  #  even_std_oot_bin: {'dim': [1,], 'dtype': float}
-  #  'odd_se_oot': {'dim': [1,], 'dtype': float}
-  #  'even_se_oot': {'dim': [1,], 'dtype': float}
+  #  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
+  #  odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+  #  even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+  odd_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
+  even_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
@@ -83,7 +84,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  mag_norm: {'dim': [1,], 'dtype': float}
+  mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  mag_cat: { 'dim': [ 1, ], 'dtype': int }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float},
   # local_weak_secondary_view_selfnorm: {'dim': [31, 1], 'dtype': float},
@@ -109,6 +111,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # tce parameters
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+
+feature_map: null
 
 evaluation:
   batch_size: 32

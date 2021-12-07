@@ -1,5 +1,7 @@
-from pathlib import Path
+""" Processing TOI tables. """
 
+# 3rd party
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,14 +32,15 @@ toi_tbl.to_csv(toi_dir / 'tois_spoc_nomissingephemerides.csv', index=False)
 
 # %% EXOFOP TOI catalog
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/9-10-2021/')
+toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/11-23-2021/')
 
-toi_tbl = pd.read_csv(toi_dir / f'exofop_tess_tois.csv', header=1)
+toi_tbl_fp = toi_dir / 'exofop_toilists.csv'
+toi_tbl = pd.read_csv(toi_tbl_fp)
 
 # compute TESS BJD
-# toi_tbl['Epoch (TBJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-toi_tbl['Epoch (TBJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
-toi_tbl.to_csv(toi_dir / 'exofop_toilists_tbjd.csv', index=False)
+toi_tbl['Epoch (TBJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
+# toi_tbl['Epoch (TBJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
+toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_epochtbjd.csv', index=False)
 
 num_tois = len(toi_tbl)
 print(f'Total number of TOIs: {num_tois}')
@@ -55,7 +58,7 @@ for param in ['Epoch (TBJD)', 'Period (days)', 'Duration (hours)', 'Depth (ppm)'
     print(f'Total number of TOIs after removing TOIs without {param}: {len(toi_tbl)} ({num_tois - len(toi_tbl)})')
     num_tois = len(toi_tbl)
 
-toi_tbl.to_csv(toi_dir / 'exofop_toilists_nomissingpephem.csv', index=False)
+toi_tbl.to_csv(toi_tbl_fp.parent / f'{toi_tbl_fp.stem}_nomissingpephem.csv', index=False)
 
 #%% add parameters from the TCE tables to the TOI table using the matched TCEs to each TOI
 

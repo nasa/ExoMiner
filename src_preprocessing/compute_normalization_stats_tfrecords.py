@@ -19,6 +19,7 @@ from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, 
 # %%
 
 def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+
     if scalar_params is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
     else:
@@ -50,7 +51,10 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
                 if scalarParams[scalarParam]['dtype'] == 'int':
                     scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].int64_list.value[0])
                 elif scalarParams[scalarParam]['dtype'] == 'float':
-                    scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
+                    try:
+                        scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
+                    except:
+                        aaa
 
         # get FDL centroid time series data
         if timeSeriesFDLList is not None:
@@ -77,6 +81,7 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
 
 
 def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+
     if scalar_params is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
     else:
@@ -97,7 +102,7 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
     for tfrec_i, tfrecFile in enumerate(tfrec_files):
 
         print(f'[{multiprocessing.current_process().name}] Getting data from {tfrecFile.name} '
-              f'\({tfrec_i / len(tfrec_files) * 100} %)')
+              f'({tfrec_i / len(tfrec_files) * 100} %)')
 
         scalarParamsDict_tfrecord, timeSeriesFDLDict_tfrecord, centroidDict_tfrecord = \
             get_values_from_tfrecord(tfrecFile, scalar_params, timeSeriesFDLList, centroidList, **kwargs)
@@ -123,13 +128,13 @@ if __name__ == '__main__':
 
     # source TFRecord directory
     tfrecDir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-se_std_oot_07-09-2021_data/tfrecordskeplerdr25-se_std_oot_07-09-2021_starshuffle_experiment/')
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
 
     nProcesses = 15
 
     # get only training set TFRecords
     tfrecTrainFiles = [file for file in tfrecDir.iterdir() if
-                       'shard' in file.stem]  # if file.stem.startswith('train-shard')]
+                       'train-shard' in file.stem]  # if file.stem.startswith('train-shard')]
 
     clip_value_centroid = 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 
@@ -191,6 +196,10 @@ if __name__ == '__main__':
         # flux
         'transit_depth': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                           'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
+        'tce_max_mult_ev': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+                            'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
+        'tce_robstat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
+                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'tce_period': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'tce_prad': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
@@ -204,6 +213,8 @@ if __name__ == '__main__':
                             'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
         'even_std_oot_bin': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
                              'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
+        'tce_bin_oedp_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
+                              'clip_factor': 400, 'dtype': 'float', 'replace_value': None},
     }
 
     # FDL centroid time series normalization statistics parameters

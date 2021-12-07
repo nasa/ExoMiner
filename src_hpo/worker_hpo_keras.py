@@ -365,8 +365,6 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
     except Exception as e:
         if verbose:
-            if 'convert Python' in str(e):
-                aaa
             print(f'[worker_{worker_id},config{config_id}] Error during model fit: {e}')
         sys.stdout.flush()
         # q.put({'Error during model fit': e})
@@ -410,14 +408,18 @@ def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, co
                                      gpu_id,
                                      verbose)
 
-        if f'[worker_{worker_id_custom}, config{config_id}] Error during model fit' in res_model_i:
+        if f'[worker_{worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
             if verbose:
                 print(f'[worker_{worker_id_custom},config{config_id}] Error in model fit.')
                 sys.stdout.flush()
 
-            return {'loss': np.inf,
-                    'info': f'Error during model fit: '
-                            f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'}, res_ensemble
+            return {
+                       # 'loss': np.inf,
+                       # 'info': f'Error during model fit: '
+                       #         f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'
+                       'error': 'Error during model fit: '
+                                f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, \
+                   res_models
 
         # add results for this model to the results for the ensemble
         if len(res_models.keys()) == 0:
@@ -458,7 +460,8 @@ def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, co
                 sys.stdout.flush()
 
             return {'error': 'Error while evaluating ensemble: '
-                             f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, res_models
+                             f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, \
+                   res_models
     else:
         res_ensemble = {}
         for metric_name, metric_val in res_models.items():

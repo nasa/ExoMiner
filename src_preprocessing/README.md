@@ -64,7 +64,8 @@ selecting subsets of the data are also common tasks.
 
 #### Splitting data into different datasets
 
-This can be performed in `src_preprocessing.create_new_tfrecords.py`.
+This can be performed in `src_preprocessing.create_new_tfrecords.py`. The source TFRecords are split into new TFRecords
+based on dataset tables (e.g., 'train-shard-xxxx-of-xxxx').
 
 #### Updating labels
 
@@ -76,4 +77,5 @@ This can be performed in `src_preprocessing.compute_normalization_stats_tfrecord
 
 #### Normalizing datasets
 
-This can be performed in `src_preprocessing.normalize_data_tfrecords.py`
+Normalize multiple features based on statistics from a training set. Impute missing values and crop values into a given
+range. This can be performed in `src_preprocessing.normalize_data_tfrecords.py`.

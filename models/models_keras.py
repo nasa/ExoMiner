@@ -36,35 +36,12 @@ class CNN1dPlanetFinderv1(object):
 
         # self.is_training = None
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
-    def create_inputs(self):
-
-        inputs = {}
-
-        for feature in self.features:
-
-            if feature == 'scalar_params' and self.scalar_params_idxs is not None:
-                input_feat_shape = len(self.scalar_params_idxs)
-            else:
-                input_feat_shape = self.features[feature]['dim']
-
-            input = tf.keras.Input(shape=input_feat_shape,
-                                   batch_size=None,
-                                   name='{}'.format(feature),
-                                   dtype=self.features[feature]['dtype'],
-                                   sparse=False,
-                                   tensor=None,
-                                   ragged=False)
-
-            inputs[feature] = input
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the conv columns/branches.
@@ -314,7 +291,7 @@ class CNN1dPlanetFinderv1(object):
         return outputs
 
 
-class CNN1dPlanetFinderv2(object):
+class ExoMiner(object):
 
     def __init__(self, config, features):
         """ Initializes the CNN 1D Planet Finder v2 model. The core structure consists of separate convolutional
@@ -345,25 +322,13 @@ class CNN1dPlanetFinderv2(object):
         # # convert from numpy to tensor
         # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the convolutional branches.
@@ -535,7 +500,7 @@ class CNN1dPlanetFinderv2(object):
                         self.inputs['tce_dicco_msky_norm'],
                         self.inputs['tce_dicco_msky_err_norm'],
                         self.inputs['tce_fwm_stat_norm'],
-                        # self.inputs['mag_norm'],
+                        self.inputs['mag_norm'],
                     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -551,15 +516,15 @@ class CNN1dPlanetFinderv2(object):
                     scalar_input
                 ])
 
-            elif 'alocal_flux_oddeven_views' in branch:
+            elif 'local_flux_oddeven_views' in branch:
                 scalar_input = tf.keras.layers.Concatenate(axis=1, name='oddeven_scalar_input')(
                     [
                         # self.inputs['sigma_oot_odd'],
                         # self.inputs['sigma_it_odd'],
                         # self.inputs['sigma_oot_even'],
                         # self.inputs['sigma_it_even'],
-                        self.inputs['odd_se_oot'],
-                        self.inputs['even_se_oot'],
+                        self.inputs['odd_se_oot_norm'],
+                        self.inputs['even_se_oot_norm'],
                     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -701,7 +666,8 @@ class CNN1dPlanetFinderv2(object):
             # self.inputs['tce_rb_tcount0_norm'],
             self.inputs['boot_fap_norm'],
             self.inputs['tce_period_norm'],
-            self.inputs['tce_prad_norm']
+            self.inputs['tce_prad_norm'],
+            # self.inputs['tce_bin_oedp_stat_norm'],
         ])
 
         dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
@@ -871,7 +837,7 @@ class CNN1dPlanetFinderv2(object):
         return outputs
 
 
-class CNN1dPlanetFinderParallel(object):
+class ExoMinerParallel(object):
 
     def __init__(self, config, features):
         """ Initializes the CNN 1D Planet Finder Parallel model. The core structure consists of separate convolutional
@@ -904,25 +870,12 @@ class CNN1dPlanetFinderParallel(object):
         # # convert from numpy to tensor
         # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the convolutional branches.
@@ -1270,7 +1223,8 @@ class CNN1dPlanetFinderParallel(object):
             # self.inputs['tce_rb_tcount0_norm'],
             self.inputs['boot_fap_norm'],
             self.inputs['tce_period_norm'],
-            self.inputs['tce_prad_norm']
+            self.inputs['tce_prad_norm'],
+            # self.inputs['tce_bin_oedp_stat_norm'],
         ])
 
         dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
@@ -1463,25 +1417,12 @@ class MLPPlanetFinder(object):
 
         # self.is_training = None
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def connect_segments(self):
         """ Connect the different scalar features.
@@ -1657,25 +1598,13 @@ class Astronet(object):
         # # convert from numpy to tensor
         # self.ce_weights = tf.constant(self.config['ce_weights'], dtype=tf.float32)
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the conv columns/branches.
@@ -1861,25 +1790,13 @@ class Exonet(object):
 
         # self.is_training = None
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the conv columns/branches.
@@ -2084,25 +2001,12 @@ class Exonet_XS(object):
 
         # self.is_training = None
 
-        self.inputs = self.create_inputs()
+        self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
-    def create_inputs(self):
-
-        inputs = {feature: tf.keras.Input(shape=self.features[feature]['dim'],
-                                          batch_size=None,
-                                          name=feature,
-                                          dtype=self.features[feature]['dtype'],
-                                          sparse=False,
-                                          tensor=None,
-                                          ragged=False)
-                  for feature in self.features}
-
-        return inputs
 
     def build_cnn_layers(self):
         """ Builds the conv columns/branches.
@@ -2285,17 +2189,21 @@ class Exonet_XS(object):
         return outputs
 
 
-def create_inputs(features):
+def create_inputs(features, feature_map=None):
     """ Create input layers for the input features.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
+    :param feature_map: maps features' names to features names expected by the model
     :return:
         inputs: dictionary, each key-value pair is a feature_name: feature
     """
 
+    if feature_map is None:
+        feature_map = {}
+
     inputs = {feature: tf.keras.Input(shape=features[feature]['dim'],
                                       batch_size=None,
-                                      name=feature,
+                                      name=feature if feature not in feature_map else feature_map[feature],
                                       dtype=features[feature]['dtype'],
                                       sparse=False,
                                       tensor=None,

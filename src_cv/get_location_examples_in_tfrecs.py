@@ -10,7 +10,7 @@ tfrec_dir_root = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/'
                       'tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data')
 
 src_tfrec_dir = tfrec_dir_root / \
-                'tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized'
+                'tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_newval'
 
 src_tfrec_fps = [file for file in src_tfrec_dir.iterdir() if 'shard' in file.stem and not file.suffix == '.csv']
 

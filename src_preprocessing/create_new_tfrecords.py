@@ -23,18 +23,18 @@ from src_preprocessing.utils_manipulate_tfrecords import create_shard
 
 # source TFRecord directory
 srcTfrecDir = Path(
-    '/data5/tess_project/Data/tfrecords/TESS/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23_data/tfrecordstess-dv_g301-l31_5tr_spline_nongapped_s1-s40_09-21-2021_16-23')
+    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021')
 # unique identifier for TCEs (+ 'target_id')
 tceIdentifier = 'tce_plnt_num'
 
 # %% load train, val and test datasets; tbe keys of the `datasetTbl` dictionary determines the prefix name of the new
 # TFRecords files
 
-datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_6-1-2020')
-# datasets = ['predict']
-# datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in datasets}
-datasetTbl = {'predict': pd.read_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')}
+datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
+datasets = ['train', 'val', 'test', 'predict']
+datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in datasets}
+# datasetTbl = {'predict': pd.read_csv(
+#     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')}
 
 # %% Filter out items from the datasets that we do not want to have in the final TFRecords
 
@@ -58,7 +58,7 @@ datasetTbl = {'predict': pd.read_csv(
 
 # input parameters
 srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
-destTfrecDirName = '_experiment'
+destTfrecDirName = 'experiment'
 destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}_{destTfrecDirName}'
 destTfrecDir.mkdir(exist_ok=True)
 omitMissing = True  # skip missing TCEs in the TFRecords that exist in the dataset tables
