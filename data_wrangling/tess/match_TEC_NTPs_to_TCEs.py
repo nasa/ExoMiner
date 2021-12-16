@@ -35,22 +35,4 @@ tec_tbl_full.to_csv(
 
 # tec_tbl_full['id'] = tec_tbl_full.apply(lambda x: f'{x["target_id"]}_{x["tce_plnt_num"]}_{x["sector_run"]}', axis=1)
 
-# %% Assigning TESS TCEs as NTPs based on TEC flux triage tables
 
-tce_tbl_fp = Path(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated.csv')
-# tce_tbl_cols = ['target_id', 'tce_plnt_num', 'sector_run', 'tce_period', 'tce_time0bk', 'tce_duration', 'match_dist',
-#                 'TFOPWG Disposition', 'TESS Disposition']
-tce_tbl = pd.read_csv(tce_tbl_fp)  # [tce_tbl_cols]
-# tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
-
-tec_tbl = pd.read_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/TEC_SPOC/tec_tbl_fluxtriage_s1-s41_10-29-2021.csv')
-
-tce_tbl_tec = tce_tbl.merge(tec_tbl, on=['target_id', 'tce_plnt_num', 'sector_run'], how='left', validate='one_to_one')
-
-# # assignment rule: 1) TCE did not pass flux triage; AND 2) the matching distance is larger than 0.3
-# tce_tbl_tec.loc[(tce_tbl_tec['tec_fluxtriage_pass'] == 0) &
-#                 ((tce_tbl_tec['match_dist'] > 0.3) | (tce_tbl_tec['match_dist'].isna())), 'label'] = 'NTP'
-
-tce_tbl_tec.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_tecfluxtriage.csv', index=False)

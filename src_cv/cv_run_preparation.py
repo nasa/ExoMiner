@@ -2,14 +2,14 @@
 
 # 3rd party
 import logging
-import multiprocessing
+# import multiprocessing
 from datetime import datetime
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# local
-from src_cv.utils_cv import create_shard_fold
+# # local
+# from src_cv.utils_cv import create_shard_fold
 
 # %% set up CV experiment variables
 
@@ -48,20 +48,25 @@ tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # load table with TCEs used in the dataset
 dataset_tbls_dir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_11-17-2021_1255')
+    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
 dataset_tbl = pd.concat([pd.read_csv(set_tbl) for set_tbl in dataset_tbls_dir.iterdir()
                          if set_tbl.name.endswith('.csv') and not set_tbl.name.startswith('predict')])
+logger.info(f'Using dataset tables from {str(dataset_tbls_dir)} to filter examples used.')
 
 # remove TCEs not used in the dataset
+logger.info(
+    f'Removing examples not used... (Total number of examples in dataset before removing examples: {len(dataset_tbl)})')
 dataset_tbl['tceid'] = dataset_tbl[['target_id', 'tce_plnt_num']].apply(
     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
+logger.info(f'(Total number of examples in dataset after removing examples: {len(dataset_tbl)})')
 
 # shuffle per target stars
 logger.info('Shuffling TCE table per target stars...')
 target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+logger.info(f'Number of target stars: {len(target_star_grps)}')
 rng.shuffle(target_star_grps)
 tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
 # tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
@@ -85,6 +90,7 @@ tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False)
 logger.info(f'Split TCE table into {n_folds} fold TCE tables...')
 
 # split at the target star level
+logger.info('Splitting at target star level...')
 target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
 target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
 for fold_i, target_stars_split in enumerate(target_stars_splits):
@@ -95,6 +101,7 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
 
 # # split at the TCE level
+# logger.info('Splitting at TCE level...')
 # tce_splits = np.array_split(range(len(tce_tbl)), n_folds, axis=0)
 # for fold_i, tce_split in enumerate(tce_splits):
 #     fold_tce_tbl = tce_tbl[tce_split[0]:tce_split[-1] + 1]

@@ -500,7 +500,9 @@ class ExoMiner(object):
                         self.inputs['tce_dicco_msky_norm'],
                         self.inputs['tce_dicco_msky_err_norm'],
                         self.inputs['tce_fwm_stat_norm'],
-                        self.inputs['mag_norm'],
+                        # self.inputs['mag_norm'],
+                        # self.inputs['mag_cat'],
+                        tf.cast(self.inputs['mag_cat'], tf.float32),
                     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
@@ -509,7 +511,14 @@ class ExoMiner(object):
                 ])
 
             elif 'local_flux_view' in branch:
-                scalar_input = self.inputs['transit_depth_norm']
+                # scalar_input = self.inputs['transit_depth_norm']
+
+                scalar_input = tf.keras.layers.Concatenate(axis=1, name='flux_scalar_input')(
+                    [
+                        self.inputs['transit_depth_norm'],
+                        self.inputs['tce_max_mult_ev_norm'],
+                        self.inputs['tce_robstat_norm'],
+                    ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
                     net,
@@ -668,6 +677,7 @@ class ExoMiner(object):
             self.inputs['tce_period_norm'],
             self.inputs['tce_prad_norm'],
             # self.inputs['tce_bin_oedp_stat_norm'],
+            self.inputs['koi_fpflag_ec'],
         ])
 
         dv_scalar_fc_output = tf.keras.layers.Dense(units=4,

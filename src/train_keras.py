@@ -11,7 +11,7 @@ import tensorflow as tf
 import numpy as np
 from mpi4py import MPI
 import time
-from tensorflow.keras import callbacks, losses, optimizers
+from tensorflow.keras import callbacks
 import argparse
 from tensorflow.keras.utils import plot_model
 from pathlib import Path
@@ -19,7 +19,6 @@ import logging
 import yaml
 
 # local
-from models import baseline_configs
 from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
 from models.models_keras import ExoMiner, compile_model
 from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
@@ -341,8 +340,10 @@ if __name__ == '__main__':
 
     # choose features set
     for feature_name, feature in config['features_set'].items():
-        if feature['dtype'] == 'float32':
+        if feature['dtype'] == 'float':
             config['features_set'][feature_name]['dtype'] = tf.float32
+        elif feature['dtype'] == 'int':
+            config['features_set'][feature_name]['dtype'] = tf.int64
 
     logger.info(f'Feature set: {config["features_set"]}')
 

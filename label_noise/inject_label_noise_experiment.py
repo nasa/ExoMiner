@@ -24,7 +24,7 @@ import pandas as pd
 # local
 import paths
 from models.models_keras import CNN1dPlanetFinderv2
-import models.config_keras
+import models.old.config_keras
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_jsonable
 from label_noise.utils_label_noise import processing_data_run, train_model, eval_ensemble
@@ -472,7 +472,7 @@ def run_label_noise_experiment():
     )
 
     # add dataset parameters
-    config = models.config_keras.add_dataset_params(
+    config = models.old.config_keras.add_dataset_params(
         run_params['satellite'],
         run_params['multi_class'],
         run_params['use_kepler_ce'],
@@ -481,7 +481,7 @@ def run_label_noise_experiment():
     )
 
     # add missing parameters in hpo with default values
-    config = models.config_keras.add_default_missing_params(config=config)
+    config = models.old.config_keras.add_default_missing_params(config=config)
 
     logger.info(f'Final configuration used: {config}')
     run_params['config'] = config

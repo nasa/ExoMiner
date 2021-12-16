@@ -22,7 +22,7 @@ import multiprocessing
 import yaml
 
 # local
-from models.models_keras import CNN1dPlanetFinderv2, CNN1dPlanetFinderParallel
+from models.models_keras import ExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run, train_model, eval_ensemble
@@ -194,12 +194,14 @@ def cv():
         config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = CNN1dPlanetFinderv2  # CNN1dPlanetFinderv2
+    config['base_model'] = ExoMiner
 
     # choose features set
     for feature_name, feature in config['features_set'].items():
-        if feature['dtype'] == 'float32':
+        if feature['dtype'] == 'float':
             config['features_set'][feature_name]['dtype'] = tf.float32
+        if feature['dtype'] == 'int':
+            config['features_set'][feature_name]['dtype'] = tf.int64
 
     config['logger'].info(f'Feature set: {config["features_set"]}')
 

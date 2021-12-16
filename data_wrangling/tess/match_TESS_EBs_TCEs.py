@@ -9,7 +9,7 @@ import multiprocessing
 import os
 from datetime import datetime
 import logging
-import time
+# import time
 
 # local
 from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
@@ -239,8 +239,7 @@ if __name__ == "__main__":
                     'match_dist',
                     'TFOPWG Disposition', 'TESS Disposition', 'TOI']
     tce_tbl = pd.read_csv(tce_tbl_fp)[tce_tbl_cols]
-    # tce_tbl = tce_tbl.loc[tce_tbl['target_id'] == 1129033]
-    # tce_tbl = tce_tbl.loc[(tce_tbl['target_id'] == 49899799) & (tce_tbl['tce_plnt_num'] == 1) & (tce_tbl['sector_run'] == '31')]
+
     tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
 
     eb_tbl_cols = ['tess_id', 'signal_id', 'bjd0', 'period']
@@ -285,7 +284,7 @@ if __name__ == "__main__":
     # consider only matches below threshold, when the period is similar (no multiple integer) and for the smallest
     # planet number
 
-    matching_eb_thr = 0.2  # matching threshold
+    matching_eb_thr = np.inf  # matching threshold
 
     matching_tbl['target_sector_run'] = matching_tbl['target_id'].astype(str)
     matching_tbl['target_sector_run'] = matching_tbl[['target_sector_run', 'sector_run']].agg('_'.join, axis=1)

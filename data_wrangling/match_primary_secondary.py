@@ -22,10 +22,7 @@ def _compute_phase_diff(epoch1, phase1, epoch2, period2):
     :param epoch2: float, epoch of TCE being matched against the primary TCE
     :param period2: float, orbital period of the TCE being matched against the primary TCE
     :return:
-        # phaseDiffRel: float, relative absolute difference between the phase of the weak secondary of the primary TCE
-        # and the estimated phase for the test TCE
-        # phaseEst: float, estimated phase
-        k_mult_dec: decimal part of the multiple factor between the two TCEs
+        k_mult_dec: float, decimal part of the multiple factor between the two TCEs
     """
 
     # if epoch2 < epoch1:
@@ -69,6 +66,16 @@ def _phase_match(row, epochReference, wksphase):
 
 
 def _compute_period_test(period1, period2):
+    """ Computes the ratio between periods of primary and secondary TCEs and returns the absolute value of the decimal
+    part.
+
+    :param period1: float, primary period
+    :param period2: float, primary period
+    :return:
+        r_period: float, decimal part of the multiple factor between the two TCEs
+
+    """
+
     period_ratio = period1 / period2
 
     k_period = np.round(period_ratio)
@@ -86,6 +93,15 @@ def _period_match(row, period1):
 
 
 def _match_tces(tce, tceTbl, cond):
+    """ Match TCE to other TCEs with higher tce planet number in the same target star.
+
+    :param tce: pandas Series, TCE parameters
+    :param tceTbl: pandas DataFrame, TCE table
+    :param cond: dict, contains matching thresholds
+    :return:
+        results: pandas Series, matching result for the given TCE
+    """
+
     result = pd.Series(data={
         'matched_tces': '',
         'num_matched_tces': 0,
@@ -143,9 +159,6 @@ def _match_tces(tce, tceTbl, cond):
 if __name__ == '__main__':
 
     matchConditions = {
-        # 'max_period_diff': 5e-3,
-        # 'max_period_diff_rel': 1e-3,
-        # 'max_phase_diff_rel': 1e-2,  # 1e-1
         'phase_match_thr': 5e-2,
         'period_match_thr': 1e-3
     }

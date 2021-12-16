@@ -11,7 +11,7 @@ from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy
 
 # cv experiment directory
 cv_run_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_addnewval_no_oddeven_features_12-3-2021')
+    '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newval_wo_koifpflag_12-13-2021')
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall

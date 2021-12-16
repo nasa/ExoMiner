@@ -304,6 +304,8 @@ if __name__ == '__main__':
     for feature_name, feature in config['features_set'].items():
         if feature['dtype'] == 'float32':
             config['features_set'][feature_name]['dtype'] = tf.float32
+        elif feature['dtype'] == 'int':
+            config['features_set'][feature_name]['dtype'] = tf.int64
 
     logger.info(f'Feature set: {config["features_set"]}')
 
@@ -336,15 +338,9 @@ if __name__ == '__main__':
     #     num_batches=None
     # )
 
-    # # save features and config
-    # np.save(res_dir / 'features_set', ['features_set'])
-    # np.save(res_dir / 'config', config)
-
     # save the YAML file with training-evaluation parameters that are YAML serializable
     json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
     with open(config['paths']['experiment_dir'] / 'predict_params.yaml', 'w') as cv_run_file:
         yaml.dump(json_dict, cv_run_file)
 
-    run_main(
-        config=config,
-    )
+    run_main(config=config)

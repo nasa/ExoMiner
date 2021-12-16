@@ -181,7 +181,7 @@ import time
 
 # import src
 from models.models_keras import CNN1dPlanetFinderv2
-from models import config_keras
+from models.old import config_keras
 from src_hpo import utils_hpo
 from src.utils_dataio import InputFnv2 as InputFn
 import paths

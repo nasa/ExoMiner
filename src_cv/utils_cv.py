@@ -365,6 +365,8 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
                 # standardization
                 scalar_param_val = (scalar_param_val - norm_stats['scalar_params'][scalar_param]['median']) / \
                                    norm_stats['scalar_params'][scalar_param]['mad_std']
+                # if np.isnan(scalar_param_val):
+                #     aaaa
                 assert not np.isnan(scalar_param_val)
 
                 norm_features[f'{scalar_param}_norm'] = [scalar_param_val]
@@ -397,15 +399,17 @@ def normalize_data(src_data_fp, norm_stats, aux_params, norm_data_dir):
                                             norm_stats['fdl_centroid']['global_centr_fdl_view']['oot_std']
                                             )
             glob_centr_fdl_view_norm *= glob_flux_view_std / \
-                                        np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
+                                        max(1e-32,
+                                            np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1))
             loc_centr_fdl_view = np.array(example.features.feature['local_centr_fdl_view'].float_list.value)
             loc_centr_fdl_view_norm = \
                 centering_and_normalization(loc_centr_fdl_view,
                                             norm_stats['fdl_centroid']['local_centr_fdl_view']['oot_median'],
                                             norm_stats['fdl_centroid']['local_centr_fdl_view']['oot_std']
                                             )
-            loc_centr_fdl_view_norm *= loc_flux_view_std / np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc],
-                                                                  ddof=1)
+            loc_centr_fdl_view_norm *= loc_flux_view_std / max(1e-32, np.std(
+                loc_centr_fdl_view_norm[idxs_nontransitcadences_loc],
+                ddof=1))
 
             # normalize centroid time series
             glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
@@ -924,3 +928,38 @@ def predict_ensemble(models_filepaths, config, data_fps, res_dir):
             # sort in descending order of output
             data_df.sort_values(by='score', ascending=False, inplace=True)
             data_df.to_csv(res_dir / f'ensemble_ranked_predictions_{dataset}set.csv', index=False)
+
+
+def create_table_shard_example_location(tfrec_dir):
+    """ Create shard TCE table that makes tracking of location of TCEs in the shards easier. The table consists  of 4
+    columns: target_id, tce_plnt_num, shard filename that contains the example, sequential id for example in the shard
+    starting at 0.
+
+    :param tfrec_dir: Path, TFRecord directory
+    :return:
+    """
+
+    tfrec_fps = [file for file in tfrec_dir.iterdir() if 'shard' in file.stem and not file.suffix == '.csv']
+
+    data_to_df = []
+    for tfrec_fp in tfrec_fps:
+
+        tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_fp))
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+            tceIdentifierTfrec = example.features.feature['tce_plnt_num'].int64_list.value[0]
+
+            data_to_df.append([targetIdTfrec, tceIdentifierTfrec, tfrec_fp.name, string_i])
+
+    shards_tce_tbl = pd.DataFrame(data_to_df, columns=['target_id', 'tce_plnt_num', 'shard', 'example_i'])
+    shards_tce_tbl.to_csv(tfrec_dir / 'shards_tce_tbl.csv', index=False)
+
+
+if __name__ == '__main__':
+    tfrec_dir = Path(
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_koi_fpflagec')
+
+    create_table_shard_example_location(tfrec_dir)

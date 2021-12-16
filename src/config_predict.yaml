@@ -2,9 +2,9 @@ ngpus_per_node: 1
 rank: null
 #experiment: &experiment_name
 paths:
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/results_ensemble/test_multiclass_hongbo
-  models_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_multiclass_hongbo
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_starshuffle_experiment-labels-normalized
+  experiment_dir: /data5/tess_project/experiments/current_experiments/results_ensemble/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_magcat_oe_se_oot_explainability_12-7-2021
+  models_dir: /data5/tess_project/experiments/current_experiments/trained_models/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_magcat_oe_se_oot_explainability_12-7-2021
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
 data_fields: # scalar data from TFRecords to add to ranking table
@@ -60,7 +60,7 @@ config:
   use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: true  # switch to multiclass classification
+  multi_class: false  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -84,8 +84,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_cat: { 'dim': [ 1, ], 'dtype': int }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float},
   # local_weak_secondary_view_selfnorm: {'dim': [31, 1], 'dtype': float},
@@ -130,9 +130,9 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 2
-  AFP: 1
-  AFP2: 1
+  PC: 1
+  AFP: 0
+  #  AFP2: 1
   NTP: 0
   # TESS
 #  KP: 1
@@ -163,6 +163,6 @@ metrics:
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
 # datasets in which the ensemble is run - same name convention as used for the TFRecords
-datasets: [ 'test' ]
+datasets: [ 'train', 'val', 'test', 'predict' ]
 verbose: true
 satellite: kepler

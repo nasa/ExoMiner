@@ -12,7 +12,7 @@ from tensorflow.keras import Model
 from tensorflow.keras.models import load_model
 
 import paths
-from models import config_keras
+from models.old import config_keras
 from models.models_keras import create_inputs
 from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_dataio import get_data_from_tfrecord

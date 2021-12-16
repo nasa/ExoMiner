@@ -7,29 +7,44 @@ import multiprocessing
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import logging
 
 # local
-from src_cv.utils_cv import create_shard_fold
+from src_cv.utils_cv import create_shard_fold, create_table_shard_example_location
 
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_11-24-2021_1005')
+    data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_12-09-2021_1404')
+
+    # set up logger
+    logger = logging.getLogger(name=f'create_cv_folds_shards')
+    logger_handler = logging.FileHandler(filename=data_dir / f'create_cv_folds_shards.log',
+                                         mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting run...')
+
     shard_tbls_dir = data_dir / 'shard_tables'  # directory with the TCE tables for each fold
 
     # TFRecord source directory; non-normalized examples
-    tfrec_dir_root = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/')
-    src_tfrec_dir = tfrec_dir_root / \
-                    'tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_newval'
+    src_tfrec_dir = Path(
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_koi_fpflagec')
+    logger.info(f'Source TFRecords: {str(src_tfrec_dir)}')
+
+    # table that maps a TCE to a given TFRecord file in the source TFRecords
+    src_tfrec_tbl_fp = src_tfrec_dir / 'shards_tce_tbl.csv'
+    if not src_tfrec_tbl_fp.exists():
+        logger.info('Creating shard example table that tracks location of examples in the source TFRecords...')
+        create_table_shard_example_location(src_tfrec_dir)
+    src_tfrec_tbl = pd.read_csv(src_tfrec_tbl_fp)
+    shard_tbls_fps = sorted(list(shard_tbls_dir.iterdir()))
 
     # destination directory for the TFRecords for all CV folds
     dest_tfrec_dir = data_dir / 'tfrecords'
     dest_tfrec_dir.mkdir(exist_ok=True)
-
-    # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl = pd.read_csv(src_tfrec_dir / 'shards_tce_tbl.csv')
-    shard_tbls_fps = sorted(list(shard_tbls_dir.iterdir()))
 
     n_processes = 10
     pool = multiprocessing.Pool(processes=n_processes)
@@ -38,7 +53,7 @@ if __name__ == '__main__':
     async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
     pool.close()
 
-    print('Finished creating TFRecords folds.')
+    logger.info('Finished creating TFRecords folds.')
 
     # TCEs present in the fold TCE tables that were not present in the source TFRecords
     tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['target_id', 'tce_plnt_num'])
