@@ -59,7 +59,8 @@ for tce_i, tce in tce_tbl.iterrows():
     if tce['match_dist'] <= tce['eb_match_dist'] and tce['match_dist'] <= matching_thr:
         tce_tbl.loc[tce_i, 'label'] = tce['TFOPWG Disposition']
         tce_tbl.loc[tce_i, 'label_comment'] = 'label from TFOPWG'
-    elif tce['match_dist'] > tce['eb_match_dist'] and tce['eb_match_dist'] <= matching_thr:
+    elif tce['match_dist'] > tce['eb_match_dist'] and tce['eb_match_dist'] <= matching_thr and tce[
+        'TFOPWG Disposition'] not in ['KP', 'CP']:
         tce_tbl.loc[tce_i, 'label'] = 'FP'
         tce_tbl.loc[tce_i, 'label_comment'] = 'label from EB'
     elif tce['tec_fluxtriage_comment'] in ['AltDetFail', 'ses2MesFail', 'ChasesFail', 'newMesBelowThresh',

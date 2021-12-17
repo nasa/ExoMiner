@@ -145,6 +145,15 @@ from data_wrangling.utils_ephemeris_matching import create_binary_time_series, f
 
 
 def match_tces_to_ebs(matching_tbl, eb_tbl, sampling_interval, res_dir):
+    """ Match TCEs to EBs using ephemerides templates and cosine distance.
+
+    :param matching_tbl: pandas DataFrame, TCE table
+    :param eb_tbl: pandas DataFrame, EB table
+    :param sampling_interval: float, sampling interval to build ephemerides pulse train time series
+    :param res_dir: Path, results directory
+    :return:
+    """
+
     proc_id = os.getpid()
 
     logger = logging.getLogger(name=f'match_tces_to_ebs_{proc_id}')
@@ -218,7 +227,8 @@ def match_tces_to_ebs(matching_tbl, eb_tbl, sampling_interval, res_dir):
             matching_tbl.loc[tce_i, f'tce_eb_period_multiple_int_{eb_i}'] = tce_eb_per_k
             # aaa
 
-    print(f'[{proc_id}, {datetime.now().strftime("%m-%d-%Y_%H%M")}] Finished processing {len(matching_tbl)} TCEs.')
+    logger.info(
+        f'[{proc_id}, {datetime.now().strftime("%m-%d-%Y_%H%M")}] Finished processing {len(matching_tbl)} TCEs.')
 
     matching_tbl.to_csv(res_dir / f'matching_tbl_{proc_id}.csv', index=False)
 
@@ -236,14 +246,15 @@ if __name__ == "__main__":
     tce_tbl_fp = Path(
         '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_tecfluxtriage.csv')
     tce_tbl_cols = ['target_id', 'tce_plnt_num', 'sector_run', 'tce_period', 'tce_time0bk', 'tce_duration',
-                    'match_dist',
-                    'TFOPWG Disposition', 'TESS Disposition', 'TOI']
+                    'match_dist', 'TFOPWG Disposition', 'TESS Disposition', 'TOI']
     tce_tbl = pd.read_csv(tce_tbl_fp)[tce_tbl_cols]
 
     tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
 
     eb_tbl_cols = ['tess_id', 'signal_id', 'bjd0', 'period']
-    eb_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/TESS_EB_Catalog_1.csv')[eb_tbl_cols]
+    eb_tbl = pd.read_csv(
+        '/data5/tess_project/Data/Ephemeris_tables/TESS/eb_catalogs/eb_catalog/TESS_EB_Catalog_1_10-7-2021.csv')[
+        eb_tbl_cols]
     for col in ['period', 'bjd0']:
         eb_tbl = eb_tbl.loc[eb_tbl[col] != 'None']
     eb_tbl = eb_tbl.astype(dtype={'period': np.float, 'bjd0': 'float'})
@@ -266,9 +277,7 @@ if __name__ == "__main__":
     n_processes = len(tbl_jobs)
     print(f'Setting number of processes to {n_processes}')
     pool = multiprocessing.Pool(processes=n_processes)
-    jobs = [(tbl_job,) +
-            (eb_tbl, sampling_interval, res_dir)
-            for tbl_job_i, tbl_job in enumerate(tbl_jobs)]
+    jobs = [(tbl_job,) + (eb_tbl, sampling_interval, res_dir) for tbl_job_i, tbl_job in enumerate(tbl_jobs)]
     async_results = [pool.apply_async(match_tces_to_ebs, job) for job in jobs]
     pool.close()
 
@@ -283,7 +292,6 @@ if __name__ == "__main__":
 
     # consider only matches below threshold, when the period is similar (no multiple integer) and for the smallest
     # planet number
-
     matching_eb_thr = np.inf  # matching threshold
 
     matching_tbl['target_sector_run'] = matching_tbl['target_id'].astype(str)
