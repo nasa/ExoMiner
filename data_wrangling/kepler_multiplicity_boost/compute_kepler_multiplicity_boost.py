@@ -44,14 +44,16 @@ koi_cat = pd.read_csv(koi_cat_fp,
                       )
 logger.info(f'Using KOI catalog: {str(koi_cat_fp)}')
 logger.info(f'Number of KOIs in the KOI catalog: {len(koi_cat)}')
-logger.info(f'Number of KOIs in the KOI catalog after filtering KOIs: {len(koi_cat)}')
-
-# binary flag true and greater than 2%
-koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
 
 # filter KOI catalog for those associated with targets in the stellar catalog
 koi_cat = koi_cat.loc[koi_cat['kepid'].isin(stellar_cat['kepid'])]
-logger.info(f'Number of KOIs in the KOI catalog after filtering based on the stellar catalog: {len(koi_cat)}')
+logger.info(f'Number of KOIs in the KOI catalog after kepping only KOIs associated with targets in the stellar catalog: {len(koi_cat)}')
+
+# binary flag true and greater than 2%
+koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
+logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with periods smaller than 1.6 days '
+            f'and KOIs with stellar eclipse flag set to 1 and that have a transit depth greater than 2%: {len(koi_cat)}')
+
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
 
 # %% count different quantities needed for estimates that are plugged into the statistical framework
@@ -78,6 +80,9 @@ tbls.append(cnt_candidates_target)
 # cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') & (koi_cat['koi_disposition'] != 'CONFIRMED')), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP')), 'kepid'].value_counts().to_frame(
     name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
+# cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') &
+#                               koi_cat['koi_pdisposition'] != 'CANDIDATE'), 'kepid'].value_counts().to_frame(
+#     name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_fps_target)
 # number of Confirmed KOIs in target
 cnt_planets_target = koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED', 'kepid'].value_counts().to_frame(
