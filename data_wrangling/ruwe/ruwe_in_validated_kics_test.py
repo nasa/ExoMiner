@@ -1,17 +1,16 @@
-import matplotlib.pyplot as plt
+""" Utility and test code for main script. """
+
+# 3rd party
 import numpy as np
 import pandas as pd
 from astroquery.gaia import Gaia
 from pathlib import Path
 from datetime import datetime
-import logging
 from astropy.table import Table
-from astropy.io.votable import from_table
 from astroquery.simbad import Simbad
-
-#%%
-
 # from astroquery.utils.tap.core import TapPlus
+
+#%% getting KICs for validated planets by us
 
 # gaia = TapPlus(url="http://gea.esac.esa.int/tap-server/tap")
 
@@ -58,23 +57,23 @@ data_df = pd.DataFrame(data_to_tbl)
 
 data_df['source_id'] = np.nan
 data_df['source_id_release'] = np.nan
-for kic_i, kic in data_df:
-    if not np.isnan(kic['gaia edr3']):
+for kic_i, kic in data_df.iterrows():
+    if isinstance(kic['gaia edr3'], str):  # not np.isnan(kic['gaia edr3']):
         data_df.loc[kic_i, ['source_id', 'source_id_release']] = [kic['gaia edr3'], 'gaia edr3']
 
-    if not np.isnan(kic['gaia dr2']):
+    if isinstance(kic['gaia dr2'], str):  # not np.isnan(kic['gaia dr2']):
         data_df.loc[kic_i, ['source_id', 'source_id_release']] = [kic['gaia dr2'], 'gaia dr2']
 
-data_df.to_csv('/Users/msaragoc/Downloads/simbad_allkics.csv', index=False)
+data_df.to_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/simbad_allkics.csv', index=False)
 
 #%% get 1'' arcsec search radius for crossmatch between KICs and Gaia DR2 source ids from Megan Bedell
 
 data = Table.read('/Users/msaragoc/Downloads/kepler_dr2_1arcsec.fits', format='fits')
 cross_match_gaiadr2_kepler = data.to_pandas()
-cross_match_gaiadr2_kepler.to_csv('/Users/msaragoc/Downloads/cross_match_gaiadr2_kepler.csv', index=False)
+cross_match_gaiadr2_kepler.to_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/cross_match_gaiadr2_kepler.csv', index=False)
 
-#%%
-#
+#%% Testing queries to Gaia
+
 # Gaia.query_object()
 query = "select top 100 * "\
         "from gaiaedr3.gaia_source order by source_id"
@@ -85,7 +84,7 @@ job = Gaia.launch_job_async(query,
                             dump_to_file=True,
                             output_format='csv')
 
-#%% Query one object at a time
+#%% Query one object at a time from Gaia
 
 gaia_dr2_2020_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/gaia_dr2_2018/DR2PapTable1.csv')
 res_dir = Path(f'/Users/msaragoc/Downloads/gaia_edr3_queries/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
