@@ -4,7 +4,6 @@ Utility I/O functions for TESS data.
 
 # 3rd party
 import os
-
 import numpy as np
 from astropy import wcs
 from astropy.io import fits
@@ -56,6 +55,9 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              38: ("2021118034608", "209"),
              39: ("2021146024351", "210"),
              40: ("2021175071901", "211"),
+             41: ("2021204101404", "212"),
+             42: ("2021232031932", "213"),
+             43: ("2021258175143", "214"),
              }
 
 

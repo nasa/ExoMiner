@@ -1,7 +1,8 @@
 ngpus_per_node: 1  # number of GPUs per node
 rank: null
+train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 n_processes_norm_data: 15  # number of processes to parallelize data normalization for each CV iteration
-rnd_seed: 2
+#rnd_seed: 2
 logger: null
 #experiment: &experiment_name
 paths:
@@ -11,10 +12,10 @@ paths:
   cv_experiment_dir: /data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_exominerparallel_11-9-2021
   # TFRecord directory with the CV folds
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_predict_tcesnotused/
-  # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
+  # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 
-generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
+generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
 data_fields: # scalar data from TFRecords to add to ranking table
   'target_id': 'int_scalar'
@@ -35,45 +36,45 @@ data_fields: # scalar data from TFRecords to add to ranking table
 #  'sigma_it_even': 'float_scalar'
 
 config:
-  # branches used in ExoMiner
-  branches: [
-      'global_flux_centroid_views',
-      'local_flux_centroid_views',
-    #      'global_flux_view_fluxnorm',
-    #      'local_flux_view_fluxnorm',
-    # 'global_centr_fdl_view_norm',
-    # 'local_centr_fdl_view_norm',
-      'local_flux_oddeven_views',
-    #      'global_centr_view_std_noclip',
-    #      'local_centr_view_std_noclip',
-    # 'local_weak_secondary_view_fluxnorm',
-    # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm'
-  ]
-  non_lin_fn: prelu
-  #  'num_loc_conv_blocks': 2
-  #  'num_glob_conv_blocks': 5
-  #  'init_fc_neurons': 512
-  #  'num_fc_layers': 4
-  #  'pool_size_loc': 7
-  #  'pool_size_glob': 5
-  #  'pool_stride': 2
-  #  'conv_ls_per_block': 2
-  #  'init_conv_filters': 4
-  #  'kernel_size': 5
-  #  'kernel_stride': 1
-  #  'optimizer': 'Adam'
-  #  'lr': 1.0e-5
-  #  'batch_size': 64
-  #  'dropout_rate': 0.0
-  #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
-  weight_initializer: null
-  force_softmax: false
-  use_kepler_ce: false
-  decay_rate: null
-  batch_norm: false
-  multi_class: false  # switch to multiclass classification
+#  # branches used in ExoMiner
+#  branches: [
+#      'global_flux_centroid_views',
+#      'local_flux_centroid_views',
+#    #      'global_flux_view_fluxnorm',
+#    #      'local_flux_view_fluxnorm',
+#    # 'global_centr_fdl_view_norm',
+#    # 'local_centr_fdl_view_norm',
+#      'local_flux_oddeven_views',
+#    #      'global_centr_view_std_noclip',
+#    #      'local_centr_view_std_noclip',
+#    # 'local_weak_secondary_view_fluxnorm',
+#    # 'local_weak_secondary_view_selfnorm',
+#      'local_weak_secondary_view_max_flux-wks_norm'
+#  ]
+#  non_lin_fn: prelu
+#  #  'num_loc_conv_blocks': 2
+#  #  'num_glob_conv_blocks': 5
+#  #  'init_fc_neurons': 512
+#  #  'num_fc_layers': 4
+#  #  'pool_size_loc': 7
+#  #  'pool_size_glob': 5
+#  #  'pool_stride': 2
+#  #  'conv_ls_per_block': 2
+#  #  'init_conv_filters': 4
+#  #  'kernel_size': 5
+#  #  'kernel_stride': 1
+#  #  'optimizer': 'Adam'
+#  #  'lr': 1.0e-5
+#  #  'batch_size': 64
+#  #  'dropout_rate': 0.0
+#  #  'dropout_rate_fc_conv': 0.0
+#  #  'num_fc_conv_units': 0
+#  weight_initializer: null
+#  force_softmax: false
+#  use_kepler_ce: false
+#  decay_rate: null
+#  batch_norm: false
+#  multi_class: false  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -235,4 +236,7 @@ scalar_params:
   tce_bin_oedp_stat: { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
                        'clip_factor': 400, 'dtype': 'float', 'replace_value': null }
 
+# maps features' names to features names expected by the model
 feature_map: null
+#  feature_name: feature_name_model
+#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip

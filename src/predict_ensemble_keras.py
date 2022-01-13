@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from tensorflow.keras import callbacks
 import yaml
+import argparse
 
 # local
 from src.utils_dataio import get_data_from_tfrecord
@@ -26,6 +27,7 @@ from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_preci
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
 from utils.utils_dataio import is_yamlble
+from paths import path_main
 
 
 def run_main(config):
@@ -70,7 +72,9 @@ def run_main(config):
     if len(model_list) == 1:
         ensemble_model = model_list[0]
     else:
-        ensemble_model = create_ensemble(features=config['features_set'], models=model_list)
+        ensemble_model = create_ensemble(features=config['features_set'],
+                                         models=model_list,
+                                         feature_map=config['feature_map'])
 
     ensemble_model.summary()
 
@@ -252,13 +256,24 @@ def run_main(config):
 
 if __name__ == '__main__':
 
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src/config_predict.yaml')
-    with(open(path_to_yaml, 'r')) as file:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
+    args = parser.parse_args()
+
+    if args.config_file is None:  # use default config file in codebase
+        path_to_yaml = Path(path_main + 'src/config_predict.yaml')
+    else:  # use config file given as input
+        path_to_yaml = Path(args.config_file)
+
+    with(open(path_to_yaml, 'r')) as file:  # read YAML configuration file
         config = yaml.safe_load(file)
 
     # experiment directory
     for path_name, path_str in config['paths'].items():
         config['paths'][path_name] = Path(path_str)
+    config['paths']['experiment_dir'].mkdir(exist_ok=True)
+
+    # if config file is from the training experiment
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # set up logger
@@ -279,7 +294,7 @@ if __name__ == '__main__':
                                            if 'model' in model_dir.stem]
     logger.info(f'Models\' file paths: {config["paths"]["models_filepaths"]}')
 
-    # set the configuration from a HPO study
+    # set the configuration from a HPO study to use extra architecture such as batch size
     if config['paths']['hpo_dir'] is not None:
         hpo_study_fp = Path(config['paths']['hpo_dir'])
         res = utils_hpo.logged_results_to_HBS_result(hpo_study_fp, f'_{hpo_study_fp.name}')
@@ -289,7 +304,10 @@ if __name__ == '__main__':
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
-        config['config'].update(id2config[config_id_hpo]['config'])
+        if 'config' in config:
+            config['config'].update(id2config[config_id_hpo]['config'])
+        else:
+            config['config'] = id2config[config_id_hpo]['config']
 
         # select a specific config based on its ID
         # example - check config.json
@@ -344,3 +362,5 @@ if __name__ == '__main__':
         yaml.dump(json_dict, cv_run_file)
 
     run_main(config=config)
+
+    logger.info(f'Finished evaluation and prediction of the ensemble.')

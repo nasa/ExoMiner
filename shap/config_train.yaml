@@ -1,7 +1,7 @@
 ngpus_per_node: 1  # number of GPUs per node
 rank: null
 train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
-#experiment: &experiment_name
+
 paths:
   # experiment directory; results are saved here
   experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_model_for_kaylie_with_magcat
@@ -9,20 +9,10 @@ paths:
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+
 config:
-  # branches used in ExoMiner
-  branches: [
-      'global_flux_view_fluxnorm',
-      'local_flux_view_fluxnorm',
-    # 'global_centr_fdl_view_norm',
-    # 'local_centr_fdl_view_norm',
-      'local_flux_oddeven_views',
-      'global_centr_view_std_noclip',
-      'local_centr_view_std_noclip',
-    # 'local_weak_secondary_view_fluxnorm',
-    # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm'
-  ]
+#  # branches used in ExoMiner
+#  branches:
   non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2
   #  'num_glob_conv_blocks': 5
@@ -169,5 +159,5 @@ metrics:
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
 datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
+
 verbose: true
-#satellite: kepler

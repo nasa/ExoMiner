@@ -1,29 +1,50 @@
-ngpus_per_node: 1  # number of GPUs per node
+ngpus_per_node: 1
 rank: null
-train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_model_for_kaylie_with_magcat
+  experiment_dir: /data5/tess_project/experiments/current_experiments/results_ensemble/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_magcat_oe_se_oot_explainability_12-7-2021
+  # directory with the trained models to create the ensemble
+  models_dir: /data5/tess_project/experiments/current_experiments/trained_models/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_magcat_oe_se_oot_explainability_12-7-2021
   # TFRecord dataset directory
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+
+generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
+
+data_fields: # scalar data from TFRecords to add to ranking table
+  'target_id': 'int_scalar'
+  'tce_plnt_num': 'int_scalar'
+  #  'oi': 'float_scalar'
+  'label': 'string'  # REQUIRED to run script
+  #  'TESS Disposition': 'string'
+  'tce_period': 'float_scalar'
+  'tce_duration': 'float_scalar'
+  'tce_time0bk': 'float_scalar'
+  'original_label': 'string'
+  'transit_depth': 'float_scalar'
+#  'tce_max_mult_ev': 'float_scalar'
+#  'tce_prad': 'float_scalar'
+#  'sigma_oot_odd': 'float_scalar'
+#  'sigma_it_odd': 'float_scalar'
+#  'sigma_oot_even': 'float_scalar'
+#  'sigma_it_even': 'float_scalar'
+
 config:
-  # branches used in ExoMiner
-  branches: [
-      'global_flux_view_fluxnorm',
-      'local_flux_view_fluxnorm',
-    # 'global_centr_fdl_view_norm',
-    # 'local_centr_fdl_view_norm',
-      'local_flux_oddeven_views',
-      'global_centr_view_std_noclip',
-      'local_centr_view_std_noclip',
-    # 'local_weak_secondary_view_fluxnorm',
-    # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm'
-  ]
-  non_lin_fn: prelu
+#  branches: [
+#      'global_flux_view_fluxnorm',
+#      'local_flux_view_fluxnorm',
+#    # 'global_centr_fdl_view_norm',
+#    # 'local_centr_fdl_view_norm',
+#      'local_flux_oddeven_views',
+#      'global_centr_view_std_noclip',
+#      'local_centr_view_std_noclip',
+#    # 'local_weak_secondary_view_fluxnorm',
+#    # 'local_weak_secondary_view_selfnorm',
+#      'local_weak_secondary_view_max_flux-wks_norm'
+#  ]
+#  non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2
   #  'num_glob_conv_blocks': 5
   #  'init_fc_neurons': 512
@@ -41,12 +62,12 @@ config:
   #  'dropout_rate': 0.0
   #  'dropout_rate_fc_conv': 0.0
   #  'num_fc_conv_units': 0
-  weight_initializer: null
-  force_softmax: false
+#  weight_initializer: null
+#  force_softmax: false
 #  use_kepler_ce: false
-  decay_rate: null
-  batch_norm: false
-  multi_class: false  # switch to multiclass classification
+#  decay_rate: null
+#  batch_norm: false
+#  multi_class: false  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -103,33 +124,11 @@ feature_map: null
 #  feature_name: feature_name_model
 #  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
 
-training:
-  data_augmentation: false  # perform online data augmentation
-  online_preprocessing_params: # online data augmentation parameters
-    'num_bins_global': 301
-    'num_bins_local': 31
-    'num_transit_dur': 5
-  n_models: 2  # number of models in the ensemble
-  n_epochs: 10  # number of epochs used to train each model
-#  use_kepler_ce: false
-  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
+evaluation:
   batch_size: 32
-#  ce_weights: null
 #  filter_data: null
-  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-#    PC: 1.0
-#    AFP: 1.0
-#    NTP: 1.0
 
 callbacks:
-  early_stopping:
-    monitor: val_auc_pr  # which metric used to monitor for early stopping
-    min_delta: 0
-    patience: 20
-    verbose: 1
-    mode: max  # maximize/minimize monitored metric in early stopping
-    baseline: null
-    restore_best_weights: true  # get model from epoch that saw best performance according to monitored metric
   tensorboard:
     histogram_freq: 1
     write_graph: true
@@ -139,11 +138,11 @@ callbacks:
     embeddings_metadata: null
     embeddings_freq: 0
 
-label_map:  # maps label to a label id
+label_map:  # category weights used in weighted loss; set to null for non-weighted loss
   # Kepler
   PC: 1
   AFP: 0
-  # AFP2: 1
+  #  AFP2: 1
   NTP: 0
   # TESS
 #  KP: 1
@@ -155,6 +154,11 @@ label_map:  # maps label to a label id
 #  BEB: 0
 #  APC: 0
 #  O: 0
+
+#multiclass_class_labels:
+#  2: 'PC'
+#  1: 'AFP'
+#  0: 'NTP'
 
 metrics:
   'clf_thr': 0.5  # classification threshold
@@ -168,6 +172,6 @@ metrics:
     val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
-datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
+# datasets in which the ensemble is run - same name convention as used for the TFRecords
+datasets: [ 'train', 'val', 'test', 'predict' ]
 verbose: true
-#satellite: kepler

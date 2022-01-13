@@ -1,8 +1,11 @@
-import os
 
+# 3rd party
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+# local
 from src_preprocessing.get_dv_files import get_dv_files
 
 # %% Matching KOI with TCEs to add KOI fields such as FP flags using the TCE planet number scrapped from the

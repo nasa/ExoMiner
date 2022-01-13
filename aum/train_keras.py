@@ -34,19 +34,12 @@ def run_main(config, base_model, model_id):
 
     :param config: dict, configuration parameters for the run
     :param base_model: model
-    :param model_id: int, model id
     :return:
     """
 
     # create directory for the model
     model_dir_sub = config['paths']['models_dir'] / f'model{model_id}'
     model_dir_sub.mkdir(exist_ok=True)
-
-    # debug_dir = os.path.join(model_dir_sub, 'debug')
-    # os.makedirs(debug_dir, exist_ok=True)
-    # tf.debugging.experimental.enable_dump_debug_info(debug_dir,
-    #                                                  tensor_debug_mode='FULL_HEALTH',
-    #                                                  circular_buffer_size=-1)
 
     if 'tensorboard' in config['callbacks']:
         config['callbacks']['tensorboard']['obj'].log_dir = model_dir_sub
@@ -262,16 +255,7 @@ def run_main(config, base_model, model_id):
 
 if __name__ == '__main__':
 
-    # used in job arrays
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
-    args = parser.parse_args()
-
-    if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path(path_main + 'src/config_predict.yaml')
-    else:  # use config file given as input
-        path_to_yaml = Path(args.config_file)
+    path_to_yaml = Path(path_main + 'aum/config_train.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -279,29 +263,19 @@ if __name__ == '__main__':
         with open(config['paths']['experiment_dir'] / 'train_params_init.yaml', 'w') as config_file:
             yaml.dump(config, config_file)
 
-    if config['train_parallel']:  # train models in parallel
-        rank = MPI.COMM_WORLD.rank
-        config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
-        config['size'] = MPI.COMM_WORLD.size
-        print(f'Rank = {config["rank"]}/{config["size"] - 1}')
-        sys.stdout.flush()
-        if rank != 0:
-            time.sleep(2)
-    else:
-        config['rank'] = 0
+    # used in job arrays
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    args = parser.parse_args()
 
-    # # get list of physical GPU devices available to TF in this process
-    # physical_devices = tf.config.list_physical_devices('GPU')
-    # print(f'List of physical GPU devices available: {physical_devices}')
-    #
-    # # select GPU to be used
-    # gpu_id = rank % ngpus_per_node
-    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
-    # # tf.config.set_visible_devices(physical_devices[0], 'GPU')
-    #
-    # # get list of logical GPU devices available to TF in this process
-    # logical_devices = tf.config.list_logical_devices('GPU')
-    # print(f'List of logical GPU devices available: {logical_devices}')
+    # uncomment for MPI multiprocessing
+    rank = MPI.COMM_WORLD.rank
+    config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
+    config['size'] = MPI.COMM_WORLD.size
+    print(f'Rank = {config["rank"]}/{config["size"] - 1}')
+    sys.stdout.flush()
+    if rank != 0:
+        time.sleep(2)
 
     # select GPU to run the training on
     try:
@@ -333,8 +307,7 @@ if __name__ == '__main__':
 
     # set up logger
     logger = logging.getLogger(name='train-eval_run')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
-                                                  f'train-eval_run_{config["rank"]}.log',
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] / f'train-eval_run_{rank}.log',
                                          mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
@@ -366,7 +339,7 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = ExoMiner  # CNN1dPlanetFinderv2
+    BaseModel = ExoMiner
     # config['config']['parameters'].update(baseline_configs.astronet)
 
     # choose features set
@@ -378,8 +351,8 @@ if __name__ == '__main__':
 
     logger.info(f'Feature set: {config["features_set"]}')
 
-    # early stopping callback
-    config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
+    # # early stopping callback
+    # config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
 
     # TensorBoard callback
     config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])

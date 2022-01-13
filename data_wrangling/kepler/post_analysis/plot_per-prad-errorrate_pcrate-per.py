@@ -1,3 +1,10 @@
+"""
+Post-analysis of ranking results:
+1) compute and plot classification error rate as function of period and  planet radius;
+2) compute and plot PC rate as function of period.
+"""
+
+# 3rd party
 import os
 import pandas as pd
 import numpy as np
@@ -26,6 +33,7 @@ for interval in paramInterval:
                                            (rankingTbl['tce_period'] < interval[1])])
 
 #%% compute classification error per bin
+
 clfErrorPerBinOPer = []
 for bin_i in range(len(rankingTblBinned)):
     numTotalBin = len(rankingTblBinned[bin_i])
@@ -75,6 +83,7 @@ for bin_i in range(len(rankingTblBinned)):
         numClfBin = (rankingTblBinned[bin_i]['label'] != rankingTblBinned[bin_i]['predicted class']).sum()
         clfErrorPerBinPRad.append(numClfBin / numTotalBin * 100)
 
+# plot classification error rate based orbital period and planet radius
 f, ax = plt.subplots(2, 2, figsize=(12, 8), gridspec_kw={'width_ratios': [2, 1], 'height_ratios': [1, 2]})
 # ax.bar(binsParam[:-1], clfErrorPerBin, align='edge', width=np.diff(binsParam), fill=False)
 ax[0, 0].plot(binsOrbitPeriod, [clfErrorPerBinOPer[0]] + clfErrorPerBinOPer, ls='steps')

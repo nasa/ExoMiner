@@ -1,5 +1,5 @@
 """
-Match secondary to primary TCEs in TESS  using flux triage TEC information about secondary of previous TCEs. Setting
+Match secondary to primary TCEs in TESS using flux triage TEC information about secondary of previous TCEs. Setting
 phase of matched secondary to negative of primary phase. Settung secondary transit depth and MES to primary and
 recompute planet effective temperature and geometric albedo and respective comparison statistics.
 """
@@ -18,7 +18,7 @@ tce_tbl_fp = Path(
     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_tecfluxtriage_eb_label.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
-# set NaN TEC flux triage comments to 'N/A' in order to filer TCE table for those TCEs that are secondary of
+# set NaN TEC flux triage comments to 'N/A' in order to filter TCE table for those TCEs that are secondary of
 # previous TCEs
 tce_tbl.loc[tce_tbl['tec_fluxtriage_comment'].isna(), 'tec_fluxtriage_comment'] = 'N/A'
 tce_tbl_sec = tce_tbl.loc[tce_tbl['tec_fluxtriage_comment'].str.contains('SecondaryOfPN')]

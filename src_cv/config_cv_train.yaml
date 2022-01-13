@@ -1,19 +1,22 @@
-ngpus_per_node: 1  # number of GPUs per node
+ngpus_per_node: 1  # number of GPUs per node; each GPU is used to run a CV iteration
 rank: null
+train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 n_processes_norm_data: 15  # number of processes to parallelize data normalization for each CV iteration
-rnd_seed: 2
+rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 logger: null
 #experiment: &experiment_name
 paths:
+  # experiment directory; results are saved here
   experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/cv/cv_keplerq1q17dr25_exominer_configk_test_12-10-2021
   # TFRecord directory with the CV folds
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_12-09-2021_1404/tfrecords
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
   cv_folds: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_12-09-2021_1404/cv_folds_runs.npy
+  # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 
-generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
+generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
 data_fields: # scalar data from TFRecords to add to ranking table
   'target_id': 'int_scalar'
@@ -138,9 +141,9 @@ training:
   n_models: 1  # number of models in the ensemble
   n_epochs: 2  # number of epochs used to train each model
   use_kepler_ce: false
-  opt_metric: auc_pr
+  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
-  category_weights: null  # weights for loss function
+  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 #    PC: 1.0
 #    AFP: 1.0
 #    NTP: 1.0
@@ -163,7 +166,7 @@ callbacks:
 #    embeddings_metadata: null
 #    embeddings_freq: 0
 
-label_map:
+label_map:  # maps label to a label id
   # Kepler
   PC: 1
   AFP: 0
@@ -263,4 +266,7 @@ scalar_params:
   tce_bin_oedp_stat: { 'missing_value': 0, 'log_transform': false, 'log_transform_eps': null,
                        'clip_factor': 400, 'dtype': 'float', 'replace_value': null }
 
+# maps features' names to features names expected by the model
 feature_map: null
+#  feature_name: feature_name_model
+#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip

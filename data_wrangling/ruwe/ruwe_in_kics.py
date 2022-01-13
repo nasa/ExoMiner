@@ -1,4 +1,4 @@
-""" Getting RUWE values for KICs associated with validated planets. """
+""" Getting RUWE values for KICs. """
 
 # 3rd party
 import matplotlib.pyplot as plt
@@ -10,14 +10,14 @@ from datetime import datetime
 import logging
 from astropy.table import Table
 from astropy.io.votable import from_table
-from astroquery.simbad import Simbad
+# from astroquery.simbad import Simbad
 
 #%%  Get ruwe from Gaia DR2-KIC table in "Revised Radii of Kepler Stars and Planets Using Gaia Data Release 2"
 
 root_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_gaia_ruwe')
 root_dir.mkdir(exist_ok=True)
 
-res_dir = root_dir / f'gaiadr2_all_kic_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+res_dir = root_dir / f'gaiadr2_2020_q1q17dr25_kics_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 res_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -29,9 +29,13 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
-tce_tbl = pd.read_csv(tce_tbl_fp)
-logger.info(f'Using ranking: {str(tce_tbl_fp)}')
+# tce_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
+#                   'ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
+# tce_tbl = pd.read_csv(tce_tbl_fp)
+kic_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
+                  'ephemeris_tables/kepler/kic_catalogs/q1_q17_dr25_stellar_plus_supp.csv')
+kic_tbl = pd.read_csv(kic_tbl_fp, usecols=['kepid']).rename(columns={'kepid': 'target_id'})
+logger.info(f'Using KIC table: {str(kic_tbl_fp)}')
 
 gaia_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
                    'ephemeris_tables/kepler/kic_catalogs/gaia/gaia_dr2_2020/GKSPCPapTable1_Final.txt')
@@ -40,62 +44,113 @@ gaia_tbl = pd.read_csv(gaia_tbl_fp,
                        lineterminator='\\')
 logger.info(f'Using GAIA DR2 catalog: {str(gaia_tbl_fp)}')
 gaia_tbl.rename(columns={'KIC': 'target_id'}, inplace=True)
+logger.info(f'Number of KICs in the KIC-Gaia DR2 catalog: {len(gaia_tbl)}')
 
-kic_ruwe_tbl = tce_tbl.merge(gaia_tbl[['target_id', 'RUWE']], on=['target_id'], how='left', validate='many_to_one').drop_duplicates(subset='target_id')
+kic_ruwe_tbl = kic_tbl.merge(gaia_tbl[['target_id', 'RUWE']], on=['target_id'], how='left',
+                             validate='many_to_one').drop_duplicates(subset='target_id')
 kic_ruwe_tbl = kic_ruwe_tbl.rename(columns={'RUWE': 'ruwe'})
 
 # filtering for planets only validated by us                             ]
 # kic_ruwe_tbl_valplnt = tce_tbl.loc[tce_tbl['validated_by'] == 'us_exominer_2021'].drop_duplicates(subset='target_id')
 # kic_ruwe_tbl_valplnt[['target_id', 'ruwe', 'validated_by']].to_csv(res_dir / 'kics_validated_plnts.csv', index=False)
 
-kic_ruwe_tbl[['target_id', 'ruwe', 'validated_by']].to_csv(res_dir / 'kics.csv', index=False)
+# kic_ruwe_tbl[['target_id', 'ruwe', 'validated_by']].to_csv(res_dir / 'kics.csv', index=False)
+kic_ruwe_tbl.to_csv(res_dir / 'kics.csv', index=False)
+logger.info('Finished extracting RUWE values from the KIC-Gaia DR2 catalog.')
+logger.info(f'Number of KICs with missing RUWE: {kic_ruwe_tbl["ruwe"].isna().sum()} out of {len(kic_ruwe_tbl)}  KICs.')
 
-#%% Get ruwe values from different sources for  matching KICs to source ids in  Gaia DR2 and then using them in Gaia EDR3
+#%% Get Gaia source ids for KICs from different tables and use them to get RUWE values from Gaia data releases
 
-res_dir = Path(f'/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_gaia_ruwe/crossmatch_gaiadr2_kepler_all_kic_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+query_gaia_dr = 'gaiadr2'  # 'gaia_dr2' or 'gaia_edr3'
+src_tbl = 'crossmatch_gaiadr2'  # 'simbad',  'gaiadr2_2020', 'crossmatch_gaiadr2'
+
+res_dir = Path(f'/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/'
+               f'kepler_gaia_ruwe/src-{src_tbl}_ruwe-{query_gaia_dr}_keplerq1q17dr25_kics_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 res_dir.mkdir(exist_ok=True)
 
-tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
-kic_tbl = tce_tbl.drop_duplicates(subset='target_id')[['target_id']]
-val_kics = tce_tbl.loc[tce_tbl['validated_by'] == 'us_exominer_2021'][['target_id']].drop_duplicates(subset='target_id')
+# set up logger
+logger = logging.getLogger(name='ruwe')
+logger_handler = logging.FileHandler(filename=res_dir / f'ruwe_run.log', mode='w')
+logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+logger.setLevel(logging.INFO)
+logger_handler.setFormatter(logger_formatter)
+logger.addHandler(logger_handler)
+logger.info(f'Starting run...')
 
-# # get Gaia source ids from paper "Revised Radii of Kepler Stars and Planets Using Gaia Data Release 2" for KICs
-# gaia_dr2_2020_tbl = pd.read_csv(
-#     '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/gaia_dr2_2018/DR2PapTable1.txt',
-#     sep='&',
-#     lineterminator='\\',
-#     dtype={'source_id': str}
-#     )
-# gaia_dr2_2020_tbl = gaia_dr2_2020_tbl.loc[~gaia_dr2_2020_tbl['source_id'].isna()]
-# gaia_dr2_2020_tbl = gaia_dr2_2020_tbl.astype(dtype={'source_id': np.int64})
-# gaia_dr2_2020_tbl.rename(columns={'KIC': 'target_id'}, inplace=True)
-# # gaia_dr2_2020_tbl_val = gaia_dr2_2020_tbl.loc[gaia_dr2_2020_tbl['target_id'].isin(val_kics['target_id'])]
+# tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
+# kic_tbl = tce_tbl.drop_duplicates(subset='target_id')[['target_id']]
+# val_kics = tce_tbl.loc[tce_tbl['validated_by'] == 'us_exominer_2021'][['target_id']].drop_duplicates(subset='target_id')
+
+logger.info(f'Using as source table of source ids for KICs: {src_tbl}')
+
+# get Gaia source ids from paper "Revised Radii of Kepler Stars and Planets Using Gaia Data Release 2" for KICs
+if src_tbl == 'gaiadr2_2018':
+    gaia_dr2_2020_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/'
+                                'data/ephemeris_tables/kepler/kic_catalogs/gaia/gaia_dr2_2018/DR2PapTable1.txt')
+    logger.info(f'Loading KIC-Gaia source id table from: {str(gaia_dr2_2020_tbl_fp)}')
+    gaia_dr2_2020_tbl = pd.read_csv(gaia_dr2_2020_tbl_fp,
+                                    sep='&',
+                                    lineterminator='\n',
+                                    dtype={'source_id': str,
+                                           'KIC': str}
+                                    )
+    # gaia_dr2_2020_tbl = pd.read_csv(gaia_dr2_2020_tbl_fp, dtype={'source_id': np.int64})
+    gaia_dr2_2020_tbl = gaia_dr2_2020_tbl.loc[~gaia_dr2_2020_tbl['source_id'].isna()]
+    gaia_dr2_2020_tbl = gaia_dr2_2020_tbl.astype(dtype={'source_id': np.int64})
+    gaia_dr2_2020_tbl.rename(columns={'KIC': 'target_id'}, inplace=True)
+    # gaia_dr2_2020_tbl_val = gaia_dr2_2020_tbl.loc[gaia_dr2_2020_tbl['target_id'].isin(val_kics['target_id'])]
+    source_ids_kic_tbl = gaia_dr2_2020_tbl
 
 # # get Gaia source ids from SIMBAD for validated KICs
-# simbad_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/simbad_allkics.csv', dtype={'source_id': str})
-# simbad_tbl = simbad_tbl.loc[~simbad_tbl['source_id'].isna()]
-# simbad_tbl = simbad_tbl.astype({'source_id': np.int64})
-# # simbad_tbl.to_csv(res_dir / 'simbad_kics.csv', index=False)
-# simbad_tbl = simbad_tbl.rename(columns={'kic': 'target_id'})
+elif src_tbl == 'simbad':
+    simbad_tbl_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/'
+                         'data/ephemeris_tables/kepler/kic_catalogs/gaia/simbad_allkics.csv')
+    simbad_tbl = pd.read_csv(simbad_tbl_fp,
+                             dtype={'source_id': str})
+    logger.info(f'Loading KIC-Gaia source id table from: {str(simbad_tbl_fp)}')
+    simbad_tbl = simbad_tbl.loc[~simbad_tbl['source_id'].isna()]
+    simbad_tbl = simbad_tbl.astype({'source_id': np.int64})
+    # simbad_tbl.to_csv(res_dir / 'simbad_kics.csv', index=False)
+    simbad_tbl = simbad_tbl.rename(columns={'kic': 'target_id'})
+    source_ids_kic_tbl = simbad_tbl
 
 # get Gaia DR2 source ids from cross-match for validated KICs
-cross_match_gaiadr2_kepler = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/kic_catalogs/gaia/cross_match_gaiadr2_kepler.csv')
-cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.merge(
-    cross_match_gaiadr2_kepler[['kepid']].value_counts().to_frame('n_occur').reset_index().rename(columns={'index': 'kepid'})[['kepid', 'n_occur']],
-    on=['kepid'], how='left', validate='many_to_one')
-# select matches for which the angular distance between KIC and  Gaia are smaller
-cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.sort_values('kepler_gaia_ang_dist').drop_duplicates('kepid', keep='first')
-# cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.groupby('kepid')['kepler_gaia_ang_dist'].min().reset_index()
-# cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.loc[(cross_match_gaiadr2_kepler['kepid'].isin(val_kics['target_id']))]
-# cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.loc[(cross_match_gaiadr2_kepler['kepid'].isin(validated_targets['target_id'])) & (cross_match_gaiadr2_kepler['n_occur'] == 1)]
-cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.rename(columns={'kepid': 'target_id'})
-# cross_match_gaiadr2_kepler[['source_id', 'target_id', 'n_occur', 'kepler_gaia_ang_dist']].to_csv(res_dir / 'cross_match_gaiadr2_kics.csv', index=False)
+if src_tbl == 'crossmatch_gaiadr2':
+    cross_match_gaiadr2_kepler_fp = Path('/Users/msaragoc/'
+                                         'OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
+                                         'ephemeris_tables/kepler/kic_catalogs/gaia/cross_match_gaiadr2_kepler.csv')
+    cross_match_gaiadr2_kepler = pd.read_csv(cross_match_gaiadr2_kepler_fp)
+    logger.info(f'Loading KIC-Gaia source id table from: {str(cross_match_gaiadr2_kepler_fp)}')
+    cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.merge(
+        cross_match_gaiadr2_kepler[['kepid']].value_counts().to_frame('n_occur').reset_index().rename(
+            columns={'index': 'kepid'})[['kepid', 'n_occur']],
+        on=['kepid'], how='left', validate='many_to_one')
+    # select matches for which the angular distance between KIC and Gaia are smaller
+    cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.sort_values('kepler_gaia_ang_dist').drop_duplicates('kepid', keep='first')
+    # cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.groupby('kepid')['kepler_gaia_ang_dist'].min().reset_index()
+    # cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.loc[(cross_match_gaiadr2_kepler['kepid'].isin(val_kics['target_id']))]
+    # cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.loc[(cross_match_gaiadr2_kepler['kepid'].isin(validated_targets['target_id'])) & (cross_match_gaiadr2_kepler['n_occur'] == 1)]
+    cross_match_gaiadr2_kepler = cross_match_gaiadr2_kepler.rename(columns={'kepid': 'target_id'})
+    # cross_match_gaiadr2_kepler[['source_id', 'target_id', 'n_occur', 'kepler_gaia_ang_dist']].to_csv(res_dir / 'cross_match_gaiadr2_kics.csv', index=False)
+    source_ids_kic_tbl = cross_match_gaiadr2_kepler
+
+assert len(source_ids_kic_tbl) == len(source_ids_kic_tbl['target_id'].unique())
+
+logger.info(f'Number of KICs: {len(source_ids_kic_tbl)}.')
+logger.info(f'Number of repeated source IDs: {(source_ids_kic_tbl["source_id"].value_counts() > 1).sum()}')
+logger.info(f'Number of unique source IDs: {len(source_ids_kic_tbl["source_id"].unique())}.')
+
+# count number of occurrences for each source id
+source_ids_cnts = \
+    source_ids_kic_tbl['source_id'].value_counts().to_frame('n_occur_source_ids').reset_index().rename(
+        columns={'index': 'source_id'})
+source_ids_kic_tbl = source_ids_kic_tbl.merge(source_ids_cnts,
+                                              on=['source_id'],
+                                              how='left',
+                                              validate='many_to_one')
 
 # select the objects to query using their source id
-source_ids_kic_tbl = cross_match_gaiadr2_kepler
-source_ids_selected = source_ids_kic_tbl[['source_id']]
-
-source_ids_tbl = Table.from_pandas(source_ids_selected)
+source_ids_tbl = Table.from_pandas(source_ids_kic_tbl[['source_id']])
 source_ids_tbl.to_pandas().to_csv(res_dir / 'kics_sourceids_fromtbl.csv', index=False)
 source_ids_votbl = from_table(source_ids_tbl)
 source_id_tbl_fp = res_dir / 'kics_sourceids.xml'
@@ -103,13 +158,18 @@ source_ids_votbl.to_xml(str(source_id_tbl_fp))
 
 upload_resource = source_id_tbl_fp
 upload_tbl_name = 'kics_sourceids'
-output_fp = res_dir / 'gaia_edr3_kics.csv'
+output_fp = res_dir / f'{query_gaia_dr}_kics.csv'
 
+logger.info(f'Querying {query_gaia_dr} source ids for their RUWE values...')
 # query
 # query = f"select g.source_id, g.ruwe from gaiaedr3.gaia_source as g, tap_upload.{upload_tbl_name} as f where g.source_id = f.source_id"
 # query = f"select g.source_id from gaiadr2.gaia_source as g, tap_upload.{upload_tbl_name} as f where g.source_id = f.source_id"
-query = f"SELECT g.source_id, g.ruwe FROM gaiaedr3.gaia_source as g JOIN tap_upload.{upload_tbl_name} as f ON g.source_id = f.source_id"
-
+if query_gaia_dr == 'gaiaedr3':
+    query = f"SELECT g.source_id, g.ruwe FROM gaiaedr3.gaia_source as g JOIN tap_upload.{upload_tbl_name} as f ON g.source_id = f.source_id"
+elif query_gaia_dr == 'gaiadr2':
+    query = f"SELECT g.source_id, g.ruwe FROM gaiadr2.ruwe as g JOIN tap_upload.{upload_tbl_name} " \
+            f"as f ON g.source_id = f.source_id"
+logger.info(f'Query performed: {query}')
 # j = Gaia.launch_job(query=query,
 #                     upload_resource=str(upload_resource),
 #                     upload_table_name=upload_tbl_name,
@@ -130,23 +190,51 @@ j = Gaia.launch_job_async(query=query,
 r = j.get_results()
 r.pprint()
 
+logger.info(f'Query finished and results saved to {str(output_fp)}.')
+
 ruwe_tbl = pd.read_csv(output_fp)
 # ruwe_tbl = ruwe_tbl.merge(source_ids_kic_tbl[['target_id', 'source_id']], on=['source_id'], how='left',
 #                           validate='one_to_one')
 # ruwe_tbl.to_csv(res_dir / f'{output_fp.stem}_with_kicid.csv', index=False)
-# in case there are duplicate source ids in the KIC-source id table, many_to_many
-kic_ruwe_tbl = source_ids_kic_tbl[['target_id', 'source_id']].merge(ruwe_tbl.drop_duplicates('source_id'),
-                                                                    on=['source_id'], how='left', validate='one_to_one')
+
+# in case there are duplicate source ids in the KIC-source id table, many_to_one
+if (source_ids_kic_tbl["source_id"].value_counts() > 1).sum() > 0:
+    kic_ruwe_tbl = source_ids_kic_tbl[['target_id', 'source_id', 'n_occur_source_ids']].merge(
+        ruwe_tbl.drop_duplicates('source_id'),
+        on=['source_id'],
+        how='left',
+        validate='many_to_one')
+else:
+    kic_ruwe_tbl = source_ids_kic_tbl[['target_id', 'source_id', 'n_occur_source_ids']].merge(
+        ruwe_tbl.drop_duplicates('source_id'),
+        on=['source_id'],
+        how='left',
+        validate='one_to_one')
+
 kic_ruwe_tbl.to_csv(res_dir / f'{output_fp.stem}_with_kicid.csv', index=False)
+logger.info(f'Number of KICs without RUWE value: {kic_ruwe_tbl["ruwe"].isna().sum()} ouf of {len(kic_ruwe_tbl)}')
 
 #%% plotting RUWE
 
+res_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_gaia_ruwe/src-gaiadr2_2020_ruwe-gaiadr2_2020_keplerq1q17dr25_kics_01-04-2022_1001')
+# logger.info('Loading table with KICs to be queried in Gaia...')
+kic_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
+                      'ephemeris_tables/kepler/kic_catalogs/q1_q17_dr25_stellar_plus_supp.csv',
+                      usecols=['kepid']).rename(columns={'kepid': 'target_id'})
+assert len(kic_tbl) == len(kic_tbl['target_id'].unique())
+# logger.info(f'{len(kic_tbl)} KICs in KIC table.')
+
 tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
-kic_tbl = tce_tbl.drop_duplicates(subset='target_id')
 val_kics = tce_tbl.loc[tce_tbl['validated_by'] == 'us_exominer_2021'][['target_id']].drop_duplicates(subset='target_id')
 
-ruwe_tbl, ruwe_source = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_gaia_ruwe/crossmatch_gaiadr2_kepler_all_kic_12-30-2021_0739/gaia_edr3_kics_with_kicid.csv'), \
-                        'Gaia DR2 KIC cross-match Megan Bedell'
+ruwe_tbl = pd.read_csv(res_dir / 'kics.csv')
+
+ruwe_source = 'Gaia DR2-KIC 2020'  # 'Gaia DR2-KIC 2018', 'Gaia DR2 KIC cross-match Megan Bedell', 'SIMBAD'
+
+# source_tbl_title = {
+#     '': 'Gaia DR2'
+# }
+
 ruwe_thr = 1.4
 ruwe_tbl_valkics = ruwe_tbl.loc[ruwe_tbl['target_id'].isin(val_kics['target_id'])]
 

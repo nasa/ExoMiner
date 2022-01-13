@@ -10,6 +10,7 @@ def create_shards_table(srcTfrecDir):
 
     :param srcTfrecDir: str, source TFRecord directory filepath
     :return:
+        bool, True if the table was created successfully
     """
 
     srcTfrecDir = Path(srcTfrecDir)
@@ -18,10 +19,15 @@ def create_shards_table(srcTfrecDir):
     srcTfrecTblsFps = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
                               file.stem.startswith('shard')])
 
+    if len(srcTfrecTblsFps) == 0:  # no shard csv files found in the directory
+        return False
+
     # concatenate TFRecord tables
     srcTfrecTblMerge = pd.concat([pd.read_csv(srcTfrecTblFp) for srcTfrecTblFp in srcTfrecTblsFps])
 
     srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
+
+    return True
 
 
 if __name__ == "__main__":

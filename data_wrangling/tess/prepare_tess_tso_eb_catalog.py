@@ -7,7 +7,7 @@ from pathlib import Path
 
 #%% Get sector run for each EB in the TSO EB catalog
 
-tso_eb_catalog_fp = Path('/Users/msaragoc/Downloads/eb_list_tso_12-16-2021.csv')  # load TSO EB catalog
+tso_eb_catalog_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_catalog_tso/eb_list_tso_12-16-2021.csv')  # load TSO EB catalog
 tso_eb_catalog_tbl = pd.read_csv(tso_eb_catalog_fp)
 
 tso_eb_catalog_tbl['sector_run'] = 'N/A'  # initialize sector run column; default is no sector run
@@ -62,6 +62,13 @@ def _get_sector_run_reg1(x):
 
 # extract sector run from vetting information using set of regular expressions
 tso_eb_catalog_tbl['sector_run'] = tso_eb_catalog_tbl[['vetting', 'sector_run']].apply(_get_sector_run_reg1, axis=1)
+
+# get unique IDs for each EB in TSO EB catalog
+tso_eb_catalog_tbl['UID'] = tso_eb_catalog_tbl[['tic_id', 'candidate_n', 'sector_run']].apply(lambda x: f'{x["tic_id"]}-s{x["sector_run"]}-{x["candidate_n"]}', axis=1)
+tso_eb_catalog_tbl.drop_duplicates(subset='UID', keep='first', inplace=True)
+
+# remove EBs whose sector run is N/A
+tso_eb_catalog_tbl = tso_eb_catalog_tbl.loc[tso_eb_catalog_tbl['sector_run'] != 'N/A']
 
 tso_eb_catalog_tbl.to_csv(tso_eb_catalog_fp.parent / f'{tso_eb_catalog_fp.stem}_processed.csv', index=False)
 

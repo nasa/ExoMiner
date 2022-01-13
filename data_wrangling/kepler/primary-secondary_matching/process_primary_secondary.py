@@ -1,12 +1,11 @@
 """ Set matched secondary TCEs features according to their matched primary TCE. """
 
-import logging
 # 3rd party
+import logging
 import os
 import warnings
 from datetime import datetime
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

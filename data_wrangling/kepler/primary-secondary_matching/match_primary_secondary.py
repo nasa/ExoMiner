@@ -1,11 +1,10 @@
 """ Match TCEs with their secondary event that was also detected as a TCE. """
 
-import logging
 # 3rd party
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 

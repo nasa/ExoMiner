@@ -1,4 +1,8 @@
-""" Using TEC flux triage tables to assign TCEs as NTPs for TESS data. """
+"""
+Prepare TEC flux triage catalog to be used for:
+1) labeling TCEs as NTPs to build an NTP set for TESS;
+2) matching secondaries with primaries.
+"""
 
 # 3rd party
 import pandas as pd

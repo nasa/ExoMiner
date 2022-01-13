@@ -1,3 +1,8 @@
+"""
+Download DV summaries based on URLs.
+"""
+
+# 3rd party
 from urllib.request import urlretrieve
 import os
 

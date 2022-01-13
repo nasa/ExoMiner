@@ -311,10 +311,8 @@ class ExoMiner(object):
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
-        if 'branches' not in self.config:
-            self.branches = ['global_flux_view', 'local_flux_view']
-        else:
-            self.branches = self.config['branches']
+        self.conv_branches = [branch for branch in  self.config['branches'] if 'global' in branch or 'local' in branch]
+        self.scalar_branches = [branch for branch in  self.config['branches'] if branch not in self.conv_branches]
 
         # self.is_training = None
 
@@ -328,7 +326,6 @@ class ExoMiner(object):
         self.outputs = self.build()
 
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
 
     def build_cnn_layers(self):
         """ Builds the convolutional branches.
@@ -344,7 +341,7 @@ class ExoMiner(object):
             else 'glorot_uniform'
 
         cnn_layers = {}
-        for branch_i, branch in enumerate(self.branches):  # create a convolutional branch
+        for branch_i, branch in enumerate(self.conv_branches):  # create a convolutional branch
 
             if branch == 'local_flux_oddeven_views':  # for odd and even views, inputs are combined as two channels
 
@@ -511,14 +508,14 @@ class ExoMiner(object):
                 ])
 
             elif 'local_flux_view' in branch:
-                # scalar_input = self.inputs['transit_depth_norm']
+                scalar_input = self.inputs['transit_depth_norm']
 
-                scalar_input = tf.keras.layers.Concatenate(axis=1, name='flux_scalar_input')(
-                    [
-                        self.inputs['transit_depth_norm'],
-                        self.inputs['tce_max_mult_ev_norm'],
-                        self.inputs['tce_robstat_norm'],
-                    ])
+                # scalar_input = tf.keras.layers.Concatenate(axis=1, name='flux_scalar_input')(
+                #     [
+                #         self.inputs['transit_depth_norm'],
+                #         self.inputs['tce_max_mult_ev_norm'],
+                #         self.inputs['tce_robstat_norm'],
+                #     ])
 
                 net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
                     net,
@@ -594,23 +591,28 @@ class ExoMiner(object):
 
     def connect_segments(self, cnn_layers):
         """ Connect the different convolutional branches; it also has the option to concatenate additional features
-        (stellar params for example)
+        (stellar params for example).
 
         :param cnn_layers: dict with the different convolutional branches
         :return:
             model output before FC layers
         """
 
-        # Sort the hidden layers by name because the order of dictionary items is
-        # nondeterministic between invocations of Python.
-        time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
+        all_branches = []
 
-        # Concatenate the conv hidden layers.
-        if len(time_series_hidden_layers) == 1:  # only one column
-            net = time_series_hidden_layers[0][1]  # how to set a name for the layer?
-        else:  # more than one branch
-            net = tf.keras.layers.Concatenate(name='convbranch_concat', axis=-1)(
-                [branch_output[1] for branch_output in time_series_hidden_layers])
+        if len(cnn_layers) > 0:
+            # Sort the hidden layers by name because the order of dictionary items is
+            # nondeterministic between invocations of Python.
+            time_series_hidden_layers = sorted(cnn_layers.items(), key=operator.itemgetter(0))
+
+            # Concatenate the conv hidden layers.
+            if len(time_series_hidden_layers) == 1:  # only one column
+                cnn_branches = time_series_hidden_layers[0][1]  # how to set a name for the layer?
+            else:  # more than one branch
+                cnn_branches = tf.keras.layers.Concatenate(name='convbranch_concat', axis=-1)(
+                    [branch_output[1] for branch_output in time_series_hidden_layers])
+
+            all_branches.append(cnn_branches)
 
         # scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_dv_scalar_input')(
         #     [
@@ -633,76 +635,83 @@ class ExoMiner(object):
         #     scalar_input
         # ])
 
-        stellar_scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_scalar_input')(
-            [
-                self.inputs['tce_steff_norm'],
-                self.inputs['tce_slogg_norm'],
-                self.inputs['tce_smet_norm'],
-                self.inputs['tce_sradius_norm'],
-                self.inputs['tce_smass_norm'],
-                self.inputs['tce_sdens_norm'],
+        if 'stellar' in self.scalar_branches:
+            stellar_scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_scalar_input')(
+                [
+                    self.inputs['tce_steff_norm'],
+                    self.inputs['tce_slogg_norm'],
+                    self.inputs['tce_smet_norm'],
+                    self.inputs['tce_sradius_norm'],
+                    self.inputs['tce_smass_norm'],
+                    self.inputs['tce_sdens_norm'],
+                ])
+
+            stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                        kernel_regularizer=regularizers.l2(
+                                            self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
+                                        activation=None,
+                                        use_bias=True,
+                                        kernel_initializer='glorot_uniform',
+                                        bias_initializer='zeros',
+                                        bias_regularizer=None,
+                                        activity_regularizer=None,
+                                        kernel_constraint=None,
+                                        bias_constraint=None,
+                                        name='fc_stellar_scalar')(stellar_scalar_input)
+
+            if self.config['non_lin_fn'] == 'lrelu':
+                stellar_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_stellar_scalar')(stellar_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'relu':
+                stellar_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_stellar_scalar')(stellar_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'prelu':
+                stellar_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                            alpha_regularizer=None,
+                                            alpha_constraint=None,
+                                            shared_axes=[1],
+                                            name='fc_prelu_stellar_scalar')(stellar_scalar_fc_output)
+
+            all_branches.append(stellar_scalar_fc_output)
+
+        if 'dv+tce_fit' in self.scalar_branches:
+
+            dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
+                self.inputs['tce_cap_stat_norm'],
+                self.inputs['tce_hap_stat_norm'],
+                # self.inputs['tce_cap_hap_stat_diff_norm'],
+                self.inputs['tce_rb_tcount0n_norm'],
+                # self.inputs['tce_rb_tcount0_norm'],
+                self.inputs['boot_fap_norm'],
+                self.inputs['tce_period_norm'],
+                self.inputs['tce_prad_norm'],
+                # self.inputs['tce_bin_oedp_stat_norm'],
+                # self.inputs['koi_fpflag_ec'],
             ])
 
-        stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
-                                    kernel_regularizer=regularizers.l2(
-                                        self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
-                                    activation=None,
-                                    use_bias=True,
-                                    kernel_initializer='glorot_uniform',
-                                    bias_initializer='zeros',
-                                    bias_regularizer=None,
-                                    activity_regularizer=None,
-                                    kernel_constraint=None,
-                                    bias_constraint=None,
-                                    name='fc_stellar_scalar')(stellar_scalar_input)
+            dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                        kernel_regularizer=regularizers.l2(
+                                            self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
+                                        activation=None,
+                                        use_bias=True,
+                                        kernel_initializer='glorot_uniform',
+                                        bias_initializer='zeros',
+                                        bias_regularizer=None,
+                                        activity_regularizer=None,
+                                        kernel_constraint=None,
+                                        bias_constraint=None,
+                                        name='fc_dv_scalar')(dv_scalar_input)
 
-        if self.config['non_lin_fn'] == 'lrelu':
-            stellar_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_stellar_scalar')(stellar_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'relu':
-            stellar_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_stellar_scalar')(stellar_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'prelu':
-            stellar_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                        alpha_regularizer=None,
-                                        alpha_constraint=None,
-                                        shared_axes=[1],
-                                        name='fc_prelu_stellar_scalar')(stellar_scalar_fc_output)
+            if self.config['non_lin_fn'] == 'lrelu':
+                dv_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_dv_scalar')(dv_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'relu':
+                dv_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_dv_scalar')(dv_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'prelu':
+                dv_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                            alpha_regularizer=None,
+                                                            alpha_constraint=None,
+                                                            shared_axes=[1],
+                                                            name='fc_prelu_dv_scalar')(dv_scalar_fc_output)
 
-        dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
-            self.inputs['tce_cap_stat_norm'],
-            self.inputs['tce_hap_stat_norm'],
-            # self.inputs['tce_cap_hap_stat_diff_norm'],
-            self.inputs['tce_rb_tcount0n_norm'],
-            # self.inputs['tce_rb_tcount0_norm'],
-            self.inputs['boot_fap_norm'],
-            self.inputs['tce_period_norm'],
-            self.inputs['tce_prad_norm'],
-            # self.inputs['tce_bin_oedp_stat_norm'],
-            self.inputs['koi_fpflag_ec'],
-        ])
-
-        dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
-                                    kernel_regularizer=regularizers.l2(
-                                        self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
-                                    activation=None,
-                                    use_bias=True,
-                                    kernel_initializer='glorot_uniform',
-                                    bias_initializer='zeros',
-                                    bias_regularizer=None,
-                                    activity_regularizer=None,
-                                    kernel_constraint=None,
-                                    bias_constraint=None,
-                                    name='fc_dv_scalar')(dv_scalar_input)
-
-        if self.config['non_lin_fn'] == 'lrelu':
-            dv_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_dv_scalar')(dv_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'relu':
-            dv_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_dv_scalar')(dv_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'prelu':
-            dv_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                                        alpha_regularizer=None,
-                                                        alpha_constraint=None,
-                                                        shared_axes=[1],
-                                                        name='fc_prelu_dv_scalar')(dv_scalar_fc_output)
+            all_branches.append(dv_scalar_fc_output)
 
         # centroid_scalar_input = tf.keras.layers.Concatenate(axis=1, name='centroid_scalar_input')([
         #     self.inputs['tce_dikco_msky_norm'],
@@ -735,12 +744,10 @@ class ExoMiner(object):
         #                                 shared_axes=[1],
         #                                 name='fc_prelu_centroid_scalar')(centroid_scalar_fc_output)
 
-        net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')([
-            net,
-            stellar_scalar_fc_output,
-            dv_scalar_fc_output,
-            # centroid_scalar_fc_output
-        ])
+        if len(all_branches) > 1:
+            net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(all_branches)
+        else:
+            net = all_branches[0]
 
         if self.config['batch_norm']:
             net = tf.keras.layers.BatchNormalization(axis=-1,
@@ -1189,78 +1196,86 @@ class ExoMinerParallel(object):
         #     scalar_input
         # ])
 
-        stellar_scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_scalar_input')(
-            [
-                self.inputs['tce_steff_norm'],
-                self.inputs['tce_slogg_norm'],
-                self.inputs['tce_smet_norm'],
-                self.inputs['tce_sradius_norm'],
-                self.inputs['tce_smass_norm'],
-                self.inputs['tce_sdens_norm'],
+        scalar_branches = []
+
+        if 'stellar' in self.branches:
+            stellar_scalar_input = tf.keras.layers.Concatenate(axis=1, name='stellar_scalar_input')(
+                [
+                    self.inputs['tce_steff_norm'],
+                    self.inputs['tce_slogg_norm'],
+                    self.inputs['tce_smet_norm'],
+                    self.inputs['tce_sradius_norm'],
+                    self.inputs['tce_smass_norm'],
+                    self.inputs['tce_sdens_norm'],
+                ])
+
+            stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                                             kernel_regularizer=regularizers.l2(
+                                                                 self.config['decay_rate']) if self.config[
+                                                                                                   'decay_rate'] is not None else None,
+                                                             activation=None,
+                                                             use_bias=True,
+                                                             kernel_initializer='glorot_uniform',
+                                                             bias_initializer='zeros',
+                                                             bias_regularizer=None,
+                                                             activity_regularizer=None,
+                                                             kernel_constraint=None,
+                                                             bias_constraint=None,
+                                                             name='fc_stellar_scalar')(stellar_scalar_input)
+
+            if self.config['non_lin_fn'] == 'lrelu':
+                stellar_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_stellar_scalar')(
+                    stellar_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'relu':
+                stellar_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_stellar_scalar')(stellar_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'prelu':
+                stellar_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                                 alpha_regularizer=None,
+                                                                 alpha_constraint=None,
+                                                                 shared_axes=[1],
+                                                                 name='fc_prelu_stellar_scalar')(stellar_scalar_fc_output)
+
+            scalar_branches.append(stellar_scalar_fc_output)
+
+        if 'dv+tce_fit' in self.branches:
+            dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
+                self.inputs['tce_cap_stat_norm'],
+                self.inputs['tce_hap_stat_norm'],
+                # self.inputs['tce_cap_hap_stat_diff_norm'],
+                self.inputs['tce_rb_tcount0n_norm'],
+                # self.inputs['tce_rb_tcount0_norm'],
+                self.inputs['boot_fap_norm'],
+                self.inputs['tce_period_norm'],
+                self.inputs['tce_prad_norm'],
+                # self.inputs['tce_bin_oedp_stat_norm'],
             ])
 
-        stellar_scalar_fc_output = tf.keras.layers.Dense(units=4,
-                                                         kernel_regularizer=regularizers.l2(
-                                                             self.config['decay_rate']) if self.config[
-                                                                                               'decay_rate'] is not None else None,
-                                                         activation=None,
-                                                         use_bias=True,
-                                                         kernel_initializer='glorot_uniform',
-                                                         bias_initializer='zeros',
-                                                         bias_regularizer=None,
-                                                         activity_regularizer=None,
-                                                         kernel_constraint=None,
-                                                         bias_constraint=None,
-                                                         name='fc_stellar_scalar')(stellar_scalar_input)
+            dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                                        kernel_regularizer=regularizers.l2(
+                                                            self.config['decay_rate']) if self.config[
+                                                                                              'decay_rate'] is not None else None,
+                                                        activation=None,
+                                                        use_bias=True,
+                                                        kernel_initializer='glorot_uniform',
+                                                        bias_initializer='zeros',
+                                                        bias_regularizer=None,
+                                                        activity_regularizer=None,
+                                                        kernel_constraint=None,
+                                                        bias_constraint=None,
+                                                        name='fc_dv_scalar')(dv_scalar_input)
 
-        if self.config['non_lin_fn'] == 'lrelu':
-            stellar_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_stellar_scalar')(
-                stellar_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'relu':
-            stellar_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_stellar_scalar')(stellar_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'prelu':
-            stellar_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                                             alpha_regularizer=None,
-                                                             alpha_constraint=None,
-                                                             shared_axes=[1],
-                                                             name='fc_prelu_stellar_scalar')(stellar_scalar_fc_output)
+            if self.config['non_lin_fn'] == 'lrelu':
+                dv_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_dv_scalar')(dv_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'relu':
+                dv_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_dv_scalar')(dv_scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'prelu':
+                dv_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                            alpha_regularizer=None,
+                                                            alpha_constraint=None,
+                                                            shared_axes=[1],
+                                                            name='fc_prelu_dv_scalar')(dv_scalar_fc_output)
 
-        dv_scalar_input = tf.keras.layers.Concatenate(axis=1, name='dv_scalar_input')([
-            self.inputs['tce_cap_stat_norm'],
-            self.inputs['tce_hap_stat_norm'],
-            # self.inputs['tce_cap_hap_stat_diff_norm'],
-            self.inputs['tce_rb_tcount0n_norm'],
-            # self.inputs['tce_rb_tcount0_norm'],
-            self.inputs['boot_fap_norm'],
-            self.inputs['tce_period_norm'],
-            self.inputs['tce_prad_norm'],
-            # self.inputs['tce_bin_oedp_stat_norm'],
-        ])
-
-        dv_scalar_fc_output = tf.keras.layers.Dense(units=4,
-                                                    kernel_regularizer=regularizers.l2(
-                                                        self.config['decay_rate']) if self.config[
-                                                                                          'decay_rate'] is not None else None,
-                                                    activation=None,
-                                                    use_bias=True,
-                                                    kernel_initializer='glorot_uniform',
-                                                    bias_initializer='zeros',
-                                                    bias_regularizer=None,
-                                                    activity_regularizer=None,
-                                                    kernel_constraint=None,
-                                                    bias_constraint=None,
-                                                    name='fc_dv_scalar')(dv_scalar_input)
-
-        if self.config['non_lin_fn'] == 'lrelu':
-            dv_scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_dv_scalar')(dv_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'relu':
-            dv_scalar_fc_output = tf.keras.layers.ReLU(name='fc_relu_dv_scalar')(dv_scalar_fc_output)
-        elif self.config['non_lin_fn'] == 'prelu':
-            dv_scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                                        alpha_regularizer=None,
-                                                        alpha_constraint=None,
-                                                        shared_axes=[1],
-                                                        name='fc_prelu_dv_scalar')(dv_scalar_fc_output)
+            scalar_branches.append(dv_scalar_fc_output)
 
         # centroid_scalar_input = tf.keras.layers.Concatenate(axis=1, name='centroid_scalar_input')([
         #     self.inputs['tce_dikco_msky_norm'],
@@ -1293,12 +1308,8 @@ class ExoMinerParallel(object):
         #                                 shared_axes=[1],
         #                                 name='fc_prelu_centroid_scalar')(centroid_scalar_fc_output)
 
-        net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')([
-            net,
-            stellar_scalar_fc_output,
-            dv_scalar_fc_output,
-            # centroid_scalar_fc_output
-        ])
+        all_branches = [net] + scalar_branches
+        net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(all_branches)
 
         if self.config['batch_norm']:
             net = tf.keras.layers.BatchNormalization(axis=-1,
@@ -2223,16 +2234,18 @@ def create_inputs(features, feature_map=None):
     return inputs
 
 
-def create_ensemble(features, models):
+def create_ensemble(features, models, feature_map=None):
     """ Create a Keras ensemble.
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
     :param models: list, list of Keras models
+    :param feature_map: maps features' names to features names expected by the model
+
     :return:
         Keras average ensemble
     """
 
-    inputs = create_inputs(features=features)
+    inputs = create_inputs(features=features, feature_map=feature_map)
 
     single_models_outputs = [model(inputs) for model in models]
 

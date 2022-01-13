@@ -3,7 +3,6 @@
 # 3rd party
 import os
 import sys
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
@@ -21,10 +20,11 @@ import multiprocessing
 import yaml
 
 # local
-from models.models_keras import CNN1dPlanetFinderv2
+from models.models_keras import ExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import predict_ensemble, normalize_data
+from paths import path_main
 
 
 def cv_pred_run(run_params, cv_iter_dir):
@@ -91,7 +91,8 @@ def cv_pred_run(run_params, cv_iter_dir):
 
 
 def cv_pred():
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_predict.yaml')
+
+    path_to_yaml = Path(path_main + 'src_cv/config_cv_predict.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -178,7 +179,7 @@ def cv_pred():
         config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = CNN1dPlanetFinderv2
+    config['base_model'] = ExoMiner
 
     # choose features set
     for feature_name, feature in config['features_set'].items():
@@ -192,7 +193,7 @@ def cv_pred():
     # save feature set used
     if rank == 0:
         np.save(config['paths']['experiment_dir'] / 'features_set.npy', config['features_set'])
-        # save configuration used
+        # save model configuration used
         np.save(config['paths']['experiment_dir'] / 'config.npy', config['config'])
 
         # save the YAML file with training-evaluation parameters that are YAML serializable
@@ -200,25 +201,26 @@ def cv_pred():
         with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
 
-    # run each CV iteration sequentially
-    for cv_id, cv_iter in enumerate(config['cv_iters']):
-        config['logger'].info(f'[cv_iter_{cv_iter}] Running prediction for CV iteration {cv_id} '
-                              f'(out of {len(config["cv_iters"])}): {cv_iter}')
+    if config['train_parallel']:
+        # run each CV iteration in parallel
+        cv_id = config['rank']
+        config['logger'].info(f'Running prediction for CV iteration {cv_id} (out of {len(config["cv_iters"])}): '
+                    f'{config["cv_iters"][cv_id]}')
         config['cv_id'] = cv_id
         cv_pred_run(
             config,
-            cv_iter
+            config['cv_iters'][cv_id],
         )
-
-    # # run each CV iteration in parallel
-    # cv_id = config['rank']
-    # config['logger'].info(f'Running prediciton for CV iteration {cv_id} (out of {len(config["cv_iters"])}): '
-    #             f'{cv_iter}')
-    # config['cv_id'] = cv_id
-    # cv_run(
-    #     config,
-    #     cv_iter,
-    # )
+    else:
+        # run each CV iteration sequentially
+        for cv_id, cv_iter in enumerate(config['cv_iters']):
+            config['logger'].info(f'[cv_iter_{cv_iter}] Running prediction for CV iteration {cv_id} '
+                                  f'(out of {len(config["cv_iters"])}): {cv_iter}')
+            config['cv_id'] = cv_id
+            cv_pred_run(
+                config,
+                cv_iter
+            )
 
 
 if __name__ == '__main__':

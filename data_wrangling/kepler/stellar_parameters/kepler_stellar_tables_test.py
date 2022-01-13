@@ -1,12 +1,14 @@
+
+# 3rd party
 import multiprocessing
 import os
-
 import matplotlib.pyplot as plt
 import msgpack
 import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+# local
 from src_preprocessing.light_curve.kepler_io import kepler_filenames
 
 # %% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive

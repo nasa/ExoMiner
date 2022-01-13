@@ -150,8 +150,10 @@ def check_inputs(data):
     # setting centroid to target star position if the number of valid cadences is less than 100
     # 0.5% observation time in one TESS sector
     # setting centroid pixel to zero
-    if np.isnan(np.concatenate(data['all_centroids']['x'])).sum() >= 100:
-        errs.append('no centroid data')
+    n_valid_cad = np.isfinite(np.concatenate(data['all_centroids']['x'])).sum()
+    n_cad = len(np.concatenate(data['all_centroids']['x']))
+    if n_valid_cad / n_cad < 0.005:
+        errs.append('Less than 0.5% cadences are valid for centroid data.')
 
         # report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
         #
@@ -1265,14 +1267,29 @@ def check_inputs_generate_example(data, tce, config):
         data, dict containing the preprocessed timeseries after checking inputs and ajusting them accordingly.
     """
 
-    if 'no centroid data' in data['errors']:
-        report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
+    if 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
+        if len(data['centroid_dist']) == 0:
+            report_exclusion(config, tce, f'{data["errors"]}. No data points available. '
+                                          f'Setting centroid offset timeseries to zero (target star position).')
 
-        data['time_centroid_dist'] = np.array(data['time'])
-        data['centroid_dist'] = np.zeros(len(data['time']))
+            data['time_centroid_dist'] = np.array(data['time'])
+            data['centroid_dist'] = np.zeros(len(data['time']))
 
-        data['time_centroid_distFDL'] = np.array(data['time'])
-        data['centroid_distFDL'] = np.zeros(len(data['time']))
+            data['time_centroid_distFDL'] = np.array(data['time'])
+            data['centroid_distFDL'] = np.zeros(len(data['time']))
+        else:  # fill with Gaussian noise with timeseries statistics
+            report_exclusion(config, tce, f'{data["errors"]}. Setting centroid offset timeseries to Gaussian noise '
+                                          f'using statistics from this timeseries.')
+
+            rob_std = mad_std(data['centroid_dist'])
+            med = np.median(data['centroid_dist'])
+            data['centroid_dist'] = np.random.normal(med, rob_std, data['centroid_dist'].shape)
+            data['time_centroid_dist'] = np.array(data['time'])
+
+            rob_std = mad_std(data['centroid_distFDL'])
+            med = np.median(data['centroid_distFDL'])
+            data['centroid_distFDL'] = np.random.normal(med, rob_std, data['centroid_dist'].shape)
+            data['time_centroid_distFDL'] = np.array(data['time'])
 
     return data
 

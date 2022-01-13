@@ -26,6 +26,7 @@ from models.models_keras import ExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run, train_model, eval_ensemble
+from paths import path_main
 
 
 def cv_run(cv_dir, data_shards_fps, run_params):
@@ -105,7 +106,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
 def cv():
 
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_train.yaml')
+    path_to_yaml = Path(path_main + 'src_cv/config_cv_train.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -221,29 +222,30 @@ def cv():
         with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
 
-    # run each CV iteration sequentially
-    for cv_id, cv_iter in enumerate(config['data_shards_fps']):
-        config['logger'].info(
-            f'[cv_iter_{cv_iter}] Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
-            f'{cv_iter}')
+    if config['train_parallel']:
+        # run each CV iteration in parallel
+        cv_id = config['rank']
+        if config['logger'] is not None:
+            config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
+                                  f'{config["data_shards_fps"][cv_id]}')
         config['cv_id'] = cv_id
         cv_run(
             config['paths']['experiment_dir'],
-            cv_iter,
+            config['data_shards_fps'][cv_id],
             config,
         )
-
-    # # run each CV iteration in parallel
-    # cv_id = config['rank']
-    # if config['logger'] is not None:
-    #     config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
-    #             f'{config["data_shards_fps"][cv_id]}')
-    # config['cv_id'] = cv_id
-    # cv_run(
-    #     config['paths']['experiment_dir'],
-    #     config['data_shards_fps'][cv_id],
-    #     config,
-    # )
+    else:
+        # run each CV iteration sequentially
+        for cv_id, cv_iter in enumerate(config['data_shards_fps']):
+            config['logger'].info(
+                f'[cv_iter_{cv_iter}] Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
+                f'{cv_iter}')
+            config['cv_id'] = cv_id
+            cv_run(
+                config['paths']['experiment_dir'],
+                cv_iter,
+                config,
+            )
 
 
 if __name__ == '__main__':

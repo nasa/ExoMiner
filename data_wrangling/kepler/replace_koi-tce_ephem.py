@@ -1,15 +1,16 @@
 """
-Script used to compare the TCE and KOI ephemeris and some other parameters, and to replace TCE by KOI parameters.
+Compare the TCE and KOI parameters:
+ 1) investigate  KOI vs TCE period;
+ 2) replace TCE by KOI parameters (such as ephemerides).
 """
 
-#%%
-
+# 3rd party
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-#%%
+#%% Prepare TCE and KOI table with only KOIs
 
 save_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/koi-tce_ephemeris_comparison')
 
@@ -65,16 +66,16 @@ thr_match = 1e-2
 
 for tce_i, tce in tce_tbl.iterrows():
 
-    # if tce['target_id'] == 1575690 and tce['tce_plnt_num'] == 1:
-    #     dasdas
+    # get number of TCEs in the same target
     tce_tbl.loc[tce_i, 'num_tces_target'] = len(tce_tbl_original.loc[tce_tbl_original['target_id'] == tce['target_id']])
+    # get number of KOIs in the same target
     tce_tbl.loc[tce_i, ['num_kois_target', 'kepoi_name']] = \
         tce_tbl_original.loc[(tce_tbl_original['target_id'] == tce['target_id']) &
                              (tce_tbl_original['tce_plnt_num'] == tce['tce_plnt_num']),
                              ['koi_count', 'kepoi_name']].values[0]
-
+    # compute KOI-TCE period ratio
     tce_tbl.loc[tce_i, 'period_koi-tce_ratio'] = tce['koi_period'] / tce['tce_period']
-
+    # rounding period ratio to the closest factor (0.5, 1, 2, 3, ...)
     period_ratios_diff = np.array([np.abs(tce_tbl.loc[tce_i, 'period_koi-tce_ratio'] - trial_period_ratio)
                                    for trial_period_ratio in trial_period_ratios])
 
@@ -86,6 +87,7 @@ for tce_i, tce in tce_tbl.iterrows():
 
 tce_tbl.to_csv(save_dir / 'q1q17_dr25_tce-koi_periodratio.csv', index=False)
 
+# plot KOI-TCE period ratio
 period_ratios = trial_period_ratios + [-1]
 plot_tbls = {period_ratio: None for period_ratio in period_ratios}
 for period_ratio in period_ratios:
@@ -140,9 +142,11 @@ for col_i in range(len(tce_cols)):
     f.savefig(save_dir / '{}.png'.format(plot_col_name[col_i]))
     plt.close()
 
-#%%##
+#%% Plot TCE vs KOI orbital period
+
 f, ax = plt.subplots(figsize=(6, 5))
 ax.scatter(tce_tbl['tce_period'], tce_tbl['koi_period'], s=5, zorder=4, c='b', alpha=0.4)
+# draw 1/2 and 2 period factor lines
 ax.plot([0, 360], [0, 720], color='r', label=r'$Factor = 2$', linestyle='dashed', zorder=1, alpha=0.3)
 ax.plot([0, 720], [0, 360], color='g', label=r'$Factor = 0.5$', linestyle='dashed', zorder=2, alpha=0.3)
 ax.legend()

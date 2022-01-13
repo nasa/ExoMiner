@@ -1,7 +1,7 @@
 """ Performing probability calibration. """
 
+# 3rd party
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,8 +10,9 @@ from sklearn.calibration import calibration_curve
 from sklearn.isotonic import IsotonicRegression
 from tensorflow.keras import Model
 from tensorflow.keras.models import load_model
-
 import paths
+
+# local
 from models.old import config_keras
 from models.models_keras import create_inputs
 from src.utils_dataio import InputFnv2 as InputFn

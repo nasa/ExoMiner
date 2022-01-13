@@ -11,7 +11,7 @@ import pandas as pd
 import os
 from scipy.spatial import distance
 
-from data_wrangling.ephemeris_matching import create_binary_time_series, find_first_epoch_after_this_time
+from data_wrangling.tess.ephemeris_matching import create_binary_time_series, find_first_epoch_after_this_time
 
 #%%
 tic_id = 19271382
@@ -93,7 +93,7 @@ bintseries2 = create_binary_time_series(ephem2['transitEpochBtjd'], ephem2['tran
 # xcorr0 = np.inner(bintseries, bintseries2)  # np.correlate(bintseries, bintseries2, mode='same')
 # cmmn_idxs_fact = len(np.nonzero(bintseries * bintseries2)[0])
 # xcorr0_fact = xcorr0 * cmmn_idxs_fact  # max correlation at one
-match_score = dist_cosine(bintseries, bintseries2)
+match_score = distance.cosine(bintseries, bintseries2)
 
 sampleTimes = np.linspace(tStart / samplingInterval, tEnd / samplingInterval, (tEnd - tStart) / samplingInterval,
                           endpoint=True)
