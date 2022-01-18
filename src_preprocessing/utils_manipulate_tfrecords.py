@@ -12,8 +12,7 @@ from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, 
 from src_preprocessing.preprocess import centering_and_normalization
 
 
-def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tceIdentifier='tce_plnt_num',
-                 omitMissing=True):
+def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omitMissing=True):
     """ Create a TFRecord file (shard) based on a set of existing TFRecord files.
 
     :param shardFilename: str, shard filename
@@ -21,7 +20,6 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
     :param srcTbl: pandas DataFrame, source TCE table
     :param srcTfrecDir: str, filepath to directory with the source TFRecords
     :param destTfrecDir: str, filepath to directory in which to save the new TFRecords
-    :param tceIdentifier: str, used to identify TCEs. Either `tce_plnt_num` or `oi`
     :param omitMissing: bool, omit missing TCEs in teh source TCE table
     :return:
     """
@@ -32,8 +30,9 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
         for tce_i, tce in shardTbl.iterrows():
 
             # check if TCE is in the source TFRecords TCE table
-            foundTce = srcTbl.loc[(srcTbl['target_id'] == tce['target_id']) &
-                                  (srcTbl[tceIdentifier] == tce[tceIdentifier])]['shard']
+            # foundTce = srcTbl.loc[(srcTbl['target_id'] == tce['target_id']) &
+            #                       (srcTbl[tceIdentifier] == tce[tceIdentifier])]['shard']
+            foundTce = srcTbl.loc[(srcTbl['uid'] == tce['uid'])]['shard']
 
             if len(foundTce) > 0:
 
@@ -50,34 +49,39 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, tce
                         example = tf.train.Example()
                         example.ParseFromString(string_record)
 
-                        targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-                        if tceIdentifier == 'tce_plnt_num':
-                            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-                        else:  # OIs, because when saving float with two decimal cases to TFRecord it sometimes messes
-                            # it up
-                            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
-                            # tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
+                        # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+                        # if tceIdentifier == 'tce_plnt_num':
+                        #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+                        # else:  # OIs, because when saving float with two decimal cases to TFRecord it sometimes messes
+                        #     # it up
+                        #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+                        #     # tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
+                        #
+                        # # print(targetIdTfrec, tce['target_id'], tceIdentifierTfrec, tce[tceIdentifier])
+                        # assert targetIdTfrec == tce['target_id'] and tceIdentifierTfrec == tce[tceIdentifier]
 
-                        # print(targetIdTfrec, tce['target_id'], tceIdentifierTfrec, tce[tceIdentifier])
-                        assert targetIdTfrec == tce['target_id'] and tceIdentifierTfrec == tce[tceIdentifier]
+                        example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+
+                        if example_uid != tce['uid']:
+                            raise ValueError(f'Example {tce["uid"]} not found at respective index {tceIdx} in source '
+                                             f'shard {foundTce.values[0]} (destination shard: {shardFilename}).')
 
                         tceFoundInTfrecordFlag = True
                         break
 
                 if not tceFoundInTfrecordFlag:
-                    raise ValueError(f'TCE for shard {shardFilename} not found in the TFRecords:'
-                                     f' {tce["target_id"]}-{tce[tceIdentifier]}.')
+                    raise ValueError(f'Example {tce["uid"]} for shard {shardFilename} not found in source shard '
+                                     f'{foundTce.values[0]} (destination shard: {shardFilename}).')
 
                 writer.write(example.SerializeToString())
 
             else:
                 if omitMissing:  # omit missing TCEs in the source TCE table
-                    print(f'TCE for shard {shardFilename} not found in the TFRecords merged table:'
-                          f' {tce["target_id"]}-{tce[tceIdentifier]}.')
+                    print(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged table.')
                     continue
 
-                raise ValueError(f'TCE for shard {shardFilename} not found in the TFRecords merged table:'
-                                 f' {tce["target_id"]}-{tce[tceIdentifier]}.')
+                raise ValueError(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged '
+                                 f'table.')
 
 
 def normalize_scalar_features(row, normStats):

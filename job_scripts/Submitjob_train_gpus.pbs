@@ -1,0 +1,24 @@
+# Old PBS script to train models.
+#PBS -S /bin/bash
+#PBS -N train_exoplnt
+#PBS -l walltime=08:00:00
+# #PBS -l select=1:ncpus=36:model=sky_gpu
+#PBS -l select=10:ncpus=16:model=san_gpu
+# #PBS -q testing_free
+#PBS -q k40
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+module list
+
+# source activate /home6/msaragoc/work_dir/tools/python_envs/pythonnas365
+source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
+
+cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
+
+# mpiexec python src/train.py &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/trained_models/train.txt
+mpiexec python src/train_keras.py &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/trained_models/train.txt
+# /nasa/cuda/10.1/bin/nvprof --profile-child-processes horovod -np 4 -H localhost:4 python src/train_keras_hvd.py &> trained_models/train.txt
+# horovodrun --verbose -np 1 -H localhost:1 python src/train_keras_hvd.py &> trained_models/train.txt

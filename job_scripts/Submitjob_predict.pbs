@@ -1,0 +1,23 @@
+# Run inference for a single ensemble (single GPU).
+#PBS -S /bin/bash
+#PBS -N predict_exoplnt
+#PBS -l walltime=01:00:00
+#PBS -l select=1:ncpus=9:model=sky_gpu:ngpus=1:mem=90gb
+#PBS -l place=vscatter:shared
+# #PBS -l select=1:ncpus=16:model=san_gpu
+#PBS -q dsg_gpu@pbspl4
+# #PBS -q v100
+# #PBS -q k40
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_predict_exoplnt.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_predict_exoplnt.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+module list
+
+# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
+source activate exoplnt_dl
+
+cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
+
+python src/predict_ensemble_keras.py &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/results_ensemble/predict.txt

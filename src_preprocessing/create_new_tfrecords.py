@@ -25,7 +25,7 @@ from src_preprocessing.utils_manipulate_tfrecords import create_shard
 srcTfrecDir = Path(
     '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021')
 # unique identifier for TCEs (+ 'target_id')
-tceIdentifier = 'tce_plnt_num'
+# tceIdentifier = 'tce_plnt_num'
 
 # %% load train, val and test datasets; tbe keys of the `datasetTbl` dictionary determines the prefix name of the new
 # TFRecords files
@@ -104,7 +104,7 @@ for shardTuple in shardTuples:
 print(checkNumTcesInDatasets)
 
 pool = multiprocessing.Pool(processes=nProcesses)
-jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, tceIdentifier, omitMissing) for shardTuple in shardTuples]
+jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, omitMissing) for shardTuple in shardTuples]
 async_results = [pool.apply_async(create_shard, job) for job in jobs]
 pool.close()
 for async_result in async_results:
@@ -131,18 +131,19 @@ for tfrecFile in tfrecFiles:
         example = tf.train.Example()
         example.ParseFromString(string_record)
 
-        if tceIdentifier == 'tce_plnt_num':
-            tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-        else:
-            tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+        # if tceIdentifier == 'tce_plnt_num':
+        #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+        # else:
+        #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+        #
+        # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
-        targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+        example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
 
-        foundTce = datasetTbl[dataset].loc[(datasetTbl[dataset]['target_id'] == targetIdTfrec) &
-                                           (datasetTbl[dataset][tceIdentifier] == tceIdentifierTfrec)]
+        foundTce = datasetTbl[dataset].loc[datasetTbl[dataset]['uid'] == example_uid]
 
         if len(foundTce) == 0:
-            raise ValueError(f'TCE {targetIdTfrec}-{tceIdentifierTfrec} not found in the dataset tables.')
+            raise ValueError(f'Example {example_uid} not found in the dataset tables.')
 
         countExamplesShard += 1
     countExamples.append(countExamplesShard)

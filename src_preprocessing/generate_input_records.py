@@ -1,6 +1,5 @@
-""""
-Main script used to generate TFRecords --on the supercomputer cluster-- used as input to deep learning model
-for classifying Threshold Crossing Events.
+"""
+Main script used to generate TFRecords to be used as input to models.
 """
 
 # 3rd party
@@ -42,7 +41,11 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     shard_size = len(tce_table)
 
     # defined columns in the shard table
-    tceColumns = ['target_id', config['tce_identifier']]
+    tceColumns = [
+        # 'target_id',
+        # config['tce_identifier'],
+        'uid'
+    ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
@@ -117,7 +120,11 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     shard_name = file_name.name
     shard_size = len(tce_table)
 
-    tceColumns = ['target_id', config['tce_identifier']]
+    tceColumns = [
+        # 'target_id',
+        # config['tce_identifier'],
+        'uid'
+    ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 

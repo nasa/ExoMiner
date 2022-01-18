@@ -38,7 +38,7 @@ branches_features = {
     'local_flux_oddeven_views': ['local_flux_odd_view_fluxnorm', 'local_flux_even_view_fluxnorm', 'odd_se_oot_norm', 'even_se_oot_norm'],
     'global_centr_view_std_noclip': ['global_centr_view_std_noclip'],
     'local_centr_view_std_noclip': ['local_centr_view_std_noclip', 'tce_fwm_stat_norm', 'tce_dikco_msky_norm', 'tce_dikco_msky_err_norm', 'tce_dicco_msky_norm', 'tce_dicco_msky_err_norm', 'mag_cat'],
-    'local_weak_secondary_view_max_flux-wks_norm': ['local_weak_secondary_view_max_flux', 'tce_maxmes_norm', 'wst_depth_norm', 'tce_albedo_stat_norm', 'tce_ptemp_stat_norm'],
+    'local_weak_secondary_view_max_flux-wks_norm': ['local_weak_secondary_view_max_flux_norm', 'tce_maxmes_norm', 'wst_depth_norm', 'tce_albedo_stat_norm', 'tce_ptemp_stat_norm'],
     'stellar': ['tce_sdens_norm', 'tce_steff_norm', 'tce_smet_norm', 'tce_slogg_norm', 'tce_smass_norm', 'tce_sradius_norm'],
     'dv+tce_fit': ['boot_fap_norm', 'tce_cap_stat_norm', 'tce_hap_stat_norm', 'tce_rb_tcount0n_norm', 'tce_prad_norm', 'tce_period_norm']
 }

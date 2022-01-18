@@ -1,0 +1,27 @@
+# Conduct preprocessing run that creates a TFRecord dataset; uses MPIEXEC to generate  mpiprocs*n_nodes (select=) to
+# parallelize the process.
+#PBS -S /bin/bash
+#PBS -N preprocessing_data_exoplnt
+#PBS -l walltime=24:00:00
+# #PBS -l walltime=1:00:00
+# #PBS -l walltime=24:00:00
+#PBS -l select=20:ncpus=10:mpiprocs=20:model=san
+#PBS -q long
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+module list
+
+# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
+source activate exoplnt_dl
+
+cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+OUTPUT_FILE=/home6/msaragoc/work_dir/data/Kepler-TESS_exoplanet/tfrecords/preprocessing_data_exoplnt.txt
+
+mpiexec python src_preprocessing/generate_input_records.py  &>  $OUTPUT_FILE
+
+DIR_DATA=$(grep "END-PI" $OUTPUT_FILE)
+mv $OUTPUT_FILE ${DIR_DATA:23}

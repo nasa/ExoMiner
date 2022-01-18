@@ -10,7 +10,7 @@ using Deep Learning methods.
 
 The current goals of the `ExoMiner` pipeline are:
 
-1. Perform classification of transit signals;
+1. Perform classification of transit signals into PC/non-PC and Object of Interest (OI)/non-OI;
 2. Validate new exoplanets;
 3. Create an explainability framework that provides SMEs a set of explanations that support the model`s outcome.
 
@@ -73,7 +73,10 @@ Models currently implemented:
 
 ## References
 
-For more detailed information check ***paper***.
+For more detailed information check:
+- Paper ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://arxiv.org/abs/2111.10009).
+- Bibliography
+  - **add**
 
 ## Credits
 
@@ -82,21 +85,22 @@ For more detailed information check ***paper***.
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
     - Hongbo Wei<sup>2</sup>
     - Kaylie Hausknecht<sup>2,6</sup>
-    - Patrick Maynard<sup>2,5</sup>
-    - Theng Yang<sup>2</sup>
+
 - Inactive developers
     - Jennifer Andersson<sup>4</sup>
     - Laurent Wilkens<sup>2</sup>
     - Martin Koeling<sup>4</sup>
     - Nikash Walia<sup>2</sup>
     - Pedro Gerum<sup>4</sup>
+    - Patrick Maynard<sup>2,5</sup>
     - Sam Donald<sup>4</sup>
+    - Theng Yang<sup>2</sup>
 
 - Collaborators
-    - Jon Jenkins<sup>1,3</sup>
     - Doug Caldwell<sup>1,3</sup>
-    - Joseph Twicken<sup>1,3</sup>
     - Jeff Smith<sup>1,3</sup>
+    - Jon Jenkins<sup>1,3</sup>
+    - Joseph Twicken<sup>1,3</sup>
     - Stephen Bryson<sup>1</sup>
 
 1 - NASA Ames Research Center (NASA ARC)\
