@@ -103,7 +103,8 @@ tce_tbl.loc[(tce_tbl['eb_match_dist'] < matching_thr) &
             (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'Jon\'s EBs'
 
 # 4) create NTPs based on TEC flux triage
-tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) & (~tec_tbl['tec_fluxtriage_comment'].str.contains('SecondaryOfPN')) &
+tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &
+            (~tce_tbl['tec_fluxtriage_comment'].str.contains('SecondaryOfPN', na=False)) &
             (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'NTP', 'TEC flux triage'
 
 print(tce_tbl['label'].value_counts())

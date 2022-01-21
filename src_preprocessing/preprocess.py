@@ -27,7 +27,6 @@ Authors:
 # 3rd party
 import os
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from astropy.stats import mad_std
 

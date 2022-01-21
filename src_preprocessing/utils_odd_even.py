@@ -674,7 +674,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # add median count to missing bins to avoid division by zero
         bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
 
-        # given that odd and even are a the same
+        # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
             np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
             np.array(bin_counts_odd), np.array(bin_values_odd)

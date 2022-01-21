@@ -11,13 +11,15 @@ import numpy as np
 # local
 from utils.utils_dataio import is_yamlble
 
-config_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/run_configs/explainability_shap_1-11-2022/')
+config_dir = Path('/data5/tess_project/experiments/current_experiments/explainability/shap_1-18-2022')
 config_dir.mkdir(exist_ok=True)
 runs_dir = config_dir / 'runs'
 runs_dir.mkdir(exist_ok=True)
 
-default_train_config_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/run_configs/explainability_shap_1-11-2022/default_config_train.yaml')
-default_pred_config_fp = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/run_configs/explainability_shap_1-11-2022/default_config_predict.yaml')
+default_train_config_fp = Path(
+    '/data5/tess_project/experiments/current_experiments/explainability/shap_1-18-2022/default_config_train.yaml')
+default_pred_config_fp = Path(
+    '/data5/tess_project/experiments/current_experiments/explainability/shap_1-18-2022/default_config_predict.yaml')
 
 # branches' names (for model) to nicknames (for person)
 branches = {
@@ -63,11 +65,19 @@ for L in range(1, n_branches + 1):
 
 # remove runs for which global and local centroid are not both present
 runs = {run_name: run_data for run_name, run_data in runs.items()
-        if not (('global_centr_view_std_noclip' in run_data['branches'] and 'local_centr_view_std_noclip' not in runs) or
-                ('global_centr_view_std_noclip' not in run_data['branches'] and 'local_centr_view_std_noclip' in runs))}
+        if not (('global_centr_view_std_noclip' in run_data['branches'] and 'local_centr_view_std_noclip' not in
+                 run_data['branches']) or
+                ('global_centr_view_std_noclip' not in run_data['branches'] and 'local_centr_view_std_noclip' in
+                 run_data['branches']))}
+# # remove runs that do not include global and local centroid features
+# runs = {run_name: run_data for run_name, run_data in runs.items()
+#         if (('global_centr_view_std_noclip' in run_data['branches'] and 'local_centr_view_std_noclip' in run_data['branches']))}
 
+config_runs_fp = config_dir / f'list_config_runs.txt'
+if config_runs_fp.is_file():
+    config_runs_fp.unlink()
+# aa
 for run_name, run_data in runs.items():
-
     with(open(default_train_config_fp, 'r')) as file:  # read default YAML configuration pred file
         train_config = yaml.safe_load(file)
 
