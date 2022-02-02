@@ -48,15 +48,15 @@ def get_features_and_labels(x, y):
 
 
 class InputFnv2(object):
-    """Class that acts as a callable input function for the Estimator."""
+    """Class that acts as a callable input function."""
 
-    def __init__(self, file_pattern, batch_size, mode, label_map, features_set, data_augmentation=False,
+    def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
                  online_preproc_params=None, filter_data=None, category_weights=None, shuffle_buffer_size=27000,
                  shuffle_seed=24, prefetch_buffer_nsamples=256):
         """Initializes the input function.
 
-        :param file_pattern: File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100".
-        May also be a comma-separated list of file patterns.
+        :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
+        be a comma-separated list of file patterns; or list, list of file paths.
         :param batch_size: int, batch size
         :param mode: A tf.estimator.ModeKeys (TRAIN, EVAL, PREDICT)
         :param label_map: dict, map between class name and integer value
@@ -76,7 +76,7 @@ class InputFnv2(object):
         :return:
         """
 
-        self.file_pattern = file_pattern
+        self.file_paths = file_paths
         self.mode = mode
         self.batch_size = batch_size
         self.label_map = label_map
@@ -220,13 +220,16 @@ class InputFnv2(object):
 
         include_labels = self.mode in ['TRAIN', 'EVAL']
 
-        file_patterns = self.file_pattern.split(",")
-        filenames = []
-        for p in file_patterns:
-            matches = tf.io.gfile.glob(p)
-            if not matches:
-                raise ValueError("Found no input files matching {}".format(p))
-            filenames.extend(matches)
+        if isinstance(self.file_paths, str):
+            file_patterns = self.file_paths.split(",")
+            filenames = []
+            for p in file_patterns:
+                matches = tf.io.gfile.glob(p)
+                if not matches:
+                    raise ValueError("Found no input files matching {}".format(p))
+                filenames.extend(matches)
+        else:
+            filenames = [str(fp) for fp in self.file_paths]
 
         # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 

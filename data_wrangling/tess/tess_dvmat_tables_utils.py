@@ -1,7 +1,7 @@
 """ Utility functions used to create TESS TCE tables from TESS DV TCE and TOI catalogs. """
 
-import numpy as np
 # 3rd party
+import numpy as np
 import pandas as pd
 
 

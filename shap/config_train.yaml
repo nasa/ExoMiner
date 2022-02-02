@@ -1,3 +1,4 @@
+# example of default configuration file for training ensemble
 ngpus_per_node: 1  # number of GPUs per node
 rank: null
 train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1

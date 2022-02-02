@@ -1,6 +1,6 @@
-# Train ensemble of models (multi-GPU and multi-node); Uses MPIEXEC and job arrays; Number of trained models needs to
-# be less or equal to mpiprocs*n_jobs_array; Configuration filepath is received as environment variable to the PBS
-# script; Allows for running multiple configurations sequentially.
+# Train ensemble of models for a given configuration (multi-node, multi-GPU). Using MPIEXEC and job arrays. The
+# environment variable SHAP_CONFIG_RUN holds the name of the YAML configuration file. It uses a job array. Number of
+# models must be less than n_jobs_in_array*mpi_procs.
 #PBS -S /bin/bash
 #PBS -N shap_exoplnt_train
 #PBS -l walltime=01:00:00
@@ -15,18 +15,37 @@
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_shap_exoplnt_train.err
 #PBS -W group_list=a1509
 #PBS -m bea
-# #PBS -J 0-9
 #PBS -J 0-2
 
-module list
-
 source activate exoplnt_dl
-# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
 
 cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-11-2022/runs_configs/
+# CONFIGS_FILE=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-11-2022/list_config_runs.txt
+# directory that holds the configuration YAML files for all runs
+CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/runs_configs/
+# file path to Python script used to train a model
 TRAIN_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_keras.py
-PYOUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-11-2022/log_py/
+# PREDICT_ENSEMBLE_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/predict_ensemble_keras.py
+# directory to save the Python console output
+PYOUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/log_py/
 
-echo Training "$SHAP_CONFIG_RUN"; mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_train.yaml --job_idx=$PBS_ARRAY_INDEX &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_train"$PBS_ARRAY_INDEX"_log_py.txt;
+# cat  "$CONFIGS_FILE" | while read line; do echo Training "$line"; mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$line"_train.yaml --job_idx=$PBS_ARRAY_INDEX; echo Evaluating ensemble "$line"; python "$PREDICT_ENSEMBLE_SCRIPT" --config_file="$CONFIG_FILE_DIR$line"_predict.yaml; done
+
+# echo Training "$SHAP_CONFIG_RUN"; echo "$TRAIN_SCRIPT" ; echo "$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_train.yaml; echo $PBS_ARRAY_INDEX; echo "$PYOUT_DIR$SHAP_CONFIG_RUN"_train_log_py.txt; echo Evaluating ensemble "$SHAP_CONFIG_RUN"; echo "$PREDICT_ENSEMBLE_SCRIPT" echo "$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_predict.yaml; echo "$PYOUT_DIR$SHAP_CONFIG_RUN"_predict_log_py.txt;
+#echo Training "$SHAP_CONFIG_RUN"; mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_train.yaml --job_idx=$PBS_ARRAY_INDEX &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_train"$PBS_ARRAY_INDEX"_log_py.txt;
+# echo Evaluating ensemble "$SHAP_CONFIG_RUN"; python "$PREDICT_ENSEMBLE_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_predict.yaml &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_predict_log_py.txt;
+
+# JOB_RUN=1
+# N_RUNS_PER_JOB=1 
+# 
+# while [ $JOB_RUN -le $N_RUNS_PER_JOB ]
+# do 
+#     echo Training "$SHAP_CONFIG_RUN" for job run "$JOB_RUN"
+#     mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_train.yaml --job_idx="$JOB_RUN" &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_train"$JOB_RUN"_log_py.txt
+#     $JOB_RUN=$(( $JOB_RUN + 1)) 
+#     echo jobrun $JOB_RUN
+# done
+
+echo Training "$SHAP_CONFIG_RUN" for job run "$PBS_ARRAY_INDEX"
+mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_train.yaml --job_idx="$PBS_ARRAY_INDEX" &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_train"$PBS_ARRAY_INDEX"_log_py.txt

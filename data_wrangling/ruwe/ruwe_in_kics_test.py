@@ -30,8 +30,8 @@ validated_targets = ranking_tbl_valplnt.drop_duplicates(subset='target_id')
 
 # tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
 # kic_tbl = tce_tbl.drop_duplicates(subset='target_id')[['target_id']]
-kic_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/'
-                      'ephemeris_tables/kepler/kic_catalogs/q1_q17_dr25_stellar_plus_supp.csv', usecols=['kepid'])
+kic_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/Kepler/KIC_tables/q1_q17_dr25_stellar_plus_supp.csv',
+                      usecols=['kepid'])
 
 data_to_tbl = {'kic': [], 'gaia dr2': [], 'gaia edr3': []}
 
@@ -44,6 +44,7 @@ for kic_i, kic in enumerate(kic_tbl.to_numpy().flatten()):
     if (kic_i + 1) % 1000 == 0:
         print(f'Querying SIMBAD for KIC {kic} ({kic_i + 1}/{len(kic_tbl)})')
 
+    aaaa
     result_table = Simbad.query_objectids(f"KIC {kic}")
 
     data_to_tbl['kic'].append(kic)

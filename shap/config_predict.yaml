@@ -1,6 +1,6 @@
+# example of default configuration file for evaluating ensemble and running inference
 ngpus_per_node: 1
 rank: null
-#experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
   experiment_dir: /data5/tess_project/experiments/current_experiments/results_ensemble/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_magcat_oe_se_oot_explainability_12-7-2021
@@ -45,23 +45,23 @@ config:
 #      'local_weak_secondary_view_max_flux-wks_norm'
 #  ]
 #  non_lin_fn: prelu
-  #  'num_loc_conv_blocks': 2
-  #  'num_glob_conv_blocks': 5
-  #  'init_fc_neurons': 512
-  #  'num_fc_layers': 4
-  #  'pool_size_loc': 7
-  #  'pool_size_glob': 5
-  #  'pool_stride': 2
-  #  'conv_ls_per_block': 2
-  #  'init_conv_filters': 4
-  #  'kernel_size': 5
-  #  'kernel_stride': 1
-  #  'optimizer': 'Adam'
-  #  'lr': 1.0e-5
-  #  'batch_size': 64
-  #  'dropout_rate': 0.0
-  #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
+#  'num_loc_conv_blocks': 2
+#  'num_glob_conv_blocks': 5
+#  'init_fc_neurons': 512
+#  'num_fc_layers': 4
+#  'pool_size_loc': 7
+#  'pool_size_glob': 5
+#  'pool_stride': 2
+#  'conv_ls_per_block': 2
+#  'init_conv_filters': 4
+#  'kernel_size': 5
+#  'kernel_stride': 1
+#  'optimizer': 'Adam'
+#  'lr': 1.0e-5
+#  'batch_size': 64
+#  'dropout_rate': 0.0
+#  'dropout_rate_fc_conv': 0.0
+#  'num_fc_conv_units': 0
 #  weight_initializer: null
 #  force_softmax: false
 #  use_kepler_ce: false

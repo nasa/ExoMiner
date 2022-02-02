@@ -379,10 +379,12 @@ if __name__ == '__main__':
     logger.info(f'Feature set: {config["features_set"]}')
 
     # early stopping callback
-    config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
+    if 'early_stopping' in config['callbacks']:
+        config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
 
     # TensorBoard callback
-    config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])
+    if 'tensorboard' in config['callbacks']:
+        config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])
 
     logger.info(f'Final configuration used: {config}')
 

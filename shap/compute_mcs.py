@@ -11,8 +11,6 @@ import numpy as np
 from functools import reduce
 import yaml
 import argparse
-
-
 # from mpi4py import MPI
 # import sys
 
@@ -38,15 +36,14 @@ def compute_mc_for_feat_in_config_run(feat, config_run, feats_in_run, runs_tbl, 
     # get score of run that does not use the feature
     config_run_minusfeat = '-'.join([el for el in feats_in_run if el != feat])
 
-    for example_i, example in enumerate(runs_tbl.iterrows()):  # iterate through examples
+    for example_i, example in enumerate(examples_tbl.iterrows()):  # iterate through examples
 
         if example_i % 1000 == 0:
             print(f'Computing MC for feature {feat} in run {config_run} for example {example[0]} '
-                  f'({example_i + 1} out of {len(runs_tbl)})')
+                  f'({example_i + 1} out of {len(examples_tbl)})')
 
         # get score of run that includes the feature
-        score_config_run = example[1][
-            'score']  # runs_tbl.xs(config_run, axis=0, level='run').loc[example[0][:2], 'score']
+        score_config_run = runs_tbl.xs(config_run, axis=0, level='run').loc[example[0][:2], 'score']
 
         if len(config_run_minusfeat) == 0:
             score_config_run_minusfeat = score_nofeats
@@ -55,10 +52,9 @@ def compute_mc_for_feat_in_config_run(feat, config_run, feats_in_run, runs_tbl, 
                 runs_tbl.xs(config_run_minusfeat, axis=0, level='run').loc[example[0][:2], 'score']
 
         # compute marginal contribution for adding feat to set of features in this run
-        examples_tbl.loc[example[0][:2], feat] = \
-            examples_tbl.loc[example[0][:2], feat] + \
-            (n_feats_in_run * comb(n_features, n_feats_in_run)) ** (-1) * \
-            (score_config_run - score_config_run_minusfeat)
+        examples_tbl.loc[example[0][:2], feat] = examples_tbl.loc[example[0][:2], feat] + \
+                                                 (n_feats_in_run * comb(n_features, n_feats_in_run)) ** (-1) * \
+                                                 (score_config_run - score_config_run_minusfeat)
 
     return examples_tbl
 
@@ -71,7 +67,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # get the configuration parameters
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/shap/config_agg_results.yaml')
+    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/shap/config_compute_mcs.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -91,12 +87,19 @@ if __name__ == "__main__":
     score_nofeats = examples_tbl.loc[examples_tbl['dataset'] == 'train']['label'].mean()
     n_features = len(config['features'])
     config_runs = np.array_split(np.load(config['config_runs_fp']), config['n_jobs'])[rank]
+    # config_runs = ['gc-lc-wks']
+    config_runs = config_runs[np.where(config_runs == 'gf-gc-lc-wks')[0][0]:]
 
     for config_run_i, config_run in enumerate(config_runs):
 
         print(f'[{rank}] Computing MC for features in run {config_run} ({config_run_i + 1} ouf of {len(config_runs)})')
 
-        feats_in_run = config_run.split('-')  # set of features used in the run
+        # set of features used in the run
+        # feats_in_run = [feat for feat in config['features'] if feat in config_run]
+        feats_in_run = config_run.split('-')
+        if 'gc' in feats_in_run:  # special case for gc-lc
+            feats_in_run[feats_in_run.index('gc')] = 'gc-lc'  # preserve the ordering
+            feats_in_run.remove('lc')
         n_feats_in_run = len(feats_in_run)
         print(f'[{rank}] Number of features in the run: {n_feats_in_run}')
 

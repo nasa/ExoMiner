@@ -248,9 +248,10 @@ def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
                 else:
                     print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-        for k in prec_at_top[dataset]:
-            print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                    res['{}_precision_at_{}'.format(dataset, k)]))
+        if prec_at_top is not None:
+            for k in prec_at_top[dataset]:
+                print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                        res['{}_precision_at_{}'.format(dataset, k)]))
 
     print('#' * 100)
 
@@ -287,9 +288,10 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
                     else:
                         res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-            for k in prec_at_top[dataset]:
-                res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
-                                                 res['{}_precision_at_{}'.format(dataset, k)]))
+            if prec_at_top is not None:
+                for k in prec_at_top[dataset]:
+                    res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
+                                                     res['{}_precision_at_{}'.format(dataset, k)]))
 
             res_file.write('\n')
 
@@ -298,7 +300,7 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
         res_file.write('\n')
 
 
-def plot_loss_metric(res, epochs, ep_idx, opt_metric, save_path):
+def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
     """ Plot loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
@@ -310,40 +312,58 @@ def plot_loss_metric(res, epochs, ep_idx, opt_metric, save_path):
     :return:
     """
 
-    f, ax = plt.subplots(1, 2)
-    ax[0].plot(epochs, res['loss'], label='Training', color='b')
-    ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
-    if 'test_loss' in res:
-        ax[0].scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
-    ax[0].set_xlim([0, epochs[-1] + 1])
-    # ax[0].set_ylim(bottom=0)
-    ax[0].set_xlabel('Epochs')
-    ax[0].set_ylabel('Loss')
-    if 'test_loss' in res:
-        ax[0].set_title(f'Categorical cross-entropy\nVal/Test {res["val_loss"][ep_idx]:.4}/{res["test_loss"]:.4}')
+    if opt_metric is None:
+        f, ax = plt.subplots()
+        ax.plot(epochs, res['loss'], label='Training', color='b')
+        ax.plot(epochs, res['val_loss'], label='Validation', color='r')
+        if 'test_loss' in res:
+            ax.scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
+        ax.set_xlim([0, epochs[-1] + 1])
+        # ax[0].set_ylim(bottom=0)
+        ax.set_xlabel('Epochs')
+        ax.set_ylabel('Loss')
+        if 'test_loss' in res:
+            ax.set_title(f'Categorical cross-entropy\nVal/Test {res["val_loss"][ep_idx]:.4}/{res["test_loss"]:.4}')
+        else:
+            ax.set_title(f'Categorical cross-entropy\nVal {res["val_loss"][ep_idx]:.4}')
+        ax.legend(loc="upper right")
+        ax.grid(True)
     else:
-        ax[0].set_title(f'Categorical cross-entropy\nVal {res["val_loss"][ep_idx]:.4}')
-    ax[0].legend(loc="upper right")
-    ax[0].grid(True)
-    ax[1].plot(epochs, res[opt_metric], label='Training')
-    ax[1].plot(epochs, res[f'val_{opt_metric}'], label='Validation', color='r')
-    ax[1].scatter(epochs[ep_idx], res[f'val_{opt_metric}'][ep_idx], c='r')
-    if f'test_{opt_metric}' in res:
-        ax[1].scatter(epochs[ep_idx], res[f'test_{opt_metric}'], label='Test', c='k')
-    ax[1].set_xlim([0, epochs[-1] + 1])
-    # ax[1].set_ylim([0.0, 1.05])
-    ax[1].grid(True)
-    ax[1].set_xlabel('Epochs')
-    ax[1].set_ylabel(opt_metric)
-    if f"test_{opt_metric}" in res:
-        ax[1].set_title(f'{opt_metric}\nVal/Test {res[f"val_{opt_metric}"][ep_idx]:.4}/{res[f"test_{opt_metric}"]:.4}')
-    else:
-        ax[1].set_title(f'{opt_metric}\nVal {res[f"val_{opt_metric}"][ep_idx]:.4}')
-    ax[1].legend(loc="lower right")
-    f.suptitle(f'Epochs = {epochs[-1]}(Best val:{epochs[ep_idx]:})')
-    f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-    f.savefig(save_path)
-    plt.close()
+        f, ax = plt.subplots(1, 2)
+        ax[0].plot(epochs, res['loss'], label='Training', color='b')
+        ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
+        if 'test_loss' in res:
+            ax[0].scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
+        ax[0].set_xlim([0, epochs[-1] + 1])
+        # ax[0].set_ylim(bottom=0)
+        ax[0].set_xlabel('Epochs')
+        ax[0].set_ylabel('Loss')
+        if 'test_loss' in res:
+            ax[0].set_title(f'Categorical cross-entropy\nVal/Test {res["val_loss"][ep_idx]:.4}/{res["test_loss"]:.4}')
+        else:
+            ax[0].set_title(f'Categorical cross-entropy\nVal {res["val_loss"][ep_idx]:.4}')
+        ax[0].legend(loc="upper right")
+        ax[0].grid(True)
+        ax[1].plot(epochs, res[opt_metric], label='Training')
+        ax[1].plot(epochs, res[f'val_{opt_metric}'], label='Validation', color='r')
+        ax[1].scatter(epochs[ep_idx], res[f'val_{opt_metric}'][ep_idx], c='r')
+        if f'test_{opt_metric}' in res:
+            ax[1].scatter(epochs[ep_idx], res[f'test_{opt_metric}'], label='Test', c='k')
+        ax[1].set_xlim([0, epochs[-1] + 1])
+        # ax[1].set_ylim([0.0, 1.05])
+        ax[1].grid(True)
+        ax[1].set_xlabel('Epochs')
+        ax[1].set_ylabel(opt_metric)
+        if f"test_{opt_metric}" in res:
+            ax[1].set_title(
+                f'{opt_metric}\nVal/Test {res[f"val_{opt_metric}"][ep_idx]:.4}/{res[f"test_{opt_metric}"]:.4}')
+        else:
+            ax[1].set_title(f'{opt_metric}\nVal {res[f"val_{opt_metric}"][ep_idx]:.4}')
+        ax[1].legend(loc="lower right")
+        f.suptitle(f'Epochs = {epochs[-1]}(Best val:{epochs[ep_idx]:})')
+        f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+        f.savefig(save_path)
+        plt.close()
 
 
 def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, save_path):

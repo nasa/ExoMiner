@@ -1,12 +1,12 @@
 ngpus_per_node: 1  # number of GPUs per node
 rank: null
 train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
-#experiment: &experiment_name
+
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_model_for_kaylie_with_magcat
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/trained_models/aum_test
   # TFRecord dataset directory
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized_aum
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
@@ -21,9 +21,9 @@ config:
       'local_centr_view_std_noclip',
     # 'local_weak_secondary_view_fluxnorm',
     # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm'
-      'stellar'
-      'dv+tce_fit'
+      'local_weak_secondary_view_max_flux-wks_norm',
+      'stellar',
+      'dv+tce_fit',
   ]
   non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2
@@ -45,10 +45,10 @@ config:
   #  'num_fc_conv_units': 0
   weight_initializer: null
   force_softmax: false
-#  use_kepler_ce: false
+  #  use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: false  # switch to multiclass classification
+  multi_class: true  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -112,12 +112,12 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
   n_models: 2  # number of models in the ensemble
-  n_epochs: 10  # number of epochs used to train each model
-#  use_kepler_ce: false
-  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
+  n_epochs: 2  # number of epochs used to train each model
+  #  use_kepler_ce: false
+  opt_metric: null  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
-#  ce_weights: null
-#  filter_data: null
+  #  ce_weights: null
+  filter_data: null
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 #    PC: 1.0
 #    AFP: 1.0
@@ -130,8 +130,8 @@ callbacks:
 #    patience: 20
 #    verbose: 1
 #    mode: max  # maximize/minimize monitored metric in early stopping
-#    baseline: null
-#    restore_best_weights: true  # get model from epoch that saw best performance according to monitored metric
+  #    baseline: null
+  #    restore_best_weights: true  # get model from epoch that saw best performance according to monitored metric
   tensorboard:
     histogram_freq: 1
     write_graph: true
@@ -140,6 +140,13 @@ callbacks:
     profile_batch: 2
     embeddings_metadata: null
     embeddings_freq: 0
+  track_logits:
+    batch_size: 32
+    tfrec_filepaths: null
+    features_set: null
+    log_dir: null
+    label_map: null
+    verbose: true
 
 label_map:  # maps label to a label id
   # Kepler
@@ -162,14 +169,14 @@ label_map:  # maps label to a label id
 metrics:
   'clf_thr': 0.5  # classification threshold
   'num_thr': 1000  # number of thresholds used to compute some metrics
-  'top_k_arr': # values of k for computing precision-at-k
-    'train': [ 100, 1000, 1818 ]
-    'val': [ 50, 150, 222 ]
-    'test': [ 50, 150, 251 ]
-  top_k_curve: # values of k for computing precision-at-k curve
-    train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
-    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
-    test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+  'top_k_arr': null # values of k for computing precision-at-k
+#    'train': [ 100, 1000, 1818 ]
+#    'val': [ 50, 150, 222 ]
+#    'test': [ 50, 150, 251 ]
+#  top_k_curve: # values of k for computing precision-at-k curve
+#    train: { 'start': 25, 'stop': 1800, 'num': 100,  'endpoint': true, 'dtype': 'int' }
+#    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
+#    test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
 datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
 verbose: true

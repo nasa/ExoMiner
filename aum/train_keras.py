@@ -27,6 +27,7 @@ from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
 from utils.utils_dataio import is_yamlble
 from paths import path_main
+from aum.utils_train import TrackLogitsCallback
 
 
 def run_main(config, base_model, model_id):
@@ -34,6 +35,7 @@ def run_main(config, base_model, model_id):
 
     :param config: dict, configuration parameters for the run
     :param base_model: model
+    :param model_id: int, model id
     :return:
     """
 
@@ -43,6 +45,10 @@ def run_main(config, base_model, model_id):
 
     if 'tensorboard' in config['callbacks']:
         config['callbacks']['tensorboard']['obj'].log_dir = model_dir_sub
+
+    if 'track_logits' in config['callbacks']:
+        config['callbacks']['track_logits']['obj'].log_dir = model_dir_sub
+
     callbacks_list = [config['callbacks'][callback_config]['obj'] for callback_config in config['callbacks']]
 
     if config['training']['filter_data'] is None:
@@ -66,7 +72,7 @@ def run_main(config, base_model, model_id):
         original_labels[dataset] += data_tfrec['original_label']
 
     # convert from list to numpy array
-    labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in config['datasets']}
+    # labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in config['datasets']}
     original_labels = {dataset: np.array(original_labels[dataset]) for dataset in config['datasets']}
 
     # instantiate Keras model
@@ -98,7 +104,7 @@ def run_main(config, base_model, model_id):
     model = compile_model(model, config, metrics_list)
 
     # input function for training, validation and test
-    train_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/train*',
+    train_input_fn = InputFn(file_paths=config['filepaths']['train'],
                              batch_size=config['training']['batch_size'],
                              mode='TRAIN',
                              label_map=config['label_map'],
@@ -107,13 +113,13 @@ def run_main(config, base_model, model_id):
                              filter_data=filter_data['train'],
                              features_set=config['features_set'],
                              category_weights=config['training']['category_weights'])
-    val_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/val*',
+    val_input_fn = InputFn(file_paths=config['filepaths']['val'],
                            batch_size=config['training']['batch_size'],
                            mode='EVAL',
                            label_map=config['label_map'],
                            filter_data=filter_data['val'],
                            features_set=config['features_set'])
-    test_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/test*',
+    test_input_fn = InputFn(file_paths=config['filepaths']['test'],
                             batch_size=config['training']['batch_size'],
                             mode='EVAL',
                             label_map=config['label_map'],
@@ -169,7 +175,7 @@ def run_main(config, base_model, model_id):
     for dataset in predictions:
         print('Predicting on dataset {}...'.format(dataset))
 
-        predict_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
+        predict_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
                                    batch_size=config['training']['batch_size'],
                                    mode='PREDICT',
                                    label_map=config['label_map'],
@@ -189,25 +195,25 @@ def run_main(config, base_model, model_id):
     # sort predictions per class based on ground truth labels
     output_cl = {dataset: {} for dataset in config['datasets']}
     for dataset in output_cl:
-        for original_label in config['label_map']:
+        for original_label in config['label_map_pred']:
             # get predictions for each original class individually to compute histogram
             output_cl[dataset][original_label] = predictions[dataset][np.where(original_labels[dataset] ==
                                                                                original_label)]
 
-    # compute precision at top-k
-    labels_sorted = {}
-    for dataset in config['datasets']:
-        if dataset == 'predict':
-            continue
-        if not config['config']['multi_class']:
-            sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
-            labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
-            prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
-            res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
-                        for k_val in config['metrics']['top_k_arr'][dataset]})
-        else:
-            res.update({f'{dataset}_precision_at_{k_val}': np.nan
-                        for k_val in config['metrics']['top_k_arr'][dataset]})
+    # # compute precision at top-k
+    # labels_sorted = {}
+    # for dataset in config['datasets']:
+    #     if dataset == 'predict':
+    #         continue
+    #     if not config['config']['multi_class']:
+    #         sorted_idxs = np.argsort(predictions[dataset], axis=0).squeeze()
+    #         labels_sorted[dataset] = labels[dataset][sorted_idxs].squeeze()
+    #         prec_at_k = compute_precision_at_k(labels_sorted[dataset], config['metrics']['top_k_arr'][dataset])
+    #         res.update({f'{dataset}_precision_at_{k_val}': prec_at_k[f'precision_at_{k_val}']
+    #                     for k_val in config['metrics']['top_k_arr'][dataset]})
+    #     else:
+    #         res.update({f'{dataset}_precision_at_{k_val}': np.nan
+    #                     for k_val in config['metrics']['top_k_arr'][dataset]})
 
     # save results in a numpy file
     res_fp = model_dir_sub / 'results.npy'
@@ -225,8 +231,12 @@ def run_main(config, base_model, model_id):
     else:
         ep_idx = -1
     # plot evaluation loss and metric curves
-    plot_loss_metric(res, epochs, ep_idx, config['training']['opt_metric'],
-                     config['paths']['experiment_dir'] / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg')
+    plot_loss_metric(res,
+                     epochs,
+                     ep_idx,
+                     config['paths']['experiment_dir'] / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg',
+                     config['training']['opt_metric'],
+                     )
     # plot class distribution
     for dataset in config['datasets']:
         plot_class_distribution(output_cl[dataset],
@@ -241,10 +251,10 @@ def run_main(config, base_model, model_id):
         # plot roc
         plot_roc(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_roc.svg')
         # plot precision-at-k and misclassfied-at-k examples curves
-        for dataset in config['datasets']:
-            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
-            plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
-                                config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
+        # for dataset in config['datasets']:
+        #     k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
+        #     plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
+        #                         config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, config['datasets'], ep_idx, model.metrics_names,
@@ -252,30 +262,61 @@ def run_main(config, base_model, model_id):
 
     print_metrics(model_id, res, config['datasets'], ep_idx, model.metrics_names, config['metrics']['top_k_arr'])
 
+    # # initialize dictionary to save the classification scores for each dataset evaluated
+    # scores_classification = {dataset: np.zeros(predictions[dataset].shape, dtype='uint8') for dataset in config['datasets']}
+    # for dataset in config['datasets']:
+    #     # threshold for classification
+    #     if not config['config']['multi_class']:
+    #         scores_classification[dataset][predictions[dataset] >= config['metrics']['clf_thr']] = 1
+    #     else:  # multiclass - get label id of highest scoring class
+    #         # scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
+    #         scores_classification[dataset] = np.repeat([np.array(sorted(config['label_map'].values()))],
+    #                                                    len(predictions[dataset]),
+    #                                                    axis=0)[np.arange(len(predictions[dataset])),
+    #                                                            np.argmax(predictions[dataset], axis=1)]
+    # for dataset in config['datasets']:
+    #     ranking_tbl = create_ranking(predictions[dataset], scores_classification[dataset], config['label_map'], config['multiclass'])
+
 
 if __name__ == '__main__':
-
-    path_to_yaml = Path(path_main + 'aum/config_train.yaml')
-
-    with(open(path_to_yaml, 'r')) as file:
-        config = yaml.safe_load(file)
-    if config['rank'] == 0:  # save initial configuration
-        with open(config['paths']['experiment_dir'] / 'train_params_init.yaml', 'w') as config_file:
-            yaml.dump(config, config_file)
 
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
     args = parser.parse_args()
 
-    # uncomment for MPI multiprocessing
-    rank = MPI.COMM_WORLD.rank
-    config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
-    config['size'] = MPI.COMM_WORLD.size
-    print(f'Rank = {config["rank"]}/{config["size"] - 1}')
-    sys.stdout.flush()
-    if rank != 0:
-        time.sleep(2)
+    if args.config_file is None:  # use default config file in codebase
+        path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/aum/config_train.yaml')
+    else:  # use config file given as input
+        path_to_yaml = Path(args.config_file)
+
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
+
+    if config['train_parallel']:  # train models in parallel
+        rank = MPI.COMM_WORLD.rank
+        config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
+        config['size'] = MPI.COMM_WORLD.size
+        print(f'Rank = {config["rank"]}/{config["size"] - 1}')
+        sys.stdout.flush()
+        if rank != 0:
+            time.sleep(2)
+    else:
+        config['rank'] = 0
+
+    # # get list of physical GPU devices available to TF in this process
+    # physical_devices = tf.config.list_physical_devices('GPU')
+    # print(f'List of physical GPU devices available: {physical_devices}')
+    #
+    # # select GPU to be used
+    # gpu_id = rank % ngpus_per_node
+    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
+    # # tf.config.set_visible_devices(physical_devices[0], 'GPU')
+    #
+    # # get list of logical GPU devices available to TF in this process
+    # logical_devices = tf.config.list_logical_devices('GPU')
+    # print(f'List of logical GPU devices available: {logical_devices}')
 
     # select GPU to run the training on
     try:
@@ -307,7 +348,8 @@ if __name__ == '__main__':
 
     # set up logger
     logger = logging.getLogger(name='train-eval_run')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] / f'train-eval_run_{rank}.log',
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
+                                                  f'train-eval_run_{config["rank"]}.log',
                                          mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
@@ -339,7 +381,7 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = ExoMiner
+    BaseModel = ExoMiner  # CNN1dPlanetFinderv2
     # config['config']['parameters'].update(baseline_configs.astronet)
 
     # choose features set
@@ -351,11 +393,25 @@ if __name__ == '__main__':
 
     logger.info(f'Feature set: {config["features_set"]}')
 
-    # # early stopping callback
-    # config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
+    config['filepaths'] = {dataset: [str(filepath) for filepath in config['paths']['tfrec_dir'].iterdir()
+                                     if 'shard' in filepath.name and filepath.name.split('-')[0] == dataset]
+                           for dataset in config['datasets']}
+    config['filepaths']['all_datasets'] = [str(filepath) for filepath in config['paths']['tfrec_dir'].iterdir()
+                                           if 'shard' in filepath.name]
+
+    # early stopping callback
+    if 'early_stopping' in config['callbacks']:
+        config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
 
     # TensorBoard callback
-    config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])
+    if 'tensorboard' in config['callbacks']:
+        config['callbacks']['tensorboard']['obj'] = callbacks.TensorBoard(**config['callbacks']['tensorboard'])
+
+    if 'track_logits' in config['callbacks']:
+        config['callbacks']['track_logits']['features_set'] = config['features_set']
+        config['callbacks']['track_logits']['label_map'] = config['label_map']
+        config['callbacks']['track_logits']['tfrec_filepaths'] = config['filepaths']['all_datasets']
+        config['callbacks']['track_logits']['obj'] = TrackLogitsCallback(**config['callbacks']['track_logits'])
 
     logger.info(f'Final configuration used: {config}')
 

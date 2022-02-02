@@ -4,6 +4,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
 
 # local
 import paths
@@ -140,3 +141,22 @@ def plot_prcurve_roc(res, save_path, dataset):
     # f.suptitle(f'PR/ROC Curves - {dataset}')
     f.savefig(os.path.join(save_path, f'ensemble_pr-roc_curves_{dataset}.png'))
     plt.close()
+
+
+def create_ranking(data, scores, scores_clf, label_map, multiclass):
+    # add predictions to the data dict
+    if not multiclass:
+        data['score'] = scores.ravel()
+        data['predicted class'] = scores_clf.ravel()
+    else:
+        for class_label, label_id in label_map.items():
+            data[f'score_{class_label}'] = scores[:, label_id]
+        data['predicted class'] = scores_clf
+
+    data_df = pd.DataFrame(data)
+
+    # sort in descending order of output
+    if not multiclass:
+        data_df.sort_values(by='score', ascending=False, inplace=True)
+
+    return data_df

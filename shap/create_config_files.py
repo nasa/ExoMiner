@@ -13,9 +13,10 @@ from utils.utils_dataio import is_yamlble
 
 config_dir = Path('/data5/tess_project/experiments/current_experiments/explainability/shap_1-18-2022')
 config_dir.mkdir(exist_ok=True)
-runs_dir = config_dir / 'runs'
+runs_dir = config_dir / 'runs_configs'
 runs_dir.mkdir(exist_ok=True)
 
+# default configuration files; parameters shared by all configurations are already filled
 default_train_config_fp = Path(
     '/data5/tess_project/experiments/current_experiments/explainability/shap_1-18-2022/default_config_train.yaml')
 default_pred_config_fp = Path(
@@ -37,12 +38,18 @@ branches = {
 branches_features = {
     'global_flux_view_fluxnorm': ['global_flux_view_fluxnorm'],
     'local_flux_view_fluxnorm': ['local_flux_view_fluxnorm', 'transit_depth_norm'],
-    'local_flux_oddeven_views': ['local_flux_odd_view_fluxnorm', 'local_flux_even_view_fluxnorm', 'odd_se_oot_norm', 'even_se_oot_norm'],
+    'local_flux_oddeven_views': ['local_flux_odd_view_fluxnorm', 'local_flux_even_view_fluxnorm', 'odd_se_oot_norm',
+                                 'even_se_oot_norm'],
     'global_centr_view_std_noclip': ['global_centr_view_std_noclip'],
-    'local_centr_view_std_noclip': ['local_centr_view_std_noclip', 'tce_fwm_stat_norm', 'tce_dikco_msky_norm', 'tce_dikco_msky_err_norm', 'tce_dicco_msky_norm', 'tce_dicco_msky_err_norm', 'mag_cat'],
-    'local_weak_secondary_view_max_flux-wks_norm': ['local_weak_secondary_view_max_flux_norm', 'tce_maxmes_norm', 'wst_depth_norm', 'tce_albedo_stat_norm', 'tce_ptemp_stat_norm'],
-    'stellar': ['tce_sdens_norm', 'tce_steff_norm', 'tce_smet_norm', 'tce_slogg_norm', 'tce_smass_norm', 'tce_sradius_norm'],
-    'dv+tce_fit': ['boot_fap_norm', 'tce_cap_stat_norm', 'tce_hap_stat_norm', 'tce_rb_tcount0n_norm', 'tce_prad_norm', 'tce_period_norm']
+    'local_centr_view_std_noclip': ['local_centr_view_std_noclip', 'tce_fwm_stat_norm', 'tce_dikco_msky_norm',
+                                    'tce_dikco_msky_err_norm', 'tce_dicco_msky_norm', 'tce_dicco_msky_err_norm',
+                                    'mag_cat'],
+    'local_weak_secondary_view_max_flux-wks_norm': ['local_weak_secondary_view_max_flux-wks_norm', 'tce_maxmes_norm',
+                                                    'wst_depth_norm', 'tce_albedo_stat_norm', 'tce_ptemp_stat_norm'],
+    'stellar': ['tce_sdens_norm', 'tce_steff_norm', 'tce_smet_norm', 'tce_slogg_norm', 'tce_smass_norm',
+                'tce_sradius_norm'],
+    'dv+tce_fit': ['boot_fap_norm', 'tce_cap_stat_norm', 'tce_hap_stat_norm', 'tce_rb_tcount0n_norm', 'tce_prad_norm',
+                   'tce_period_norm']
 }
 
 # create combinations of branches
@@ -72,6 +79,9 @@ runs = {run_name: run_data for run_name, run_data in runs.items()
 # # remove runs that do not include global and local centroid features
 # runs = {run_name: run_data for run_name, run_data in runs.items()
 #         if (('global_centr_view_std_noclip' in run_data['branches'] and 'local_centr_view_std_noclip' in run_data['branches']))}
+# # remove runs  that do not include wks features
+# runs = {run_name: run_data for run_name, run_data in runs.items()
+#         if 'local_weak_secondary_view_max_flux-wks_norm' in run_data['branches']}
 
 config_runs_fp = config_dir / f'list_config_runs.txt'
 if config_runs_fp.is_file():
