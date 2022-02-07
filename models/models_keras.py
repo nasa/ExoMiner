@@ -2269,7 +2269,9 @@ def compile_model(model, config, metrics_list):
 
     # set loss
     if config['config']['multi_class']:  # multiclass
-        model_loss = losses.SparseCategoricalCrossentropy(from_logits=False, name='sparse_categorical_crossentropy')
+        # model_loss = losses.SparseCategoricalCrossentropy(from_logits=False, name='sparse_categorical_crossentropy')
+        model_loss = losses.CategoricalCrossentropy(from_logits=False, name='categorical_crossentropy')
+
     else:
         model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
 

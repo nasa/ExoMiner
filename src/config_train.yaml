@@ -4,7 +4,7 @@ train_parallel: false  # set to true to use MPI to train models in parallel; onl
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_model_for_kaylie_with_magcat
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_multiclass
   # TFRecord dataset directory
   tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
@@ -43,10 +43,10 @@ config:
   #  'num_fc_conv_units': 0
   weight_initializer: null
   force_softmax: false
-#  use_kepler_ce: false
+  #  use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: false  # switch to multiclass classification
+  multi_class: true  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -110,12 +110,12 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
   n_models: 2  # number of models in the ensemble
-  n_epochs: 10  # number of epochs used to train each model
-#  use_kepler_ce: false
-  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
+  n_epochs: 2  # number of epochs used to train each model
+  #  use_kepler_ce: false
+  opt_metric: recall_PC  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
-#  ce_weights: null
-#  filter_data: null
+  #  ce_weights: null
+  filter_data: null
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 #    PC: 1.0
 #    AFP: 1.0
@@ -123,7 +123,7 @@ training:
 
 callbacks:
   early_stopping:
-    monitor: val_auc_pr  # which metric used to monitor for early stopping
+    monitor: val_loss  # which metric used to monitor for early stopping
     min_delta: 0
     patience: 20
     verbose: 1
@@ -142,7 +142,7 @@ callbacks:
 label_map:  # maps label to a label id
   # Kepler
   PC: 1
-  AFP: 0
+  AFP: 2
   # AFP2: 1
   NTP: 0
   # TESS

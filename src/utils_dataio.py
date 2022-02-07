@@ -51,8 +51,8 @@ class InputFnv2(object):
     """Class that acts as a callable input function."""
 
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, category_weights=None, shuffle_buffer_size=27000,
-                 shuffle_seed=24, prefetch_buffer_nsamples=256):
+                 online_preproc_params=None, filter_data=None, category_weights=None, multiclass=False,
+                 shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -68,6 +68,7 @@ class InputFnv2(object):
         :param filter_data:
         :param category_weights: dict, each key/val pair represents the weight for any sample associated with the
         given category as key
+        :param multiclass: bool, if True maps label ids to  one-hot encoding
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
         size guarantees perfect shuffling
         :param shuffle_seed: int, shuffle seed
@@ -91,6 +92,7 @@ class InputFnv2(object):
         self.filter_data = filter_data
 
         self.category_weights = category_weights
+        self.multiclass = multiclass
 
     def __call__(self):
         """ Builds the input pipeline.
@@ -165,6 +167,9 @@ class InputFnv2(object):
 
                 with tf.control_dependencies([assert_known_label]):
                     label_id = tf.identity(label_id)
+
+            if self.multiclass:
+                label_id = tf.one_hot(label_id, len(self.label_map))
 
             # initialize feature output
             output = {}

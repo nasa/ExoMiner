@@ -1,8 +1,12 @@
 """
-Create mislabeled noise
+Create a mislabeled noise dataset.
 """
 
 # 3rd party
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import tensorflow as tf
 import pandas as pd
@@ -80,12 +84,9 @@ def create_tfrec_dataset_tbl(tfrec_fps, features):
                 elif features[feature_name]['dtype'] == 'float':
                     feat_example = example.features.feature[feature_name].float_list.value[0]
                 elif features[feature_name]['dtype'] == 'str':
-                    try:
-                        feat_example = example.features.feature[feature_name].bytes_list.value[0].decode('utf-8')
-                    except:
-                        aaa
+                    feat_example = example.features.feature[feature_name].bytes_list.value[0].decode('utf-8')
                 else:
-                    raise ValueError('Data type not expected')
+                    raise ValueError(f'Data type {features[feature_name]["dtype"]} not expected.')
 
                 feats_example.append(feat_example)
 
@@ -115,9 +116,10 @@ def create_flip_tbl(tfrec_tbl, rnd_seed, switch_frac, noise_label='MISLABELED'):
 
     # choose examples from each category to switch to noise class
     for switch_frac_cat in switch_frac:
-        idx_cat_switch = tfrec_tbl.loc[tfrec_tbl['label'] == switch_frac_cat].sample(frac=switch_frac[switch_frac_cat],
-                                                                                     replace=False,
-                                                                                     random_state=rng.bit_generator).index
+        idx_cat_switch = tfrec_tbl.loc[tfrec_tbl['label'] ==
+                                       switch_frac_cat].sample(frac=switch_frac[switch_frac_cat],
+                                                               replace=False,
+                                                               random_state=rng.bit_generator).index
         tfrec_tbl.loc[idx_cat_switch, 'label'] = noise_label
 
     return tfrec_tbl
@@ -125,9 +127,12 @@ def create_flip_tbl(tfrec_tbl, rnd_seed, switch_frac, noise_label='MISLABELED'):
 
 if __name__ == '__main__':
 
+    n_splits = 3  # number of splits of PCs and AFPs
+    noise_label = 'MISLABELED'  # designation for mislabel pseudo-class
+
     # results directory
-    res_dir = Path(
-        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/') / f'run_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+    res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/') / \
+              f'run_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     res_dir.mkdir(exist_ok=True)
 
     # create TFRecord dataset table
@@ -154,8 +159,6 @@ if __name__ == '__main__':
     afp_train_set = train_set.loc[train_set['label'] == 'AFP']
 
     # split these categories into N splits
-    n_splits = 3
-    # TODO: do I want to shuffle them beforehand? No, it's already shuffled
     pc_train_set_split = np.array_split(pc_train_set, n_splits)
     afp_train_set_split = np.array_split(afp_train_set, n_splits)
 
@@ -165,7 +168,6 @@ if __name__ == '__main__':
                         for split_comb in itertools.product(pc_train_set_split, afp_train_set_split)]
 
     # create the datasets for the different iterations by combining the PC/AFP splits with the rest of the training set
-    noise_label = 'MISLABELED'
     n_runs = len(train_set_splits)
     dataset_runs = [train_set.copy(deep=True) for run_i in range(n_runs)]
     for run_i, comb in enumerate(train_set_splits):
@@ -214,20 +216,6 @@ if __name__ == '__main__':
 
                     # overwrite label
                     example_util.set_bytes_feature(example, 'label', [example_in_tbl['label']], allow_overwrite=True)
-
-                    # # check if example is in flip table
-                    # target_id = example.features.feature['target_id'].int64_list.value[0]
-                    # tce_plnt_num = example.features.feature['tce_plnt_num'].int64_list.value[0]
-                    #
-                    # tce_found = dataset_run.loc[
-                    #     (dataset_run['target_id'] == target_id) & (flip_tbl['tce_plnt_num'] == tce_plnt_num)]
-                    #
-                    # if len(tce_found) == 0:
-                    #     flip = False
-                    # else:
-                    #     flip = tce_found['label'].values[0] == noise_label
-                    #
-                    # if flip:
 
                     writer.write(example.SerializeToString())
 

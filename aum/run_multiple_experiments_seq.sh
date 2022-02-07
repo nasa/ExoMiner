@@ -1,7 +1,7 @@
 # Run multiple label noise runs sequentially based on different YAML configuration files
 
-CONFIG_FILE_DIR=/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324/configs/
-CONFIGS_FILE=/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324/config_runs.txt
+CONFIG_FILE_DIR=/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052/configs/
+CONFIGS_FILE=/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052/config_runs.txt
 TRAIN_SCRIPT=/home/msaragoc/Projects//Kepler-TESS_exoplanet/codebase/aum/train_keras.py
 
 #conda activate exoplnt_dl

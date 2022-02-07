@@ -10,8 +10,10 @@ import pandas as pd
 import numpy as np
 from astropy.stats import mad_std
 
+# %%
+
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324')
+    '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/run_02-03-2022_1444')
 
 runs_dir = experiment_dir / 'runs'
 aum_tbls = {f'{run_dir.name}': pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv') for run_dir in
@@ -68,13 +70,13 @@ for example_i, example in aum_allruns_tbl.iterrows():
 
 aum_allruns_tbl.to_csv(experiment_dir / 'aum.csv', index=False)
 
-# %% Compute nth percentile
+#%% Compute nth percentile
 
 n_percentile = 99
 noise_label = 'MISLABELED'
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324')
+    '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/run_02-03-2022_1444')
 
 runs_dir = experiment_dir / 'runs'
 margin_thr = {}
@@ -93,11 +95,18 @@ margin_thr_df['mad_std'] = mad_std(margin_thr_df[runs])
 
 margin_thr_df.to_csv(experiment_dir / f'margin_thr_{n_percentile}_percentile.csv')
 
-# %% Use margin threshold to determin which examples are mislabeled
+# %% Use margin threshold to determine which examples are mislabeled
+
+experiment_dir = Path(
+    '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/run_02-03-2022_1444')
 
 margin_thr_df = pd.read_csv(experiment_dir / f'margin_thr_{n_percentile}_percentile.csv', squeeze=True, index_col=0)
 
 aum_allruns_tbl = pd.read_csv(experiment_dir / 'aum.csv')
 
 aum_allruns_tbl['mislabeled_by_aum'] = 'no'
-aum_allruns_tbl.loc[aum_allruns_tbl['mean'] > margin_thr_df['mean'], 'mislabeled_by_aum'] = 'yes'
+aum_allruns_tbl.loc[aum_allruns_tbl['mean'] < margin_thr_df['mean'], 'mislabeled_by_aum'] = 'yes'
+
+aum_allruns_tbl.to_csv(experiment_dir / f'aum_mislabeled.csv', index=False)
+
+#%%

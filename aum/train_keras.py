@@ -98,7 +98,7 @@ def run_main(config, base_model, model_id):
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
     else:
-        metrics_list = get_metrics_multiclass()
+        metrics_list = get_metrics_multiclass(config['label_map'])
 
     # compile model - set optimizer, loss and metrics
     model = compile_model(model, config, metrics_list)
@@ -112,20 +112,24 @@ def run_main(config, base_model, model_id):
                              online_preproc_params=config['training']['online_preprocessing_params'],
                              filter_data=filter_data['train'],
                              features_set=config['features_set'],
-                             category_weights=config['training']['category_weights'])
+                             category_weights=config['training']['category_weights'],
+                             multiclass=config['config']['multiclass'])
+
     val_input_fn = InputFn(file_paths=config['filepaths']['val'],
                            batch_size=config['training']['batch_size'],
                            mode='EVAL',
                            label_map=config['label_map'],
                            filter_data=filter_data['val'],
-                           features_set=config['features_set'])
+                           features_set=config['features_set'],
+                           multiclass=config['config']['multiclass'])
+
     test_input_fn = InputFn(file_paths=config['filepaths']['test'],
                             batch_size=config['training']['batch_size'],
                             mode='EVAL',
                             label_map=config['label_map'],
                             filter_data=filter_data['test'],
                             features_set=config['features_set'],
-                            )
+                            multiclass=config['config']['multiclass'])
 
     # fit the model to the training data
     print('Training model...')
@@ -180,7 +184,8 @@ def run_main(config, base_model, model_id):
                                    mode='PREDICT',
                                    label_map=config['label_map'],
                                    filter_data=filter_data[dataset],
-                                   features_set=config['features_set'])
+                                   features_set=config['features_set'],
+                                   multiclass=config['config']['multiclass'])
 
         predictions[dataset] = model.predict(predict_input_fn(),
                                              batch_size=None,
@@ -230,6 +235,7 @@ def run_main(config, base_model, model_id):
             ep_idx = np.argmax(res[config['callbacks']['early_stopping']['monitor']])
     else:
         ep_idx = -1
+
     # plot evaluation loss and metric curves
     plot_loss_metric(res,
                      epochs,
@@ -240,8 +246,8 @@ def run_main(config, base_model, model_id):
     # plot class distribution
     for dataset in config['datasets']:
         plot_class_distribution(output_cl[dataset],
-                                config['paths'][
-                                    'experiment_dir'] / f'model{model_id}_class_predoutput_distribution_{dataset}.svg')
+                                config['paths']['experiment_dir'] /
+                                f'model{model_id}_class_predoutput_distribution_{dataset}.svg')
     # plot precision, recall, ROC AUC, PR AUC curves
     # plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx,
     # os.path.join(res_dir, 'model{}_prec_rec_auc.svg'.format(model_id)))

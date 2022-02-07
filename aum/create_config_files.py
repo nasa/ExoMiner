@@ -1,6 +1,10 @@
 """ Create config files for AUM runs. """
 
 # 3rd party
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import yaml
 
@@ -9,7 +13,7 @@ from utils.utils_dataio import is_yamlble
 
 # experiment directory
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324/')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052/')
 
 # file path to default train configuration file
 default_train_config_fp = experiment_dir / 'config_train.yaml'
@@ -26,7 +30,7 @@ config_runs_fp = experiment_dir / f'config_runs.txt'
 if config_runs_fp.is_file():
     config_runs_fp.unlink()
 
-for tfrec_run_dir in tfrec_root_dir.iterdir():
+for tfrec_run_dir in sorted(tfrec_root_dir.iterdir()):
     print(f'Create config file for run {tfrec_run_dir.name}...')
 
     with(open(default_train_config_fp, 'r')) as file:  # read default YAML configuration file

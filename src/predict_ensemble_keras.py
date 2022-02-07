@@ -109,7 +109,7 @@ def run_main(config):
         print(f'Evaluating on dataset {dataset}')
 
         # input function for evaluating on each dataset
-        eval_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/{}*'.format(dataset),
+        eval_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/{}*'.format(dataset),
                                 batch_size=config['evaluation']['batch_size'],
                                 mode='EVAL',
                                 label_map=config['label_map'],
@@ -145,11 +145,12 @@ def run_main(config):
     for dataset in scores:
         print(f'Predicting on dataset {dataset}...')
 
-        predict_input_fn = InputFn(file_pattern=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
+        predict_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
                                    batch_size=config['evaluation']['batch_size'],
                                    mode='PREDICT',
                                    label_map=config['label_map'],
-                                   features_set=config['features_set'])
+                                   features_set=config['features_set'],
+                                   multiclass=config['config']['multiclass'])
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,

@@ -360,10 +360,11 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
         else:
             ax[1].set_title(f'{opt_metric}\nVal {res[f"val_{opt_metric}"][ep_idx]:.4}')
         ax[1].legend(loc="lower right")
-        f.suptitle(f'Epochs = {epochs[-1]}(Best val:{epochs[ep_idx]:})')
-        f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(save_path)
-        plt.close()
+
+    f.suptitle(f'Epochs = {epochs[-1]}(Best val:{epochs[ep_idx]:})')
+    f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+    f.savefig(save_path)
+    plt.close()
 
 
 def plot_prec_rec_roc_auc_pr_auc(res, epochs, ep_idx, save_path):

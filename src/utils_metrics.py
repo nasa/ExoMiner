@@ -46,16 +46,24 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     return metrics_list
 
 
-def get_metrics_multiclass():
+def get_metrics_multiclass(label_map):
     """ Setup metrics to be monitored for multiclass. 
-    
+
+    :param label_map: dict, map from label to label id
     :return:
         metrics_list: list, metrics to be monitored
     """
 
-    acc = keras.metrics.SparseCategoricalAccuracy(name='accuracy')
+    metrics_list = []
 
-    metrics_list = [acc]
+    # acc = keras.metrics.SparseCategoricalAccuracy(name='accuracy')
+    acc = keras.metrics.CategoricalAccuracy(name='accuracy')
+
+    metrics_list.append(acc)
+
+    for label, label_id in label_map.items():
+        metrics_list.append(keras.metrics.Recall(name=f'recall_{label}', class_id=label_id, thresholds=0.5))
+        metrics_list.append(keras.metrics.Precision(name=f'precision_{label}', class_id=label_id, thresholds=0.5))
 
     return metrics_list
 

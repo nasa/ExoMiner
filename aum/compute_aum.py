@@ -1,6 +1,10 @@
 """ Compute area under margin (AUM). """
 
 # 3rd party
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 from pathlib import Path
 import numpy as np
@@ -76,7 +80,7 @@ if __name__ == '__main__':
     # noise_label = 'MISLABELED'
 
     experiment_dir = Path(
-        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-02-2022_1324/')
+        '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/run_02-03-2022_1444')
 
     tce_tbl = pd.read_csv(
         '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr.csv',
@@ -90,7 +94,7 @@ if __name__ == '__main__':
 
     runs_dir = experiment_dir / 'runs'
 
-    for run in runs_dir.iterdir():
+    for run in sorted(runs_dir.iterdir()):
 
         print(f'Computing AUM for run {run}...')
 
@@ -108,7 +112,7 @@ if __name__ == '__main__':
         train_config_fp = experiment_dir / 'config_train.yaml'
         with(open(train_config_fp, 'r')) as file:  # read default YAML configuration file
             train_config = yaml.safe_load(file)
-        train_config['label_map_pred']['UNK'] = 0
+        train_config['label_map_pred']['UNK'] = 0  # assume UNK examples are non-PC
 
         margins_dir = logit_dir / 'margins'
         margins_dir.mkdir(exist_ok=True)
