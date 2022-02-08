@@ -33,15 +33,15 @@ def compute_margin_ex_tbl(example, label_ids):
     :param example: pandas Series, example
     :param label_ids: list, label ids for the different classes
     :return:
-        float, marging for example
+        float, margin for example
     """
 
     logit_true = example[str(example['label_id'])]
-    other_label_ids = [label_id for label_id in label_ids if label_id != example['label_id']]
+    other_label_ids = [str(label_id) for label_id in label_ids if label_id != example['label_id']]
     if len(other_label_ids) == 0:
         return np.nan
 
-    logit_max_other = example[str(max(other_label_ids))]
+    logit_max_other = max(example[other_label_ids])
 
     return compute_margin(logit_true, logit_max_other)
 
@@ -80,10 +80,10 @@ if __name__ == '__main__':
     # noise_label = 'MISLABELED'
 
     experiment_dir = Path(
-        '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/run_02-03-2022_1444')
+        '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_02-03-2022_1052')
 
     tce_tbl = pd.read_csv(
-        '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr.csv',
+        '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv',
         usecols=['target_id', 'tce_plnt_num', 'label'])
     tce_tbl.rename(columns={'label': 'original_label'}, inplace=True)
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     runs_dir = experiment_dir / 'runs'
 
-    for run in sorted(runs_dir.iterdir()):
+    for run in sorted([run for run in runs_dir.iterdir() if run.is_dir()]):
 
         print(f'Computing AUM for run {run}...')
 

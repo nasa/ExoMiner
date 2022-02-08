@@ -5,7 +5,7 @@ Analyze AUM results:
 
 # 3rd party
 from pathlib import Path
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from astropy.stats import mad_std
@@ -109,4 +109,98 @@ aum_allruns_tbl.loc[aum_allruns_tbl['mean'] < margin_thr_df['mean'], 'mislabeled
 
 aum_allruns_tbl.to_csv(experiment_dir / f'aum_mislabeled.csv', index=False)
 
-#%%
+#%% look at distribution of AUM
+
+experiment_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_02-03-2022_1444')
+
+run_dir = experiment_dir / 'runs' / 'run0'
+aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+
+
+bins = np.linspace(-50, 50, 100)
+
+f, ax = plt.subplots()
+ax.hist(aum_tbl.loc[aum_tbl['label'] != 'MISLABELED', 'margin'], bins, edgecolor='k', label='Other Samples')
+ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], bins, edgecolor='k', label='Thr. Samples')
+ax.set_xlabel('AUM')
+ax.set_ylabel('Counts')
+ax.set_yscale('log')
+ax.legend()
+f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples.png')
+plt.show()
+
+labels = {
+    'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
+    'AFP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+    'MISLABELED': {'color': 'b', 'zorder': 3, 'alpha': 1.0},
+    'NTP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+    'UNK': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+
+}
+# f, ax = plt.subplots()
+# for label in labels:  # aum_tbl['label'].unique():
+#     ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}', **labels[label])
+# ax.set_xlabel('AUM')
+# ax.set_ylabel('Counts')
+# ax.set_yscale('log')
+# ax.legend()
+# plt.show()
+for label in labels:  # aum_tbl['label'].unique():
+    f, ax = plt.subplots()
+    ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}', **labels[label])
+    ax.set_xlabel('AUM')
+    ax.set_ylabel('Counts')
+    ax.set_yscale('log')
+    ax.legend()
+    f.savefig(run_dir / f'hist_aum_{label}.png')
+plt.show()
+
+#%% look at margin change over epochs
+
+experiment_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_02-03-2022_1444')
+
+run_dir = experiment_dir / 'runs' / 'run0'
+
+margins_dir = run_dir / 'models' / 'model1' / 'margins'
+
+cols_tbl = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label', 'margin']
+drop_dupl_cols = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label']
+
+margins_tbl = [pd.read_csv(tbl, usecols=cols_tbl) if tbl_i == 0 else pd.read_csv(tbl, usecols=['margin'])
+               for tbl_i, tbl in enumerate(margins_dir.iterdir())]
+margins_tbl = pd.concat(margins_tbl, axis=1)
+margins_tbl.to_csv(run_dir / 'margins_tbl.csv', index=False)
+# margins_tbl.drop_duplicates(drop_dupl_cols, inplace=True)
+
+margins_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+n_epochs = 50
+
+# f, ax = plt.subplots()
+# ax.plot(np.arange(n_epochs), margins_tbl.loc[(10982872, 3), 'margin'], label='PC')
+# ax.plot(np.arange(n_epochs), margins_tbl.loc[(7983756, 1), 'margin'], label='AFP')
+# ax.plot(np.arange(n_epochs), margins_tbl.loc[(6141300, 1), 'margin'], label='NTP')
+# ax.plot(np.arange(n_epochs), margins_tbl.loc[(10460984, 1), 'margin'], label='MISLABELED')
+# ax.set_xlabel('Epoch Number')
+# ax.set_ylabel('Margin')
+# ax.legend()
+
+labels = {
+    'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
+    'AFP': {'color': 'g', 'zorder': 2, 'alpha': 1.0},
+    'MISLABELED': {'color': 'r', 'zorder': 3, 'alpha': 1.0},
+    'NTP': {'color': 'c', 'zorder': 2, 'alpha': 1.0},
+    # 'UNK': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+
+}
+mean_margin = {label: np.mean(margins_tbl.loc[margins_tbl['label'] == label, 'margin']).values for label in labels}
+std_margin = {label: np.std(margins_tbl.loc[margins_tbl['label'] == label, 'margin'], ddof=1).values for label in labels}
+
+f, ax = plt.subplots()
+for label in labels:
+    ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
+    # ax.plot(mean_margin[label] + std_margin[label], linestyle='--', color=labels[label]['color'])
+    # ax.plot(mean_margin[label] - std_margin[label], linestyle='--', color=labels[label]['color'])
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Margin')
+ax.legend()
