@@ -81,6 +81,7 @@ class InputFnv2(object):
         self.mode = mode
         self.batch_size = batch_size
         self.label_map = label_map
+        self.n_classes = len(np.unique(list(label_map.values())))
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
@@ -169,7 +170,7 @@ class InputFnv2(object):
                     label_id = tf.identity(label_id)
 
             if self.multiclass:
-                label_id = tf.one_hot(label_id, len(self.label_map))
+                label_id = tf.one_hot(label_id, self.n_classes)
 
             # initialize feature output
             output = {}

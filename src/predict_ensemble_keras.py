@@ -150,7 +150,7 @@ def run_main(config):
                                    mode='PREDICT',
                                    label_map=config['label_map'],
                                    features_set=config['features_set'],
-                                   multiclass=config['config']['multiclass'])
+                                   multiclass=config['config']['multi_class'])
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
@@ -180,8 +180,13 @@ def run_main(config):
         if dataset != 'predict':
             for original_label in config['label_map']:
                 # get predictions for each original class individually to compute histogram
-                output_cl[dataset][original_label] = scores[dataset][np.where(data[dataset]['original_label'] ==
-                                                                              original_label)]
+                if config['config']['multi_class']:
+                    output_cl[dataset][original_label] = \
+                        scores[dataset][np.where(data[dataset]['original_label'] ==
+                                                 original_label)][:, config['label_map'][original_label]]
+                else:
+                    output_cl[dataset][original_label] = \
+                        scores[dataset][np.where(data[dataset]['original_label'] == original_label)]
         else:
             output_cl[dataset]['NA'] = scores[dataset]
 

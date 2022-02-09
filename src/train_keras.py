@@ -202,8 +202,13 @@ def run_main(config, base_model, model_id):
     for dataset in output_cl:
         for original_label in config['label_map']:
             # get predictions for each original class individually to compute histogram
-            output_cl[dataset][original_label] = predictions[dataset][np.where(original_labels[dataset] ==
-                                                                               original_label)]
+            if config['config']['multi_class']:
+                output_cl[dataset][original_label] = \
+                    predictions[dataset][np.where(original_labels ==
+                                                  original_label)][:, config['label_map'][original_label]]
+            else:
+                output_cl[dataset][original_label] = \
+                    predictions[dataset][np.where(original_labels[dataset] == original_label)]
 
     # compute precision at top-k
     labels_sorted = {}

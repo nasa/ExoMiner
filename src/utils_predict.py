@@ -73,17 +73,18 @@ def save_metrics_to_file(save_path, res, datasets, metrics_names, prec_at_top, m
                         if print_res:
                             print(str_aux)
 
-                for k in prec_at_top[dataset]:
-                    str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
-                    res_file.write(str_aux)
-                    if print_res:
-                        print(str_aux)
+                if prec_at_top is not None:
+                    for k in prec_at_top[dataset]:
+                        str_aux = f'{f"{dataset}_precision_at_{k}"}: {res[f"{dataset}_precision_at_{k}"]}\n'
+                        res_file.write(str_aux)
+                        if print_res:
+                            print(str_aux)
 
             res_file.write('\n')
 
         res_file.write(f'{"-" * 100}')
 
-        res_file.write('\nModels used to create the ensemble:\n')
+        res_file.write('\nModels used:\n')
 
         for model_filepath in models_filepaths:
             res_file.write(f'{model_filepath}\n')
@@ -143,17 +144,31 @@ def plot_prcurve_roc(res, save_path, dataset):
     plt.close()
 
 
-def create_ranking(data, scores, scores_clf, label_map, multiclass):
+def create_ranking(scores, scores_clf, label_map, multiclass, data_examples=None):
+    """ Create ranking of examples based on scores produced by a model/
+
+    :param scores: NumPy array, scores output by the model
+    :param scores_clf: NumPy array, classifications after thresholding scores
+    :param label_map: dict, label to class ID map
+    :param multiclass: bool, True for multiclass classification
+    :param data_examples: dict, additional data for the ranked examples
+    :return:
+        data_df: pandas DataFrame, ranking
+    """
+
+    if data_examples is None:
+        data_examples = {}
+
     # add predictions to the data dict
     if not multiclass:
-        data['score'] = scores.ravel()
-        data['predicted class'] = scores_clf.ravel()
+        data_examples['score'] = scores.ravel()
+        data_examples['predicted class'] = scores_clf.ravel()
     else:
         for class_label, label_id in label_map.items():
-            data[f'score_{class_label}'] = scores[:, label_id]
-        data['predicted class'] = scores_clf
+            data_examples[f'score_{class_label}'] = scores[:, label_id]
+        data_examples['predicted class'] = scores_clf
 
-    data_df = pd.DataFrame(data)
+    data_df = pd.DataFrame(data_examples)
 
     # sort in descending order of output
     if not multiclass:

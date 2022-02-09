@@ -28,6 +28,7 @@ from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metri
 from utils.utils_dataio import is_yamlble
 from paths import path_main
 from aum.utils_train import TrackLogitsCallback
+from src.utils_predict import create_ranking
 
 
 def run_main(config, base_model, model_id):
@@ -202,8 +203,13 @@ def run_main(config, base_model, model_id):
     for dataset in output_cl:
         for original_label in config['label_map_pred']:
             # get predictions for each original class individually to compute histogram
-            output_cl[dataset][original_label] = predictions[dataset][np.where(original_labels[dataset] ==
-                                                                               original_label)]
+            if config['config']['multi_class']:
+                output_cl[dataset][original_label] = \
+                    predictions[dataset][np.where(original_labels[dataset] ==
+                                                  original_label)][:, config['label_map_pred']['PC']]
+            else:
+                output_cl[dataset][original_label] = \
+                    predictions[dataset][np.where(original_labels[dataset] == original_label)]
 
     # # compute precision at top-k
     # labels_sorted = {}
@@ -268,20 +274,41 @@ def run_main(config, base_model, model_id):
 
     print_metrics(model_id, res, config['datasets'], ep_idx, model.metrics_names, config['metrics']['top_k_arr'])
 
-    # # initialize dictionary to save the classification scores for each dataset evaluated
-    # scores_classification = {dataset: np.zeros(predictions[dataset].shape, dtype='uint8') for dataset in config['datasets']}
-    # for dataset in config['datasets']:
-    #     # threshold for classification
-    #     if not config['config']['multi_class']:
-    #         scores_classification[dataset][predictions[dataset] >= config['metrics']['clf_thr']] = 1
-    #     else:  # multiclass - get label id of highest scoring class
-    #         # scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
-    #         scores_classification[dataset] = np.repeat([np.array(sorted(config['label_map'].values()))],
-    #                                                    len(predictions[dataset]),
-    #                                                    axis=0)[np.arange(len(predictions[dataset])),
-    #                                                            np.argmax(predictions[dataset], axis=1)]
-    # for dataset in config['datasets']:
-    #     ranking_tbl = create_ranking(predictions[dataset], scores_classification[dataset], config['label_map'], config['multiclass'])
+    # initialize dictionary to save the classification scores for each dataset evaluated
+    scores_classification = {dataset: np.zeros(predictions[dataset].shape, dtype='uint8') for dataset in
+                             config['datasets']}
+    for dataset in config['datasets']:
+        # threshold for classification
+        if not config['config']['multi_class']:
+            scores_classification[dataset][predictions[dataset] >= config['metrics']['clf_thr']] = 1
+        else:  # multiclass - get label id of highest scoring class
+            # scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
+            scores_classification[dataset] = np.repeat([np.array(sorted(config['label_map'].values()))],
+                                                       len(predictions[dataset]),
+                                                       axis=0)[np.arange(len(predictions[dataset])),
+                                                               np.argmax(predictions[dataset], axis=1)]
+
+    # instantiate variable to get data from the TFRecords
+    data = {dataset: {field: [] for field in config['data_fields']} for dataset in config['datasets']}
+
+    tfrec_files = [file for file in config['paths']['tfrec_dir'].iterdir()
+                   if file.name.split('-')[0] in config['datasets']]
+    for tfrec_file in tfrec_files:
+
+        # get dataset of the TFRecord
+        dataset = tfrec_file.name.split('-')[0]
+
+        data_aux = get_data_from_tfrecord(tfrec_file, config['data_fields'], config['label_map'])
+
+        for field in data_aux:
+            data[dataset][field].extend(data_aux[field])
+
+    for dataset in config['datasets']:
+        ranking_tbl = create_ranking(predictions[dataset],
+                                     scores_classification[dataset],
+                                     config['label_map'],
+                                     config['multiclass'])
+        ranking_tbl.to_csv(model_dir_sub / f'ranking_{dataset}.csv', index=False)
 
 
 if __name__ == '__main__':
