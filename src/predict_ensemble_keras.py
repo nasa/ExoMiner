@@ -169,7 +169,7 @@ def run_main(config):
             scores_classification[dataset][scores[dataset] >= config['metrics']['clf_thr']] = 1
         else:  # multiclass - get label id of highest scoring class
             # scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
-            scores_classification[dataset] = np.repeat([np.array(sorted(config['label_map'].values()))],
+            scores_classification[dataset] = np.repeat([np.unique(sorted(config['label_map'].values()))],
                                                        len(scores[dataset]),
                                                        axis=0)[np.arange(len(scores[dataset])),
                                                                np.argmax(scores[dataset], axis=1)]

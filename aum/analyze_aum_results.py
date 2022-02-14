@@ -1,6 +1,10 @@
 """
 Analyze AUM results:
 - Aggregate results across runs.
+- Compute threshold for each run and across-run stats.
+- Compute AUM across runs and across-runs stats.
+- Set mislabeled examples for each individual run and for aggregated results across runs.
+- Check method's sensitivity to different sets of thresholded examples.
 """
 
 # 3rd party
@@ -213,3 +217,64 @@ for run in range(9):
     ax.legend()
     f.savefig(run_dir / 'margin_over_epochs_all.png')
     plt.close()
+
+# %% determine mislabeled examples per run to check method's sensitivity to different sets of thresholded samples
+
+n_percentile = 99
+noise_label = 'MISLABELED'
+
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052')
+
+runs_dir = experiment_dir / 'runs'
+
+aum_tbls = []
+for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
+    aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    margin_mislabeled = aum_tbl.loc[aum_tbl['label'] == noise_label, 'margin']
+
+    # computer threshold using thresholded examples
+    margin_thr = np.percentile(margin_mislabeled, n_percentile)
+    aum_tbl[f'margin_thr_{n_percentile}'] = margin_thr
+
+    aum_tbl['mislabeled_by_aum'] = 'no'
+    # set examples with AUM lower than threshold to mislabeled
+    aum_tbl.loc[aum_allruns_tbl['mean'] < margin_thr, 'mislabeled_by_aum'] = 'yes'
+
+    aum_tbl.to_csv(run_dir / f'aum_mislabeled.csv', index=False)
+
+    aum_tbls.append(aum_tbl)
+
+# count number of times each example was determined as mislabeled across runs
+aum_cnts = aum_tbls[0][['target_id', 'tce_plnt_num', 'original_label', 'dataset', 'shard_name']]
+aum_cnts['counts_mislabeled'] = 0
+for aum_tbl in aum_tbls:
+    aum_cnts.loc[aum_tbl['mislabeled_by_aum'] == 'yes', 'counts_mislabeled'] += 1
+aum_cnts.to_csv(experiment_dir / 'aum_mislabeled_cnts.csv', index=False)
+
+# plot histogram of counts per label
+bins = np.linspace(0, 10, 11, endpoint=True, dtype='int')
+for label in ['PC', 'AFP', 'NTP', 'UNK']:
+    f, ax = plt.subplots()
+    ax.hist(aum_cnts.loc[aum_cnts['original_label'] == label, 'counts_mislabeled'], bins, edgecolor='k')
+    ax.set_ylabel(f'Counts {label}')
+    ax.set_xlabel('Number of runs example is determined mislabeled')
+    ax.set_yscale('log')
+    ax.set_xticks(bins + 0.5)
+    ax.set_xticklabels(bins)
+    ax.set_xlim([bins[0], bins[-1]])
+    ax.grid(axis='y')
+    f.savefig(experiment_dir / f'hist_mislabeled_cnts_{label}.png')
+
+# plot histogram of counts per dataset
+for dataset in ['train', 'val', 'test', 'predict']:
+    f, ax = plt.subplots()
+    ax.hist(aum_cnts.loc[aum_cnts['dataset'] == dataset, 'counts_mislabeled'], bins, edgecolor='k')
+    ax.set_ylabel(f'Counts {dataset}')
+    ax.set_xlabel('Number of runs example is determined mislabeled')
+    ax.set_yscale('log')
+    ax.set_xticks(bins + 0.5)
+    ax.set_xticklabels(bins)
+    ax.set_xlim([bins[0], bins[-1]])
+    ax.grid(axis='y')
+    f.savefig(experiment_dir / f'hist_mislabeled_cnts_{dataset}.png')

@@ -154,6 +154,8 @@ if __name__ == '__main__':
 
     # get only training set examples
     train_set = tfrec_tbl.loc[tfrec_tbl['shard_name'].str.contains('train')]
+    # get only PCs and AFPs to build training set
+    train_set = train_set.loc[train_set['label'] != 'NTP']
     # get PCs and AFPs from the training set
     pc_train_set = train_set.loc[train_set['label'] == 'PC']
     afp_train_set = train_set.loc[train_set['label'] == 'AFP']
@@ -208,16 +210,39 @@ if __name__ == '__main__':
                     example = tf.train.Example()
                     example.ParseFromString(string_record)
 
-                    example_in_tbl = dataset_run.loc[(fp.stem, example_i)]
-
                     label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+                    if label == 'NTP':  # exclude NTPs from training set
+                        continue
+
                     # keep original label
                     example_util.set_bytes_feature(example, 'original_label', [label])
 
-                    # overwrite label
+                    # get example from dataset table run
+                    example_in_tbl = dataset_run.loc[(fp.stem, example_i)]
+
+                    # overwrite original label with label from dataset table run
                     example_util.set_bytes_feature(example, 'label', [example_in_tbl['label']], allow_overwrite=True)
 
                     writer.write(example.SerializeToString())
+
+        # create predict shards with NTPs from original training set that are not used
+        for fp_i, fp in enumerate(train_tfrec_fps):
+
+            with tf.io.TFRecordWriter(
+                    str(dataset_run_dir / f'predict-shard-ntp-{str(fp_i).zfill(5)}-of-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
+
+                # iterate through the source shard
+                tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
+
+                for example_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+                    example = tf.train.Example()
+                    example.ParseFromString(string_record)
+
+                    label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+                    if label == 'NTP':
+                        writer.write(example.SerializeToString())
 
     # # create flip table from TFRecord dataset table
     # print('Creating flip table...')

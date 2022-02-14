@@ -114,7 +114,7 @@ def run_main(config, base_model, model_id):
                              filter_data=filter_data['train'],
                              features_set=config['features_set'],
                              category_weights=config['training']['category_weights'],
-                             multiclass=config['config']['multiclass'])
+                             multiclass=config['config']['multi_class'])
 
     val_input_fn = InputFn(file_paths=config['filepaths']['val'],
                            batch_size=config['training']['batch_size'],
@@ -122,7 +122,7 @@ def run_main(config, base_model, model_id):
                            label_map=config['label_map'],
                            filter_data=filter_data['val'],
                            features_set=config['features_set'],
-                           multiclass=config['config']['multiclass'])
+                           multiclass=config['config']['multi_class'])
 
     test_input_fn = InputFn(file_paths=config['filepaths']['test'],
                             batch_size=config['training']['batch_size'],
@@ -130,7 +130,7 @@ def run_main(config, base_model, model_id):
                             label_map=config['label_map'],
                             filter_data=filter_data['test'],
                             features_set=config['features_set'],
-                            multiclass=config['config']['multiclass'])
+                            multiclass=config['config']['multi_class'])
 
     # fit the model to the training data
     print('Training model...')
@@ -186,7 +186,7 @@ def run_main(config, base_model, model_id):
                                    label_map=config['label_map'],
                                    filter_data=filter_data[dataset],
                                    features_set=config['features_set'],
-                                   multiclass=config['config']['multiclass'])
+                                   multiclass=config['config']['multi_class'])
 
         predictions[dataset] = model.predict(predict_input_fn(),
                                              batch_size=None,
@@ -283,7 +283,7 @@ def run_main(config, base_model, model_id):
             scores_classification[dataset][predictions[dataset] >= config['metrics']['clf_thr']] = 1
         else:  # multiclass - get label id of highest scoring class
             # scores_classification[dataset] = np.argmax(scores[dataset], axis=1)
-            scores_classification[dataset] = np.repeat([np.array(sorted(config['label_map'].values()))],
+            scores_classification[dataset] = np.repeat([np.unique(sorted(config['label_map'].values()))],
                                                        len(predictions[dataset]),
                                                        axis=0)[np.arange(len(predictions[dataset])),
                                                                np.argmax(predictions[dataset], axis=1)]
@@ -307,7 +307,7 @@ def run_main(config, base_model, model_id):
         ranking_tbl = create_ranking(predictions[dataset],
                                      scores_classification[dataset],
                                      config['label_map'],
-                                     config['multiclass'])
+                                     config['multi_class'])
         ranking_tbl.to_csv(model_dir_sub / f'ranking_{dataset}.csv', index=False)
 
 
@@ -445,6 +445,20 @@ if __name__ == '__main__':
         config['callbacks']['track_logits']['label_map'] = config['label_map']
         config['callbacks']['track_logits']['tfrec_filepaths'] = config['filepaths']['all_datasets']
         config['callbacks']['track_logits']['obj'] = TrackLogitsCallback(**config['callbacks']['track_logits'])
+
+    config['data_fields'] = {
+        'target_id': 'int_scalar',
+        'tce_plnt_num': 'int_scalar',
+        'label': 'string',  # REQUIRED to run script
+        'original_label': 'string',
+        'tce_period': 'float_scalar',
+        'tce_duration': 'float_scalar',
+        'tce_time0bk': 'float_scalar',
+        'transit_depth': 'float_scalar'
+    }
+
+    config['evaluation'] = {'batch_size': 32}
+    config['label_map_pred']['UNK'] = 0
 
     logger.info(f'Final configuration used: {config}')
 

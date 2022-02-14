@@ -3,7 +3,6 @@
 # 3rd party
 import os
 import sys
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import yaml
@@ -13,7 +12,7 @@ from utils.utils_dataio import is_yamlble
 
 # experiment directory
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052/')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-11-2022_1144')
 
 # file path to default train configuration file
 default_train_config_fp = experiment_dir / 'config_train.yaml'
