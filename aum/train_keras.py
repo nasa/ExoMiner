@@ -206,7 +206,7 @@ def run_main(config, base_model, model_id):
             if config['config']['multi_class']:
                 output_cl[dataset][original_label] = \
                     predictions[dataset][np.where(original_labels[dataset] ==
-                                                  original_label)][:, config['label_map_pred']['PC']]
+                                                  original_label)][:, config['label_map_pred'][original_label]]
             else:
                 output_cl[dataset][original_label] = \
                     predictions[dataset][np.where(original_labels[dataset] == original_label)]
@@ -306,8 +306,9 @@ def run_main(config, base_model, model_id):
     for dataset in config['datasets']:
         ranking_tbl = create_ranking(predictions[dataset],
                                      scores_classification[dataset],
-                                     config['label_map'],
-                                     config['multi_class'])
+                                     config['label_map_pred'],
+                                     config['config']['multi_class'],
+                                     data_examples=data[dataset])
         ranking_tbl.to_csv(model_dir_sub / f'ranking_{dataset}.csv', index=False)
 
 

@@ -17,7 +17,7 @@ from astropy.stats import mad_std
 # %% aggregate AUM across runs in an experiment
 
 experiment_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/label_noise_detection_aum/run_02-03-2022_1444')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-11-2022_1144')
 
 runs_dir = experiment_dir / 'runs'
 aum_tbls = {f'{run_dir.name}': pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv') for run_dir in
@@ -115,7 +115,8 @@ aum_allruns_tbl.to_csv(experiment_dir / f'aum_mislabeled.csv', index=False)
 
 # %% look at distribution of AUM
 
-# experiment_dir = Path('/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/label_noise_detection_aum/run_02-03-2022_1444')
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052/')
 
 for run in range(9):
 
@@ -124,44 +125,44 @@ for run in range(9):
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
 
-    bins = np.linspace(-50, 50, 100)
-
-    f, ax = plt.subplots()
-    ax.hist(aum_tbl.loc[aum_tbl['label'] != 'MISLABELED', 'margin'], bins, edgecolor='k', label='Other Samples')
-    ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], bins, edgecolor='k', label='Thr. Samples')
-    ax.set_xlabel('AUM')
-    ax.set_ylabel('Counts')
-    ax.set_yscale('log')
-    ax.legend()
-    f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples.png')
-    plt.close()
-
-    labels = {
-        'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
-        'AFP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
-        'MISLABELED': {'color': 'b', 'zorder': 3, 'alpha': 1.0},
-        'NTP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
-        'UNK': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
-
-    }
+    # bins = np.linspace(-50, 50, 100)
+    #
     # f, ax = plt.subplots()
-    # for label in labels:  # aum_tbl['label'].unique():
-    #     ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}', **labels[label])
+    # ax.hist(aum_tbl.loc[aum_tbl['label'] != 'MISLABELED', 'margin'], bins, edgecolor='k', label='Other Samples')
+    # ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], bins, edgecolor='k', label='Thr. Samples')
     # ax.set_xlabel('AUM')
     # ax.set_ylabel('Counts')
     # ax.set_yscale('log')
     # ax.legend()
-    # plt.show()
-    for label in labels:  # aum_tbl['label'].unique():
-        f, ax = plt.subplots()
-        ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}',
-                **labels[label])
-        ax.set_xlabel('AUM')
-        ax.set_ylabel('Counts')
-        ax.set_yscale('log')
-        ax.legend()
-        f.savefig(run_dir / f'hist_aum_{label}.png')
-    plt.close()
+    # f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples.png')
+    # plt.close()
+    #
+    # labels = {
+    #     'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
+    #     'AFP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+    #     'MISLABELED': {'color': 'b', 'zorder': 3, 'alpha': 1.0},
+    #     'NTP': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+    #     'UNK': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+    #
+    # }
+    # # f, ax = plt.subplots()
+    # # for label in labels:  # aum_tbl['label'].unique():
+    # #     ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}', **labels[label])
+    # # ax.set_xlabel('AUM')
+    # # ax.set_ylabel('Counts')
+    # # ax.set_yscale('log')
+    # # ax.legend()
+    # # plt.show()
+    # for label in labels:  # aum_tbl['label'].unique():
+    #     f, ax = plt.subplots()
+    #     ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}',
+    #             **labels[label])
+    #     ax.set_xlabel('AUM')
+    #     ax.set_ylabel('Counts')
+    #     ax.set_yscale('log')
+    #     ax.legend()
+    #     f.savefig(run_dir / f'hist_aum_{label}.png')
+    # plt.close()
 
     # %% look at margin change over epochs
 
@@ -200,7 +201,7 @@ for run in range(9):
         'AFP': {'color': 'g', 'zorder': 2, 'alpha': 1.0},
         'MISLABELED': {'color': 'r', 'zorder': 3, 'alpha': 1.0},
         'NTP': {'color': 'c', 'zorder': 2, 'alpha': 1.0},
-        'UNK': {'color': 'b', 'zorder': 2, 'alpha': 1.0},
+        'UNK': {'color': 'm', 'zorder': 2, 'alpha': 1.0},
 
     }
     mean_margin = {label: np.mean(margins_tbl.loc[margins_tbl['label'] == label, 'margin']).values for label in labels}
@@ -218,13 +219,24 @@ for run in range(9):
     f.savefig(run_dir / 'margin_over_epochs_all.png')
     plt.close()
 
+    f, ax = plt.subplots()
+    for label in ['PC', 'AFP', 'MISLABELED']:
+        ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
+        ax.plot(mean_margin[label] + std_margin[label], linestyle='--', color=labels[label]['color'])
+        ax.plot(mean_margin[label] - std_margin[label], linestyle='--', color=labels[label]['color'])
+    ax.set_xlabel('Epoch Number')
+    ax.set_ylabel('Margin')
+    ax.legend()
+    f.savefig(run_dir / 'margin_over_epochs_pc-afp-mislabeled_var.png')
+    plt.close()
+
 # %% determine mislabeled examples per run to check method's sensitivity to different sets of thresholded samples
 
 n_percentile = 99
 noise_label = 'MISLABELED'
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-11-2022_1144')
 
 runs_dir = experiment_dir / 'runs'
 
