@@ -26,8 +26,8 @@ def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_inter
 
     proc_id = os.getpid()
 
-    logger = logging.getLogger(name=f'match_tces_to_ebs_{proc_id}')
-    logger_handler = logging.FileHandler(filename=res_dir / f'match_tces_to_ebs_{proc_id}.log', mode='w')
+    logger = logging.getLogger(name=f'match_tces_to_astronet_objs_{proc_id}')
+    logger_handler = logging.FileHandler(filename=res_dir / f'match_tces_to_astronet_objs_{proc_id}.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -53,7 +53,7 @@ def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_inter
         else:
             tce_sector = tce['sector_run']
         tce_sector = int(tce_sector)
-        objs_for_search = objs_for_search.loc[objs_for_search['sector'] <= tce_sector]
+        objs_for_search = objs_for_search.loc[objs_for_search['astronet_sector'] >= tce_sector]
 
         if len(objs_for_search) == 0:  # no objects found to be compared against the TCE
             continue
@@ -79,7 +79,7 @@ def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_inter
                                                    samplingInterval=sampling_interval)
 
             obj_bin_ts = create_binary_time_series(epoch=closest_tce_epoch,
-                                                   duration=obj['astronet_duration'] / 24,
+                                                   duration=tce['astronet_duration'] / 24,
                                                    period=obj['astronet_period'],
                                                    tStart=tce['tce_time0bk'] - phase / 2,
                                                    tEnd=tce['tce_time0bk'] + phase / 2,
@@ -87,9 +87,9 @@ def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_inter
 
             # compute distance between TOI and TCE templates as cosine distance
             if tce_bin_ts.sum() == 0 or obj_bin_ts.sum() == 0:
-                objs_for_search['matching_dist'] = 1
+                objs_for_search['match_dist_astronet'] = 1
             else:
-                objs_for_search['matching_dist'] = distance.cosine(tce_bin_ts, obj_bin_ts)
+                objs_for_search['match_dist_astronet'] = distance.cosine(tce_bin_ts, obj_bin_ts)
 
             # matching_tbl.loc[tce_i, [f'{el}_{obj_i}' for el in astronet_tbl_cols[1:]]] = obj[
             #     astronet_tbl_cols[1:]].values
@@ -99,8 +99,8 @@ def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_inter
         # choose object that closest matches to TCE
         obj_matched = objs_for_search.loc[
             objs_for_search['match_dist_astronet'] == objs_for_search['match_dist_astronet'].min()]
-        matching_tbl.loc[tce_i, astronet_tbl_cols] = obj_matched
-        matching_tbl.loc[tce_i, 'match_dist_astronet'] = obj_matched['match_dist_astronet']
+        matching_tbl.loc[tce_i, astronet_tbl_cols] = obj_matched[astronet_tbl_cols].values[0]
+        matching_tbl.loc[tce_i, 'match_dist_astronet'] = obj_matched['match_dist_astronet'].values[0]
 
         # # relative period difference between TCE and EB
         # matching_tbl.loc[tce_i, [f'tce_eb_per_rel_diff_{obj_i}']] = np.abs(1 - tce['tce_period'] / obj['period'])

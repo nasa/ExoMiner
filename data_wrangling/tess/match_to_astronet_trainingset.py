@@ -12,6 +12,7 @@ import logging
 from data_wrangling.tess.match_to_astronet_trainingset_utils import match_tces_to_astronet_traininset
 
 if __name__ == "__main__":
+
     res_dir = Path(f'/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/'
                    f'tess_tce_astronet_match/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
     res_dir.mkdir(exist_ok=True)
@@ -37,7 +38,8 @@ if __name__ == "__main__":
     # tce_tbl.to_csv(res_dir / tce_tbl_fp.name, index=False)
 
     # load EB table
-    astronet_tbl_cols = ['tic', 'astronet_period', 'astronet_epoch', 'astronet_sector', 'astronet_label']
+    astronet_tbl_cols = ['tic', 'astronet_period', 'astronet_epoch', 'astronet_duration', 'astronet_sector',
+                         'astronet_label']
     astronet_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/astronet/astronet_training.csv')
     astronet_tbl = pd.read_csv(astronet_tbl_fp)
     astronet_tbl = astronet_tbl.rename(columns={'period': 'astronet_period',
@@ -45,6 +47,7 @@ if __name__ == "__main__":
                                                 'duration': 'astronet_duration',
                                                 'sector': 'astronet_sector',
                                                 'label': 'astronet_label'})[astronet_tbl_cols]
+    astronet_tbl['astronet_duration'] = astronet_tbl['astronet_duration'] * 24
     logger.info(f'Using Astronet training set ({len(astronet_tbl)} objects): {str(astronet_tbl_fp)}')
     # for col in ['period', 'bjd0']:   # filter EBs without ephemerides
     #     eb_tbl = eb_tbl.loc[eb_tbl[col] != 'None']
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     _ = [match_tbl_job.get() for match_tbl_job in async_results]
     # matching_tbl = pd.concat([match_tbl_job.get() for match_tbl_job in async_results], axis=0)
     matching_tbl = pd.concat([pd.read_csv(fp) for fp in res_dir.iterdir() if fp.stem.startswith('matching_tbl_')],
-                             axis=0).reset_index()
+                             axis=0).reset_index(drop=True)
     candidate_matching_tbl_fp = res_dir / 'matching_candidates_tbl.csv'
     matching_tbl.to_csv(candidate_matching_tbl_fp, index=False)
     logger.info(f'Finished candidate matching between TCEs and Astronet training set objects: '

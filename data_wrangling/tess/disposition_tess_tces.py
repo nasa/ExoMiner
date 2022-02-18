@@ -131,3 +131,29 @@ print(tce_tbl['label_source'].value_counts())
 #         tce_tbl.loc[tce_i, 'label_comment'] = 'label from TEC'
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_label.csv', index=False)
+
+# %% Adding Astronet training set labels
+
+astronet_matching_tbl = pd.read_csv(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/tess_tce_astronet_match/02-16-2022_1611/matching_candidates_tbl.csv')
+
+tce_tbl_fp = Path(
+    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr.csv')
+tce_tbl = pd.read_csv(tce_tbl_fp)
+
+astronet_cols = [
+    'target_id',
+    'tce_plnt_num',
+    'sector_run',
+    'astronet_period',
+    'astronet_epoch',
+    'astronet_duration',
+    'astronet_sector',
+    'astronet_label',
+    'match_dist_astronet'
+]
+tce_tbl = tce_tbl.merge(astronet_matching_tbl[astronet_cols], on=['target_id', 'tce_plnt_num', 'sector_run'],
+                        how='left', validate='one_to_one')
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_astronet.csv', index=False)
+
+# matching_thr = 0.25
