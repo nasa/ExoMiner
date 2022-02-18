@@ -65,7 +65,7 @@ cfp_cat = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transi
                       'kepler/koi_catalogs/fpwg_2022.02.14_11.08.30.csv',
                       header=17)
 koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left')
-# koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_fpwg.csv', index=False)
+koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_fpwg.csv', index=False)
 
 tbls = []
 
@@ -242,12 +242,12 @@ def _compute_expected_ntargets_for_obs(n_plnts_fps_inputs, fn_compute_expected_n
 
 # compute observations for different scenarios
 observations = {
-    (2, 0): ((stellar_cat_koi_cnt['num_fps_target'] >= 2)).sum(),
-    (3, 0): (stellar_cat_koi_cnt['num_fps_target'] >= 3).sum(),
-    (1, 1): ((stellar_cat_koi_cnt['num_fps_target'] >= 1) & (stellar_cat_koi_cnt['num_candidates_target'] >= 1)).sum(),
-    (2, 1): ((stellar_cat_koi_cnt['num_fps_target'] >= 2) & (stellar_cat_koi_cnt['num_candidates_target'] >= 1)).sum(),
-    (1, 2): ((stellar_cat_koi_cnt['num_fps_target'] >= 1) & (stellar_cat_koi_cnt['num_candidates_target'] >= 2)).sum(),
-    (2, 2): ((stellar_cat_koi_cnt['num_fps_target'] >= 2) & (stellar_cat_koi_cnt['num_candidates_target'] >= 2)).sum(),
+    (2, 0): ((stellar_cat_koi_cnt['num_fps_target'] == 2) & (stellar_cat_koi_cnt['num_kois_target'] == 2)).sum(),
+    (3, 0): ((stellar_cat_koi_cnt['num_fps_target'] == 3) & (stellar_cat_koi_cnt['num_kois_target'] == 3)).sum(),
+    (1, 1): ((stellar_cat_koi_cnt['num_fps_target'] == 1) & (stellar_cat_koi_cnt['num_candidates_target'] == 1)).sum(),
+    (2, 1): ((stellar_cat_koi_cnt['num_fps_target'] == 2) & (stellar_cat_koi_cnt['num_candidates_target'] == 1)).sum(),
+    (1, 2): ((stellar_cat_koi_cnt['num_fps_target'] == 1) & (stellar_cat_koi_cnt['num_candidates_target'] == 2)).sum(),
+    (2, 2): ((stellar_cat_koi_cnt['num_fps_target'] == 2) & (stellar_cat_koi_cnt['num_candidates_target'] == 2)).sum(),
 
 }
 # observations = {
