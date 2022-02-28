@@ -42,9 +42,9 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
     # defined columns in the shard table
     tceColumns = [
-        # 'target_id',
-        # config['tce_identifier'],
-        'uid'
+        'target_id',
+        config['tce_identifier'],
+        # 'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
@@ -121,9 +121,9 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     shard_size = len(tce_table)
 
     tceColumns = [
-        # 'target_id',
-        # config['tce_identifier'],
-        'uid'
+        'target_id',
+        config['tce_identifier'],
+        # 'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
@@ -229,6 +229,7 @@ def main():
     # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config['satellite'] == 'kepler'
                             else get_tess_tce_table(config))
+    # tce_table['transit_depth'] = tce_table['tce_depth']
 
     # TODO: does this ensure that all processes shuffle the same way? it does call np.random.seed inside the function
     # shuffle tce table

@@ -306,10 +306,10 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    # if tce['target_id'] == 9705459 and tce['tce_plnt_num'] == 2:  # tce['av_training_set'] == 'PC' and
+    # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
     # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5769403-1']:  #  and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
-    # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['207425167-1_22']:
+    # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
     # if '{}'.format(tce['target_id']) in ['9455556']:
     # if '{}'.format(tce['target_id']) in ['7431665']:
     # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id'])  & (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
@@ -587,6 +587,7 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
                                                  f'3_smoothingandnormalization_wksflux_aug{tce["augmentation_idx"]}',
                                                  flux_interp=all_flux_noprimary_lininterp)
 
+    # TODO: deal with cases for which the spline fitting fails (this should apply to all time series)
     finite_i = [np.isfinite(spline_flux_noprimary[i]) for i in range(len(spline_flux_noprimary))]
 
     all_time = [all_time[i][finite_i[i]] for i in range(len(all_time)) if len(finite_i[i]) > 0]

@@ -114,21 +114,21 @@ def run_main(config, base_model, model_id):
                              filter_data=filter_data['train'],
                              features_set=config['features_set'],
                              category_weights=config['training']['category_weights'],
-                             multiclass=config['config']['multiclass'])
+                             multiclass=config['config']['multi_class'])
     val_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/val*',
                            batch_size=config['training']['batch_size'],
                            mode='EVAL',
                            label_map=config['label_map'],
                            filter_data=filter_data['val'],
                            features_set=config['features_set'],
-                           multiclass=config['config']['multiclass'])
+                           multiclass=config['config']['multi_class'])
     test_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/test*',
                             batch_size=config['training']['batch_size'],
                             mode='EVAL',
                             label_map=config['label_map'],
                             filter_data=filter_data['test'],
                             features_set=config['features_set'],
-                            multiclass=config['config']['multiclass']
+                            multiclass=config['config']['multi_class']
                             )
 
     # fit the model to the training data
@@ -185,7 +185,7 @@ def run_main(config, base_model, model_id):
                                    label_map=config['label_map'],
                                    filter_data=filter_data[dataset],
                                    features_set=config['features_set'],
-                                   multiclass=config['config']['multiclass'])
+                                   multiclass=config['config']['multi_class'])
 
         predictions[dataset] = model.predict(predict_input_fn(),
                                              batch_size=None,
