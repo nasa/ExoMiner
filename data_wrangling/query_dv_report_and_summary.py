@@ -58,15 +58,25 @@ def get_tic_dv_report_and_summary(tic, download_dir, verbose=False):
 
 if __name__ == "__main__":
 
-    kic_list = []  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
-    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
+    kic_list = [100001645]  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
+    download_dir = '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/Kepler/'
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
-    tic_list = [267574918]
-    download_dir = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/'
-    for tic in tic_list:
-        get_tic_dv_report_and_summary(tic, download_dir, verbose=False)
+    # download_dir = '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/TESS/'
+    # run_dir = download_dir + 'self_normalization_wks_2-22-2022/'
+    # os.makedirs(run_dir, exist_ok=True)
+    #
+    # tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/interns/hongbo/kepler_to_tess/merged_scores_2-19-2022.csv')
+    # tbl = tbl.loc[(tbl['PC v non-PC, no transit depth, no weak secondary depth, weak secondary self normalization_score'] < 0.5) &
+    #               (tbl['original_label'] == 'KP')]
+    # tbl = tbl.loc
+    #
+    # sampled_tbl = tbl.sample(n=20, replace=False)
+    # sampled_tbl.to_csv(f'{run_dir}sampled_tbl.csv', index=False)
+    # tic_list = sampled_tbl['target_id'].to_numpy()  # []
+    # for tic in tic_list:
+    #     get_tic_dv_report_and_summary(tic, run_dir, verbose=False)
 
     # experimental code
 

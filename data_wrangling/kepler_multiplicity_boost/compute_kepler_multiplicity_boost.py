@@ -30,7 +30,8 @@ logger.info(f'Starting run...')
 
 #%% Create stellar and KOI catalog to be used
 
-stellar_cat_fp = Path(res_root_dir / 'dr25_stellar_berger2020_multiplicity.txt')
+stellar_cat_fp = Path(res_root_dir /
+                      'stellar_catalogs' / 'stellar_cut_2-23-2022' / 'dr25_stellar_berger2020_multis.txt')
 stellar_cat = pd.read_csv(stellar_cat_fp, header=0)
 assert len(stellar_cat) == len(stellar_cat['kepid'].unique())
 logger.info(f'Using stellar catalog: {str(stellar_cat_fp)}')
@@ -60,43 +61,44 @@ koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
 
 #%% count different quantities needed for estimates that are plugged into the statistical framework
 
-# # add FPWG dispositions
+# add FPWG dispositions
 cfp_cat = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/'
                       'kepler/koi_catalogs/fpwg_2022.02.14_11.08.30.csv',
                       header=17)
-koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left')
+koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left', validate='one_to_one')
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_fpwg.csv', index=False)
 
 tbls = []
 
 # number of KOIs in target
-cnt_kois_target = koi_cat['kepid'].value_counts().to_frame(name='num_kois_target').reset_index().rename(
-    columns={'index': 'kepid'})
+cnt_kois_target = \
+    koi_cat['kepid'].value_counts().to_frame(name='num_kois_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_kois_target)
 # number of Candidate KOIs in target
-cnt_candidates_target = koi_cat.loc[koi_cat['koi_pdisposition'] == 'CANDIDATE', 'kepid'].value_counts().to_frame(
-    name='num_candidates_target').reset_index().rename(columns={'index': 'kepid'})
+cnt_candidates_target = \
+    koi_cat.loc[(koi_cat['koi_pdisposition'] == 'CANDIDATE'), 'kepid'].value_counts().to_frame(name='num_candidates_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_candidates_target)
 # number of known FP KOIs in target
 # cnt_fps_target = koi_cat.loc[koi_cat['koi_pdisposition'] == 'FALSE POSITIVE', 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['koi_pdisposition'] == 'FALSE POSITIVE') & (koi_cat['koi_disposition'] != 'CONFIRMED')), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') & (koi_cat['koi_disposition'] != 'CONFIRMED')), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
-cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP')), 'kepid'].value_counts().to_frame(
-    name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
+cnt_fps_target = \
+    koi_cat.loc[(koi_cat['fpwg_disp_status'] == 'CERTIFIED FP'), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') &
 #                               koi_cat['koi_pdisposition'] != 'CANDIDATE'), 'kepid'].value_counts().to_frame(
 #     name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_fps_target)
 # number of Confirmed KOIs in target
-cnt_planets_target = koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED', 'kepid'].value_counts().to_frame(
-    name='num_planets_target').reset_index().rename(columns={'index': 'kepid'})
+cnt_planets_target = \
+    koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED', 'kepid'].value_counts().to_frame(name='num_planets_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_planets_target)
 
 for tbl in tbls:
-    koi_cat = koi_cat.merge(tbl, on=['kepid'], how='left')
+    koi_cat = koi_cat.merge(tbl, on=['kepid'], how='left', validate='many_to_one')
 
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_counts.csv', index=False)
 
+# get counts from KOI catalog to Kepid catalog
 # koi_stellar_cat = koi_cat[['kepid', 'koi_steff', 'koi_steff_err1', 'koi_steff_err2',
 #        'koi_slogg', 'koi_slogg_err1', 'koi_slogg_err2', 'koi_smet',
 #        'koi_smet_err1', 'koi_smet_err2', 'koi_srad', 'koi_srad_err1',
@@ -107,8 +109,12 @@ koi_stellar_cat = koi_cat[['kepid', 'ra',
                            'num_planets_target']].copy(deep=True)
 koi_stellar_cat.drop_duplicates(subset='kepid', inplace=True, ignore_index=True)
 
+# merge counts from Kepid catalog to stellar catalog
 koi_stellar_cat_cols = ['kepid', 'num_kois_target', 'num_candidates_target', 'num_fps_target', 'num_planets_target']
-stellar_cat_koi_cnt = stellar_cat.merge(koi_stellar_cat[koi_stellar_cat_cols], on=['kepid'], how='left')
+stellar_cat_koi_cnt = stellar_cat.merge(koi_stellar_cat[koi_stellar_cat_cols],
+                                        on=['kepid'],
+                                        how='left',
+                                        validate='one_to_one')
 stellar_cat_koi_cnt.to_csv(res_dir / f'{stellar_cat_fp.stem}_koi_counts.csv', index=False)
 
 # %% compute estimates for quantities plugged into the statistical framework
@@ -126,6 +132,10 @@ quantities = {
 #     quantities[f'n_{n_cand_in_target}_cands'] = (stellar_cat_koi_cnt['num_candidates_target'] == n_cand_in_target).sum()
 for n_cand_in_target in range(1, int(stellar_cat_koi_cnt['num_candidates_target'].max()) + 1):
     quantities[f'n_{n_cand_in_target}_cands'] = (stellar_cat_koi_cnt['num_candidates_target'] == n_cand_in_target).sum()
+
+# quantities['n_targets'] = 140016
+# quantities['n_1_cands'] = 2499
+# quantities['n_targets_cands'] += quantities['n_1_cands'] - (stellar_cat_koi_cnt['num_candidates_target'] == 1).sum()
 
 # quantities = {
 #     'n_targets': 140016,
@@ -278,7 +288,7 @@ logger.info(f'Results without optimization for inputs: {n_plnts_fps_inputs}')
 predict_obs = _compute_expected_ntargets_for_obs(n_plnts_fps_inputs,
                                                  _compute_expected_ntargets,
                                                  quantities,
-                                                 logger=None)
+                                                 logger=logger)
 
 #%% optimization fns to find n_{fm} and p_1 iteratively using the statistical framework with the  observed data and
 # estimated counts
@@ -326,7 +336,7 @@ def residual_expect_ntargets(x, quantities, observations, n_plnts_fps_inputs):
                                         x[1],
                                         quantities['n_targets'],
                                         quantities['n_targets_cands'],
-                                        quantities['n_targets_multi_cands']) * n_fps -
+                                        quantities['n_targets_multi_cands']) -
              observations[n_fps, n_plnts]) ** 2
             for n_fps, n_plnts in n_plnts_fps_inputs]
 
