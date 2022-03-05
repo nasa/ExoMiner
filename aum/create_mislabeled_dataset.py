@@ -5,7 +5,6 @@ Create a mislabeled noise dataset.
 # 3rd party
 import os
 import sys
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import tensorflow as tf
@@ -13,10 +12,12 @@ import pandas as pd
 import numpy as np
 import itertools
 from datetime import datetime
+import yaml
 import shutil
 
 # local
 from src_preprocessing.tf_util import example_util
+from utils.utils_dataio import is_yamlble
 
 
 def switch_labels_tfrecord_shard_from_table(src_data_fp, dest_data_dir, flip_tbl, noise_label='MISLABELED'):
@@ -127,17 +128,26 @@ def create_flip_tbl(tfrec_tbl, rnd_seed, switch_frac, noise_label='MISLABELED'):
 
 if __name__ == '__main__':
 
-    n_splits = 3  # number of splits of PCs and AFPs
-    noise_label = 'MISLABELED'  # designation for mislabel pseudo-class
+    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/aum/config_dataset.yaml')
+
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
+
+    # initialize rng
+    rng = np.random.default_rng(seed=config['rnd_seed'])
 
     # results directory
     res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/') / \
               f'run_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     res_dir.mkdir(exist_ok=True)
 
+    # save the YAML file with training-evaluation parameters that are YAML serializable
+    json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+    with open(res_dir / 'dataset_params.yaml', 'w') as yml_file:
+        yaml.dump(json_dict, yml_file)
+
     # create TFRecord dataset table
-    tfrec_dir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized')
+    tfrec_dir = Path(config['src_tfrec_dir'])
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.suffix != '.csv' and 'shard' in fp.stem]
 
     features = {
@@ -149,20 +159,37 @@ if __name__ == '__main__':
     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=features)
     tfrec_tbl.to_csv(tfrec_dir / 'tfrec_tbl.csv', index=False)
 
-    tfrec_tbl['label_changed'] = False
+    tfrec_tbl['label_changed_to_mislabeled'] = False
+    tfrec_tbl['label_changed_to_other_class'] = False
     tfrec_tbl['label_before'] = tfrec_tbl['label']
 
     # get only training set examples
     train_set = tfrec_tbl.loc[tfrec_tbl['shard_name'].str.contains('train')]
     # get only PCs and AFPs to build training set
     train_set = train_set.loc[train_set['label'] != 'NTP']
-    # get PCs and AFPs from the training set
+
+    # # inject stochastic noise in the PC and AFP populations in the training set; switch labels for some PCs and AFP
+    # train_set['label_changed_to_other_class'] = False
+    #
+    # switch_pcs = train_set.loc[train_set['label'] == 'PC'].sample(frac=config['mislabeling_rate'],
+    #                                                               replace=False,
+    #                                                               random_state=rng.bit_generator)
+    # switch_afps = train_set.loc[train_set['label'] == 'AFP'].sample(frac=config['mislabeling_rate'],
+    #                                                                 replace=False,
+    #                                                                 random_state=rng.bit_generator)
+    # train_set.loc[switch_pcs.index, 'label'] = 'AFP'
+    # train_set.loc[switch_pcs.index, 'label_changed_to_other_class'] = True
+    # train_set.loc[switch_afps.index, 'label'] = 'PC'
+    # train_set.loc[switch_afps.index, 'label_changed_to_other_class'] = True
+    # train_set.to_csv(res_dir / 'train_set_labels_switched.csv', index=False)
+
+    # get PCs and AFPs from the training set to build mislabeled pseudo-class
     pc_train_set = train_set.loc[train_set['label'] == 'PC']
     afp_train_set = train_set.loc[train_set['label'] == 'AFP']
 
     # split these categories into N splits
-    pc_train_set_split = np.array_split(pc_train_set, n_splits)
-    afp_train_set_split = np.array_split(afp_train_set, n_splits)
+    pc_train_set_split = np.array_split(pc_train_set, config['n_splits'])
+    afp_train_set_split = np.array_split(afp_train_set, config['n_splits'])
 
     # create different iterations by combining these splits
     # each combination has their examples' labels switched to MISLABELED pseudo-class
@@ -173,8 +200,21 @@ if __name__ == '__main__':
     n_runs = len(train_set_splits)
     dataset_runs = [train_set.copy(deep=True) for run_i in range(n_runs)]
     for run_i, comb in enumerate(train_set_splits):
-        dataset_runs[run_i].loc[comb.index, 'label'] = noise_label  # set examples to mislabeled class
-        dataset_runs[run_i].loc[comb.index, 'label_changed'] = True
+        # dataset_runs[run_i].loc[comb.index, 'label'] = config['noise_label']  # set examples to mislabeled class
+        # dataset_runs[run_i].loc[comb.index, 'label_changed_to_mislabeled'] = True
+
+        switch_pcs = dataset_runs[run_i].loc[dataset_runs[run_i]['label'] == 'PC'].sample(
+            frac=config['mislabeling_rate'],
+            replace=False,
+            random_state=rng.bit_generator)
+        switch_afps = dataset_runs[run_i].loc[dataset_runs[run_i]['label'] == 'AFP'].sample(
+            frac=config['mislabeling_rate'],
+            replace=False,
+            random_state=rng.bit_generator)
+        dataset_runs[run_i].loc[switch_pcs.index, 'label'] = 'AFP'
+        dataset_runs[run_i].loc[switch_pcs.index, 'label_changed_to_other_class'] = True
+        dataset_runs[run_i].loc[switch_afps.index, 'label'] = 'PC'
+        dataset_runs[run_i].loc[switch_afps.index, 'label_changed_to_other_class'] = True
 
     # save each dataset run as csv file
     tbl_res_dir = res_dir / 'trainset_runs'
@@ -185,19 +225,18 @@ if __name__ == '__main__':
     # create TFRecord dataset from these splits
     tfrecord_res_dir = res_dir / 'tfrecords'
     tfrecord_res_dir.mkdir(exist_ok=True)
-    val_test_tfrec_fps = [fp for fp in tfrec_fps if not fp.name.startswith('train')]
     train_tfrec_fps = [fp for fp in tfrec_fps if fp.name.startswith('train')]
     dataset_runs = [dataset_run.set_index(keys=['shard_name', 'example_i']) for dataset_run in dataset_runs]
     for run_i, dataset_run in enumerate(dataset_runs):
 
-        print(f'Creating dataset for run {run_i}...')
+        print(f'Creating training set for run {run_i}...')
 
         dataset_run_dir = tfrecord_res_dir / f'run{run_i}'
         dataset_run_dir.mkdir(exist_ok=True)
 
-        # copy validation and test TFRecord shards
-        for fp in val_test_tfrec_fps:
-            shutil.copy(fp, dataset_run_dir / fp.name)
+        # # copy validation and test TFRecord shards
+        # for fp in val_test_tfrec_fps:
+        #     shutil.copy(fp, dataset_run_dir / fp.name)
 
         # update examples' labels for the training set
         for fp in train_tfrec_fps:
@@ -229,8 +268,8 @@ if __name__ == '__main__':
         # create predict shards with NTPs from original training set that are not used
         for fp_i, fp in enumerate(train_tfrec_fps):
 
-            with tf.io.TFRecordWriter(
-                    str(dataset_run_dir / f'predict-shard-ntp-{str(fp_i).zfill(5)}-of-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
+            with tf.io.TFRecordWriter(str(dataset_run_dir /
+                                          f'predict-shard-ntp-{str(fp_i).zfill(5)}-of-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
 
                 # iterate through the source shard
                 tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
@@ -243,6 +282,78 @@ if __name__ == '__main__':
 
                     if label == 'NTP':
                         writer.write(example.SerializeToString())
+
+    # validation and test datasets
+    val_test_tfrec_fps = [fp for fp in tfrec_fps if fp.name.startswith('val') or fp.name.startswith('test')]
+    # get only validation and test set examples
+    val_test_set = tfrec_tbl.loc[(tfrec_tbl['shard_name'].str.contains('val')) |
+                                 (tfrec_tbl['shard_name'].str.contains('test'))]
+    # # get only PCs and AFPs
+    # val_test_set = val_test_set.loc[val_test_set['label'] != 'NTP']
+    # inject stochastic noise in the PC and AFP populations in the validation and test sets; switch labels for some PCs and AFP
+    # val_test_set['label_changed_to_other_class'] = False
+
+    switch_pcs = val_test_set.loc[val_test_set['label'] == 'PC'].sample(frac=config['mislabeling_rate'], replace=False,
+                                                                        random_state=rng.bit_generator)
+    switch_afps = val_test_set.loc[val_test_set['label'] == 'AFP'].sample(frac=config['mislabeling_rate'],
+                                                                          replace=False,
+                                                                          random_state=rng.bit_generator)
+    val_test_set.loc[switch_pcs.index, 'label'] = 'AFP'
+    val_test_set.loc[switch_pcs.index, 'label_changed_to_other_class'] = True
+    val_test_set.loc[switch_afps.index, 'label'] = 'PC'
+    val_test_set.loc[switch_afps.index, 'label_changed_to_other_class'] = True
+    val_test_set.to_csv(res_dir / 'val_test_sets_labels_switched.csv', index=False)
+    val_test_set = val_test_set.set_index(keys=['shard_name', 'example_i'])
+    for run_i, dataset_run in enumerate(dataset_runs):
+
+        print(f'Creating val and test datasets for run {run_i}...')
+
+        dataset_run_dir = tfrecord_res_dir / f'run{run_i}'
+        dataset_run_dir.mkdir(exist_ok=True)
+
+        # # copy validation and test TFRecord shards
+        # for fp in val_test_tfrec_fps:
+        #     shutil.copy(fp, dataset_run_dir / fp.name)
+
+        # update examples' labels for the validation and test sets
+        for fp in val_test_tfrec_fps:
+
+            with tf.io.TFRecordWriter(str(dataset_run_dir / fp.name)) as writer:
+                # iterate through the source shard
+                tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
+
+                for example_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
+                    example = tf.train.Example()
+                    example.ParseFromString(string_record)
+
+                    if val_test_set.loc[(fp.stem, example_i), 'label_changed_to_other_class']:
+                        label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+
+                        # keep original label
+                        example_util.set_bytes_feature(example, 'original_label', [label])
+
+                        # get example from dataset table run
+                        example_in_tbl = val_test_set.loc[(fp.stem, example_i)]
+
+                        # overwrite original label with label from dataset table run
+                        example_util.set_bytes_feature(example, 'label', [example_in_tbl['label']],
+                                                       allow_overwrite=True)
+
+                    writer.write(example.SerializeToString())
+
+    # predict (unlabeled) dataset
+    predict_tfrec_fps = [fp for fp in tfrec_fps if fp.name.startswith('predict')]
+    for run_i, dataset_run in enumerate(dataset_runs):
+
+        print(f'Creating predict set for run {run_i}...')
+
+        dataset_run_dir = tfrecord_res_dir / f'run{run_i}'
+        dataset_run_dir.mkdir(exist_ok=True)
+
+        # copy predict TFRecord shards
+        for fp in predict_tfrec_fps:
+            shutil.copy(fp, dataset_run_dir / fp.name)
 
     # # create flip table from TFRecord dataset table
     # print('Creating flip table...')

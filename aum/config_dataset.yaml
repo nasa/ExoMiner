@@ -1,0 +1,7 @@
+#res_dir:
+n_splits: 3  # number of splits of PCs and AFPs
+mislabeling_rate: 0.05  # rate of injected stochastic noise into the PC and AFP categories
+rnd_seed: 3  # random seed
+noise_label: MISLABELED  # designation for mislabel pseudo-class
+# source TFRecord dataset
+src_tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
