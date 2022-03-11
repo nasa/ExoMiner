@@ -11,8 +11,11 @@ using Deep Learning methods.
 The current goals of the `ExoMiner` pipeline are:
 
 1. Perform classification of transit signals into PC/non-PC and Object of Interest (OI)/non-OI;
-2. Validate new exoplanets;
+2. Validate new exoplanets in Kepler and TESS data;
 3. Create an explainability framework that provides SMEs a set of explanations that support the model`s outcome.
+4. Study and detect mislabeling noise in Kepler and TESS data.
+5. Create vetted catalogs of Threshold Crossing Events (TCEs) for TESS Cycles.
+6. Create eclipsing binary (EB) catalogs for TESS data.
 
 ## Pipeline Overview
 
@@ -46,7 +49,7 @@ The pipeline consists of the following main blocks:
 
 All data used in this project are publicly available. Generally, the data used consist of:
 
-- Threshold Crossing Event (TCE) and Objects of Interest (e.g. KOI and TOI catalogs) tables available at places such as
+- TCE and Objects of Interest (e.g. KOI and TOI catalogs) tables available at places such as
   [NExSci](https://exoplanetarchive.ipac.caltech.edu/),
   [ExoFOP](https://exofop.ipac.caltech.edu/), [TEV](https://tev.mit.edu/data/) and
   [MAST](https://archive.stsci.edu/);
@@ -83,18 +86,20 @@ For more detailed information check:
 - Active developers
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-    - Hongbo Wei<sup>2</sup>
-    - Kaylie Hausknecht<sup>2,6</sup>
+    - Hongbo Wei<sup>2,6</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
+    - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
 
 - Inactive developers
-    - Jennifer Andersson<sup>4</sup>
-    - Laurent Wilkens<sup>2</sup>
-    - Martin Koeling<sup>4</sup>
-    - Nikash Walia<sup>2</sup>
-    - Pedro Gerum<sup>4</sup>
-    - Patrick Maynard<sup>2,5</sup>
-    - Sam Donald<sup>4</sup>
-    - Theng Yang<sup>2</sup>
+    - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
+    - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
+    - Laurent Wilkens<sup>2</sup> (Kepler)
+    - Martin Koeling<sup>4</sup> (Kepler to TESS transfer learning)
+    - Nikash Walia<sup>2</sup> (Kepler)
+    - Noa Lubin <sup>4</sup> (Kepler)
+    - Pedro Gerum<sup>4</sup> (Kepler, Kepler non-TCE classification)
+    - Patrick Maynard<sup>2,5</sup> (Kepler to TESS transfer learning)
+    - Sam Donald<sup>4</sup> (Kepler to TESS transfer learning)
+    - Theng Yang<sup>2</sup> (Label noise detection in Kepler data)
 
 - Collaborators
     - Doug Caldwell<sup>1,3</sup>

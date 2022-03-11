@@ -186,6 +186,13 @@ if __name__ == '__main__':
     # get PCs and AFPs from the training set to build mislabeled pseudo-class
     pc_train_set = train_set.loc[train_set['label'] == 'PC']
     afp_train_set = train_set.loc[train_set['label'] == 'AFP']
+    n_pcs_trainset, n_afps_trainset = len(pc_train_set), len(afp_train_set)
+    # # randomly sample same number of AFPs as PCs
+    # afp_train_set_chosen = afp_train_set.sample(n=len(pc_train_set),
+    #                                                                 replace=False,
+    #                                                                 random_state=rng.bit_generator)
+    # afp_train_set_not_chosen = afp_train_set.loc[~afp_train_set.index.isin(afp_train_set_chosen.index)]
+    # afp_train_set = afp_train_set_chosen.copy(deep=True)
 
     # split these categories into N splits
     pc_train_set_split = np.array_split(pc_train_set, config['n_splits'])
@@ -208,7 +215,8 @@ if __name__ == '__main__':
             replace=False,
             random_state=rng.bit_generator)
         switch_afps = dataset_runs[run_i].loc[dataset_runs[run_i]['label'] == 'AFP'].sample(
-            frac=config['mislabeling_rate'],
+            frac=config['mislabeling_rate'] * n_pcs_trainset / n_afps_trainset,
+            # adjust label noise injection rate to account for more AFPs than PCs
             replace=False,
             random_state=rng.bit_generator)
         dataset_runs[run_i].loc[switch_pcs.index, 'label'] = 'AFP'
@@ -269,7 +277,8 @@ if __name__ == '__main__':
         for fp_i, fp in enumerate(train_tfrec_fps):
 
             with tf.io.TFRecordWriter(str(dataset_run_dir /
-                                          f'predict-shard-ntp-{str(fp_i).zfill(5)}-of-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
+                                          f'predict-shard-ntp-{str(fp_i).zfill(5)}-of'
+                                          f'-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
 
                 # iterate through the source shard
                 tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
