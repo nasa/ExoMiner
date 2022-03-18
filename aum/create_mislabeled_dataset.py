@@ -379,3 +379,5 @@ if __name__ == '__main__':
     # for tfrec_fp in tfrec_fps:
     #     print(f'Creating TFRecord shard {tfrec_fp}')
     #     switch_labels_tfrecord_shard_from_table(tfrec_fp, dest_data_dir, flip_tbl, noise_label='MISLABELED')
+
+    print(f'Finished creating dataset run(s) for the experiment {res_dir.name}.')

@@ -23,8 +23,10 @@ from src.utils_visualization import plot_class_distribution
 
 # %% aggregate AUM across runs in an experiment
 
+inj_thr = True
+
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-10-2022_0950')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
 
 runs_dir = experiment_dir / 'runs'
 aum_tbls = {f'{run_dir.name}': pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv') for run_dir in
@@ -47,11 +49,17 @@ trainset_tbls = {fp.stem: pd.read_csv(fp) for fp in trainset_tbls_dir.iterdir()}
 aum_allruns_tbl['runs_changed'] = ''
 for trainset_tbl_name, trainset_tbl in trainset_tbls.items():
     trainset_tbl.set_index(['target_id', 'tce_plnt_num'], inplace=True)
-    trainset_tbl.loc[trainset_tbl['label_changed_to_other_class'].isna()] = False
+    if inj_thr:
+        trainset_tbl.loc[trainset_tbl['label_changed_to_other_class'].isna()] = False
     for example_i, example in aum_allruns_tbl.iterrows():
         if aum_allruns_tbl.loc[example_i, 'dataset'] == 'train':
-            # if trainset_tbl.loc[(example['target_id'], example['tce_plnt_num']), 'label_changed_to_mislabeled']:
-            if trainset_tbl.loc[(example['target_id'], example['tce_plnt_num']), 'label_changed_to_other_class']:
+
+            if inj_thr:
+                col_name = 'label_changed_to_other_class'
+            else:
+                col_name = 'label_changed_to_mislabeled'
+
+            if trainset_tbl.loc[(example['target_id'], example['tce_plnt_num']), col_name]:
                 aum_allruns_tbl.loc[example_i, 'runs_changed'] = \
                     aum_allruns_tbl.loc[example_i, 'runs_changed'] + f'{trainset_tbl_name.split("_")[-1]} '
 
@@ -97,6 +105,7 @@ aum_allruns_tbl.to_csv(experiment_dir / 'aum.csv', index=False)
 
 n_percentile = 99
 noise_label = 'MISLABELED'
+inj_thr = True  # injected noise examples in the training set used to set AUM threshold for mislabeling detection
 
 # experiment_dir = Path(
 #     '/data5/tess_project/experiments/current_experiments/label_noise_detection_aum/label_noise_detection_aum/run_02-03-2022_1444')
@@ -108,21 +117,25 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
 
-    # margin_mislabeled = aum_tbl.loc[aum_tbl['label'] == noise_label, 'margin']
+    if not inj_thr:
+        margin_mislabeled = aum_tbl.loc[aum_tbl['label'] == noise_label, 'margin']
+    else:
+        trainset_tbl = pd.read_csv(experiment_dir / 'trainset_runs' /
+                                   f'trainset_{run_dir.name}.csv')[['target_id',
+                                                                    'tce_plnt_num',
+                                                                    'label_changed_to_other_class']]
+        aum_tbl = aum_tbl.merge(trainset_tbl,
+                                on=['target_id', 'tce_plnt_num'],
+                                how='left',
+                                validate='one_to_one')
+        aum_tbl.loc[aum_tbl['label_changed_to_other_class'].isna(), 'label_changed_to_other_class'] = False
+        margin_mislabeled = aum_tbl.loc[(aum_tbl['label_changed_to_other_class'] == True) &
+                                        (aum_tbl['dataset'] == 'train'), 'margin']
 
-    trainset_tbl = pd.read_csv(experiment_dir / 'trainset_runs' /
-                               f'trainset_{run_dir.name}.csv')[['target_id',
-                                                                'tce_plnt_num',
-                                                                'label_changed_to_other_class']]
-    aum_tbl = aum_tbl.merge(trainset_tbl,
-                            on=['target_id', 'tce_plnt_num'],
-                            how='left',
-                            validate='one_to_one')
-    aum_tbl.loc[aum_tbl['label_changed_to_other_class'].isna(), 'label_changed_to_other_class'] = False
-    margin_mislabeled = aum_tbl.loc[(aum_tbl['label_changed_to_other_class'] == True) &
-                                    (aum_tbl['dataset'] == 'train'), 'margin']
-
-    margin_thr[run_dir.name] = np.percentile(margin_mislabeled, n_percentile)
+    if len(margin_mislabeled) == 0:
+        margin_thr[run_dir.name] = np.nan
+    else:
+        margin_thr[run_dir.name] = np.percentile(margin_mislabeled, n_percentile)
 
 runs = list(margin_thr.keys())
 margin_thr_df = pd.Series(data=margin_thr, name='thr')
@@ -150,9 +163,11 @@ aum_allruns_tbl.to_csv(experiment_dir / f'aum_mislabeled.csv', index=False)
 # %% look at distribution of AUM
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-01-2022_1433')
-n_runs = 9
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
+runs_dir = experiment_dir / 'runs'
+n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
 n_epochs = 50
+inj_thr = True
 labels = {
     'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
     'AFP': {'color': 'r', 'zorder': 2, 'alpha': 1.0},
@@ -178,64 +193,71 @@ for run in range(n_runs):
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
 
-    # adding column for examples injected with label noise
-    trainset_tbl = pd.read_csv(experiment_dir / 'trainset_runs' /
-                               f'trainset_run{run}.csv')[['target_id',
-                                                          'tce_plnt_num',
-                                                          'label_changed_to_other_class']]
-    valtestset_tbl = pd.read_csv(experiment_dir / 'val_test_sets_labels_switched.csv')[['target_id',
-                                                                                        'tce_plnt_num',
-                                                                                        'label_changed_to_other_class']]
-    dataset_tbl = pd.concat([trainset_tbl, valtestset_tbl], axis=0)
-    dataset_tbl.loc[dataset_tbl['label_changed_to_other_class'].isna(), 'label_changed_to_other_class'] = False
-    aum_tbl = aum_tbl.merge(dataset_tbl,
-                            on=['target_id', 'tce_plnt_num'],
-                            how='left',
-                            validate='one_to_one')
-    aum_tbl.loc[aum_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
+    if inj_thr:
+        # adding column for examples injected with label noise
+        trainset_tbl = pd.read_csv(experiment_dir / 'trainset_runs' /
+                                   f'trainset_run{run}.csv')[['target_id',
+                                                              'tce_plnt_num',
+                                                              'label_changed_to_other_class']]
+        valtestset_tbl = pd.read_csv(experiment_dir /
+                                     'val_test_sets_labels_switched.csv')[['target_id',
+                                                                           'tce_plnt_num',
+                                                                           'label_changed_to_other_class']]
+        dataset_tbl = pd.concat([trainset_tbl, valtestset_tbl], axis=0)
+        aum_tbl = aum_tbl.merge(dataset_tbl,
+                                on=['target_id', 'tce_plnt_num'],
+                                how='left',
+                                validate='one_to_one')
+        aum_tbl.loc[aum_tbl['label_changed_to_other_class'].isna(), 'label_changed_to_other_class'] = False
+        aum_tbl.loc[aum_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
+    else:
+        aum_tbl.loc[aum_tbl['label_changed_to_other_class'] == True, 'label'] = noise_label
 
-    # f, ax = plt.subplots()
-    # ax.hist(aum_tbl.loc[aum_tbl['label'] != 'MISLABELED', 'margin'], np.linspace(-50, 50, 100), edgecolor='k',
-    #         label='Other Samples')
-    # ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], np.linspace(-50, 50, 100), edgecolor='k',
-    #         label='Thr. Samples')
-    # ax.set_xlabel('AUM')
-    # ax.set_ylabel('Counts')
-    # ax.set_yscale('log')
-    # ax.legend()
-    # f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples.png')
-    # plt.close()
-    #
-    # f, ax = plt.subplots()
-    # ax.hist(aum_tbl.loc[aum_tbl['label'].isin(['PC', 'AFP']), 'margin'], np.linspace(-5, 5, 100),
-    #         edgecolor='k', label='Other Samples PC/AFP', zorder=1, alpha=1)
-    # ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], np.linspace(-5, 5, 100),
-    #         edgecolor='k', label='Thr. Samples', zorder=2, alpha=0.5)
-    # ax.set_xlabel('AUM')
-    # ax.set_ylabel('Counts')
-    # ax.set_yscale('log')
-    # ax.legend()
-    # f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples_pc-afp.png')
-    # plt.close()
+    # plot histogram of AUM for thresholded and normal examples
+    f, ax = plt.subplots()
+    ax.hist(aum_tbl.loc[aum_tbl['label'] != 'MISLABELED', 'margin'], np.linspace(-50, 50, 100), edgecolor='k',
+            label='Other Samples')
+    if inj_thr:
+        ax.hist(aum_tbl.loc[(aum_tbl['label_changed_to_other_class']), 'margin'], np.linspace(-50, 50, 100),
+                edgecolor='k', label='Thr. Samples')
+    else:
+        ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], np.linspace(-50, 50, 100), edgecolor='k',
+                label='Thr. Samples')
+    ax.set_xlabel('AUM')
+    ax.set_ylabel('Counts')
+    ax.set_yscale('log')
+    ax.legend()
+    f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples.png')
+    plt.close()
 
-    # f, ax = plt.subplots()
-    # for label in labels:  # aum_tbl['label'].unique():
-    #     ax.hist(aum_tbl.loc[aum_tbl['label'] != label, 'margin'], bins, edgecolor='k', label=f'{label}', **labels[label])
-    # ax.set_xlabel('AUM')
-    # ax.set_ylabel('Counts')
-    # ax.set_yscale('log')
-    # ax.legend()
-    # plt.show()
-    # for label in labels:  # aum_tbl['label'].unique():
-    #     f, ax = plt.subplots()
-    #     ax.hist(aum_tbl.loc[aum_tbl['label'] == label, 'margin'], bins[label], edgecolor='k', label=f'{label}',
-    #             **labels[label])
-    #     ax.set_xlabel('AUM')
-    #     ax.set_ylabel('Counts')
-    #     ax.set_yscale('log')
-    #     ax.legend()
-    #     f.savefig(run_dir / f'hist_aum_{label}.png')
-    #     plt.close()
+    # plot histogram of AUM for PC, AFP and threshold examples
+    f, ax = plt.subplots()
+    ax.hist(aum_tbl.loc[aum_tbl['label'].isin(['PC', 'AFP']), 'margin'], np.linspace(-5, 5, 100),
+            edgecolor='k', label='Other Samples PC/AFP', zorder=1, alpha=1)
+    if inj_thr:
+        ax.hist(aum_tbl.loc[(aum_tbl['label_changed_to_other_class']), 'margin'], np.linspace(-5, 5, 100),
+                edgecolor='k', label='Thr. Samples', zorder=2, alpha=0.5)
+    else:
+        ax.hist(aum_tbl.loc[aum_tbl['label'] == 'MISLABELED', 'margin'], np.linspace(-5, 5, 100),
+                edgecolor='k', label='Thr. Samples', zorder=2, alpha=0.5)
+    ax.set_xlabel('AUM')
+    ax.set_ylabel('Counts')
+    ax.set_yscale('log')
+    ax.legend()
+    f.savefig(run_dir / 'hist_aum_thr_vs_normal_samples_pc-afp.png')
+    plt.close()
+
+    # plot histogram of AUM for each category
+    for label in labels:  # aum_tbl['label'].unique():
+        f, ax = plt.subplots()
+        ax.hist(aum_tbl.loc[aum_tbl['label'] == label, 'margin'], bins[label], edgecolor='k', label=f'{label}',
+                **labels[label])
+        ax.set_xlabel('AUM')
+        ax.set_ylabel('Counts')
+        ax.set_yscale('log')
+        ax.legend()
+        f.savefig(run_dir / f'hist_aum_{label}.png')
+        plt.close()
 
     # look at margin change over epochs
     margins_dir = run_dir / 'models' / 'model1' / 'margins'
@@ -247,18 +269,20 @@ for run in range(n_runs):
                    for tbl_i, tbl in enumerate(margins_dir.iterdir())]
     margins_tbl = pd.concat(margins_tbl, axis=1)
 
-    # add column indicator for injected noise to the margins table
-    margins_tbl = margins_tbl.merge(dataset_tbl,
-                                    on=['target_id', 'tce_plnt_num'],
-                                    how='left',
-                                    validate='one_to_one')
-    margins_tbl.loc[margins_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
+    if inj_thr:
+        # add column indicator for injected noise to the margins table
+        margins_tbl = margins_tbl.merge(dataset_tbl,
+                                        on=['target_id', 'tce_plnt_num'],
+                                        how='left',
+                                        validate='one_to_one')
+        margins_tbl.loc[margins_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
 
     margins_tbl.to_csv(run_dir / 'margins_tbl.csv', index=False)
     # margins_tbl.drop_duplicates(drop_dupl_cols, inplace=True)
 
     margins_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 
+    # # plot margin for a few examples
     # f, ax = plt.subplots()
     # ax.plot(np.arange(n_epochs), margins_tbl.loc[(10982872, 3), 'margin'], label='PC')
     # ax.plot(np.arange(n_epochs), margins_tbl.loc[(7983756, 1), 'margin'], label='AFP')
@@ -274,17 +298,19 @@ for run in range(n_runs):
     std_margin = {label: np.std(margins_tbl.loc[margins_tbl['label'] == label, 'margin'], ddof=1).values for label in
                   labels}
 
-    # f, ax = plt.subplots()
-    # for label in labels:
-    #     ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
-    #     # ax.plot(mean_margin[label] + std_margin[label], linestyle='--', color=labels[label]['color'])
-    #     # ax.plot(mean_margin[label] - std_margin[label], linestyle='--', color=labels[label]['color'])
-    # ax.set_xlabel('Epoch Number')
-    # ax.set_ylabel('Margin')
-    # ax.legend()
-    # f.savefig(run_dir / 'margin_over_epochs_all.png')
-    # plt.close()
-    #
+    # plot avg margin for all examples in all categories
+    f, ax = plt.subplots()
+    for label in labels:
+        ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
+        # ax.plot(mean_margin[label] + std_margin[label], linestyle='--', color=labels[label]['color'])
+        # ax.plot(mean_margin[label] - std_margin[label], linestyle='--', color=labels[label]['color'])
+    ax.set_xlabel('Epoch Number')
+    ax.set_ylabel('Margin')
+    ax.legend()
+    f.savefig(run_dir / 'margin_over_epochs_all.png')
+    plt.close()
+
+    # plot avg margin for PC, AFP, mislabeled examples
     f, ax = plt.subplots()
     for label in ['PC', 'AFP', 'MISLABELED']:
         ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
@@ -296,6 +322,7 @@ for run in range(n_runs):
     f.savefig(run_dir / 'margin_over_epochs_pc-afp-mislabeled_var.png')
     plt.close()
 
+    # plot avg margin for PC, AFP, mislabeled and injected label noise examples
     f, ax = plt.subplots()
     for label in ['PC', 'AFP', 'MISLABELED', 'INJ']:
         ax.plot(mean_margin[label], label=label, color=labels[label]['color'])
@@ -312,10 +339,10 @@ for run in range(n_runs):
 
 n_percentile = 99  # AUM nth-percentile threshold for mislabeling detection
 noise_label = 'MISLABELED'
-inj_thr = False  # injected noise examples in the training set used to set AUM threshold for mislabeling detection
+inj_thr = True  # injected noise examples in the training set used to set AUM threshold for mislabeling detection
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-03-2022_1052')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
 
 runs_dir = experiment_dir / 'runs'
 
@@ -351,7 +378,10 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
     margin_mislabeled = aum_tbl.loc[idxs_mislabeled, 'margin']
 
     # compute threshold using AUM values for those thresholded/noise injected examples
-    margin_thr = np.percentile(margin_mislabeled, n_percentile)
+    if len(margin_mislabeled) == 0:
+        margin_thr = np.nan
+    else:
+        margin_thr = np.percentile(margin_mislabeled, n_percentile)
     aum_tbl[f'margin_thr_{n_percentile}'] = margin_thr
 
     # set examples with AUM lower than threshold to mislabeled that are not included in the subset used to compute the threshold
@@ -405,22 +435,22 @@ for dataset in ['train', 'val', 'test', 'predict']:
 
 bins = np.linspace(-5, 5, 100)
 
-# plot histogram of injected noise examples vs regular examples across all runs
-for dataset in ['train', 'val', 'test']:
-    aum_dataset = aum_allruns_tbl.loc[
-        (aum_allruns_tbl['dataset'] == dataset) & (aum_allruns_tbl['original_label'].isin(['PC', 'AFP']))]
-
-    f, ax = plt.subplots()
-    ax.hist(aum_dataset.loc[aum_dataset['label_changed_to_other_class'], 'mean'], bins, edgecolor='k',
-            label='Stochastic injected label noise examples', zorder=2, alpha=0.5)
-    ax.hist(aum_dataset.loc[aum_dataset['label_changed_to_other_class'] == False, 'mean'], bins, edgecolor='k',
-            label='Regular examples', zorder=1)
-    ax.set_xlabel('AUM')
-    ax.set_ylabel('Counts')
-    ax.set_yscale('log')
-    ax.legend()
-    f.savefig(experiment_dir / f'hist_aum_inj_vs_normal_samples_{dataset}.png')
-    plt.close()
+# # plot histogram of injected noise examples vs regular examples across all runs
+# for dataset in ['train', 'val', 'test']:
+#     aum_dataset = aum_allruns_tbl.loc[
+#         (aum_allruns_tbl['dataset'] == dataset) & (aum_allruns_tbl['original_label'].isin(['PC', 'AFP']))]
+#
+#     f, ax = plt.subplots()
+#     ax.hist(aum_dataset.loc[aum_dataset['label_changed_to_other_class'], 'mean'], bins, edgecolor='k',
+#             label='Stochastic injected label noise examples', zorder=2, alpha=0.5)
+#     ax.hist(aum_dataset.loc[aum_dataset['label_changed_to_other_class'] == False, 'mean'], bins, edgecolor='k',
+#             label='Regular examples', zorder=1)
+#     ax.set_xlabel('AUM')
+#     ax.set_ylabel('Counts')
+#     ax.set_yscale('log')
+#     ax.legend()
+#     f.savefig(experiment_dir / f'hist_aum_inj_vs_normal_samples_{dataset}.png')
+#     plt.close()
 
 # plot histogram of injected noise examples vs regular examples vs mislabeled examples for each run
 n_runs = 9
@@ -429,8 +459,20 @@ for run in range(n_runs):
     run_dir = experiment_dir / 'runs' / f'run{run}'
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
-    aum_tbl = aum_tbl.merge(aum_allruns_tbl[['target_id', 'tce_plnt_num', 'label_changed_to_other_class']],
-                            on=['target_id', 'tce_plnt_num'], how='left', validate='one_to_one')
+    # adding column for examples injected with label noise
+    trainset_tbl = pd.read_csv(experiment_dir / 'trainset_runs' /
+                               f'trainset_run{run}.csv')[['target_id',
+                                                          'tce_plnt_num',
+                                                          'label_changed_to_other_class']]
+    valtestset_tbl = pd.read_csv(experiment_dir / 'val_test_sets_labels_switched.csv')[['target_id',
+                                                                                        'tce_plnt_num',
+                                                                                        'label_changed_to_other_class']]
+    dataset_tbl = pd.concat([trainset_tbl, valtestset_tbl], axis=0)
+    aum_tbl = aum_tbl.merge(dataset_tbl,
+                            on=['target_id', 'tce_plnt_num'],
+                            how='left',
+                            validate='one_to_one')
+    aum_tbl.loc[aum_tbl['label_changed_to_other_class'].isna(), 'label_changed_to_other_class'] = False
 
     for dataset in ['train', 'val', 'test']:
         aum_dataset = aum_tbl.loc[(aum_tbl['dataset'] == dataset) & (aum_tbl['original_label'].isin(['PC', 'AFP']))]
@@ -439,7 +481,7 @@ for run in range(n_runs):
         ax.hist(aum_dataset.loc[aum_dataset['label_changed_to_other_class'], 'margin'], bins, edgecolor='k',
                 label='Stochastic injected label noise examples', zorder=3, alpha=0.5)
         ax.hist(aum_dataset.loc[(aum_dataset['label_changed_to_other_class'] == False) & (
-                    aum_dataset['label'] != 'MISLABELED'), 'margin'], bins, edgecolor='k', label='Regular examples',
+                aum_dataset['label'] != 'MISLABELED'), 'margin'], bins, edgecolor='k', label='Regular examples',
                 zorder=1)
         ax.hist(aum_dataset.loc[(aum_dataset['label_changed_to_other_class'] == False) & (
                     aum_dataset['label'] == 'MISLABELED'), 'margin'], bins, edgecolor='k', label='Thr. examples',
@@ -535,10 +577,10 @@ for run in range(n_runs):
 # %% compute performance on injected labeling noise
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-11-2022_1144')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-10-2022_0950')
 n_runs = 9
 n_epochs = 50
-
+inj_thr = True
 noise_label = 'MISLABELED'
 perf_metrics_runs = []
 for run in range(n_runs):
@@ -563,11 +605,13 @@ for run in range(n_runs):
     aum_tbl.loc[aum_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
 
     # get aum threshold
-    # using thresholded examples
-    margin_mislabeled = aum_tbl.loc[(aum_tbl['label'] == noise_label) & (aum_tbl['dataset'] == 'train'), 'margin']
-    # using injected label noise examples
-    # margin_mislabeled = aum_tbl.loc[(aum_tbl['label_changed_to_other_class'] == True) &
-    #                                 (aum_tbl['dataset'] == 'train'), 'margin']
+    if not inj_thr:
+        # using thresholded examples
+        margin_mislabeled = aum_tbl.loc[(aum_tbl['label'] == noise_label) & (aum_tbl['dataset'] == 'train'), 'margin']
+    else:
+        # using injected label noise examples
+        margin_mislabeled = aum_tbl.loc[(aum_tbl['label_changed_to_other_class'] == True) &
+                                        (aum_tbl['dataset'] == 'train'), 'margin']
 
     # computer threshold as nth-percentile
     margin_thr = np.percentile(margin_mislabeled, n_percentile)
@@ -640,13 +684,13 @@ def avg_overlap(r1, r2, d):
 
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-03-2022_1215')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-10-2022_0950')
 
 n_runs = 9
 noise_label = 'MISLABELED'
 datasets = ['train', 'val_test']
-depth = 10
-rbo_p = 1.0
+depth = 30
+rbo_p = 0.8
 kendall_tau_params = {'rank': False, 'weigher': None, }
 for dataset in datasets:  # iterate through the datasets
 
@@ -721,9 +765,14 @@ for dataset in datasets:  # iterate through the datasets
                                                                                                        p=rbo_p)
         rbo_metric[run_i_2, run_i_1] = rbo_metric[run_i_1, run_i_2]
 
-        kendall_tau_mat[run_i_1, run_i_2], _ = weightedtau(aum_rankings[ranking_1]['id'].values,
-                                                           aum_rankings[ranking_2]['id'].values,
+        ranking1_to_int = aum_rankings[ranking_1][['id']].copy(deep=True)
+        ranking1_to_int['rank'] = np.arange(len(ranking1_to_int))
+        ranking2_to_int = aum_rankings[ranking_2][['id']].copy(deep=True)
+        ranking2_to_int = ranking2_to_int.merge(ranking1_to_int, on=['id'], how='left', validate='one_to_one')
+        kendall_tau_mat[run_i_1, run_i_2], _ = weightedtau(ranking1_to_int['rank'].values[:depth],
+                                                           ranking2_to_int['rank'].values[:depth],
                                                            **kendall_tau_params)
+        kendall_tau_mat[run_i_2, run_i_1] = kendall_tau_mat[run_i_1, run_i_2]
 
     avg_op_df = pd.DataFrame(avg_op, columns=list(aum_rankings.keys()), index=list(aum_rankings.keys()))
     avg_op_df_mean = avg_op_df.mean(axis=0, skipna=True)
@@ -731,7 +780,7 @@ for dataset in datasets:  # iterate through the datasets
     avg_op_df['mean'] = avg_op_df_mean
     avg_op_df['std'] = avg_op_df_std
     # print(f'{dataset}: \n{avg_op_df}')
-    avg_op_df.to_csv(experiment_dir / f'average_overlap_{dataset}.csv')
+    avg_op_df.to_csv(experiment_dir / f'average_overlap_depth{depth}_{dataset}.csv')
 
     rbo_df = pd.DataFrame(rbo_metric, columns=list(aum_rankings.keys()), index=list(aum_rankings.keys()))
     rbo_df_mean = rbo_df.mean(axis=0, skipna=True)
@@ -739,12 +788,12 @@ for dataset in datasets:  # iterate through the datasets
     rbo_df['mean'] = rbo_df_mean
     rbo_df['std'] = rbo_df_std
     # print(f'{dataset}: \n{rbo_df}')
-    rbo_df.to_csv(experiment_dir / f'rbo_p{rbo_p}_{dataset}.csv')
+    rbo_df.to_csv(experiment_dir / f'rbo_p{rbo_p}_depth{depth}_{dataset}.csv')
 
     kendalltau_df = pd.DataFrame(kendall_tau_mat, columns=list(aum_rankings.keys()), index=list(aum_rankings.keys()))
     kendalltau_df_mean = kendalltau_df.mean(axis=0, skipna=True)
     kendalltau_df_std = kendalltau_df.std(axis=0, ddof=1, skipna=True)
     kendalltau_df['mean'] = kendalltau_df_mean
     kendalltau_df['std'] = kendalltau_df_std
-    print(f'{dataset}: \n{kendalltau_df}')
-    kendalltau_df.to_csv(experiment_dir / f'weighted_kendalltau_{dataset}.csv')
+    # print(f'{dataset}: \n{kendalltau_df}')
+    kendalltau_df.to_csv(experiment_dir / f'weighted_kendalltau_depth{depth}_{dataset}.csv')

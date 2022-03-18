@@ -14,7 +14,7 @@ from astropy.io.votable import from_table
 #%%  Get ruwe from Gaia DR2-KIC table in "Revised Radii of Kepler Stars and Planets Using Gaia Data Release 2"
 
 root_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_gaia_ruwe/ruwe-gaiaedr3_12-30-2021/gaiadr2_all_kic_12-30-2021_0249/')
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/kepler_gaia_ruwe/ruwe-gaiadr2_1-4-2022/')
 root_dir.mkdir(exist_ok=True)
 
 res_dir = root_dir / f'gaiadr2_2020_q1q17dr25_kics_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
@@ -284,30 +284,32 @@ val_kics = tce_tbl.loc[tce_tbl['validated_by'] == 'us_exominer_2021'][['target_i
 kic_tbl['validated_by'] = np.nan
 kic_tbl.loc[kic_tbl['target_id'].isin(val_kics['target_id']), 'validated_by'] = 'us_exominer_2021'
 
-kic_ruwe_tbl = pd.read_csv(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_gaia_ruwe/ruwe-gaiaedr3_12-30-2021/gaiadr2_2020_q1q17dr25_kics_01-27-2022_1158/kics.csv')
-kic_ruwe_tbl = kic_ruwe_tbl[['target_id', 'ruwe']].rename(columns={'ruwe': 'ruwe_kictbl'})
+gaia_dr2_2018_ruwe_tbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/kepler_gaia_ruwe/ruwe-gaiadr2_1-4-2022/src-gaiadr2_2018_ruwe-gaiadr2_keplerq1q17dr25_kics_01-04-2022_1354/gaiadr2_kics_with_kicid.csv')
+gaia_dr2_2018_ruwe_tbl = gaia_dr2_2018_ruwe_tbl[['target_id', 'ruwe']].rename(
+    columns={'source_id': 'source_id_gaiadr2_2018', 'ruwe': 'ruwe_gaiadr2_2018'})
 
-gaia_dr2_paper_tbl = pd.read_csv(
+gaia_dr2_2020_ruwe_tbl = pd.read_csv(
     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_gaia_ruwe/ruwe-gaiaedr3_12-30-2021/gaiadr2_paper_all_kic_12-30-2021_0730/gaia_edr3_kics_with_kicid.csv')
-gaia_dr2_paper_tbl = gaia_dr2_paper_tbl.rename(
-    columns={'source_id': 'source_id_gaiadr2paper', 'ruwe': 'ruwe_gaiadr2paper'})
+gaia_dr2_2020_ruwe_tbl = gaia_dr2_2020_ruwe_tbl.rename(
+    columns={'source_id': 'source_id_gaiadr2_2020', 'ruwe': 'ruwe_gaiadr2_2020'})
 
 # simbad_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_gaia_ruwe/simbad_all_kic_12-30-2021_0709/gaia_edr3_kics_with_kicid.csv')
 # simbad_tbl = simbad_tbl.rename(columns={'source_id':  'source_id_simbad', 'ruwe': 'ruwe_simbad'})
 
-crossmatch_tbl = pd.read_csv(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_gaia_ruwe/ruwe-gaiaedr3_12-30-2021/crossmatch_gaiadr2_kepler_all_kic_12-30-2021_0739/gaia_edr3_kics_with_kicid.csv')
-crossmatch_tbl = crossmatch_tbl.rename(columns={'source_id': 'source_id_crossmatch', 'ruwe': 'ruwe_crossmatch'})
+crossmatch_ruwe_tbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/kepler_gaia_ruwe/ruwe-gaiadr2_1-4-2022/src-crossmatch_gaiadr2_ruwe-gaiadr2_keplerq1q17dr25_kics_01-04-2022_1405/gaiadr2_kics_with_kicid.csv')
+crossmatch_ruwe_tbl = crossmatch_ruwe_tbl.rename(
+    columns={'source_id': 'source_id_crossmatch', 'ruwe': 'ruwe_crossmatch'})
 
 match_tbl = kic_tbl
 
 # add RUWE values from RUWE source tables
 ruwe_src_tbls = [
-    kic_ruwe_tbl,
-    gaia_dr2_paper_tbl,
+    gaia_dr2_2018_ruwe_tbl,
+    gaia_dr2_2020_ruwe_tbl,
     # simbad_tbl,
-    crossmatch_tbl
+    crossmatch_ruwe_tbl
 ]
 for tbl in ruwe_src_tbls:
     match_tbl = match_tbl.merge(tbl, on=['target_id'], how='left', validate='one_to_one')
@@ -317,19 +319,21 @@ match_tbl['ruwe_final'] = np.nan
 match_tbl['ruwe_final_source'] = np.nan
 for kic_i, kic in match_tbl.iterrows():
 
-    if not np.isnan(kic['ruwe_kictbl']):
-        match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_kictbl'], 'kictbl']
-    elif not np.isnan(kic['ruwe_gaiadr2paper']):
-        match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_gaiadr2paper'], 'gaiadr2paper']
+    if not np.isnan(kic['ruwe_gaiadr2_2018']):
+        match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_gaiadr2_2018'], 'ruwe_gaiadr2_2018']
+    elif not np.isnan(kic['ruwe_gaiadr2_2020']):
+        match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_gaiadr2_2020'], 'ruwe_gaiadr2_2020']
     # elif not np.isnan(kic['ruwe_simbad']):
     #     match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_simbad'], 'simbad']
     elif not np.isnan(kic['ruwe_crossmatch']):
         match_tbl.loc[kic_i, ['ruwe_final', 'ruwe_final_source']] = [kic['ruwe_crossmatch'], 'crossmatch']
 
-res_dir = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Analysis/kepler_gaia_ruwe/ruwe-gaiaedr3_12-30-2021/')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/Kepler/kepler_gaia_ruwe/ruwe-gaiadr2_1-4-2022')
 
 match_tbl_val = match_tbl.loc[match_tbl['validated_by'] == 'us_exominer_2021']
 bins = np.linspace(0, 2, 100)  # np.logspace(0, 2, 100)
+
+ruwe_thr = 1.4
 
 #  plot histogram of RUWE for population of KICs with validated planets by us and the whole Kepler dataset
 f, ax = plt.subplots()
@@ -354,3 +358,17 @@ count_val.loc[count_val['validated_by'] == 'us_exominer_2021', 'cnt_validated_by
 num_val_plnt_per_kic = count_val.groupby('target_id').sum()[['cnt_validated_by']].reset_index()
 match_tbl = match_tbl.merge(num_val_plnt_per_kic, on=['target_id'], how='left', validate='one_to_one')
 match_tbl.to_csv(res_dir / 'all_kics_ruwe_multsources.csv', index=False)
+
+# %% Add RUWE values to the TCE table
+
+tce_tbl_fp = Path(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr.csv')
+tce_tbl = pd.read_csv(tce_tbl_fp)
+
+ruwe_tbl = pd.read_csv(
+    '/data5/tess_project/Data/Ephemeris_tables/Kepler/kepler_gaia_ruwe/ruwe-gaiadr2_1-4-2022/all_kics_ruwe_multsources.csv')
+ruwe_tbl.rename(columns={'ruwe_final': 'ruwe', 'ruwe_final_source': 'ruwe_source'}, inplace=True)
+
+tce_tbl = tce_tbl.merge(ruwe_tbl[['target_id', 'ruwe', 'ruwe_source']], on=['target_id'], validate='many_to_one')
+
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_ruwe.csv', index=False)

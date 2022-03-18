@@ -77,16 +77,19 @@ Models currently implemented:
 ## References
 
 For more detailed information check:
-- Paper ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://arxiv.org/abs/2111.10009).
+- Exominer 2021
+  paper ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://arxiv.org/abs/2111.10009)
+  , published 2022 February 17 in
+  the [Astrophysical Journal, 926:120](https://iopscience.iop/articl/10.3847/1538-4357/ac4399/).
 - Bibliography
-  - **add**
+    - **add**
 
 ## Credits
 
 - Active developers
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-    - Hongbo Wei<sup>2,6</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
+    - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
     - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
 
 - Inactive developers
@@ -97,9 +100,9 @@ For more detailed information check:
     - Nikash Walia<sup>2</sup> (Kepler)
     - Noa Lubin <sup>4</sup> (Kepler)
     - Pedro Gerum<sup>4</sup> (Kepler, Kepler non-TCE classification)
-    - Patrick Maynard<sup>2,5</sup> (Kepler to TESS transfer learning)
+    - Patrick Maynard<sup>2,5,7</sup> (Kepler to TESS transfer learning)
     - Sam Donald<sup>4</sup> (Kepler to TESS transfer learning)
-    - Theng Yang<sup>2</sup> (Label noise detection in Kepler data)
+    - Theng Yang<sup>2,7</sup> (Label noise detection in Kepler data)
 
 - Collaborators
     - Doug Caldwell<sup>1,3</sup>
@@ -114,6 +117,7 @@ For more detailed information check:
 4 - NASA International Internship Program (NASA I<sup>2</sup>)\
 5 - NASA Internships, Fellowships & Scholarships (NIFS)\
 6 - Volunteer Internship Program (VIP)
+7 - NASA Office of STEM Engagement (OSTEM)
 
 ## Acknowledgements
 
