@@ -204,7 +204,7 @@ def run_main(config):
     # if not config['config']['multi_class']:
     #     plot_pr_curve(res, ep_idx, config['paths']['experiment_dir'] / f'model1_prec_rec.svg')
     #     # plot roc
-    #     plot_roc(res, ep_idx, config['paths']['experiment_dir'] / f'model1_roc.svg')
+    #     plot_roc(res, ep_idx, config['datasets'], config['paths']['experiment_dir'] / f'model1_roc.svg')
     # plot precision-at-k and misclassfied-at-k examples curves
     # for dataset in config['datasets']:
     #     k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])

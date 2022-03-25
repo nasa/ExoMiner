@@ -57,7 +57,7 @@ The features set in the TFRecords come from two sources:
 ### Data postprocessing
 
 The following processes are modular and their application to the preprocessed data depends on the user's goals, but
-usually the postprocessing pipeline resembles: 1) split the data into training, validation, test and/or prediction
+usually the postprocessing pipeline consists of: 1) splitting the data into training, validation, test and/or prediction
 (used for inference) sets; 2) computing normalization statistics based on the training set; use those statistics to
 normalize input features in the datasets. Other steps such as updating labels based on different sets of dispositions or
 selecting subsets of the data are also common tasks.
@@ -73,9 +73,17 @@ This can be performed in `src_preprocessing.update_labels_tfrecords.py`
 
 #### Computing normalization statistics
 
-This can be performed in `src_preprocessing.compute_normalization_stats_tfrecords.py`.
+This can be performed in `src_preprocessing.compute_normalization_stats_tfrecords.py` using as configuration file
+`src_preprocessing.config_compute_normalization_stats.yaml`.
 
 #### Normalizing datasets
 
-Normalize multiple features based on statistics from a training set. Impute missing values and crop values into a given
-range. This can be performed in `src_preprocessing.normalize_data_tfrecords.py`.
+Normalize multiple features based on statistics from a training set. Depending on the goal, this postprocessing step can
+include:
+
+- Impute missing values with median of training set or fixed value.
+- Truncate values (clip) to a given range (e.g., median +- MAD std * clip_factor).
+- Log-transform the data.
+
+Normalization can be performed in `src_preprocessing.normalize_data_tfrecords.py` using as configuration file
+`src_preprocessing.config_normalize_data.yaml`.

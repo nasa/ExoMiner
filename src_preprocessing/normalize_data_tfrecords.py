@@ -7,11 +7,13 @@ from pathlib import Path
 import multiprocessing
 import numpy as np
 import tensorflow as tf
+import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 from src_preprocessing.preprocess import centering_and_normalization
+from paths import path_main
 
 
 def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
@@ -247,37 +249,31 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 
 if __name__ == '__main__':
 
+    # get the configuration parameters
+    path_to_yaml = Path(path_main + 'src_preprocessing/config_normalize_data.yaml')
+
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
+
     # source TFRecord directory
-    srcTfrecDir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
+    srcTfrecDir = Path(config['srcTfrecDir'])
+
     # destination TFRecord
-    destTfrecDirName = '-normalized'
-    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{destTfrecDirName}'
+    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{config["destTfrecDirName"]}'
     destTfrecDir.mkdir(exist_ok=True)
-
-    # auxiliary parameters needed for normalization of some features
-    auxParams = {
-        'nr_transit_durations': 5,
-        # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
-        'num_bins_loc': 31,  # 31, 201
-        'num_bins_glob': 301  # 301, 2001
-    }
-
-    nProcesses = 15  # number of processes in parallel
-
-    # normalization stats directory
-    normStatsDir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
 
     # get source TFRecords file paths to be normalized
     srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
     # load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
     normStats = {
-        'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+        'scalar_params': np.load(config['normStatsDir'] / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+        'fdl_centroid': np.load(config['normStatsDir'] / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(config['normStatsDir'] / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
     }
+
+    # WRITE CODE HERE TO ADJUST NORMALIZATION STATISTICS (E.G., ADD SCALAR FEATURES THAT YOU  WANT TO NORMALIZE AND ARE
+    # NOT IN  THE NORMALIZATION STATS DICTIONARY
     # for TPS
     # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
     #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
@@ -294,8 +290,8 @@ if __name__ == '__main__':
 
     # normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
 
-    pool = multiprocessing.Pool(processes=nProcesses)
-    jobs = [(destTfrecDir, file, normStats, auxParams) for file in srcTfrecFiles]
+    pool = multiprocessing.Pool(processes=config['nProcesses'])
+    jobs = [(destTfrecDir, file, normStats, config['auxParams']) for file in srcTfrecFiles]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
 

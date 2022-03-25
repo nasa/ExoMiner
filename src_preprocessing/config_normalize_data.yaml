@@ -1,0 +1,16 @@
+# source TFRecord directory
+srcTfrecDir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment
+# destination TFRecord suffix name
+destTfrecDirName: -normalized
+
+# auxiliary parameters needed for normalization of some features
+auxParams:
+  'nr_transit_durations': 5,
+  # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
+  'num_bins_loc': 31,  # 31, 201
+  'num_bins_glob': 301  # 301, 2001
+
+nProcesses: 15  # number of processes in parallel
+
+# normalization stats directory
+normStatsDir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment

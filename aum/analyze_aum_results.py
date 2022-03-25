@@ -20,13 +20,14 @@ from scipy.stats import kendalltau, weightedtau
 
 # local
 from src.utils_visualization import plot_class_distribution
+from aum.create_mislabeled_dataset import create_tfrec_dataset_tbl
 
 # %% aggregate AUM across runs in an experiment
 
 inj_thr = True
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 
 runs_dir = experiment_dir / 'runs'
 aum_tbls = {f'{run_dir.name}': pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv') for run_dir in
@@ -163,7 +164,7 @@ aum_allruns_tbl.to_csv(experiment_dir / f'aum_mislabeled.csv', index=False)
 # %% look at distribution of AUM
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 runs_dir = experiment_dir / 'runs'
 n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
 n_epochs = 50
@@ -342,7 +343,7 @@ noise_label = 'MISLABELED'
 inj_thr = True  # injected noise examples in the training set used to set AUM threshold for mislabeling detection
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1145')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 
 runs_dir = experiment_dir / 'runs'
 
@@ -357,9 +358,10 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
                                    f'trainset_{run_dir.name}.csv')[['target_id',
                                                                     'tce_plnt_num',
                                                                     'label_changed_to_other_class']]
-        valtestset_tbl = pd.read_csv(experiment_dir / 'val_test_sets_labels_switched.csv')[['target_id',
-                                                                                            'tce_plnt_num',
-                                                                                            'label_changed_to_other_class']]
+        valtestset_tbl = pd.read_csv(experiment_dir /
+                                     'val_test_sets_labels_switched.csv')[['target_id',
+                                                                           'tce_plnt_num',
+                                                                           'label_changed_to_other_class']]
         dataset_tbl = pd.concat([trainset_tbl, valtestset_tbl], axis=0)
         aum_tbl = aum_tbl.merge(dataset_tbl,
                                 on=['target_id', 'tce_plnt_num'],
@@ -384,7 +386,8 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
         margin_thr = np.percentile(margin_mislabeled, n_percentile)
     aum_tbl[f'margin_thr_{n_percentile}'] = margin_thr
 
-    # set examples with AUM lower than threshold to mislabeled that are not included in the subset used to compute the threshold
+    # set examples with AUM lower than threshold to mislabeled that are not included in the subset used to compute the
+    # threshold
     aum_tbl['mislabeled_by_aum'] = 'no'
     aum_tbl.loc[(aum_tbl['margin'] < margin_thr) & ~idxs_mislabeled, 'mislabeled_by_aum'] = 'yes'
 
@@ -684,7 +687,7 @@ def avg_overlap(r1, r2, d):
 
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-10-2022_0950')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 
 n_runs = 9
 noise_label = 'MISLABELED'
@@ -693,6 +696,8 @@ depth = 30
 rbo_p = 0.8
 kendall_tau_params = {'rank': False, 'weigher': None, }
 for dataset in datasets:  # iterate through the datasets
+
+    print(f'Iterating over dataset {dataset}...')
 
     aum_rankings = {f'run_{run}': None for run in range(n_runs)}
     ranking_combs = list(combinations(list(aum_rankings.keys()), 2))
@@ -710,6 +715,7 @@ for dataset in datasets:  # iterate through the datasets
 
     # get AUM rankings for each run
     for run in range(n_runs):
+        print(f'[{dataset}] Iterating over run {run}...')
         aum_rankings[f'run_{run}'] = pd.read_csv(experiment_dir /
                                                  'runs' /
                                                  f'run{run}' /
@@ -751,6 +757,7 @@ for dataset in datasets:  # iterate through the datasets
             aum_rankings[f'run_{run}'].loc[~aum_rankings[f'run_{run}']['id'].isin(dataset_tbl_mis['id'])]
 
     # compute similarity score between each ranking pair
+    print('Computing ranking similarities...')
     for ranking_1, ranking_2 in ranking_combs:
         # ranking_sims[(ranking_1, ranking_2)] = avg_overlap(aum_rankings[ranking_1]['id'].values,
         #                                                    aum_rankings[ranking_2]['id'].values,
@@ -797,3 +804,200 @@ for dataset in datasets:  # iterate through the datasets
     kendalltau_df['std'] = kendalltau_df_std
     # print(f'{dataset}: \n{kendalltau_df}')
     kendalltau_df.to_csv(experiment_dir / f'weighted_kendalltau_depth{depth}_{dataset}.csv')
+
+# %% plot margin over epochs for some examples
+
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
+runs_dir = experiment_dir / 'runs'
+n_runs = 1  # len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
+n_epochs = 50
+inj_thr = False
+
+noise_label = 'MISLABELED'
+
+tfrec_tbl_features = {
+    'target_id': {'dtype': 'int64'},
+    'tce_plnt_num': {'dtype': 'int64'},
+    'label': {'dtype': 'str'},
+    # 'original_label': {'dtype': 'str'},
+    # 'label_id': {'dtype': 'int64'}
+}
+
+aum_tbl = pd.read_csv(experiment_dir / 'runs/run0/models/model1/aum.csv')
+aum_tbl = aum_tbl.loc[aum_tbl['dataset'] == 'train']
+aum_tbl.sort_values(by='margin', ascending=True, inplace=True)
+n_examples_per_cat = 20
+examples_chosen = pd.concat([aum_tbl.loc[aum_tbl['label'] == 'AFP'][:n_examples_per_cat],
+                             aum_tbl.loc[aum_tbl['label'] == 'PC'][:n_examples_per_cat]])
+examples = {tuple(example): {'label': f'top-{n_examples_per_cat} AUM for its category'}
+            for example in examples_chosen[['target_id', 'tce_plnt_num']].to_numpy()}
+examples = {(10187017, 6): {'label': 'low AUM, but high score'}}
+# examples = {
+#     # (11030475, 1): {'label': 'mislabeled PC lowest AUM'},  # mislabeled PC lowest AUM
+#     # (10227863, 1): {'label': 'mislabeled AFP low AUM'},  # mislabeled AFP low AUM
+#     # (10904857, 1): {'label': 'PC with low AUM'},  # PC with low AUM
+#     # (4769931, 1): {'label': 'AFP with low AUM'},  # AFP with low AUM
+#     # (9777087, 1): {'label': 'AFP highest AUM'},  # AFP highest AUM
+#     # (7907423, 2): {'label': 'PC high AUM'},  # PC high AUM
+#     (6058896, 1): {'label': 'AFP highest AUM'},
+#     (5868793, 1): {'label': 'PC highest AUM'},
+#     (7661065, 1): {'label': 'AFP lowest AUM'},
+#     (7532973, 1): {'label': 'PC lowest AUM'},
+#
+# }
+datasets = ['train', 'val', 'test', 'predict']
+
+cols_tbl = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label', 'margin']
+
+for run in range(n_runs):
+
+    run_dir = experiment_dir / 'runs' / f'run{run}'
+
+    examples_dir = run_dir / 'examples'
+    examples_dir.mkdir(exist_ok=True)
+
+    aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+    # create TFRecord dataset table
+    tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
+    tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
+
+    tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
+
+    # look at logits change over epochs
+    model_dir = run_dir / 'models' / 'model1'
+
+    ranking_tbls = []
+    for dataset in datasets:
+        ranking_tbls.append(pd.read_csv(model_dir / f'ranking_{dataset}.csv'))
+        ranking_tbls[-1]['dataset'] = dataset
+    ranking_tbl = pd.concat(ranking_tbls, axis=0)
+    ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+    logits_tbls = {logit_i: pd.concat([pd.read_csv(model_dir / f'logits_epoch-{epoch_i}.csv',
+                                                   usecols=[logit_i],
+                                                   names=[f'epoch_{epoch_i}'],
+                                                   header=0)
+                                       for epoch_i in range(n_epochs)], axis=1) for logit_i in [0, 1]
+                   }
+
+    logits_tbls = {logit_i: tfrec_tbl.merge(logit_tbl, how='left',
+                                            left_index=True,
+                                            right_index=True,
+                                            validate='one_to_one')
+                   for logit_i, logit_tbl in logits_tbls.items()}
+
+    # get margins over epochs for all examples
+    margins_dir = model_dir / 'margins'
+
+    margins_tbl = [pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv', usecols=cols_tbl)
+                   if epoch_i == 0 else pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv', usecols=['margin'])
+                   for epoch_i in range(n_epochs)]
+    margins_tbl = pd.concat(margins_tbl, axis=1)
+    margins_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+    if inj_thr:
+        # add column indicator for injected noise to the margins table
+        margins_tbl = margins_tbl.merge(dataset_tbl,
+                                        on=['target_id', 'tce_plnt_num'],
+                                        how='left',
+                                        validate='one_to_one')
+        margins_tbl.loc[margins_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
+
+    for logit_i in logits_tbls:
+        logits_tbls[logit_i] = logits_tbls[logit_i].set_index(keys=['target_id', 'tce_plnt_num'])
+
+    # plot margin for a few examples
+    for example in examples:
+
+        score_og_label = ranking_tbl.loc[example, f'score_{aum_tbl.loc[example, "original_label"]}']
+
+        f, ax = plt.subplots(3, 1, figsize=(8, 8))
+        # for example in examples:
+        for logit_i in logits_tbls:
+            ax[0].plot(np.arange(n_epochs),
+                       logits_tbls[logit_i].loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
+                       label=f'Logit {logit_i}')
+        ax[1].plot(np.arange(n_epochs), margins_tbl.loc[example, 'margin'])
+        ax[2].plot(np.arange(n_epochs),
+                   np.cumsum(margins_tbl.loc[example, 'margin'].values) / np.arange(1, n_epochs + 1))
+        ax[2].set_xlabel('Epoch Number')
+        ax[0].set_ylabel('Logit Value')
+        ax[1].set_ylabel('Margin')
+        ax[2].set_ylabel('AUM')
+        ax[0].set_title(f'Example {example} {aum_tbl.loc[example, "label"]}\n'
+                        f'{ranking_tbl.loc[example, "dataset"]} dataset | Score {score_og_label} | '
+                        f'Predicted class {ranking_tbl.loc[example, "predicted class"]}\n'
+                        f'{examples[example]["label"]}\n '
+                        f'AUM: {aum_tbl.loc[example, "margin"]:.4f}')
+        ax[0].legend()
+        f.savefig(examples_dir / f'{example[0]}.{example[1]}-{aum_tbl.loc[example, "label"]}_logits_margin.png')
+        plt.close()
+
+# %% Count number of times each example is in top-K AUM ranking across runs to study method's sensitivity.
+
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
+
+runs_dir = experiment_dir / 'runs'
+n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
+aum_rank = None
+cols_of_interest = [
+    'target_id',
+    'tce_plnt_num',
+    'original_label',
+    'dataset'
+]
+for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
+
+    aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    aum_tbl = aum_tbl.loc[aum_tbl['dataset'] == 'train']
+    aum_tbl = aum_tbl.sort_values(by='margin', ascending=True).reset_index(drop=True)
+    aum_tbl[f'rank_{run_dir.name}'] = aum_tbl.index
+
+    if aum_rank is None:
+        aum_rank = aum_tbl[cols_of_interest + [f'rank_{run_dir.name}']].copy(deep=True)
+    else:
+        aum_rank = aum_rank.merge(aum_tbl[['target_id', 'tce_plnt_num', f'rank_{run_dir.name}']],
+                                  on=['target_id', 'tce_plnt_num'],
+                                  validate='one_to_one')
+
+aum_rank.to_csv(experiment_dir / 'aum_ranks_allruns.csv', index=False)
+
+
+# %%
+
+
+def count_on_top_k(example, top_k):
+    """ Count number of times example is in top-k across runs.
+
+    :param example: pandas Series, rankings for example across runs
+    :param top_k: int, top-k
+    :return:
+        int, number of times examples is in top-k across runs.
+    """
+
+    return (example < top_k).sum()
+
+
+top_k = 10
+
+aum_rank = pd.read_csv(experiment_dir / 'aum_ranks_allruns.csv')
+aum_rank[f'top_{top_k}_cnts'] = aum_rank[[f'rank_run{run}' for run in range(n_runs)]].apply(count_on_top_k,
+                                                                                            args=(top_k,), axis=1)
+aum_rank.to_csv(experiment_dir / f'aum_ranks_allruns_cnts_top_{top_k}.csv', index=False)
+
+bins = np.arange(0, n_runs + 2)
+f, ax = plt.subplots()
+ax.hist(aum_rank[f'top_{top_k}_cnts'], bins, edgecolor='k')
+ax.set_ylabel(f'Counts')
+ax.set_xlabel(f'Number of runs example is in top-{top_k}')
+ax.set_yscale('log')
+ax.set_xticks(bins + 0.5)
+ax.set_xticklabels(bins)
+ax.set_xlim([bins[0], bins[-1]])
+ax.grid(axis='y')
+f.savefig(experiment_dir / f'hist_top_{top_k}.png')
+plt.close()

@@ -11,14 +11,29 @@ import numpy as np
 from astropy import stats
 import tensorflow as tf
 import multiprocessing
+import yaml
 
 # local
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from paths import path_main
 
 
 # %%
 
 def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+    """  Extracts feature values from a TFRecord file for computing normalization statistics.
+
+    :param tfrec_file: path to source TFRecord file
+    :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
+    :param timeSeriesFDLList: list, name of FDL centroid time series
+    :param centroidList: list, name of centroid time series
+    :param kwargs: dict, auxiliary parameters
+    :return:
+        scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
+        timeSeriesFDLDict: dict, list of values for  the FDL centroid  time series used to compute normalization
+        statistics
+        centroidDict: dict, list of values for the centroid time series used to compute normalization statistics
+    """
 
     if scalar_params is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
@@ -47,20 +62,19 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
 
         # get scalar parameters data
         if scalar_params is not None:
-            for scalarParam in scalarParams:
-                if scalarParams[scalarParam]['dtype'] == 'int':
+            for scalarParam in scalar_params:
+                if scalar_params[scalarParam]['dtype'] == 'int':
                     scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].int64_list.value[0])
-                elif scalarParams[scalarParam]['dtype'] == 'float':
-                    try:
-                        scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
-                    except:
-                        aaa
+                elif scalar_params[scalarParam]['dtype'] == 'float':
+                    scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
 
         # get FDL centroid time series data
         if timeSeriesFDLList is not None:
             transitDuration = example.features.feature['tce_duration'].float_list.value[0]
             orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(num_bins_glob, transitDuration, orbitalPeriod)
+            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(kwargs['num_bins_glob'],
+                                                                        transitDuration,
+                                                                        orbitalPeriod)
             for timeSeries in timeSeriesFDLList:
                 timeSeriesTce = np.array(example.features.feature[timeSeries].float_list.value)
                 if 'glob' in timeSeries:
@@ -81,6 +95,19 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
 
 
 def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+    """ Extracts feature values from a list of TFRecord files for computing normalization statistics.
+
+    :param tfrec_files: list, paths to source TFRecord files
+    :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
+    :param timeSeriesFDLList: list, name of FDL centroid time series
+    :param centroidList: list, name of centroid time series
+    :param kwargs: dict, auxiliary parameters needed for normalization
+    :return:
+        scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
+        timeSeriesFDLDict: dict, list of values for  the FDL centroid  time series used to compute normalization
+        statistics
+        centroidDict: dict, list of values for the centroid time series used to compute normalization statistics
+    """
 
     if scalar_params is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
@@ -126,96 +153,18 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
 
 if __name__ == '__main__':
 
-    # source TFRecord directory
-    tfrecDir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment')
+    # get the configuration parameters
+    path_to_yaml = Path(path_main + 'src_preprocessing/config_compute_normalization_stats.yaml')
 
-    nProcesses = 15
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
+
+    # source TFRecord directory
+    tfrecDir = Path(config['tfrecDir'])
 
     # get only training set TFRecords
     tfrecTrainFiles = [file for file in tfrecDir.iterdir() if
                        'train-shard' in file.stem]  # if file.stem.startswith('train-shard')]
-
-    clip_value_centroid = 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
-
-    # get out-of-transit indices for the local and global views
-    nr_transit_durations = 5  # number of transit durations in the local view
-    num_bins_loc = 31  # number of bins for local view
-    num_bins_glob = 301  # number of bins for global view
-
-    # dictionary that provides information on the normalization specificities for each scalar parameters (e.g., placeholder
-    # for missing value other than NaN, perform log-transform, clipping factor, data type, replace value for missing value)
-    # comment/add scalar parameters that are not/are part of the source TFRecords
-    scalarParams = {
-        # stellar parameters
-        'tce_steff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_slogg': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_smet': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                     'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_sradius': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_smass': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_sdens': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'mag': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        # secondary
-        'tce_maxmes': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'wst_depth': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                      'clip_factor': 20, 'dtype': 'float', 'replace_value': 0},
-        'tce_albedo_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-                            'dtype': 'float', 'replace_value': None},
-        'tce_ptemp_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-                           'dtype': 'float', 'replace_value': None},
-        # other diagnostics
-        'boot_fap': {'missing_value': -1, 'log_transform': True, 'log_transform_eps': 1e-32,
-                     'clip_factor': np.nan, 'dtype': 'float', 'replace_value': None},
-        'tce_cap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                         'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_hap_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                         'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_cap_hap_stat_diff': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                                  'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_rb_tcount0n': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                            'clip_factor': np.nan, 'dtype': 'float', 'replace_value': None},
-        # centroid
-        'tce_fwm_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan, 'clip_factor': 20,
-                         'dtype': 'float', 'replace_value': None},
-        'tce_dikco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                           'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_dicco_msky': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                           'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_dikco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
-                               'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_dicco_msky_err': {'missing_value': -1, 'log_transform': False, 'log_transform_eps': np.nan,
-                               'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        # flux
-        'transit_depth': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                          'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_max_mult_ev': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                            'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_robstat': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_period': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_prad': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                     'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        # odd-even
-        'odd_se_oot': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                       'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'even_se_oot': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                        'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'odd_std_oot_bin': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                            'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'even_std_oot_bin': {'missing_value': None, 'log_transform': False, 'log_transform_eps': np.nan,
-                             'clip_factor': 20, 'dtype': 'float', 'replace_value': None},
-        'tce_bin_oedp_stat': {'missing_value': 0, 'log_transform': False, 'log_transform_eps': np.nan,
-                              'clip_factor': 400, 'dtype': 'float', 'replace_value': None},
-    }
 
     # FDL centroid time series normalization statistics parameters
     timeSeriesFDLList = ['global_centr_fdl_view', 'local_centr_fdl_view']
@@ -223,18 +172,20 @@ if __name__ == '__main__':
     # our centroid time series normalization statistics parameters
     centroidList = ['global_centr_view', 'local_centr_view']  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
 
-    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(num_bins_loc, nr_transit_durations)  # same for all TCEs
-    pool = multiprocessing.Pool(processes=nProcesses)
-    tfrecTrainFiles_split = np.array_split(tfrecTrainFiles, nProcesses)
-    jobs = [(files, scalarParams, timeSeriesFDLList, centroidList)
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(config['num_bins_loc'],
+                                                              config['nr_transit_durations'])  # same for all TCEs
+    pool = multiprocessing.Pool(processes=config['nProcesses'])
+    tfrecTrainFiles_split = np.array_split(tfrecTrainFiles, config['nProcesses'])
+    jobs = [(files, config['scalarParams'], timeSeriesFDLList, centroidList)
             for files in tfrecTrainFiles_split]
     async_results = [pool.apply_async(get_values_from_tfrecords, job,
-                                      kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc}) for job in
-                     jobs]
+                                      kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
+                                            'num_bins_loc': config['num_bins_loc']})
+                     for job in jobs]
     pool.close()
 
-    if scalarParams is not None:
-        scalarParamsDict = {scalarParam: [] for scalarParam in scalarParams}
+    if config['scalarParams'] is not None:
+        scalarParamsDict = {scalarParam: [] for scalarParam in config['scalarParams']}
     else:
         scalarParamsDict = None
 
@@ -252,8 +203,8 @@ if __name__ == '__main__':
 
     for async_result in async_results:
         partial_values = async_result.get()
-        if scalarParams is not None:
-            for param in scalarParams:
+        if config['scalarParams'] is not None:
+            for param in config['scalarParams']:
                 scalarParamsDict[param].extend(partial_values[0][param])
         if timeSeriesFDLList is not None:
             for param in timeSeriesFDLList:
@@ -262,34 +213,35 @@ if __name__ == '__main__':
             for param in centroidList:
                 centroidDict[param].extend(partial_values[2][param])
 
-    if scalarParams is not None:
+    if config['scalarParams'] is not None:
         # save normalization statistics for the scalar parameters (median and robust estimator of std)
         scalarParamsDict = {scalarParam: np.array(scalarParamVals) for scalarParam, scalarParamVals in
                             scalarParamsDict.items()}
-        scalarNormStats = {scalarParam: {'median': np.nan, 'mad_std': np.nan, 'info': scalarParams[scalarParam]}
-                           for scalarParam in scalarParams}
-        for scalarParam in scalarParams:
+        scalarNormStats = {
+            scalarParam: {'median': np.nan, 'mad_std': np.nan, 'info': config['scalarParams'][scalarParam]}
+            for scalarParam in config['scalarParams']}
+        for scalarParam in config['scalarParams']:
 
             scalarParamVals = scalarParamsDict[scalarParam]
 
             # remove missing values so that they do not contribute to the normalization statistics
-            if scalarParams[scalarParam]['missing_value'] is not None:
+            if config['scalarParams'][scalarParam]['missing_value'] is not None:
                 if scalarParam == 'wst_depth':
                     scalarParamVals = scalarParamVals[
-                        np.where(scalarParamVals > scalarParams[scalarParam]['missing_value'])]
+                        np.where(scalarParamVals > config['scalarParams'][scalarParam]['missing_value'])]
                 else:
                     scalarParamVals = scalarParamVals[
-                        np.where(scalarParamVals != scalarParams[scalarParam]['missing_value'])]
+                        np.where(scalarParamVals != config['scalarParams'][scalarParam]['missing_value'])]
 
             # remove non-finite values
             scalarParamVals = scalarParamVals[np.isfinite(scalarParamVals)]
 
             # log transform the data (assumes data is non-negative after adding eps)
-            if scalarParams[scalarParam]['log_transform']:
+            if config['scalarParams'][scalarParam]['log_transform']:
 
                 # add constant value
-                if not np.isnan(scalarParams[scalarParam]['log_transform_eps']):
-                    scalarParamVals += scalarParams[scalarParam]['log_transform_eps']
+                if not np.isnan(config['scalarParams'][scalarParam]['log_transform_eps']):
+                    scalarParamVals += config['scalarParams'][scalarParam]['log_transform_eps']
 
                 scalarParamVals = np.log10(scalarParamVals)
 
@@ -304,7 +256,7 @@ if __name__ == '__main__':
         np.save(tfrecDir / 'train_scalarparam_norm_stats.npy', scalarNormStats)
         # create additional csv file with normalization statistics
         scalarNormStatsDataForDf = {}
-        for scalarParam in scalarParams:
+        for scalarParam in config['scalarParams']:
             scalarNormStatsDataForDf[f'{scalarParam}_median'] = [scalarNormStats[scalarParam]['median']]
             scalarNormStatsDataForDf[f'{scalarParam}_mad_std'] = [scalarNormStats[scalarParam]['mad_std']]
         scalarNormStatsDf = pd.DataFrame(data=scalarNormStatsDataForDf)
@@ -332,13 +284,13 @@ if __name__ == '__main__':
         normStatsCentroid = {timeSeries: {
             'median': np.median(centroidDict[timeSeries]),
             'std': stats.mad_std(centroidDict[timeSeries]),
-            'clip_value': clip_value_centroid
+            'clip_value': config['clip_value_centroid']
             # 'clip_value': np.percentile(centroidMat[timeSeries], 75) +
             #               1.5 * np.subtract(*np.percentile(centroidMat[timeSeries], [75, 25]))
         }
             for timeSeries in centroidList}
         for timeSeries in centroidList:
-            centroidMatClipped = np.clip(centroidDict[timeSeries], a_max=clip_value_centroid, a_min=None)
+            centroidMatClipped = np.clip(centroidDict[timeSeries], a_max=config['clip_value_centroid'], a_min=None)
             clipStats = {
                 'median_clip': np.median(centroidMatClipped),
                 'std_clip': stats.mad_std(centroidMatClipped)
@@ -351,7 +303,7 @@ if __name__ == '__main__':
             normStatsCentroidDataForDf[f'{timeSeries}_median'] = [normStatsCentroid[timeSeries]['median']]
             normStatsCentroidDataForDf[f'{timeSeries}_std'] = [normStatsCentroid[timeSeries]['std']]
             # normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = [normStatsCentroid[timeSeries]['clip_value']]
-            normStatsCentroidDataForDf[f'{timeSeries}_clip_value'] = clip_value_centroid
+            normStatsCentroidDataForDf[f'{timeSeries}_clip_value'] = config['clip_value_centroid']
             normStatsCentroidDataForDf[f'{timeSeries}_median_clip'] = [normStatsCentroid[timeSeries]['median_clip']]
             normStatsCentroidDataForDf[f'{timeSeries}_std_clip'] = [normStatsCentroid[timeSeries]['std_clip']]
         normStatsCentroidDf = pd.DataFrame(data=normStatsCentroidDataForDf)

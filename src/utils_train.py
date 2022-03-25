@@ -245,7 +245,7 @@ def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
                     print('{}: {}\n'.format(metric, res['{}'.format(metric)][-1]))
                 elif dataset == 'test':
                     print('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
-                else:
+                elif dataset == 'val':
                     print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
         if prec_at_top is not None:
@@ -285,7 +285,7 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
                     elif dataset == 'test':
                         res_file.write('{}: {}\n'.format(metric, res['test_{}'.format(metric)]))
 
-                    else:
+                    elif dataset == 'val':
                         res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
             if prec_at_top is not None:
@@ -315,38 +315,41 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
     if opt_metric is None:
         f, ax = plt.subplots()
         ax.plot(epochs, res['loss'], label='Training', color='b')
-        ax.plot(epochs, res['val_loss'], label='Validation', color='r')
+        val_test_str = 'Loss\n'
+        if 'val_loss' in res:
+            ax.plot(epochs, res['val_loss'], label='Validation', color='r')
+            val_test_str += f'Val {res["val_loss"][ep_idx]:.4} '
         if 'test_loss' in res:
             ax.scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
+            val_test_str += f'Test {res["test_loss"]:.4} '
         ax.set_xlim([0, epochs[-1] + 1])
         # ax[0].set_ylim(bottom=0)
         ax.set_xlabel('Epochs')
         ax.set_ylabel('Loss')
-        if 'test_loss' in res:
-            ax.set_title(f'Categorical cross-entropy\nVal/Test {res["val_loss"][ep_idx]:.4}/{res["test_loss"]:.4}')
-        else:
-            ax.set_title(f'Categorical cross-entropy\nVal {res["val_loss"][ep_idx]:.4}')
+        ax.set_title(val_test_str)
         ax.legend(loc="upper right")
         ax.grid(True)
     else:
         f, ax = plt.subplots(1, 2)
         ax[0].plot(epochs, res['loss'], label='Training', color='b')
-        ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
+        val_test_str = 'Loss\n'
+        if 'val_loss' in res:
+            ax[0].plot(epochs, res['val_loss'], label='Validation', color='r')
+            val_test_str += f'Val {res["val_loss"][ep_idx]:.4} '
         if 'test_loss' in res:
             ax[0].scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
+            val_test_str += f'Test {res["test_loss"]:.4} '
         ax[0].set_xlim([0, epochs[-1] + 1])
         # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
-        if 'test_loss' in res:
-            ax[0].set_title(f'Categorical cross-entropy\nVal/Test {res["val_loss"][ep_idx]:.4}/{res["test_loss"]:.4}')
-        else:
-            ax[0].set_title(f'Categorical cross-entropy\nVal {res["val_loss"][ep_idx]:.4}')
+        ax[0].set_title(val_test_str)
         ax[0].legend(loc="upper right")
         ax[0].grid(True)
         ax[1].plot(epochs, res[opt_metric], label='Training')
-        ax[1].plot(epochs, res[f'val_{opt_metric}'], label='Validation', color='r')
-        ax[1].scatter(epochs[ep_idx], res[f'val_{opt_metric}'][ep_idx], c='r')
+        if f'val_{opt_metric}' in res:
+            ax[1].plot(epochs, res[f'val_{opt_metric}'], label='Validation', color='r')
+            ax[1].scatter(epochs[ep_idx], res[f'val_{opt_metric}'][ep_idx], c='r')
         if f'test_{opt_metric}' in res:
             ax[1].scatter(epochs[ep_idx], res[f'test_{opt_metric}'], label='Test', c='k')
         ax[1].set_xlim([0, epochs[-1] + 1])
@@ -417,12 +420,15 @@ def plot_pr_curve(res, ep_idx, save_path):
     """
 
     f, ax = plt.subplots()
-    ax.plot(res['val_rec_thr'][ep_idx], res['val_prec_thr'][ep_idx],
-            label='Val (AUC={:.3f})'.format(res['val_auc_pr'][ep_idx]), color='r')
-    ax.plot(res['test_rec_thr'], res['test_prec_thr'],
-            label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='k')
-    ax.plot(res['rec_thr'][ep_idx], res['prec_thr'][ep_idx],
-            label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='b')
+    if 'val_rec_thr' in res:
+        ax.plot(res['val_rec_thr'][ep_idx], res['val_prec_thr'][ep_idx],
+                label='Val (AUC={:.3f})'.format(res['val_auc_pr'][ep_idx]), color='r')
+    if 'test_rec_thr' in res:
+        ax.plot(res['test_rec_thr'], res['test_prec_thr'],
+                label='Test (AUC={:.3f})'.format(res['test_auc_pr']), color='k')
+    if 'rec_thr' in res:
+        ax.plot(res['rec_thr'][ep_idx], res['prec_thr'][ep_idx],
+                label='Train (AUC={:.3f})'.format(res['auc_pr'][ep_idx]), color='b')
     # ax.scatter(res['val_rec_thr'][ep_idx],
     #            res['val_prec_thr'][ep_idx], c='r')
     # ax.scatter(res['test_rec_thr'],
@@ -442,36 +448,40 @@ def plot_pr_curve(res, ep_idx, save_path):
     plt.close()
 
 
-def plot_roc(res, ep_idx, save_path):
+def plot_roc(res, ep_idx, datasets, save_path):
     """ Plot ROC.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
     for the test set)
     :param ep_idx: idx of the epoch in which the test set was evaluated
+    :param datasets: list, datasets for which to plot ROC
     :param save_path: str, filepath used to save the plots figure
     :return:
     """
 
     # count number of samples per class to compute TPR and FPR
-    num_samples_per_class = {dataset: {'positive': 0, 'negative': 0} for dataset in ['train', 'val', 'test']}
-    num_samples_per_class['train'] = {'positive': res['tp'][0][0] + res['fn'][0][0],
-                                      'negative': res['fp'][0][0] + res['tn'][0][0]}
-    num_samples_per_class['val'] = {'positive': res['val_tp'][0][0] + res['val_fn'][0][0],
-                                    'negative': res['val_fp'][0][0] + res['val_tn'][0][0]}
-    num_samples_per_class['test'] = {'positive': res['test_tp'][0] + res['test_fn'][0],
-                                     'negative': res['test_fp'][0] + res['test_tn'][0]}
+    num_samples_per_class = {dataset: {'positive': 0, 'negative': 0} for dataset in datasets}
 
     # plot roc
     f, ax = plt.subplots()
-    ax.plot(res['fp'][ep_idx] / num_samples_per_class['train']['negative'],
-            res['tp'][ep_idx] / num_samples_per_class['train']['positive'], 'b',
-            label='Train (AUC={:.3f})'.format(res['auc_roc'][ep_idx]))
-    ax.plot(res['val_fp'][ep_idx] / num_samples_per_class['val']['negative'],
-            res['val_tp'][ep_idx] / num_samples_per_class['val']['positive'], 'r',
-            label='Val (AUC={:.3f})'.format(res['val_auc_roc'][ep_idx]))
-    ax.plot(res['test_fp'] / num_samples_per_class['test']['negative'],
-            res['test_tp'] / num_samples_per_class['test']['positive'], 'k',
-            label='Test (AUC={:.3f})'.format(res['test_auc_roc']))
+    if 'train' in datasets:
+        num_samples_per_class['train'] = {'positive': res['tp'][0][0] + res['fn'][0][0],
+                                          'negative': res['fp'][0][0] + res['tn'][0][0]}
+        ax.plot(res['fp'][ep_idx] / num_samples_per_class['train']['negative'],
+                res['tp'][ep_idx] / num_samples_per_class['train']['positive'], 'b',
+                label='Train (AUC={:.3f})'.format(res['auc_roc'][ep_idx]))
+    if 'val' in datasets:
+        ax.plot(res['val_fp'][ep_idx] / num_samples_per_class['val']['negative'],
+                res['val_tp'][ep_idx] / num_samples_per_class['val']['positive'], 'r',
+                label='Val (AUC={:.3f})'.format(res['val_auc_roc'][ep_idx]))
+        num_samples_per_class['val'] = {'positive': res['val_tp'][0][0] + res['val_fn'][0][0],
+                                        'negative': res['val_fp'][0][0] + res['val_tn'][0][0]}
+    if 'test' in datasets:
+        num_samples_per_class['test'] = {'positive': res['test_tp'][0] + res['test_fn'][0],
+                                         'negative': res['test_fp'][0] + res['test_tn'][0]}
+        ax.plot(res['test_fp'] / num_samples_per_class['test']['negative'],
+                res['test_tp'] / num_samples_per_class['test']['positive'], 'k',
+                label='Test (AUC={:.3f})'.format(res['test_auc_roc']))
 
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
