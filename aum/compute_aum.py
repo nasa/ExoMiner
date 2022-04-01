@@ -1,4 +1,4 @@
-""" Compute area under margin (AUM). """
+""" Compute margins and area under margin (AUM) using the logits output by the model for each epoch. """
 
 # 3rd party
 import os
@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 from pathlib import Path
 import numpy as np
-from functools import reduce
+# from functools import reduce
 import yaml
 import multiprocessing
 
@@ -70,7 +70,7 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl):
     :param experiment_dir: Path, experiment root directory
     :param run: Path, run directory
     :param features: dict, features to extract from the TFRecord dataset
-    :param idx_cols: list, columns to keep in the AUM table from the margin tables
+    :param idx_cols: list, columns to keep in the AUM and margin tables from the margin tables
     :param tce_tbl: pandas DataFrame, TCE table
     :return:
     """
@@ -84,9 +84,10 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl):
     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=features)
     # tfrec_tbl.to_csv(experiment_dir / 'tfrec_tbl.csv', index=False)
     tfrec_tbl = tfrec_tbl.merge(tce_tbl, on=['target_id', 'tce_plnt_num'], how='left', validate='one_to_one')
+    tfrec_tbl['dataset'] = tfrec_tbl.apply(set_dataset, axis=1)
 
-    # logit directory
-    logit_dir = run / 'models' / 'model1'
+    # model directory
+    model_dir = run / 'models' / 'model1'
 
     train_config_fp = experiment_dir / 'config_train.yaml'
     with(open(train_config_fp, 'r')) as file:  # read default YAML configuration file
@@ -94,10 +95,10 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl):
     train_config['label_map_pred']['UNK'] = 0  # assume UNK examples are non-PC
 
     # create directory to save computed margins
-    margins_dir = logit_dir / 'margins'
+    margins_dir = model_dir / 'margins'
     margins_dir.mkdir(exist_ok=True)
 
-    logits_tbls = {fp.stem.split('-')[1]: pd.read_csv(fp) for fp in logit_dir.iterdir() if 'logits' in fp.name}
+    logits_tbls = {fp.stem.split('-')[1]: pd.read_csv(fp) for fp in model_dir.iterdir() if 'logits' in fp.name}
     # aggregate logits across all epochs
     for logits_tbl_name, logits_tbl in logits_tbls.items():
         logits_tbls[logits_tbl_name] = tfrec_tbl.merge(logits_tbl, how='left', left_index=True, right_index=True,
@@ -111,6 +112,8 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl):
             logits_tbl.apply(lambda row: train_config['label_map_pred'][row['label']], axis=1)
         # logits_tbls[logits_tbl_name] = logits_tbls[logits_tbl_name].astype(dtype={'label_id': str})
 
+    n_epochs = len(logits_tbls)
+
     # compute margin
     for logits_tbl_name, logits_tbl in logits_tbls.items():
         logits_tbls[logits_tbl_name]['margin'] = logits_tbl.apply(compute_margin_ex_tbl, args=(label_ids,), axis=1)
@@ -118,23 +121,19 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl):
     # save margin tables
     for logits_tbl_name, logits_tbl in logits_tbls.items():
         logits_tbls[logits_tbl_name].to_csv(margins_dir / f'margins_epoch-{logits_tbl_name}.csv', index=False)
+    margins_tbl = []
+    for epoch_i in range(len(logits_tbls)):
+        margins_tbl.append(logits_tbls[str(epoch_i)][idx_cols + ['margin']] if epoch_i == 0
+                           else logits_tbls[str(epoch_i)][['margin']])
+        margins_tbl[-1] = margins_tbl[-1].rename(columns={'margin': f'epoch_{epoch_i}'})
+    margins_tbl = pd.concat(margins_tbl, axis=1)
+    margins_tbl.to_csv(margins_dir / 'margins_allepochs.csv', index=False)
 
-    # compute AUM
-    margin_tbls = [pd.read_csv(fp).set_index(idx_cols)['margin'] for fp in margins_dir.iterdir()]
-    n_epochs = len(margin_tbls)
-
-    # sum margins across epochs and divide by number of epochs
-    aum_tbl = reduce(lambda df1, df2: df1.add(df2), margin_tbls) / n_epochs
-
-    # fill in dataset
-    aum_tbl = aum_tbl.to_frame().reset_index()
-    aum_tbl['dataset'] = aum_tbl.apply(set_dataset, axis=1)
-
-    aum_tbl.to_csv(logit_dir / 'aum.csv', index=False)
-
-    # aum_tbl.loc[aum_tbl['label'] == noise_label, 'margin'] = np.nan
-    #
-    # aum_tbl.to_csv(logit_dir / 'aum_nan_mislabeled.csv', index=False)
+    # compute AUM;     # sum margins across epochs and divide by number of epochs
+    aum_tbl = margins_tbl.copy(deep=True)
+    aum_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]] = \
+        aum_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].cumsum(axis=1) / np.arange(1, n_epochs + 1)
+    aum_tbl.to_csv(model_dir / 'aum.csv', index=False)
 
 
 if __name__ == '__main__':
@@ -148,12 +147,12 @@ if __name__ == '__main__':
     }
 
     # choose columns to keep in the AUM table
-    idx_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name']
+    idx_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
 
     # noise_label = 'MISLABELED'
 
     experiment_dir = Path(
-        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
+        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
 
     tce_tbl = pd.read_csv(
         '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr.csv',
