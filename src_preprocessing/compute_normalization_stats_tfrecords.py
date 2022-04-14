@@ -91,7 +91,7 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
                 else:
                     centroidDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_loc])
 
-        return scalarParamsDict, timeSeriesFDLDict, centroidDict
+    return scalarParamsDict, timeSeriesFDLDict, centroidDict
 
 
 def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
@@ -146,6 +146,9 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
             for param in centroidList:
                 centroidDict[param].extend(centroidDict_tfrecord[param])
 
+    print(f'[{multiprocessing.current_process().name}] Got data from {tfrecFile.name} '
+          f'({tfrec_i / len(tfrec_files) * 100} %)')
+
     return scalarParamsDict, timeSeriesFDLDict, centroidDict
 
 
@@ -180,7 +183,8 @@ if __name__ == '__main__':
             for files in tfrecTrainFiles_split]
     async_results = [pool.apply_async(get_values_from_tfrecords, job,
                                       kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
-                                            'num_bins_loc': config['num_bins_loc']})
+                                            'num_bins_loc': config['num_bins_loc'],
+                                            'num_bins_glob': config['num_bins_glob']})
                      for job in jobs]
     pool.close()
 
@@ -248,9 +252,8 @@ if __name__ == '__main__':
             # compute median as robust estimate of central tendency
             scalarNormStats[scalarParam]['median'] = np.median(scalarParamVals)
             # compute MAD std as robust estimate of deviation from central tendency
-            scalarNormStats[scalarParam]['mad_std'] = stats.mad_std(scalarParamVals) if scalarParam not in [
-                'tce_rb_tcount0n'] \
-                else np.std(scalarParamVals)
+            scalarNormStats[scalarParam]['mad_std'] = stats.mad_std(scalarParamVals) \
+                if scalarParam not in ['tce_rb_tcount0n'] else np.std(scalarParamVals)
 
         # save normalization statistics for scalar parameters
         np.save(tfrecDir / 'train_scalarparam_norm_stats.npy', scalarNormStats)

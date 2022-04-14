@@ -17,6 +17,16 @@ from paths import path_main
 
 
 def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
+    """ Normalize FDL centroid for example.
+
+    :param example: serialized example
+    :param normStatsFDLCentroid: dict, normalization statistics and respective normalization protocol
+    :param auxParams: dict, auxiliary parameters needed for normalization
+    :param idxs_nontransitcadences_loc: NumPy array, list with out-of-transit indices for the local views
+    :return:
+        norm_centr_fdl_feat: dict, normalized FDL centroid views for the example
+    """
+
     # get out-of-transit indices for the global views
     transitDuration = example.features.feature['tce_duration'].float_list.value[0]
     orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
@@ -39,21 +49,25 @@ def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontra
 
     # center and normalize FDL centroid time series
     glob_centr_fdl_view = np.array(example.features.feature['global_centr_fdl_view'].float_list.value)
+    assert normStatsFDLCentroid['global_centr_fdl_view']['oot_std'] > 0
     glob_centr_fdl_view_norm = \
         centering_and_normalization(glob_centr_fdl_view,
                                     normStatsFDLCentroid['global_centr_fdl_view']['oot_median'],
                                     normStatsFDLCentroid['global_centr_fdl_view']['oot_std']
                                     )
-    glob_centr_fdl_view_norm *= glob_flux_view_std / \
-                                np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
+    std_oot_glob = np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
+    assert std_oot_glob > 0
+    glob_centr_fdl_view_norm *= glob_flux_view_std / std_oot_glob
     loc_centr_fdl_view = np.array(example.features.feature['local_centr_fdl_view'].float_list.value)
+    assert normStatsFDLCentroid['local_centr_fdl_view']['oot_std'] > 0
     loc_centr_fdl_view_norm = \
         centering_and_normalization(loc_centr_fdl_view,
                                     normStatsFDLCentroid['local_centr_fdl_view']['oot_median'],
                                     normStatsFDLCentroid['local_centr_fdl_view']['oot_std']
                                     )
-    loc_centr_fdl_view_norm *= loc_flux_view_std / np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc],
-                                                          ddof=1)
+    std_oot_loc = np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc], ddof=1)
+    assert std_oot_loc > 0
+    loc_centr_fdl_view_norm *= loc_flux_view_std / std_oot_loc
 
     norm_centr_fdl_feat = {
         'local_centr_fdl_view_norm': loc_centr_fdl_view_norm,
@@ -63,7 +77,16 @@ def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontra
     return norm_centr_fdl_feat
 
 
-def normalize_scalar_parameters(example, normStatsScalars):
+def normalize_scalar_parameters(example, normStatsScalars, epsilon=1e-32):
+    """ Normalize scalar features for example.
+
+    :param example: serialized example
+    :param normStatsScalars: dict, normalization statistics and respective normalization protocol for each feature
+    :param epsilon: float, factor added to the denominator of the normalization to avoid division by zero
+    :return:
+        norm_scalar_feat: dict, normalized scalar features for the example
+    """
+
     norm_scalar_feat = {f'{scalar_param}_norm': np.nan for scalar_param in normStatsScalars}
 
     # normalize scalar parameters
@@ -105,7 +128,7 @@ def normalize_scalar_parameters(example, normStatsScalars):
 
             scalarParamVal = np.log10(scalarParamVal)
 
-        # clipping the data
+        # clipping the data to median +- clip_factor * MAD std to remove outliers
         if not np.isnan(normStatsScalars[scalarParam]['info']['clip_factor']):
             scalarParamVal = np.clip([scalarParamVal],
                                      normStatsScalars[scalarParam]['median'] -
@@ -116,18 +139,31 @@ def normalize_scalar_parameters(example, normStatsScalars):
                                      normStatsScalars[scalarParam]['mad_std']
                                      )[0]
 
-        # TODO: add value to avoid division by zero?
         # standardization
-        scalarParamVal = (scalarParamVal - normStatsScalars[scalarParam]['median']) / \
-                         normStatsScalars[scalarParam]['mad_std']
+        if normStatsScalars[scalarParam]['info']['standardize']:
+            # TODO: add value to avoid division by zero?
+            # try:
+            #     assert normStatsScalars[scalarParam]['mad_std'] > 0
+            # except:
+            #     print(f'{scalarParam} has zero MAD std.')
+            scalarParamVal = (scalarParamVal - normStatsScalars[scalarParam]['median']) / \
+                             (normStatsScalars[scalarParam]['mad_std'] + epsilon)
 
-        # add standardized feature to dictionary of standardized features
+        # add normalized feature to dictionary of normalized features
         norm_scalar_feat[f'{scalarParam}_norm'] = [scalarParamVal]
 
     return norm_scalar_feat
 
 
 def normalize_centroid(example, normStatsCentroid):
+    """ Normalize the centroid views for the example.
+
+    :param example: serialized example
+    :param normStatsCentroid: dict, normalization statistics for the centroid views
+    :return:
+        norm_centroid_feat: dict, normalized centroid views for the example
+    """
+
     norm_centroid_feat = {}
 
     glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
@@ -137,6 +173,7 @@ def normalize_centroid(example, normStatsCentroid):
     glob_centr_view_std_clip = np.clip(glob_centr_view,
                                        a_max=normStatsCentroid['global_centr_view']['clip_value'],
                                        a_min=None)
+    assert normStatsCentroid['global_centr_view']['std_clip'] > 0
     glob_centr_view_std_clip = centering_and_normalization(glob_centr_view_std_clip,
                                                            # normStats['centroid']['global_centr_view']['median_'
                                                            #                                            'clip'],
@@ -146,6 +183,7 @@ def normalize_centroid(example, normStatsCentroid):
     loc_centr_view_std_clip = np.clip(loc_centr_view,
                                       a_max=normStatsCentroid['local_centr_view']['clip_value'],
                                       a_min=None)
+    assert normStatsCentroid['local_centr_view']['std_clip'] > 0
     loc_centr_view_std_clip = centering_and_normalization(loc_centr_view_std_clip,
                                                           # normStats['centroid']['local_centr_view']['median_'
                                                           #                                           'clip'],
@@ -155,11 +193,13 @@ def normalize_centroid(example, normStatsCentroid):
                                'local_centr_view_std_clip': loc_centr_view_std_clip})
 
     # 2) no clipping
+    assert normStatsCentroid['global_centr_view']['std'] > 0
     glob_centr_view_std_noclip = centering_and_normalization(glob_centr_view,
                                                              # normStats['centroid']['global_centr_'
                                                              #                       'view']['median'],
                                                              np.median(glob_centr_view),
                                                              normStatsCentroid['global_centr_view']['std'])
+    assert normStatsCentroid['local_centr_view']['std'] > 0
     loc_centr_view_std_noclip = centering_and_normalization(loc_centr_view,
                                                             # normStats['centroid']['local_centr_view']['median'],
                                                             np.median(loc_centr_view),
@@ -178,12 +218,14 @@ def normalize_centroid(example, normStatsCentroid):
     if 'global_centr_view_adjscl_median' in normStatsCentroid:
         glob_centr_view_adjscl = np.array(example.features.feature['global_centr_view_adjscl'].float_list.value)
         loc_centr_view_adjscl = np.array(example.features.feature['local_centr_view_adjscl'].float_list.value)
+        assert normStatsCentroid['global_centr_view']['std_adjscl'] > 0
         glob_centr_view_std_noclip_adjscl = centering_and_normalization(glob_centr_view_adjscl,
                                                                         # normStats['centroid']['global_centr_'
                                                                         #                       'view']['median'],
                                                                         np.median(glob_centr_view_adjscl),
                                                                         normStatsCentroid['global_centr_view'][
                                                                             'std_adjscl'])
+        assert normStatsCentroid['local_centr_view']['std_adjscl'] > 0
         loc_centr_view_std_noclip_adjscl = centering_and_normalization(loc_centr_view_adjscl,
                                                                        # normStats['centroid']['local_centr_view']['median'],
                                                                        np.median(loc_centr_view_adjscl),
@@ -266,10 +308,11 @@ if __name__ == '__main__':
     srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
     # load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
+    normStatsDir = Path(config['normStatsDir'])
     normStats = {
-        'scalar_params': np.load(config['normStatsDir'] / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(config['normStatsDir'] / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(config['normStatsDir'] / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+        'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+        'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
     }
 
     # WRITE CODE HERE TO ADJUST NORMALIZATION STATISTICS (E.G., ADD SCALAR FEATURES THAT YOU  WANT TO NORMALIZE AND ARE

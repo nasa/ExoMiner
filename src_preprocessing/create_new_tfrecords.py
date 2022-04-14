@@ -15,135 +15,166 @@ import multiprocessing
 import tensorflow as tf
 import itertools
 import numpy as np
+import yaml
 
 # local
 from src_preprocessing.utils_manipulate_tfrecords import create_shard
+from paths import path_main
+from utils.utils_dataio import is_yamlble
 
-# %%
+if __name__ == '__main__':
 
-# source TFRecord directory
-srcTfrecDir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021')
-# unique identifier for TCEs (+ 'target_id')
-# tceIdentifier = 'tce_plnt_num'
+    # get the configuration parameters
+    path_to_yaml = Path(path_main + 'src_preprocessing/config_create_new_tfrecords.yaml')
 
-# %% load train, val and test datasets; tbe keys of the `datasetTbl` dictionary determines the prefix name of the new
-# TFRecords files
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
 
-datasetTblDir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
-datasets = ['train', 'val', 'test', 'predict']
-datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in datasets}
-# datasetTbl = {'predict': pd.read_csv(
-#     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')}
+    # %%
 
-# %% Filter out items from the datasets that we do not want to have in the final TFRecords
+    # source TFRecord directory
+    srcTfrecDir = Path(config['src_tfrec_dir'])
 
-# get only TCEs with tce_plnt_num = 1
-# datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
+    # unique identifier for TCEs (+ 'target_id')
+    # tceIdentifier = 'tce_plnt_num'
 
-# get TCEs not used for training nor evaluation
-# datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv')
-#               }
-# # remove rogue TCEs
-# datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
-# # remove CONFIRMED KOIs
-# datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['koi_disposition'] != 'CONFIRMED']
-# # remove CFP and CFA KOIs
-# datasetTbl['predict'] = datasetTbl['predict'].loc[~((datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FP') |
-#                         (datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FA'))]
-# # remove non-KOIs
-# datasetTbl['predict'] = datasetTbl['predict'].loc[~(datasetTbl['predict']['kepoi_name'].isna())]
+    # %% load train, val and test datasets; the keys of the `datasetTbl` dictionary determines the prefix name of the new
+    # TFRecords files
 
-# %% Create new TFRecords by setting the number of items per TFRecord
+    datasetTblDir = Path(config['split_tbls_dir'])
+    datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in config['datasets']}
 
-# input parameters
-srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
-destTfrecDirName = 'experiment'
-destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}_{destTfrecDirName}'
-destTfrecDir.mkdir(exist_ok=True)
-omitMissing = True  # skip missing TCEs in the TFRecords that exist in the dataset tables
-nProcesses = 15  # number of processes to run in parallel
+    # datasetTbl = {'predict': pd.read_csv(
+    #     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')}
 
-# get number of items per dataset table
-numTces = {}
-for dataset in datasetTbl:
-    numTces[dataset] = len(datasetTbl[dataset])
-    print(datasetTbl[dataset]['label'].value_counts())
-    print(f'Number of TCEs in {dataset} set: {len(datasetTbl[dataset])}')
+    # Filter out items from the datasets that we do not want to have in the final TFRecords
 
-# defined number of examples per shard
-numTcesPerShard = np.min([100] + list(numTces.values()))
-numShards = {dataset: int(numTces[dataset] / numTcesPerShard) for dataset in datasetTbl}
+    # for AUM experiments
+    datasetTbl['train'] = pd.concat([datasetTbl['train'], datasetTbl['val'], datasetTbl['test']], axis=0,
+                                    ignore_index=True)
+    del datasetTbl['test']
+    del datasetTbl['val']
+    datasetTbl['predict'] = pd.concat([datasetTbl['predict'],
+                                       datasetTbl['train'].loc[datasetTbl['train']['label'] == 'NTP']],
+                                      axis=0, ignore_index=True)
+    datasetTbl['train'] = datasetTbl['train'].loc[datasetTbl['train']['label'].isin(['PC', 'AFP'])]
+    for dataset in datasetTbl:
+        datasetTbl[dataset]['uid'] = \
+            datasetTbl[dataset][['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
+                                                                                              x['tce_plnt_num']),
+                                                                     axis=1)
 
-assert np.all(list(numShards.values()))
+    # get only TCEs with tce_plnt_num = 1
+    # datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
 
-print(f'Number of shards per dataset: {numShards}')
+    # get TCEs not used for training nor evaluation
+    # datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv')
+    #               }
+    # # remove rogue TCEs
+    # datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
+    # # remove CONFIRMED KOIs
+    # datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['koi_disposition'] != 'CONFIRMED']
+    # # remove CFP and CFA KOIs
+    # datasetTbl['predict'] = datasetTbl['predict'].loc[~((datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FP') |
+    #                         (datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FA'))]
+    # # remove non-KOIs
+    # datasetTbl['predict'] = datasetTbl['predict'].loc[~(datasetTbl['predict']['kepoi_name'].isna())]
 
-# create pairs of shard filename and shard TCE table
-shardFilenameTuples = []
-for dataset in datasetTbl:
-    shardFilenameTuples.extend(list(itertools.product([dataset], range(numShards[dataset]), [numShards[dataset] - 1])))
-shardFilenames = ['{}-shard-{:05d}-of-{:05d}'.format(*shardFilenameTuple) for shardFilenameTuple in shardFilenameTuples]
+    # %% Create new TFRecords by setting the number of items per TFRecord
 
-shardTuples = []
-for shardFilename in shardFilenames:
+    # input parameters
+    srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
+    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}_{config["destTfrecDirName"]}'
+    destTfrecDir.mkdir(exist_ok=True)
 
-    shardFilenameSplit = shardFilename.split('-')
-    dataset, shard_i = shardFilenameSplit[0], int(shardFilenameSplit[2])
+    # get number of items per dataset table
+    numTces = {}
+    for dataset in datasetTbl:
+        numTces[dataset] = len(datasetTbl[dataset])
+        print(datasetTbl[dataset]['label'].value_counts())
+        print(f'Number of TCEs in {dataset} set: {len(datasetTbl[dataset])}')
 
-    if shard_i < numShards[dataset] - 1:
-        shardTuples.append((shardFilename,
-                            datasetTbl[dataset][shard_i * numTcesPerShard:(shard_i + 1) * numTcesPerShard]))
-    else:
-        shardTuples.append((shardFilename,
-                            datasetTbl[dataset][shard_i * numTcesPerShard:]))
+    # define number of examples per shard
+    numTcesPerShard = np.min([config['n_examples_per_shard']] + list(numTces.values()))
+    numShards = {dataset: int(numTces[dataset] / numTcesPerShard) for dataset in datasetTbl}
 
-checkNumTcesInDatasets = {dataset: 0 for dataset in datasetTbl}
-for shardTuple in shardTuples:
-    checkNumTcesInDatasets[shardTuple[0].split('-')[0]] += len(shardTuple[1])
-print(checkNumTcesInDatasets)
+    assert np.all(list(numShards.values()))
 
-pool = multiprocessing.Pool(processes=nProcesses)
-jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, omitMissing) for shardTuple in shardTuples]
-async_results = [pool.apply_async(create_shard, job) for job in jobs]
-pool.close()
-for async_result in async_results:
-    async_result.get()
+    print(f'Number of shards per dataset: {numShards}')
 
-print('TFRecord dataset created.')
+    # create pairs of shard filename and shard TCE table
+    shardFilenameTuples = []
+    for dataset in datasetTbl:
+        shardFilenameTuples.extend(
+            list(itertools.product([dataset], range(numShards[dataset]), [numShards[dataset] - 1])))
+    shardFilenames = ['{}-shard-{:05d}-of-{:05d}'.format(*shardFilenameTuple) for shardFilenameTuple in
+                      shardFilenameTuples]
 
-# %% check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
-# TFRecords
+    shardTuples = []
+    for shardFilename in shardFilenames:
 
-tfrecFiles = [file for file in destTfrecDir.iterdir() if 'shard' in file.stem]
-countExamples = []  # total number of examples
-for tfrecFile in tfrecFiles:
+        shardFilenameSplit = shardFilename.split('-')
+        dataset, shard_i = shardFilenameSplit[0], int(shardFilenameSplit[2])
 
-    dataset = tfrecFile.stem.split('-')[0]
+        if shard_i < numShards[dataset] - 1:
+            shardTuples.append((shardFilename,
+                                datasetTbl[dataset][shard_i * numTcesPerShard:(shard_i + 1) * numTcesPerShard]))
+        else:
+            shardTuples.append((shardFilename,
+                                datasetTbl[dataset][shard_i * numTcesPerShard:]))
 
-    countExamplesShard = 0
+    checkNumTcesInDatasets = {dataset: 0 for dataset in datasetTbl}
+    for shardTuple in shardTuples:
+        checkNumTcesInDatasets[shardTuple[0].split('-')[0]] += len(shardTuple[1])
+    print(checkNumTcesInDatasets)
 
-    # iterate through the source shard
-    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecFile))
+    pool = multiprocessing.Pool(processes=config['nProcesses'])
+    jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omitMissing']) for shardTuple in shardTuples]
+    async_results = [pool.apply_async(create_shard, job) for job in jobs]
+    pool.close()
+    for async_result in async_results:
+        async_result.get()
 
-    for string_record in tfrecord_dataset.as_numpy_iterator():
+    print('TFRecord dataset created.')
 
-        example = tf.train.Example()
-        example.ParseFromString(string_record)
+    # %% check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
+    # TFRecords
 
-        # if tceIdentifier == 'tce_plnt_num':
-        #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-        # else:
-        #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
-        #
-        # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+    tfrecFiles = [file for file in destTfrecDir.iterdir() if 'shard' in file.stem]
+    countExamples = []  # total number of examples
+    for tfrecFile in tfrecFiles:
 
-        example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+        dataset = tfrecFile.stem.split('-')[0]
 
-        foundTce = datasetTbl[dataset].loc[datasetTbl[dataset]['uid'] == example_uid]
+        countExamplesShard = 0
 
-        if len(foundTce) == 0:
-            raise ValueError(f'Example {example_uid} not found in the dataset tables.')
+        # iterate through the source shard
+        tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecFile))
 
-        countExamplesShard += 1
-    countExamples.append(countExamplesShard)
+        for string_record in tfrecord_dataset.as_numpy_iterator():
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            # if tceIdentifier == 'tce_plnt_num':
+            #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
+            # else:
+            #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
+            #
+            # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
+
+            example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+
+            foundTce = datasetTbl[dataset].loc[datasetTbl[dataset]['uid'] == example_uid]
+
+            if len(foundTce) == 0:
+                raise ValueError(f'Example {example_uid} not found in the dataset tables.')
+
+            countExamplesShard += 1
+        countExamples.append(countExamplesShard)
+
+    print(f'Finished checking for examples in the dataset tables that are missing from the TFRecord shards.')
+
+    json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+    with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
+        yaml.dump(json_dict, preproc_run_file)

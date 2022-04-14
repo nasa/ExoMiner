@@ -150,18 +150,23 @@ if __name__ == '__main__':
     tfrec_dir = Path(config['src_tfrec_dir'])
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.suffix != '.csv' and 'shard' in fp.stem]
 
-    features = {
-        'target_id': {'dtype': 'int64'},
-        'tce_plnt_num': {'dtype': 'int64'},
-        'label': {'dtype': 'str'},
-
-    }
-    tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=features)
+    tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=config['features'])
     tfrec_tbl.to_csv(tfrec_dir / 'tfrec_tbl.csv', index=False)
 
     tfrec_tbl['label_changed_to_mislabeled'] = False
     tfrec_tbl['label_changed_to_other_class'] = False
     tfrec_tbl['label_before'] = tfrec_tbl['label']
+
+    # get KOIs that are flagged only for ephemeris match contamination
+    tce_tbl = pd.read_csv(
+        '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat.csv')
+    tce_tbl['uid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
+        lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
+    kois_ephem_match_only = tce_tbl.loc[(tce_tbl['koi_fpflag_nt'] == 0) &
+                                        (tce_tbl['koi_fpflag_ss'] == 0) &
+                                        (tce_tbl['koi_fpflag_co'] == 0) &
+                                        (tce_tbl['koi_fpflag_ec'] == 1)]
+    print(f'Number of KOIs that are flagged only for ephemeris contamination: {len(kois_ephem_match_only)}')
 
     # # get only training set examples
     # train_set = tfrec_tbl.loc[tfrec_tbl['shard_name'].str.contains('train')]
@@ -196,19 +201,19 @@ if __name__ == '__main__':
     # afp_train_set_not_chosen = afp_train_set.loc[~afp_train_set.index.isin(afp_train_set_chosen.index)]
     # afp_train_set = afp_train_set_chosen.copy(deep=True)
 
-    # split these categories into N splits
-    pc_train_set_split = np.array_split(pc_train_set, config['n_splits'])
-    afp_train_set_split = np.array_split(afp_train_set, config['n_splits'])
-
-    # create different iterations by combining these splits
-    # each combination has their examples' labels switched to MISLABELED pseudo-class
-    train_set_splits = [pd.concat(split_comb)
-                        for split_comb in itertools.product(pc_train_set_split, afp_train_set_split)]
+    # # split these categories into N splits
+    # pc_train_set_split = np.array_split(pc_train_set, config['n_splits'])
+    # afp_train_set_split = np.array_split(afp_train_set, config['n_splits'])
+    # # create different iterations by combining these splits
+    # # each combination has their examples' labels switched to MISLABELED pseudo-class
+    # train_set_splits = [pd.concat(split_comb)
+    #                     for split_comb in itertools.product(pc_train_set_split, afp_train_set_split)]
 
     # create the datasets for the different iterations by combining the PC/AFP splits with the rest of the training set
-    n_runs = len(train_set_splits)
+    n_runs = config['n_splits']  # len(train_set_splits)
     dataset_runs = [train_set.copy(deep=True) for run_i in range(n_runs)]
-    for run_i, comb in enumerate(train_set_splits):
+    # for run_i, comb in enumerate(train_set_splits):
+    for run_i in range(n_runs):
         # dataset_runs[run_i].loc[comb.index, 'label'] = config['noise_label']  # set examples to mislabeled class
         # dataset_runs[run_i].loc[comb.index, 'label_changed_to_mislabeled'] = True
 
@@ -264,13 +269,20 @@ if __name__ == '__main__':
                     example = tf.train.Example()
                     example.ParseFromString(string_record)
 
-                    label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                    example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+                    example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
-                    if label == 'NTP':  # exclude NTPs from training set
+                    # do not add KOIs that are only flagged with ephemeris match contamination to the training set
+                    if len(kois_ephem_match_only.loc[kois_ephem_match_only['uid'] == example_uid]):
+                        # print(f'Example {example_uid} skipped when creating training set because it is KOI flagged only  with ephemeris match contamination.')
+                        continue
+
+                    if example_label == 'NTP':  # exclude NTPs from training set
+                        # print(f'Example {example_uid} skipped when creating training set because it is an NTP.')
                         continue
 
                     # keep original label
-                    example_util.set_bytes_feature(example, 'original_label', [label])
+                    example_util.set_bytes_feature(example, 'original_label', [example_label])
 
                     # get example from dataset table run
                     example_in_tbl = dataset_run.loc[(fp.stem, example_i)]
@@ -280,24 +292,51 @@ if __name__ == '__main__':
 
                     writer.write(example.SerializeToString())
 
-        # create predict shards with NTPs from original training set that are not used
+        # # create predict shards with NTPs from original training set that are not used
+        # for fp_i, fp in enumerate(train_tfrec_fps):
+        #
+        #     with tf.io.TFRecordWriter(str(dataset_run_dir /
+        #                                   f'predict-shard-ntp-{str(fp_i).zfill(5)}-of'
+        #                                   f'-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
+        #
+        #         # iterate through the source shard
+        #         tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
+        #
+        #         for example_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+        #             example = tf.train.Example()
+        #             example.ParseFromString(string_record)
+        #
+        #             label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+        #
+        #             if label == 'NTP':
+        #                 writer.write(example.SerializeToString())
+
+        # create predict shards with KOIs flagged only with ephemeris match contamination from original training set
         for fp_i, fp in enumerate(train_tfrec_fps):
 
-            with tf.io.TFRecordWriter(str(dataset_run_dir /
-                                          f'predict-shard-ntp-{str(fp_i).zfill(5)}-of'
-                                          f'-{str(len(train_tfrec_fps)).zfill(5)}')) as writer:
+            examples_in_shard = False
+
+            fp_new = str(dataset_run_dir / f'predict-shard-koi-ephem-contamination-only-{str(fp_i).zfill(5)}-of-'
+                                           f'{str(len(train_tfrec_fps)).zfill(5)}')
+            with tf.io.TFRecordWriter(fp_new) as writer:
 
                 # iterate through the source shard
                 tfrecord_dataset = tf.data.TFRecordDataset(str(fp))
 
                 for example_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
                     example = tf.train.Example()
                     example.ParseFromString(string_record)
 
-                    label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                    example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
 
-                    if label == 'NTP':
+                    # add only KOIs that are only flagged with ephemeris match contamination to the training set
+                    if len(kois_ephem_match_only.loc[kois_ephem_match_only['uid'] == example_uid]):
+                        examples_in_shard = True
                         writer.write(example.SerializeToString())
+
+            if not examples_in_shard:  # remove TFRecord shards that do not have any example
+                os.remove(fp_new)
 
     # # validation and test datasets
     # val_test_tfrec_fps = [fp for fp in tfrec_fps if fp.name.startswith('val') or fp.name.startswith('test')]

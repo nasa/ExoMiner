@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from astropy.stats import mad_std
 
 plt.switch_backend('agg')
 
@@ -34,11 +35,14 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
             ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[0].set_title('Binary time-series')
         ax[0].set_ylabel('Binary amplitude (it-oot)')
+        ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
 
         for i in range(len(all_time)):
-            ax[1].plot(all_time[i], all_flux[i], 'b')
+            # ax[1].plot(all_time[i], all_flux[i], 'b')
+            ax[1].scatter(all_time[i], all_flux[i], c='k', s=4)
             ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[1].set_title('Flux')
+        ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
         ax[1].set_ylabel('Amplitude')
         ax[1].set_xlabel('Time [day]')
     else:
@@ -49,26 +53,33 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
             ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[0].set_title('Binary time-series')
         ax[0].set_ylabel('Binary amplitude (it-oot)')
+        ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
 
         for i in range(len(all_time)):
-            ax[1].plot(all_time[i], all_flux['x'][i], 'b')
+            # ax[1].plot(all_time[i], all_flux['x'][i], 'b')
+            ax[1].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
             ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[1].set_ylabel('RA [deg]')
         ax[1].set_title('Centroid')
+        ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
         for i in range(len(all_time)):
-            ax[2].plot(all_time[i], all_flux['y'][i], 'b')
+            # ax[2].plot(all_time[i], all_flux['y'][i], 'b')
+            ax[2].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
             ax[2].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[2].set_ylabel('Dec [deg]')
         ax[2].set_xlabel('Time [day]')
+        ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
 
     plt.close()
 
@@ -147,10 +158,12 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
             plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
                                                                        tce.label, basename)))
         else:
-            ax[0].set_title(
-                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                           tce.sector_run, tce.label, basename)))
+            # ax[0].set_title(
+            #     'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+            # plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+            #                                                                tce.sector_run, tce.label, basename)))
+            ax[0].set_title('TCE {} {}'.format(tce.uid, tce.label))
+            plt.savefig(os.path.join(savedir, '{}__{}_{}.png'.format(tce.uid, tce.label, basename)))
 
         plt.close()
 
@@ -204,15 +217,17 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
         ax[0, 0].set_title('Non-normalized centroid time-series')
         ax[0, 1].set_title('Normalized centroid time-series')
 
-        if config['satellite'] == 'kepler':
-            f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.label, basename)))
-        else:
-            f.suptitle(
-                'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                           tce.sector_run, tce.label, basename)))
+        # if config['satellite'] == 'kepler':
+        #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+        #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+        #                                                                tce.label, basename)))
+        # else:
+        #     f.suptitle(
+        #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+        #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+        #                                                                    tce.sector_run, tce.label, basename)))
+        f.suptitle('TCE {} {}'.format(tce.uid, tce.label))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
 
         plt.close()
 
@@ -251,15 +266,17 @@ def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename
     ax[1].set_title('Spline normalized flux time-series')
     ax[0].set_title('Non-normalized flux time-series')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
 
+    f.suptitle('TCE {} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -359,31 +376,34 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
         # plt.scatter(all_time_it[i], centroid_it['y'][i], color='c', zorder=0)
         ax[1, 1].plot(all_time_it[i], centroid_it['y'][i], 'b', zorder=0)
     ax[1, 1].plot(np.concatenate(all_time_it), avg_centroid_it['y'] * np.ones(len(np.concatenate(all_time_it))), 'g--',
-             label='avg it', zorder=1)
+                  label='avg it', zorder=1)
     # plt.plot(np.concatenate(all_time),
     #          np.concatenate([avg_centroid_it['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
     #          'g--', label='avg it', zorder=1)
     ax[1, 1].legend()
     ax[1, 1].set_xlabel('Time [day]')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('Centroid time-series\n TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'],
-                                                                                           tce[config[
-                                                                                               "tce_identifier"]],
-                                                                                           tce['label'],
-                                                                                           target_coords))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('Centroid time-series\n TCE {} {} s{} {}\nTarget: {} (arcsec)'.format(tce['target_id'],
-                                                                                       tce[config[
-                                                                                           "tce_identifier"]],
-                                                                                         tce['sectors'],
-                                                                                       tce['label'],
-                                                                                       target_coords))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
-
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('Centroid time-series\n TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'],
+    #                                                                                        tce[config[
+    #                                                                                            "tce_identifier"]],
+    #                                                                                        tce['label'],
+    #                                                                                        target_coords))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('Centroid time-series\n TCE {} {} s{} {}\nTarget: {} (arcsec)'.format(tce['target_id'],
+    #                                                                                    tce[config[
+    #                                                                                        "tce_identifier"]],
+    #                                                                                      tce['sectors'],
+    #                                                                                    tce['label'],
+    #                                                                                    target_coords))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('Centroid time-series\n TCE {} {}\nTarget: {} (arcsec)'.format(tce['uid'],
+                                                                              tce['label'],
+                                                                              target_coords))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -448,18 +468,22 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_c
         ax[1].set_ylabel('Dec [arcsec]')
     ax[1].set_xlabel('Time [day]')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
-                                                                  tce['label'], target_coords))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
-                                                               basename)))
-    else:
-        f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
-                                                                  tce['label'], target_coords))
-        plt.savefig(
-            os.path.join(savedir,
-                         '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run,
-                                                      tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
+    #                                                               tce['label'], target_coords))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.label,
+    #                                                            basename)))
+    # else:
+    #     f.suptitle('TCE {} {} {}\nTarget: {} (arcsec)'.format(tce['target_id'], tce[config["tce_identifier"]],
+    #                                                               tce['label'], target_coords))
+    #     plt.savefig(
+    #         os.path.join(savedir,
+    #                      '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run,
+    #                                                   tce.label, basename)))
+    f.suptitle('Centroid time-series\n TCE {} {}\nTarget: {} (arcsec)'.format(tce['uid'],
+                                                                              tce['label'],
+                                                                              target_coords))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -484,7 +508,8 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         f, ax = plt.subplots(figsize=(16, 10))
 
         for i in range(len(centroid_dist)):
-            ax.plot(time[i], centroid_dist[i], 'b')
+            # ax.plot(time[i], centroid_dist[i], 'b')
+            ax.scatter(time[i], centroid_dist[i], c='k', s=4)
 
         if config['px_coordinates'] or pxcoordinates:
             ax.set_ylabel('Euclidean distance [pixel]')
@@ -492,6 +517,7 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
             ax.set_ylabel('Angular distance [arcsec]')
         ax.set_title('Centroid-to-target distance time-series')
         ax.set_xlabel('Time [day]')
+        ax.set_xlim([time[0][0], time[-1][-1]])
 
     else:
         time, centroid_quadr, centroid_quadr_spline = [np.concatenate(time)], [np.concatenate(centroid_dist)], \
@@ -500,12 +526,19 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         f, ax = plt.subplots(2, 1, figsize=(16, 10))
 
         for i in range(len(time)):
-            ax[0].plot(time[i], centroid_dist[i], 'b', zorder=0)
+            # ax[0].plot(time[i], centroid_dist[i], 'b', zorder=0)
+            ax[0].scatter(time[i], centroid_dist[i], c='k', s=4, zorder=1)
             if i == 0:
-                ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', label='spline', zorder=1)
+                # ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', label='spline', zorder=1)
+                ax[0].scatter(time[i], centroid_dist_spline[i], c='m', s=4, label='spline', zorder=2)
+
             else:
-                ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', zorder=1)
-            ax[1].plot(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, 'b')
+                # ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', zorder=1)
+                ax[0].scatter(time[i], centroid_dist_spline[i], c='m', s=4, zorder=2)
+
+            # ax[1].plot(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, 'b')
+            ax[1].scatter(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, c='b', s=4,
+                          zorder=3)
 
         if config['px_coordinates'] or pxcoordinates:
             ax[0].set_ylabel('Euclidean distance [pixel]')
@@ -516,16 +549,21 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         ax[1].set_ylabel('Centroid-to-target distance')
         ax[1].set_xlabel('Time [day]')
         ax[1].set_title('Spline normalized centroid-to-target distance time-series')
+        ax[0].set_xlim([time[0][0], time[-1][-1]])
+        ax[1].set_xlim([time[0][0], time[-1][-1]])
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle(
-            'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle(
+    #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -551,14 +589,18 @@ def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, 
     ax[1].set_xlabel('Bin number')
     ax[1].set_title('Local view')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle(
+    #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -589,14 +631,18 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     ax[1, 1].plot(loc_view_centr)
     ax[1, 1].set_xlabel('Bin number')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle(
+    #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -678,15 +724,20 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
 
             k += 1
 
-    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
-                                              scalarParamsStr))
+    # f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
+    #                                           scalarParamsStr))
+    f.suptitle('{} {} | {}\n{}'.format(tce.uid, tce.label, ephemerisStr, scalarParamsStr))
     plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
-    if config['satellite'] == 'kepler':
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle(
+    #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -758,15 +809,17 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
 
             k += 1
 
-    f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
-                                              scalarParamsStr))
+    # f.suptitle('TCE {}-{} {} | {}\n{}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label, ephemerisStr,
+    #                                           scalarParamsStr))
+    f.suptitle('{} {} | {}\n{}'.format(tce.uid, tce.label, ephemerisStr, scalarParamsStr))
     plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
-    if config['satellite'] == 'kepler':
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -789,14 +842,16 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
     ax.set_ylabel('Normalized amplitude')
     ax.set_xlabel('Bins')
     ax.legend()
-    if config['satellite'] == 'kepler':
-        ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    ax.set_title('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -817,14 +872,16 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
     ax.set_xlim([time[0], time[-1]])
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase')
-    if config['satellite'] == 'kepler':
-        ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     ax.set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     ax.set_title('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    ax.set_title('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -838,8 +895,12 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
+    :param timeseries_outliers: dict, outliers of the time series. If it is not None, these outliers are plotted on top
+     of the time series
     :return:
     """
+
+    SIGMA_FACTOR = 6
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
     k = 0
@@ -848,29 +909,40 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
         for j in range(scheme[1]):
             if k < len(views_list):
                 if len(timeseries[views_list[k]][0]) > 0:
-                    ax[i, j].plot(timeseries[views_list[k]][0], timeseries[views_list[k]][1], zorder=1)
+                    ax[i, j].scatter(timeseries[views_list[k]][0], timeseries[views_list[k]][1], zorder=1, c='k', s=5)
                     if timeseries_outliers is not None and views_list[k] in timeseries_outliers:
                         ax[i, j].scatter(timeseries_outliers[views_list[k]][0], timeseries_outliers[views_list[k]][1],
                                          c='r', s=5, zorder=2)
                     ax[i, j].set_title(views_list[k], pad=20)
                     ax[i, j].set_xlim([timeseries[views_list[k]][0][0], timeseries[views_list[k]][0][-1]])
-
+                    # if 'Flux' in views_list[k]:
+                    timeseries_madstd, timeseries_med = mad_std(timeseries[views_list[k]][1]), \
+                                                        np.median(timeseries[views_list[k]][1])
+                    std_range = SIGMA_FACTOR * timeseries_madstd
+                    range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
+                    # else:
+                    ax[i, j].set_ylim(range_timeseries)
+                    if 'FDL' in views_list[k]:
+                        ax[i, j].set_ylim(bottom=0)
             if i == scheme[0] - 1:
                 ax[i, j].set_xlabel('Phase')
             if j == 0:
                 ax[i, j].set_ylabel('Amplitude')
             k += 1
 
+    f.subplots_adjust(left=0.055, right=0.979, bottom=0.071, top=0.917, wspace=0.2, hspace=0.383)
     # plt.subplots_adjust(hspace=0.3)
     # f.tight_layout(rect=[0, 0.03, 1, 0.95])
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -894,14 +966,16 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
     ax[1].set_xlabel('Bin Number')
     ax[1].set_ylabel('Amplitude')
 
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
@@ -917,6 +991,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     :return:
     """
 
+    SIGMA_FACTOR = 6
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
 
     gs = gridspec.GridSpec(4, 2)
@@ -935,6 +1010,14 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     ax.set_xlabel('Phase (day)')
     # ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
+    std_range = SIGMA_FACTOR * timeseries_madstd
+    ts_len = len(timeseries['Flux'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Flux'][1][idxs_transit])
+    range_timeseries = [min_val, timeseries_med + std_range]
+    ax.set_ylim(range_timeseries)
 
     # left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
@@ -949,6 +1032,14 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     ax.set_xlabel('Phase (hour)')
     # ax.set_xlim([timeseries['Flux'][0][left_idx] * 24, timeseries['Flux'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
+    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
+    std_range = SIGMA_FACTOR * timeseries_madstd
+    ts_len = len(timeseries['Flux'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Flux'][1][idxs_transit])
+    range_timeseries = [min_val, timeseries_med + std_range]
+    ax.set_ylim(range_timeseries)
 
     if 'Weak Secondary Flux' in timeseries:
         # left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
@@ -968,6 +1059,15 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         #              timeseries['Weak Secondary Flux'][0][right_idx] * 24])
         ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
         ax.set_title('Weak Secondary Phase : {:.4f} Days'.format(tce['tce_maxmesd']))
+        timeseries_madstd, timeseries_med = mad_std(timeseries['Weak Secondary Flux'][1]), \
+                                            np.median(timeseries['Weak Secondary Flux'][1])
+        std_range = SIGMA_FACTOR * timeseries_madstd
+        ts_len = len(timeseries['Weak Secondary Flux'][1])
+        idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+            ts_len // 2 + ts_len // config['num_durations'])]
+        min_val = min(timeseries['Weak Secondary Flux'][1][idxs_transit])
+        range_timeseries = [min_val, timeseries_med + std_range]
+        ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 0])
     if len(timeseries['Odd Flux'][0]) > 0:
@@ -983,6 +1083,15 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     # ax.set_xlim([timeseries['Odd Flux'][0][left_idx] * 24, timeseries['Odd Flux'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Odd')
+    timeseries_madstd, timeseries_med = mad_std(timeseries['Odd Flux'][1]), \
+                                        np.median(timeseries['Odd Flux'][1])
+    std_range = SIGMA_FACTOR * timeseries_madstd
+    ts_len = len(timeseries['Odd Flux'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Odd Flux'][1][idxs_transit])
+    range_timeseries = [min_val, timeseries_med + std_range]
+    ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 1])
     if len(timeseries['Even Flux'][0]) > 0:
@@ -998,6 +1107,15 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     # ax.set_xlim([timeseries['Even Flux'][0][left_idx] * 24, timeseries['Even Flux'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Even')
+    timeseries_madstd, timeseries_med = mad_std(timeseries['Even Flux'][1]), \
+                                        np.median(timeseries['Even Flux'][1])
+    std_range = SIGMA_FACTOR * timeseries_madstd
+    ts_len = len(timeseries['Even Flux'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Even Flux'][1][idxs_transit])
+    range_timeseries = [min_val, timeseries_med + std_range]
+    ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[3, 0])
     ax.scatter(timeseries['Centroid Offset Distance'][0], timeseries['Centroid Offset Distance'][1], color='k', s=5)
@@ -1010,6 +1128,16 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     # ax.set_xlim([timeseries['Centroid Offset Distance'][0][0],
     #              timeseries['Centroid Offset Distance'][0][-1]])
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    # timeseries_madstd, timeseries_med = mad_std(timeseries['Centroid Offset Distance'][1]), \
+    #                                     np.median(timeseries['Centroid Offset Distance'][1])
+    # std_range = SIGMA_FACTOR * timeseries_madstd
+    ts_len = len(timeseries['Centroid Offset Distance'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    range_timeseries = [min_val, max_val]
+    ax.set_ylim(range_timeseries)
 
     # left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
@@ -1028,6 +1156,17 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     # ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
     #              timeseries['Centroid Offset Distance'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
+    # timeseries_madstd, timeseries_med = mad_std(timeseries['Centroid Offset Distance'][1]), \
+    #                                     np.median(timeseries['Centroid Offset Distance'][1])
+    # std_range = SIGMA_FACTOR * timeseries_madstd
+    # range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
+    ts_len = len(timeseries['Centroid Offset Distance'][1])
+    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        ts_len // 2 + ts_len // config['num_durations'])]
+    min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    range_timeseries = [min_val, max_val]
+    ax.set_ylim(range_timeseries)
 
     plt.subplots_adjust(
         hspace=0.526,
@@ -1037,12 +1176,142 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         left=0.057,
         right=0.98
     )
-    if config['satellite'] == 'kepler':
-        f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                   tce.label, basename)))
-    else:
-        f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.sector_run, tce.label, basename)))
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()
+
+
+def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename, sigma_factor=6, delta_factor=0.998):
+    """ Creates and saves a figure with plots for odd-even transit depth test for a given TCE.
+
+    :param timeseries: dict, phase folded time series
+    :param binned_timeseries: dict, binned views
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :param sigma_factor: float, used for defining the maximum amplitude range in the plots
+    (med(phase_folded_flux) + sigma_factor * mad_std(phase_folded flux))
+    :param delta_factor: float, used for defining the minimum amplitude in the plots
+    (delta_factor * min(min value among all binned time series)
+    :return:
+    """
+
+    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
+    std_range = sigma_factor * timeseries_madstd
+    min_range = delta_factor * min(min(binned_timeseries['Local Flux'][1]),
+                                   min(binned_timeseries['Local Odd Flux'][1]),
+                                   min(binned_timeseries['Local Even Flux'][1]))
+    range_timeseries = [min_range, timeseries_med + std_range]
+
+    local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
+
+    gs = gridspec.GridSpec(2, 2)
+    f = plt.figure(figsize=(20, 14))
+
+    # local odd flux (phase-folded + binned ts)
+    ax = plt.subplot(gs[0, 0])
+    if len(timeseries['Odd Flux'][0]) > 0:
+        ax.scatter(timeseries['Odd Flux'][0] * 24, timeseries['Odd Flux'][1], color='k', s=5, alpha=0.8)
+    ax.scatter(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='r')
+    ax.plot(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'c')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
+    ax.set_title('Odd')
+    ax.set_ylim(range_timeseries)
+
+    # local even flux (phase-folded + binned ts)
+    ax = plt.subplot(gs[0, 1])
+    if len(timeseries['Even Flux'][0]) > 0:
+        ax.scatter(timeseries['Even Flux'][0] * 24, timeseries['Even Flux'][1], color='k', s=5, alpha=0.8)
+    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='r')
+    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'c')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
+    ax.set_title('Even')
+    ax.set_ylim(range_timeseries)
+
+    ax = plt.subplot(gs[1, :])
+    # local flux
+    ax.scatter(timeseries['Flux'][0] * 24, timeseries['Flux'][1], color='k', s=5, alpha=0.1, zorder=1)
+    ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='c', zorder=2)
+    ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'c', zorder=2)
+    # local even flux (binned)
+    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='r',
+               zorder=2)
+    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'r', label='Even',
+            zorder=2)
+    # local odd flux (binned)
+    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='g',
+               zorder=2)
+    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'g', label='Odd',
+            zorder=2)
+    ax.legend()
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase (hour)')
+    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
+    ax.set_ylim(range_timeseries)
+
+    # plt.subplots_adjust(
+    #     hspace=0.526,
+    #     wspace=0.202,
+    #     top=0.943,
+    #     bottom=0.06,
+    #     left=0.057,
+    #     right=0.98
+    # )
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()
+
+
+def plot_residual(time, res_flux, tce, config, savedir, basename):
+    """ Creates and saves a figure with plot for the residual time series after fitting the spline
+    (res = time_series - spline) a given TCE.
+
+    :param time: list, timestamps
+    :param res_flux: list, residual flux
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
+
+    f, ax = plt.subplots(figsize=(16, 6))
+    for arr_i in range(len(time)):
+        # ax.plot(time[arr_i], res_flux[arr_i], 'b')
+        ax.scatter(time[arr_i], res_flux[arr_i], c='k', s=4)
+    ax.set_ylabel('Amplitude')
+    ax.set_xlabel('Time [day]')
+    ax.set_xlim([time[0][0], time[-1][-1]])
+    plt.subplots_adjust(left=0.048, right=0.983)
+    # if config['satellite'] == 'kepler':
+    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                tce.label, basename)))
+    # else:
+    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
+    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
+    #                                                                    tce.sector_run, tce.label, basename)))
+    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()

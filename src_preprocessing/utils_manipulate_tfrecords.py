@@ -64,7 +64,8 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
 
                         if example_uid != tce['uid']:
                             raise ValueError(f'Example {tce["uid"]} not found at respective index {tceIdx} in source '
-                                             f'shard {foundTce.values[0]} (destination shard: {shardFilename}).')
+                                             f'shard {foundTce.values[0]} (destination shard: {shardFilename}). '
+                                             f'Example found instead: {example_uid}')
 
                         tceFoundInTfrecordFlag = True
                         break

@@ -40,11 +40,12 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     shard_name = file_name.name
     shard_size = len(tce_table)
 
+    # TODO: use uid column as unique identifier for TCEs/Objects of Interest; table must contain this column and changes need to be done to other parts of the code that use identifiers
     # defined columns in the shard table
     tceColumns = [
-        'target_id',
-        config['tce_identifier'],
-        # 'uid'
+        # 'target_id',
+        # config['tce_identifier'],
+        'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
@@ -120,10 +121,11 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     shard_name = file_name.name
     shard_size = len(tce_table)
 
+    # TODO: use uid column as unique identifier for TCEs/Objects of Interest; table must contain this column and changes need to be done to other parts of the code that use identifiers
     tceColumns = [
-        'target_id',
-        config['tce_identifier'],
-        # 'uid'
+        # 'target_id',
+        # config['tce_identifier'],
+        'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True

@@ -839,61 +839,61 @@ tfrec_tbl_features = {
 }
 datasets = ['train', 'predict']
 cols_tbl = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label', 'margin']
-
-for run in range(n_runs):
-
-    run_dir = experiment_dir / 'runs' / f'run{run}'
-
-    examples_dir = run_dir / 'examples'
-    examples_dir.mkdir(exist_ok=True)
-
-    model_dir = run_dir / 'models' / 'model1'
-
-    aum_tbl = pd.read_csv(model_dir / 'aum.csv')
-    aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-
-    # create TFRecord dataset table
-    tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
-    tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
-
-    tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
-
-    ranking_tbls = []
-    for dataset in datasets:
-        ranking_tbls.append(pd.read_csv(model_dir / f'ranking_{dataset}.csv'))
-        ranking_tbls[-1]['dataset'] = dataset
-    ranking_tbl = pd.concat(ranking_tbls, axis=0)
-    ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-    ranking_tbl.to_csv(model_dir / 'ranking_alldatasets.csv')
-
-    logits_tbls = {logit_i: pd.concat([pd.read_csv(model_dir / f'logits_epoch-{epoch_i}.csv',
-                                                   usecols=[logit_i],
-                                                   names=[f'epoch_{epoch_i}'],
-                                                   header=0)
-                                       for epoch_i in range(n_epochs)], axis=1) for logit_i in [0, 1]
-                   }
-
-    logits_tbls = {logit_i: tfrec_tbl.merge(logit_tbl, how='left',
-                                            left_index=True,
-                                            right_index=True,
-                                            validate='one_to_one')
-                   for logit_i, logit_tbl in logits_tbls.items()}
-    for logit_i, logits_tbl in logits_tbls.items():
-        logits_tbl.to_csv(model_dir / f'logit{logit_i}_allepochs.csv', index=False)
-
-    # get margins over epochs for all examples
-    margins_dir = model_dir / 'margins'
-    margins_tbl = []
-    for epoch_i in range(n_epochs):
-        margins_tbl.append(pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv',
-                                       usecols=cols_tbl,
-                                       )
-                           if epoch_i == 0 else pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv',
-                                                            usecols=['margin'])
-                           )
-        margins_tbl[-1] = margins_tbl[-1].rename(columns={'margin': f'epoch_{epoch_i}'})
-    margins_tbl = pd.concat(margins_tbl, axis=1)
-    margins_tbl.to_csv(margins_dir / 'margins_allepochs.csv', index=False)
+epoch_chosen = 99
+# for run in range(n_runs):
+#
+#     run_dir = experiment_dir / 'runs' / f'run{run}'
+#
+#     examples_dir = run_dir / 'examples'
+#     examples_dir.mkdir(exist_ok=True)
+#
+#     model_dir = run_dir / 'models' / 'model1'
+#
+#     aum_tbl = pd.read_csv(model_dir / 'aum.csv')
+#     aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+#
+#     # create TFRecord dataset table
+#     tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
+#     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
+#
+#     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
+#
+#     ranking_tbls = []
+#     for dataset in datasets:
+#         ranking_tbls.append(pd.read_csv(model_dir / f'ranking_{dataset}.csv'))
+#         ranking_tbls[-1]['dataset'] = dataset
+#     ranking_tbl = pd.concat(ranking_tbls, axis=0)
+#     ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+#     ranking_tbl.to_csv(model_dir / 'ranking_alldatasets.csv')
+#
+#     logits_tbls = {logit_i: pd.concat([pd.read_csv(model_dir / f'logits_epoch-{epoch_i}.csv',
+#                                                    usecols=[logit_i],
+#                                                    names=[f'epoch_{epoch_i}'],
+#                                                    header=0)
+#                                        for epoch_i in range(n_epochs)], axis=1) for logit_i in [0, 1]
+#                    }
+#
+#     logits_tbls = {logit_i: tfrec_tbl.merge(logit_tbl, how='left',
+#                                             left_index=True,
+#                                             right_index=True,
+#                                             validate='one_to_one')
+#                    for logit_i, logit_tbl in logits_tbls.items()}
+#     for logit_i, logits_tbl in logits_tbls.items():
+#         logits_tbl.to_csv(model_dir / f'logit{logit_i}_allepochs.csv', index=False)
+#
+#     # get margins over epochs for all examples
+#     margins_dir = model_dir / 'margins'
+#     margins_tbl = []
+#     for epoch_i in range(n_epochs):
+#         margins_tbl.append(pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv',
+#                                        usecols=cols_tbl,
+#                                        )
+#                            if epoch_i == 0 else pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv',
+#                                                             usecols=['margin'])
+#                            )
+#         margins_tbl[-1] = margins_tbl[-1].rename(columns={'margin': f'epoch_{epoch_i}'})
+#     margins_tbl = pd.concat(margins_tbl, axis=1)
+#     margins_tbl.to_csv(margins_dir / 'margins_allepochs.csv', index=False)
 
 # aum_tbl = pd.read_csv(experiment_dir / 'runs/run0/models/model1/aum.csv')
 # aum_tbl = aum_tbl.loc[aum_tbl['dataset'] == 'train']
@@ -903,13 +903,13 @@ for run in range(n_runs):
 #                              aum_tbl.loc[aum_tbl['label'] == 'PC'][:n_examples_per_cat]])
 # examples = {tuple(example): {'label': f'top-{n_examples_per_cat} AUM for its category'}
 #             for example in examples_chosen[['target_id', 'tce_plnt_num']].to_numpy()}
-aum_ranks_top_cnts = pd.read_csv(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044/aum_ranks_allruns_cnts_top_30.csv')
-aum_ranks_top_cnts = aum_ranks_top_cnts.sort_values(by='top_30_cnts', ascending=False)
-aum_ranks_top_cnts = aum_ranks_top_cnts.loc[aum_ranks_top_cnts['top_30_cnts'] >= 6]
-examples_chosen = aum_ranks_top_cnts.copy(deep=True)
-examples = {tuple(example): {'label': f'top-30 cnts >= 6 AUM for its category'}
-            for example in examples_chosen[['target_id', 'tce_plnt_num']].to_numpy()}
+# aum_ranks_top_cnts = pd.read_csv(
+#     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044/aum_ranks_allruns_cnts_top_30.csv')
+# aum_ranks_top_cnts = aum_ranks_top_cnts.sort_values(by='top_30_cnts', ascending=False)
+# aum_ranks_top_cnts = aum_ranks_top_cnts.loc[aum_ranks_top_cnts['top_30_cnts'] >= 6]
+# examples_chosen = aum_ranks_top_cnts.copy(deep=True)
+# examples = {tuple(example): {'label': f'top-30 cnts >= 6 AUM for its category'}
+#             for example in examples_chosen[['target_id', 'tce_plnt_num']].to_numpy()}
 # examples = {(6699368, 1): {'label': 'low AUM, but high score'}}
 # examples = {
 #     # (11030475, 1): {'label': 'mislabeled PC lowest AUM'},  # mislabeled PC lowest AUM
@@ -924,116 +924,40 @@ examples = {tuple(example): {'label': f'top-30 cnts >= 6 AUM for its category'}
 #     (7532973, 1): {'label': 'PC lowest AUM'},
 #
 # }
-
-# plot logits, margins, AUMs for each example and run in separate plots
-# for run in range(n_runs):
-#
-#     run_dir = experiment_dir / 'runs' / f'run{run}'
-#
-#     examples_dir = run_dir / 'examples'
-#     examples_dir.mkdir(exist_ok=True)
-#
-#     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
-#     aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-#
-#     # create TFRecord dataset table
-#     tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
-#     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
-#
-#     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
-#
-#     # look at logits change over epochs
-#     model_dir = run_dir / 'models' / 'model1'
-#
-#     ranking_tbls = []
-#     for dataset in datasets:
-#         ranking_tbls.append(pd.read_csv(model_dir / f'ranking_{dataset}.csv'))
-#         ranking_tbls[-1]['dataset'] = dataset
-#     ranking_tbl = pd.concat(ranking_tbls, axis=0)
-#     ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-#
-#     logits_tbls = {logit_i: pd.concat([pd.read_csv(model_dir / f'logits_epoch-{epoch_i}.csv',
-#                                                    usecols=[logit_i],
-#                                                    names=[f'epoch_{epoch_i}'],
-#                                                    header=0)
-#                                        for epoch_i in range(n_epochs)], axis=1) for logit_i in [0, 1]
-#                    }
-#
-#     logits_tbls = {logit_i: tfrec_tbl.merge(logit_tbl, how='left',
-#                                             left_index=True,
-#                                             right_index=True,
-#                                             validate='one_to_one')
-#                    for logit_i, logit_tbl in logits_tbls.items()}
-#
-#     # get margins over epochs for all examples
-#     margins_dir = model_dir / 'margins'
-#
-#     margins_tbl = [pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv', usecols=cols_tbl)
-#                    if epoch_i == 0 else pd.read_csv(margins_dir / f'margins_epoch-{epoch_i}.csv', usecols=['margin'])
-#                    for epoch_i in range(n_epochs)]
-#     margins_tbl = pd.concat(margins_tbl, axis=1)
-#     margins_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-#
-#     if inj_thr:
-#         # add column indicator for injected noise to the margins table
-#         margins_tbl = margins_tbl.merge(dataset_tbl,
-#                                         on=['target_id', 'tce_plnt_num'],
-#                                         how='left',
-#                                         validate='one_to_one')
-#         margins_tbl.loc[margins_tbl['label_changed_to_other_class'] == True, 'label'] = 'INJ'  # noise_label
-#
-#     for logit_i in logits_tbls:
-#         logits_tbls[logit_i] = logits_tbls[logit_i].set_index(keys=['target_id', 'tce_plnt_num'])
-#
-#     # plot margin for a few examples
-#     for example in examples:
-#
-#         score_og_label = ranking_tbl.loc[example, f'score_{aum_tbl.loc[example, "original_label"]}']
-#
-#         f, ax = plt.subplots(3, 1, figsize=(8, 8))
-#         # for example in examples:
-#         for logit_i in logits_tbls:
-#             ax[0].plot(np.arange(n_epochs),
-#                        logits_tbls[logit_i].loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
-#                        label=f'Logit {logit_i}')
-#         ax[1].plot(np.arange(n_epochs), margins_tbl.loc[example, 'margin'])
-#         ax[2].plot(np.arange(n_epochs),
-#                    np.cumsum(margins_tbl.loc[example, 'margin'].values) / np.arange(1, n_epochs + 1))
-#         ax[2].set_xlabel('Epoch Number')
-#         ax[0].set_ylabel('Logit Value')
-#         ax[1].set_ylabel('Margin')
-#         ax[2].set_ylabel('AUM')
-#         ax[0].set_title(f'Example {example} {aum_tbl.loc[example, "label"]}\n'
-#                         f'{ranking_tbl.loc[example, "dataset"]} dataset | Score {score_og_label} | '
-#                         f'Predicted class {ranking_tbl.loc[example, "predicted class"]}\n'
-#                         f'{examples[example]["label"]}\n '
-#                         f'AUM: {aum_tbl.loc[example, "margin"]:.4f}')
-#         ax[0].legend()
-#         f.savefig(examples_dir / f'{example[0]}.{example[1]}-{aum_tbl.loc[example, "label"]}_logits_margin.png')
-#         plt.close()
+# demoted confirmed planets
+examples = {
+    # (7532973, 1): {'label': 'Kepler-854 b'},
+    # (11517719, 1): {'label': 'Kepler-840  b'},
+    # (6061119, 1): {'label': 'Kepler-699 b'},
+    # (5780460, 1): {'label': 'Kepler-747 b'}
+    # easy examples with high AUM
+    (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
+    (5868793, 1): {'label': 'KIC 5868793.1 (PC)'}
+}
 
 # plot margins, AUMs for each example for all runs
-examples_dir = experiment_dir / 'examples_all_runs'
+examples_dir = experiment_dir / 'examples_easy'
 examples_dir.mkdir(exist_ok=True)
-aum_tbl_allruns = pd.read_csv(experiment_dir / f'aum_allruns_epoch{epoch_chosen}.csv')
-aum_tbl_allruns.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+# aum_tbl_allruns = pd.read_csv(experiment_dir / f'aum_allruns_epoch{epoch_chosen}.csv')
+# aum_tbl_allruns.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 nprocesses = 12
 
 
-def plot_logits_margins_aum_example_all_runs(example, n_runs, n_epochs, experiment_dir):
+def plot_logits_margins_aum_example_all_runs(example, n_runs, n_epochs, experiment_dir, examples_dir):
     """ Plot logits, margins and AUM values over epochs for all runs for each example.
 
     :param example: tuple (kic, tce_plnt_num), TCE ID
     :param n_runs: int, number of runs
     :param n_epochs: int, number of training epochs
     :param experiment_dir: Path, experiment directory
+    :param examples_dir: Path, directory to save results
     :return:
     """
 
     plt.ioff()
     print(f'Plotting for example {example[0]}.{example[1]}...')
 
-    aum_tbl_allruns = pd.read_csv(experiment_dir / 'aum.csv')
+    aum_tbl_allruns = pd.read_csv(experiment_dir / f'aum_allruns_epoch{n_epochs - 1}.csv')
     aum_tbl_allruns.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 
     score_og_label = []
@@ -1099,7 +1023,7 @@ def plot_logits_margins_aum_example_all_runs(example, n_runs, n_epochs, experime
 # for example in examples:
 
 pool = multiprocessing.Pool(processes=nprocesses)
-jobs = [(example, n_runs, n_epochs, experiment_dir)
+jobs = [(example, n_runs, n_epochs, experiment_dir, examples_dir)
         for example in examples]
 async_results = [pool.apply_async(plot_logits_margins_aum_example_all_runs, job) for job in jobs]
 pool.close()
@@ -1172,7 +1096,7 @@ ax.grid(axis='y')
 f.savefig(experiment_dir / f'hist_top_{top_k}.png')
 plt.close()
 
-# %%
+# %% Study changes in margin as proxy to training dynamics reaching an equilibrium
 
 experiment_dir = Path(
     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
@@ -1181,6 +1105,7 @@ n_epochs = 100
 n_runs = 9
 n_examples = 34030
 fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+
 margins_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
 margins_tbl = None
 for run in range(n_runs):
@@ -1201,17 +1126,32 @@ margins_agg_tbl = pd.concat([
     axis=1, ignore_index=False)
 margins_agg_tbl.to_csv(experiment_dir / f'margins_agg_allruns.csv', index=False)
 
+# %%
+
+margins_agg_tbl = pd.read_csv(experiment_dir / f'margins_agg_allruns.csv')
+
+window = 10
+for example_i, example in margins_agg_tbl.iterrows():
+    margins_agg_tbl.loc[example_i, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]] = \
+        np.convolve(margins_agg_tbl.loc[example_i, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
+                    np.ones(window) / window, mode='same')
+margins_agg_tbl.to_csv(experiment_dir / f'margins_agg_allruns_avgsmooth_win{window}.csv', index=False)
+margins_agg = margins_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+
 margins_agg_diff_rel = np.diff(margins_agg, axis=1, prepend=np.nan) / margins_agg
 margins_agg_diff_rel_tbl = pd.concat([
-    margins_tbl,
+    margins_agg_tbl[fixed_cols],
     pd.DataFrame(data=margins_agg_diff_rel, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
 ],
     axis=1, ignore_index=False)
-margins_agg_diff_rel_tbl.to_csv(experiment_dir / f'margins_agg_diff_rel_allruns.csv', index=False)
+# margins_agg_diff_rel_tbl.to_csv(experiment_dir / f'margins_agg_diff_rel_allruns.csv', index=False)
+margins_agg_diff_rel_tbl.to_csv(experiment_dir / f'margins_agg_avgsmooth_win{window}_diff_rel_allruns.csv', index=False)
 
 margins_agg_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 margins_agg_diff_rel_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 # %%
+
+
 example = (7767559, 1)
 window = 20
 f, ax = plt.subplots()
@@ -1225,14 +1165,145 @@ ax.set_title(f'KIC {example[0]}.{example[1]}')
 
 # %%
 
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+
+margins_agg_diff_rel_tbl = pd.read_csv(experiment_dir / f'margins_agg_diff_rel_allruns.csv').set_index(
+    keys=['target_id', 'tce_plnt_num'])
+margins_agg_tbl = pd.read_csv(experiment_dir / f'margins_agg_allruns.csv').set_index(keys=['target_id', 'tce_plnt_num'])
+
+n_epochs = 100
 margin_metric = margins_agg_diff_rel_tbl.loc[
     margins_agg_diff_rel_tbl['dataset'] == 'train', [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
-n_percentile = 99
-margins_agg_diff_rel_nper = np.percentile(margin_metric, n_percentile, axis=0)
+n_percentile = 50
+margins_agg_diff_rel_nper = np.percentile(margin_metric, n_percentile, axis=0)  # unsmoothed
 window = 10
+# moving average smoothed
 margins_agg_diff_rel_nper = np.percentile(
     [np.convolve(vals_example, np.ones(window) / window, mode='valid') for vals_example in margin_metric], n_percentile,
     axis=0)
 f, ax = plt.subplots()
 ax.plot(np.arange(n_epochs)[window - 1:], margins_agg_diff_rel_nper)
 ax.set_title(f'{n_percentile}th-percentile')
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Margin delta')
+
+examples = {
+    (7532973, 1): {'kepler_name': 'Kepler-854 b'},
+    (11517719, 1): {'kepler_name': 'Kepler-840  b'},
+    (6061119, 1): {'kepler_name': 'Kepler-699 b'},
+    (5780460, 1): {'kepler_name': 'Kepler-747 b'}
+}
+f, ax = plt.subplots()
+for n_percentile in []:  # [99, 90, 50]:
+    ax.plot(np.arange(n_epochs)[window - 1:],
+            np.percentile([np.convolve(vals_example, np.ones(window) / window, mode='valid')
+                           for vals_example in margin_metric], n_percentile,
+                          axis=0),
+            label=f'{n_percentile}th-percentile')
+for example in examples:
+    # ax.plot(np.arange(n_epochs), margins_agg_diff_rel_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], label=f'{examples[example]["kepler_name"]}')
+    ax.plot(np.arange(n_epochs), margins_agg_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
+            label=f'{examples[example]["kepler_name"]}')
+ax.set_title(f'nth-percentile\nAveraging Window = {window}')
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Relative Margin 1st Order Difference')
+ax.legend()
+ax.set_xlim([window, n_epochs - 1])
+ax.grid(axis='y')
+f.savefig(experiment_dir / f'margin_diff_rel_npercentiles_avgsmooth_{window}.png')
+# ax.set_yscale('log')
+
+# %% Study changes in AUM as proxy to training dynamics reaching an equilibrium
+
+
+experiment_dir = Path(
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+
+n_epochs = 100
+n_runs = 9
+n_examples = 34030
+fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+
+# get AUM values over epochs across all runs
+aum_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
+aum_tbl = None
+for run in range(n_runs):
+
+    run_dir = experiment_dir / 'runs' / f'run{run}'
+
+    aum_tbl_run = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    if aum_tbl is None:
+        aum_tbl = aum_tbl_run[fixed_cols]
+    aum_arr[run, :, :] = aum_tbl_run[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+
+# aggregate AUMs from all runs
+aum_agg = np.median(aum_arr, axis=0)  # using median
+aum_agg_tbl = pd.concat([
+    aum_tbl,
+    pd.DataFrame(data=aum_agg, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+aum_agg_tbl.to_csv(experiment_dir / f'aum_agg_allruns.csv', index=False)
+
+# compute relative 1st order difference
+aum_agg_diff_rel = np.diff(aum_agg, axis=1, prepend=np.nan) / aum_agg
+aum_agg_diff_rel_tbl = pd.concat([
+    aum_agg_tbl[fixed_cols],
+    pd.DataFrame(data=aum_agg_diff_rel, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+aum_agg_diff_rel_tbl.to_csv(experiment_dir / f'aum_agg_diff_rel_allruns.csv', index=False)
+aum_agg_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+aum_agg_diff_rel_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+aum_metric = aum_agg_diff_rel_tbl.loc[
+    aum_agg_diff_rel_tbl['dataset'] == 'train', [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+# # compute percentiles
+# aum_metric = aum_agg_diff_rel_tbl.loc[
+#     aum_agg_diff_rel_tbl['dataset'] == 'train', [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+# n_percentile = 50
+# margins_agg_diff_rel_nper = np.percentile(margin_metric, n_percentile, axis=0)
+
+# %%
+examples = {
+    # demoted confirmed planets
+    (7532973, 1): {'label': 'Kepler-854 b'},
+    (11517719, 1): {'label': 'Kepler-840  b'},
+    (6061119, 1): {'label': 'Kepler-699 b'},
+    (5780460, 1): {'label': 'Kepler-747 b'},
+    # difficult cases
+    # (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
+    # (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
+    # (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
+    # (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
+    # (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
+    # (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
+    # (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
+
+    # easy examples with high AUM
+    # (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
+    # (5868793, 1): {'label': 'KIC 5868793.1 (PC)'}
+}
+
+# plot percentiles
+f, ax = plt.subplots()
+for n_percentile in [99, 90, 50, 1]:
+    ax.plot(np.arange(n_epochs),
+            np.percentile(np.abs(aum_metric), n_percentile, axis=0),
+            label=f'{n_percentile}th-percentile',
+            linestyle='dashed')
+for example in examples:
+    ax.plot(np.arange(n_epochs),
+            np.abs(aum_agg_diff_rel_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]]),
+            label=f'{examples[example]["label"]}')
+#     ax.plot(np.arange(n_epochs), margins_agg_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], label=f'{examples[example]["kepler_name"]}')
+ax.set_title(f'nth-percentile')
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Relative AUM 1st Order Difference')
+ax.legend()
+ax.set_xlim([0, n_epochs - 1])
+ax.grid(axis='y')
+ax.set_ylim([0, 0.1])
+aa
+f.savefig(experiment_dir / f'aum_diff_rel_npercentiles.png')

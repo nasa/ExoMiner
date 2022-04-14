@@ -1,8 +1,8 @@
 # output directory for TFRecords
-output_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/kepler_no_centroid_data_5769401.1_12-3-2021
+output_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/test_preprocessing_4-6-2022
 # TCE table
-#input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv
-input_tce_csv_file: /Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label.csv
+input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe.csv
+#input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet.csv
 # light curve FITS file directory
 lc_data_dir: /data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits
 #lc_data_dir: /data5/tess_project/Data/TESS_lc_fits
@@ -66,17 +66,20 @@ scalar_params: [
   # 'tce_period',
   # 'tce_duration',
   # 'tce_time0bk',
-    'transit_depth',
-    'tce_max_mult_ev',
+  'transit_depth',
+  'tce_max_mult_ev',
+  'tce_max_sngle_ev',
+  'tce_robstat',
+  'tce_model_chisq',
   # secondary parameters
-    'tce_maxmes',
-    'tce_maxmesd',
-    'wst_robstat',
-    'wst_depth',
-    'tce_ptemp_stat',
-    'tce_albedo_stat',
+  'tce_maxmes',
+  'tce_maxmesd',
+  'wst_robstat',
+  'wst_depth',
+  'tce_ptemp_stat',
+  'tce_albedo_stat',
   # odd-even
-    'tce_bin_oedp_stat',
+  'tce_bin_oedp_stat',
   # centroid
     'tce_fwm_stat',
     'tce_dikco_msky',

@@ -12,16 +12,18 @@ paths:
 config:
   # branches used in ExoMiner
   branches: [
-      'global_flux_view_fluxnorm',
-      'local_flux_view_fluxnorm',
+    'global_flux_view_fluxnorm',
+    'local_flux_view_fluxnorm',
     # 'global_centr_fdl_view_norm',
     # 'local_centr_fdl_view_norm',
-      'local_flux_oddeven_views',
-      'global_centr_view_std_noclip',
-      'local_centr_view_std_noclip',
+    'local_flux_oddeven_views',
+    'global_centr_view_std_noclip',
+    'local_centr_view_std_noclip',
     # 'local_weak_secondary_view_fluxnorm',
     # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm'
+    'local_weak_secondary_view_max_flux-wks_norm',
+    #      'stellar',
+    #      'dv+tce_fit'
   ]
   non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2

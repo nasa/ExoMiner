@@ -1,5 +1,5 @@
 # source TFRecord directory
-tfrecDir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment
+tfrecDir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_uid_experiment
 
 nProcesses: 15  # number of processes used to parallelize reading the values for the dataset
 
@@ -15,12 +15,13 @@ num_bins_glob: 301  # number of bins for global view
 # comment/add scalar parameters that are not/are part of the source TFRecords
 scalarParams:
   boot_fap: # feature name
-    clip_factor: .nan  # values are truncated to  median +- mad_std * clip_factor; if .nan, values are not truncated
+    clip_factor: 20  # .nan  # values are truncated to  median +- mad_std * clip_factor; if .nan, values are not truncated
     dtype: float  # feature data type; mostly `float`
     log_transform: true  # if true, values are log-transformed
-    log_transform_eps: 1.0e-32  # log-transform fuzzy factor to prevent invalid log
+    log_transform_eps: 1.0e-32  # log-transform offset factor to prevent invalid log(0)
     missing_value: -1  # placeholder value for missing values; if missing value is represented by  NaN or there are no missing values, set to null
     replace_value: null  # value used to replace missing value; if null, missing values are replaced by median of the training set
+    standardize: true
   even_se_oot:
     clip_factor: 20
     dtype: float
@@ -28,6 +29,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   even_std_oot_bin:
     clip_factor: 20
     dtype: float
@@ -35,6 +37,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   mag:
     clip_factor: 20
     dtype: float
@@ -42,6 +45,15 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
+  mag_cat:
+    clip_factor: .nan
+    dtype: int
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: null
+    replace_value: null
+    standardize: false
   odd_se_oot:
     clip_factor: 20
     dtype: float
@@ -49,6 +61,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   odd_std_oot_bin:
     clip_factor: 20
     dtype: float
@@ -56,6 +69,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_albedo_stat:
     clip_factor: 20
     dtype: float
@@ -63,6 +77,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_bin_oedp_stat:
     clip_factor: 400
     dtype: float
@@ -70,6 +85,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_cap_hap_stat_diff:
     clip_factor: 20
     dtype: float
@@ -77,6 +93,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_cap_stat:
     clip_factor: 20
     dtype: float
@@ -84,6 +101,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_dicco_msky:
     clip_factor: 20
     dtype: float
@@ -91,6 +109,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_dicco_msky_err:
     clip_factor: 20
     dtype: float
@@ -98,6 +117,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: -1
     replace_value: null
+    standardize: true
   tce_dikco_msky:
     clip_factor: 20
     dtype: float
@@ -105,6 +125,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_dikco_msky_err:
     clip_factor: 20
     dtype: float
@@ -112,6 +133,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: -1
     replace_value: null
+    standardize: true
   tce_fwm_stat:
     clip_factor: 20
     dtype: float
@@ -119,6 +141,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_hap_stat:
     clip_factor: 20
     dtype: float
@@ -126,6 +149,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_max_mult_ev:
     clip_factor: 20
     dtype: float
@@ -133,6 +157,23 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
+  tce_max_sngle_ev:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: null
+    replace_value: null
+    standardize: true
+  tce_model_chisq:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: -1
+    replace_value: null
+    standardize: true
   tce_maxmes:
     clip_factor: 20
     dtype: float
@@ -140,6 +181,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_period:
     clip_factor: 20
     dtype: float
@@ -147,6 +189,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_prad:
     clip_factor: 20
     dtype: float
@@ -154,6 +197,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_ptemp_stat:
     clip_factor: 20
     dtype: float
@@ -161,6 +205,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: null
+    standardize: true
   tce_rb_tcount0n:
     clip_factor: .nan
     dtype: float
@@ -168,6 +213,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_robstat:
     clip_factor: 20
     dtype: float
@@ -175,6 +221,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_sdens:
     clip_factor: 20
     dtype: float
@@ -182,6 +229,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_slogg:
     clip_factor: 20
     dtype: float
@@ -189,6 +237,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_smass:
     clip_factor: 20
     dtype: float
@@ -196,6 +245,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_smet:
     clip_factor: 20
     dtype: float
@@ -203,6 +253,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_sradius:
     clip_factor: 20
     dtype: float
@@ -210,6 +261,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   tce_steff:
     clip_factor: 20
     dtype: float
@@ -217,6 +269,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   transit_depth:
     clip_factor: 20
     dtype: float
@@ -224,6 +277,7 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
+    standardize: true
   wst_depth:
     clip_factor: 20
     dtype: float
@@ -231,3 +285,12 @@ scalarParams:
     log_transform_eps: .nan
     missing_value: 0
     replace_value: 0
+    standardize: true
+  ruwe:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: 0
+    replace_value: 0
+    standardize: true

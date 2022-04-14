@@ -308,21 +308,22 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if '{}-{}'.format(tce['target_id'], tce['tce_plnt_num']) in ['5769403-1']:  #  and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
-    # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
-    # if '{}'.format(tce['target_id']) in ['9455556']:
-    # if '{}'.format(tce['target_id']) in ['7431665']:
-    # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id'])  & (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
-    # if tce['oi'] in [1774.01]:
-    # tce['tce_time0bk'] = 1325.726
-    # tce['tce_period'] = 0.941451
-    # tce['sectors'] = '1'
-    #     print(tce)
-    # else:
-    #     return None
+    if '{}-{}'.format(tce['target_id'], tce[
+        'tce_plnt_num']) == '4275739-1':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+        # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
+        # if '{}'.format(tce['target_id']) in ['9455556']:
+        # if '{}'.format(tce['target_id']) in ['7431665']:
+        # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id'])  & (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
+        # if tce['oi'] in [1774.01]:
+        # tce['tce_time0bk'] = 1325.726
+        # tce['tce_period'] = 0.941451
+        # tce['sectors'] = '1'
+        print(tce)
+    else:
+        return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
@@ -509,6 +510,8 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     # fit a spline to the flux time-series
     spline_flux = kepler_spline.fit_kepler_spline(all_time, all_flux_lininterp, verbose=False)[0]
 
+    res_flux = [all_flux[arr_i] - spline_flux[arr_i] for arr_i in range(len(all_flux))]
+
     if plot_preprocessing_tce:
         utils_visualization.plot_flux_fit_spline(all_time,
                                                  all_flux,
@@ -518,6 +521,14 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                  os.path.join(config['output_dir'], 'plots'),
                                                  f'3_smoothingandnormalizationflux_aug{tce["augmentation_idx"]}',
                                                  flux_interp=all_flux_lininterp)
+
+        utils_visualization.plot_residual(all_time,
+                                          res_flux,
+                                          tce,
+                                          config,
+                                          os.path.join(config['output_dir'], 'plots'),
+                                          f'3_residual_flux_aug{tce["augmentation_idx"]}',
+                                          )
 
     # get indices for which the spline has finite values
     finite_i = [np.isfinite(spline_flux[i]) for i in range(len(spline_flux))]
@@ -959,7 +970,7 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     except:
         time, flux = None, None
 
-    # # preprocess weak secondary flux time series
+    # preprocess weak secondary flux time series
     try:
         time_wksecondaryflux, wksecondaryflux = weak_secondary_flux_preprocessing(data['all_time_noprimary'],
                                                                                   data['all_flux_noprimary'],
@@ -1911,6 +1922,15 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                             f'aug{tce["augmentation_idx"]}'
                                                             )
 
+            utils_visualization.plot_odd_even(phasefolded_timeseries,
+                                              binned_timeseries,
+                                              tce,
+                                              config,
+                                              os.path.join(config['output_dir'], 'plots'),
+                                              f'8_oddeven_transitdepth_phasefoldedbinned_timeseries_'
+                                              f'aug{tce["augmentation_idx"]}'
+                                              )
+
             views_var_plot = views_var
             utils_visualization.plot_all_views_var({view_name: view for view_name, view in views.items()
                                                     if view_name in views_var_plot},
@@ -1981,10 +2001,13 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
 
     # add categorical magnitude
-    if config['satellite'] == 'kepler':
-        mag_cat = 1 if tce['mag'] > config['kepler_mag_cat_thr'] else 0
+    if np.isnan(tce['mag']):
+        mag_cat = np.nan
     else:
-        mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
+        if config['satellite'] == 'kepler':
+            mag_cat = 1 if tce['mag'] > config['kepler_mag_cat_thr'] else 0
+        else:
+            mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
     example_util.set_int64_feature(ex, 'mag_cat', [mag_cat])
 
     # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor

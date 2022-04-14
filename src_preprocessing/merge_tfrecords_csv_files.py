@@ -33,6 +33,8 @@ def create_shards_table(srcTfrecDir):
 if __name__ == "__main__":
     # source TFRecord directory
     srcTfrecDir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021')
+        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022')
 
-    create_shards_table(srcTfrecDir)
+    create_shards_tbl_flag = create_shards_table(srcTfrecDir)
+
+    print(f'Created shard table: {create_shards_tbl_flag}')
