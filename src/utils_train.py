@@ -248,7 +248,7 @@ def print_metrics(model_id, res, datasets, ep_idx, metrics_names, prec_at_top):
                 elif dataset == 'val':
                     print('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-        if prec_at_top is not None:
+        if prec_at_top is not None and dataset in prec_at_top:
             for k in prec_at_top[dataset]:
                 print('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
                                         res['{}_precision_at_{}'.format(dataset, k)]))
@@ -288,7 +288,7 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
                     elif dataset == 'val':
                         res_file.write('{}: {}\n'.format(metric, res['val_{}'.format(metric)][-1]))
 
-            if prec_at_top is not None:
+            if prec_at_top is not None and dataset in prec_at_top:
                 for k in prec_at_top[dataset]:
                     res_file.write('{}: {}\n'.format('{}_precision_at_{}'.format(dataset, k),
                                                      res['{}_precision_at_{}'.format(dataset, k)]))
@@ -347,24 +347,22 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
         ax[0].legend(loc="upper right")
         ax[0].grid(True)
         ax[1].plot(epochs, res[opt_metric], label='Training')
+        val_test_str = f'{opt_metric}\n'
         if f'val_{opt_metric}' in res:
             ax[1].plot(epochs, res[f'val_{opt_metric}'], label='Validation', color='r')
             ax[1].scatter(epochs[ep_idx], res[f'val_{opt_metric}'][ep_idx], c='r')
+            val_test_str += f'Val {res[f"val_{opt_metric}"][ep_idx]:.4} '
         if f'test_{opt_metric}' in res:
             ax[1].scatter(epochs[ep_idx], res[f'test_{opt_metric}'], label='Test', c='k')
+            val_test_str += f'Test {res[f"test_{opt_metric}"]:.4} '
         ax[1].set_xlim([0, epochs[-1] + 1])
         # ax[1].set_ylim([0.0, 1.05])
         ax[1].grid(True)
         ax[1].set_xlabel('Epochs')
         ax[1].set_ylabel(opt_metric)
-        if f"test_{opt_metric}" in res:
-            ax[1].set_title(
-                f'{opt_metric}\nVal/Test {res[f"val_{opt_metric}"][ep_idx]:.4}/{res[f"test_{opt_metric}"]:.4}')
-        else:
-            ax[1].set_title(f'{opt_metric}\nVal {res[f"val_{opt_metric}"][ep_idx]:.4}')
+        ax[1].set_title(val_test_str)
         ax[1].legend(loc="lower right")
-
-    f.suptitle(f'Epochs = {epochs[-1]}(Best val:{epochs[ep_idx]:})')
+    f.suptitle(f'Epochs = {epochs[-1]}(Best:{epochs[ep_idx]:})')
     f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
     f.savefig(save_path)
     plt.close()

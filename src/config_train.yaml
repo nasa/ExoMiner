@@ -4,27 +4,94 @@ train_parallel: false  # set to true to use MPI to train models in parallel; onl
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_multiclass
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_exominer_new_config_4-15-2022
   # TFRecord dataset directory
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_experiment-normalized
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_uid_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
   # branches used in ExoMiner
-  branches: [
-    'global_flux_view_fluxnorm',
-    'local_flux_view_fluxnorm',
-    # 'global_centr_fdl_view_norm',
-    # 'local_centr_fdl_view_norm',
-    'local_flux_oddeven_views',
-    'global_centr_view_std_noclip',
-    'local_centr_view_std_noclip',
-    # 'local_weak_secondary_view_fluxnorm',
-    # 'local_weak_secondary_view_selfnorm',
-    'local_weak_secondary_view_max_flux-wks_norm',
-    #      'stellar',
-    #      'dv+tce_fit'
-  ]
+  conv_branches:
+    global_flux:
+      views:
+        - global_flux_view_fluxnorm
+      scalars: null
+    local_flux:
+      views:
+        - local_flux_view_fluxnorm
+      scalars:
+        - transit_depth_norm
+        - tce_max_mult_ev_norm
+        - tce_max_sngle_ev_norm
+        - tce_robstat_norm
+        - tce_model_chisq_norm
+    local_weak_secondary:
+      views:
+        #        - local_weak_secondary_view_fluxnorm
+        - local_weak_secondary_view_selfnorm
+      #        - local_weak_secondary_view_max_flux-wks_norm
+      scalars:
+        - tce_ptemp_stat_norm
+        - tce_albedo_stat_norm
+        - tce_maxmes_norm
+        - wst_depth_norm
+    local_centroid:
+      views:
+        - local_centr_view_std_noclip
+      #        - local_centr_fdl_view_norm
+      scalars:
+        - tce_fwm_stat_norm
+        - tce_dikco_msky_norm
+        - tce_dikco_msky_err_norm
+        - tce_dicco_msky_norm
+        - tce_dicco_msky_err_norm
+        #        - mag_norm
+        - mag_cat_norm
+    global_centroid:
+      views:
+        #        - global_centr_fdl_view_norm
+        - global_centr_view_std_noclip
+      scalars: null
+    local_odd_even:
+      views:
+        - local_flux_odd_view_fluxnorm
+        - local_flux_even_view_fluxnorm
+      scalars:
+        - odd_se_oot_norm
+        - even_se_oot_norm
+  scalar_branches:
+    stellar:
+      - tce_sdens_norm
+      - tce_steff_norm
+      - tce_smet_norm
+      - tce_slogg_norm
+      - tce_smass_norm
+      - tce_sradius_norm
+    dv_tce_fit:
+      - boot_fap_norm
+      - tce_cap_stat_norm
+      - tce_hap_stat_norm
+      #          - tce_cap_hap_stat_diff_norm
+      - tce_rb_tcount0n_norm
+      - tce_prad_norm
+      - tce_period_norm
+
+  #    [
+  #    'global_flux_view_fluxnorm'
+  #    'local_flux_view_fluxnorm',
+  #    # 'global_centr_fdl_view_norm',
+  #    # 'local_centr_fdl_view_norm',
+  #    'local_flux_oddeven_views',
+  #    'global_centr_view_std_noclip',
+  #    'local_centr_view_std_noclip',
+  #    # 'local_weak_secondary_view_fluxnorm',
+  #    # 'local_weak_secondary_view_selfnorm',
+  #    'local_weak_secondary_view_max_flux-wks_norm',
+  #    'stellar',
+  #    'dv+tce_fit',
+  #  ]
+  #  scalar_features_branches:
+  #      'local_flux_view_flux'
   non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2
   #  'num_glob_conv_blocks': 5
@@ -48,12 +115,16 @@ config:
   #  use_kepler_ce: false
   decay_rate: null
   batch_norm: false
-  multi_class: true  # switch to multiclass classification
+  multi_class: false  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
   # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -73,11 +144,11 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
-  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float},
-  # local_weak_secondary_view_selfnorm: {'dim': [31, 1], 'dtype': float},
-  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
+  local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  #  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
   tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
   wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -111,10 +182,10 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 2  # number of models in the ensemble
+  n_models: 1  # number of models in the ensemble
   n_epochs: 2  # number of epochs used to train each model
   #  use_kepler_ce: false
-  opt_metric: recall_PC  # metric shown in the epoch plots besides loss for the training, validation and test sets
+  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   #  ce_weights: null
   filter_data: null
@@ -125,13 +196,13 @@ training:
 
 callbacks:
   early_stopping:
-    monitor: val_loss  # which metric used to monitor for early stopping
+    monitor: auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
     min_delta: 0
     patience: 20
     verbose: 1
     mode: max  # maximize/minimize monitored metric in early stopping
     baseline: null
-    restore_best_weights: true  # get model from epoch that saw best performance according to monitored metric
+    restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   tensorboard:
     histogram_freq: 1
     write_graph: true
@@ -147,6 +218,7 @@ label_map:  # maps label to a label id
   AFP: 2
   # AFP2: 1
   NTP: 0
+  UNK: 0
   # TESS
 #  KP: 1
 #  CP: 1
@@ -170,6 +242,9 @@ metrics:
     val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
     test: { 'start': 25, 'stop': 250, 'num': 10,  'endpoint': true, 'dtype': 'int' }
 
-datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
+datasets: # datasets - same name convention as used for the TFRecords
+  - train
+  #  - val
+  #  - test
+  - predict
 verbose: true
-#satellite: kepler

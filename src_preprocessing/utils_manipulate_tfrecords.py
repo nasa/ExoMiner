@@ -5,6 +5,8 @@ import tensorflow as tf
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+from pathlib import Path
 
 # local
 from src_preprocessing.tf_util import example_util
@@ -292,3 +294,28 @@ def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir
     # f.tight_layout()
     if not display:
         plt.close()
+
+
+def create_shards_table(srcTfrecDir):
+    """ Create table that merges tables for each TFRecord file. Keeps track of examples stored in each file.
+
+    :param srcTfrecDir: str, source TFRecord directory filepath
+    :return:
+        bool, True if the table was created successfully
+    """
+
+    srcTfrecDir = Path(srcTfrecDir)
+
+    # get csv files for each TFRecord file
+    srcTfrecTblsFps = sorted([file for file in srcTfrecDir.iterdir() if file.suffix == '.csv' and
+                              file.stem.startswith('shard')])
+
+    if len(srcTfrecTblsFps) == 0:  # no shard csv files found in the directory
+        return False
+
+    # concatenate TFRecord tables
+    srcTfrecTblMerge = pd.concat([pd.read_csv(srcTfrecTblFp) for srcTfrecTblFp in srcTfrecTblsFps])
+
+    srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
+
+    return True

@@ -115,21 +115,27 @@ def run_main(config, base_model, model_id):
                              features_set=config['features_set'],
                              category_weights=config['training']['category_weights'],
                              multiclass=config['config']['multi_class'])
-    val_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/val*',
-                           batch_size=config['training']['batch_size'],
-                           mode='EVAL',
-                           label_map=config['label_map'],
-                           filter_data=filter_data['val'],
-                           features_set=config['features_set'],
-                           multiclass=config['config']['multi_class'])
-    test_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/test*',
-                            batch_size=config['training']['batch_size'],
-                            mode='EVAL',
-                            label_map=config['label_map'],
-                            filter_data=filter_data['test'],
-                            features_set=config['features_set'],
-                            multiclass=config['config']['multi_class']
-                            )
+    if 'val' in config['datasets']:
+        val_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/val*',
+                               batch_size=config['training']['batch_size'],
+                               mode='EVAL',
+                               label_map=config['label_map'],
+                               filter_data=filter_data['val'],
+                               features_set=config['features_set'],
+                               multiclass=config['config']['multi_class'])
+    else:
+        val_input_fn = None
+    if 'test' in config['datasets']:
+        test_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/test*',
+                                batch_size=config['training']['batch_size'],
+                                mode='EVAL',
+                                label_map=config['label_map'],
+                                filter_data=filter_data['test'],
+                                features_set=config['features_set'],
+                                multiclass=config['config']['multi_class']
+                                )
+    else:
+        test_input_fn = None
 
     # fit the model to the training data
     print('Training model...')
@@ -140,7 +146,7 @@ def run_main(config, base_model, model_id):
                         verbose=config['verbose'],
                         callbacks=callbacks_list,
                         validation_split=0.,
-                        validation_data=val_input_fn(),
+                        validation_data=val_input_fn() if val_input_fn is not None else None,
                         shuffle=True,  # does the input function shuffle for every epoch?
                         class_weight=None,
                         sample_weight=None,
@@ -157,22 +163,23 @@ def run_main(config, base_model, model_id):
 
     res = history.history
 
-    print('Evaluating model on the test set...')
+    if 'test' in config['datasets']:
+        print('Evaluating model on the test set...')
 
-    res_eval = model.evaluate(x=test_input_fn(),
-                              y=None,
-                              batch_size=None,
-                              verbose=config['verbose'],
-                              sample_weight=None,
-                              steps=None,
-                              callbacks=None,
-                              max_queue_size=10,
-                              workers=1,
-                              use_multiprocessing=False)
+        res_eval = model.evaluate(x=test_input_fn(),
+                                  y=None,
+                                  batch_size=None,
+                                  verbose=config['verbose'],
+                                  sample_weight=None,
+                                  steps=None,
+                                  callbacks=None,
+                                  max_queue_size=10,
+                                  workers=1,
+                                  use_multiprocessing=False)
 
-    # add test set metrics to result
-    for metric_name_i, metric_name in enumerate(model.metrics_names):
-        res['test_{}'.format(metric_name)] = res_eval[metric_name_i]
+        # add test set metrics to result
+        for metric_name_i, metric_name in enumerate(model.metrics_names):
+            res['test_{}'.format(metric_name)] = res_eval[metric_name_i]
 
     # predict on given datasets - needed for computing the output distribution
     predictions = {dataset: [] for dataset in config['datasets']}
@@ -262,9 +269,10 @@ def run_main(config, base_model, model_id):
         plot_roc(res, ep_idx, config['datasets'], config['paths']['experiment_dir'] / f'model{model_id}_roc.svg')
         # plot precision-at-k and misclassfied-at-k examples curves
         for dataset in config['datasets']:
-            k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
-            plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
-                                config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
+            if dataset != 'predict':
+                k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
+                plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
+                                    config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
 
     print('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, config['datasets'], ep_idx, model.metrics_names,
