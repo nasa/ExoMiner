@@ -77,7 +77,7 @@ Models currently implemented:
 ## References
 
 For more detailed information check:
-- Exominer 2021
+- ExoMiner 2021
   paper ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://arxiv.org/abs/2111.10009)
   , published 2022 February 17 in
   the [Astrophysical Journal, 926:120](https://iopscience.iop/articl/10.3847/1538-4357/ac4399/).
@@ -92,7 +92,8 @@ For more detailed information check:
     - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
     - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
 
-- Inactive developers
+- Past developers
+    - Fellipe Marcellino<sup>2</sup> (Transit detection using Kepler data)
     - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
     - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
     - Laurent Wilkens<sup>2</sup> (Kepler)

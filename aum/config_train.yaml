@@ -11,20 +11,70 @@ paths:
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
   # branches used in ExoMiner
-  branches: [
-      'global_flux_view_fluxnorm',
-      'local_flux_view_fluxnorm',
-    # 'global_centr_fdl_view_norm',
-    # 'local_centr_fdl_view_norm',
-      'local_flux_oddeven_views',
-      'global_centr_view_std_noclip',
-      'local_centr_view_std_noclip',
-    # 'local_weak_secondary_view_fluxnorm',
-    # 'local_weak_secondary_view_selfnorm',
-      'local_weak_secondary_view_max_flux-wks_norm',
-      'stellar',
-      'dv+tce_fit',
-  ]
+  conv_branches:
+    global_flux:
+      views:
+        - global_flux_view_fluxnorm
+      scalars: null
+    local_flux:
+      views:
+        - local_flux_view_fluxnorm
+      scalars:
+        - transit_depth_norm
+        - tce_max_mult_ev_norm
+        - tce_max_sngle_ev_norm
+        - tce_robstat_norm
+        - tce_model_chisq_norm
+    local_weak_secondary:
+      views:
+        #        - local_weak_secondary_view_fluxnorm
+        - local_weak_secondary_view_selfnorm
+      #        - local_weak_secondary_view_max_flux-wks_norm
+      scalars:
+        - tce_ptemp_stat_norm
+        - tce_albedo_stat_norm
+        - tce_maxmes_norm
+        - wst_depth_norm
+    local_centroid:
+      views:
+        - local_centr_view_std_noclip
+      #        - local_centr_fdl_view_norm
+      scalars:
+        - tce_fwm_stat_norm
+        - tce_dikco_msky_norm
+        - tce_dikco_msky_err_norm
+        - tce_dicco_msky_norm
+        - tce_dicco_msky_err_norm
+        #        - mag_norm
+        - mag_cat_norm
+    global_centroid:
+      views:
+        #        - global_centr_fdl_view_norm
+        - global_centr_view_std_noclip
+      scalars: null
+    local_odd_even:
+      views:
+        - local_flux_odd_view_fluxnorm
+        - local_flux_even_view_fluxnorm
+      scalars:
+        - odd_se_oot_norm
+        - even_se_oot_norm
+  scalar_branches:
+    stellar:
+      - tce_sdens_norm
+      - tce_steff_norm
+      - tce_smet_norm
+      - tce_slogg_norm
+      - tce_smass_norm
+      - tce_sradius_norm
+    dv_tce_fit:
+      - boot_fap_norm
+      - tce_cap_stat_norm
+      - tce_hap_stat_norm
+      #          - tce_cap_hap_stat_diff_norm
+      - tce_rb_tcount0n_norm
+      - tce_prad_norm
+      - tce_period_norm
   non_lin_fn: prelu
   #  'num_loc_conv_blocks': 2
   #  'num_glob_conv_blocks': 5

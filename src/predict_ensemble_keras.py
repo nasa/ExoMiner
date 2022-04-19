@@ -94,7 +94,7 @@ def run_main(config):
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
     else:  # metrics for multiclass setting
-        metrics_list = get_metrics_multiclass()
+        metrics_list = get_metrics_multiclass(config['label_map'])
 
     # compile model - set optimizer, loss and metrics
     ensemble_model = compile_model(ensemble_model, config, metrics_list)
@@ -300,6 +300,10 @@ if __name__ == '__main__':
                                            if 'model' in model_dir.stem]
     logger.info(f'Models\' file paths: {config["paths"]["models_filepaths"]}')
 
+    # get model configuration
+    with(open(config['paths']['models_dir'] / 'train_params.yaml', 'r')) as file:  # read YAML configuration file
+        model_config = yaml.load(file, Loader=yaml.Loader)['config']
+    config['config'].update(model_config)
     # set the configuration from a HPO study to use extra architecture such as batch size
     if config['paths']['hpo_dir'] is not None:
         hpo_study_fp = Path(config['paths']['hpo_dir'])

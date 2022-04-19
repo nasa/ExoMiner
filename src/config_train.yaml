@@ -4,9 +4,9 @@ train_parallel: false  # set to true to use MPI to train models in parallel; onl
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_exominer_new_config_4-15-2022
+  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_feature_map_4-18-2022
   # TFRecord dataset directory
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_uid_experiment-normalized
+  tfrec_dir: /data5/tess_project/Data/outputs/preprocessed-data-split-glob-and-loc-cap20-padded_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
 config:
@@ -20,7 +20,7 @@ config:
       views:
         - local_flux_view_fluxnorm
       scalars:
-        - transit_depth_norm
+        #        - transit_depth_norm
         - tce_max_mult_ev_norm
         - tce_max_sngle_ev_norm
         - tce_robstat_norm
@@ -34,19 +34,21 @@ config:
         - tce_ptemp_stat_norm
         - tce_albedo_stat_norm
         - tce_maxmes_norm
-        - wst_depth_norm
+    #        - wst_depth_norm
     local_centroid:
       views:
         - local_centr_view_std_noclip
       #        - local_centr_fdl_view_norm
       scalars:
-        - tce_fwm_stat_norm
+        #        - tce_fwm_stat_norm
         - tce_dikco_msky_norm
         - tce_dikco_msky_err_norm
-        - tce_dicco_msky_norm
-        - tce_dicco_msky_err_norm
+        #        - tce_dicco_msky_norm
+        #        - tce_dicco_msky_err_norm
         #        - mag_norm
-        - mag_cat_norm
+        - mag_cat
+        #        - mag_cat_norm
+        - ruwe_norm
     global_centroid:
       views:
         #        - global_centr_fdl_view_norm
@@ -72,7 +74,7 @@ config:
       - tce_cap_stat_norm
       - tce_hap_stat_norm
       #          - tce_cap_hap_stat_diff_norm
-      - tce_rb_tcount0n_norm
+      #      - tce_rb_tcount0n_norm
       - tce_prad_norm
       - tce_period_norm
 
@@ -120,7 +122,7 @@ config:
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -138,19 +140,21 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
   global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
-  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  #  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   #  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
   tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
-  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   # other diagnostic parameters
@@ -158,7 +162,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
-  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
   #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
   # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -196,7 +200,7 @@ training:
 
 callbacks:
   early_stopping:
-    monitor: auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+    monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
     min_delta: 0
     patience: 20
     verbose: 1
@@ -215,7 +219,7 @@ callbacks:
 label_map:  # maps label to a label id
   # Kepler
   PC: 1
-  AFP: 2
+  AFP: 0  # 2
   # AFP2: 1
   NTP: 0
   UNK: 0
@@ -244,7 +248,7 @@ metrics:
 
 datasets: # datasets - same name convention as used for the TFRecords
   - train
-  #  - val
-  #  - test
-  - predict
+  - val
+  - test
+#  - predict
 verbose: true

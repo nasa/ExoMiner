@@ -31,11 +31,11 @@ inj_thr = False  # set to True if label noise was injected into the experiment a
 add_inj_info = False
 # unchanged columns in AUM tables
 fixed_cols = ['target_id', 'tce_plnt_num', 'label_id', 'original_label', 'shard_name', 'dataset']
-epoch_chosen = 99  # epoch chosen to get AUM values
+epoch_chosen = 499  # epoch chosen to get AUM values
 
 # experiment directory
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 
 # get AUM tables for each run
 runs_dir = experiment_dir / 'runs'
@@ -159,10 +159,10 @@ aum_allruns_tbl.to_csv(experiment_dir / f'aum_allruns_epoch{epoch_chosen}_mislab
 # %% plot distribution of AUM at a given epoch and values over epochs
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 runs_dir = experiment_dir / 'runs'
 n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
-n_epochs = 50
+n_epochs = 499
 inj_thr = False
 labels = {
     'PC': {'color': 'b', 'zorder': 1, 'alpha': 1.0},
@@ -342,12 +342,14 @@ noise_label = 'MISLABELED'
 inj_thr = False  # injected noise examples in the training set used to set AUM threshold for mislabeling detection
 labels = ['PC', 'AFP', 'NTP', 'UNK']
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 
 runs_dir = experiment_dir / 'runs'
 
 aum_tbls = []
 for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
+
+    print(f'Getting ranking order for run {run_dir.name}...')
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
     aum_tbl['label_changed_to_other_class'] = False
@@ -703,7 +705,7 @@ def avg_overlap(r1, r2, d):
 experiment_dir = Path(
     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 
-n_runs = 9
+n_runs = 10
 noise_label = 'MISLABELED'
 datasets = ['train', 'val_test']
 depth = 30
@@ -824,10 +826,10 @@ for dataset in datasets:  # iterate through the datasets
 # %% plot logits, margins and AUMs over epochs for some examples
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-14-2022_1155')
 runs_dir = experiment_dir / 'runs'
 n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
-n_epochs = 100
+n_epochs = 500
 inj_thr = False
 noise_label = 'MISLABELED'
 tfrec_tbl_features = {
@@ -839,7 +841,7 @@ tfrec_tbl_features = {
 }
 datasets = ['train', 'predict']
 cols_tbl = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label', 'margin']
-epoch_chosen = 99
+epoch_chosen = 499
 # for run in range(n_runs):
 #
 #     run_dir = experiment_dir / 'runs' / f'run{run}'
@@ -1033,8 +1035,8 @@ for async_result in async_results:
 # %% Count number of times each example is in top-K AUM ranking across runs to study method's sensitivity.
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
-
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
+epoch_chosen = 499
 runs_dir = experiment_dir / 'runs'
 n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
 aum_rank = None
@@ -1048,7 +1050,8 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
 
     aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
     aum_tbl = aum_tbl.loc[aum_tbl['dataset'] == 'train']
-    aum_tbl = aum_tbl.sort_values(by='margin', ascending=True).reset_index(drop=True)
+    # aum_tbl = aum_tbl.sort_values(by='margin', ascending=True).reset_index(drop=True)
+    aum_tbl = aum_tbl.sort_values(by=f'epoch_{epoch_chosen}', ascending=True).reset_index(drop=True)
     aum_tbl[f'rank_{run_dir.name}'] = aum_tbl.index
 
     if aum_rank is None:
@@ -1058,7 +1061,7 @@ for run_dir in [fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()]:
                                   on=['target_id', 'tce_plnt_num'],
                                   validate='one_to_one')
 
-aum_rank.to_csv(experiment_dir / 'aum_ranks_allruns.csv', index=False)
+aum_rank.to_csv(experiment_dir / f'aum_ranks_allruns_epoch{epoch_chosen}.csv', index=False)
 
 
 # %%
@@ -1078,10 +1081,10 @@ def count_on_top_k(example, top_k):
 
 top_k = 30
 
-aum_rank = pd.read_csv(experiment_dir / 'aum_ranks_allruns.csv')
+aum_rank = pd.read_csv(experiment_dir / f'aum_ranks_allruns_epoch{epoch_chosen}.csv')
 aum_rank[f'top_{top_k}_cnts'] = aum_rank[[f'rank_run{run}' for run in range(n_runs)]].apply(count_on_top_k,
                                                                                             args=(top_k,), axis=1)
-aum_rank.to_csv(experiment_dir / f'aum_ranks_allruns_cnts_top_{top_k}.csv', index=False)
+aum_rank.to_csv(experiment_dir / f'aum_ranks_allruns_epoch{epoch_chosen}_cnts_top_{top_k}.csv', index=False)
 
 bins = np.arange(0, n_runs + 2)
 f, ax = plt.subplots()
@@ -1099,10 +1102,10 @@ plt.close()
 # %% Study changes in margin as proxy to training dynamics reaching an equilibrium
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 
-n_epochs = 100
-n_runs = 9
+n_epochs = 500
+n_runs = 10
 n_examples = 34030
 fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
 
@@ -1166,13 +1169,13 @@ ax.set_title(f'KIC {example[0]}.{example[1]}')
 # %%
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 
 margins_agg_diff_rel_tbl = pd.read_csv(experiment_dir / f'margins_agg_diff_rel_allruns.csv').set_index(
     keys=['target_id', 'tce_plnt_num'])
 margins_agg_tbl = pd.read_csv(experiment_dir / f'margins_agg_allruns.csv').set_index(keys=['target_id', 'tce_plnt_num'])
 
-n_epochs = 100
+n_epochs = 500
 margin_metric = margins_agg_diff_rel_tbl.loc[
     margins_agg_diff_rel_tbl['dataset'] == 'train', [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
 n_percentile = 50
@@ -1218,12 +1221,14 @@ f.savefig(experiment_dir / f'margin_diff_rel_npercentiles_avgsmooth_{window}.png
 
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-24-2022_1044')
+    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
 
-n_epochs = 100
-n_runs = 9
+n_epochs = 500
+n_runs = 10
 n_examples = 34030
 fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+
+# %%
 
 # get AUM values over epochs across all runs
 aum_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
@@ -1245,6 +1250,7 @@ aum_agg_tbl = pd.concat([
 ],
     axis=1, ignore_index=False)
 aum_agg_tbl.to_csv(experiment_dir / f'aum_agg_allruns.csv', index=False)
+aum_agg_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 
 # compute relative 1st order difference
 aum_agg_diff_rel = np.diff(aum_agg, axis=1, prepend=np.nan) / aum_agg
@@ -1254,7 +1260,10 @@ aum_agg_diff_rel_tbl = pd.concat([
 ],
     axis=1, ignore_index=False)
 aum_agg_diff_rel_tbl.to_csv(experiment_dir / f'aum_agg_diff_rel_allruns.csv', index=False)
-aum_agg_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+
+# %%
+
+aum_agg_diff_rel_tbl = pd.read_csv(experiment_dir / f'aum_agg_diff_rel_allruns.csv')
 aum_agg_diff_rel_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 
 aum_metric = aum_agg_diff_rel_tbl.loc[
@@ -1268,27 +1277,33 @@ aum_metric = aum_agg_diff_rel_tbl.loc[
 # %%
 examples = {
     # demoted confirmed planets
-    (7532973, 1): {'label': 'Kepler-854 b'},
-    (11517719, 1): {'label': 'Kepler-840  b'},
-    (6061119, 1): {'label': 'Kepler-699 b'},
-    (5780460, 1): {'label': 'Kepler-747 b'},
+    # (7532973, 1): {'label': 'Kepler-854 b'},
+    # (11517719, 1): {'label': 'Kepler-840  b'},
+    # (6061119, 1): {'label': 'Kepler-699 b'},
+    # (5780460, 1): {'label': 'Kepler-747 b'},
     # difficult cases
-    # (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
-    # (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
-    # (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
-    # (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
-    # (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
-    # (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
-    # (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
+    (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
+    (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
+    (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
+    (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
+    (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
+    (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
+    (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
 
     # easy examples with high AUM
     # (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
     # (5868793, 1): {'label': 'KIC 5868793.1 (PC)'}
 }
 
+n_percentiles = [
+    99,
+    90,
+    50,
+    1
+]
 # plot percentiles
 f, ax = plt.subplots()
-for n_percentile in [99, 90, 50, 1]:
+for n_percentile in n_percentiles:
     ax.plot(np.arange(n_epochs),
             np.percentile(np.abs(aum_metric), n_percentile, axis=0),
             label=f'{n_percentile}th-percentile',
