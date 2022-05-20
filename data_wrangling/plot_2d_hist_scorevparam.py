@@ -11,39 +11,43 @@ from matplotlib.ticker import FormatStrFormatter
 from pathlib import Path
 
 
-res_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/tess_kps_score_2-17-2022')
+res_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_pcs_paperscore_3-16-2022')
 # res_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/Analysis/kepler_pcs_score_2-17-2022')
 res_dir.mkdir(exist_ok=True)
 
 # run = 'PC v non-PC, full model_score'
 # run = 'PC v non-PC, no weak secondry_score'
 # run = 'PC v non-PC, no transit depth_score'
-run = 'PC v non-PC, no transit depth, no weak secondry_score'
+# run = 'PC v non-PC, no transit depth, no weak secondry_score'
 # run = 'cv_score'
+run = 'tce_cv_score'
 
-parameter = 'transit_depth'
+parameter = 'tce_period'
 
 # rtbl = pd.read_csv('/Users/msaragoc/Downloads/tess_results_pc-nonpc.csv')
-rtbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/interns/hongbo/kepler_to_tess/merged_2-14-2022.csv')
+# rtbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/interns/hongbo/kepler_to_tess/merged_2-14-2022.csv')
 # rtbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_comparison_with_paper_12-18-2020_merged_ra_dec_prad_CV_v15_targetcnts_ruwe_1-4-2022.csv')
 
 tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet.csv')
 # tce_tbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
 
-tce_tbl_cols = [
-    'target_id',
-    'tce_plnt_num',
-    'sector_run',
-    # 'transit_depth',
-    'tce_depth',
-    'tce_prad',
-    'wst_depth',
-    'tce_dikco_msky'
-]
-rtbl = rtbl.merge(tce_tbl[tce_tbl_cols], on=['target_id', 'tce_plnt_num', 'sector_run'], validate='one_to_one')
+# tce_tbl_cols = [
+#     'target_id',
+#     'tce_plnt_num',
+#     'sector_run',
+#     # 'transit_depth',
+#     'tce_depth',
+#     'tce_prad',
+#     'wst_depth',
+#     'tce_dikco_msky'
+# ]
+# rtbl = rtbl.merge(tce_tbl[tce_tbl_cols], on=['target_id', 'tce_plnt_num', 'sector_run'], validate='one_to_one')
 # rtbl = rtbl.merge(tce_tbl[tce_tbl_cols], on=['target_id', 'tce_plnt_num'], validate='one_to_one')
 
-rtbl_kps = rtbl.loc[rtbl['original_label'] == 'KP']
+rtbl = pd.read_csv('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/results_tables/ranking_comparison_with_paper_12-18-2020_merged_ra_dec_prad_CV_v15_withval.csv')
+
+rtbl_kps = rtbl.loc[rtbl['original_label'] == 'PC']
+# rtbl_kps = rtbl.loc[rtbl['original_label'] == 'KP']
 
 
 # bins = [0, 1, 5, 10, 15, 20]
@@ -53,12 +57,14 @@ rtbl_kps = rtbl.loc[rtbl['original_label'] == 'KP']
 # ax.bar(bin_edges, hist)
 # ax.set_ylabel('Relative Count per bin')
 
-bins_x = np.logspace(2, 5, 4, dtype='int')  # transit depth
+# bins_x = np.logspace(2, 5, 4, dtype='int')  # transit depth
 # bins_x = [7.1, 10, 15, 20, 50, 100, 250, 500, 750, 1000]  # mes
 # bins_x = [100, 250, 500, 750, 1000, 2500, 5000, 10000]  # wst_depth
 # bins_x = [0, 100, 250, 500, 750, 1000, 2500, 5000, 10000]  # wst_depth
 # bins_x = [1, 5, 10, 15, 20, 30]  # tce prad
 # bins_x = [0, 0.5, 1.0, 2.5, 5, 7.5, 10, 15, 20]
+bins_x = [0.5, 1, 3, 10, 30, 100, 372, 1072]  # tce_period
+
 bins_y = np.linspace(0, 1, 11)
 
 hist, bin_edges_x, bin_edges_y = np.histogram2d(
@@ -81,7 +87,8 @@ ax[0, 1].set_xticks(bins_y)
 ax[0, 1].set_xlim([bins_y[0], bins_y[-1]])
 ax[0, 1].grid(axis='y')
 ax[0, 1].set_yscale('log')
-ax[1, 0].imshow(hist)
+ax[0, 1].set_ylabel('Cumulative Counts')
+ax[1, 0].imshow(hist, aspect=0.5)
 for i in range(len(bins_x) - 1):
     for j in range(len(bins_y) - 1):
         ax[1, 0].text(j-0.2, i+0.1, f'{hist[i, j]:.0f}', color='w')
@@ -104,7 +111,7 @@ ax[1, 1].grid(axis='x')
 # ax[1, 1].set_yticks(np.arange(len(bins_x)) - 0.5)
 # ax[1, 1].set_yticklabels(bins_x)
 ax[1, 1].set_xlabel('Counts')
-ax[2, 0].imshow(hist_norm)
+ax[2, 0].imshow(hist_norm, aspect=0.5)
 ax[2, 0].set_xlabel('Score')
 ax[2, 0].set_ylabel(f'{parameter}')
 for i in range(len(bins_x) - 1):
@@ -117,7 +124,7 @@ ax[2, 0].set_xticklabels(np.round(bins_y, 2))
 ax[2, 0].set_yticklabels(bins_x)
 # ax[0, 1].axis('off')
 ax[2, 1].axis('off')
-f.tight_layout()
+# f.tight_layout()
 aaa
 # ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 f.savefig(res_dir / f'hist2d_scorevs{parameter}_{run}.png')

@@ -5,6 +5,7 @@ Main script used to generate TFRecords to be used as input to models.
 # 3rd party
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pickle
 from mpi4py import MPI
@@ -24,6 +25,7 @@ from src_preprocessing.utils_generate_input_records import get_tess_tce_table, g
 from utils.utils_dataio import is_yamlble
 from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
 from paths import path_main
+from src_preprocessing.utils_preprocessing_io import report_exclusion
 
 
 def _process_file_shard(tce_table, file_name, eph_table, config):
@@ -67,7 +69,15 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
                 tce['augmentation_idx'] = example_i
 
-                example = _process_tce(tce, eph_table, config, confidence_dict)
+                try:
+                    example = _process_tce(tce, eph_table, config, confidence_dict)
+                except Exception as error:
+                    report_exclusion(config,
+                                     tce,
+                                     'Error was not caught inside the preprocessing pipeline',
+                                     stderr=error)
+                    continue
+
                 if example is not None:
                     example, example_stats = example
                     writer.write(example.SerializeToString())
@@ -86,6 +96,8 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                         examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
+                else:
+                    print(f'Example {tce.uid} was `None`.')
 
             num_processed += 1
             if config['process_i'] == 0:
@@ -140,15 +152,21 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
         num_processed = 0
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
-            tf_logging.info(f'{process_name}: Processing TCE {tce["target_id"]}-{tce[config["tce_identifier"]]} in '
-                            f'shard {shard_name}')
+            tf_logging.info(f'{process_name}: Processing example {tce["uid"]} in shard {shard_name}')
 
             # preprocess TCE and add it to the TFRecord
             for example_i in range(config['num_examples_per_tce']):
 
                 tce['augmentation_idx'] = example_i
 
-                example = _process_tce(tce, eph_table, config, confidence_dict)
+                try:
+                    example = _process_tce(tce, eph_table, config, confidence_dict)
+                except Exception as error:
+                    report_exclusion(config,
+                                     tce,
+                                     'Error was not caught inside the preprocessing pipeline',
+                                     stderr=error)
+                    continue
 
                 if example is not None:
                     example, example_stats = example
@@ -167,6 +185,8 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
                         examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
+                else:
+                    print(f'Example {tce.uid} was `None`.')
 
             num_processed += 1
             if not num_processed % 1:

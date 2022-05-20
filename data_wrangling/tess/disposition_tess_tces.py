@@ -96,7 +96,8 @@ tce_tbl.loc[tce_tbl['match_dist'] < matching_thr, ['label', 'label_source']] = \
     tce_tbl.loc[tce_tbl['match_dist'] < matching_thr, 'TFOPWG Disposition'], 'TFOPWG Disposition'
 
 # 2) match TCEs to TSO EBs
-tce_tbl.loc[(tce_tbl['tso_eb'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
+# tce_tbl.loc[(tce_tbl['tso_eb'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
+tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
 
 # 3) match TCEs to Jon's EBs
 tce_tbl.loc[(tce_tbl['eb_match_dist'] < matching_thr) &
@@ -106,6 +107,12 @@ tce_tbl.loc[(tce_tbl['eb_match_dist'] < matching_thr) &
 tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &
             (~tce_tbl['tec_fluxtriage_comment'].str.contains('SecondaryOfPN', na=False)) &
             (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'NTP', 'TEC flux triage'
+# set to UNK those TCEs that did not pass the TEC flux triage because they failed AltDet and their period is less or
+# equal to 0.3 days
+tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &
+            (tce_tbl['tec_fluxtriage_comment'] == 'AltDetFail') &
+            (tce_tbl['label_source'] == 'TEC flux triage') & (tce_tbl['tce_period'] <= 0.3),
+            ['label', 'label_source']] = 'UNK', 'N/A'
 
 print(tce_tbl['label'].value_counts())
 print(tce_tbl['label_source'].value_counts())

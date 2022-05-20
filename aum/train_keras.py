@@ -1,5 +1,6 @@
 """
-Train models using a given configuration obtained on a hyperparameter optimization study.
+Train a single model or set of models using a given configuration obtained on a hyperparameter optimization study and
+log logits for each example over epochs to compute margins and AUM values.
 """
 
 # 3rd party
@@ -21,14 +22,15 @@ import yaml
 # local
 from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
 from models.models_keras import ExoMiner, compile_model
-from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
+from src.utils_metrics import get_metrics, get_metrics_multiclass  # , compute_precision_at_k
 from src_hpo import utils_hpo
-from src.utils_visualization import plot_class_distribution, plot_precision_at_k
+from src.utils_visualization import plot_class_distribution  # , plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
 from utils.utils_dataio import is_yamlble
-from paths import path_main
+# from paths import path_main
 from aum.utils_train import TrackLogitsCallback
 from src.utils_predict import create_ranking
+from aum.create_mislabeled_dataset import create_tfrec_dataset_tbl
 
 
 def run_main(config, base_model, model_id):
@@ -48,7 +50,9 @@ def run_main(config, base_model, model_id):
         config['callbacks']['tensorboard']['obj'].log_dir = model_dir_sub
 
     if 'track_logits' in config['callbacks']:
-        config['callbacks']['track_logits']['obj'].log_dir = model_dir_sub
+        logits_dir =model_dir_sub / 'logits'
+        logits_dir.mkdir(exist_ok=True)
+        config['callbacks']['track_logits']['obj'].log_dir = logits_dir
 
     callbacks_list = [config['callbacks'][callback_config]['obj'] for callback_config in config['callbacks']]
 
@@ -439,6 +443,11 @@ if __name__ == '__main__':
                            for dataset in config['datasets']}
     config['filepaths']['all_datasets'] = [str(filepath) for filepath in config['paths']['tfrec_dir'].iterdir()
                                            if 'shard' in filepath.name]
+
+    tfrec_tbl = create_tfrec_dataset_tbl(config['filepaths']['all_datasets'],
+                                         features={'target_id': {'dtype': 'int64'}, 'tce_plnt_num': {'dtype': 'int64'},
+                                                   'label': {'dtype': 'str'}})
+    tfrec_tbl.to_csv(config['paths']['experiment_dir'] / 'tfrec_tbl.csv', index=False)
 
     # early stopping callback
     if 'early_stopping' in config['callbacks']:

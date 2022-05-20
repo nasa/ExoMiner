@@ -12,7 +12,7 @@ from scipy import optimize
 from datetime import datetime
 
 # local
-from data_wrangling.kepler_multiplicity_boost.utils_multiplicity_boost import _compute_expected_ntargets_for_obs, \
+from kepler_multiplicity_boost.utils_multiplicity_boost import _compute_expected_ntargets_for_obs, \
     _compute_expected_ntargets, residual_expect_ntargets
 
 #%% Experiment initial setup

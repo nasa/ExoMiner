@@ -2,6 +2,8 @@
 
 # 3rd party
 import re
+
+import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -98,3 +100,69 @@ tce_tbl_tso.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_tso.csv', index=False
 cols = ['target_id', 'sector_run', 'tce_plnt_num', 'tce_period', 'Period (days)', 'tce_time0bk', 'Epoch (TBJD)', 'TOI', 'match_dist', 'TFOPWG Disposition', 'TESS Disposition', 'Comments']
 pcs_ebs_matched = tce_tbl_tso.loc[(tce_tbl_tso['TFOPWG Disposition'].isin(['KP', 'CP'])) & (tce_tbl_tso['in_tso_eb_catalog'] == 'yes'), cols]
 pcs_ebs_matched.to_csv(tce_tbl_fp.parent / 'pcs_ebs_matched.csv', index=False)
+
+#%% Correct matching using Jon's table
+
+tce_tbl_fp = Path("/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid.csv")
+tce_tbl = pd.read_csv(tce_tbl_fp)
+
+
+def _create_uid_for_jon_tbl(x):
+    """ Create UID for Jon's SPOC EB table that matched TSO EBs with SPOC TESS TCEs.
+
+    :param x: pandas Series, EB
+    :return:
+        str, '{tic_id}-{tce_plnt_num}-{sector_run}'. E.g., TCE TIC 123456-1-S3 (single-sector run),
+        TCE TIC 123456-2-S1-26 (multi-sector run)
+    """
+
+    sector_run = [int(el[1:]) for el in x['sectors'].split('-')]
+    if len(sector_run) == 1:
+        sector_run = f'S{sector_run[0]}'
+    elif len(sector_run) == 2:
+        sector_run = f'S{sector_run[0]}-{sector_run[1]}'
+    else:
+        raise ValueError(f'Sector run does not have the expected template.')
+
+    return f'{x["ticid"]}-{x["tce_plnt_num"]}-{sector_run}'
+
+
+# add uid to Jon SPOC TCE-to-TSO EB table
+jon_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_catalog_tso/spocEBs.csv')
+jon_tbl['uid'] = jon_tbl.apply(_create_uid_for_jon_tbl, axis=1)
+jon_tbl.drop_duplicates(subset='uid', inplace=True)
+
+tce_tbl['in_jon_spoc_ebs'] = 'no'
+tce_tbl.loc[tce_tbl['uid'].isin(jon_tbl['uid']), 'in_jon_spoc_ebs'] = 'yes'
+print(f'Number of TCEs previously matched to TSO EBs: {(tce_tbl["label_source"] == "TSO EB").sum()}')
+print(f'Number of SPOC EBs in the TCE table: {(tce_tbl["in_jon_spoc_ebs"] == "yes").sum()}')
+print(f'Number of TCEs mismatched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "no") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
+print(f'Number of TCEs correctly matched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "yes") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
+
+# set TCEs that are in Jon's SPOC TSO EBs and were not associated with a TOI to EBs from TSO
+tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (~tce_tbl['label_source'].isin(['TFOPWG Disposition'])), ['label', 'label_source']] = 'EB', 'TSO EB'
+# set TCEs that are not in Jon's SPOC TSO EBs to missing label and label source
+tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'no') & (tce_tbl['label_source'] == 'TSO EB'), ['label', 'label_source']] = np.nan, np.nan
+
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_corrtsoebs.csv', index=False)
+
+#%% Checking which misclassified TSO EBs were actually TSO EBs according to Jon's SPOC EB matching table to TSO EBs
+
+misclf_tbl = pd.read_csv('/Users/msaragoc/Downloads/misclf_tess_ebs_jon_4-29-2022 JJ_5-12-2022.csv')
+
+
+def _find_s_and_capitalize_it(x):
+    """ Update TCE UID to match standard.
+
+    :param x: pandas Series, EB
+    :return:
+        str, TESS SPOC TCE unique identifier, '{tic_id}-{tce_plnt_num}-{sector_run}'. E.g., TCE TIC 123456-1-S3
+        (single-sector run), TCE TIC 123456-2-S1-26 (multi-sector run)
+    """
+    return x['uid'].replace('s', 'S')
+
+
+misclf_tbl['uid'] = misclf_tbl.apply(_find_s_and_capitalize_it, axis=1)
+
+misclf_tbl['in_jon_spoc_ebs'] = 'no'
+misclf_tbl.loc[(misclf_tbl['uid'].isin(tce_tbl['uid']) & (tce_tbl['in_jon_spoc_ebs'] == 'yes')), 'in_jon_spoc_ebs'] = 'yes'

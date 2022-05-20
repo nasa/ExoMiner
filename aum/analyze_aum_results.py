@@ -10,6 +10,7 @@ counting number of runs in which examples are mislabeled or in top-k.
 """
 
 # 3rd party
+
 from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -24,6 +25,7 @@ import multiprocessing
 # local
 from src.utils_visualization import plot_class_distribution
 from aum.create_mislabeled_dataset import create_tfrec_dataset_tbl
+from aum.utils_analysis import plot_logits_margins_aum_example_all_runs, avg_overlap, count_on_top_k, overlap
 
 # %% aggregate AUM across runs in an experiment
 
@@ -670,38 +672,6 @@ perf_metrics_runs.to_csv(experiment_dir / 'perf_metrics_inj.csv')
 
 # %% Compare rankings across runs to study model's sensitivity to choice of thresholded examples
 
-
-def overlap(r1, r2, d_i):
-    """ Compute overlap between rankings `r1` and `r2` at depth `d`, i.e., the number of common elements that show up in
-    both rankings up to depth `d`.
-
-    :param r1: NumPy array, ranking 1
-    :param r2: NumPy array, ranking 2
-    :param d_i: int, depth
-    :return:
-        float, overlap
-    """
-    return len(np.intersect1d(r1[:d_i], r2[:d_i])) / d_i
-
-
-# def rbo(r1, r2, d, p):
-#
-#     return (1 - p) * np.sum([p ** (d_i - 1) * overlap(r1, r2, d_i) for d_i in range(1, d + 1)])
-
-
-def avg_overlap(r1, r2, d):
-    """ Compute average overlap between rankings `r1` and `r2` at a cut-off depth `d`.
-
-    :param r1: NumPy array, ranking 1
-    :param r2: NumPy array, ranking 2
-    :param d: int, cut-off depth
-    :return:
-        float, average overlap
-    """
-
-    return 1 / d * np.sum([overlap(r1, r2, d_i) for d_i in range(1, d + 1)])
-
-
 experiment_dir = Path(
     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_03-17-2022_1532')
 
@@ -826,7 +796,7 @@ for dataset in datasets:  # iterate through the datasets
 # %% plot logits, margins and AUMs over epochs for some examples
 
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-14-2022_1155')
+    '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/')
 runs_dir = experiment_dir / 'runs'
 n_runs = len([fp for fp in sorted(runs_dir.iterdir()) if fp.is_dir()])
 n_epochs = 500
@@ -843,6 +813,38 @@ datasets = ['train', 'predict']
 cols_tbl = ['target_id', 'tce_plnt_num', 'label', 'shard_name', 'example_i', 'original_label', 'margin']
 epoch_chosen = 499
 # for run in range(n_runs):
+#     run_dir = experiment_dir / 'runs' / f'run{run}'
+#     model_dir = run_dir / 'models' / 'model1'
+#
+#     # create TFRecord dataset table
+#     tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
+#     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
+#
+#     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
+#
+#     ranking_tbls = []
+#     for dataset in datasets:
+#         ranking_tbls.append(pd.read_csv(model_dir / f'ranking_{dataset}.csv'))
+#         ranking_tbls[-1]['dataset'] = dataset
+#     ranking_tbl = pd.concat(ranking_tbls, axis=0)
+#     ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
+#     ranking_tbl.to_csv(model_dir / 'ranking_alldatasets.csv')
+#
+#     logits_tbls = {logit_i: pd.concat([pd.read_csv(model_dir / f'logits_epoch-{epoch_i}.csv',
+#                                                    usecols=[logit_i],
+#                                                    names=[f'epoch_{epoch_i}'],
+#                                                    header=0)
+#                                        for epoch_i in range(n_epochs)], axis=1) for logit_i in [0, 1]
+#                    }
+#
+#     logits_tbls = {logit_i: tfrec_tbl.merge(logit_tbl, how='left',
+#                                             left_index=True,
+#                                             right_index=True,
+#                                             validate='one_to_one')
+#                    for logit_i, logit_tbl in logits_tbls.items()}
+#     for logit_i, logits_tbl in logits_tbls.items():
+#         logits_tbl.to_csv(model_dir / f'logit{logit_i}_allepochs.csv', index=False)
+
 #
 #     run_dir = experiment_dir / 'runs' / f'run{run}'
 #
@@ -854,11 +856,6 @@ epoch_chosen = 499
 #     aum_tbl = pd.read_csv(model_dir / 'aum.csv')
 #     aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 #
-#     # create TFRecord dataset table
-#     tfrec_dir = experiment_dir / 'tfrecords' / f'run{run}'
-#     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if 'shard' in fp.name]
-#
-#     tfrec_tbl = create_tfrec_dataset_tbl(tfrec_fps, features=tfrec_tbl_features)
 #
 #     ranking_tbls = []
 #     for dataset in datasets:
@@ -926,107 +923,30 @@ epoch_chosen = 499
 #     (7532973, 1): {'label': 'PC lowest AUM'},
 #
 # }
-# demoted confirmed planets
-examples = {
-    # (7532973, 1): {'label': 'Kepler-854 b'},
-    # (11517719, 1): {'label': 'Kepler-840  b'},
-    # (6061119, 1): {'label': 'Kepler-699 b'},
-    # (5780460, 1): {'label': 'Kepler-747 b'}
+examples = [
+    # demoted confirmed planets
+    # {'uid': (7532973, 1), 'label': 'Kepler-854 b'},
+    # {'uid': (11517719, 1), 'label': 'Kepler-840  b'},
+    # {'uid': (6061119, 1), 'label': 'Kepler-699 b'},
+    # {'uid': (5780460, 1), 'label': 'Kepler-747 b'}
     # easy examples with high AUM
-    (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
-    (5868793, 1): {'label': 'KIC 5868793.1 (PC)'}
-}
+    # {'uid': (6058896, 1), 'label': 'KIC 6058896.1 (AFP)'},
+    # {'uid': (5868793, 1), 'label': 'KIC 5868793.1 (PC)'}
+    # difficult examples
+    {'uid': (10470206, 1), 'label': 'Background Object'},
+    {'uid': (11656840, 1), 'label': 'Foreground EB'},
+    {'uid': (11446443, 1), 'label': 'Kepler-1 b'},
+    {'uid': (7368664, 1), 'label': 'Kepler-434 b'},
+]
 
 # plot margins, AUMs for each example for all runs
-examples_dir = experiment_dir / 'examples_easy'
+examples_dir = experiment_dir / 'difficult_examples'
 examples_dir.mkdir(exist_ok=True)
 # aum_tbl_allruns = pd.read_csv(experiment_dir / f'aum_allruns_epoch{epoch_chosen}.csv')
 # aum_tbl_allruns.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-nprocesses = 12
-
-
-def plot_logits_margins_aum_example_all_runs(example, n_runs, n_epochs, experiment_dir, examples_dir):
-    """ Plot logits, margins and AUM values over epochs for all runs for each example.
-
-    :param example: tuple (kic, tce_plnt_num), TCE ID
-    :param n_runs: int, number of runs
-    :param n_epochs: int, number of training epochs
-    :param experiment_dir: Path, experiment directory
-    :param examples_dir: Path, directory to save results
-    :return:
-    """
-
-    plt.ioff()
-    print(f'Plotting for example {example[0]}.{example[1]}...')
-
-    aum_tbl_allruns = pd.read_csv(experiment_dir / f'aum_allruns_epoch{n_epochs - 1}.csv')
-    aum_tbl_allruns.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-
-    score_og_label = []
-
-    f, ax = plt.subplots(3, 1, figsize=(8, 8))
-
-    for run in range(n_runs):
-
-        print(f'[{example[0]}.{example[1]}] Run {run}')
-
-        run_dir = experiment_dir / 'runs' / f'run{run}'
-        model_dir = run_dir / 'models' / 'model1'
-
-        # get AUM for last training epoch
-        aum_tbl = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
-        aum_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-
-        ranking_tbl = pd.read_csv(model_dir / 'ranking_alldatasets.csv')
-        ranking_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-
-        # grab model score for this example
-        score_og_label.append(ranking_tbl.loc[example, f'score_{aum_tbl.loc[example, "original_label"]}'])
-
-        # get logits over epochs tables
-        logits_tbls = {logit_i: pd.read_csv(model_dir / f'logit{logit_i}_allepochs.csv') for logit_i in [0, 1]}
-        for logit_i in logits_tbls:
-            logits_tbls[logit_i] = logits_tbls[logit_i].set_index(keys=['target_id', 'tce_plnt_num'])
-
-        # get margins over epochs table
-        margins_dir = model_dir / 'margins'
-        margins_tbl = pd.read_csv(margins_dir / 'margins_allepochs.csv')
-        margins_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
-
-        # plot logits
-        for logit_i in logits_tbls:
-            ax[0].plot(np.arange(n_epochs),
-                       logits_tbls[logit_i].loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
-                       label=f'Logit {logit_i}' if run == 0 else None,
-                       color='orange' if logit_i == 1 else 'b')
-        # plot margins
-        ax[1].plot(np.arange(n_epochs),
-                   margins_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]])
-        # plot AUM values
-        ax[2].plot(np.arange(n_epochs),
-                   np.cumsum(margins_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].values) /
-                   np.arange(1, n_epochs + 1))
-    ax[2].set_xlabel('Epoch Number')
-    ax[0].set_ylabel('Logit Value')
-    ax[1].set_ylabel('Margin')
-    ax[2].set_ylabel('AUM')
-    ax[0].set_title(f'Example {example} {aum_tbl_allruns.loc[example, "original_label"]}\n'
-                    f'{aum_tbl_allruns.loc[example, "dataset"]} dataset | '
-                    f'Score {np.mean(score_og_label):.4f}+-{np.std(score_og_label, ddof=1):.4f} | '
-                    # f'Predicted class {ranking_tbl.loc[example, "predicted class"]}\n'
-                    f'{examples[example]["label"]}\n '
-                    f'AUM: {aum_tbl_allruns.loc[example, "mean"]:.4f}+-{aum_tbl_allruns.loc[example, "std"]:.4f}')
-    ax[0].legend()
-    f.savefig(examples_dir /
-              f'{example[0]}.{example[1]}-{aum_tbl_allruns.loc[example, "original_label"]}_logits_margin.png')
-    # plt.close()
-
-
-# for example in examples:
-
+nprocesses = 4
 pool = multiprocessing.Pool(processes=nprocesses)
-jobs = [(example, n_runs, n_epochs, experiment_dir, examples_dir)
-        for example in examples]
+jobs = [(example, n_runs, n_epochs, experiment_dir, examples_dir) for example in examples]
 async_results = [pool.apply_async(plot_logits_margins_aum_example_all_runs, job) for job in jobs]
 pool.close()
 for async_result in async_results:
@@ -1065,19 +985,6 @@ aum_rank.to_csv(experiment_dir / f'aum_ranks_allruns_epoch{epoch_chosen}.csv', i
 
 
 # %%
-
-
-def count_on_top_k(example, top_k):
-    """ Count number of times example is in top-k across runs.
-
-    :param example: pandas Series, rankings for example across runs
-    :param top_k: int, top-k
-    :return:
-        int, number of times examples is in top-k across runs.
-    """
-
-    return (example < top_k).sum()
-
 
 top_k = 30
 
@@ -1219,9 +1126,8 @@ f.savefig(experiment_dir / f'margin_diff_rel_npercentiles_avgsmooth_{window}.png
 
 # %% Study changes in AUM as proxy to training dynamics reaching an equilibrium
 
-
 experiment_dir = Path(
-    '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_04-13-2022_1155')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/')
 
 n_epochs = 500
 n_runs = 10
@@ -1243,7 +1149,9 @@ for run in range(n_runs):
     aum_arr[run, :, :] = aum_tbl_run[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
 
 # aggregate AUMs from all runs
-aum_agg = np.median(aum_arr, axis=0)  # using median
+# aum_agg = np.median(aum_arr, axis=0)  # using median
+aum_agg = np.mean(aum_arr, axis=0)  # using mean
+
 aum_agg_tbl = pd.concat([
     aum_tbl,
     pd.DataFrame(data=aum_agg, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
@@ -1253,13 +1161,13 @@ aum_agg_tbl.to_csv(experiment_dir / f'aum_agg_allruns.csv', index=False)
 aum_agg_tbl.set_index(keys=['target_id', 'tce_plnt_num'], inplace=True)
 
 # compute relative 1st order difference
-aum_agg_diff_rel = np.diff(aum_agg, axis=1, prepend=np.nan) / aum_agg
+aum_agg_diff_rel = np.abs(np.diff(aum_agg, axis=1, prepend=np.nan)) / aum_agg
 aum_agg_diff_rel_tbl = pd.concat([
     aum_agg_tbl[fixed_cols],
     pd.DataFrame(data=aum_agg_diff_rel, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
 ],
     axis=1, ignore_index=False)
-aum_agg_diff_rel_tbl.to_csv(experiment_dir / f'aum_agg_diff_rel_allruns.csv', index=False)
+# aum_agg_diff_rel_tbl.to_csv(experiment_dir / f'aum_agg_diff_rel_allruns.csv', index=False)
 
 # %%
 
@@ -1277,18 +1185,18 @@ aum_metric = aum_agg_diff_rel_tbl.loc[
 # %%
 examples = {
     # demoted confirmed planets
-    # (7532973, 1): {'label': 'Kepler-854 b'},
-    # (11517719, 1): {'label': 'Kepler-840  b'},
-    # (6061119, 1): {'label': 'Kepler-699 b'},
-    # (5780460, 1): {'label': 'Kepler-747 b'},
+    (7532973, 1): {'label': 'Kepler-854 b'},
+    (11517719, 1): {'label': 'Kepler-840  b'},
+    (6061119, 1): {'label': 'Kepler-699 b'},
+    (5780460, 1): {'label': 'Kepler-747 b'},
     # difficult cases
-    (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
-    (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
-    (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
-    (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
-    (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
-    (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
-    (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
+    # (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
+    # (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
+    # (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
+    # (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
+    # (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
+    # (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
+    # (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
 
     # easy examples with high AUM
     # (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
@@ -1313,12 +1221,411 @@ for example in examples:
             np.abs(aum_agg_diff_rel_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]]),
             label=f'{examples[example]["label"]}')
 #     ax.plot(np.arange(n_epochs), margins_agg_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], label=f'{examples[example]["kepler_name"]}')
-ax.set_title(f'nth-percentile')
+# ax.set_title(f'nth-percentile')
 ax.set_xlabel('Epoch Number')
-ax.set_ylabel('Relative AUM 1st Order Difference')
+ax.set_ylabel('Absolute Relative AUM 1st Order Difference')
 ax.legend()
 ax.set_xlim([0, n_epochs - 1])
 ax.grid(axis='y')
-ax.set_ylim([0, 0.1])
+# ax.set_ylim([0, 0.1])
+aa
+f.savefig(experiment_dir / f'aum_diff_rel_npercentiles.png')
+
+#%% plot central tendency and variability statistics as proxy of distribution over epochs to see what is happening to the overall distribution of AUM over epochs
+
+aum_agg_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/aum_agg_allruns.csv')
+n_epochs = 500
+epochs_arr = np.arange(n_epochs)
+n_percentiles = [1, 10, 90, 99]
+aum_avg = aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].median(axis=0).to_numpy()
+# aum_99p = np.percentile(aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], q=99, axis=0)
+# aum_1p = np.percentile(aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], q=1, axis=0)
+# aum_var = np.std(aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], axis=0)
+aum_var = mad_std(aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], axis=0)
+f, ax = plt.subplots()
+ax.plot(epochs_arr, aum_avg, label='median', c='b')
+for n_percentile in n_percentiles:
+    aum_p = np.percentile(aum_agg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], q=n_percentile, axis=0)
+    ax.plot(epochs_arr, aum_p, label=f'{n_percentile}th-percentile', c='g')
+# ax.plot(epochs_arr, aum_99p, label='99th-percentile', c='g')
+ax.plot(epochs_arr, aum_avg + aum_var, label='median +-var', c='r', linestyle='--')
+ax.plot(epochs_arr, aum_avg - aum_var, c='r', linestyle='--')
+ax.legend()
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('AUM')
+
+# %% compute coeff of variation, z-score to study variability across runs
+
+experiment_dir = Path(
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/')
+
+
+n_runs = 10
+n_epochs = 500
+epochs_arr = np.arange(n_epochs)
+n_examples = 34030
+fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+
+# get AUM values over epochs across all runs
+aum_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
+#  initialize arrays for statistics
+coeff_variation_arr = np.nan * np.ones((n_examples, n_epochs), dtype='float')
+zscore_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
+
+aum_tbl = None
+for run in range(n_runs):
+
+    run_dir = experiment_dir / 'runs' / f'run{run}'
+
+    aum_tbl_run = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    if aum_tbl is None:
+        aum_tbl = aum_tbl_run[fixed_cols]
+    aum_arr[run, :, :] = aum_tbl_run[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+
+# compute coeff variation
+# coeff_variation_arr = np.abs(np.std(aum_arr, axis=0) / np.mean(aum_arr, axis=0))
+# robust version
+coeff_variation_arr = np.abs(mad_std(aum_arr, axis=0) / np.median(aum_arr, axis=0))
+
+coeff_variation_tbl = pd.concat([
+    aum_tbl,
+    pd.DataFrame(data=coeff_variation_arr, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+coeff_variation_tbl.to_csv(experiment_dir / 'coeff_variation.csv', index=False)
+
+# compute z-score
+# zscore_arr = np.abs(aum_arr - np.mean(aum_arr, axis=0, keepdims=True)) / np.std(aum_arr, axis=0, keepdims=True)
+# robust
+zscore_arr = np.abs(aum_arr - np.median(aum_arr, axis=0, keepdims=True)) / mad_std(aum_arr, axis=0)
+
+zscore_avg_arr = np.mean(zscore_arr, axis=0)
+zscore_avg_tbl = pd.concat([
+    aum_tbl,
+    pd.DataFrame(data=zscore_avg_arr, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+zscore_avg_tbl.to_csv(experiment_dir / 'zscore_avg.csv', index=False)
+
+# plot percentiles for coeff variation and z-score
+n_percentiles = [1, 10, 50, 90, 99]
+
+coeff_variation_tbl_plot = coeff_variation_tbl.loc[coeff_variation_tbl['dataset'] == 'train']
+zscore_avg_tbl_plot = zscore_avg_tbl.loc[zscore_avg_tbl['dataset'] == 'train']
+
+f, ax = plt.subplots()
+for n_percentile in n_percentiles:
+    coeff_variation_p = np.percentile(coeff_variation_tbl_plot[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], q=n_percentile, axis=0)
+    ax.plot(epochs_arr, coeff_variation_p, label=f'{n_percentile}-percentile')
+# ax.plot(epochs_arr, coeff_variation_p + aum_var, label='median +-var', c='r', linestyle='--')
+# ax.plot(epochs_arr, aum_avg - aum_var, c='r', linestyle='--')
+ax.legend()
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Absolute Coefficient of Variation Across Runs (AUM)')
+f.savefig(experiment_dir / 'abs_coeff_variation_aum_rob.svg')
+
+f, ax = plt.subplots()
+for n_percentile in n_percentiles:
+    zscore_avg_p = np.percentile(zscore_avg_tbl_plot[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], q=n_percentile, axis=0)
+    ax.plot(epochs_arr, zscore_avg_p, label=f'{n_percentile}-percentile')
+# ax.plot(epochs_arr, coeff_variation_p + aum_var, label='median +-var', c='r', linestyle='--')
+# ax.plot(epochs_arr, aum_avg - aum_var, c='r', linestyle='--')
+ax.legend()
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Mean Absolute Z-score Across Runs (AUM)')
+f.savefig(experiment_dir / 'mean_abs_zscore_aum_rob.svg')
+
+#%% Plot ranking similarity over epochs using avg AUM across runs for each example
+
+experiment_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/')
+
+n_runs = 10
+n_epochs = 500
+epochs_arr = np.arange(n_epochs)
+fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+aum_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
+aum_tbl = None
+for run in range(n_runs):
+
+    run_dir = experiment_dir / 'runs' / f'run{run}'
+
+    aum_tbl_run = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    if aum_tbl is None:
+        aum_tbl = aum_tbl_run[fixed_cols]
+    aum_arr[run, :, :] = aum_tbl_run[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+aum_avg_arr = np.mean(aum_arr, axis=0)
+aum_avg_tbl = pd.concat([
+    aum_tbl,
+    pd.DataFrame(data=aum_avg_arr, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+
+# use only training set examples
+aum_tbl_for_rank = aum_avg_tbl.loc[aum_avg_tbl['dataset'] == 'train'].reset_index()
+# set examples' ID
+aum_tbl_for_rank['id'] = aum_tbl_for_rank[['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
+
+depth = 30
+rbo_p = 0.8
+kendall_tau_params = {'rank': False, 'weigher': None, }
+
+# initialize arrays for ranking similarity metrics
+avg_op_arr = np.nan * np.ones((n_epochs,), dtype='float')
+rbo_arr = np.nan * np.ones((n_epochs,), dtype='float')
+kendalltau_arr = np.nan * np.ones((n_epochs,), dtype='float')
+op_arr = np.nan * np.ones((n_epochs,), dtype='float')
+for epoch_i in range(1, n_epochs):  # iterate through the epochs to compute AUM rank similarity between adjacent epochs
+
+    print(f'Iterating over epoch {epoch_i}...')
+
+    aum_epoch_i = aum_tbl_for_rank[['id', f'epoch_{epoch_i}']]
+    aum_epoch_i = aum_epoch_i.sort_values(by=f'epoch_{epoch_i}', ascending=True)
+    aum_epoch_h = aum_tbl_for_rank[['id', f'epoch_{epoch_i-1}']]
+    aum_epoch_h = aum_epoch_h.sort_values(by=f'epoch_{epoch_i-1}', ascending=True)
+
+    op_arr[epoch_i] = overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depth)
+    avg_op_arr[epoch_i] = avg_overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depth)
+    rbo_arr[epoch_i] = rbo.RankingSimilarity(aum_epoch_h['id'].values, aum_epoch_i['id'].values,).rbo(k=depth, p=rbo_p)
+
+    aum_epoch_i_to_int = aum_epoch_i[['id']].copy(deep=True)
+    aum_epoch_h_to_int = aum_epoch_h[['id']].copy(deep=True)
+    aum_epoch_h_to_int['rank'] = np.arange(len(aum_epoch_h_to_int))
+    aum_epoch_i_to_int = aum_epoch_i_to_int.merge(aum_epoch_h_to_int, on=['id'], how='left', validate='one_to_one')
+    kendalltau_arr[epoch_i], _ = weightedtau(aum_epoch_h_to_int['rank'].values[:depth],
+                                             aum_epoch_i_to_int['rank'].values[:depth],
+                                             **kendall_tau_params)
+
+# save arrays
+np.save(experiment_dir / f'op_epochs_depth{depth}.npy', kendalltau_arr)
+np.save(experiment_dir / f'avg_op_epochs_depth{depth}.npy', avg_op_arr)
+np.save(experiment_dir / f'avg_op_epochs_depth{depth}_p{rbo_p}.npy', rbo_arr)
+np.save(experiment_dir / 'weighted_kendall_tau_epochs_nonweighted.npy', kendalltau_arr)
+
+f, ax = plt.subplots()
+ax.plot(epochs_arr, avg_op_arr, label=f'Avg. Overlap')
+ax.plot(epochs_arr, rbo_arr, label=f'RBO p={rbo_p}')
+ax.plot(epochs_arr, kendalltau_arr, label='Weighted Kendall Tau no weight')
+ax.legend()
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Ranking Similarity Value')
+ax.set_title(f'Top-{depth}')
+f.savefig(experiment_dir / f'ranking_similarity_over_epochs_top{depth}.svg')
+
+# compute AO for different depths
+depths = [1, 5, 10, 20, 30, 50, 100]
+n_depths = len(depths)
+avg_op_depth_arr = np.nan * np.ones((n_epochs, n_depths), dtype='float')
+op_depth_arr = np.nan * np.ones((n_epochs, n_depths), dtype='float')
+for epoch_i in range(1, n_epochs):  # iterate through the epochs to compute AUM rank similarity between adjacent epochs
+
+    print(f'Iterating over epoch {epoch_i}...')
+
+    aum_epoch_i = aum_tbl_for_rank[['id', f'epoch_{epoch_i}']]
+    aum_epoch_i = aum_epoch_i.sort_values(by=f'epoch_{epoch_i}', ascending=True)
+    aum_epoch_h = aum_tbl_for_rank[['id', f'epoch_{epoch_i-1}']]
+    aum_epoch_h = aum_epoch_h.sort_values(by=f'epoch_{epoch_i-1}', ascending=True)
+
+    for depth_i in range(n_depths):
+        avg_op_depth_arr[epoch_i, depth_i] = avg_overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depths[depth_i])
+        op_depth_arr[epoch_i, depth_i] = overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depths[depth_i])
+
+# save as a table
+avg_op_depth_tbl = pd.DataFrame(data=avg_op_depth_arr, columns=[f'depth_{depths[depth_i]}' for depth_i in range(n_depths)])
+avg_op_depth_tbl.to_csv(experiment_dir / f'avg_op_to_previous_epoch_different_depths.csv', index=True)
+op_depth_tbl = pd.DataFrame(data=op_depth_arr, columns=[f'depth_{depths[depth_i]}' for depth_i in range(n_depths)])
+op_depth_tbl.to_csv(experiment_dir / f'op_to_previous_epoch_different_depths.csv', index=True)
+
+# plot AO between consecutive epochs for different depths
+f, ax = plt.subplots()
+for depth_i in range(n_depths):
+    if depths[depth_i] in [1, 5, 10, 20, 50, 100]:
+        continue
+    ax.plot(epochs_arr, avg_op_depth_arr[:, depth_i], label=f'Top-{depths[depth_i]}')
+ax.legend()
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Average Overlap')
+ax.set_xlim([0, n_epochs])
+ax.set_ylim([0.95, 1])
+f.savefig(experiment_dir / f'avg_overlap_over_epochs_depths.svg')
+f.savefig(experiment_dir / f'avg_overlap_over_epochs_depths_zoomin.svg')
+
+# plot average number of disagreeing examples between consecutive epochs for different depths
+f, ax = plt.subplots()
+for depth_i in range(n_depths):
+    if depths[depth_i] in [1, 5, 10, 20, 50, 100]:
+        continue
+    # ax.plot(epochs_arr, depths[depth_i] - depths[depth_i] * avg_op_depth_arr[:, depth_i])
+    ax.plot(epochs_arr, depths[depth_i] * avg_op_depth_arr[:, depth_i])
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Number of Disagreeing Examples in Top-30')
+ax.set_xlim([0, n_epochs])
+ax.set_ylim(bottom=0)
+# ax.set_ylim([0, 5])
+ax.grid(axis='both')
+ax.set_title('Consecutive Epochs')
+f.savefig(experiment_dir / f'avg_overlap_top30_disagreement_examples.svg')
+
+# compute AO relative to first epoch for different depths
+avg_op_depth_toinit_arr = np.nan * np.ones((n_epochs, n_depths), dtype='float')
+op_depth_toinit_arr = np.nan * np.ones((n_epochs, n_depths), dtype='float')
+for epoch_i in range(1, n_epochs):  # iterate through the epochs to compute AUM rank similarity between adjacent epochs
+
+    print(f'Iterating over epoch {epoch_i}...')
+
+    aum_epoch_i = aum_tbl_for_rank[['id', f'epoch_{epoch_i}']]
+    aum_epoch_i = aum_epoch_i.sort_values(by=f'epoch_{epoch_i}', ascending=True)
+    aum_epoch_h = aum_tbl_for_rank[['id', f'epoch_{0}']]
+    aum_epoch_h = aum_epoch_h.sort_values(by=f'epoch_{0}', ascending=True)
+
+    for depth_i in range(n_depths):
+        avg_op_depth_toinit_arr[epoch_i, depth_i] = avg_overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depths[depth_i])
+        op_depth_toinit_arr[epoch_i, depth_i] = overlap(aum_epoch_h['id'].values, aum_epoch_i['id'].values, depths[depth_i])
+
+# save as a table
+avg_op_depth_toinit_tbl = pd.DataFrame(data=avg_op_depth_toinit_arr, columns=[f'depth_{depths[depth_i]}' for depth_i in range(n_depths)])
+avg_op_depth_toinit_tbl.to_csv(experiment_dir / f'avg_op_to_first_epoch_different_depths.csv', index=True)
+op_depth_toinit_tbl = pd.DataFrame(data=op_depth_toinit_arr, columns=[f'depth_{depths[depth_i]}' for depth_i in range(n_depths)])
+op_depth_toinit_tbl.to_csv(experiment_dir / f'op_to_first_epoch_different_depths.csv', index=True)
+
+# plot AO relative to first epoch for different depths
+f, ax = plt.subplots()
+for depth_i in range(n_depths):
+    if depths[depth_i] in [1, 5, 10, 20, 50, 100]:
+        continue
+    ax.plot(epochs_arr, depths[depth_i] - depths[depth_i] * avg_op_depth_toinit_arr[:, depth_i])
+    # ax.plot(epochs_arr, depths[depth_i] * avg_op_depth_arr[:, depth_i])
+
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('Number of Disagreeing Examples in Top-30')
+ax.set_xlim([0, n_epochs])
+ax.set_ylim(bottom=0)
+ax.set_title('Relative to First Epoch')
+# ax.set_ylim([0, 5])
+ax.grid(axis='both')
+
+# plot both AO relative to previous and first epochs
+for depth_i in range(n_depths):
+    f, ax = plt.subplots()
+
+    # if depths[depth_i] in [1, 5, 10, 20, 50, 100]:
+    #     continue
+    # ax.plot(epochs_arr, depths[depth_i] - depths[depth_i] * avg_op_depth_arr[:, depth_i], label='Previous Epoch', color='b')
+    ax.plot(epochs_arr, depths[depth_i] - depths[depth_i] * op_depth_arr[:, depth_i], label='Previous Epoch', color='b')
+    # ax.plot(epochs_arr, avg_op_depth_arr[:, depth_i], label='Consecutive Epoch')
+    # ax.plot(epochs_arr, avg_op_depth_toinit_arr[:, depth_i], label='First Epoch')
+    ax.set_xlabel('Epoch Number')
+    ax.set_ylabel(f'Avg. Number of Disagreeing Examples in Top-{depths[depth_i]}\nRelative to Previous Epoch', color='b')
+    # ax.set_ylabel(f'Number of Disagreeing Examples in Top-{depths[depth_i]}\nRelative to Previous Epoch', color='b')
+    ax2 = ax.twinx()
+    # ax2.plot(epochs_arr, depths[depth_i] - depths[depth_i] * avg_op_depth_toinit_arr[:, depth_i], label='First Epoch', color='r')
+    ax2.plot(epochs_arr, depths[depth_i] - depths[depth_i] * op_depth_toinit_arr[:, depth_i], label='First Epoch', color='r')
+    ax2.set_ylabel(f'Avg. Number of Disagreeing Examples in Top-{depths[depth_i]}\nRelative to First Epoch', color='r')
+    # ax2.set_ylabel(f'Number of Disagreeing Examples in Top-{depths[depth_i]}\nRelative to First Epoch', color='r')
+    # ax.set_ylabel(f'Average Overlap Top-{depths[depth_i]}')
+    ax.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0)
+    # ax.grid(axis='y', color='b')
+    # ax2.grid(axis='y', color='r')
+    ax.set_xticks(np.linspace(0, 500, 11))
+    # ax.set_xlim([0, n_epochs])
+    ax.set_xlim([0, 20])
+    ax.set_title(f'Top-{depths[depth_i]}')
+    # ax.set_ylim([0, 5])
+    # ax.grid(axis='both')
+    ax.grid(axis='x')
+    # ax.legend()
+    # f.savefig(experiment_dir / f'avg_overlap_top{depths[depth_i]}_nexamples_disagreeing_consecutive_and_relative_epochs.svg')
+    f.savefig(experiment_dir / f'avg_overlap_top{depths[depth_i]}_nexamples_disagreeing_to_previous_and_first_epochs.svg')
+
+#%% Plotting average AUM over epochs for different examples
+
+experiment_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/')
+
+n_runs = 10
+n_epochs = 500
+n_examples = 34030
+fixed_cols = ['target_id', 'tce_plnt_num', 'label', 'label_id', 'original_label', 'shard_name', 'dataset']
+aum_arr = np.nan * np.ones((n_runs, n_examples, n_epochs), dtype='float')
+aum_tbl = None
+for run in range(n_runs):
+
+    run_dir = experiment_dir / 'runs' / f'run{run}'
+
+    aum_tbl_run = pd.read_csv(run_dir / 'models' / 'model1' / 'aum.csv')
+    if aum_tbl is None:
+        aum_tbl = aum_tbl_run[fixed_cols]
+    aum_arr[run, :, :] = aum_tbl_run[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+aum_avg_arr = np.mean(aum_arr, axis=0)
+aum_avg_tbl = pd.concat([
+    aum_tbl,
+    pd.DataFrame(data=aum_avg_arr, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+
+# # use only training set examples
+# aum_tbl_for_rank = aum_avg_tbl.loc[aum_avg_tbl['dataset'] == 'train'].reset_index()
+
+aum_avg_tbl.set_index(['target_id', 'tce_plnt_num'], inplace=True)
+
+#%%
+examples = {
+    # demoted confirmed planets
+    (7532973, 1): {'label': 'Kepler-854 b'},
+    (11517719, 1): {'label': 'Kepler-840  b'},
+    (6061119, 1): {'label': 'Kepler-699 b'},
+    (5780460, 1): {'label': 'Kepler-747 b'},
+    # difficult cases
+    # (7661065, 1): {'label': 'KIC 7661065.1 (AFP)'},
+    # (6696462, 1): {'label': 'KIC 6696462.1 (AFP)'},
+    # (6061119, 1): {'label': 'KIC 6061119.1 Kepler-699 b'},
+    # (12004971, 1): {'label': 'KIC 12004971.1 (AFP)'},
+    # (10904857, 1): {'label': 'KIC 10904857.1 (Kepler-488 b)'},
+    # (7532973, 1): {'label': 'KIC 7532973.1 Kepler-854 b'},
+    # (7767559, 1): {'label': 'KIC 7767559.1 (AFP)'},
+
+    # easy examples with high AUM
+    # (6058896, 1): {'label': 'KIC 6058896.1 (AFP)'},
+    # (5868793, 1): {'label': 'KIC 5868793.1 (PC)'}
+}
+
+aum_avg_zscore_arr = aum_avg_tbl[[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]].to_numpy()
+aum_avg_zscore_arr = np.abs((aum_avg_zscore_arr - np.mean(aum_avg_zscore_arr, axis=1, keepdims=True)) / np.std(aum_avg_zscore_arr, axis=1, keepdims=True))
+aum_avg_zscore_tbl = pd.concat([
+    aum_tbl[fixed_cols],
+    pd.DataFrame(data=aum_avg_zscore_arr, columns=[f'epoch_{epoch_i}' for epoch_i in range(n_epochs)])
+],
+    axis=1, ignore_index=False)
+
+# # use only training set examples
+# aum_tbl_for_rank = aum_avg_tbl.loc[aum_avg_tbl['dataset'] == 'train'].reset_index()
+
+aum_avg_zscore_tbl.set_index(['target_id', 'tce_plnt_num'], inplace=True)
+
+n_percentiles = [
+    99,
+    90,
+    50,
+    1
+]
+# plot percentiles
+f, ax = plt.subplots()
+# for n_percentile in n_percentiles:
+#     ax.plot(np.arange(n_epochs),
+#             np.percentile(np.abs(aum_metric), n_percentile, axis=0),
+#             label=f'{n_percentile}th-percentile',
+#             linestyle='dashed')
+for example in examples:
+    ax.plot(np.arange(n_epochs),
+            # aum_avg_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
+            aum_avg_zscore_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]],
+            label=f'{examples[example]["label"]}')
+#     ax.plot(np.arange(n_epochs), margins_agg_tbl.loc[example, [f'epoch_{epoch_i}' for epoch_i in range(n_epochs)]], label=f'{examples[example]["kepler_name"]}')
+# ax.set_title(f'nth-percentile')
+ax.set_xlabel('Epoch Number')
+ax.set_ylabel('AUM')
+ax.legend()
+ax.set_xlim([0, n_epochs - 1])
+# ax.grid(axis='y')
+# ax.set_ylim([0, 0.1])
 aa
 f.savefig(experiment_dir / f'aum_diff_rel_npercentiles.png')

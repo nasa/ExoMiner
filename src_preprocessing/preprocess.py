@@ -2000,15 +2000,15 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     # add ghost diagnostic statistic difference
     example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
 
-    # add categorical magnitude
-    if np.isnan(tce['mag']):
-        mag_cat = np.nan
-    else:
-        if config['satellite'] == 'kepler':
-            mag_cat = 1 if tce['mag'] > config['kepler_mag_cat_thr'] else 0
-        else:
-            mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
-    example_util.set_int64_feature(ex, 'mag_cat', [mag_cat])
+    # # add categorical magnitude
+    # if np.isnan(tce['mag']):
+    #     mag_cat = np.nan
+    # else:
+    #     if config['satellite'] == 'kepler':
+    #         mag_cat = 1 if tce['mag'] > config['kepler_mag_cat_thr'] else 0
+    #     else:
+    #         mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
+    # example_util.set_int64_feature(ex, 'mag_cat', [mag_cat])
 
     # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor
     if config['satellite'] == 'tess':

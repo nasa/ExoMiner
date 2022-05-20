@@ -1,6 +1,6 @@
 """
 Match secondary to primary TCEs in TESS using flux triage TEC information about secondary of previous TCEs. Setting
-phase of matched secondary to negative of primary phase. Settung secondary transit depth and MES to primary and
+phase of matched secondary to negative of primary phase. Setting secondary transit depth and MES to primary and
 recompute planet effective temperature and geometric albedo and respective comparison statistics.
 """
 

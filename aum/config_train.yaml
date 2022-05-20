@@ -231,3 +231,11 @@ metrics:
 datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
 verbose: true
 
+ # features to extract from the TFRecords to create the TFRecord table to map logits to examples
+features:
+  target_id:
+   dtype: int64
+  tce_plnt_num:
+   dtype: int64
+  label:
+   dtype: str
