@@ -9,8 +9,6 @@ from pathlib import Path
 import logging
 from datetime import datetime
 
-# local
-
 #%% Experiment initial setup
 
 res_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/kepler_multiplicity_boost')
@@ -42,9 +40,13 @@ tbls = []
 cnt_tces_target = \
     tce_tbl['target_id'].value_counts().to_frame(name='num_tces_target').reset_index().rename(columns={'index': 'target_id'})
 tbls.append(cnt_tces_target)
+# number of KOIs per target in the TCE table
+cnt_kois_target = \
+    tce_tbl.loc[~tce_tbl['kepoi_name'].isna(), 'target_id'].value_counts().to_frame(name='num_kois_target').reset_index().rename(columns={'index': 'target_id'})
+tbls.append(cnt_kois_target)
 # number of FPs per target (AFPs in the TCE table)
 cnt_fps_target = \
-    tce_tbl.loc[(tce_tbl['label'] == 'AFP') | tce_tbl['fpwg_disp_status'] == 'CERTIFIED FA', 'target_id'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'target_id'})
+    tce_tbl.loc[((tce_tbl['label'] == 'AFP') | ((tce_tbl['label'] == 'NTP') & (tce_tbl['fpwg_disp_status'] == 'CERTIFIED FP'))), 'target_id'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'target_id'})
 tbls.append(cnt_fps_target)
 # number of Confirmed Planets (PCs in the TCE table)
 cnt_planets_target = \
@@ -55,10 +57,16 @@ for tbl in tbls:
     tce_tbl = tce_tbl.merge(tbl, on=['target_id'], how='left', validate='many_to_one')
 
 count_lbls = [
+    'num_kois_target',
     'num_fps_target',
     'num_planets_target',
 ]
 for count_lbl in count_lbls:
     tce_tbl.loc[tce_tbl[count_lbl].isna(), count_lbl] = 0
+
+logger.info(f'Number of TCEs per KIC:\n{tce_tbl["num_tces_target"].value_counts().sort_index()}')
+logger.info(f'Number of KOIs per KIC:\n{tce_tbl["num_kois_target"].value_counts().sort_index()}')
+logger.info(f'Number of Planets per KIC:\n{tce_tbl["num_planets_target"].value_counts().sort_index()}')
+logger.info(f'Number of FPs per KIC:\n{tce_tbl["num_fps_target"].value_counts().sort_index()}')
 
 tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_counts.csv', index=False)

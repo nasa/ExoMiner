@@ -43,7 +43,7 @@ def get_tic_dv_report_and_summary(tic, download_dir, verbose=False):
 
     obs_table = Observations.query_criteria(target_name=f'{tic}',
                                             obs_collection='TESS',
-                                            obs_id='*-s',
+                                            obs_id='*',
                                             )
 
     if verbose:
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     tbl.sort_values(by='epoch_299', ascending=True, inplace=True)
     target_list = tbl['target_id'][:30].unique()
     
-    kic_list = target_list #  [8492101, 4067336, 7767559, 6061119, 10904857]  # tbl.loc[tbl['top_30_cnts'] == 9, 'target_id'].unique() # tbl.loc[: 10, 'target_id'].unique()  # [100001645]  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
+    kic_list = [] #  [8492101, 4067336, 7767559, 6061119, 10904857]  # tbl.loc[tbl['top_30_cnts'] == 9, 'target_id'].unique() # tbl.loc[: 10, 'target_id'].unique()  # [100001645]  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
     download_dir = '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/Kepler/'
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
@@ -95,28 +95,3 @@ if __name__ == "__main__":
     tic_list = []  # tbl['target_id'].to_numpy()  # []
     for tic in tic_list:
         get_tic_dv_report_and_summary(tic, download_dir, verbose=False)
-
-    # experimental code
-
-    # obs_table = Observations.query_object('KIC 8197761')
-    # obs_table = Observations.query_criteria(target_name='kplr012935144',
-    #                                         obs_collection='Kepler',
-    #                                         # dataproduct_type='timeseries'
-    #                                         obs_id='*lc*',
-    #                                         )
-    # obs_products = Observations.get_product_list(obs_table)
-    # obs_products_filter = Observations.filter_products(obs_products, extension='pdf')
-    # # data_products = Observations.get_product_list(obs_table)
-    #
-    # prod = Observations.download_products(obs_products_filter, download_dir='/home/msaragoc/Downloads/')
-    #
-    # obs_table = Observations.query_criteria(target_name='50365310',
-    #                                         obs_collection='TESS',
-    #                                         # dataproduct_type='timeseries'
-    #                                         obs_id='*-s',
-    #                                         )
-    # obs_products = Observations.get_product_list(obs_table)
-    # obs_products_filter = Observations.filter_products(obs_products, extension='pdf')
-    # # data_products = Observations.get_product_list(obs_table)
-    #
-    # prod = Observations.download_products(obs_products_filter, download_dir='/home/msaragoc/Downloads/')

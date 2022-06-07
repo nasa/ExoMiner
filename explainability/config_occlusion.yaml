@@ -1,0 +1,138 @@
+# Configuration parameters for explainability run using zeroing-out strategy
+
+exp_root_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/explainability_runs/
+#tfrec_dir: /nobackup/khauskne/Desktop/kepler-shift-all/records_shift_all/
+data_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/presaved_data/
+#ce_weights_args = {'tfrec_dir':tfrec_dir,'datasets': ['train'],'label_fieldname': 'label','verbose': False }
+#verbose: false
+datasets:  # datasets for which to run explainability on; train must be present
+  - train
+  - val
+  - test
+# features received by the model; each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+features_set:
+  global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
+  # odd-even flux related features
+  local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  #  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
+  #  odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+  #  even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+  odd_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
+  even_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
+  # centroid related features
+  # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
+  # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
+  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  #  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+#  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  # secondary related features
+  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
+#  local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
+  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  # other diagnostic parameters
+  boot_fap_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
+  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
+  # stellar parameters
+  tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_steff_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smet_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce parameters
+  tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+
+# Model's file path
+model_filepath: /Users/msaragoc/Downloads/khauskne_cluster/kdd/ensemble_model.h5
+
+# groupings of features that are replaced together
+features_grouping:
+  global flux:
+    - global_flux_view_fluxnorm
+  local_flux:
+    - local_flux_view_fluxnorm
+    - transit_depth_norm
+  global_and_local_centroid:
+    - global_centr_view_std_noclip
+    - local_centr_view_std_noclip
+    - tce_dikco_msky_norm
+    - tce_dikco_msky_err_norm
+    - tce_fwm_stat_norm
+    - tce_dicco_msky_norm
+    - tce_dicco_msky_err_norm
+    - mag_cat
+#    global_centroid:
+#      - global_centr_view_std_noclip
+#    local_centroid:
+#      - local_centr_view_std_noclip
+#      - tce_dikco_msky_norm
+#      - tce_dikco_msky_err_norm
+#      - tce_fwm_stat_norm
+#      - tce_dicco_msky_norm
+#      - tce_dicco_msky_err_norm
+#      - mag_cat
+#    local_centroid_1:
+#      - local_centr_view_std_noclip
+#      - tce_dikco_msky_norm
+#      - tce_dikco_msky_err_norm
+#      - tce_fwm_stat_norm
+#      - tce_dicco_msky_norm
+#      - tce_dicco_msky_err_norm
+#    local_centroid_2:
+#      - mag_cat
+  odd_even:
+    - local_flux_odd_view_fluxnorm
+    - local_flux_even_view_fluxnorm
+    - even_se_oot_norm
+    - odd_se_oot_norm
+  secondary:
+    - tce_albedo_stat_norm
+    - wst_depth_norm
+    - tce_maxmes_norm
+    - tce_ptemp_stat_norm
+    - local_weak_secondary_view_max_flux-wks_norm
+#  secondary_1:
+#    - tce_albedo_stat_norm
+#    - tce_ptemp_stat_norm
+#  secondary_2:
+#    - wst_depth_norm
+#    - tce_maxmes_norm
+#    - local_weak_secondary_view_max_flux-wks_norm
+  stellar:
+    - tce_slogg_norm
+    - tce_steff_norm
+    - tce_smass_norm
+    - tce_sradius_norm
+    - tce_sdens_norm
+    - tce_smet_norm
+  DV:
+    - tce_hap_stat_norm
+    - tce_cap_stat_norm
+    - tce_rb_tcount0n_norm
+    - boot_fap_norm
+    - tce_prad_norm
+    - tce_period_norm

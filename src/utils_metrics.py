@@ -71,13 +71,15 @@ def get_metrics_multiclass(label_map):
 def compute_precision_at_k(labels, k_vals):
     """ Computes precision at k.
 
-    :param labels: NumPy array, labels sorted by score value (ascending order)
+    :param labels: NumPy array, labels sorted by score value (ascending order). Assumes 1 and 0 for the positive and
+    negative classes, respectively
     :param k_vals: NumPy array, values at which to compute precision
     :return:
+        precision_at_k: NumPy array, precision-at-k
     """
 
     num_examples = len(labels)
-    precision_at_k = {f'precision_at{k_val}': np.nan for k_val in k_vals}
+    precision_at_k = {f'precision_at_{k_val}': np.nan for k_val in k_vals}
 
     for k_val in k_vals:
         if num_examples >= k_val:

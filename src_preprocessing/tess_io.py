@@ -11,7 +11,6 @@ from tensorflow.io import gfile
 
 # local
 from src_preprocessing.light_curve import util
-
 # from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 
 # mapping sector number to date and id
@@ -58,6 +57,13 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              41: ("2021204101404", "212"),
              42: ("2021232031932", "213"),
              43: ("2021258175143", "214"),
+             44: ("2021284114741", "215"),
+             45: ("2021310001228", "216"),
+             46: ("2021336043614", "217"),
+             47: ("2021364111932", "218"),
+             48: ("2022027120115", "219"),
+             49: ("2022057073128", "221"),
+             50: ("2022085151738", "222"),
              }
 
 
