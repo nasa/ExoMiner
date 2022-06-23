@@ -90,9 +90,12 @@ For more detailed information check:
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
     - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
-    - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
+    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
+    - Stuti Agrawal <sup>6</sup> (Difference image)
+    - Joshua Belofsky <sup>2,5</sup> (Difference image)
 
-- Past developers
+- Past developers 
+    - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
     - Fellipe Marcellino<sup>2</sup> (Transit detection using Kepler data)
     - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
     - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
@@ -117,7 +120,7 @@ For more detailed information check:
 3 - The SETI Institute\
 4 - NASA International Internship Program (NASA I<sup>2</sup>)\
 5 - NASA Internships, Fellowships & Scholarships (NIFS)\
-6 - Volunteer Internship Program (VIP)
+6 - Volunteer Internship Program (VIP)\
 7 - NASA Office of STEM Engagement (OSTEM)
 
 ## Acknowledgements
