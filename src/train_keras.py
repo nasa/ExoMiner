@@ -1,5 +1,5 @@
 """
-Train models using a given configuration obtained on a hyperparameter optimization study.
+Train models using a given configuration.
 """
 
 # 3rd party
@@ -17,10 +17,11 @@ from tensorflow.keras.utils import plot_model
 from pathlib import Path
 import logging
 import yaml
+# import importlib
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn, get_data_from_tfrecord
-from models.models_keras import ExoMiner, compile_model
+from models.models_keras import ExoMiner, compile_model, TransformerExoMiner
 from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
@@ -29,8 +30,8 @@ from utils.utils_dataio import is_yamlble
 from paths import path_main
 
 
-def run_main(config, base_model, model_id):
-    """ Train and evaluate model on a given configuration. Test set must also contain labels.
+def run_main(config, base_model, model_id, logger=None):
+    """ Train and evaluate a single model on a given configuration.
 
     :param config: dict, configuration parameters for the run
     :param base_model: model
@@ -41,12 +42,6 @@ def run_main(config, base_model, model_id):
     # create directory for the model
     model_dir_sub = config['paths']['models_dir'] / f'model{model_id}'
     model_dir_sub.mkdir(exist_ok=True)
-
-    # debug_dir = os.path.join(model_dir_sub, 'debug')
-    # os.makedirs(debug_dir, exist_ok=True)
-    # tf.debugging.experimental.enable_dump_debug_info(debug_dir,
-    #                                                  tensor_debug_mode='FULL_HEALTH',
-    #                                                  circular_buffer_size=-1)
 
     if 'tensorboard' in config['callbacks']:
         config['callbacks']['tensorboard']['obj'].log_dir = model_dir_sub
@@ -105,40 +100,54 @@ def run_main(config, base_model, model_id):
     model = compile_model(model, config, metrics_list)
 
     # input function for training, validation and test
-    train_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/train*',
-                             batch_size=config['training']['batch_size'],
-                             mode='TRAIN',
-                             label_map=config['label_map'],
-                             data_augmentation=config['training']['data_augmentation'],
-                             online_preproc_params=config['training']['online_preprocessing_params'],
-                             filter_data=filter_data['train'],
-                             features_set=config['features_set'],
-                             category_weights=config['training']['category_weights'],
-                             multiclass=config['config']['multi_class'])
+    train_input_fn = InputFn(
+        file_paths=str(config['paths']['tfrec_dir']) + '/train*',
+        batch_size=config['training']['batch_size'],
+        mode='TRAIN',
+        label_map=config['label_map'],
+        data_augmentation=config['training']['data_augmentation'],
+        online_preproc_params=config['training']['online_preprocessing_params'],
+        filter_data=filter_data['train'],
+        features_set=config['features_set'],
+        category_weights=config['training']['category_weights'],
+        multiclass=config['config']['multi_class'],
+        use_transformer=config['config']['use_transformer'],
+        feature_map=config['feature_map']
+    )
     if 'val' in config['datasets']:
-        val_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/val*',
-                               batch_size=config['training']['batch_size'],
-                               mode='EVAL',
-                               label_map=config['label_map'],
-                               filter_data=filter_data['val'],
-                               features_set=config['features_set'],
-                               multiclass=config['config']['multi_class'])
+        val_input_fn = InputFn(
+            file_paths=str(config['paths']['tfrec_dir']) + '/val*',
+            batch_size=config['training']['batch_size'],
+            mode='EVAL',
+            label_map=config['label_map'],
+            filter_data=filter_data['val'],
+            features_set=config['features_set'],
+            multiclass=config['config']['multi_class'],
+            use_transformer=config['config']['use_transformer'],
+            feature_map=config['feature_map']
+        )
     else:
         val_input_fn = None
     if 'test' in config['datasets']:
-        test_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/test*',
-                                batch_size=config['training']['batch_size'],
-                                mode='EVAL',
-                                label_map=config['label_map'],
-                                filter_data=filter_data['test'],
-                                features_set=config['features_set'],
-                                multiclass=config['config']['multi_class']
-                                )
+        test_input_fn = InputFn(
+            file_paths=str(config['paths']['tfrec_dir']) + '/test*',
+            batch_size=config['training']['batch_size'],
+            mode='EVAL',
+            label_map=config['label_map'],
+            filter_data=filter_data['test'],
+            features_set=config['features_set'],
+            multiclass=config['config']['multi_class'],
+            use_transformer=config['config']['use_transformer'],
+            feature_map=config['feature_map']
+        )
     else:
         test_input_fn = None
 
     # fit the model to the training data
-    print('Training model...')
+    if logger is None:
+        print('Training model...')
+    else:
+        logger.info('Training model...')
     history = model.fit(x=train_input_fn(),
                         y=None,
                         batch_size=None,
@@ -164,7 +173,10 @@ def run_main(config, base_model, model_id):
     res = history.history
 
     if 'test' in config['datasets']:
-        print('Evaluating model on the test set...')
+        if logger is None:
+            print('Evaluating model on the test set...')
+        else:
+            logger.info('Evaluating model on the test set...')
 
         res_eval = model.evaluate(x=test_input_fn(),
                                   y=None,
@@ -184,15 +196,23 @@ def run_main(config, base_model, model_id):
     # predict on given datasets - needed for computing the output distribution
     predictions = {dataset: [] for dataset in config['datasets']}
     for dataset in predictions:
-        print('Predicting on dataset {}...'.format(dataset))
+        if logger is None:
+            print('Predicting on dataset {}...'.format(dataset))
+        else:
+            logger.info('Predicting on dataset {}...'.format(dataset))
 
-        predict_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
-                                   batch_size=config['training']['batch_size'],
-                                   mode='PREDICT',
-                                   label_map=config['label_map'],
-                                   filter_data=filter_data[dataset],
-                                   features_set=config['features_set'],
-                                   multiclass=config['config']['multi_class'])
+        predict_input_fn = InputFn(
+            file_paths=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
+            batch_size=config['training']['batch_size'],
+            mode='PREDICT',
+            label_map=config['label_map'],
+            filter_data=filter_data[dataset],
+            features_set=config['features_set'],
+            multiclass=config['config']['multi_class'],
+            use_transformer=config['config']['use_transformer'],
+            feature_map=config['feature_map'],
+
+        )
 
         predictions[dataset] = model.predict(predict_input_fn(),
                                              batch_size=None,
@@ -234,7 +254,10 @@ def run_main(config, base_model, model_id):
 
     # save results in a numpy file
     res_fp = model_dir_sub / 'results.npy'
-    print(f'Saving metrics to {res_fp}...')
+    if logger is None:
+        print(f'Saving metrics to {res_fp}...')
+    else:
+        logger.info(f'Saving metrics to {res_fp}...')
     np.save(res_fp, res)
 
     print('Plotting evaluation results...')
@@ -252,29 +275,30 @@ def run_main(config, base_model, model_id):
     plot_loss_metric(res,
                      epochs,
                      ep_idx,
-                     config['paths']['experiment_dir'] / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg',
+                     model_dir_sub / f'model{model_id}_plotseval_epochs{epochs[-1]:.0f}.svg',
                      config['training']['opt_metric'])
 
     # plot class distribution
     for dataset in config['datasets']:
-        plot_class_distribution(output_cl[dataset],
-                                config['paths'][
-                                    'experiment_dir'] / f'model{model_id}_class_predoutput_distribution_{dataset}.svg')
+        plot_class_distribution(output_cl[dataset], model_dir_sub /
+                                f'model{model_id}_class_predoutput_distribution_{dataset}.svg')
 
     # plot precision, recall, ROC AUC, PR AUC curves
     if not config['config']['multi_class']:
         # plot pr curve
-        plot_pr_curve(res, ep_idx, config['paths']['experiment_dir'] / f'model{model_id}_prec_rec.svg')
+        plot_pr_curve(res, ep_idx, model_dir_sub / f'model{model_id}_prec_rec.svg')
         # plot roc
-        plot_roc(res, ep_idx, config['datasets'], config['paths']['experiment_dir'] / f'model{model_id}_roc.svg')
+        plot_roc(res, ep_idx, config['datasets'], model_dir_sub / f'model{model_id}_roc.svg')
         # plot precision-at-k and misclassfied-at-k examples curves
         for dataset in config['datasets']:
             if dataset != 'predict':
                 k_curve_arr = np.linspace(**config['metrics']['top_k_curve'][dataset])
-                plot_precision_at_k(labels_sorted[dataset], k_curve_arr,
-                                    config['paths']['experiment_dir'] / f'model{model_id}_{dataset}')
+                plot_precision_at_k(labels_sorted[dataset], k_curve_arr, model_dir_sub / f'model{model_id}_{dataset}')
 
-    print('Saving metrics to a txt file...')
+    if logger is None:
+        print('Saving metrics to a txt file...')
+    else:
+        logger.info('Saving metrics to a txt file...')
     save_metrics_to_file(model_dir_sub, res, config['datasets'], ep_idx, model.metrics_names,
                          config['metrics']['top_k_arr'])
 
@@ -296,7 +320,7 @@ if __name__ == '__main__':
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
-    if config['rank'] == 0:  # save initial configuration
+    if config['rank'] in [0, None]:  # save initial configuration
         with open(config['paths']['experiment_dir'] / 'train_params_init.yaml', 'w') as config_file:
             yaml.dump(config, config_file)
 
@@ -387,7 +411,7 @@ if __name__ == '__main__':
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    BaseModel = ExoMiner  # CNN1dPlanetFinderv2
+    BaseModel = TransformerExoMiner  # ExoMiner
     # config['config']['parameters'].update(baseline_configs.astronet)
 
     # choose features set
@@ -417,8 +441,8 @@ if __name__ == '__main__':
 
     if config['train_parallel']:  # train models in parallel
         if config['rank'] < config['training']['n_models']:
-            print(f'Training model {config["rank"] + 1} out of {config["training"]["n_models"]} on '
-                  f'{config["training"]["n_epochs"]}')
+            logger.info(f'Training model {config["rank"] + 1} out of {config["training"]["n_models"]} on '
+                        f'{config["training"]["n_epochs"]}')
             sys.stdout.flush()
             run_main(config=config,
                      base_model=BaseModel,
@@ -426,8 +450,8 @@ if __name__ == '__main__':
                      )
     else:  # train models sequentially
         for model_i in range(config["training"]["n_models"]):
-            print(f'Training model {model_i + 1} out of {config["training"]["n_models"]} on '
-                  f'{config["training"]["n_epochs"]} epochs...')
+            logger.info(f'Training model {model_i + 1} out of {config["training"]["n_models"]} on '
+                        f'{config["training"]["n_epochs"]} epochs...')
             run_main(config=config,
                      base_model=BaseModel,
                      model_id=model_i + 1,

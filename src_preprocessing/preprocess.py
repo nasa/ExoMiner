@@ -309,7 +309,7 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
     if '{}-{}'.format(tce['target_id'], tce[
-        'tce_plnt_num']) == '4275739-1':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+        'tce_plnt_num']) == '11446443-1':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
         # if '{}'.format(tce['target_id']) in ['7431665']:
@@ -481,7 +481,6 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     all_time, all_flux = remove_non_finite_values([all_time, all_flux])
 
     # split on gaps
-    # flux time-series
     all_time, all_flux, _ = util.split(all_time, all_flux, gap_width=config['gapWidth'])
 
     # add gap after and before transit based on transit duration
@@ -1057,6 +1056,124 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
     return time, timeseries, num_transits
 
 
+def phase_split_light_curve(time, timeseries, period, t0, duration, max_phases, delete_in_pairs, augmentation=False):
+    """ Phase folds a light curve and sorts by ascending time.
+
+    Args:
+      time: 1D NumPy array of time values.
+      timeseries: 1D NumPy array of time series values.
+      period: A positive real scalar; the period to fold over (day).
+      t0: The center of the resulting folded vector; this value is mapped to 0.
+      duration: positive float; transit duration (day).
+      max_phase: positive integer; maximum number of phases
+      delete_in_pairs: bool; if True, if a given odd/even cycle is deleted, the consecutive even/odd cycle is also
+      deleted to preserve order between odd and even transits.
+      augmentation: bool; if True samples cycles with replacement.
+
+    Returns:
+      unfolded_time: 2D NumPy array of phase folded time values in
+          [-period / 2, period / 2), where 0 corresponds to t0 in the original
+          time array. Values are split by phase.
+      unfolded_timeseries: 2D NumPy array. Values are the same as the original input
+          array, but split by phases.
+      num_transits: int, number of transits in the time series.
+    """
+
+    # Phase fold time.
+    if not augmentation:
+        time = util.phase_fold_time(time, period, t0)
+    else:
+        time, sampled_idxs, num_transits = util.phase_fold_time_aug(time, period, t0)
+        timeseries = timeseries[sampled_idxs]
+
+    # count number of transits in the phase domain
+    num_transits = np.sum(np.diff(time) < 0) + 1
+
+    # initialize arrays
+    unfolded_time = []
+    unfolded_timeseries = []
+
+    #unfolded time/flux data by phases
+
+    #start timestep of current phase
+    phase_start = 0
+
+    # get time interval for in-transit cadences
+    tmin_it, tmax_it = max(-period / 2, -1.5 * duration / 2), min(period/2, 1.5 * duration / 2)
+
+    if delete_in_pairs:
+
+        has_in_transit = False
+        ignore_phase = False
+
+        for timestep in range(len(time)):
+            # create new phase if time changes from positive to negative
+            new_phase = timestep > 0 and (time[timestep - 1] > 0 and time[timestep] < 0)
+            if new_phase:
+                if phase_start == 0 and time[0] > tmin_it:
+                    phase_start = timestep
+                    continue
+
+                if not has_in_transit:
+                    ignore_phase = True
+                elif ignore_phase:
+                    ignore_phase = False
+                else:
+                    #add previous phase
+                    unfolded_time.append(time[phase_start: timestep])
+                    unfolded_timeseries.append(timeseries[phase_start: timestep])
+
+                #update new phase start
+                phase_start = timestep
+                has_in_transit = False
+            else:
+                if tmin_it <= time[timestep] <= tmax_it:
+                    has_in_transit = True
+
+        #add last phase if the transit is over
+        if time[-1] >= tmax_it and not ignore_phase and has_in_transit:
+            unfolded_time.append(time[phase_start: ])
+            unfolded_timeseries.append(timeseries[phase_start: ])
+    else:
+        has_in_transit = False
+        for timestep in range(len(time)):
+            # create new phase if time changes from positive to negative
+            new_phase = timestep > 0 and (time[timestep - 1] > 0 and time[timestep] < 0)
+            if new_phase:
+                if phase_start == 0 and time[0] > tmin_it:
+                    phase_start = timestep
+                    continue
+
+                if has_in_transit:
+                    # add previous phase
+                    unfolded_time.append(time[phase_start: timestep])
+                    unfolded_timeseries.append(timeseries[phase_start: timestep])
+
+                # update new phase start
+                phase_start = timestep
+                has_in_transit = False
+            else:
+                if tmin_it <= time[timestep] <= tmax_it:
+                    has_in_transit = True
+
+        # add last phase if the transit is over
+        if time[-1] >= tmax_it and has_in_transit:
+            unfolded_time.append(time[phase_start:])
+            unfolded_timeseries.append(timeseries[phase_start:])
+
+    #convert to np array
+    unfolded_time = np.array(unfolded_time)
+    unfolded_timeseries = np.array(unfolded_timeseries)
+
+    # choosing a random consecutive set of phases if there are more than the request maximum number of phases
+    if len(unfolded_time) > max_phases:
+        start_phase = np.random.randint(len(unfolded_time) - max_phases)
+        unfolded_time = unfolded_time[start_phase:start_phase + 20]
+        unfolded_timeseries = unfolded_timeseries[start_phase:start_phase + 20]
+
+    return unfolded_time, unfolded_timeseries, num_transits
+
+
 def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
                   centering=True, normalize=True, centroid=False, **kwargs):
     """ Generates a view of a phase-folded light curve using a median filter.
@@ -1365,6 +1482,23 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                           tce['tce_period'],
                                           tce['tce_time0bk'],
                                           tce['tce_duration'])
+
+    # phase folding for flux time series
+    all_time_unfolded, all_flux_unfolded, _ = phase_split_light_curve(data['time'],
+                                                    data['flux'],
+                                                    tce['tce_period'],
+                                                    tce['tce_time0bk'],
+                                                    tce['tce_duration'],
+                                                    max_phases=config['max_phases'],
+                                                    delete_in_pairs=config['preserve_odd_even'],
+                                                  augmentation=False)
+
+
+    num_phases = len(all_time_unfolded)
+
+    if num_phases < 2:
+        report_exclusion(config, tce, f'Only found {num_phases} phase, need at least 2 to create example.')
+        return None
 
     # phase folding for centroid time series
     time_centroid_dist, centroid_dist, \
@@ -1996,9 +2130,9 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             example_util.set_float_feature(ex, f'even_{field}_adjsampl',
                                            [even_data[field] * config['tess_to_kepler_sampling_ratio']])
 
-    # TODO: add this feature to the TCE table or compute it here?
-    # add ghost diagnostic statistic difference
-    example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
+    # # TODO: add this feature to the TCE table or compute it here?
+    # # add ghost diagnostic statistic difference
+    # example_util.set_float_feature(ex, 'tce_cap_hap_stat_diff', [tce['tce_cap_stat'] - tce['tce_hap_stat']])
 
     # # add categorical magnitude
     # if np.isnan(tce['mag']):
@@ -2013,7 +2147,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor
     if config['satellite'] == 'tess':
         for centroid_scalar_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err']:
-            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [tce[centroid_scalar_feat] /
+            feat = tce[centroid_scalar_feat]
+            if centroid_scalar_feat == 'tce_dicco_msky_err':
+                feat -= config['kepler_lower_bound_dicco_msky_err'] - config['tess_lower_bound_dicco_msky_err']
+            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat /
                                                                             config['tess_to_kepler_px_scale_factor']])
 
     # data for preprocessing table

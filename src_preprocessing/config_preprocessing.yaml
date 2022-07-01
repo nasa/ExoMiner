@@ -1,10 +1,10 @@
 # output directory for TFRecords
-output_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/Data/tfrecords/Kepler/Q1-Q17_DR25/test_preprocessing_4-6-2022
+output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_preprocessing_1-7-2022
 # TCE table
-input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe.csv
+input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv
 #input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet.csv
 # light curve FITS file directory
-lc_data_dir: /data5/tess_project/Data/Kepler-Q1-Q17-DR25/pdc-tce-time-series-fits
+lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/pdc-tce-time-series-fits
 #lc_data_dir: /data5/tess_project/Data/TESS_lc_fits
 dict_savedir: null
 
@@ -27,6 +27,12 @@ num_bins_loc: 31  # number of bins in local views
 # bin_width_factor_glob: 1 / num_bins_glob
 bin_width_factor_loc: 0.16
 num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
+
+# unfolded time series
+max_phases: 20 #max ammount of phases considered for phase split view
+pad_phases: false #pad num of phases of TCEs shorter than max_phases with 0s
+copy_phases: true
+preserve_odd_even: true
 
 # split arrays if consecutive cadences are more than gapWidth days apart
 gapWidth: 0.75
@@ -54,6 +60,9 @@ pos_outlier_removal_fill: true
 tess_px_scale: 21  # arcsec
 kepler_px_scale: 3.98  # arcsec
 #tess_to_kepler_px_scale_factor: tess_px_scale / kepler_px_scale
+
+tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
+kepler_lower_bound_dicco_msky_err: 2.5
 
 tess_to_kepler_sampling_ratio: 15
 

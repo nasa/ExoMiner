@@ -1,14 +1,14 @@
-ngpus_per_node: 1  # number of GPUs per node
+ngpus_per_node: 2  # number of GPUs per node
 rank: null
 train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_feature_map_4-18-2022
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_transformer_6-24-2022
   # TFRecord dataset directory
-  tfrec_dir: /data5/tess_project/Data/outputs/preprocessed-data-split-glob-and-loc-cap20-padded_experiment-normalized
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_unfolded_cap20_copied/experiment-normalized_EB_RELABELED-renamed_features
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 config:
   # branches used in ExoMiner
   conv_branches:
@@ -48,7 +48,8 @@ config:
         #        - mag_norm
         - mag_cat
         #        - mag_cat_norm
-        - ruwe_norm
+#        - ruwe_norm
+        - tce_ruwe_norm
     global_centroid:
       views:
         #        - global_centr_fdl_view_norm
@@ -77,6 +78,11 @@ config:
       #      - tce_rb_tcount0n_norm
       - tce_prad_norm
       - tce_period_norm
+  transformer_branches:
+#      global:
+#        - unfolded_global_flux_view_fluxnorm
+      local:
+        - unfolded_local_flux_view_fluxnorm
 
   #    [
   #    'global_flux_view_fluxnorm'
@@ -94,8 +100,31 @@ config:
   #  ]
   #  scalar_features_branches:
   #      'local_flux_view_flux'
+
+    #transformer hyperparameters
+    #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
+  use_transformer: true
+  num_transformer_blocks: 2
+  head_size: 256
+  num_heads: 4
+  ff_dim: 4
+  dropout_rate_transformer: 0.03
+  #can either be bin_average_pooling, phase_average_pooling, or flat, or time distributed
+  # output will be [301/31], [20], and [20 * 301/31] respectively
+  # if time_encoding = true, shape of bin_average_pooling and flat increase by a factor of 3
+  transformer_output: 'flat'
+  #  concat_stats_to: folded-local #none #folded-local, unfolded-local, none
+  time_encoding: true
+  #  trans_pooling: none #max, avg, none
+  #  trans_pool_size: 8
+  #  trans_stride_size: 1
+  #transformer head
+  #num_units_fc_layers: [16, 8]
+  global-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 256, 64, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8] #[128, 32, 8]
+  local-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 64, 32, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8]
+  dropout_rate_trans_fc: 0.03
   non_lin_fn: prelu
-  #  'num_loc_conv_blocks': 2
+#  num_loc_conv_blocks: 2
   #  'num_glob_conv_blocks': 5
   #  'init_fc_neurons': 512
   #  'num_fc_layers': 4
@@ -138,17 +167,20 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  #  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
   mag_cat: { 'dim': [ 1, ], 'dtype': int }
   #  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -174,11 +206,17 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # tce parameters
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+  # unfolded time series
+  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
-feature_map: null
+feature_map: # null
 #  feature_name: feature_name_model
-#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
+  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
+  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -186,16 +224,16 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 1  # number of models in the ensemble
+  n_models: 2  # number of models in the ensemble
   n_epochs: 2  # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   #  ce_weights: null
-  filter_data: null
+  filter_data: null  # deprecated; useless
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 #    PC: 1.0
-#    AFP: 1.0
+#    AFP: 0.5
 #    NTP: 1.0
 
 callbacks:
@@ -220,7 +258,7 @@ label_map:  # maps label to a label id
   # Kepler
   PC: 1
   AFP: 0  # 2
-  # AFP2: 1
+  AFP2: 0
   NTP: 0
   UNK: 0
   # TESS
@@ -233,6 +271,19 @@ label_map:  # maps label to a label id
 #  BEB: 0
 #  APC: 0
 #  O: 0
+  # for Hongbo's/Andres data sets
+  # Kepler
+#  K-PC: 1
+#  K-AFP: 0
+#  K-AFP2: 0
+#  K-NTP: 0
+#  # TESS
+#  T-KP: 1
+#  T-CP: 1
+#  T-FP: 0
+#  T-FA: 0
+#  T-EB: 0
+#  T-NTP: 0
 
 metrics:
   'clf_thr': 0.5  # classification threshold

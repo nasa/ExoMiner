@@ -5,6 +5,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import tensorflow_probability as tfp
+import traceback
 
 # local
 from src.utils_train import phase_shift, phase_inversion, add_whitegaussiannoise
@@ -52,7 +53,8 @@ class InputFnv2(object):
 
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
                  online_preproc_params=None, filter_data=None, category_weights=None, multiclass=False,
-                 shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256):
+                 shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256, use_transformer=False,
+                 feature_map=None):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -74,6 +76,7 @@ class InputFnv2(object):
         :param shuffle_seed: int, shuffle seed
         :param prefetch_buffer_nsamples: int, number of samples which when divided by the batch size gives the number of
         batches prefetched
+        :use_transformer: bool, set to True if using a transformer
         :return:
         """
 
@@ -95,6 +98,10 @@ class InputFnv2(object):
         self.category_weights = category_weights
         self.multiclass = multiclass
 
+        self.use_transformer = use_transformer
+
+        self.feature_map = feature_map if feature_map is not None else {}
+
     def __call__(self):
         """ Builds the input pipeline.
 
@@ -111,8 +118,14 @@ class InputFnv2(object):
             """
 
             # get features names, shapes and data types to be extracted from the TFRecords
-            data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
-                           for feature_name, feature_info in self.features_set.items()}
+            # data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
+            #                for feature_name, feature_info in self.features_set.items()}
+            data_fields = {}
+            for feature_name, feature_info in self.features_set.items():
+                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
+                    data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
+                else:
+                    data_fields[feature_name] = tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
 
             # parse the features
             parsed_features = tf.io.parse_single_example(serialized=serialized_example, features=data_fields)
@@ -176,6 +189,13 @@ class InputFnv2(object):
             output = {}
             for feature_name, value in parsed_features.items():
 
+                feature_info = self.features_set[feature_name]
+                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
+                    value = tf.io.parse_tensor(serialized=value[0], out_type=self.features_set[feature_name]['dtype'])
+                    value = tf.reshape(value, self.features_set[feature_name]['dim'])
+                    if not self.use_transformer:
+                        value = tf.transpose(value)
+
                 # data augmentation for time series features
                 if 'view' in feature_name and self.data_augmentation:
 
@@ -206,7 +226,10 @@ class InputFnv2(object):
                     # phase shift some bins
                     value = phase_shift(value, shift)
 
-                output[feature_name] = value
+                if feature_name in list(self.feature_map.keys()):
+                    output[self.feature_map[feature_name]] = value
+                else:
+                    output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
             if self.category_weights is not None and self.mode == 'TRAIN':
@@ -593,38 +616,43 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
         datum = {}
 
         for field in data_fields:
-            if data_fields[field] == 'float_scalar':
-                datum[field] = example.features.feature[field].float_list.value[0]
-            elif data_fields[field] == 'int_scalar':
-                datum[field] = example.features.feature[field].int64_list.value[0]
-            elif data_fields[field] == 'string':
-                if field == 'original_label':
-                    try:
-                        datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
-                    except:
-                        datum['original_label'] = ''
+            try:
+                if data_fields[field] == 'float_scalar':
+                    datum[field] = example.features.feature[field].float_list.value[0]
+                elif data_fields[field] == 'int_scalar':
+                    datum[field] = example.features.feature[field].int64_list.value[0]
+                elif data_fields[field] == 'string':
+                    if field == 'original_label':
+                        try:
+                            datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                        except:
+                            datum['original_label'] = ''
 
-                elif field == 'label' and label_map is not None:
-                    try:
-                        datum[field] = label_map[example.features.feature[field].bytes_list.value[0].decode("utf-8")]
-                    except:
-                        datum[field] = -1
+                    elif field == 'label' and label_map is not None:
+                        try:
+                            datum[field] = label_map[example.features.feature[field].bytes_list.value[0].decode("utf-8")]
+                        except:
+                            datum[field] = -1
 
-                elif field == 'TESS Disposition':
-                    try:
+                    elif field == 'TESS Disposition':
+                        try:
+                            datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
+                        except:
+                            datum[field] = ''
+
+                    else:
                         datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
-                    except:
-                        datum[field] = ''
 
+                elif data_fields[field] == 'float_list':
+                    datum[field] = example.features.feature[field].float_list.value
+                elif data_fields[field] == 'int_list':
+                    datum[field] = example.features.feature[field].int64_list.value[0]
                 else:
-                    datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
-
-            elif data_fields[field] == 'float_list':
-                datum[field] = example.features.feature[field].float_list.value
-            elif data_fields[field] == 'int_list':
-                datum[field] = example.features.feature[field].int64_list.value[0]
-            else:
-                raise TypeError('Incompatible data type specified.')
+                    raise TypeError('Incompatible data type specified.')
+            except Exception as e:
+                print(traceback.format_exc())
+                print(e)
+                raise TypeError(f'Field not found: {field}')
 
         # add example
         for field in data_fields:

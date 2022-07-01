@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import regularizers, losses, optimizers
 import numpy as np
+import keras.backend as K
 
 
 class CNN1dPlanetFinderv1(object):
@@ -311,9 +312,6 @@ class ExoMiner(object):
         else:  # binary classification with sigmoid output layer
             self.output_size = 1
 
-        # self.conv_branches = [branch for branch in self.config['branches'] if 'global' in branch or 'local' in branch]
-        # self.scalar_branches = [branch for branch in self.config['branches'] if branch not in self.conv_branches]
-
         # self.is_training = None
 
         # # class-label weights for weighted loss
@@ -345,6 +343,7 @@ class ExoMiner(object):
         for branch_i, branch in enumerate(self.config['conv_branches']):  # create a convolutional branch
 
             branch_view_inputs = [self.inputs[view_name] for view_name in self.config['conv_branches'][branch]['views']]
+
             branch_view_inputs = branch_view_inputs if len(branch_view_inputs) > 1 else branch_view_inputs[0]
             if branch == odd_even_branch_name:  # for odd and even views, inputs are combined as two channels
 
@@ -2277,14 +2276,24 @@ def create_inputs(features, feature_map=None):
     if feature_map is None:
         feature_map = {}
 
-    inputs = {feature: tf.keras.Input(shape=features[feature]['dim'],
-                                      batch_size=None,
-                                      name=feature if feature not in feature_map else feature_map[feature],
-                                      dtype=features[feature]['dtype'],
-                                      sparse=False,
-                                      tensor=None,
-                                      ragged=False)
-              for feature in features}
+    inputs = {}
+    for feature in features:
+        if feature not in feature_map:
+            inputs[feature] = tf.keras.Input(shape=features[feature]['dim'],
+                                             batch_size=None,
+                                             name=feature,
+                                             dtype=features[feature]['dtype'],
+                                             sparse=False,
+                                             tensor=None,
+                                             ragged=False)
+        else:
+            inputs[feature_map[feature]] = tf.keras.Input(shape=features[feature]['dim'],
+                                                          batch_size=None,
+                                                          name=feature_map[feature],
+                                                          dtype=features[feature]['dtype'],
+                                                          sparse=False,
+                                                          tensor=None,
+                                                          ragged=False)
 
     return inputs
 
@@ -2348,3 +2357,638 @@ def compile_model(model, config, metrics_list):
     model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
 
     return model
+
+
+class Time2Vec(keras.layers.Layer):
+    def __init__(self, kernel_size=1, **kwargs):
+        super(Time2Vec, self).__init__(trainable=True, name='Time2VecLayer')
+        self.k = kernel_size
+
+    def build(self, input_shape):
+        # trend
+        self.wb = self.add_weight(name='wb', shape=(input_shape[1],), initializer='uniform', trainable=True)
+        self.bb = self.add_weight(name='bb', shape=(input_shape[1],), initializer='uniform', trainable=True)
+        # periodic
+        self.wa = self.add_weight(name='wa', shape=(1, input_shape[1], self.k), initializer='uniform', trainable=True)
+        self.ba = self.add_weight(name='ba', shape=(1, input_shape[1], self.k), initializer='uniform', trainable=True)
+        super(Time2Vec, self).build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        bias = self.wb * inputs + self.bb
+        dp = K.dot(inputs, self.wa) + self.ba
+        wgts = K.sin(dp)  # or K.cos(.)
+
+        ret = K.concatenate([K.expand_dims(bias, -1), wgts], -1)
+        ret = K.reshape(ret, (-1, inputs.shape[1] * (self.k + 1)))
+        return ret
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[1] * (self.k + 1))
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "kernel_size": self.k
+        })
+        return config
+
+
+class TransformerExoMiner(object):
+
+    def __init__(self, config, features):
+        """ Initializes the Transformer ExoMiner. The core structure consists of one or more transformer branches that
+        are fed as input a representation of the unfolded flux time series. This representation consists of a fixed set
+        of phases (aka cycles) for different views (global, local). Other branches such as convolutional and scalar can
+        be added.
+
+        :param config: dict, model configuration for its parameters and hyperparameters
+        :param features: dict, 'feature_name' : {'dim': tuple, 'dtype': (tf.int, tf.float, ...)}
+        """
+
+        # model configuration (parameters and hyper-parameters)
+        self.config = config['config']
+        self.features = features
+
+        if self.config['multi_class'] or \
+                (not self.config['multi_class'] and self.config['force_softmax']):
+            self.output_size = len(np.unique(list(config['label_map'].values())))
+        else:  # binary classification with sigmoid output layer
+            self.output_size = 1
+
+        self.inputs = create_inputs(self.features, config['feature_map'])
+
+        # build the model
+        self.outputs = self.build()
+
+        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
+
+    @staticmethod
+    def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout, name):
+        """ Implements encoder-only transformer.
+
+        :param inputs:
+        :param head_size:
+        :param num_heads:
+        :ff_dim:
+        dropout:
+        name:
+        :return:
+
+        """
+
+        # Normalization and Attention
+        x = tf.keras.layers.LayerNormalization(epsilon=1e-6,
+                                               name=f'{name}-layer_normalization-1')(inputs)
+
+        x = tf.keras.layers.MultiHeadAttention(
+            key_dim=head_size, num_heads=num_heads, dropout=dropout,
+            name=f'{name}-multi_head_attention'
+        )(x, x)
+        x = tf.keras.layers.Dropout(dropout)(x)
+        res = x + inputs
+
+        # Feed Forward Part
+        x = tf.keras.layers.LayerNormalization(epsilon=1e-6,
+                                               name=f'{name}-multi_normalization-2')(res)
+        x = tf.keras.layers.Conv1D(filters=ff_dim, kernel_size=1, activation="relu",
+                                   name=f'{name}-conv1d-1')(x)
+        x = tf.keras.layers.Dropout(dropout)(x)
+        x = tf.keras.layers.Conv1D(filters=inputs.shape[-1], kernel_size=1,
+                                   name=f'{name}-conv1d-2')(x)
+        return x + res
+
+    def build_transformer_layers(self):
+        """ Builds the transformer branches.
+
+        :return:
+            transformer_branches, dict with the different transformer branches
+        """
+
+        transformer_branches = {branch_name: None for branch_name in self.config['transformer_branches']}
+        for branch_i, branch in enumerate(self.config['transformer_branches']):  # create a transformer branch
+
+            branch_view_inputs = self.inputs[self.config['transformer_branches'][branch][0]]
+
+            net = branch_view_inputs
+
+            if self.config['time_encoding']:
+                time2vec = Time2Vec(kernel_size=1)
+                time_embedding = keras.layers.TimeDistributed(time2vec)(net)
+                net = K.concatenate([net, time_embedding], -1)
+
+            # generate lstm blocks
+            for transformer_block_i in range(self.config['num_transformer_blocks']):
+                net = self.transformer_encoder(net,
+                                               self.config['head_size'],
+                                               self.config['num_heads'],
+                                               self.config['ff_dim'],
+                                               self.config['dropout_rate_transformer'],
+                                               f'transformer_{branch}_{transformer_block_i}')
+
+            # channels last makes shape [301]
+            # channels first makes shape [20]
+            if self.config['transformer_output'] == 'bin_average_pooling':
+                net = tf.keras.layers.GlobalAveragePooling1D(data_format="channels_last")(net)
+            elif self.config['transformer_output'] == 'phase_average_pooling':
+                net = tf.keras.layers.GlobalAveragePooling1D(data_format="channels_first")(net)
+            elif self.config['transformer_output'] == 'flat':
+                net = tf.reshape(net, (-1, net.shape[1] * net.shape[2]))
+
+            if 'global' in branch:
+                self.config['num_units_transformer_fc_layers'] = self.config['global-num_units_transformer_fc_layers']
+            elif 'local' in branch:
+                self.config['num_units_transformer_fc_layers'] = self.config['local-num_units_transformer_fc_layers']
+
+            for fc_layer_i, num_units in enumerate(self.config['num_units_transformer_fc_layers']):
+                # add FC layer that extracts features from the combined feature vector of features from the lstm
+                # branch (flattened) and corresponding scalar features
+                net = tf.keras.layers.Dense(units=num_units,
+                                            kernel_regularizer=None,
+                                            activation=None,
+                                            use_bias=True,
+                                            kernel_initializer='glorot_uniform',
+                                            bias_initializer='zeros',
+                                            bias_regularizer=None,
+                                            activity_regularizer=None,
+                                            kernel_constraint=None,
+                                            bias_constraint=None,
+                                            name=f'fc_{branch}_{fc_layer_i}')(net)
+
+                if self.config['non_lin_fn'] == 'lrelu':
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'relu':
+                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'prelu':
+                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                alpha_regularizer=None,
+                                                alpha_constraint=None,
+                                                shared_axes=[1],
+                                                name=f'fc_prelu_{branch}_{fc_layer_i}')(net)
+
+                net = tf.keras.layers.Dropout(self.config['dropout_rate_trans_fc'])(net)
+
+            transformer_branches[branch] = net
+
+        return transformer_branches
+
+    def build_conv_branches(self):
+        """ Builds the convolutional branches.
+
+        :return:
+            conv_branches, dict with the different convolutional branches
+        """
+
+        odd_even_branch_name = 'local_odd_even'
+        config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
+                         'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
+
+        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
+            else 'glorot_uniform'
+
+        conv_branches = {branch_name: None for branch_name in self.config['conv_branches']}
+        for branch_i, branch in enumerate(self.config['conv_branches']):  # create a convolutional branch
+
+            branch_view_inputs = [self.inputs[view_name] for view_name in self.config['conv_branches'][branch]['views']]
+            branch_view_inputs = branch_view_inputs if len(branch_view_inputs) > 1 else branch_view_inputs[0]
+            if branch == odd_even_branch_name:  # for odd and even views, inputs are combined as two channels
+
+                branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('branch'))(
+                    branch_view_inputs)
+                branch_view_inputs = tf.keras.layers.Permute((2, 1), name='permute_oe')(branch_view_inputs)
+                branch_view_inputs = tf.expand_dims(branch_view_inputs, axis=-1, name='expanding_oe')
+
+            # get number of conv blocks for the given view
+            n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
+
+            # get pool size for the given view
+            pool_size = self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+
+            for conv_block_i in range(n_blocks):  # create convolutional blocks
+
+                num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+
+                # set convolution layer parameters from config
+                conv_kwargs = {'filters': num_filters,
+                               'kernel_initializer': weight_initializer,
+                               'kernel_size': (1, self.config['kernel_size'])
+                               if branch == odd_even_branch_name else self.config['kernel_size'],
+                               'strides': (1, self.config['kernel_stride'])
+                               if branch == odd_even_branch_name else self.config['kernel_stride'],
+                               'padding': 'same'
+                               }
+
+                for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
+
+                    if branch == odd_even_branch_name:
+                        net = tf.keras.layers.Conv2D(dilation_rate=1,
+                                                     activation=None,
+                                                     use_bias=True,
+                                                     bias_initializer='zeros',
+                                                     kernel_regularizer=None,
+                                                     bias_regularizer=None,
+                                                     activity_regularizer=None,
+                                                     kernel_constraint=None,
+                                                     bias_constraint=None,
+                                                     name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                                     **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
+                                                                                          seq_conv_block_i == 0
+                                                                    else net)
+                    else:
+                        net = tf.keras.layers.Conv1D(dilation_rate=1,
+                                                     activation=None,
+                                                     use_bias=True,
+                                                     bias_initializer='zeros',
+                                                     kernel_regularizer=None,
+                                                     bias_regularizer=None,
+                                                     activity_regularizer=None,
+                                                     kernel_constraint=None,
+                                                     bias_constraint=None,
+                                                     name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                                     **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
+                                                                                          seq_conv_block_i == 0
+                                                                    else net)
+
+                    if self.config['non_lin_fn'] == 'lrelu':
+                        net = tf.keras.layers.LeakyReLU(alpha=0.01,
+                                                        name='lrelu{}_{}_{}'.format(branch, conv_block_i,
+                                                                                    seq_conv_block_i))(net)
+                    elif self.config['non_lin_fn'] == 'relu':
+                        net = tf.keras.layers.ReLU(name='relu{}_{}_{}'.format(branch, conv_block_i,
+                                                                              seq_conv_block_i))(net)
+                    elif self.config['non_lin_fn'] == 'prelu':
+                        net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                    alpha_regularizer=None,
+                                                    alpha_constraint=None,
+                                                    shared_axes=[1, 2],
+                                                    name='prelu{}_{}_{}'.format(branch, conv_block_i,
+                                                                                seq_conv_block_i))(net)
+
+                if branch == odd_even_branch_name:
+                    net = tf.keras.layers.MaxPooling2D(pool_size=(1, pool_size),
+                                                       strides=(1, self.config['pool_stride']),
+                                                       name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
+                else:
+                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size,
+                                                       strides=self.config['pool_stride'],
+                                                       name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
+
+            if branch == odd_even_branch_name:  # subtract extracted features for odd and even views branch
+                net = tf.split(net, 2, axis=1, name='split_oe')
+                net = tf.keras.layers.Subtract(name='subtract_oe')(net)
+                # net = tf.keras.layers.Permute((2, 3, 1), name='permute2_oe')(net)  # needed for Conv2D
+
+            # flatten output of the convolutional branch
+            net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
+
+            # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
+            #                              kernel_size=net.shape[1],
+            #                              strides=1,
+            #                              padding='valid',
+            #                              kernel_initializer=weight_initializer,
+            #                              dilation_rate=1,
+            #                              activation=None,
+            #                              use_bias=True,
+            #                              bias_initializer='zeros',
+            #                              kernel_regularizer=None,
+            #                              bias_regularizer=None,
+            #                              activity_regularizer=None,
+            #                              kernel_constraint=None,
+            #                              bias_constraint=None,
+            #                              name='conv_{}'.format(branch),
+            #                              )(net)
+
+            # if self.config['non_lin_fn'] == 'lrelu':
+            #     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+            # elif self.config['non_lin_fn'] == 'relu':
+            #     net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+            # elif self.config['non_lin_fn'] == 'prelu':
+            #     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+            #                                 alpha_regularizer=None,
+            #                                 alpha_constraint=None,
+            #                                 shared_axes=[1],
+            #                                 name='fc_prelu_{}'.format(branch))(net)
+            #
+            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)  # needed for Conv2D
+            #
+            # net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+
+            # concatenate scalar features with features extracted in the convolutional branch for the time series views
+            if self.config['conv_branches'][branch]['scalars'] is not None:
+                scalar_inputs = [
+                    self.inputs[feature_name] if feature_name != 'mag_cat' else tf.cast(self.inputs['mag_cat'],
+                                                                                        tf.float32)
+                    for feature_name in self.config['conv_branches'][branch]['scalars']]
+                if len(scalar_inputs) > 1:
+                    scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'{branch}_scalar_input')(scalar_inputs)
+                else:
+                    scalar_inputs = scalar_inputs[0]
+
+                net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+                    net,
+                    scalar_inputs
+                ])
+
+            # # concatenate corresponding scalar features to the flattened vector of features from the convolutional branch
+            # if 'local_weak_secondary_view' in branch:
+            #     scalar_input = tf.keras.layers.Concatenate(axis=1, name='wks_scalar_input')(
+            #         [
+            #             self.inputs['tce_maxmes_norm'],
+            #             self.inputs['tce_albedo_stat_norm'],
+            #             self.inputs['tce_ptemp_stat_norm'],
+            #             self.inputs['wst_depth_norm'],
+            #             # self.inputs['tce_period_norm'],
+            #             # self.inputs['tce_prad_norm'],
+            #         ])
+            #
+            #     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+            #         net,
+            #         scalar_input
+            #     ])
+            #
+            # elif 'local_centr_view' in branch:
+            #     scalar_input = tf.keras.layers.Concatenate(axis=1, name='centroid_scalar_input')(
+            #         [
+            #             self.inputs['tce_dikco_msky_norm'],
+            #             self.inputs['tce_dikco_msky_err_norm'],
+            #             self.inputs['tce_dicco_msky_norm'],
+            #             self.inputs['tce_dicco_msky_err_norm'],
+            #             self.inputs['tce_fwm_stat_norm'],
+            #             self.inputs['ruwe_norm'],
+            #             # self.inputs['mag_norm'],
+            #             # self.inputs['mag_cat'],
+            #             # tf.cast(self.inputs['mag_cat'], tf.float32),
+            #             self.inputs['mag_cat_norm']
+            #         ])
+            #
+            #     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+            #         net,
+            #         scalar_input
+            #     ])
+            #
+            # elif 'local_flux_view' in branch:
+            #     # scalar_input = self.inputs['transit_depth_norm']
+            #
+            #     scalar_input = tf.keras.layers.Concatenate(axis=1, name='flux_scalar_input')(
+            #         [
+            #             self.inputs['transit_depth_norm'],
+            #             self.inputs['tce_max_mult_ev_norm'],
+            #             self.inputs['tce_max_sngle_ev_norm'],
+            #             self.inputs['tce_robstat_norm'],
+            #             self.inputs['tce_model_chisq_norm']
+            #         ])
+            #
+            #     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+            #         net,
+            #         scalar_input
+            #     ])
+            #
+            # elif 'local_flux_oddeven_views' in branch:
+            #     scalar_input = tf.keras.layers.Concatenate(axis=1, name='oddeven_scalar_input')(
+            #         [
+            #             # self.inputs['sigma_oot_odd'],
+            #             # self.inputs['sigma_it_odd'],
+            #             # self.inputs['sigma_oot_even'],
+            #             # self.inputs['sigma_it_even'],
+            #             self.inputs['odd_se_oot_norm'],
+            #             self.inputs['even_se_oot_norm'],
+            #         ])
+            #
+            #     net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+            #         net,
+            #         scalar_input
+            #     ])
+
+            # add FC layer that extracts features from the combined feature vector of features from the convolutional
+            # branch (flattened) and corresponding scalar features
+            if self.config['num_fc_conv_units'] > 0:
+                net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
+                                            kernel_regularizer=None,
+                                            activation=None,
+                                            use_bias=True,
+                                            kernel_initializer='glorot_uniform',
+                                            bias_initializer='zeros',
+                                            bias_regularizer=None,
+                                            activity_regularizer=None,
+                                            kernel_constraint=None,
+                                            bias_constraint=None,
+                                            name='fc_{}'.format(branch))(net)
+
+                # net = tf.expand_dims(net, axis=-1)
+                # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
+                #                              kernel_size=net.shape[1],
+                #                              strides=1,
+                #                              padding='valid',
+                #                              kernel_initializer=weight_initializer,
+                #                              dilation_rate=1,
+                #                              activation=None,
+                #                              use_bias=True,
+                #                              bias_initializer='zeros',
+                #                              kernel_regularizer=None,
+                #                              bias_regularizer=None,
+                #                              activity_regularizer=None,
+                #                              kernel_constraint=None,
+                #                              bias_constraint=None,
+                #                              name='conv_{}'.format(branch),
+                #                              )(net)
+
+                if self.config['non_lin_fn'] == 'lrelu':
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'relu':
+                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                elif self.config['non_lin_fn'] == 'prelu':
+                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                alpha_regularizer=None,
+                                                alpha_constraint=None,
+                                                shared_axes=[1],
+                                                name='fc_prelu_{}'.format(branch))(net)
+                # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
+
+                net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+
+            conv_branches[branch] = net
+
+        return conv_branches
+
+    def build_scalar_branches(self):
+        """ Builds the scalar branches.
+
+        :return:
+            scalar_branches_net, dict with the different scalar branches
+        """
+
+        scalar_branches_net = {scalar_branch_name: None for scalar_branch_name in self.config['scalar_branches']}
+        for scalar_branch_name in self.config['scalar_branches']:
+
+            scalar_inputs = [self.inputs[feature_name] for feature_name in
+                             self.config['scalar_branches'][scalar_branch_name]]
+            if len(scalar_inputs) > 1:
+                scalar_input = tf.keras.layers.Concatenate(axis=1, name=f'{scalar_branch_name}_scalar_input')(
+                    scalar_inputs)
+            else:
+                scalar_input = scalar_inputs[0]
+
+            scalar_fc_output = tf.keras.layers.Dense(units=4,
+                                                     kernel_regularizer=regularizers.l2(self.config['decay_rate']) if
+                                                     self.config['decay_rate'] is not None else None,
+                                                     activation=None,
+                                                     use_bias=True,
+                                                     kernel_initializer='glorot_uniform',
+                                                     bias_initializer='zeros',
+                                                     bias_regularizer=None,
+                                                     activity_regularizer=None,
+                                                     kernel_constraint=None,
+                                                     bias_constraint=None,
+                                                     name=f'fc_{scalar_branch_name}_scalar')(scalar_input)
+
+            if self.config['non_lin_fn'] == 'lrelu':
+                scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name=f'fc_lrelu_{scalar_branch_name}_scalar')(
+                    scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'relu':
+                scalar_fc_output = tf.keras.layers.ReLU(name=f'fc_relu_{scalar_branch_name}_scalar')(scalar_fc_output)
+            elif self.config['non_lin_fn'] == 'prelu':
+                scalar_fc_output = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                         alpha_regularizer=None,
+                                                         alpha_constraint=None,
+                                                         shared_axes=[1],
+                                                         name=f'fc_prelu_{scalar_branch_name}_scalar')(scalar_fc_output)
+            scalar_branches_net[scalar_branch_name] = scalar_fc_output
+
+        return scalar_branches_net
+
+    def connect_segments(self, branches):
+        """ Connect the different branches.
+
+        :param branches: dict, branches to be concatenated
+        :return:
+            model output before FC layers
+        """
+
+        branches_to_concatenate = []
+        for branch_name, branch in branches.items():
+            branches_to_concatenate.append(branch)
+
+        if len(branches_to_concatenate) > 1:
+            net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_to_concatenate)
+        else:
+            net = branches_to_concatenate[0]
+
+        if self.config['batch_norm']:
+            net = tf.keras.layers.BatchNormalization(axis=-1,
+                                                     momentum=0.99,
+                                                     epsilon=1e-3,
+                                                     center=True,
+                                                     scale=True,
+                                                     beta_initializer='zeros',
+                                                     gamma_initializer='ones',
+                                                     moving_mean_initializer='zeros',
+                                                     moving_variance_initializer='ones',
+                                                     beta_regularizer=None,
+                                                     gamma_regularizer=None,
+                                                     beta_constraint=None,
+                                                     gamma_constraint=None,
+                                                     renorm=False,
+                                                     renorm_clipping=None,
+                                                     renorm_momentum=0.99,
+                                                     fused=None,
+                                                     trainable=True,
+                                                     virtual_batch_size=None,
+                                                     adjustment=None,
+                                                     name='batch_norm_convbranch_wscalar_concat')(net)
+
+        return net
+
+    def build_fc_block(self, net):
+        """ Builds the FC block after the convolutional branches.
+
+        :param net: model upstream the FC block
+        :return:
+            net: model with added FC block
+        """
+
+        # with tf.variable_scope('FcNet'):
+
+        for fc_layer_i in range(self.config['num_fc_layers']):
+
+            fc_neurons = self.config['init_fc_neurons']
+
+            if self.config['decay_rate'] is not None:
+                net = tf.keras.layers.Dense(units=fc_neurons,
+                                            kernel_regularizer=regularizers.l2(
+                                                self.config['decay_rate']) if self.config['decay_rate'] is not None else None,
+                                            activation=None,
+                                            use_bias=True,
+                                            kernel_initializer='glorot_uniform',
+                                            bias_initializer='zeros',
+                                            bias_regularizer=None,
+                                            activity_regularizer=None,
+                                            kernel_constraint=None,
+                                            bias_constraint=None,
+                                            name='fc{}'.format(fc_layer_i))(net)
+            else:
+                net = tf.keras.layers.Dense(units=fc_neurons,
+                                            kernel_regularizer=None,
+                                            activation=None,
+                                            use_bias=True,
+                                            kernel_initializer='glorot_uniform',
+                                            bias_initializer='zeros',
+                                            bias_regularizer=None,
+                                            activity_regularizer=None,
+                                            kernel_constraint=None,
+                                            bias_constraint=None,
+                                            name='fc{}'.format(fc_layer_i))(net)
+
+            if self.config['non_lin_fn'] == 'lrelu':
+                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu{}'.format(fc_layer_i))(net)
+            elif self.config['non_lin_fn'] == 'relu':
+                net = tf.keras.layers.ReLU(name='fc_relu{}'.format(fc_layer_i))(net)
+            elif self.config['non_lin_fn'] == 'prelu':
+                net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                            alpha_regularizer=None,
+                                            alpha_constraint=None,
+                                            shared_axes=[1],
+                                            name='fc_prelu{}'.format(fc_layer_i))(net)
+
+            net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net)
+
+        return net
+
+    def build(self):
+        """ Builds the model.
+
+        :return:
+            output: full model, from inputs to outputs
+        """
+
+        branches_net = {branch_name: None for branch_name in self.config['transformer_branches']}
+        branches_net.update({branch_name: None for branch_name in self.config['scalar_branches']})
+        if self.config['conv_branches'] is not None:
+            branches_net.update({branch_name: None for branch_name in self.config['conv_branches']})
+
+        # create transformer branches
+        transformer_branches_net = self.build_transformer_layers()
+        branches_net.update(transformer_branches_net)
+
+        # create scalar branches
+        scalar_branches_net = self.build_scalar_branches()
+        branches_net.update(scalar_branches_net)
+
+        # create convolutional branches
+        if self.config['conv_branches'] is not None:
+            conv_branches_net = self.build_conv_branches()
+            branches_net.update(conv_branches_net)
+
+        # merge branches
+        net = self.connect_segments(branches_net)
+
+        # create FC layers
+        net = self.build_fc_block(net)
+
+        # create output layer
+        logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
+
+        if self.output_size == 1:
+            output = tf.keras.layers.Activation(tf.nn.sigmoid, name='sigmoid')(logits)
+        else:
+            output = tf.keras.layers.Activation(tf.nn.softmax, name='softmax')(logits)
+
+        return output

@@ -29,6 +29,8 @@ conda install mpi4py
 conda install scipy
 conda install -c conda-forge pydot
 conda install -c anaconda graphviz
+#conda install -c conda-forge tensorflow
+#confa install -c anaconda tensorflow
 
 # pip installations
 pip install hpbandster
