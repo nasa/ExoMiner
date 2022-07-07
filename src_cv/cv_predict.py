@@ -92,14 +92,19 @@ def cv_pred_run(run_params, cv_iter_dir):
 
 def cv_pred():
 
-    path_to_yaml = Path(path_main + 'src_cv/config_cv_predict.yaml')
-    with(open(path_to_yaml, 'r')) as file:
-        config = yaml.safe_load(file)
-
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
     args = parser.parse_args()
+
+    if args.config_file is None:
+        path_to_yaml = Path(path_main + 'src_cv/config_cv_predict.yaml')
+    else:
+        path_to_yaml = Path(args.config_file)
+
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
 
     # uncomment for MPI multiprocessing
     rank = MPI.COMM_WORLD.rank

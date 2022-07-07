@@ -308,8 +308,8 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    if '{}-{}'.format(tce['target_id'], tce[
-        'tce_plnt_num']) == '11446443-1':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
+    # if '{}-{}'.format(tce['target_id'], tce[
+    #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
         # if '{}'.format(tce['target_id']) in ['7431665']:
@@ -318,9 +318,9 @@ def _process_tce(tce, table, config, conf_dict):
         # tce['tce_time0bk'] = 1325.726
         # tce['tce_period'] = 0.941451
         # tce['sectors'] = '1'
-        print(tce)
-    else:
-        return None
+        # print(tce)
+    # else:
+    #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = True  # False
@@ -1056,8 +1056,10 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
     return time, timeseries, num_transits
 
 
-def phase_split_light_curve(time, timeseries, period, t0, duration, max_phases, delete_in_pairs, augmentation=False):
-    """ Phase folds a light curve and sorts by ascending time.
+def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases, keep_odd_even_order,
+                            it_cadences_per_thr, num_cadences_per_h, extend_method, augmentation=False):
+    """ Splits a 1D time series phases using the detected orbital period and epoch. Extracts `n_max_phases` from the
+    time series.
 
     Args:
       time: 1D NumPy array of time values.
@@ -1065,113 +1067,133 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, max_phases, 
       period: A positive real scalar; the period to fold over (day).
       t0: The center of the resulting folded vector; this value is mapped to 0.
       duration: positive float; transit duration (day).
-      max_phase: positive integer; maximum number of phases
-      delete_in_pairs: bool; if True, if a given odd/even cycle is deleted, the consecutive even/odd cycle is also
-      deleted to preserve order between odd and even transits.
+      n_max_phases: positive integer; maximum number of phases
+      keep_odd_even_order: bool; if True, phases are extracted preserving odd/even alternating structure.
+      it_cadences_per_thr: float, threshold for number of in-transit cadences per phase for classifying a phase as
+      valid.
+      num_cadences_per_h: float, number of cadences sampled per hour in the time series.
+      extend_method: str, method used to deal with examples with less than `n_max_phases`. If 'zero_padding', baseline
+      phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
       augmentation: bool; if True samples cycles with replacement.
 
     Returns:
-      unfolded_time: 2D NumPy array of phase folded time values in
+      phase_split: 2D NumPy array of phase folded time values in
           [-period / 2, period / 2), where 0 corresponds to t0 in the original
           time array. Values are split by phase.
-      unfolded_timeseries: 2D NumPy array. Values are the same as the original input
+      timeseries_split: 2D NumPy array. Values are the same as the original input
           array, but split by phases.
-      num_transits: int, number of transits in the time series.
+      n_obs_phases: int, number of phases extracted.
+      odd_even_obs: list, each phase has an indicator for odd/even (0, 1) and not assigned (-1).
     """
 
-    # Phase fold time.
+    # phase interval for classifying cadences as in-transit cadences
+    tmin_it, tmax_it = max(-period / 2, -1.5 * duration / 2), min(period / 2, 1.5 * duration / 2)
+
+    expected_num_it_cadences = duration * num_cadences_per_h
+
+    k_min, k_max = int(np.ceil((t0 - time[0]) / period)), int(np.ceil((time[-1] - t0) / period))
+    epochs = [t0 - k * period for k in range(k_min)]
+    epochs += [t0 + k * period for k in range(1, k_max)]
+
+    # estimate odd and even phases that should have been observed
+    n_phases = len(epochs)
+    odd_even_id_arr = -1 * np.ones(n_phases, dtype='int')
+    odd_even_id_arr[::2] = 0
+    odd_even_id_arr[1::2] = 1
+
+    # fold time array over the estimated period to create phase array
     if not augmentation:
-        time = util.phase_fold_time(time, period, t0)
+        phase = util.phase_fold_time(time, period, t0)
     else:
-        time, sampled_idxs, num_transits = util.phase_fold_time_aug(time, period, t0)
+        phase, sampled_idxs, _ = util.phase_fold_time_aug(time, period, t0)
         timeseries = timeseries[sampled_idxs]
 
-    # count number of transits in the phase domain
-    num_transits = np.sum(np.diff(time) < 0) + 1
+    # split time series over phases
+    diff_phase = np.diff(phase, prepend=np.nan)
+    idx_splits = np.where(diff_phase < 0)[0]
+    time_split = np.array_split(time, idx_splits)
+    phase_split = np.array_split(phase, idx_splits)
+    timeseries_split = np.array_split(timeseries, idx_splits)
+    n_obs_phases = len(phase_split)  # number of actual observed phases
 
-    # initialize arrays
-    unfolded_time = []
-    unfolded_timeseries = []
+    # assign observed phases as odd or even
+    odd_even_obs = -1 * np.ones(n_obs_phases, dtype='int')  # initialize observed odd and even observed phases
 
-    #unfolded time/flux data by phases
+    epoch_idx = 0
+    for phase_i in range(n_obs_phases):  # iterate over observed phases
+        for epoch_i in range(epoch_idx, n_phases):  # iterate over expected epochs
+            # check if epoch matches the observed phase
+            if np.logical_and(np.all(epochs[epoch_i] - period / 2 < time_split[phase_i]),
+                              np.all(epochs[epoch_i] + period / 2 > time_split[phase_i])):
+                odd_even_obs[phase_i] = odd_even_id_arr[epoch_i]
+                epoch_idx = epoch_i + 1  # update the first epoch to be checked as the one after the matched epoch
+                break
 
-    #start timestep of current phase
-    phase_start = 0
+        # if odd_even_obs[phase_i] == -1:
+        #     print(f'Phase {phase_i} did not match any epoch.')
 
-    # get time interval for in-transit cadences
-    tmin_it, tmax_it = max(-period / 2, -1.5 * duration / 2), min(period/2, 1.5 * duration / 2)
+    # remove phases that were not matched with any epoch; this shouldn't happen often (?) though
+    idx_valid_phases = odd_even_obs != -1
+    time_split = [time_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    timeseries_split = [timeseries_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    phase_split = [phase_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    odd_even_obs = [odd_even_obs[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    n_obs_phases = len(time_split)
 
-    if delete_in_pairs:
+    # remove phases that contain less than some number/fraction of in-transit cadences; they are not reliable
+    # representations of the potential transit
+    num_it_cadences_phases = np.array([np.sum(np.logical_and(phase_split[phase_i] > tmin_it,
+                                                             phase_split[phase_i] < tmax_it))
+                                       for phase_i in range(n_obs_phases)])
+    # idx_valid_phases = num_it_cadences_phases > min_num_it_cadences
+    idx_valid_phases = num_it_cadences_phases / expected_num_it_cadences > it_cadences_per_thr
+    time_split = [time_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    timeseries_split = [timeseries_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    phase_split = [phase_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    odd_even_obs = [odd_even_obs[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
+    n_obs_phases = len(time_split)
 
-        has_in_transit = False
-        ignore_phase = False
+    # have alternating odd and even phases
+    if keep_odd_even_order:
+        keep_idxs = [0]
+        curr_phase_type = odd_even_obs[0]
+        for phase_i in range(1, n_obs_phases):
+            if odd_even_obs[phase_i] != curr_phase_type:
+                keep_idxs.append(phase_i)
+                curr_phase_type = odd_even_obs[phase_i]
+        time_split = [time_split[keep_idx] for keep_idx in keep_idxs]
+        timeseries_split = [timeseries_split[keep_idx] for keep_idx in keep_idxs]
+        phase_split = [phase_split[keep_idx] for keep_idx in keep_idxs]
+        odd_even_obs = [odd_even_obs[keep_idx] for keep_idx in keep_idxs]
+        n_obs_phases = len(time_split)
 
-        for timestep in range(len(time)):
-            # create new phase if time changes from positive to negative
-            new_phase = timestep > 0 and (time[timestep - 1] > 0 and time[timestep] < 0)
-            if new_phase:
-                if phase_start == 0 and time[0] > tmin_it:
-                    phase_start = timestep
-                    continue
+    # choosing a random consecutive set of phases if there are more than the requested maximum number of phases
+    if n_obs_phases > n_max_phases:
+        chosen_phases_st = np.random.randint(n_obs_phases - n_max_phases)
+        chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
+        time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
+        timeseries_split = [timeseries_split[chosen_phase] for chosen_phase in chosen_phases]
+        phase_split = [phase_split[chosen_phase] for chosen_phase in chosen_phases]
+        odd_even_obs = [odd_even_obs[chosen_phase] for chosen_phase in chosen_phases]
+        n_obs_phases = len(time_split)
+    elif n_obs_phases < n_max_phases:
+        n_miss_phases = n_max_phases - n_obs_phases
+        if extend_method == 'zero_padding':  # new phases are assigned baseline value
+            # new phases have median number of cadences of observed phases
+            med_n_cadences = np.median([time_split[phase_i] for phase_i in range(n_obs_phases)])
+            # linear phase space
+            phase_split_miss = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
+            phase_split += [phase_split_miss] * n_miss_phases
+            timeseries_split += [np.ones(med_n_cadences, dtype='float')] * n_miss_phases  # baseline value (1)
+            time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
+        elif extend_method == 'copy_phases':  # phases are copied from the start
+            phase_split += list(phase_split[:n_miss_phases])
+            time_split += list(time_split[:n_miss_phases])
+            timeseries_split += list(timeseries_split[:n_miss_phases])
+        else:
+            raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
 
-                if not has_in_transit:
-                    ignore_phase = True
-                elif ignore_phase:
-                    ignore_phase = False
-                else:
-                    #add previous phase
-                    unfolded_time.append(time[phase_start: timestep])
-                    unfolded_timeseries.append(timeseries[phase_start: timestep])
-
-                #update new phase start
-                phase_start = timestep
-                has_in_transit = False
-            else:
-                if tmin_it <= time[timestep] <= tmax_it:
-                    has_in_transit = True
-
-        #add last phase if the transit is over
-        if time[-1] >= tmax_it and not ignore_phase and has_in_transit:
-            unfolded_time.append(time[phase_start: ])
-            unfolded_timeseries.append(timeseries[phase_start: ])
-    else:
-        has_in_transit = False
-        for timestep in range(len(time)):
-            # create new phase if time changes from positive to negative
-            new_phase = timestep > 0 and (time[timestep - 1] > 0 and time[timestep] < 0)
-            if new_phase:
-                if phase_start == 0 and time[0] > tmin_it:
-                    phase_start = timestep
-                    continue
-
-                if has_in_transit:
-                    # add previous phase
-                    unfolded_time.append(time[phase_start: timestep])
-                    unfolded_timeseries.append(timeseries[phase_start: timestep])
-
-                # update new phase start
-                phase_start = timestep
-                has_in_transit = False
-            else:
-                if tmin_it <= time[timestep] <= tmax_it:
-                    has_in_transit = True
-
-        # add last phase if the transit is over
-        if time[-1] >= tmax_it and has_in_transit:
-            unfolded_time.append(time[phase_start:])
-            unfolded_timeseries.append(timeseries[phase_start:])
-
-    #convert to np array
-    unfolded_time = np.array(unfolded_time)
-    unfolded_timeseries = np.array(unfolded_timeseries)
-
-    # choosing a random consecutive set of phases if there are more than the request maximum number of phases
-    if len(unfolded_time) > max_phases:
-        start_phase = np.random.randint(len(unfolded_time) - max_phases)
-        unfolded_time = unfolded_time[start_phase:start_phase + 20]
-        unfolded_timeseries = unfolded_timeseries[start_phase:start_phase + 20]
-
-    return unfolded_time, unfolded_timeseries, num_transits
+    return phase_split, timeseries_split, n_obs_phases, odd_even_obs
 
 
 def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
@@ -1484,20 +1506,21 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                           tce['tce_duration'])
 
     # phase folding for flux time series
-    all_time_unfolded, all_flux_unfolded, _ = phase_split_light_curve(data['time'],
-                                                    data['flux'],
-                                                    tce['tce_period'],
-                                                    tce['tce_time0bk'],
-                                                    tce['tce_duration'],
-                                                    max_phases=config['max_phases'],
-                                                    delete_in_pairs=config['preserve_odd_even'],
-                                                  augmentation=False)
+    time_split, flux_split, n_phases_split, _ = phase_split_light_curve(data['time'],
+                            data['flux'],
+                            tce['tce_period'],
+                            tce['tce_time0bk'],
+                            tce['tce_duration'],
+                            config['n_max_phases'],
+                            config['keep_odd_even_order'],
+                            config['frac_it_cadences_thr'],
+                            config['sampling_rate_h'],
+                            config['phase_extend_method'],
+                            augmentation=False)
 
-
-    num_phases = len(all_time_unfolded)
-
-    if num_phases < 2:
-        report_exclusion(config, tce, f'Only found {num_phases} phase, need at least 2 to create example.')
+    if n_phases_split < config['min_n_phases']:
+        report_exclusion(config, tce, f'Only found {n_phases_split} phase, need at least {config["min_n_phases"]} to '
+                                      f'create example.')
         return None
 
     # phase folding for centroid time series
@@ -1615,10 +1638,45 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                         report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
                         tce_duration=tce['tce_duration']
                         )
-
+        # bins with zero cadences are set to max(1, median of bin cadences)
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
-        glob_flux_view_var /= np.sqrt(bin_counts)
+        glob_flux_view_var /= np.sqrt(bin_counts)  # divide number of cadences in each bin by SE of the mean
         binned_timeseries['Global Flux'] = (binned_time, glob_flux_view, glob_flux_view_var)
+
+        #create unfolded global flux views
+        unfolded_glob_flux_view = []
+        unfolded_glob_flux_view_var = []
+        for phase in range(n_phases_split):
+            # if len(all_time_unfolded[phase]) < 2:
+            #     continue
+            # print(all_time_unfolded[phase].shape)
+            unfolded_glob_flux_view_phase, binned_time, unfolded_glob_flux_view_var_phase, _, bin_counts = \
+                global_view(time_split[phase],
+                            flux_split[phase],
+                            tce['tce_period'],
+                            tce=tce,
+                            normalize=False,
+                            centering=False,
+                            num_bins=config['num_bins_glob'],
+                            bin_width_factor=config['bin_width_factor_glob'],
+                            report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
+                            tce_duration=tce['tce_duration']
+                            )
+            bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+            unfolded_glob_flux_view_var_phase /= np.sqrt(bin_counts)
+            # binned_timeseries[f'Unfolded Global Flux Phase #{phase}'] = (binned_time, unfolded_glob_flux_view_phase,
+            #                                                              unfolded_glob_flux_view_var_phase)
+            unfolded_glob_flux_view.append(unfolded_glob_flux_view_phase)
+            unfolded_glob_flux_view_var.append(unfolded_glob_flux_view_var_phase)
+
+        unfolded_glob_flux_view = np.array(unfolded_glob_flux_view)
+        unfolded_glob_flux_view_var = np.array(unfolded_glob_flux_view_var)
+
+        utils_visualization.plot_riverplot(unfolded_glob_flux_view,
+                                           config['num_bins_glob'],
+                                           tce,
+                                           os.path.join(config['output_dir'], 'plots'),
+                                           f'8_riverplot_aug{tce["augmentation_idx"]}')
 
         # create local flux view
         loc_flux_view, binned_time, loc_flux_view_var, inds_bin_nan['local_flux'], bin_counts = \
@@ -1634,22 +1692,37 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                        bin_width_factor=config['bin_width_factor_loc'],
                        report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                        )
-
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
         loc_flux_view_var /= np.sqrt(bin_counts)
         binned_timeseries['Local Flux'] = (binned_time, loc_flux_view, loc_flux_view_var)
 
-        flux_views = {'global_flux_view': glob_flux_view,
-                      'local_flux_view': loc_flux_view,
-                      'local_flux_odd_view': odd_data['local_flux_view'],
-                      'local_flux_even_view': even_data['local_flux_view'],
-                      }
+        # create unfolded local flux views
+        unfolded_loc_flux_view = []
+        unfolded_loc_flux_view_var = []
+        for phase in range(n_phases_split):
+            unfolded_loc_flux_view_phase,binned_time, unfolded_loc_flux_view_var_phase, _, bin_counts = \
+                local_view(time_split[phase],
+                            flux_split[phase],
+                            tce['tce_period'],
+                            tce['tce_duration'],
+                            tce=tce,
+                            normalize=False,
+                            centering=False,
+                            num_durations=config['num_durations'],
+                            num_bins=config['num_bins_loc'],
+                            bin_width_factor=config['bin_width_factor_loc'],
+                            report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
+                            )
+            bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
+            unfolded_loc_flux_view_var_phase /= np.sqrt(bin_counts)
+            # binned_timeseries[f'Unfolded Local Flux Phase #{phase}'] = (binned_time, unfolded_loc_flux_view_phase,
+            #                                                             unfolded_loc_flux_view_var_phase)
 
-        flux_views_var = {'global_flux_view': glob_flux_view_var,
-                          'local_flux_view': loc_flux_view_var,
-                          'local_flux_odd_view': odd_data['local_flux_view_se'],
-                          'local_flux_even_view': even_data['local_flux_view_se'],
-                          }
+            unfolded_loc_flux_view.append(unfolded_loc_flux_view_phase)
+            unfolded_loc_flux_view_var.append(unfolded_loc_flux_view_var_phase)
+
+        unfolded_loc_flux_view = np.array(unfolded_loc_flux_view)
+        unfolded_loc_flux_view_var = np.array(unfolded_loc_flux_view_var)
 
         # create local view for the weak secondary flux
         loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, inds_bin_nan['local_wks'], bin_counts = \
@@ -1665,11 +1738,12 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                        bin_width_factor=config['bin_width_factor_loc'],
                        report={'config': config, 'tce': tce, 'view': 'local_wks_view'}
                        )
-        # set local wks view to Gaussian noise using statistics from global weak secondary view when there is not data to
-        # create the local view
+        # set local wks view to Gaussian noise using statistics from global weak secondary view when there are no data
+        # to create the local view
         if np.all(np.isnan(loc_weak_secondary_view)):
             report_exclusion(config, tce,
-                             f'No data available for local weak secondary view. Setting it to Gaussian noise using statistics from the global wks view.')
+                             f'No data available for local weak secondary view. Setting it to Gaussian noise using '
+                             f'statistics from the global wks view.')
             mu, sigma = np.nanmedian(flux_noprimary), mad_std(flux_noprimary, ignore_nan=True)
             rng = np.random.default_rng()
             loc_weak_secondary_view = rng.normal(mu, sigma, len(loc_weak_secondary_view))
@@ -1689,19 +1763,33 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
             bin_counts = rng.normal(mu, sigma, len(loc_weak_secondary_view))
             bin_counts[bin_counts < 0] = 1
-
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
         loc_weak_secondary_view_var /= np.sqrt(bin_counts)
         binned_timeseries['Local Weak Secondary Flux'] = (binned_time,
                                                           loc_weak_secondary_view,
                                                           loc_weak_secondary_view_var
                                                           )
-
         # if plot_preprocessing_tce:
         #     utils_visualization.plot_wks(glob_view, glob_view_weak_secondary, tce, config,
         #                                  os.path.join(config['output_dir'], 'plots'), '8_wks_test')
 
-        # get median and std statistics for global and local flux views
+        flux_views = {'global_flux_view': glob_flux_view,
+                      'local_flux_view': loc_flux_view,
+                      'local_flux_odd_view': odd_data['local_flux_view'],
+                      'local_flux_even_view': even_data['local_flux_view'],
+                      'unfolded_global_flux_view': unfolded_glob_flux_view,
+                      'unfolded_local_flux_view': unfolded_loc_flux_view,
+                      }
+
+        flux_views_var = {'global_flux_view': glob_flux_view_var,
+                          'local_flux_view': loc_flux_view_var,
+                          'local_flux_odd_view': odd_data['local_flux_view_se'],
+                          'local_flux_even_view': even_data['local_flux_view_se'],
+                          'unfolded_global_flux_view': unfolded_glob_flux_view_var,
+                          'unfolded_local_flux_view': unfolded_loc_flux_view_var,
+                          }
+
+        # get normalization statistics for global and local flux views
         flux_views_stats = {'median': {'global': np.median(flux_views['global_flux_view']),
                                        'local': np.median(flux_views['local_flux_view'])}}
         flux_views_stats['min'] = {'global': np.abs(np.min(flux_views['global_flux_view'] -
@@ -1712,6 +1800,20 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # center by the flux view median and normalize by the flux view absolute minimum
         views_aux = {}
         for flux_view in flux_views:
+
+            if 'unfolded' in flux_view:
+                views_aux[f'{flux_view}_fluxnorm'] = []
+                for phase in flux_views[flux_view]:
+                    new_phase =  \
+                        centering_and_normalization(phase,
+                                                    flux_views_stats['median'][('local', 'global')['global' in flux_view]],
+                                                    flux_views_stats['min'][('local', 'global')['global' in flux_view]],
+                                                    report={'config': config, 'tce': tce, 'view': flux_view}
+                                                    )
+                    views_aux[f'{flux_view}_fluxnorm'].append(new_phase)
+                views_aux[f'{flux_view}_fluxnorm'] = np.array(views_aux[f'{flux_view}_fluxnorm'])
+
+
             views_aux[f'{flux_view}_fluxnorm'] = \
                 centering_and_normalization(flux_views[flux_view],
                                             flux_views_stats['median'][('local', 'global')['global' in flux_view]],
@@ -1721,6 +1823,18 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         flux_views.update(views_aux)
         views_aux = {}
         for flux_view in flux_views_var:
+            if 'unfolded' in flux_view:
+                views_aux[f'{flux_view}_fluxnorm'] = []
+                for phase in flux_views_var[flux_view]:
+                    new_phase =  \
+                        centering_and_normalization(phase,
+                                                    0,
+                                                    flux_views_stats['min'][('local', 'global')['global' in flux_view]],
+                                                    report={'config': config, 'tce': tce, 'view': flux_view}
+                                                    )
+                    views_aux[f'{flux_view}_fluxnorm'].append(new_phase)
+                views_aux[f'{flux_view}_fluxnorm'] = np.array(views_aux[f'{flux_view}_fluxnorm'])
+
             views_aux[f'{flux_view}_fluxnorm'] = \
                 centering_and_normalization(flux_views_var[flux_view],
                                             0,
@@ -2065,7 +2179,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                               f'aug{tce["augmentation_idx"]}'
                                               )
 
-            views_var_plot = views_var
+            views_var_plot = {view_name: view for view_name, view in views_var.items() if view_name in views_to_plot}
             utils_visualization.plot_all_views_var({view_name: view for view_name, view in views.items()
                                                     if view_name in views_var_plot},
                                                    views_var_plot,
@@ -2096,9 +2210,15 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
     # set time series features in the example to be written to a TFRecord
     for view in views:
-        example_util.set_float_feature(ex, view, views[view])
+        if 'unfolded' in view:
+            example_util.set_tensor_feature(ex, view, views[view])
+        else:
+            example_util.set_float_feature(ex, view, views[view])
     for view in views_var:
-        example_util.set_float_feature(ex, f'{view}_var', views[view])
+        if 'unfolded' in view:
+            example_util.set_tensor_feature(ex, f'{view}_var', views[view])
+        else:
+            example_util.set_float_feature(ex, f'{view}_var', views[view])
 
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():
@@ -2110,7 +2230,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                 example_util.set_bytes_feature(ex, name, [value])
             else:
                 example_util.set_feature(ex, name, [value])
-        except:
+        except Exception as e:
             report_exclusion(config, tce, f'Could not set up this TCE table parameter: {name}.')
             print(name, value)
 

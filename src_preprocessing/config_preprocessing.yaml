@@ -29,10 +29,13 @@ bin_width_factor_loc: 0.16
 num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
 
 # unfolded time series
-max_phases: 20 #max ammount of phases considered for phase split view
-pad_phases: false #pad num of phases of TCEs shorter than max_phases with 0s
-copy_phases: true
-preserve_odd_even: true
+n_max_phases: 20  #max amount of phases considered for phase split view
+keep_odd_even_order: true  # keep alternating odd/even phases
+min_n_phases: 2  # minimum number of phases that need to be available for a given example
+frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
+# ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
+# the beginning
+phase_extend_method: copy_phases
 
 # split arrays if consecutive cadences are more than gapWidth days apart
 gapWidth: 0.75
@@ -64,6 +67,7 @@ kepler_px_scale: 3.98  # arcsec
 tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
 kepler_lower_bound_dicco_msky_err: 2.5
 
+sampling_rate_h: 2  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
 tess_to_kepler_sampling_ratio: 15
 
 # magnitude threshold for categorical variable

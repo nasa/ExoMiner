@@ -1,7 +1,7 @@
 # Script used to create environment for exoplanet project
 
 # conda environment's name
-CONDA_ENV_NAME=exoplnt_dl_from_sh
+CONDA_ENV_NAME=exoplnt_dl
 
 # make conda detectable by the current bash shell
 source "$HOME"/.bash_profile
@@ -30,7 +30,7 @@ conda install scipy
 conda install -c conda-forge pydot
 conda install -c anaconda graphviz
 #conda install -c conda-forge tensorflow
-#confa install -c anaconda tensorflow
+#conda install -c anaconda tensorflow
 
 # pip installations
 pip install hpbandster

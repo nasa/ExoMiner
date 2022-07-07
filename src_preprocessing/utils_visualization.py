@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from astropy.stats import mad_std
+from matplotlib.ticker import FormatStrFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.switch_backend('agg')
 
@@ -1313,5 +1315,51 @@ def plot_residual(time, res_flux, tce, config, savedir, basename):
     #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
     #                                                                    tce.sector_run, tce.label, basename)))
     f.suptitle('{} {}'.format(tce.uid, tce.label))
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()
+
+
+def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
+    """ Plot riverplot from a set of binned flux phases.
+
+    :param binned_fluxes: list, each element is a NumPy array for a phase of flux
+    :param n_bins: int, number of bins
+    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
+    :param savedir: str, filepath to directory in which the figure is saved
+    :param basename: str, added to the figure filename
+    :return:
+    """
+
+    n_obs_phases = len(binned_fluxes)
+
+    period_factors = [4]
+
+    bins_idxs_ticks = [0] + \
+                      [- n_bins // f + n_bins // 2 for f in period_factors] + \
+                      [0 + n_bins // 2] + \
+                      [n_bins // f + n_bins // 2 for f in period_factors[::-1]] + \
+                      [n_bins - 1]
+    bins_idxs_ticks = [el - 0.5 for el in bins_idxs_ticks]
+    bins_idxs_lbls = [-tce['tce_period'] / 2] + \
+                     [- tce['tce_period'] / f for f in period_factors] + \
+                     [0] + \
+                     [tce['tce_period'] / f for f in period_factors[::-1]] + \
+                     [tce['tce_period'] / 2]
+
+    f, ax = plt.subplots()
+    im = ax.imshow(binned_fluxes.T, aspect='auto')
+    ax.set_xlim([-0.5, n_obs_phases - 0.5])
+    ax.set_xticks(np.arange(n_obs_phases) + 0.5)
+    ax.set_xticklabels(np.arange(1, n_obs_phases + 1))
+    ax.set_yticks(bins_idxs_ticks)
+    ax.set_yticklabels(FormatStrFormatter('%.2f').format_ticks(bins_idxs_lbls))
+    ax.set_ylim(bottom=bins_idxs_ticks[-1])
+    ax.set_ylabel('Phase (day)')
+    ax.set_xlabel('Phase Number')
+    ax.grid(axis='x')
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    f.subplots_adjust()
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()

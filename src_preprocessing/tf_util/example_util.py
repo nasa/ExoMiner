@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import tensorflow as tf
 
 
 def get_feature(ex, name, kind=None, strict=True):
@@ -118,6 +119,10 @@ def set_feature(ex,
     value = [float(v) for v in value]
   elif kind == "int64_list":
     value = [int(v) for v in value]
+  elif kind == "tensor_list":
+    value = [tf.io.serialize_tensor(value.astype(np.float32)).numpy()]
+    #[tf.io.serialize_tensor(v).numpy() for v in value]
+    kind = 'bytes_list'
   else:
     raise ValueError("Unrecognized kind: {}".format(kind))
 
@@ -141,3 +146,7 @@ def set_bytes_feature(ex,
 def set_int64_feature(ex, name, value, allow_overwrite=False):
   """Sets the value of an int64 feature in a tf.train.Example."""
   set_feature(ex, name, value, "int64_list", allow_overwrite)
+
+def set_tensor_feature(ex, name, value, allow_overwrite=False):
+  """Sets the value of a tensor feature in a tf.train.Example."""
+  set_feature(ex, name, value, "tensor_list", allow_overwrite)

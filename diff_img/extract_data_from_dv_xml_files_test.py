@@ -3,11 +3,12 @@ import pandas as pd
 import numpy as np
 import xml.etree.cElementTree as et
 
-tree = et.parse('/Users/msaragoc/Downloads/tess2018206190142-s0001-s0001-0000000144048277-00106_dvr.xml')
+tree = et.parse('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/diff_img/tess2018206190142-s0001-s0001-0000000144048277-00106_dvr.xml')
 root = tree.getroot()
 
 centroid_res = root[5][3]
 diff_img_res = root[5][4]
+diff_img_px_data = diff_img_res[4:]
 diff_img_px_data = diff_img_res.findall('./{http://www.nasa.gov/2018/TESS/DV}differenceImagePixelData')  # iter(root[5][4][4:-3])
 
 img_size = (19, 11)

@@ -7,13 +7,13 @@ logger: null
 #experiment: &experiment_name
 paths:
   # directory for predict run
-  experiment_dir: /data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_exominerparallel_11-9-2021/predicted_not_used_11-9-2021
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_keplerq1q17dr25_7-7-2022
   # path to CV run to be used to predict
-  cv_experiment_dir: /data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_exominerparallel_11-9-2021
-  # TFRecord directory with the CV folds
-  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_predict_tcesnotused/
+  cv_experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/exominer_2021_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_8-23-2021
+  # TFRecord directory
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_paper_rbat0norm_8-20-2021_predict_tcesnotused
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
@@ -35,46 +35,47 @@ data_fields: # scalar data from TFRecords to add to ranking table
 #  'sigma_oot_even': 'float_scalar'
 #  'sigma_it_even': 'float_scalar'
 
-config:
-#  # branches used in ExoMiner
-#  branches: [
-#      'global_flux_centroid_views',
-#      'local_flux_centroid_views',
-#    #      'global_flux_view_fluxnorm',
-#    #      'local_flux_view_fluxnorm',
-#    # 'global_centr_fdl_view_norm',
-#    # 'local_centr_fdl_view_norm',
-#      'local_flux_oddeven_views',
-#    #      'global_centr_view_std_noclip',
-#    #      'local_centr_view_std_noclip',
-#    # 'local_weak_secondary_view_fluxnorm',
-#    # 'local_weak_secondary_view_selfnorm',
-#      'local_weak_secondary_view_max_flux-wks_norm'
-#  ]
-#  non_lin_fn: prelu
-#  #  'num_loc_conv_blocks': 2
-#  #  'num_glob_conv_blocks': 5
-#  #  'init_fc_neurons': 512
-#  #  'num_fc_layers': 4
-#  #  'pool_size_loc': 7
-#  #  'pool_size_glob': 5
-#  #  'pool_stride': 2
-#  #  'conv_ls_per_block': 2
-#  #  'init_conv_filters': 4
-#  #  'kernel_size': 5
-#  #  'kernel_stride': 1
-#  #  'optimizer': 'Adam'
-#  #  'lr': 1.0e-5
-#  #  'batch_size': 64
-#  #  'dropout_rate': 0.0
-#  #  'dropout_rate_fc_conv': 0.0
-#  #  'num_fc_conv_units': 0
-#  weight_initializer: null
-#  force_softmax: false
-#  use_kepler_ce: false
-#  decay_rate: null
-#  batch_norm: false
-#  multi_class: false  # switch to multiclass classification
+config: {
+  #  # branches used in ExoMiner
+  #  branches: [
+  #      'global_flux_centroid_views',
+  #      'local_flux_centroid_views',
+  #    #      'global_flux_view_fluxnorm',
+  #    #      'local_flux_view_fluxnorm',
+  #    # 'global_centr_fdl_view_norm',
+  #    # 'local_centr_fdl_view_norm',
+  #      'local_flux_oddeven_views',
+  #    #      'global_centr_view_std_noclip',
+  #    #      'local_centr_view_std_noclip',
+  #    # 'local_weak_secondary_view_fluxnorm',
+  #    # 'local_weak_secondary_view_selfnorm',
+  #      'local_weak_secondary_view_max_flux-wks_norm'
+  #  ]
+  #  non_lin_fn: prelu
+  #  #  'num_loc_conv_blocks': 2
+  #  #  'num_glob_conv_blocks': 5
+  #  #  'init_fc_neurons': 512
+  #  #  'num_fc_layers': 4
+  #  #  'pool_size_loc': 7
+  #  #  'pool_size_glob': 5
+  #  #  'pool_stride': 2
+  #  #  'conv_ls_per_block': 2
+  #  #  'init_conv_filters': 4
+  #  #  'kernel_size': 5
+  #  #  'kernel_stride': 1
+  #  #  'optimizer': 'Adam'
+  #  #  'lr': 1.0e-5
+  #  #  'batch_size': 64
+  #  #  'dropout_rate': 0.0
+  #  #  'dropout_rate_fc_conv': 0.0
+  #  #  'num_fc_conv_units': 0
+  #  weight_initializer: null
+  #  force_softmax: false
+  #  use_kepler_ce: false
+  #  decay_rate: null
+  #  batch_norm: false
+  #  multi_class: false  # switch to multiclass classification
+}
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
