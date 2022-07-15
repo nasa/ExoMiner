@@ -32,7 +32,7 @@ toi_tbl.to_csv(toi_dir / 'tois_spoc_nomissingephemerides.csv', index=False)
 
 # %% EXOFOP TOI catalog
 
-toi_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/11-23-2021/')
+toi_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/7-11-2022/')
 
 toi_tbl_fp = toi_dir / 'exofop_toilists.csv'
 toi_tbl = pd.read_csv(toi_tbl_fp)

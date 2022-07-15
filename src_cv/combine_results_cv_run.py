@@ -7,7 +7,7 @@ import pandas as pd
 # %% Combine predictions from all CV iterations in the used dataset
 
 cv_run_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newval_wo_koifpflag_12-13-2021')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_keplerq1q17dr25_plnt_rad_change_7-7-2022')
 
 cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
@@ -23,7 +23,7 @@ ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', i
 # %% Combine predictions from all CV iterations in the not-used dataset
 
 cv_pred_run_dir = Path(
-    '/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_newsec_rbacnt0n_exominerparallel_11-9-2021/predicted_not_used_11-9-2021')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_keplerq1q17dr25_7-7-2022')
 
 cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 

@@ -10,11 +10,13 @@ xml_file_fp = '/Users/msaragoc/Downloads/kplr20160128150956_dv.xml'
 # Get an iterable.
 context = et.iterparse(xml_file_fp, events=None)
 
+img_size_dim_dict = {}
 tags = []
 for index, (event, elem) in enumerate(context):
     if elem.tag == 'planetResults':  # iterate over the TCEs
         # get TCE ID
         kic_id, tce_plnt_num = elem.attrib['keplerId'], elem.attrib['planetNumber']
+        img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'] = []
 
         # get difference image data
         diff_img_res = [el for el in elem if el.tag == 'differenceImageResults']
@@ -26,6 +28,10 @@ for index, (event, elem) in enumerate(context):
                 # get pixel values for the 4 images
                 diff_imgs_px = list(quarter_img_data)
                 # KIC position in pixel domain
+
+            # code to find the size of the bounding box
+            size_row, size_col = ...
+            img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'].append((size_row, size_col))
 
     #     tces.append()
     # if index == 0:

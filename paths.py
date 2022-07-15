@@ -33,4 +33,4 @@ path_label_noise_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/ex
 path_train_set_size_experiments = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trainset_size/'
 
 # root path
-path_main = '/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/'
+path_main = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/'
