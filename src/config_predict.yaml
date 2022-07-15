@@ -3,14 +3,14 @@ rank: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/results_ensemble/test_feature_map_4-18-2022
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/model_TESS_data_7-11-22/predict_ensemble
   # directory with the trained models to create the ensemble
-  models_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/trained_models/test_feature_map_4-18-2022
+  models_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/model_TESS_data_7-11-22/output files
   # TFRecord dataset directory
   #  tfrec_dir : /data5/tess_project/Data/outputs/preprocessed-data-split-glob-and-loc-cap20-padded_experiment-normalized
-  tfrec_dir: /data5/tess_project/hwei1/tfrecords/TESS/tfrecordstessS1S40-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_1-10-2022_0704_data_NEW_FEATURES_ADJUST_MSKY_ERR/tfrecordstessS1S40-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_1-10-2022_0704_experiment-normalized
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/merged/05-02-2022/experiment-renamed_features-normalized_EB_RELABELED-renamed_labels
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract
+  hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
 data_fields: # scalar data from TFRecords to add to ranking table
   'target_id': 'int_scalar'
@@ -167,6 +167,19 @@ label_map: # maps label to a label id
 #  BEB: 0
 #  APC: 0
 #  O: 0
+  # for Hongbo's/Andres data sets
+  # Kepler
+#  K-PC: 1
+#  K-AFP: 0
+#  K-AFP2: 0
+#  K-NTP: 0
+  # TESS
+  T-KP: 1
+  T-CP: 1
+  T-FP: 0
+  T-FA: 0
+  T-EB: 0
+  T-NTP: 0
 
 #multiclass_class_labels:
 #  2: 'PC'
@@ -187,8 +200,8 @@ metrics:
 
 # datasets in which the ensemble is run - same name convention as used for the TFRecords
 datasets:
-  #  - train
-  #  - val
-  #  - test
-  - predict
+  - train
+  - val
+  - test
+#  - predict
 verbose: true

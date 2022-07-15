@@ -13,7 +13,7 @@ import yaml
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 from src_preprocessing.preprocess import centering_and_normalization
-from paths import path_main
+# from paths import path_main
 
 
 def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
@@ -292,7 +292,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path(path_main + 'src_preprocessing/config_normalize_data.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     srcTfrecDir = Path(config['srcTfrecDir'])
 
     # destination TFRecord
-    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}{config["destTfrecDirName"]}'
+    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}-{config["destTfrecDirName"]}'
     destTfrecDir.mkdir(exist_ok=True)
 
     # get source TFRecords file paths to be normalized

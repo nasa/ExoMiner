@@ -1,11 +1,9 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_preprocessing_1-7-2022
+output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_preprocessing_7-12-2022
 # TCE table
 input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv
-#input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/pdc-tce-time-series-fits
-#lc_data_dir: /data5/tess_project/Data/TESS_lc_fits
+lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
 dict_savedir: null
 
 using_mpi: false  # use MPI
@@ -14,7 +12,7 @@ shuffle: false
 shuffle_seed: 24
 
 satellite: kepler  # kepler or tess
-tce_identifier: tce_plnt_num
+#tce_identifier: tce_plnt_num
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
@@ -30,7 +28,7 @@ num_durations: 2.5  # number of transit durations to include in the local view: 
 
 # unfolded time series
 n_max_phases: 20  #max amount of phases considered for phase split view
-keep_odd_even_order: true  # keep alternating odd/even phases
+keep_odd_even_order: false  # keep alternating odd/even phases
 min_n_phases: 2  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
@@ -70,9 +68,9 @@ kepler_lower_bound_dicco_msky_err: 2.5
 sampling_rate_h: 2  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
 tess_to_kepler_sampling_ratio: 15
 
-# magnitude threshold for categorical variable
-kepler_mag_cat_thr: 12
-tess_mag_cat_thr: 7
+## magnitude threshold for categorical variable
+#kepler_mag_cat_thr: 12
+#tess_mag_cat_thr: 7
 
 # scalar parameters that show up in the plots of the preprocessed views
 scalar_params: [

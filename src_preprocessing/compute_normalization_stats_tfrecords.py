@@ -15,7 +15,7 @@ import yaml
 
 # local
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
-from paths import path_main
+# from paths import path_main
 
 
 # %%
@@ -89,7 +89,7 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
                 if 'glob' in timeSeries:
                     centroidDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_glob])
                 else:
-                    centroidDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_loc])
+                    centroidDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])
 
     return scalarParamsDict, timeSeriesFDLDict, centroidDict
 
@@ -157,7 +157,7 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path(path_main + 'src_preprocessing/config_compute_normalization_stats.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)

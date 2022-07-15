@@ -16,9 +16,9 @@ Check `README.md` in `shap`.
 ### Feature Occlusion (zeroing out) 
 In this method, `ExoMiner` is trained on the full set of features. In each run, a model is trained and evaluated with a 
 feature (or group of features) zeroed-out. The process repeats until all groups of features were zeroed-out once. For a 
-given group of features, if the score for a given example decreases, then that group of features (in combination with 
-the remaining features) contributed positively for the PC classification. The problem with this approach is that zeroing 
-out a given feature does not necessarily mean that it is not conveying any useful information for a given class, 
+given group of features, if the score for the example decreases, then that group of features (in combination with 
+the remaining features) contributed positively for the planet classification. The problem with this approach is that 
+zeroing out a feature does not necessarily mean that it is not conveying any useful information for a given class, 
 i.e., that it is neutral for the classification of the example.
 
 Hyper-parameters
@@ -28,7 +28,7 @@ Algorithm
 1. For feature f_1, ..., f_L
       1. For example e_1, ..., e_K
          1. Replace feature f_l by zero array in example e_k.
-         2. Use model to run inference on this new example.
+         2. Use model to run inference on this modified example and produce an 'occlusion' score _occl_score_.
          3. Subtract from the new score the original one, i.e., delta_score = occl_score - original_score
 
 Run script `run_exp_occlusion.py` to conduct a feature occlusion experiment. The configuration file 
@@ -41,7 +41,7 @@ sequentially replaced by the corresponding features from the example which we ar
 leads to a significant decrease in the score, then that group of features is determined as being in part responsible 
 for the classification of that example as false positive. This method is based on the mindset of 'innocent until proven 
 guilty', i.e., an example is considered a planet as long as it does not fail any diagnostic test (e.g., existence of 
-significant centroid offset from  the target star).
+significant centroid offset from the target star).
 
 Since a set of representative examples needs to be chosen, a batch of trials is conducted. In each trial, a new set of 
 examples is selected as prototypes. The results are then averaged over the trials.
@@ -59,7 +59,7 @@ Algorithm
       1. For feature f_1, ..., f_L
             1. For example e_1, ..., e_K
                1. Replace feature f_l in planet prototype p_m for corresponding feature in example e_k
-               2. Use model to run inference on this new example.
+               2. Use model to run inference on this modified example, which generates a new score _replace_score_.
                3. Subtract from the new score the original one, i.e., delta_score = replace_score - original_score
 
 Run script `run_exp_replacing_pc.py` to conduct a model-based positive class replacement experiment. The configuration 

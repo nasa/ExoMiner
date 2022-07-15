@@ -7,8 +7,6 @@ import json
 import os
 import pickle
 # import statsmodels.api as sm
-import ConfigSpace as CS
-import ConfigSpace.hyperparameters as CSH
 import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
 import numpy as np
@@ -70,60 +68,6 @@ def estimate_BOHB_runs(num_iterations, eta, bmin, bmax, nmodels=1, verbose=True)
     return nruns, total_budget
 
 
-def get_configspace():
-    """ Build a hyperparameter configuration space
-
-    :return: ConfigurationsSpace-Object
-    """
-    config_space = CS.ConfigurationSpace()
-
-    lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value='1e-2', log=True)
-
-    optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
-    # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp', 'piecew_inv_exp'])
-    sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, default_value=0.9,
-                                                  log=True)
-    # batch_size = CSH.UniformIntegerHyperparameter('batch_size', lower=4, upper=9, default_value=6)
-    batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
-    # dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.7, default_value=0.2,
-    #                                               log=True)
-    dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.7, log=True)
-    # decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2, log=True)
-
-    # config_space.add_hyperparameters([lr, optimizer, sgd_momentum, batch_size, dropout_rate, decay_rate])
-    config_space.add_hyperparameters([lr, optimizer, sgd_momentum, batch_size, dropout_rate])
-
-    num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=2, upper=5)
-    num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=0, upper=4)
-    conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
-
-    # init_fc_neurons = CSH.UniformIntegerHyperparameter('init_fc_neurons', lower=64, upper=512, default_value=256)
-    init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
-    init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=6, default_value=4)
-
-    kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=6)
-    kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2, default_value=1)
-
-    pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8)
-    pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2, default_value=1)
-
-    pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8)
-    num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=3)
-
-    config_space.add_hyperparameters([num_glob_conv_blocks,
-                                      num_fc_layers,
-                                      conv_ls_per_block, kernel_size, kernel_stride,
-                                      pool_size_glob, pool_stride,
-                                      pool_size_loc, num_loc_conv_blocks,
-                                      init_fc_neurons,
-                                      init_conv_filters])
-
-    cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
-    config_space.add_condition(cond)
-
-    return config_space
-
-
 def check_run_id(run_id, shared_directory, worker=False):
     """ Check if there is a previous study with that id and generates a new id.
 
@@ -161,7 +105,7 @@ def analyze_results(result, hpo_config):
     """
 
     # save results in a pickle file
-    with open(hpo_config['paths']['experiment_dir'] / f'results_{hpo_config["study"]}.pkl', 'wb') as fh:
+    with open(hpo_config['paths']['experiment_dir'] / f'results.pkl', 'wb') as fh:
         pickle.dump(result, fh)
 
     # get the 'dict' that translates config ids to the actual configurations

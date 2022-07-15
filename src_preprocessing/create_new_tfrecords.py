@@ -19,13 +19,13 @@ import yaml
 
 # local
 from src_preprocessing.utils_manipulate_tfrecords import create_shard
-from paths import path_main
+# from paths import path_main
 from utils.utils_dataio import is_yamlble
 
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path(path_main + 'src_preprocessing/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -44,25 +44,23 @@ if __name__ == '__main__':
     datasetTblDir = Path(config['split_tbls_dir'])
     datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in config['datasets']}
 
-    # datasetTbl = {'predict': pd.read_csv(
-    #     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/9-14-2021/tess_tces_s1-s40_09-14-2021_1754_stellarparams_updated_tfopwg_disp.csv')}
 
     # Filter out items from the datasets that we do not want to have in the final TFRecords
 
-    # for AUM experiments
-    datasetTbl['train'] = pd.concat([datasetTbl['train'], datasetTbl['val'], datasetTbl['test']], axis=0,
-                                    ignore_index=True)
-    del datasetTbl['test']
-    del datasetTbl['val']
-    datasetTbl['predict'] = pd.concat([datasetTbl['predict'],
-                                       datasetTbl['train'].loc[datasetTbl['train']['label'] == 'NTP']],
-                                      axis=0, ignore_index=True)
-    datasetTbl['train'] = datasetTbl['train'].loc[datasetTbl['train']['label'].isin(['PC', 'AFP'])]
-    for dataset in datasetTbl:
-        datasetTbl[dataset]['uid'] = \
-            datasetTbl[dataset][['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
-                                                                                              x['tce_plnt_num']),
-                                                                     axis=1)
+    # # for AUM experiments
+    # datasetTbl['train'] = pd.concat([datasetTbl['train'], datasetTbl['val'], datasetTbl['test']], axis=0,
+    #                                 ignore_index=True)
+    # del datasetTbl['test']
+    # del datasetTbl['val']
+    # datasetTbl['predict'] = pd.concat([datasetTbl['predict'],
+    #                                    datasetTbl['train'].loc[datasetTbl['train']['label'] == 'NTP']],
+    #                                   axis=0, ignore_index=True)
+    # datasetTbl['train'] = datasetTbl['train'].loc[datasetTbl['train']['label'].isin(['PC', 'AFP'])]
+    # for dataset in datasetTbl:
+    #     datasetTbl[dataset]['uid'] = \
+    #         datasetTbl[dataset][['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
+    #                                                                                           x['tce_plnt_num']),
+    #                                                                  axis=1)
 
     # get only TCEs with tce_plnt_num = 1
     # datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
@@ -84,7 +82,7 @@ if __name__ == '__main__':
 
     # input parameters
     srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
-    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}_{config["destTfrecDirName"]}'
+    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}-{config["destTfrecDirName"]}'
     destTfrecDir.mkdir(exist_ok=True)
 
     # get number of items per dataset table

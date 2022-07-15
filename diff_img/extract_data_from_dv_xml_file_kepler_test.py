@@ -20,7 +20,7 @@ for index, (event, elem) in enumerate(context):
         diff_img_res = [el for el in elem if el.tag == 'differenceImageResults']
         for quarter_i in range(1, len(diff_img_res)):  # iterating over quarters
             quarter_img_data = list(diff_img_res[quarter_i])
-            for px_i  in range(12, len(quarter_img_data)):
+            for px_i in range(12, len(quarter_img_data)):
                 # get pixel coordinates
                 px_coord = list(quarter_img_data)[px_i].attrib
                 # get pixel values for the 4 images

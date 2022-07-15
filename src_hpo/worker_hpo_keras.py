@@ -4,11 +4,11 @@ Custom TensorFlow Keras worker for the BOHB hyperparameter optimizer.
 
 # 3rd party
 import os
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import losses, optimizers
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
@@ -17,14 +17,15 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 import matplotlib.pyplot as plt
 from pathlib import Path
+from tensorflow import keras
 # import multiprocessing
 # from memory_profiler import profile
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn
-from src.utils_metrics import get_metrics
-from models.models_keras import create_ensemble
-# import paths
+from src.utils_metrics import get_metrics, get_metrics_multiclass
+from models.models_keras import create_ensemble, compile_model, Time2Vec
+from src.utils_train_eval_predict import train_model, evaluate_model
 
 
 # @profile
@@ -37,11 +38,11 @@ def _delete_model_files(model_dir):
 
     for model_filepath in model_dir.iterdir():
         # model_filepath.unlink(missing_ok=True)
-        model_filepath.unlink()
+        model_filepath.unlink(missing_ok=True)
 
 
 # @profile
-def _ensemble_run(config, config_id, worker_id, budget, results_directory, features_set, tfrec_dir,
+def _ensemble_run(config, config_id, worker_id, results_directory, features_set, tfrec_dir,
                   gpu_id, verbose, model_dir_rank, ensemble_n):
     """ Evaluate the ensemble.
 
@@ -61,127 +62,107 @@ def _ensemble_run(config, config_id, worker_id, budget, results_directory, featu
         res: dict, results
     """
 
-    try:
+    # try:
 
-        # setup monitoring metrics
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Setting up metrics for ensemble')
+    # setup monitoring metrics
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Setting up metrics for ensemble')
+    if not config['config']['multi_class']:
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
+    else:
+        metrics_list = get_metrics_multiclass(label_map=config['label_map'])
 
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks for ensemble')
-        config['callbacks_list_temp'] = []
-        # config['callbacks_list_temp'].append(
-        #     callbacks.TensorBoard(log_dir=results_directory / 'logs' /
-        #                                   f'config{config}_budget{int(budget):.0f}_ensemble_log'),
-        #                           histogram_freq=1,
-        #                           write_graph=True,
-        #                           write_images=True,
-        #                           update_freq='epoch',
-        #                           profile_batch=0,
-        #                           embeddings_freq=0,
-        #                           embeddings_metadata=None)
-        # )
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks for ensemble')
+    config['callbacks_list_temp'] = []
+    # config['callbacks_list_temp'].append(
+    #     callbacks.TensorBoard(log_dir=results_directory / 'logs' /
+    #                                   f'config{config}_budget{int(budget):.0f}_ensemble_log'),
+    #                           histogram_freq=1,
+    #                           write_graph=True,
+    #                           write_images=True,
+    #                           update_freq='epoch',
+    #                           profile_batch=0,
+    #                           embeddings_freq=0,
+    #                           embeddings_metadata=None)
+    # )
 
-        # create ensemble
-        model_list = []
-        models_filepaths = [model_fp for model_fp in model_dir_rank.iterdir()
-                            if '.h5' in model_fp.name]
+    # create ensemble
+    model_list = []
+    models_filepaths = [model_fp for model_fp in model_dir_rank.iterdir() if '.h5' in model_fp.name]
+    custom_objects = {"Time2Vec": Time2Vec}
+    with keras.utils.custom_object_scope(custom_objects):
         for model_i, model_filepath in enumerate(models_filepaths):
             model = load_model(filepath=model_filepath, compile=False)
             model._name = f'model{model_i}'
 
             model_list.append(model)
 
-        assert len(model_list) == ensemble_n
+    assert len(model_list) == ensemble_n
 
-        ensemble_model = create_ensemble(features=features_set,
-                                         models=model_list)
+    ensemble_model = create_ensemble(features=features_set, models=model_list, feature_map=config['feature_map'])
 
-        # compile ensemble
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Compiling ensemble...')
-        if config['config']['optimizer'] == 'Adam':
-            ensemble_model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                             beta_1=0.9,
-                                                             beta_2=0.999,
-                                                             epsilon=1e-8,
-                                                             amsgrad=False,
-                                                             name='Adam',  # optimizer
-                                                             ),
-                                   # loss function to minimize
-                                   loss=losses.BinaryCrossentropy(from_logits=False,
-                                                                  label_smoothing=0,
-                                                                  name='binary_crossentropy'),
-                                   # list of metrics to monitor
-                                   metrics=metrics_list,
-                                   )
+    # compile ensemble
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Compiling ensemble...')
+    # compile model - set optimizer, loss and metrics
+    ensemble_model = compile_model(ensemble_model, config, metrics_list)
 
-        else:
-            ensemble_model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                                            momentum=config['config']['sgd_momentum'],
-                                                            nesterov=False,
-                                                            name='SGD',  # optimizer
-                                                            ),
-                                   # loss function to minimize
-                                   loss=losses.BinaryCrossentropy(from_logits=False,
-                                                                  label_smoothing=0,
-                                                                  name='binary_crossentropy'),
-                                   # list of metrics to monitor
-                                   metrics=metrics_list,
-                                   )
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble')
+
+    # evaluate on the test set at the end of the training only
+    # initialize results dictionary for the evaluated datasets
+    res = {
+        'num_trainable_weights': float(np.sum([K.count_params(w) for w in model_list[0].trainable_weights])),
+        'num_non_trainable_weights': float(np.sum([K.count_params(w)
+                                                   for w in model_list[0].non_trainable_weights])),
+        'total_num_weights': float(model_list[0].count_params()),
+        'ensemble_size': float(len(model_list))
+    }
+    for dataset in config['datasets']:
 
         if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble')
+            print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble on dataset {dataset}')
 
-        # evaluate on the test set at the end of the training only
-        # initialize results dictionary for the evaluated datasets
-        res = {
-            'num_trainable_weights': float(np.sum([K.count_params(w) for w in model_list[0].trainable_weights])),
-            'num_non_trainable_weights': float(np.sum([K.count_params(w)
-                                                       for w in model_list[0].non_trainable_weights])),
-            'total_num_weights': float(model_list[0].count_params()),
-            'ensemble_size': float(len(model_list))
-        }
-        for dataset in config['datasets']:
+        # input function for evaluating on each dataset
+        eval_input_fn = InputFn(file_paths=str(tfrec_dir) + f'/{dataset}*',
+                                batch_size=config['training']['batch_size'],
+                                mode='EVAL',
+                                label_map=config['label_map'],
+                                features_set=features_set,
+                                category_weights=config['training']['category_weights'],
+                                multiclass=config['config']['multi_class'],
+                                use_transformer=config['config']['use_transformer'],
+                                feature_map=config['feature_map']
+                                )
 
-            if verbose:
-                print(f'[worker_{worker_id},config{config_id}] Evaluating ensemble on dataset {dataset}')
+        # evaluate ensemble in the given dataset
+        res_eval = ensemble_model.evaluate(x=eval_input_fn(),
+                                           y=None,
+                                           batch_size=None,
+                                           verbose=verbose if '/home6' not in str(model_dir_rank) else False,
+                                           sample_weight=None,
+                                           steps=None,
+                                           callbacks=None,
+                                           max_queue_size=10,
+                                           workers=1,
+                                           use_multiprocessing=False,
+                                           return_dict=True)
 
-            # input function for evaluating on each dataset
-            eval_input_fn = InputFn(file_pattern=str(tfrec_dir) + f'/{dataset}*',
-                                    batch_size=config['training']['batch_size'],
-                                    mode='EVAL',
-                                    label_map=config['label_map'],
-                                    features_set=features_set
-                                    )
+        res.update({f'{dataset}_{metric_name}': metric_val
+                    for metric_name, metric_val in res_eval.items()})
 
-            # evaluate ensemble in the given dataset
-            res_eval = ensemble_model.evaluate(x=eval_input_fn(),
-                                               y=None,
-                                               batch_size=None,
-                                               verbose=verbose if '/home6' not in str(model_dir_rank) else False,
-                                               sample_weight=None,
-                                               steps=None,
-                                               callbacks=None,
-                                               max_queue_size=10,
-                                               workers=1,
-                                               use_multiprocessing=False,
-                                               return_dict=True)
-
-            res.update({f'{dataset}_{metric_name}': metric_val
-                        for metric_name, metric_val in res_eval.items()})
-
-    except Exception as e:
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble: {e}')
-            print(f'[worker_{worker_id},config{config_id}] Deleting model files...')
-        _delete_model_files(Path(results_directory) / f'models_rank{worker_id}')
-        sys.stdout.flush()
-        # q.put({'Error while evaluating ensemble': e})
-        # exit()
-        return {f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble': e}
+    # except Exception as e:
+    #     if verbose:
+    #         print(f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble: {e}')
+    #         print(f'[worker_{worker_id},config{config_id}] Deleting model files...')
+    #     _delete_model_files(Path(results_directory) / f'models_rank{worker_id}')
+    #     sys.stdout.flush()
+    #     # q.put({'Error while evaluating ensemble': e})
+    #     # exit()
+    #     return {f'[worker_{worker_id},config{config_id}] Error while evaluating ensemble': e}
 
     if verbose:
         print(f'[worker_{worker_id},config{config_id}] Deleting model files...')
@@ -216,160 +197,149 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
         res: dict, results
     """
 
-    try:
+    # try:
 
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Setting up input functions...')
-        # input function for training on the training set
-        train_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/train*',
-                                 batch_size=config['training']['batch_size'],
-                                 mode='TRAIN',
-                                 label_map=config['label_map'],
-                                 data_augmentation=config['training']['data_augmentation'],
-                                 features_set=features_set)
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Setting up input functions...')
+    # input function for training on the training set
+    train_input_fn = InputFn(file_paths=str(tfrec_dir) + '/train*',
+                             batch_size=config['training']['batch_size'],
+                             mode='TRAIN',
+                             label_map=config['label_map'],
+                             data_augmentation=config['training']['data_augmentation'],
+                             features_set=features_set,
+                             category_weights=config['training']['category_weights'],
+                             multiclass=config['config']['multi_class'],
+                             use_transformer=config['config']['use_transformer'],
+                             feature_map=config['feature_map']
+                             )
 
-        # input functions for evaluating on the validation and test sets
-        val_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/val*',
-                               batch_size=config['training']['batch_size'],
-                               mode='EVAL',
-                               label_map=config['label_map'],
-                               features_set=features_set)
-        test_input_fn = InputFn(file_pattern=str(tfrec_dir) + '/test*',
-                                batch_size=config['training']['batch_size'],
-                                mode='EVAL',
-                                label_map=config['label_map'],
-                                features_set=features_set)
-
-        # setup monitoring metrics
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Setting up metrics...')
-        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
-                                   num_thresholds=config['metrics']['num_thr'])
-
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks...')
-        config['callbacks_list_temp'] = []
-
-        # if model_i == 0:
-        #     # Tensorboard callback
-        #     config['callbacks_list_temp'].append(
-        #         tf.keras.callbacks.TensorBoard(log_dir=os.path.join(results_directory, 'logs',
-        #                                                             'config{}_budget{:.0f}_model{}_log'.format(
-        #                                                                 config_id,
-        #                                                                 int(budget),
-        #                                                                 model_i)),
-        #                                        histogram_freq=1,
-        #                                        write_graph=True,
-        #                                        write_images=True,
-        #                                        update_freq='epoch',
-        #                                        profile_batch=0,
-        #                                        embeddings_freq=0,
-        #                                        embeddings_metadata=None)
-        #     )
-        #
-
-        # instantiate Keras model
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Instantiating model...')
-        model = BaseModel(config, features_set).kerasModel
-
-        # plot model architecture
-        if model_i == 0:
-            if verbose:
-                print(f'[worker_{worker_id},config{config_id}] Plotting model')
-            plot_model(model,
-                       to_file=results_directory / f'config{config_id}_model.png',
-                       show_shapes=True,
-                       show_layer_names=True,
-                       rankdir='TB',
-                       expand_nested=False,
-                       dpi=48)
-
-        # compile model
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Compiling model...')
-        if config['config']['optimizer'] == 'Adam':
-            model.compile(optimizer=optimizers.Adam(learning_rate=config['config']['lr'],
-                                                    beta_1=0.9,
-                                                    beta_2=0.999,
-                                                    epsilon=1e-8,
-                                                    amsgrad=False,
-                                                    name='Adam',  # optimizer
-                                                    ),
-                          # loss function to minimize
-                          loss=losses.BinaryCrossentropy(from_logits=False,
-                                                         label_smoothing=0,
-                                                         name='binary_crossentropy'),
-                          # list of metrics to monitor
-                          metrics=metrics_list,
-                          )
-
-        else:
-            model.compile(optimizer=optimizers.SGD(learning_rate=config['config']['lr'],
-                                                   momentum=config['config']['sgd_momentum'],
-                                                   nesterov=False,
-                                                   name='SGD',  # optimizer
-                                                   ),
-                          # loss function to minimize
-                          loss=losses.BinaryCrossentropy(from_logits=False,
-                                                         label_smoothing=0,
-                                                         name='binary_crossentropy'),
-                          # list of metrics to monitor
-                          metrics=metrics_list,
-                          )
-
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Training model {model_i}...')
-        # fit the model to the training data
-        history = model.fit(x=train_input_fn(),
-                            y=None,
-                            batch_size=None,
-                            epochs=int(budget),
-                            verbose=verbose if '/home6' not in str(results_directory) else False,
-                            callbacks=config['callbacks_list'] + config['callbacks_list_temp'],
-                            validation_split=0.,
-                            validation_data=val_input_fn(),
-                            shuffle=True,  # does the input function shuffle for every epoch?
-                            class_weight=None,
-                            sample_weight=None,
-                            initial_epoch=0,
-                            steps_per_epoch=None,
-                            validation_steps=None,
-                            max_queue_size=10,  # used for generator or keras.utils.Sequence input only
-                            workers=1,  # same
-                            use_multiprocessing=False  # same
+    # input functions for evaluating on the validation and test sets
+    val_input_fn = InputFn(file_paths=str(tfrec_dir) + '/val*',
+                           batch_size=config['training']['batch_size'],
+                           mode='EVAL',
+                           label_map=config['label_map'],
+                           features_set=features_set,
+                           multiclass=config['config']['multi_class'],
+                           use_transformer=config['config']['use_transformer'],
+                           feature_map=config['feature_map']
+                           )
+    test_input_fn = InputFn(file_paths=str(tfrec_dir) + '/test*',
+                            batch_size=config['training']['batch_size'],
+                            mode='EVAL',
+                            label_map=config['label_map'],
+                            features_set=features_set,
+                            multiclass=config['config']['multi_class'],
+                            use_transformer=config['config']['use_transformer'],
+                            feature_map=config['feature_map']
                             )
 
-        # get records of loss and metrics for the training and validation sets
-        res = history.history
+    # setup monitoring metrics
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Setting up metrics...')
+    if not config['config']['multi_class']:
 
+        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                                   num_thresholds=config['metrics']['num_thr'])
+    else:
+        metrics_list = get_metrics_multiclass(label_map=config['label_map'])
+
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Setting up additional callbacks...')
+    config['callbacks_list_temp'] = []
+
+    # if model_i == 0:
+    #     # Tensorboard callback
+    #     config['callbacks_list_temp'].append(
+    #         tf.keras.callbacks.TensorBoard(log_dir=os.path.join(results_directory, 'logs',
+    #                                                             'config{}_budget{:.0f}_model{}_log'.format(
+    #                                                                 config_id,
+    #                                                                 int(budget),
+    #                                                                 model_i)),
+    #                                        histogram_freq=1,
+    #                                        write_graph=True,
+    #                                        write_images=True,
+    #                                        update_freq='epoch',
+    #                                        profile_batch=0,
+    #                                        embeddings_freq=0,
+    #                                        embeddings_metadata=None)
+    #     )
+    #
+
+    # instantiate Keras model
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Instantiating model...')
+    model = BaseModel(config, features_set).kerasModel
+
+    # plot model architecture
+    if model_i == 0:
         if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Evaluating model on the test set')
+            print(f'[worker_{worker_id},config{config_id}] Plotting model')
+        plot_model(model,
+                   to_file=results_directory / f'config{config_id}_model.png',
+                   show_shapes=True,
+                   show_layer_names=True,
+                   rankdir='TB',
+                   expand_nested=False,
+                   dpi=48)
 
-        # evaluate on the test set at the end of the training only
-        res_eval = model.evaluate(x=test_input_fn(),
-                                  y=None,
-                                  batch_size=None,
-                                  verbose=False,  # verbose if '/home6' not in str(results_directory) else False,
-                                  sample_weight=None,
-                                  steps=None,
-                                  callbacks=None,
-                                  max_queue_size=10,
-                                  workers=1,
-                                  use_multiprocessing=False,
-                                  return_dict=True)
+    # compile model
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Compiling model...')
+    model = compile_model(model, config, metrics_list)
 
-        res.update({f'test_{metric_name}': metric_val for metric_name, metric_val in res_eval.items()})
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Training model {model_i}...')
+    # fit the model to the training data
+    history = model.fit(x=train_input_fn(),
+                        y=None,
+                        batch_size=None,
+                        epochs=int(budget),
+                        verbose=verbose if '/home' not in str(results_directory) else False,
+                        callbacks=config['callbacks_list'] + config['callbacks_list_temp'],
+                        validation_split=0.,
+                        validation_data=val_input_fn(),
+                        shuffle=True,  # does the input function shuffle for every epoch?
+                        class_weight=None,
+                        sample_weight=None,
+                        initial_epoch=0,
+                        steps_per_epoch=None,
+                        validation_steps=None,
+                        max_queue_size=10,  # used for generator or keras.utils.Sequence input only
+                        workers=1,  # same
+                        use_multiprocessing=False  # same
+                        )
 
-        model.save(results_directory / f'models_rank{worker_id}' / f'model{model_i}.h5')
+    # get records of loss and metrics for the training and validation sets
+    res = history.history
 
-    except Exception as e:
-        if verbose:
-            print(f'[worker_{worker_id},config{config_id}] Error during model fit: {e}')
-        sys.stdout.flush()
-        # q.put({'Error during model fit': e})
-        # exit()
-        return {f'[worker_{worker_id},config{config_id}] Error during model fit': e}
+    if verbose:
+        print(f'[worker_{worker_id},config{config_id}] Evaluating model on the test set')
+
+    # evaluate on the test set at the end of the training only
+    res_eval = model.evaluate(x=test_input_fn(),
+                              y=None,
+                              batch_size=None,
+                              verbose=False,  # verbose if '/home6' not in str(results_directory) else False,
+                              sample_weight=None,
+                              steps=None,
+                              callbacks=None,
+                              max_queue_size=10,
+                              workers=1,
+                              use_multiprocessing=False,
+                              return_dict=True)
+
+    res.update({f'test_{metric_name}': metric_val for metric_name, metric_val in res_eval.items()})
+
+    model.save(results_directory / f'models_rank{worker_id}' / f'model{model_i}.h5')
+
+    # except Exception as e:
+    #     if verbose:
+    #         print(f'[worker_{worker_id},config{config_id}] Error during model fit: {e}')
+    #     sys.stdout.flush()
+    #     # q.put({'Error during model fit': e})
+    #     # exit()
+    #     return {f'[worker_{worker_id},config{config_id}] Error during model fit': e}
 
     if verbose:
         print(f'[worker_{worker_id},config{config_id}] Finished model fit.')
@@ -381,45 +351,82 @@ def _model_run(config, config_id, worker_id, budget, model_i, results_directory,
 
 
 # @profile
-def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, config, results_directory, features_set,
-                     tfrec_dir, BaseModel, verbose, model_dir_rank):
-    # initialize results variable
-    res_models, res_ensemble = {}, {}
+def _evaluate_config(worker_id_custom, config_id, budget, config, verbose):
+    """ Evaluate a sampled configuration by first training a model (or a set of models) and then conducting evaluation.
+    In the case of `ensemble_n` > 1, a set of `ensemble_n` models are trained and then the metrics are reported for the
+    average score ensemble.
 
-    for model_i in range(ensemble_n):
+    :param worker_id_custom: int, worker id
+    :param config_id: int, configuration id
+    :param budget: int, number of epochs to train the model(s) for
+    :param config: dict, configuration parameters
+    :param verbose:
+    :return:
+        res_ensemble: dict, results for the ensemble
+        res_model: dict, results for a single model
+    """
+
+    # initialize results variable
+    res_models, res_ensemble, model_fps = {}, {}, []
+
+    for model_i in range(config['ensemble_n']):  # train and evaluate an ensemble of `ensemble_n` models
 
         if verbose:
             printstr = f'[worker_{worker_id_custom},config{config_id}] Training model ' \
-                       f'{model_i + 1}({ensemble_n}): {int(budget)} epochs'
+                       f'{model_i + 1}({config["ensemble_n"]}): {budget} epochs'
 
             print(printstr)
             sys.stdout.flush()
 
-        with tf.device(f'/gpu:{gpu_id}'):
-            res_model_i = _model_run(config,
-                                     config_id,
-                                     worker_id_custom,
-                                     budget,
-                                     model_i,
-                                     results_directory,
-                                     features_set,
-                                     tfrec_dir,
-                                     BaseModel,
-                                     gpu_id,
-                                     verbose)
+        with tf.device(f'/gpu:{config["gpu_id"]}'):
+            # res_model_i = _model_run(config,
+            #                          config_id,
+            #                          worker_id_custom,
+            #                          budget,
+            #                          model_i,
+            #                          results_directory,
+            #                          features_set,
+            #                          tfrec_dir,
+            #                          BaseModel,
+            #                          gpu_id,
+            #                          verbose)
+            config_aux = config.copy()
+            config_aux['training']['n_epochs'] = budget
+            model_dir = config['paths']['experiment_dir'] / f'models_rank{worker_id_custom}'
+            try:
+                res_model_i = train_model(
+                    base_model=config_aux['base_model'],
+                    config=config_aux,
+                    callbacks_list=None,
+                    model_dir_sub=model_dir,
+                    model_id=model_i,
+                    logger=None
+                )
+            except Exception as e:
+                if verbose:
+                    print(f'[worker_{worker_id_custom},config{config_id}] Error during model training: {e}')
+                    sys.stdout.flush()
+                return {'error': f'[worker_{worker_id_custom},config{config_id}] Error during model training: {e}'}, \
+                       res_models
 
-        if f'[worker_{worker_id_custom},config{config_id}] Error during model fit' in res_model_i:
-            if verbose:
-                print(f'[worker_{worker_id_custom},config{config_id}] Error in model fit.')
-                sys.stdout.flush()
+            # evaluate model
+            config_aux['paths']['models_filepaths'] = [model_dir / f'model{model_i}.h5']
+            config_aux['datasets'] = ['test']
+            try:
+                res_eval = evaluate_model(
+                    config_aux,
+                    logger=None
+                )
+            except Exception as e:
+                if verbose:
+                    print(f'[worker_{worker_id_custom},config{config_id}] Error during single model evaluation: {e}')
+                    sys.stdout.flush()
+                return {'error': f'[worker_{worker_id_custom},config{config_id}] '
+                                 f'Error during single model evaluation: {e}'}, \
+                       res_models
 
-            return {
-                       # 'loss': np.inf,
-                       # 'info': f'Error during model fit: '
-                       #         f'{res_model_i[f"[worker_{worker_id_custom},config{config_id}] Error during model fit"]}'
-                       'error': 'Error during model fit: '
-                                f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, \
-                   res_models
+            model_fps += config_aux['paths']['models_filepaths']
+            res_model_i.update({f'{metric_name}': metric_val for metric_name, metric_val in res_eval.items()})
 
         # add results for this model to the results for the ensemble
         if len(res_models.keys()) == 0:
@@ -430,40 +437,46 @@ def _evaluate_config(ensemble_n, worker_id_custom, config_id, budget, gpu_id, co
 
     # get ensemble average metrics and loss
     for metric in res_models:
-        # res[metric] = {'all scores': res[metric],
-        #                         'median': np.median(res[metric], axis=0),
-        #                         'mad': np.median(np.abs(res[metric] -
-        #                                                 np.median(res[metric], axis=0)), axis=0)}
         res_models[metric] = {'all scores': res_models[metric],
                               'central tendency': np.mean(res_models[metric], axis=0),
-                              # TODO: check sqrt and decide if we want to print/save the model variability
-                              'deviation': np.std(res_models[metric], axis=0, ddof=1) / np.sqrt(ensemble_n)}
+                              'deviation': np.std(res_models[metric], axis=0, ddof=1) / np.sqrt(config['ensemble_n'])}
 
-    if ensemble_n > 1:
-        with tf.device(f'/gpu:{gpu_id}'):
-            res_ensemble = _ensemble_run(config,
-                                         config_id,
-                                         worker_id_custom,
-                                         budget,
-                                         results_directory,
-                                         features_set,
-                                         tfrec_dir,
-                                         gpu_id,
-                                         verbose,
-                                         model_dir_rank,
-                                         ensemble_n
-                                         )
+    if config['ensemble_n'] > 1:  # evaluate ensemble
+        with tf.device(f'/gpu:{config["gpu_id"]}'):
+            # res_ensemble = _ensemble_run(config,
+            #                              config_id,
+            #                              worker_id_custom,
+            #                              results_directory,
+            #                              features_set,
+            #                              tfrec_dir,
+            #                              gpu_id,
+            #                              verbose,
+            #                              model_dir_rank,
+            #                              ensemble_n
+            #                              )
+            config_aux = config.copy()
+            config_aux['paths']['models_filepaths'] = model_fps
+            try:
+                res_ensemble = evaluate_model(
+                    config_aux,
+                    logger=None
+                )
+                # # delete models
+                # _delete_model_files(config['paths']['experiment_dir'] / f'models_rank{worker_id_custom}')
+                # # delete ensemble
+                # (config['paths']['experiment_dir'] / 'ensemble_model.h5').unlink(missing_ok=True)
 
-        if f'[worker_{worker_id_custom},config{config_id}] Error while evaluating ensemble' in res_ensemble:
-            if verbose:
-                print(f'[worker_{worker_id_custom},config{config_id}] Error in ensemble run subprocess')
-                sys.stdout.flush()
+            except Exception as e:
+                if verbose:
+                    print(f'[worker_{worker_id_custom},config{config_id}] Error during model evaluation')
+                    sys.stdout.flush()
 
-            return {'error': 'Error while evaluating ensemble: '
-                             f'{res_ensemble[f"[worker_{worker_id_custom}, config{config_id}] Error while evaluating ensemble"]}'}, \
-                   res_models
+                # _delete_model_files(config['paths']['experiment_dir'] / f'models_rank{worker_id_custom}')
+
+                return {'error': f'[worker_{worker_id_custom},config{config_id}] '
+                                 f'Error during model evaluation: {e}'}, \
+                       res_models
     else:
-        res_ensemble = {}
         for metric_name, metric_val in res_models.items():
             if 'test' in metric_name or 'val' in metric_name:
                 metric_name_aux = metric_name
@@ -496,25 +509,13 @@ class TransitClassifier(Worker):
         self.worker_id_custom = str(worker_id_custom)  # worker id
 
         self.results_directory = config_args['paths']['experiment_dir']  # directory to save results
-        if 'home6' in self.results_directory.as_posix():
-            plt.switch_backend('agg')
-        self.tfrec_dir = config_args['paths']['tfrec_dir']  # tfrecord directory
-        self.model_dir_rank = config_args['model_dir_rank']  # model directory
+
+        plt.switch_backend('agg')
 
         # base config that is fixed and it is not part of the evaluated configuration space
         self.base_config = config_args
 
         self.hpo_loss = config_args['hpo_loss']  # HPO loss (it has to be one of the metrics/loss being evaluated
-
-        self.ensemble_n = config_args['ensemble_n']  # number of models trained per configuration
-
-        self.features_set = config_args['features_set']
-
-        self.BaseModel = config_args['base_model']
-
-        self.gpu_id = config_args['gpu_id']
-
-        self.verbose = config_args['verbose']
 
     # @profile
     def compute(self, config_id, config, budget, working_directory, *args, **kwargs):
@@ -563,39 +564,26 @@ class TransitClassifier(Worker):
         # p.join()
 
         res_ensemble, res_models = _evaluate_config(
-            self.ensemble_n,
             self.worker_id_custom,
             config_id,
             budget,
-            self.gpu_id,
             run_config,
-            self.results_directory,
-            self.features_set,
-            self.tfrec_dir,
-            self.BaseModel,
-            self.verbose,
-            self.model_dir_rank,
+            run_config['verbose'],
         )
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}
-        np.save(self.results_directory / f'config{config_id}_budget{budget:.0f}_ensemblemetrics.npy', res_total)
+        np.save(self.results_directory / f'config{config_id}_budget{budget}_ensemblemetrics.npy', res_total)
 
         # draw loss and evaluation metric plots for the model on this given budget
         if 'error' not in res_ensemble:
+
+            # plots
             # self.draw_plots(res, config_id)
             self.draw_plots_ensemble(res_ensemble, res_models, config_id, budget)
 
             # report HPO loss and additional metrics and loss
-            # hpo_loss_val = res['val_{}'.format(self.hpo_loss)]['central tendency'][-1]
-            # # add test metrics and loss
-            # info_dict = {metric: [float(res[metric]['central tendency']), float(res[metric]['deviation'])]
-            #              for metric in res if 'test' in metric and len(res[metric]['central tendency'].shape) == 0}
-            # # add train and validation metrics and loss
-            # info_dict.update({metric: [float(res[metric]['central tendency'][-1]), float(res[metric]['deviation'][-1])]
-            #                  for metric in res if 'test' not in metric and len(res[metric]['central tendency'].shape) == 1})
-
-            hpo_loss_val = res_ensemble[f'val_{self.hpo_loss}']
+            hpo_loss_val = res_ensemble[f'val_{run_config["hpo_loss"]}']
             # add metrics and loss
             info_dict = {metric: res_ensemble[metric] for metric in res_ensemble if
                          isinstance(res_ensemble[metric], float)}
@@ -605,9 +593,8 @@ class TransitClassifier(Worker):
                        }
 
             print('#' * 100)
-            print(
-                f'[worker_{self.worker_id_custom},config{config_id}] Finished evaluating configuration using a budget of '
-                f'{int(budget)}')
+            print(f'[worker_{self.worker_id_custom},config{config_id}] Finished evaluating configuration using a '
+                  f'budget of {budget}')
             for k in res_hpo:
                 if k != 'info':
                     print(f'HPO {k}: {res_hpo[k]}')
@@ -819,98 +806,11 @@ class TransitClassifier(Worker):
         # f.savefig(self.results_directory / f'config{config_id}_budget{epochs[-1]}_prcurve.png')
         # plt.close()
 
-    # @profile
-    @staticmethod
-    def get_configspace():
-        """ Build the hyperparameter configuration space.
-
-        :return: ConfigurationsSpace-Object
-        """
-
-        config_space = CS.ConfigurationSpace()
-
-        # use_softmax = CSH.CategoricalHyperparameter('use_softmax', [True, False])
-
-        lr = CSH.UniformFloatHyperparameter('lr', lower=1e-6, upper=1e-1, default_value=1e-2, log=True)
-        # lr_scheduler = CSH.CategoricalHyperparameter('lr_scheduler', ['constant', 'inv_exp_fast', 'inv_exp_slow'])
-
-        optimizer = CSH.CategoricalHyperparameter('optimizer', ['Adam', 'SGD'])
-
-        sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=0.001, upper=0.99, default_value=0.9,
-                                                      log=True)
-
-        # batch_norm = CSH.CategoricalHyperparameter('batch_norm', [True, False])
-        # non_lin_fn = CSH.CategoricalHyperparameter('non_lin_fn', ['relu', 'prelu'])
-        # weight_initializer = CSH.CategoricalHyperparameter('weight_initializer', ['he', 'glorot'])
-
-        # batch_size = CSH.CategoricalHyperparameter('batch_size', [4, 8, 16, 32, 64, 128, 256], default_value=32)
-
-        # previous values: 0.001 to 0.7
-        dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.001, upper=0.2, default_value=0.2,
-                                                      log=True)
-
-        # l2_regularizer = CSH.CategoricalHyperparameter('l2_regularizer', [True, False])
-        # l2_decay_rate = CSH.UniformFloatHyperparameter('decay_rate', lower=1e-4, upper=1e-1, default_value=1e-2,
-        #                                                log=True)
-
-        config_space.add_hyperparameters([
-            sgd_momentum,
-            dropout_rate,
-            optimizer,
-            lr
-                                          # lr, optimizer, batch_size, l2_regularizer, l2_decay_rate, use_softmax, lr_scheduler,
-                                          # batch_norm, non_lin_fn, weight_initializer
-                                          ])
-
-        cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
-        config_space.add_condition(cond)
-
-        # cond = CS.EqualsCondition(l2_decay_rate, l2_regularizer, True)
-        # config_space.add_condition(cond)
-
-        init_conv_filters = CSH.UniformIntegerHyperparameter('init_conv_filters', lower=2, upper=6, default_value=4)
-        kernel_size = CSH.UniformIntegerHyperparameter('kernel_size', lower=1, upper=8, default_value=2)
-        kernel_stride = CSH.UniformIntegerHyperparameter('kernel_stride', lower=1, upper=2, default_value=1)
-        conv_ls_per_block = CSH.UniformIntegerHyperparameter('conv_ls_per_block', lower=1, upper=3, default_value=1)
-
-        pool_size_loc = CSH.UniformIntegerHyperparameter('pool_size_loc', lower=2, upper=8, default_value=2)
-        pool_size_glob = CSH.UniformIntegerHyperparameter('pool_size_glob', lower=2, upper=8, default_value=2)
-        pool_stride = CSH.UniformIntegerHyperparameter('pool_stride', lower=1, upper=2, default_value=1)
-
-        num_loc_conv_blocks = CSH.UniformIntegerHyperparameter('num_loc_conv_blocks', lower=1, upper=5, default_value=2)
-        num_glob_conv_blocks = CSH.UniformIntegerHyperparameter('num_glob_conv_blocks', lower=1, upper=5,
-                                                                default_value=3)
-
-        # num_fc_conv_units = CSH.CategoricalHyperparameter('num_fc_conv_units', [4, 8, 16, 32])
-        dropout_ratefc_conv = CSH.UniformFloatHyperparameter('dropout_rate_fc_conv', lower=0.001, upper=0.2,
-                                                             default_value=0.2, log=True)
-
-        init_fc_neurons = CSH.CategoricalHyperparameter('init_fc_neurons', [32, 64, 128, 256, 512])
-        num_fc_layers = CSH.UniformIntegerHyperparameter('num_fc_layers', lower=1, upper=4, default_value=2)
-
-        config_space.add_hyperparameters([
-            num_glob_conv_blocks,
-            num_loc_conv_blocks,
-            init_conv_filters,
-            conv_ls_per_block,
-            kernel_size,
-            kernel_stride,
-            pool_size_glob,
-            pool_stride,
-            pool_size_loc,
-            # num_fc_conv_units,
-            dropout_ratefc_conv,
-            init_fc_neurons,
-            num_fc_layers,
-        ])
-
-        return config_space
-
 
 def get_configspace(config_space_setup):
     """ Build the hyper-parameter configuration space.
 
-    :param config_space_setup: dict,
+    :param config_space_setup: dict, knk
     :return: ConfigurationsSpace-Object
     """
 

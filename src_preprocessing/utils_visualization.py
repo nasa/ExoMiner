@@ -156,16 +156,15 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
                 f.suptitle(f'Quarters: {add_info["quarter"]}\nModules: {add_info["module"]}')
 
         if config['satellite'] == 'kepler':
-            ax[0].set_title('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-                                                                       tce.label, basename)))
+            ax[0].set_title('TCE {} {}'.format(tce.uid, tce.label))
+            plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
         else:
             # ax[0].set_title(
             #     'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
             # plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
             #                                                                tce.sector_run, tce.label, basename)))
             ax[0].set_title('TCE {} {}'.format(tce.uid, tce.label))
-            plt.savefig(os.path.join(savedir, '{}__{}_{}.png'.format(tce.uid, tce.label, basename)))
+            plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
 
         plt.close()
 

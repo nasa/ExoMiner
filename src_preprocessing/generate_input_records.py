@@ -5,7 +5,6 @@ Main script used to generate TFRecords to be used as input to models.
 # 3rd party
 import sys
 import os
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pickle
 from mpi4py import MPI
@@ -42,7 +41,6 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     shard_name = file_name.name
     shard_size = len(tce_table)
 
-    # TODO: use uid column as unique identifier for TCEs/Objects of Interest; table must contain this column and changes need to be done to other parts of the code that use identifiers
     # defined columns in the shard table
     tceColumns = [
         # 'target_id',
@@ -133,7 +131,6 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     shard_name = file_name.name
     shard_size = len(tce_table)
 
-    # TODO: use uid column as unique identifier for TCEs/Objects of Interest; table must contain this column and changes need to be done to other parts of the code that use identifiers
     tceColumns = [
         # 'target_id',
         # config['tce_identifier'],
@@ -276,6 +273,11 @@ def main():
         tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
 
         if config['process_i'] == 0:
+            # concatenates shard tables into a single one
+            create_shards_tbl_flag = create_shards_table(config['output_dir'])
+            if not create_shards_tbl_flag:
+                tf_logging.info('Merged shard table not created.')
+
             tf_logging.info(f'END-PI:{config["output_dir"]}')
 
     else:  # use multiprocessing.Pool

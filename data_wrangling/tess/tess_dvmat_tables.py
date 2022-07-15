@@ -1,14 +1,14 @@
 """ Create TESS TCE table based on TESS DV TCE tables, TOI catalog and TOI-TCE matching table. """
 
-import logging
 # 3rd party
+import logging
 import multiprocessing
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# local
 from data_wrangling.tess.tess_dvmat_tables_utils import match_tces_to_tois, _map_to_sector_string
 
 if __name__ == '__main__':

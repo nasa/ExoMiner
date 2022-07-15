@@ -1,7 +1,7 @@
 # source TFRecord dataset directory
-src_tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_uid
+src_tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647
 # directory with tables used to split the examples into different sets (train, validation, test, predict, ...)
-split_tbls_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106
+split_tbls_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/dataset_splits/kepler_q1q17dr25/hongbo_split_04-10
 # defines which tables are used and the prefix of the TFRecord shards; e.g., if train split table is loaded, it will
 # put all examples from that table that can find in the shards in the source TFRecord dataset into shards starting with
 # the prefix `train-shard`
@@ -9,4 +9,4 @@ datasets: [ 'train', 'val', 'test', 'predict' ]
 omitMissing: True  # skip missing TCEs in the TFRecords that exist in the dataset tables
 nProcesses: 15  # number of processes used to create the new TFRecord dataset
 n_examples_per_shard: 100  # number of examples in each shard in the new TFRecord dataset; min(n_examples_per_shard, n_total_examples)
-destTfrecDirName: experiment
+destTfrecDirName: dataset_split

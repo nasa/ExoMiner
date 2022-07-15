@@ -235,6 +235,10 @@ training:
 #    PC: 1.0
 #    AFP: 0.5
 #    NTP: 1.0
+evaluation:
+  batch_size: 32
+inference:
+  batch_size: 32
 
 callbacks:
   early_stopping:
@@ -256,11 +260,11 @@ callbacks:
 
 label_map:  # maps label to a label id
   # Kepler
-  PC: 1
-  AFP: 0  # 2
-  AFP2: 0
-  NTP: 0
-  UNK: 0
+#  PC: 1
+#  AFP: 0  # 2
+#  AFP2: 0
+#  NTP: 0
+#  UNK: 0
   # TESS
 #  KP: 1
 #  CP: 1
@@ -278,12 +282,12 @@ label_map:  # maps label to a label id
 #  K-AFP2: 0
 #  K-NTP: 0
 #  # TESS
-#  T-KP: 1
-#  T-CP: 1
-#  T-FP: 0
-#  T-FA: 0
-#  T-EB: 0
-#  T-NTP: 0
+  T-KP: 1
+  T-CP: 1
+  T-FP: 0
+  T-FA: 0
+  T-EB: 0
+  T-NTP: 0
 
 metrics:
   'clf_thr': 0.5  # classification threshold

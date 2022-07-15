@@ -1,5 +1,5 @@
 # source TFRecord directory
-tfrecDir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_4-6-2022_uid_experiment
+tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_dataset_split
 
 nProcesses: 15  # number of processes used to parallelize reading the values for the dataset
 
@@ -48,7 +48,7 @@ scalarParams:
     standardize: true
   mag_cat:
     clip_factor: .nan
-    dtype: int
+    dtype: float  # int
     log_transform: false
     log_transform_eps: .nan
     missing_value: null
@@ -86,14 +86,14 @@ scalarParams:
     missing_value: 0
     replace_value: null
     standardize: true
-  tce_cap_hap_stat_diff:
-    clip_factor: 20
-    dtype: float
-    log_transform: false
-    log_transform_eps: .nan
-    missing_value: null
-    replace_value: null
-    standardize: true
+#  tce_cap_hap_stat_diff:
+#    clip_factor: 20
+#    dtype: float
+#    log_transform: false
+#    log_transform_eps: .nan
+#    missing_value: null
+#    replace_value: null
+#    standardize: true
   tce_cap_stat:
     clip_factor: 20
     dtype: float

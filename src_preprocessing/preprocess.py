@@ -308,7 +308,7 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if '{}-{}'.format(tce['target_id'], tce[
+    # if f'{tce["uid"]}' in ['11446443-1', '1026032-1', '535978-1', '1293046-1', '2010607-1']:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
@@ -318,12 +318,12 @@ def _process_tce(tce, table, config, conf_dict):
         # tce['tce_time0bk'] = 1325.726
         # tce['tce_period'] = 0.941451
         # tce['sectors'] = '1'
-        # print(tce)
+        # print(tce['uid'])
     # else:
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True  # False
+    plot_preprocessing_tce = False  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
@@ -1117,7 +1117,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     n_obs_phases = len(phase_split)  # number of actual observed phases
 
     # assign observed phases as odd or even
-    odd_even_obs = -1 * np.ones(n_obs_phases, dtype='int')  # initialize observed odd and even observed phases
+    odd_even_obs = -1 * np.ones(n_obs_phases, dtype='int')  # initialize odd and even observed phases
 
     epoch_idx = 0
     for phase_i in range(n_obs_phases):  # iterate over observed phases
@@ -1139,6 +1139,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     phase_split = [phase_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     odd_even_obs = [odd_even_obs[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     n_obs_phases = len(time_split)
+    if n_obs_phases == 0:
+        return None, None, 0, None
 
     # remove phases that contain less than some number/fraction of in-transit cadences; they are not reliable
     # representations of the potential transit
@@ -1152,6 +1154,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     phase_split = [phase_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     odd_even_obs = [odd_even_obs[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     n_obs_phases = len(time_split)
+    if n_obs_phases == 0:
+        return None, None, 0, None
 
     # have alternating odd and even phases
     if keep_odd_even_order:
@@ -1166,6 +1170,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
         phase_split = [phase_split[keep_idx] for keep_idx in keep_idxs]
         odd_even_obs = [odd_even_obs[keep_idx] for keep_idx in keep_idxs]
         n_obs_phases = len(time_split)
+        if n_obs_phases == 0:
+            return None, None, 0, None
 
     # choosing a random consecutive set of phases if there are more than the requested maximum number of phases
     if n_obs_phases > n_max_phases:
@@ -1192,6 +1198,9 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             timeseries_split += list(timeseries_split[:n_miss_phases])
         else:
             raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
+
+    if n_obs_phases == 0:
+        return None, None, 0, None
 
     return phase_split, timeseries_split, n_obs_phases, odd_even_obs
 

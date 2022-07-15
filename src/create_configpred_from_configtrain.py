@@ -8,7 +8,7 @@ import yaml
 import tensorflow as tf
 
 # local
-from utils.utils_dataio import is_yamlble
+from utils_train_eval_predict.utils_dataio import is_yamlble
 
 configpred_dir = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/experiments/run_configs/explainability_shap_1-10-2022')
 configpred_dir.mkdir(exist_ok=True)

@@ -21,7 +21,7 @@ import argparse
 # local
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_dataio import InputFnv2 as InputFn
-from models.models_keras import create_ensemble, compile_model
+from models.models_keras import create_ensemble, compile_model, Time2Vec
 from src_hpo import utils_hpo
 from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_precision_at_k
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
@@ -63,11 +63,13 @@ def run_main(config):
 
     # create ensemble
     model_list = []
-    for model_i, model_filepath in enumerate(config['paths']['models_filepaths']):
-        model = load_model(filepath=model_filepath, compile=False)
-        model._name = f'model{model_i}'
+    custom_objects = {"Time2Vec": Time2Vec}
+    with keras.utils.custom_object_scope(custom_objects):
+        for model_i, model_filepath in enumerate(config['paths']['models_filepaths']):
+            model = load_model(filepath=model_filepath, compile=False)
+            model._name = f'model{model_i}'
 
-        model_list.append(model)
+            model_list.append(model)
 
     if len(model_list) == 1:
         ensemble_model = model_list[0]

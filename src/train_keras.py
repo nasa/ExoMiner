@@ -26,7 +26,7 @@ from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_preci
 from src_hpo import utils_hpo
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_train import save_metrics_to_file, print_metrics, plot_loss_metric, plot_roc, plot_pr_curve
-from utils.utils_dataio import is_yamlble
+from utils_train_eval_predict.utils_dataio import is_yamlble
 from paths import path_main
 
 

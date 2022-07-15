@@ -1,4 +1,7 @@
+""" Utility functions used to match TOIs with TCEs. """
+
 # 3d party
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
@@ -7,14 +10,18 @@ from scipy.spatial import distance
 from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 
-def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces):
+PROB_TO_PLOT = .0001  # probability to plot graphs relative to TOI-TCE matching
+
+
+def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces,
+                  res_dir=None):
     """ Match TOI to TCEs. The process consists of iterating through the sectors for which the TOI was observed. For
     each sector, the TCEs from the respective sector run that are in the same TIC are compared against the TOI. The
     matching is performed by measuring the cosine distance between the templates of the TOI and TCE. The templates are
     built based on the ephemerides information of the two. The templates have the duration of the maximum period between
     the two. The timestamp of the mid-transit of the closest TCE transit to the epoch of the TOI is estimated and used
     to create the TCE template. The sampling interval determines the number of points in the templates and the matching
-    threshold is used to determined the successful match between the templates.
+    threshold is used to determine the successful match between the templates.
 
     :param toi: row of pandas DataFrame, TOI ephemerides and data
     :param singlesector_tce_tbls: list of pandas DataFrame, single-sector runs DV TCE tables
@@ -22,6 +29,7 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
     :param match_thr: float, matching threshold
     :param sampling_interval: float, sampling interval for pulse template time series
     :param max_num_tces: int, maximum number of TCEs that can be matched to the TOI
+    :param  res_dir: Path, results directory
     :return:
         data_to_tbl: dict, include TIC, TOI ID, matched TCEs and respective matching distances to TOI
     """
@@ -34,7 +42,8 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
         # check the single sector run table
         if toi_sector in singlesector_tce_tbls:
-            tce_tbl_aux = singlesector_tce_tbls[toi_sector]
+
+            tce_tbl_aux = singlesector_tce_tbls[toi_sector]  # get TCE table for that single-sector run
 
             # get TCEs in the run for the same TIC
             tce_found = tce_tbl_aux.loc[tce_tbl_aux['catId'] == toi['TIC ID']]
@@ -43,9 +52,9 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
         if len(tce_found) > 0:
 
-            for tce_i, tce in tce_found.iterrows():
+            for tce_i, tce in tce_found.iterrows():  # iterate through the TCEs that belong to the same TIC
 
-                tceid = tce['planetIndexNumber']
+                tceid = int(tce['planetIndexNumber'])
 
                 # size of the template is set to larger orbital period between TOI and TCE
                 phase = max(toi['Period (days)'], tce['allTransitsFit_orbitalPeriodDays_value'])
@@ -76,6 +85,16 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                     match_distance = 1
                 else:
                     match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
+                    if np.random.random() < PROB_TO_PLOT:  # plot templates for some matches
+                        tce_aux = {'id': f'{toi["TIC ID"]}.{tceid}-S{toi_sector}',
+                                   'template': tce_bin_ts,
+                                   'period': tce['allTransitsFit_orbitalPeriodDays_value'],
+                                   }
+                        toi_aux = {'id': f'{toi["TOI"]}',
+                                   'template': toi_bin_ts,
+                                   'period': toi['Period (days)'],
+                                   }
+                        plot_templates(tce_aux, toi_aux, match_distance, res_dir / 'plots')
 
                 # set matching distance if it is smaller than the matching threshold
                 if match_distance < match_thr:
@@ -96,7 +115,7 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
                     for tce_i, tce in tce_found.iterrows():
 
-                        tceid = tce['planetIndexNumber']
+                        tceid = int(tce['planetIndexNumber'])
 
                         phase = max(toi['Period (days)'], tce['allTransitsFit_orbitalPeriodDays_value'])
 
@@ -125,6 +144,16 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
                             match_distance = 1
                         else:
                             match_distance = distance.cosine(toi_bin_ts, tce_bin_ts)
+                            if np.random.random() < PROB_TO_PLOT:
+                                tce_aux = {'id': f'{toi["TIC ID"]}.{tceid}-S{multisector_tce_tbl[0]}-{multisector_tce_tbl[1]}',
+                                           'template': tce_bin_ts,
+                                           'period': tce['allTransitsFit_orbitalPeriodDays_value'],
+                                           }
+                                toi_aux = {'id': f'{toi["TOI"]}',
+                                           'template': toi_bin_ts,
+                                           'period': toi['Period (days)'],
+                                           }
+                                plot_templates(tce_aux, toi_aux, match_distance, res_dir / 'plots')
 
                         if match_distance < match_thr:
                             matching_dist_dict[f'{multisector_tce_tbl[0]}-{multisector_tce_tbl[1]}_{tceid}'] = \
@@ -145,7 +174,7 @@ def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, s
 
 
 def match_set_tois_tces(toi_tbl, tbl_i, match_tbl_cols, singlesector_tce_tbls, multisector_tce_tbls, match_thr,
-                        sampling_interval, max_num_tces, res_dir):
+                        sampling_interval, max_num_tces, res_dir, logger=None):
     """ Match TOIs to TCEs.
 
     :param toi_tbl: pandas DataFrame, TOIs
@@ -157,6 +186,7 @@ def match_set_tois_tces(toi_tbl, tbl_i, match_tbl_cols, singlesector_tce_tbls, m
     :param sampling_interval: float, sampling interval for pulse template time series
     :param max_num_tces: int, maximum number of TCEs that can be matched to the TOI
     :param res_dir: Path, results directory
+    :param logger: logger
     :return:
         matching_tbl: pandas DataFrame, TOI matching table
     """
@@ -164,18 +194,50 @@ def match_set_tois_tces(toi_tbl, tbl_i, match_tbl_cols, singlesector_tce_tbls, m
     matching_tbl = pd.DataFrame(columns=match_tbl_cols, data=np.zeros((len(toi_tbl), len(match_tbl_cols))))
 
     for toi_i, toi in toi_tbl.iterrows():
-        print(f'[Matching Subtable {tbl_i}] Matching TOI {toi["TOI"]} ({toi_i + 1}/{len(toi_tbl)})')
+        prt_str = f'[Matching Subtable {tbl_i}] Matching TOI {toi["TOI"]} ({toi_i + 1}/{len(toi_tbl)})'
+        if logger is None:
+            print(prt_str)
+        else:
+            logger.info(prt_str)
 
         match_toi_row = match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval,
-                                      max_num_tces)
+                                      max_num_tces, res_dir=res_dir)
 
         matching_tbl.loc[toi_i] = pd.Series(match_toi_row)
 
-        print(f'[Matching Subtable {tbl_i}] Matched TOI {toi["TOI"]} ({toi_i + 1}/{len(toi_tbl)})')
+        prt_str = f'[Matching Subtable {tbl_i}] Matched TOI {toi["TOI"]} ({toi_i + 1}/{len(toi_tbl)})'
+        if logger is None:
+            print(prt_str)
+        else:
+            logger.info(prt_str)
 
-    print(f'[Matching Subtable {tbl_i}] Finished matching {len(toi_tbl)} TOIs')
+    prt_str = f'[Matching Subtable {tbl_i}] Finished matching {len(toi_tbl)} TOIs'
+    if logger is None:
+        print(prt_str)
+    else:
+        logger.info(prt_str)
 
     matching_tbl.to_csv(res_dir / f'tois_matchedtces_ephmerismatching_thr{match_thr}_samplint{sampling_interval}_'
                                   f'{tbl_i}.csv', index=False)
 
     return matching_tbl
+
+
+def plot_templates(tce, toi, match_dist, plot_dir):
+    """ Plot TCE and TOI templates.
+
+    :param tce: dict, TCE includes `id` and `template` time series
+    :param toi: dict, TOI includes `id` and `template` time series
+    :param plot_dir: Path, directory used to save plots
+    :return:
+    """
+
+    f, ax = plt.subplots()
+    ax.plot(tce['template'], label=f'TIC {tce["id"]}')
+    ax.plot(toi['template'], label=f'TOI {toi["id"]}')
+    ax.set_xlabel('Sample Index')
+    ax.set_ylabel('Amplitude')
+    ax.set_title(f'Single-phase Pulse Transit\nMatch distance={match_dist:.2f}\nTCE/TOI Period (days): {tce["period"]:.3f}/{toi["period"]:.3f}')
+    ax.legend()
+    f.savefig(plot_dir / f'toi_{toi["id"]}-tic_{tce["id"]}.png')
+    plt.close()
