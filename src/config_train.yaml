@@ -1,12 +1,12 @@
-ngpus_per_node: 2  # number of GPUs per node
+ngpus_per_node: 1  # number of GPUs per node
 rank: null
 train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_transformer_6-24-2022
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_hongbo_tessonly_7-15-2022
   # TFRecord dataset directory
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_unfolded_cap20_copied/experiment-normalized_EB_RELABELED-renamed_features
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/hongbo_wei/merged/tfrecords_merged_evaluation_set_05-22-2022_data_TESS_ONLY/tfrecords_merged_evaluation_set_05-22-2022_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 config:
@@ -78,32 +78,15 @@ config:
       #      - tce_rb_tcount0n_norm
       - tce_prad_norm
       - tce_period_norm
-  transformer_branches:
-#      global:
-#        - unfolded_global_flux_view_fluxnorm
-      local:
-        - unfolded_local_flux_view_fluxnorm
-
-  #    [
-  #    'global_flux_view_fluxnorm'
-  #    'local_flux_view_fluxnorm',
-  #    # 'global_centr_fdl_view_norm',
-  #    # 'local_centr_fdl_view_norm',
-  #    'local_flux_oddeven_views',
-  #    'global_centr_view_std_noclip',
-  #    'local_centr_view_std_noclip',
-  #    # 'local_weak_secondary_view_fluxnorm',
-  #    # 'local_weak_secondary_view_selfnorm',
-  #    'local_weak_secondary_view_max_flux-wks_norm',
-  #    'stellar',
-  #    'dv+tce_fit',
-  #  ]
-  #  scalar_features_branches:
-  #      'local_flux_view_flux'
+  transformer_branches: null
+##      global:
+##        - unfolded_global_flux_view_fluxnorm
+#      local:
+#        - unfolded_local_flux_view_fluxnorm
 
     #transformer hyperparameters
     #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
-  use_transformer: true
+  use_transformer: false
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
@@ -208,7 +191,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+#  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: # null

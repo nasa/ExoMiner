@@ -27,7 +27,7 @@ from src.utils_metrics import get_metrics, get_metrics_multiclass, compute_preci
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
 from src.utils_predict import save_metrics_to_file, plot_prcurve_roc
 from utils.utils_dataio import is_yamlble
-from paths import path_main
+# from paths import path_main
 
 
 def run_main(config):
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path(path_main + 'src/config_predict.yaml')
+        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_predict.yaml')
     else:  # use config file given as input
         path_to_yaml = Path(args.config_file)
 
@@ -279,9 +279,6 @@ if __name__ == '__main__':
     # experiment directory
     for path_name, path_str in config['paths'].items():
         config['paths'][path_name] = Path(path_str)
-    config['paths']['experiment_dir'].mkdir(exist_ok=True)
-
-    # if config file is from the training experiment
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # set up logger

@@ -6,7 +6,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import regularizers, losses, optimizers
 import numpy as np
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 
 class CNN1dPlanetFinderv1(object):
@@ -2959,23 +2959,16 @@ class TransformerExoMiner(object):
             output: full model, from inputs to outputs
         """
 
-        branches_net = {branch_name: None for branch_name in self.config['transformer_branches']}
-        branches_net.update({branch_name: None for branch_name in self.config['scalar_branches']})
+        branches_net = {}
+
+        if self.config['transformer_branches'] is not None:
+            branches_net.update(self.build_transformer_layers())
+
+        if self.config['scalar_branches'] is not None:
+            branches_net.update(self.build_scalar_branches())
+
         if self.config['conv_branches'] is not None:
-            branches_net.update({branch_name: None for branch_name in self.config['conv_branches']})
-
-        # create transformer branches
-        transformer_branches_net = self.build_transformer_layers()
-        branches_net.update(transformer_branches_net)
-
-        # create scalar branches
-        scalar_branches_net = self.build_scalar_branches()
-        branches_net.update(scalar_branches_net)
-
-        # create convolutional branches
-        if self.config['conv_branches'] is not None:
-            conv_branches_net = self.build_conv_branches()
-            branches_net.update(conv_branches_net)
+            branches_net.update(self.build_conv_branches())
 
         # merge branches
         net = self.connect_segments(branches_net)
