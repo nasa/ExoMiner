@@ -272,13 +272,13 @@ def main():
 
         tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
 
-        if config['process_i'] == 0:
-            # concatenates shard tables into a single one
-            create_shards_tbl_flag = create_shards_table(config['output_dir'])
-            if not create_shards_tbl_flag:
-                tf_logging.info('Merged shard table not created.')
+        # if config['process_i'] == 0:
+        # concatenates shard tables into a single one
+        create_shards_tbl_flag = create_shards_table(config['output_dir'])
+        if not create_shards_tbl_flag:
+            tf_logging.info('Merged shard table not created.')
 
-            tf_logging.info(f'END-PI:{config["output_dir"]}')
+        tf_logging.info(f'END-PI:{config["output_dir"]}')
 
     else:  # use multiprocessing.Pool
 

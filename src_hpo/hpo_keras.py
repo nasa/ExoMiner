@@ -163,6 +163,9 @@ if __name__ == '__main__':
         if path_str is not None:
             config['paths'][path_name] = Path(path_str)
 
+    if config['rank'] == 0 or config['rank'] is None:
+        config['paths']['experiment_dir'].mkdir(exist_ok=True)
+
     # set up logger
     logger = logging.getLogger(name='hpo_run')
     logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
@@ -215,7 +218,6 @@ if __name__ == '__main__':
     config['study'] = config['paths']['experiment_dir'].name
 
     if config['rank'] == 0:
-        config['paths']['experiment_dir'].mkdir(exist_ok=True)
         (config['paths']['experiment_dir'] / 'logs').mkdir(exist_ok=True)
 
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)

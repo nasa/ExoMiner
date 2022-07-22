@@ -36,8 +36,9 @@ if __name__ == '__main__':
     toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/7-11-2022/exofop_toilists_nomissingpephem.csv')
     # columns to be used from the TOI table
     toi_cols = ['TOI', 'TIC ID', 'Sectors', 'Period (days)', 'Duration (hours)', 'Epoch (TBJD)', 'Depth (ppm)']
-    toi_tbl = pd.read_csv(toi_tbl_fp, usecols=toi_cols)[:15]
+    toi_tbl = pd.read_csv(toi_tbl_fp, usecols=toi_cols)
     logger.info(f'Using TOI table: {toi_tbl_fp}')
+    logger.info(f'Number of TOIs: {len(toi_tbl)}')
 
     # get DV TCE tables for single- and multi-sector runs
     tce_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files')
@@ -58,32 +59,38 @@ if __name__ == '__main__':
     # set matching threshold and sampling interval
     match_thr = np.inf  # np.inf  # 0.25
     logger.info(f'Using matching threshold = {match_thr}')
-    sampling_interval = 0.0001  # approximately 10 seconds
+    sampling_interval = 0.5 / 60 / 24  # 30 seconds
     logger.info(f'Using sampling interval {sampling_interval}')
 
     # maximum number of TCEs that can be associated with a TOI
     max_num_tces = len(singlesector_tce_tbls) + len(multisector_tce_tbls)
 
+    prob_plot = .001  # probability to plot graphs relative to TOI-TCE matching
+
     # columns in matching table
     match_tbl_cols = ['TOI ID', 'TIC', 'Matched TCEs'] + [f'matching_dist_{i}' for i in range(max_num_tces)]
-    n_processes = 2  # number of processes to parallelize the matching across TOIs
+    n_processes = 4  # number of processes to parallelize the matching across TOIs
     tbl_jobs = np.array_split(toi_tbl, n_processes)
     logger.info(f'Starting ephemeris matching by splitting the TOI table across {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(tbl_job.reset_index(inplace=False), tbl_job_i) +
             (match_tbl_cols, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces,
-             res_dir)
+             res_dir, prob_plot, logger)
             for tbl_job_i, tbl_job in enumerate(tbl_jobs)]
     async_results = [pool.apply_async(match_set_tois_tces, job) for job in jobs]
     pool.close()
     matching_tbl = pd.concat([match_tbl_job.get() for match_tbl_job in async_results], axis=0)
     logger.info(f'Finished matching.')
-    matching_tbl.to_csv(res_dir / f'tois_matchedtces_ephmerismatching_thr{match_thr}_samplint{sampling_interval}.csv',
+    matching_tbl.to_csv(res_dir /
+                        f'tois_matchedtces_ephmerismatching_thr{match_thr}_samplint{sampling_interval:.2f}.csv',
                         index=False)
+
+    logger.info(f'Number of TOIs not matched with any TCE: {matching_tbl["matching_dist_0"].isna().sum()}')
 
     # %% Plot histograms for matching distance
 
     bins = np.linspace(0, 1, 21, endpoint=True)
+
     f, ax = plt.subplots()
     ax.hist(matching_tbl['matching_dist_0'], bins, edgecolor='k')
     ax.set_yscale('log')

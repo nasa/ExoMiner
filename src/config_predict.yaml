@@ -3,12 +3,12 @@ rank: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/model_TESS_data_7-11-22/predict_ensemble
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/results_ensemble/test_hongbo_tessonly_exominer_usinghongbomodels_7-18-2022_1050
   # directory with the trained models to create the ensemble
-  models_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/model_TESS_data_7-11-22/output files
+  models_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/hongbo/kepler_to_tess/05_22_combined_pc-nonpc_nodepth_nosecdepth_wks-selfnorm_addprad_adjust-msky-err_reconfigure_model_tess_only/trained_models_05_22_combined_pc-nonpc_nodepth_nosecdepth_wks-selfnorm_addprad_adjust-msky-err_reconfigure_model_tess_only
   # TFRecord dataset directory
   #  tfrec_dir : /data5/tess_project/Data/outputs/preprocessed-data-split-glob-and-loc-cap20-padded_experiment-normalized
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/merged/05-02-2022/experiment-renamed_features-normalized_EB_RELABELED-renamed_labels
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/hongbo_wei/merged/tfrecords_merged_evaluation_set_05-22-2022_data_TESS_ONLY/tfrecords_merged_evaluation_set_05-22-2022_experiment-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 generate_csv_pred: true  # enerates a prediction ranking for each of the specified datasets
@@ -95,7 +95,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   #  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   #  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_err_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
   #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -130,13 +131,14 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
 # maps features' names to features names expected by the model
-feature_map: # null
+feature_map: null
   #  feature_name: feature_name_model
-  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-  tce_dikco_adjscl_msky_norm: tce_dikco_msky_norm
-  tce_dikco_adjscl_msky_err_norm: tce_dikco_msky_err_norm
-  tce_ruwe_norm: ruwe_norm
+#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
+#  tce_dikco_adjscl_msky_norm: tce_dikco_msky_norm
+#  tce_dikco_adjscl_msky_err_norm: tce_dikco_msky_err_norm
+#  tce_dikco_adjscl_msky_err_norm: tce_dikco_msky_err_norm
+#  tce_ruwe_norm: ruwe_norm
 evaluation:
   batch_size: 32
 #  filter_data: null
@@ -152,12 +154,12 @@ callbacks:
     embeddings_freq: 0
 
 label_map: # maps label to a label id
-  # Kepler
-  PC: 1
-  AFP: 0
-  #  AFP2: 1
-  NTP: 0
-  # TESS
+#  # Kepler
+#  PC: 1
+#  AFP: 0
+#  AFP2: 1
+#  NTP: 0
+#  # TESS
 #  KP: 1
 #  CP: 1
 #  PC: 0
@@ -169,10 +171,10 @@ label_map: # maps label to a label id
 #  O: 0
   # for Hongbo's/Andres data sets
   # Kepler
-#  K-PC: 1
-#  K-AFP: 0
-#  K-AFP2: 0
-#  K-NTP: 0
+  K-PC: 1
+  K-AFP: 0
+  K-AFP2: 0
+  K-NTP: 0
   # TESS
   T-KP: 1
   T-CP: 1

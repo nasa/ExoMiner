@@ -4,9 +4,9 @@ train_parallel: false  # set to true to use MPI to train models in parallel; onl
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_hongbo_tessonly_7-15-2022
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_new_phase_data_7-22-2022_1008
   # TFRecord dataset directory
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/hongbo_wei/merged/tfrecords_merged_evaluation_set_05-22-2022_data_TESS_ONLY/tfrecords_merged_evaluation_set_05-22-2022_experiment-normalized
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 config:
@@ -46,10 +46,10 @@ config:
         #        - tce_dicco_msky_norm
         #        - tce_dicco_msky_err_norm
         #        - mag_norm
-        - mag_cat
-        #        - mag_cat_norm
-#        - ruwe_norm
-        - tce_ruwe_norm
+#        - mag_cat
+        - mag_cat_norm
+        - ruwe_norm
+#        - tce_ruwe_norm
     global_centroid:
       views:
         #        - global_centr_fdl_view_norm
@@ -78,15 +78,15 @@ config:
       #      - tce_rb_tcount0n_norm
       - tce_prad_norm
       - tce_period_norm
-  transformer_branches: null
+  transformer_branches:  # null
 ##      global:
 ##        - unfolded_global_flux_view_fluxnorm
-#      local:
-#        - unfolded_local_flux_view_fluxnorm
+      local:
+        - unfolded_local_flux_view_fluxnorm
 
     #transformer hyperparameters
     #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
-  use_transformer: false
+  use_transformer: true
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
@@ -150,20 +150,20 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-  #  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
-  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+#  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+#  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-  #  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -191,15 +191,15 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-#  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
-feature_map: # null
+feature_map: null
 #  feature_name: feature_name_model
-  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
-  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
+#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
+#  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
+#  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -243,11 +243,11 @@ callbacks:
 
 label_map:  # maps label to a label id
   # Kepler
-#  PC: 1
-#  AFP: 0  # 2
+  PC: 1
+  AFP: 0  # 2
 #  AFP2: 0
-#  NTP: 0
-#  UNK: 0
+  NTP: 0
+  UNK: 0
   # TESS
 #  KP: 1
 #  CP: 1
@@ -265,12 +265,12 @@ label_map:  # maps label to a label id
 #  K-AFP2: 0
 #  K-NTP: 0
 #  # TESS
-  T-KP: 1
-  T-CP: 1
-  T-FP: 0
-  T-FA: 0
-  T-EB: 0
-  T-NTP: 0
+#  T-KP: 1
+#  T-CP: 1
+#  T-FP: 0
+#  T-FA: 0
+#  T-EB: 0
+#  T-NTP: 0
 
 metrics:
   'clf_thr': 0.5  # classification threshold
@@ -288,5 +288,5 @@ datasets: # datasets - same name convention as used for the TFRecords
   - train
   - val
   - test
-#  - predict
+  - predict
 verbose: true

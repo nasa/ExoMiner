@@ -308,7 +308,7 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if f'{tce["uid"]}' in ['11446443-1', '1026032-1', '535978-1', '1293046-1', '2010607-1']:
+    if f'{tce["uid"]}' in ['2714932-4']:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
@@ -318,12 +318,12 @@ def _process_tce(tce, table, config, conf_dict):
         # tce['tce_time0bk'] = 1325.726
         # tce['tce_period'] = 0.941451
         # tce['sectors'] = '1'
-        # print(tce['uid'])
-    # else:
-    #     return None
+        print(tce['uid'])
+    else:
+        return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
@@ -1193,9 +1193,15 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             timeseries_split += [np.ones(med_n_cadences, dtype='float')] * n_miss_phases  # baseline value (1)
             time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
         elif extend_method == 'copy_phases':  # phases are copied from the start
-            phase_split += list(phase_split[:n_miss_phases])
-            time_split += list(time_split[:n_miss_phases])
-            timeseries_split += list(timeseries_split[:n_miss_phases])
+            n_full_group_phases = n_max_phases // n_obs_phases
+            n_partial_group_phases = n_max_phases % n_obs_phases
+            phase_split = list(phase_split) * n_full_group_phases + \
+                           list(phase_split[:n_partial_group_phases])
+            time_split = list(time_split) * n_full_group_phases + \
+                          list(time_split[:n_partial_group_phases])
+            timeseries_split = list(timeseries_split) * n_full_group_phases + \
+                                list(timeseries_split[:n_partial_group_phases])
+            n_obs_phases = len(time_split)
         else:
             raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
 
@@ -1656,9 +1662,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         unfolded_glob_flux_view = []
         unfolded_glob_flux_view_var = []
         for phase in range(n_phases_split):
-            # if len(all_time_unfolded[phase]) < 2:
-            #     continue
-            # print(all_time_unfolded[phase].shape)
+
             unfolded_glob_flux_view_phase, binned_time, unfolded_glob_flux_view_var_phase, _, bin_counts = \
                 global_view(time_split[phase],
                             flux_split[phase],
@@ -1673,19 +1677,19 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                             )
             bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
             unfolded_glob_flux_view_var_phase /= np.sqrt(bin_counts)
-            # binned_timeseries[f'Unfolded Global Flux Phase #{phase}'] = (binned_time, unfolded_glob_flux_view_phase,
-            #                                                              unfolded_glob_flux_view_var_phase)
+
             unfolded_glob_flux_view.append(unfolded_glob_flux_view_phase)
             unfolded_glob_flux_view_var.append(unfolded_glob_flux_view_var_phase)
 
         unfolded_glob_flux_view = np.array(unfolded_glob_flux_view)
         unfolded_glob_flux_view_var = np.array(unfolded_glob_flux_view_var)
 
-        utils_visualization.plot_riverplot(unfolded_glob_flux_view,
-                                           config['num_bins_glob'],
-                                           tce,
-                                           os.path.join(config['output_dir'], 'plots'),
-                                           f'8_riverplot_aug{tce["augmentation_idx"]}')
+        if plot_preprocessing_tce:
+            utils_visualization.plot_riverplot(unfolded_glob_flux_view,
+                                               config['num_bins_glob'],
+                                               tce,
+                                               os.path.join(config['output_dir'], 'plots'),
+                                               f'8_riverplot_aug{tce["augmentation_idx"]}')
 
         # create local flux view
         loc_flux_view, binned_time, loc_flux_view_var, inds_bin_nan['local_flux'], bin_counts = \
