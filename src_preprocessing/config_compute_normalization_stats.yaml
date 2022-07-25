@@ -1,7 +1,7 @@
 # source TFRecord directory
-tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_dataset_split
+tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split
 
-nProcesses: 15  # number of processes used to parallelize reading the values for the dataset
+n_processes_compute_norm_stats: 15  # number of processes used to parallelize reading the values for the dataset
 
 clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 
@@ -9,6 +9,14 @@ clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, r
 nr_transit_durations: 5  # number of transit durations in the local view
 num_bins_loc: 31  # number of bins for local view
 num_bins_glob: 301  # number of bins for global view
+
+timeSeriesFDLList:
+  - 'global_centr_fdl_view'
+  - 'local_centr_fdl_view'
+
+centroidList:
+  - 'global_centr_view'
+  - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
 
 # dictionary that provides information on the normalization specificities for each scalar parameters (e.g., placeholder
 # for missing value other than NaN, perform log-transform, clipping factor, data type, replace value for missing value)

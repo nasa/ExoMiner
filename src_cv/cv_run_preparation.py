@@ -13,8 +13,9 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
-data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
+# experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+# data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
+data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_7-22-2022_1028')
 data_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -42,26 +43,32 @@ shard_tbls_dir.mkdir(exist_ok=True)
 
 # load the TCE table
 tce_tbl_fp = Path(
-    '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc.csv')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv')
 logger.info(f'Reading TCE table {tce_tbl_fp}')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # load table with TCEs used in the dataset
-dataset_tbls_dir = Path(
-    '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
-dataset_tbl = pd.concat([pd.read_csv(set_tbl) for set_tbl in dataset_tbls_dir.iterdir()
-                         if set_tbl.name.endswith('.csv') and not set_tbl.name.startswith('predict')])
-logger.info(f'Using dataset tables from {str(dataset_tbls_dir)} to filter examples used.')
+dataset_tbl_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237/merged_shards.csv'
+dataset_tbl = pd.read_csv(dataset_tbl_fp)
+
+# dataset_tbls_dir = Path(
+#     '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
+# dataset_tbl = pd.concat([pd.read_csv(set_tbl) for set_tbl in dataset_tbls_dir.iterdir()
+#                          if set_tbl.name.endswith('.csv') and not set_tbl.name.startswith('predict')])
+# logger.info(f'Using dataset tables from {str(dataset_tbls_dir)} to filter examples used.')
+logger.info(f'Using data set table: {dataset_tbl_fp}')
 
 # remove TCEs not used in the dataset
 logger.info(
-    f'Removing examples not used... (Total number of examples in dataset before removing examples: {len(dataset_tbl)})')
-dataset_tbl['tceid'] = dataset_tbl[['target_id', 'tce_plnt_num']].apply(
-    lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
-    lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
-logger.info(f'(Total number of examples in dataset after removing examples: {len(dataset_tbl)})')
+    f'Removing examples not in the data  set... (Total number of examples in dataset before removing examples: {len(tce_tbl)})')
+# dataset_tbl['tceid'] = dataset_tbl[['target_id', 'tce_plnt_num']].apply(
+#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
+# tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
+#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
+# tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
+tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(dataset_tbl['uid'])]
+tce_tbl = tce_tbl.loc[tce_tbl['label'] != 'UNK']
+logger.info(f'(Total number of examples in dataset after removing examples: {len(tce_tbl)})')
 
 # shuffle per target stars
 logger.info('Shuffling TCE table per target stars...')

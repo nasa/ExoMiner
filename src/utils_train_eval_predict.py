@@ -9,13 +9,12 @@ from src.utils_metrics import get_metrics, get_metrics_multiclass
 from models.models_keras import create_ensemble, compile_model, Time2Vec
 
 
-def train_model(base_model, config, callbacks_list, model_dir_sub, model_id=1, logger=None):
+def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     """ Train a model with a given configuration. Support for model selection using a validation set and early stopping
     callback.
 
     :param base_model: model fn, core model to be used
     :param config: dict, configuration for model hyper-parameters
-    :param callbacks_list: list, callbacks
     :param model_dir_sub: Path, model directory
     :param model_id: int, model id
     :param logger: logger
@@ -27,10 +26,10 @@ def train_model(base_model, config, callbacks_list, model_dir_sub, model_id=1, l
     model = base_model(config, config['features_set']).kerasModel
 
     # save model, features and config used for training this model
-    if model_id == 1 and config['plot_model']:
+    if model_id == 0 and config['plot_model']:
         # save plot of model
         plot_model(model,
-                   to_file=config['paths']['experiment_dir'] / 'model.png',
+                   to_file=config['paths']['experiment_dir'] / 'model_train.png',
                    show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
@@ -53,13 +52,12 @@ def train_model(base_model, config, callbacks_list, model_dir_sub, model_id=1, l
 
     # input function for training, validation and test
     train_input_fn = InputFn(
-        file_paths=str(config['paths']['tfrec_dir']) + '/train*',
+        file_paths=config['datasets_fps']['train'],  # str(config['paths']['tfrec_dir']) + '/train*',
         batch_size=config['training']['batch_size'],
         mode='TRAIN',
         label_map=config['label_map'],
         data_augmentation=config['training']['data_augmentation'],
         online_preproc_params=config['training']['online_preprocessing_params'],
-        filter_data=None,
         features_set=config['features_set'],
         category_weights=config['training']['category_weights'],
         multiclass=config['config']['multi_class'],
@@ -68,11 +66,10 @@ def train_model(base_model, config, callbacks_list, model_dir_sub, model_id=1, l
     )
     if 'val' in config['datasets']:
         val_input_fn = InputFn(
-            file_paths=str(config['paths']['tfrec_dir']) + '/val*',
+            file_paths=config['datasets_fps']['val'],
             batch_size=config['training']['batch_size'],
             mode='EVAL',
             label_map=config['label_map'],
-            filter_data=None,
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
@@ -91,7 +88,7 @@ def train_model(base_model, config, callbacks_list, model_dir_sub, model_id=1, l
                         batch_size=None,
                         epochs=config['training']['n_epochs'],
                         verbose=config['verbose_model'],
-                        callbacks=callbacks_list,
+                        callbacks=config['callbacks_list']['train'],
                         validation_split=0.,
                         validation_data=val_input_fn() if val_input_fn is not None else None,
                         shuffle=True,  # does the input function shuffle for every epoch?
@@ -153,13 +150,14 @@ def evaluate_model(config, logger=None):
     model.summary()
 
     # plot ensemble model and save the figure
-    keras.utils.plot_model(model,
-                           to_file=config['paths']['experiment_dir'] / 'ensemble.png',
-                           show_shapes=False,
-                           show_layer_names=True,
-                           rankdir='TB',
-                           expand_nested=False,
-                           dpi=96)
+    if config['plot_model']:
+        keras.utils.plot_model(model,
+                               to_file=config['paths']['experiment_dir'] / 'model_eval.png',
+                               show_shapes=False,
+                               show_layer_names=True,
+                               rankdir='TB',
+                               expand_nested=False,
+                               dpi=96)
 
     # set up metrics to be monitored
     if not config['config']['multi_class']:
@@ -184,14 +182,12 @@ def evaluate_model(config, logger=None):
             logger.info(f'Evaluating on dataset {dataset}')
 
         # input function for evaluating on each dataset
-        eval_input_fn = InputFn(file_paths=str(config['paths']['tfrec_dir']) + '/{}*'.format(dataset),
+        eval_input_fn = InputFn(file_paths=config['datasets_fps'][dataset],  # str(config['paths']['tfrec_dir']) + '/{}*'.format(dataset),
                                 batch_size=config['evaluation']['batch_size'],
                                 mode='EVAL',
                                 label_map=config['label_map'],
                                 features_set=config['features_set'],
-                                data_augmentation=False,
                                 online_preproc_params=None,
-                                filter_data=None,
                                 multiclass=config['config']['multi_class'],
                                 use_transformer=config['config']['use_transformer'],
                                 feature_map=config['feature_map']
@@ -222,7 +218,7 @@ def evaluate_model(config, logger=None):
     return res
 
 
-def predict(config, logger=None):
+def predict_model(config, logger=None):
     """ Run inference using a model. Support for creating an average score ensemble based on a set of
     models (`config['paths']['models_filepaths']`).
 
@@ -257,13 +253,14 @@ def predict(config, logger=None):
     model.summary()
 
     # plot model and save the figure
-    keras.utils.plot_model(model,
-                           to_file=config['paths']['experiment_dir'] / 'model.png',
-                           show_shapes=False,
-                           show_layer_names=True,
-                           rankdir='TB',
-                           expand_nested=False,
-                           dpi=96)
+    if config['plot_model']:
+        keras.utils.plot_model(model,
+                               to_file=config['paths']['experiment_dir'] / 'model_predict.png',
+                               show_shapes=False,
+                               show_layer_names=True,
+                               rankdir='TB',
+                               expand_nested=False,
+                               dpi=96)
 
     # predict on given datasets
     scores = {dataset: [] for dataset in config['datasets']}
@@ -275,7 +272,7 @@ def predict(config, logger=None):
             logger.info(f'Predicting on dataset {dataset}...')
 
         predict_input_fn = InputFn(
-            file_paths=str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
+            file_paths=config['datasets_fps'][dataset],  # str(config['paths']['tfrec_dir']) + '/' + dataset + '*',
             batch_size=config['inference']['batch_size'],
             mode='PREDICT',
             label_map=config['label_map'],

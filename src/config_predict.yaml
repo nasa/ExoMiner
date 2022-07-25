@@ -3,9 +3,9 @@ rank: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/results_ensemble/test_hongbo_tessonly_exominer_usinghongbomodels_7-18-2022_1050
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/results_ensemble/test_hongbo_tessonly_exominer_7-22-2022_1501
   # directory with the trained models to create the ensemble
-  models_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/hongbo/kepler_to_tess/05_22_combined_pc-nonpc_nodepth_nosecdepth_wks-selfnorm_addprad_adjust-msky-err_reconfigure_model_tess_only/trained_models_05_22_combined_pc-nonpc_nodepth_nosecdepth_wks-selfnorm_addprad_adjust-msky-err_reconfigure_model_tess_only
+  models_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_hongbo_tessonly_exominer_7-18-2022_1136
   # TFRecord dataset directory
   #  tfrec_dir : /data5/tess_project/Data/outputs/preprocessed-data-split-glob-and-loc-cap20-padded_experiment-normalized
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/hongbo_wei/merged/tfrecords_merged_evaluation_set_05-22-2022_data_TESS_ONLY/tfrecords_merged_evaluation_set_05-22-2022_experiment-normalized
@@ -131,13 +131,13 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
 # maps features' names to features names expected by the model
-feature_map: null
+feature_map: # null
   #  feature_name: feature_name_model
-#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-#  tce_dikco_adjscl_msky_norm: tce_dikco_msky_norm
-#  tce_dikco_adjscl_msky_err_norm: tce_dikco_msky_err_norm
-#  tce_dikco_adjscl_msky_err_norm: tce_dikco_msky_err_norm
+  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
+  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
+#  tce_dikco_msky_adjscl_err_norm: tce_dikco_msky_err_norm
+  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
 #  tce_ruwe_norm: ruwe_norm
 evaluation:
   batch_size: 32

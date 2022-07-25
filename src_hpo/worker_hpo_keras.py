@@ -397,7 +397,6 @@ def _evaluate_config(worker_id_custom, config_id, budget, config, verbose):
                 res_model_i = train_model(
                     base_model=config_aux['base_model'],
                     config=config_aux,
-                    callbacks_list=None,
                     model_dir_sub=model_dir,
                     model_id=model_i,
                     logger=None

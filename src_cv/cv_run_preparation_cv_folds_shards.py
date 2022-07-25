@@ -15,7 +15,8 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/cv_12-09-2021_1404')
+    data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_7-22-2022_1028')
+    data_dir.mkdir(exist_ok=True)
 
     # set up logger
     logger = logging.getLogger(name=f'create_cv_folds_shards')
@@ -31,11 +32,12 @@ if __name__ == '__main__':
 
     # TFRecord source directory; non-normalized examples
     src_tfrec_dir = Path(
-        '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_koi_fpflagec')
+        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237')
     logger.info(f'Source TFRecords: {str(src_tfrec_dir)}')
 
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = src_tfrec_dir / 'shards_tce_tbl.csv'
+    # src_tfrec_tbl_fp = src_tfrec_dir / 'shards_tce_tbl.csv'
+    src_tfrec_tbl_fp = src_tfrec_dir / 'merged_shards.csv'
     if not src_tfrec_tbl_fp.exists():
         logger.info('Creating shard example table that tracks location of examples in the source TFRecords...')
         create_table_shard_example_location(src_tfrec_dir)

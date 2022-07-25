@@ -118,7 +118,9 @@ def run_main(config):
                                 features_set=config['features_set'],
                                 data_augmentation=False,
                                 online_preproc_params=None,
-                                filter_data=None,
+                                multiclass=config['config']['multi_class'],
+                                use_transformer=config['config']['use_transformer'],
+                                feature_map=config['feature_map']
                                 )
 
         callbacks_list = []
@@ -152,7 +154,10 @@ def run_main(config):
                                    mode='PREDICT',
                                    label_map=config['label_map'],
                                    features_set=config['features_set'],
-                                   multiclass=config['config']['multi_class'])
+                                   multiclass=config['config']['multi_class'],
+                                   use_transformer=config['config']['use_transformer'],
+                                   feature_map=config['feature_map']
+                                   )
 
         scores[dataset] = ensemble_model.predict(predict_input_fn(),
                                                  batch_size=None,
