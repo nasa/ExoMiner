@@ -18,7 +18,7 @@ conda activate $CONDA_ENV_NAME
 
 # conda installations
 conda install python==3.8.10
-conda install scikit-learn
+conda install scikit-learn=1.1.1
 conda install numpy
 conda install pandas
 conda install matplotlib

@@ -146,8 +146,7 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
             for param in centroidList:
                 centroidDict[param].extend(centroidDict_tfrecord[param])
 
-    print(f'[{multiprocessing.current_process().name}] Got data from {tfrecFile.name} '
-          f'({tfrec_i / len(tfrec_files) * 100} %)')
+    print(f'[{multiprocessing.current_process().name}] Finished extracting data (100 %)')
 
     return scalarParamsDict, timeSeriesFDLDict, centroidDict
 

@@ -308,7 +308,7 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    if f'{tce["uid"]}' in ['2714932-4']:
+    # if f'{tce["uid"]}' in ['367911750-1-S24']:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
@@ -318,12 +318,12 @@ def _process_tce(tce, table, config, conf_dict):
         # tce['tce_time0bk'] = 1325.726
         # tce['tce_period'] = 0.941451
         # tce['sectors'] = '1'
-        print(tce['uid'])
-    else:
-        return None
+        # print(tce['uid'])
+    # else:
+    #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True  # False
+    plot_preprocessing_tce = False  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
@@ -353,7 +353,7 @@ def _process_tce(tce, table, config, conf_dict):
     data = read_light_curve(tce, config)
 
     if data is None:
-        report_exclusion(config, tce, 'Empty arrays from reading FITS file.')
+        report_exclusion(config, tce, 'Empty arrays when reading FITS file.')
         return None
 
     data['errors'] = check_inputs(data)
@@ -509,7 +509,8 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     # fit a spline to the flux time-series
     spline_flux = kepler_spline.fit_kepler_spline(all_time, all_flux_lininterp, verbose=False)[0]
 
-    res_flux = [all_flux[arr_i] - spline_flux[arr_i] for arr_i in range(len(all_flux))]
+    # compute residual
+    res_flux = [all_flux_lininterp[arr_i] - spline_flux[arr_i] for arr_i in range(len(all_flux))]
 
     if plot_preprocessing_tce:
         utils_visualization.plot_flux_fit_spline(all_time,
@@ -981,6 +982,10 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
         time_wksecondaryflux, wksecondaryflux = None, None
 
     # preprocess centroid time series
+    if np.all(~np.isfinite(np.concatenate(data['all_centroids']['x']))) or \
+            np.all(~np.isfinite(np.concatenate(data['all_centroids']['y']))):
+        # report_exclusion(config, tce, 'No finite data for centroid time series preprocessing.')
+        raise ValueError('No finite data available for centroid time series preprocessing.')
     try:
         time_centroid, centroid_dist = centroid_preprocessing(data['all_time'],
                                                               data['all_centroids'],

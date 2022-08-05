@@ -15,7 +15,7 @@ import pandas as pd
 
 # experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 # data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
-data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_7-22-2022_1028')
+data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/cv_keplerq1q17dr25-dv_all_features_phases_labeledvsunlabled_8-1-2022_1106')
 data_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -67,7 +67,8 @@ logger.info(
 #     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 # tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
 tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(dataset_tbl['uid'])]
-tce_tbl = tce_tbl.loc[tce_tbl['label'] != 'UNK']
+# # removing unlabeled examples
+# tce_tbl = tce_tbl.loc[tce_tbl['label'] != 'UNK']
 logger.info(f'(Total number of examples in dataset after removing examples: {len(tce_tbl)})')
 
 # shuffle per target stars

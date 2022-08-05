@@ -142,7 +142,7 @@ print(f'Number of TCEs correctly matched to TSO EBs : {((tce_tbl["in_jon_spoc_eb
 # set TCEs that are in Jon's SPOC TSO EBs and were not associated with a TOI to EBs from TSO
 tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (~tce_tbl['label_source'].isin(['TFOPWG Disposition'])), ['label', 'label_source']] = 'EB', 'TSO EB'
 # set TCEs that are not in Jon's SPOC TSO EBs to missing label and label source
-tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'no') & (tce_tbl['label_source'] == 'TSO EB'), ['label', 'label_source']] = np.nan, np.nan
+tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'no') & (tce_tbl['label_source'] == 'TSO EB'), ['label', 'label_source']] = 'UNK', np.nan
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_corrtsoebs.csv', index=False)
 

@@ -61,6 +61,7 @@ config:
         - tce_albedo_stat_norm
         - tce_maxmes_norm
     #        - wst_depth_norm
+        - tce_prad_norm
     local_centroid:
       views:
         - local_centr_view_std_noclip
@@ -102,7 +103,7 @@ config:
       - tce_hap_stat_norm
       #          - tce_cap_hap_stat_diff_norm
       #      - tce_rb_tcount0n_norm
-      - tce_prad_norm
+#      - tce_prad_norm
       - tce_period_norm
   transformer_branches: null
     ##      global:
@@ -347,7 +348,7 @@ compute_norm_stats_params:
       log_transform: true  # if true, values are log-transformed
       log_transform_eps: 1.0e-32  # log-transform offset factor to prevent invalid log(0)
       missing_value: -1  # placeholder value for missing values; if missing value is represented by  NaN or there are no missing values, set to null
-      replace_value: null  # value used to replace missing value; if null, missing values are replaced by median of the training set
+      replace_value: null  # 0  # value used to replace missing value; if null, missing values are replaced by median of the training set
       standardize: true
     even_se_oot:
       clip_factor: 20
@@ -355,7 +356,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     even_std_oot_bin:
       clip_factor: 20
@@ -363,7 +364,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     mag:
       clip_factor: 20
@@ -379,7 +380,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # 1
       standardize: false
     odd_se_oot:
       clip_factor: 20
@@ -387,7 +388,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     odd_std_oot_bin:
       clip_factor: 20
@@ -395,7 +396,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_albedo_stat:
       clip_factor: 20
@@ -403,7 +404,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_bin_oedp_stat:
       clip_factor: 400
@@ -411,7 +412,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     #  tce_cap_hap_stat_diff:
     #    clip_factor: 20
@@ -427,7 +428,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_dicco_msky:
       clip_factor: 20
@@ -435,7 +436,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_dicco_msky_err:
       clip_factor: 20
@@ -443,7 +444,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: -1
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_dikco_msky:
       clip_factor: 20
@@ -451,7 +452,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_dikco_msky_err:
       clip_factor: 20
@@ -459,7 +460,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: -1
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_fwm_stat:
       clip_factor: 20
@@ -467,7 +468,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_hap_stat:
       clip_factor: 20
@@ -475,7 +476,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_max_mult_ev:
       clip_factor: 20
@@ -483,7 +484,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
-      replace_value: null
+      replace_value: null  # ?
       standardize: true
     tce_max_sngle_ev:
       clip_factor: 20
@@ -531,7 +532,7 @@ compute_norm_stats_params:
       log_transform: false
       log_transform_eps: .nan
       missing_value: 0
-      replace_value: null
+      replace_value: null  # 0
       standardize: true
     tce_rb_tcount0n:
       clip_factor: .nan

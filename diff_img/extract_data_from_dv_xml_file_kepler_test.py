@@ -5,33 +5,35 @@ import xml.etree.cElementTree as et
 
 #%%
 
-xml_file_fp = '/Users/msaragoc/Downloads/kplr20160128150956_dv.xml'
+xml_file_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/kplr20160128150956_dv.xml'
 
 # Get an iterable.
 context = et.iterparse(xml_file_fp, events=None)
 
 img_size_dim_dict = {}
 tags = []
+cnt_tces = 0
 for index, (event, elem) in enumerate(context):
     if elem.tag == 'planetResults':  # iterate over the TCEs
-        # get TCE ID
-        kic_id, tce_plnt_num = elem.attrib['keplerId'], elem.attrib['planetNumber']
-        img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'] = []
-
-        # get difference image data
-        diff_img_res = [el for el in elem if el.tag == 'differenceImageResults']
-        for quarter_i in range(1, len(diff_img_res)):  # iterating over quarters
-            quarter_img_data = list(diff_img_res[quarter_i])
-            for px_i in range(12, len(quarter_img_data)):
-                # get pixel coordinates
-                px_coord = list(quarter_img_data)[px_i].attrib
-                # get pixel values for the 4 images
-                diff_imgs_px = list(quarter_img_data)
-                # KIC position in pixel domain
-
-            # code to find the size of the bounding box
-            size_row, size_col = ...
-            img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'].append((size_row, size_col))
+        cnt_tces += 1
+        # # get TCE ID
+        # kic_id, tce_plnt_num = elem.attrib['keplerId'], elem.attrib['planetNumber']
+        # img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'] = []
+        #
+        # # get difference image data
+        # diff_img_res = [el for el in elem if el.tag == 'differenceImageResults']
+        # for quarter_i in range(1, len(diff_img_res)):  # iterating over quarters
+        #     quarter_img_data = list(diff_img_res[quarter_i])
+        #     for px_i in range(12, len(quarter_img_data)):
+        #         # get pixel coordinates
+        #         px_coord = list(quarter_img_data)[px_i].attrib
+        #         # get pixel values for the 4 images
+        #         diff_imgs_px = list(quarter_img_data)
+        #         # KIC position in pixel domain
+        #
+        #     # code to find the size of the bounding box
+        #     size_row, size_col = ...
+        #     img_size_dim_dict[f'{kic_id}.{tce_plnt_num}'].append((size_row, size_col))
 
     #     tces.append()
     # if index == 0:
@@ -111,3 +113,5 @@ ax.set_xticks([0, 5, 10])
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(im, cax=cax)
+
+#%%

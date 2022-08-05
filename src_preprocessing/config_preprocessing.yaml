@@ -1,9 +1,9 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_preprocessing_7-12-2022
+output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_preprocessing_7-29-2022_1937
 # TCE table
-input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv
+input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
+lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
 dict_savedir: null
 
 using_mpi: false  # use MPI
@@ -11,7 +11,7 @@ using_mpi: false  # use MPI
 shuffle: false
 shuffle_seed: 24
 
-satellite: kepler  # kepler or tess
+satellite: tess  # kepler or tess
 #tce_identifier: tce_plnt_num
 
 # skips target IDs that are not in the FITS files
@@ -92,7 +92,7 @@ scalar_params: [
   # odd-even
   'tce_bin_oedp_stat',
   # centroid
-    'tce_fwm_stat',
+#    'tce_fwm_stat',
     'tce_dikco_msky',
     'tce_dikco_msky_err',
     'tce_dicco_msky',
@@ -100,7 +100,7 @@ scalar_params: [
   # other diagnostics
     'tce_cap_stat',
     'tce_hap_stat',
-    'tce_rb_tcount0',
+#    'tce_rb_tcount0',
     'boot_fap',
   # stellar parameters
     'tce_smass',
