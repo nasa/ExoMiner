@@ -2288,8 +2288,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             feat = tce[centroid_scalar_feat]
             if centroid_scalar_feat == 'tce_dicco_msky_err':
                 feat -= config['kepler_lower_bound_dicco_msky_err'] - config['tess_lower_bound_dicco_msky_err']
-            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat /
-                                                                            config['tess_to_kepler_px_scale_factor']])
+                feat /= config['tess_to_kepler_px_scale_factor']
+            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat])
 
     # data for preprocessing table
     if config['satellite'] == 'tess':

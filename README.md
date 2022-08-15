@@ -3,7 +3,7 @@
 ## Introduction
 
 This project is intended to provide an automatic method to sift through photometry data from exoplanet detection
-missions such as Kepler and TESS and inform subject matter experts (SMEs) on potential planet candidate transit signals
+missions such as Kepler and TESS and inform subject matter experts (SMEs) on potential transiting planet candidates
 using Deep Learning methods.
 
 ### Current active goals
@@ -81,21 +81,19 @@ For more detailed information check:
   paper ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://arxiv.org/abs/2111.10009)
   , published 2022 February 17 in
   the [Astrophysical Journal, 926:120](https://iopscience.iop/articl/10.3847/1538-4357/ac4399/).
-- Bibliography
-    - **add**
 
 ## Credits
+
+This work was developed by members of the Data Sciences Group, Intelligent Systems Division (Code-TI) at NASA Ames 
+Research Center (NASA ARC).
 
 - Active developers
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-    - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
     - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
-    - Stuti Agrawal <sup>6</sup> (Difference image)
-    - Joshua Belofsky <sup>2,5</sup> (Difference image)
 
 - Past developers 
-    - Andres Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
+    - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
     - Fellipe Marcellino<sup>2</sup> (Transit detection using Kepler data)
     - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
     - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
@@ -107,6 +105,9 @@ For more detailed information check:
     - Patrick Maynard<sup>2,5,7</sup> (Kepler to TESS transfer learning)
     - Sam Donald<sup>4</sup> (Kepler to TESS transfer learning)
     - Theng Yang<sup>2,7</sup> (Label noise detection in Kepler data)
+    - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
+    - Stuti Agarwal <sup>6</sup> (Difference image)
+    - Joshua Belofsky <sup>2,5</sup> (Difference image)
 
 - Collaborators
     - Doug Caldwell<sup>1,3</sup>
@@ -130,3 +131,163 @@ We would like to acknowledge people that in some way supported our efforts:
 - David Armstrong for insightful discussion that helped improving our work.
 - Megan Ansdell for providing information on their code and work.
  
+## Contacts
+- Hamed Valizadegan (PI, USRA contractor),  hamed.valizadegan@nasa.gov
+- Miguel Martinho (Sub-I, USRA contractor), miguel.martinho@nasa.gov
+- Nikunj Oza (Group Lead, NASA ARC civil servant), nikunj.c.oza@nasa.gov
+
+## Release Notes
+
+First release of ExoMiner (v1.0). Expected features to be added in subsequent releases:
+- Catalog of potential planet candidates from TESS Cycles 1-4.
+- Potentially add difference image feature to ExoMiner.
+- Potentially add phase flux feature to ExoMiner.
+- New explainability framework.
+
+## Open-source Software Licenses
+- absl-py 0.13.0: Apache 2.0 
+- appnope 0.1.2: BSD
+- argon2-cffi 20.1.0: MIT
+- astropy 5.0: BSD 3-Clause License
+- astroquery 0.4.4: BSD
+- astunparse 1.6.3: BSD
+- async-generator 1.10: MIT -or- Apache License 2.0
+- attrs 21.2.0: MIT
+- backcall 0.2.0: UNKNOWN
+- beautifulsoup4 4.10.0: MIT
+- bleach 4.0.0: Apache Software License
+- Bottleneck 1.3.2: Simplified BSD
+- brotlipy 0.7.0: MIT
+- cachetools 4.2.2: MIT
+- certifi 2022.6.15: MPL-2.0
+- cffi 1.14.6: MIT
+- charset-normalizer 2.0.4: MIT
+- cloudpickle 1.3.0: BSD 3-Clause License
+- ConfigSpace 0.4.19: BSD 3-clause
+- cryptography 36.0.0: BSD or Apache License, Version 2.0
+- cycler 0.10.0: BSD
+- Cython 0.29.24: Apache
+- debugpy 1.4.1: MIT
+- decorator 5.1.0: new BSD License
+- defusedxml 0.7.1: PSFL
+- dm-tree 0.1.6: Apache 2.0
+- entrypoints 0.3: UNKNOWN
+- flatbuffers 1.12: Apache 2.0
+- fonttools 4.25.0: MIT
+- gast 0.4.0: BSD 3-Clause
+- google-auth 1.34.0: Apache 2.0
+- google-auth-oauthlib 0.4.5: Apache 2.0
+- google-pasta 0.2.0: Apache 2.0
+- graphviz 0.19.1: MIT
+- grpcio 1.34.1: Apache License 2.0
+- h5py 3.1.0: BSD
+- hpbandster 0.7.4: BSD 3-Clause License
+- html5lib 1.1: MIT License
+- idna 3.3: BSD-3-Clause
+- importlib-metadata 4.8.2: UNKNOWN
+- ipykernel 6.4.1: BSD
+- ipython 7.29.0: BSD
+- ipython-genutils 0.2.0: BSD
+- ipywidgets 7.6.5: BSD
+- jedi 0.18.0: MIT
+- Jinja2 3.0.2: BSD-3-Clause
+- joblib 1.0.1: BSD
+- jsonschema 3.2.0: UNKNOWN
+- jupyter 1.0.0: BSD
+- jupyter-client 7.0.6: BSD
+- jupyter-console 6.4.0: BSD
+- jupyter-core 4.9.1: BSD-3-Clause
+- jupyterlab-pygments 0.1.2: BSD
+- jupyterlab-widgets 1.0.0: BSD-3-Clause
+- keras-nightly 2.5.0.dev2021032900: Apache 2.0
+- Keras-Preprocessing 1.1.2: MIT
+- keyring 23.4.0: UNKNOWN
+- kiwisolver 1.3.1: BSD
+- Markdown 3.3.4: BSD License
+- MarkupSafe 2.0.1: BSD-3-Clause
+- matplotlib 3.4.2: PSF
+- matplotlib-inline 0.1.2: BSD 3-Clause
+- mistune 0.8.4: BSD
+- mkl-fft 1.3.0: BSD
+- mkl-random 1.2.2: BSD
+- mkl-service 2.4.0: BSD
+- mpi4py 3.0.3: BSD
+- munkres 1.1.4: Apache Software License
+- nbclient 0.5.3: BSD
+- nbconvert 6.1.0: BSD
+- nbformat 5.1.3: BSD
+- nest-asyncio 1.5.1: BSD
+- netifaces 0.11.0: MIT License
+- notebook 6.4.6: BSD
+- numexpr 2.7.3: MIT
+- numpy 1.20.3: BSD
+- oauthlib 3.1.1: BSD
+- olefile 0.46: BSD
+- opt-einsum 3.3.0: MIT
+- packaging 21.3: BSD-2-Clause or Apache-2.0
+- pandas 1.3.3: BSD-3-Clause
+- pandocfilters 1.4.3: BSD-3-Clause
+- parso 0.8.2: MIT
+- patsy 0.5.1: 2-clause BSD
+- pexpect 4.8.0: ISC license
+- pickleshare 0.7.5: MIT
+- Pillow 8.3.1: HPND
+- pip 21.2.2: MIT
+- prettytable 2.5.0: BSD (3 clause)
+- prometheus-client 0.12.0: Apache Software License 2.0
+- prompt-toolkit 3.0.20: UNKNOWN
+- protobuf 3.17.3: 3-Clause BSD License
+- ptyprocess 0.7.0: UNKNOWN
+- pyasn1 0.4.8: BSD
+- pyasn1-modules 0.2.8: BSD-2-Clause
+- pycparser 2.21: BSD
+- pydl 0.7.0: BSD
+- pydot 1.4.2: MIT
+- pyerfa 2.0.0.1: BSD 3-Clause License
+- Pygments 2.10.0: BSD License
+- pyOpenSSL 21.0.0: Apache License, Version 2.0
+- pyparsing 2.4.7: MIT License
+- Pyro4 4.80: MIT
+- pyrsistent 0.18.0: MIT
+- PySocks 1.7.1: BSD
+- python-dateutil 2.8.2: Dual License
+- python-mimeparse 1.6.0: UNKNOWN
+- pytz 2021.1: MIT
+- pyvo 1.1: BSD
+- PyYAML 6.0: MIT
+- pyzmq 22.3.0: LGPL+BSD
+- qtconsole 5.1.1: BSD
+- QtPy 1.10.0: MIT
+- rbo 0.1.2: MIT
+- requests 2.26.0: Apache 2.0
+- requests-oauthlib 1.3.0: ISC
+- rsa 4.7.2: ASL 2
+- scikit-learn 1.1.1: new BSD
+- scipy 1.7.1: BSD
+- Send2Trash 1.8.0: BSD License
+- serpent 1.40: MIT
+- setuptools 52.0.0.post20210125: UNKNOWN
+- six 1.16.0: MIT
+- soupsieve 2.3.1: MIT License
+- statsmodels 0.12.2: BSD License
+- tensorboard 2.5.0: Apache 2.0
+- tensorboard-data-server 0.6.1: Apache 2.0
+- tensorboard-plugin-wit 1.8.0: Apache 2.0
+- tensorflow 2.5.0: Apache 2.0
+- tensorflow-estimator 2.5.0: Apache 2.0
+- tensorflow-probability 0.11.0: Apache 2.0
+- termcolor 1.1.0: MIT
+- terminado 0.9.4: UNKNOWN
+- testpath 0.5.0: (Licence not found)
+- threadpoolctl 2.2.0: BSD-3-Clause
+- tornado 6.1: http://www.apache.org/licenses/LICENSE-2.0
+- traitlets 5.1.1: BSD
+- typing-extensions 3.7.4.3: PSF
+- urllib3 1.26.7: MIT
+- wcwidth 0.2.5: MIT
+- webencodings 0.5.1: BSD
+- Werkzeug 2.0.1: BSD-3-Clause
+- wheel 0.37.0: MIT
+- widgetsnbextension 3.5.1: BSD
+- wrapt 1.12.1: BSD
+- zipp 3.6.0: UNKNOWN

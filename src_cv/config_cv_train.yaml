@@ -18,6 +18,7 @@ paths:
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
 data_fields: # scalar data from TFRecords to add to ranking table
+  uid: 'string'
   'target_id': 'int_scalar'
   'tce_plnt_num': 'int_scalar'
   #  'oi': 'float_scalar'
