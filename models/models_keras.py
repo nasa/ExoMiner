@@ -2495,14 +2495,14 @@ class TransformerExoMiner(object):
                 net = tf.reshape(net, (-1, net.shape[1] * net.shape[2]))
 
             if 'global' in branch:
-                self.config['num_units_transformer_fc_layers'] = self.config['global-num_units_transformer_fc_layers']
+                self.config['transformer_num_fc_layers'] = self.config['global-num_units_transformer_fc_layers']
             elif 'local' in branch:
-                self.config['num_units_transformer_fc_layers'] = self.config['local-num_units_transformer_fc_layers']
+                self.config['transformer_num_fc_layers'] = self.config['local-num_units_transformer_fc_layers']
 
-            for fc_layer_i, num_units in enumerate(self.config['num_units_transformer_fc_layers']):
+            for fc_layer_i, num_units in enumerate(self.config[f'transformer_num_fc_layers']):
                 # add FC layer that extracts features from the combined feature vector of features from the lstm
                 # branch (flattened) and corresponding scalar features
-                net = tf.keras.layers.Dense(units=num_units,
+                net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
                                             kernel_regularizer=None,
                                             activation=None,
                                             use_bias=True,
@@ -2827,7 +2827,7 @@ class TransformerExoMiner(object):
             else:
                 scalar_input = scalar_inputs[0]
 
-            scalar_fc_output = tf.keras.layers.Dense(units=4,
+            scalar_fc_output = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
                                                      kernel_regularizer=regularizers.l2(self.config['decay_rate']) if
                                                      self.config['decay_rate'] is not None else None,
                                                      activation=None,

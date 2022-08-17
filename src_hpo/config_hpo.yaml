@@ -2,7 +2,7 @@ ngpus_per_node: 1  # number of GPUs per node
 rank: null
 
 paths:
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_config_7-12-2022_1730
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_config_7-18-2022_1616
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_unfolded_cap20_copied/experiment-normalized_EB_RELABELED-renamed_features
   prev_run_dir: null  # warm-up from previous HPO run
 
@@ -141,14 +141,13 @@ config: # fixed parameters
   #  'batch_size': 64
   #  'dropout_rate': 0.0
   #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
+  # num_fc_conv_units: 4  # number of neurons in FC layer at the end of the convolutional branch
   weight_initializer: null
   force_softmax: false
   #  use_kepler_ce: false
   decay_rate: null
   batch_norm: false
   multi_class: false  # switch to multiclass classification
-  num_fc_conv_units: 4  # number of neurons in FC layer at the end of the convolutional branch
 
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
@@ -406,7 +405,12 @@ configuration_space:
         upper: 2.0e-1
         default_value: 0.2
         log: true
-
+    num_fc_conv_units:
+      type: uniform_integer
+      parameters:
+        lower: 4
+        upper: 8
+        default_value: 4
     num_fc_layers:
       type: uniform_integer
       parameters:

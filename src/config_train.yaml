@@ -102,15 +102,16 @@ config:
   #  trans_pool_size: 8
   #  trans_stride_size: 1
   #transformer head
-  #num_units_fc_layers: [16, 8]
-  global-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 256, 64, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8] #[128, 32, 8]
-  local-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 64, 32, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8]
+  global-num_units_transformer_fc_layers: 1
+  local-num_units_transformer_fc_layers: 1
+#  global-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 256, 64, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8] #[128, 32, 8]
+#  local-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 64, 32, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8]
   dropout_rate_trans_fc: 0.03
   non_lin_fn: prelu
 #  num_loc_conv_blocks: 2
   #  'num_glob_conv_blocks': 5
   #  'init_fc_neurons': 512
-  #  'num_fc_layers': 4
+#  'num_fc_layers': 1
   #  'pool_size_loc': 7
   #  'pool_size_glob': 5
   #  'pool_stride': 2
@@ -123,7 +124,7 @@ config:
   #  'batch_size': 64
   #  'dropout_rate': 0.0
   #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
+#  'num_fc_conv_units': 1
   weight_initializer: null
   force_softmax: false
   #  use_kepler_ce: false
