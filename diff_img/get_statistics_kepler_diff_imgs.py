@@ -111,29 +111,29 @@ img_size_df_stats = img_size_df[
 
 f, ax = plt.subplots()
 ax.hist(img_size_df['mean_n_rows'], np.arange(2, 20), edgecolor='k', align='mid')
-ax.set_xlabel('Average Row Size (px)')
+ax.set_xlabel('Mean Row Size (px)')
 ax.set_ylabel('TCE Count')
 # ax.set_xticks(quarter_bins[:-1])
 ax.set_yscale('log')
-f.savefig(run_dir / 'hist_avg_row_size_tces.png')
+f.savefig(run_dir / 'hist_mean_row_size_tces.png')
 plt.close()
 
 f, ax = plt.subplots()
 ax.hist(img_size_df['mean_n_cols'], np.arange(2, 20), edgecolor='k', align='mid')
-ax.set_xlabel('Average Col Size (px)')
+ax.set_xlabel('Mean Col Size (px)')
 ax.set_ylabel('TCE Count')
 # ax.set_xticks(quarter_bins[:-1])
 ax.set_yscale('log')
-f.savefig(run_dir / 'hist_avg_col_size_tces.png')
+f.savefig(run_dir / 'hist_mean_col_size_tces.png')
 plt.close()
 
 f, ax = plt.subplots()
 ax.hist(img_size_df['mean_n_pxs'], np.arange(4, 400, 4), edgecolor='k', align='mid')
-ax.set_xlabel('Average Image Size (px^2)')
+ax.set_xlabel('Mean Image Size (px^2)')
 ax.set_ylabel('TCE Count')
 ax.set_yscale('log')
 # ax.set_xticks(quarter_bins[:-1])
-f.savefig(run_dir / 'hist_avg_img_size_tces.png')
+f.savefig(run_dir / 'hist_mean_img_size_tces.png')
 plt.close()
 
 # %% Plot image size as function of Kepler magnitude
@@ -146,21 +146,23 @@ img_size_df = pd.read_csv(run_dir / 'tces_img_size.csv').rename(columns={'tce_ui
 img_size_df = img_size_df.merge(tce_tbl, on=['uid'], how='left', validate='one_to_one')
 
 f, ax = plt.subplots()
-ax.scatter(img_size_df['mean_n_pxs'], img_size_df['mag'], s=8)
-ax.set_xlabel('Average Image Size (px^2)')
-ax.set_ylabel('Kepler Magnitude')
-ax.set_xscale('log')
-f.savefig(run_dir / 'scatter_avg_img_size-kep_mag.png')
+ax.scatter(img_size_df['mag'], img_size_df['mean_n_pxs'], s=8)
+ax.set_ylabel('Mean Image Size (px^2)')
+ax.set_xlabel('Kepler Magnitude')
+ax.set_yscale('log')
+f.savefig(run_dir / 'scatter_kep_mag-mean_img_size.png')
 
-f, ax = plt.subplots(1, 2)
-ax[0].scatter(img_size_df['mean_n_cols'], img_size_df['mag'], s=8)
-ax[0].set_xlabel('Average Col Size (px)')
+f, ax = plt.subplots(1, 2, figsize=(12, 6))
+ax[0].scatter(img_size_df['mag'], img_size_df['mean_n_cols'], s=8)
+ax[0].set_ylabel('Mean Col Size (px)')
 # ax[0].set_xscale('log')
-ax[0].set_ylabel('Kepler Magnitude')
-ax[1].scatter(img_size_df['mean_n_rows'], img_size_df['mag'], s=8)
-ax[1].set_xlabel('Average Row Size (px)')
-ax[1].set_xscale('log')
-f.savefig(run_dir / 'scatter_avg_col_row_size-kep_mag.png')
+ax[0].set_yscale('log')
+ax[0].set_xlabel('Kepler Magnitude')
+ax[1].scatter(img_size_df['mag'], img_size_df['mean_n_rows'], s=8)
+ax[1].set_ylabel('Mean Row Size (px)')
+ax[1].set_xlabel('Kepler Magnitude')
+ax[1].set_yscale('log')
+f.savefig(run_dir / 'scatter_kep_mag-mean_col_row_sizes.png')
 
 # %% Compute average offset from KIC pixel to pixel with maximum value in difference image (transit source location)
 
@@ -201,9 +203,9 @@ for tce_uid, tce_data in data.items():
 # %%
 
 diff_src_dist_dict = {'tce_uid': [], 'mean_dist_diff': [], 'std_dist_diff': []}
-diff_src_dist_dict.update({'dist_q_{q_i}': [] for q_i in range(N_QUARTERS)})
+diff_src_dist_dict.update({f'dist_q_{q_i}': [] for q_i in range(N_QUARTERS)})
 
-for tce_uid, src_dist in diff_src_dist_dict.items():
+for tce_uid, src_dist in diff_src_dist.items():
     diff_src_dist_dict['tce_uid'].append(tce_uid)
     diff_src_dist_dict['mean_dist_diff'].append(np.nanmean(src_dist))
     diff_src_dist_dict['std_dist_diff'].append(np.nanstd(src_dist))
@@ -212,9 +214,10 @@ for tce_uid, src_dist in diff_src_dist_dict.items():
 
 diff_src_dist_df = pd.DataFrame(diff_src_dist_dict)
 diff_src_dist_df.to_csv(run_dir / f'diff_src_mean_dist.csv', index=False)
-# diff_src_dist_df = pd.read_csv(run_dir / 'diff_src_mean_dist.csv')
 
 # %% Plot histogram of average offset from KIC pixel to pixel with maximum value in difference image (transit source location)
+
+diff_src_dist_df = pd.read_csv(run_dir / 'diff_src_mean_dist.csv')
 
 bins = np.linspace(0, 10, 100)
 f, ax = plt.subplots(1, 2, figsize=(12, 6))

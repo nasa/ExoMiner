@@ -372,8 +372,8 @@ if __name__ == '__main__':
 
     # save the YAML file with training-evaluation parameters that are YAML serializable
     json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-    with open(config['paths']['experiment_dir'] / 'predict_params.yaml', 'w') as cv_run_file:
-        yaml.dump(json_dict, cv_run_file)
+    with open(config['paths']['experiment_dir'] / 'predict_params.yaml', 'w') as predict_param_file:
+        yaml.dump(json_dict, predict_param_file, sort_keys=False)
 
     run_main(config=config)
 
