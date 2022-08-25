@@ -62,7 +62,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['config'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
-    run_params['datasets_fps'] = processing_data_run(data_shards_fps_eval, run_params, run_params['paths']['experiment_dir'])
+    run_params['datasets_fps'] = processing_data_run(data_shards_fps_eval, run_params,
+                                                     run_params['paths']['experiment_dir'])
     # run_params['paths']['tfrec_dir'] = run_params['paths']['experiment_dir'] / 'norm_data'
 
     # sequential training
@@ -194,8 +195,10 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
 
 def cv():
+    """ Run CV experiment. """
 
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
+    path_to_yaml = Path(
+        '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -248,8 +251,8 @@ def cv():
 
     # set up logger
     config['logger'] = logging.getLogger(name=f'cv_run_rank_{config["rank"]}')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_root_dir'] / f'cv_run_{config["rank"]}.log',
-                                         mode='w')
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_root_dir'] /
+                                                  f'cv_run_{config["rank"]}.log', mode='w')
     # logger_handler_stream = logging.StreamHandler(sys.stdout)
     # logger_handler_stream.setLevel(logging.INFO)
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -283,7 +286,7 @@ def cv():
         config['logger'].info(f'Using configuration from HPO study {hpo_path.name}')
         config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
-    # base model used - check estimator_util.py to see which models are implemented
+    # base model used - check models/models_keras.py to see which models are implemented
     config['base_model'] = TransformerExoMiner  # ExoMiner
 
     # choose features set
@@ -339,5 +342,4 @@ def cv():
 
 
 if __name__ == '__main__':
-
     cv()
