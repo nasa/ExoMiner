@@ -28,6 +28,10 @@ trained_models_dir.mkdir(exist_ok=True)
 results_ensemble_dir = config_dir / 'results_ensemble'
 results_ensemble_dir.mkdir(exist_ok=True)
 
+# create log directory
+log_dir = config_dir / 'log_py'
+log_dir.mkdir(exist_ok=True)
+
 # create combinations of branches
 n_branches = len(run_config['branches'])
 branches_names = list(run_config['branches'].keys())

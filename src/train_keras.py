@@ -36,6 +36,7 @@ def run_main(config, base_model, model_id, logger=None):
     :param config: dict, configuration parameters for the run
     :param base_model: model
     :param model_id: int, model id
+    :param logger: logger
     :return:
     """
 
