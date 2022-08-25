@@ -43,3 +43,17 @@ done
 #    sleep 10s
 #done
 
+cat "$CONFIGS_FILE" | while read line
+do
+    N_JOBS_IN_Q=$(($(qstat @pbspl4 -u msaragoc | wc -l)-3))  # check number of jobs running/in queue
+    # wait if number of jobs running/in queue is equal to number of jobs allowed
+    while [ $N_JOBS_IN_Q -eq $N_JOBS_ALLOWED_SIMULT ]
+    do
+        sleep 8m
+        N_JOBS_IN_Q=$(($(qstat @pbspl4 -u msaragoc | wc -l)-3))
+    done
+
+    echo Running config "$line"
+    qsub -v SHAP_CONFIG_RUN="$line" "$SUBMIT_SCRIPT"
+    sleep 10s
+done

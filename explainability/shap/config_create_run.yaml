@@ -1,7 +1,7 @@
-exp_dir: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/
+exp_dir: /data5/tess_project/experiments/shap_tessvkepler/
 # default configuration files; parameters shared by all configurations are already filled
-default_train_config_fp: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/default_config_train.yaml
-default_pred_config_fp: /home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/default_config_predict.yaml
+default_train_config_fp: /data5/tess_project/experiments/shap_tessvkepler/default_config_train.yaml
+default_pred_config_fp: /data5/tess_project/experiments/shap_tessvkepler/default_config_predict.yaml
 
 # branches' names (for model) to nicknames (for person)
 branches:
