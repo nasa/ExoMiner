@@ -331,16 +331,16 @@ if __name__ == '__main__':
         with open(config['paths']['experiment_dir'] / 'train_params_init.yaml', 'w') as config_file:
             yaml.dump(config, config_file)
 
-    if config['train_parallel']:  # train models in parallel
-        rank = MPI.COMM_WORLD.rank
-        config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
-        config['size'] = MPI.COMM_WORLD.size
-        print(f'Rank = {config["rank"]}/{config["size"] - 1}')
-        sys.stdout.flush()
-        if rank != 0:
-            time.sleep(2)
-    else:
-        config['rank'] = 0
+    # if config['train_parallel']:  # train models in parallel
+    rank = MPI.COMM_WORLD.rank
+    config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
+    config['size'] = MPI.COMM_WORLD.size
+    print(f'Rank = {config["rank"]}/{config["size"] - 1}')
+    sys.stdout.flush()
+    if rank != 0:
+        time.sleep(2)
+    # else:
+    #     config['rank'] = 0
 
     # # get list of physical GPU devices available to TF in this process
     # physical_devices = tf.config.list_physical_devices('GPU')

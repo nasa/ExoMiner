@@ -17,6 +17,8 @@ from pathlib import Path
 from tensorflow.keras import callbacks
 import yaml
 import argparse
+from mpi4py import MPI
+import time
 
 # local
 from src.utils_dataio import get_data_from_tfrecord
@@ -270,6 +272,7 @@ def run_main(config):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
     parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
     args = parser.parse_args()
 
@@ -280,6 +283,49 @@ if __name__ == '__main__':
 
     with(open(path_to_yaml, 'r')) as file:  # read YAML configuration file
         config = yaml.safe_load(file)
+
+    # if config['train_parallel']:  # train models in parallel
+    rank = MPI.COMM_WORLD.rank
+    config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
+    config['size'] = MPI.COMM_WORLD.size
+    print(f'Rank = {config["rank"]}/{config["size"] - 1}')
+    sys.stdout.flush()
+    if rank != 0:
+        time.sleep(2)
+    # else:
+    #     config['rank'] = 0
+
+    # # get list of physical GPU devices available to TF in this process
+    # physical_devices = tf.config.list_physical_devices('GPU')
+    # print(f'List of physical GPU devices available: {physical_devices}')
+    #
+    # # select GPU to be used
+    # gpu_id = rank % ngpus_per_node
+    # tf.config.set_visible_devices(physical_devices[gpu_id], 'GPU')
+    # # tf.config.set_visible_devices(physical_devices[0], 'GPU')
+    #
+    # # get list of logical GPU devices available to TF in this process
+    # logical_devices = tf.config.list_logical_devices('GPU')
+    # print(f'List of logical GPU devices available: {logical_devices}')
+
+    # select GPU to run the training on
+    try:
+        print(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+        print(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
+    except:
+        print(f'[rank_{config["rank"]}] No CUDA environment variables exist.')
+
+    # n_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(','))  # number of GPUs visible to the process
+    if config["rank"] == 0:
+        print(f'Number of GPUs selected per node = {config["ngpus_per_node"]}')
+    config['gpu_id'] = config["rank"] % config['ngpus_per_node']
+
+    # setting GPU
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(config['gpu_id'])  # "0, 1"
+
+    print(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+    print(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
     # experiment directory
     for path_name, path_str in config['paths'].items():
