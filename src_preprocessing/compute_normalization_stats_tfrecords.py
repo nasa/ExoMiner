@@ -306,13 +306,17 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
+    path_to_yaml = Path(
+        '/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
     # get only training set TFRecords
     tfrecTrainFiles = [file for file in Path(config['tfrecDir']).iterdir() if 'train-shard' in file.stem]
+
+    config['norm_dir'] = Path(config['norm_dir'])
+    config['norm_dir'].mkdir(exist_ok=True)
 
     compute_normalization_stats(tfrecTrainFiles, config)
 

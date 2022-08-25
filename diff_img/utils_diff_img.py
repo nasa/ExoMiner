@@ -10,13 +10,13 @@ import logging
 plt.switch_backend('agg')
 
 
-def get_data_from_kepler_dv_xml(dv_xml_fp, tces, save_dir, plot_prob, logger):
+def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
     """ Extract difference image data from the DV XML file for a set of Kepler Q1-Q17 DR25 TCEs.
 
     :param dv_xml_fp: Path, file path to DV XML file
     :param tces: pandas DataFrame, TCEs for which to extract difference image data. Must contain two columns: 'uid' and
     'label'. 'uid' must be of the pattern '{tic_id}-{tce_plnt_num}'
-    :param save_dir: Path, save directory
+    :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param logger: logger
     :return: dict, each item is the difference image data for a given TCE. The TCE is identified by the string key
@@ -140,7 +140,7 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, save_dir, plot_prob, logger):
                         ax.set_xlabel('Col')
                         ax.set_title(f'KIC {uid} {tces.loc[uid]["label"]}')
                         ax.legend()
-                        f.savefig(save_dir / 'plots' / f'{uid}_diff_img.png')
+                        f.savefig(plot_dir / f'{uid}_diff_img.png')
                         plt.close()
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
@@ -153,7 +153,7 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, save_dir, plot_prob, logger):
     return data
 
 
-def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_prob, job_i):
+def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_dir, plot_prob, log_dir, job_i):
     """ Wrapper for `get_data_from_kepler_dv_xml()`. Extract difference image data from the DV XML file for a set of
     Kepler Q1-Q17 DR25 TCEs.
 
@@ -161,14 +161,14 @@ def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_prob, 
     :param tces: pandas DataFrame, TCEs for which to extract difference image data. Must contain two columns: 'uid' and
     'label'. 'uid' must be of the pattern '{tic_id}-{tce_plnt_num}'
     :param save_dir: Path, save directory
-    :param plot_prob: float, probability to plot difference image for a given example ([0, 1])\
+    :param plot_dir: Path, plot directory
+    :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
+    :param log_dir: Path, log directory
     :param job_i: int, job id
     :return:
     """
 
     # set up logger
-    log_dir = save_dir / 'logs'
-    log_dir.mkdir(exist_ok=True)
     logger = logging.getLogger(name=f'extract_img_data_kepler_dv_xml-{job_i}')
     logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_kepler_dv_xml-{job_i}.log',
                                          mode='w')
@@ -176,18 +176,18 @@ def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_prob, 
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
-    logger.info(f'[{job_i}] Starting run...')
+    logger.info(f'[{job_i}] Starting run {dv_xml_fp.name} ({len(tces)} TCEs)...')
 
-    data = get_data_from_kepler_dv_xml(dv_xml_fp, tces, save_dir, plot_prob, logger)
+    data = get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger)
 
     np.save(save_dir / f'keplerq1q17_dr25_diffimg_{job_i}.npy', data)
 
 
-def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
+def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, tce_tbl, logger):
     """ Extract difference image data from the DV XML files for a TESS sector run.
 
     :param dv_xml_run: Path, path to sector run with DV XML files.
-    :param save_dir: Path, save directory
+    :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param tce_tbl: pandas DataFrame, TCE table
     :param logger: logger
@@ -207,6 +207,13 @@ def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
     target_i = 0
     dv_xml_run_fps = list(dv_xml_run.iterdir())
     n_targets = len(dv_xml_run_fps)
+    if 'multisector' in dv_xml_run.name:
+        first_sector, last_sector = dv_xml_run.name.split('_')[1].split('-')
+        first_sector, last_sector = int(first_sector[1:]), int(last_sector[1:])
+        sector_run_id = f'{first_sector}-{last_sector}'
+    else:
+        sector_run_id = f'{dv_xml_run.name.split("_")[1]}'
+
     for dv_xml_fp in dv_xml_run_fps:
 
         target_i += 1
@@ -218,13 +225,9 @@ def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
         root = tree.getroot()
         planet_res_lst = [el for el in root if 'planetResults' in el.tag]
 
-        sector_run = root.attrib['sectorsObserved']
-        first_sector, last_sector = sector_run.find('1'), sector_run.rfind('1')
-        n_sectors_expected = int(last_sector) - int(first_sector) + 1
-        if first_sector == last_sector:  # single-sector run
-            sector_run_id = first_sector
-        else:  # multi-sector run
-            sector_run_id = f'{first_sector}-{last_sector}'
+        # sectors_obs = root.attrib['sectorsObserved']
+        # first_sector_obs, last_sector_obs = sectors_obs.find('1'), sectors_obs.rfind('1')
+        n_sectors_expected = root.attrib['sectorsObserved'].count('1')
 
         n_tces = len(planet_res_lst)
         tce_i = 0
@@ -293,8 +296,10 @@ def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
                 if float(tic_centroid_ref_col['uncertainty']) == -1 or \
                         float(tic_centroid_ref_row['uncertainty']) == -1:
                     tic_centroid_ref_dict = {
-                        'col': tic_centroid_ref_col,
-                        'row': tic_centroid_ref_row
+                        'col': {k: float(v) if k == 'value' else float(v)
+                                for k, v in tic_centroid_ref_col.items()},
+                        'row': {k: float(v) if k == 'value' else float(v)
+                                for k, v in tic_centroid_ref_row.items()}
                     }
                     logger.info(f'[{proc_id}] [{sector_run_id}] TCE TIC {uid} has missing reference centroid for '
                                 f'target in sector {img_res_s.attrib["sector"]}.')
@@ -318,7 +323,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
                         ax.set_xlabel('Col')
                         ax.set_title(f'TIC {uid} {tce_tbl.loc[uid]["label"]}')
                         ax.legend()
-                        f.savefig(save_dir / 'plots' / f'{uid}_diff_img.png')
+                        f.savefig(plot_dir / f'{uid}_diff_img.png')
                         plt.close()
 
                 data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
@@ -329,21 +334,21 @@ def get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger):
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_prob, tce_tbl, job_i):
+def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_prob, log_dir, tce_tbl, job_i):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
      :param dv_xml_run: Path, path to sector run with DV XML files.
     :param save_dir: Path, save directory
+    :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
+    :param log_dir: Path, log directory
     :param tce_tbl: pandas DataFrame, TCE table
     :param job_i: int, job id
     :return:
     """
 
     # set up logger
-    log_dir = save_dir / 'logs'
-    log_dir.mkdir(exist_ok=True)
     logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml_{job_i}')
     logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml-{job_i}.log',
                                          mode='w')
@@ -351,8 +356,8 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_prob, tce_tbl
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
-    logger.info(f'[{job_i}] Starting run...')
+    logger.info(f'[{job_i}] Starting run {dv_xml_run.name}...')
 
-    data = get_data_from_tess_dv_xml(dv_xml_run, save_dir, plot_prob, tce_tbl, logger)
+    data = get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, tce_tbl, logger)
 
     np.save(save_dir / f'tess_diffimg_{dv_xml_run.name}.npy', data)

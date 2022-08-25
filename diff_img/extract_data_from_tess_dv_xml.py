@@ -26,20 +26,27 @@ if __name__ == '__main__':
 
     # run directory
     run_dir = Path('/data5/tess_project/Data/TESS_dv_fits/dv_xml/preprocessing/8-17-2022_1611')
-
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)
 
-    # creating plotting directory
+    data_dir = run_dir / 'data'
+    data_dir.mkdir(exist_ok=True)
+
+    # create plotting directory
     plot_dir = run_dir / 'plots'
     plot_dir.mkdir(exist_ok=True)
     plot_prob = 0.01
 
-    n_processes = 10
+    # create log directory
+    log_dir = run_dir / 'logs'
+    log_dir.mkdir(exist_ok=True)
+
+    n_processes = 14
     pool = multiprocessing.Pool(processes=n_processes)
     # n_jobs = len(dv_xml_runs)
     # dv_xml_runs_jobs = np.array_split(dv_xml_runs, n_jobs)
-    jobs = [(dv_xml_run, run_dir, plot_prob, tce_tbl, job_i) for job_i, dv_xml_run in enumerate(dv_xml_runs)]
+    jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, tce_tbl, job_i)
+            for job_i, dv_xml_run in enumerate(dv_xml_runs)]
     async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
     pool.close()
 

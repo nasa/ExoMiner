@@ -329,7 +329,7 @@ if __name__ == '__main__':
 
     if config['rank'] in [0, None]:  # save initial configuration
         with open(config['paths']['experiment_dir'] / 'train_params_init.yaml', 'w') as config_file:
-            yaml.dump(config, config_file)
+            yaml.dump(config, config_file, sort_keys=False)
 
     # if config['train_parallel']:  # train models in parallel
     rank = MPI.COMM_WORLD.rank

@@ -1,5 +1,7 @@
 # source TFRecord directory
-tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split
+tfrecDir: /data5/tess_project/Data/tfrecords/Combined/all_kepler_tess_tces_08-23-2022_1355_relabeled
+# destination directory for computed statistics
+norm_dir: /data5/tess_project/Data/tfrecords/Combined/all_kepler_tess_tces_08-23-2022_1355_relabeled
 
 n_processes_compute_norm_stats: 15  # number of processes used to parallelize reading the values for the dataset
 
@@ -100,8 +102,8 @@ scalarParams:
 #    log_transform: false
 #    log_transform_eps: .nan
 #    missing_value: null
-#    replace_value: null
-#    standardize: true
+  #    replace_value: null
+  #    standardize: true
   tce_cap_stat:
     clip_factor: 20
     dtype: float
@@ -110,22 +112,22 @@ scalarParams:
     missing_value: 0
     replace_value: null
     standardize: true
-  tce_dicco_msky:
-    clip_factor: 20
-    dtype: float
-    log_transform: false
-    log_transform_eps: .nan
-    missing_value: 0
-    replace_value: null
-    standardize: true
-  tce_dicco_msky_err:
-    clip_factor: 20
-    dtype: float
-    log_transform: false
-    log_transform_eps: .nan
-    missing_value: -1
-    replace_value: null
-    standardize: true
+  #  tce_dicco_msky:
+  #    clip_factor: 20
+  #    dtype: float
+  #    log_transform: false
+  #    log_transform_eps: .nan
+  #    missing_value: 0
+  #    replace_value: null
+  #    standardize: true
+  #  tce_dicco_msky_err:
+  #    clip_factor: 20
+  #    dtype: float
+  #    log_transform: false
+  #    log_transform_eps: .nan
+  #    missing_value: -1
+  #    replace_value: null
+  #    standardize: true
   tce_dikco_msky:
     clip_factor: 20
     dtype: float
@@ -142,14 +144,14 @@ scalarParams:
     missing_value: -1
     replace_value: null
     standardize: true
-  tce_fwm_stat:
-    clip_factor: 20
-    dtype: float
-    log_transform: false
-    log_transform_eps: .nan
-    missing_value: 0
-    replace_value: null
-    standardize: true
+  #  tce_fwm_stat:
+  #    clip_factor: 20
+  #    dtype: float
+  #    log_transform: false
+  #    log_transform_eps: .nan
+  #    missing_value: 0
+  #    replace_value: null
+  #    standardize: true
   tce_hap_stat:
     clip_factor: 20
     dtype: float
@@ -214,14 +216,14 @@ scalarParams:
     missing_value: 0
     replace_value: null
     standardize: true
-  tce_rb_tcount0n:
-    clip_factor: .nan
-    dtype: float
-    log_transform: false
-    log_transform_eps: .nan
-    missing_value: null
-    replace_value: null
-    standardize: true
+  #  tce_rb_tcount0n:
+  #    clip_factor: .nan
+  #    dtype: float
+  #    log_transform: false
+  #    log_transform_eps: .nan
+  #    missing_value: null
+  #    replace_value: null
+  #    standardize: true
   tce_robstat:
     clip_factor: 20
     dtype: float

@@ -292,7 +292,8 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_normalize_data.yaml')
+    path_to_yaml = Path(
+        '//home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -311,7 +312,7 @@ if __name__ == '__main__':
     normStatsDir = Path(config['normStatsDir'])
     normStats = {
         'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
         'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
     }
 
