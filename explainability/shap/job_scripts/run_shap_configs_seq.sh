@@ -2,7 +2,7 @@
 
 # txt file that contains in each line the name of the config file to be used in each run
 CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/shap_08-25-2022_1619/
-CONFIGS_FILE="$CONFIG_FILE_DIR"list_config_runs_onlyonesthatfailed_8-26-2022_1010.txt
+CONFIGS_FILE="$CONFIG_FILE_DIR"list_config_runs.txt
 # CONFIGS_FILE=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/shap_08-25-2022_1619/list_config_runs.txt
 #SUBMIT_SCRIPT=/home6/msaragoc/job_scripts/Kepler-TESS_exoplanet/Submitjob_shap_single.pbs
 #SUBMIT_TRAIN_SCRIPT=/home6/msaragoc/job_scripts/Kepler-TESS_exoplanet/Submitjob_shap_single_train.pbs
@@ -11,7 +11,8 @@ CONFIGS_FILE="$CONFIG_FILE_DIR"list_config_runs_onlyonesthatfailed_8-26-2022_101
 # PRED_SCRIPT=/home/msaragoc/Projects/exoplnt_dl/codebase/src/predict_ensemble_keras.py
 # CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/shap_08-25-2022_1619/runs_configs/
 # PBS script to use to launch a job for each run
-SUBMIT_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/explainability/shap/job_scripts/Submitjob_shap_single_train.pbs
+# SUBMIT_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/explainability/shap/job_scripts/Submitjob_shap_single_train.pbs
+SUBMIT_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/explainability/shap/job_scripts/Submitjob_shap_single_pred.pbs
 # PYOUT_DIR=/data5/tess_project/experiments/shap_tessvkepler/shap_08-25-2022_1255/log_py/
 
 # # sequential

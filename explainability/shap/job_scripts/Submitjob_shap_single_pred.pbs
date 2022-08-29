@@ -3,8 +3,8 @@
 #PBS -S /bin/bash
 #PBS -N shap_exoplnt_pred
 #PBS -l walltime=01:00:00
-#PBS -l select=1:ncpus=36:mpiprocs=4:model=sky_gpu:ngpus=4:mem=360g
-#PBS -l place=scatter:exclhost
+#PBS -l select=1:ncpus=1:model=sky_gpu:ngpus=1:mem=50g
+#PBS -l place=scatter:shared
 # #PBS -l select=1:ncpus=36:mpiprocs=4:model=sky_gpu
 # #PBS -l select=10:ncpus=16:mpiprocs=1:model=san_gpu
 #PBS -q dsg_gpu@pbspl4
@@ -21,13 +21,13 @@ cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # CONFIGS_FILE=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/list_config_runs.txt
 # directory that holds the configuration YAML files for all runs
-CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/runs_configs/
+# CONFIG_FILE_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/runs_configs/
 # file path to Python script used to run evaluation and inference for the ensemble
 PREDICT_ENSEMBLE_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/predict_ensemble_keras.py
 # directory to save the Python console output
-PYOUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap/shap_1-18-2022/log_py/
+PYOUT_DIR="$CONFIG_FILE_DIR"log_py/
 
 # cat  "$CONFIGS_FILE" | while read line; do echo Training "$line"; mpiexec python "$TRAIN_SCRIPT" --config_file="$CONFIG_FILE_DIR$line"_train.yaml --job_idx=$PBS_ARRAY_INDEX; echo Evaluating ensemble "$line"; python "$PREDICT_ENSEMBLE_SCRIPT" --config_file="$CONFIG_FILE_DIR$line"_predict.yaml; done
 
 echo Evaluating ensemble "$SHAP_CONFIG_RUN"
-python "$PREDICT_ENSEMBLE_SCRIPT" --config_file="$CONFIG_FILE_DIR$SHAP_CONFIG_RUN"_predict.yaml &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_predict_log_py.txt
+python "$PREDICT_ENSEMBLE_SCRIPT" --config_file="$CONFIG_FILE_DIR"runs_configs/"$SHAP_CONFIG_RUN"_predict.yaml &> "$PYOUT_DIR$SHAP_CONFIG_RUN"_predict_log_py.txt
