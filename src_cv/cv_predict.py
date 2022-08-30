@@ -1,4 +1,4 @@
-""" Run inference using cross-validation experiment. """
+""" Run inference on a data set using trained models from cross-validation experiment. """
 
 # 3rd party
 import os
@@ -7,24 +7,22 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
 import logging
-# from datetime import datetime
 import tensorflow as tf
-# from tensorflow.keras import callbacks
-# import itertools
-# import shutil
 import time
 import argparse
 import sys
 from mpi4py import MPI
 import multiprocessing
 import yaml
+import pandas as pd
 
 # local
-from models.models_keras import ExoMiner
+from models.models_keras import ExoMiner, TransformerExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
-from src_cv.utils_cv import predict_ensemble, normalize_data
-from paths import path_main
+from src.utils_train_eval_predict import predict_model
+from src_preprocessing.normalize_data_tfrecords import normalize_examples
+from src.utils_dataio import get_data_from_tfrecord
 
 
 def cv_pred_run(run_params, cv_iter_dir):
@@ -36,61 +34,89 @@ def cv_pred_run(run_params, cv_iter_dir):
     :return:
     """
 
-    cv_run_dir = run_params['paths']['experiment_dir'] / f'cv_iter_{run_params["cv_id"]}'
-    cv_run_dir.mkdir(exist_ok=True)
+    run_params['paths']['experiment_dir'] = run_params['paths']['experiment_root_dir'] / \
+                                            f'cv_iter_{run_params["cv_id"]}'
+    run_params['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing data for CV iteration')
-
-    norm_data_dir = cv_run_dir / 'norm_data'
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data')
+    norm_data_dir = run_params['paths']['experiment_dir'] / 'norm_data'
     norm_data_dir.mkdir(exist_ok=True)
 
     # load normalization statistics
-    norm_stats_dir = cv_iter_dir / 'norm_stats'
     norm_stats = {
-        'scalar_params': np.load(norm_stats_dir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(norm_stats_dir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(norm_stats_dir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+        'scalar_params': np.load(cv_iter_dir / 'norm_stats' /
+                                 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+        'fdl_centroid': np.load(cv_iter_dir / 'norm_stats' /
+                                'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(cv_iter_dir / 'norm_stats' /
+                            'train_centroid_norm_stats.npy', allow_pickle=True).item()
     }
-    # norm_stats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
-    # norm_stats['scalar_params']['tce_rb_tcount0']['info']['dtype'] = 'float'
 
-    pool = multiprocessing.Pool(processes=run_params['n_processes_norm_data'])
-    jobs = [(file, norm_stats, run_params['aux_params'], norm_data_dir)
-            for file in run_params['data_fps']]
-    async_results = [pool.apply_async(normalize_data, job) for job in jobs]
+    # normalize the data
+    data_shards_fps = {'predict': list(run_params['paths']["tfrec_dir"].iterdir())}
+    pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
+    jobs = [(norm_data_dir, file, norm_stats, run_params['norm_examples_params']['aux_params'])
+            for file in np.concatenate(list(data_shards_fps.values()))]
+    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
     for async_result in async_results:
         async_result.get()
 
-    data_shards_fps_norm = {'predict': [norm_data_dir / file.name for file in run_params['data_fps']]}
+    run_params['datasets_fps'] = {dataset: [norm_data_dir / data_fp.name for data_fp in data_fps]
+                                  for dataset, data_fps in data_shards_fps.items()}
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference')
     # get the filepaths for the trained models
     models_dir = cv_iter_dir / 'models'
-    models_filepaths = [model_dir / f'{model_dir.stem}.h5' for model_dir in models_dir.iterdir() if 'model' in
-                        model_dir.stem]
+    run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
+                                               for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
 
-    # evaluate ensemble=
-    p = multiprocessing.Process(target=predict_ensemble,
-                                args=(
-                                    models_filepaths,
-                                    run_params,
-                                    data_shards_fps_norm,
-                                    cv_run_dir,
-                                ))
-    p.start()
-    p.join()
+    scores = predict_model(run_params)
+    scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
+                             for dataset in run_params['datasets']}
+    for dataset in run_params['datasets']:
+        # threshold for classification
+        if not run_params['config']['multi_class']:
+            scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
 
-    # logger.info(f'[cv_iter_{run_params["cv_id"]}] Deleting normalized data')
-    # # remove preprocessed data for this run
-    # shutil.rmtree(cv_run_dir / 'norm_data')
-    # # TODO: delete the models as well?
+    # instantiate variable to get data from the TFRecords
+    data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
+    for dataset in run_params['datasets']:
+        for tfrec_fp in run_params['datasets_fps'][dataset]:
+            # get dataset of the TFRecord
+            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
+            for field in data_aux:
+                data[dataset][field].extend(data_aux[field])
+
+    # add predictions to the data dict
+    for dataset in run_params['datasets']:
+        if not run_params['config']['multi_class']:
+            data[dataset]['score'] = scores[dataset].ravel()
+            data[dataset]['predicted class'] = scores_classification[dataset].ravel()
+        else:
+            for class_label, label_id in run_params['label_map'].items():
+                data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
+            data[dataset]['predicted class'] = scores_classification[dataset]
+
+    # write results to a txt file
+    for dataset in run_params['datasets']:
+        # print(f'Saving ranked predictions in dataset {dataset} to '
+        #       f'{run_params["paths"]["experiment_dir"] / f"ranked_predictions_{dataset}"}...')
+
+        data_df = pd.DataFrame(data[dataset])
+
+        # sort in descending order of output
+        if not run_params['config']['multi_class']:
+            data_df.sort_values(by='score', ascending=False, inplace=True)
+        data_df.to_csv(run_params["paths"]["experiment_dir"] / f'ensemble_ranked_predictions_{dataset}set.csv',
+                       index=False)
 
 
 def cv_pred():
+    """ Main script. Run inference on a data set using trained models from a CV experiment. """
 
     # used in job arrays
     parser = argparse.ArgumentParser()
@@ -99,7 +125,7 @@ def cv_pred():
     args = parser.parse_args()
 
     if args.config_file is None:
-        path_to_yaml = Path(path_main + 'src_cv/config_cv_predict.yaml')
+        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_predict.yaml')
     else:
         path_to_yaml = Path(args.config_file)
 
@@ -137,7 +163,7 @@ def cv_pred():
 
     for path_name, path_str in config['paths'].items():
         config['paths'][path_name] = Path(path_str)
-    config['paths']['experiment_dir'].mkdir(exist_ok=True)
+    config['paths']['experiment_root_dir'].mkdir(exist_ok=True)
 
     config['data_fps'] = [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.is_file()
                           and fp.name.startswith('predict-shard')]
@@ -150,7 +176,8 @@ def cv_pred():
 
     # set up logger
     config['logger'] = logging.getLogger(name=f'cv_pred_run_rank_{config["rank"]}')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] / f'cv_run_{config["rank"]}.log',
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_root_dir'] /
+                                                  f'cv_run_{config["rank"]}.log',
                                          mode='w')
     # logger_handler_stream = logging.StreamHandler(sys.stdout)
     # logger_handler_stream.setLevel(logging.INFO)
@@ -160,7 +187,7 @@ def cv_pred():
     # logger_handler_stream.setFormatter(logger_formatter)
     config['logger'].addHandler(logger_handler)
     # logger.addHandler(logger_handler_stream)
-    config['logger'].info(f'Starting run {config["paths"]["experiment_dir"].name}...')
+    config['logger'].info(f'Starting run {config["paths"]["experiment_root_dir"].name}...')
 
     config['dev_train'] = f'/gpu:{config["gpu_id"]}'
     config['dev_predict'] = f'/gpu:{config["gpu_id"]}'
@@ -181,36 +208,36 @@ def cv_pred():
         # config = id2config[(0, 0, 0)]['config']
 
         config['logger'].info(f'Using configuration from HPO study {hpo_path.name}')
-        config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
+        config['logger'].info(f'HPO Config {config_id_hpo}: {id2config[config_id_hpo]["config"]}')
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = ExoMiner
+    config['base_model'] = TransformerExoMiner
 
     # choose features set
     for feature_name, feature in config['features_set'].items():
         if feature['dtype'] == 'float32':
             config['features_set'][feature_name]['dtype'] = tf.float32
 
-    config['logger'].info(f'Feature set: {config["features_set"]}')
-
-    config['logger'].info(f'Final configuration used: {config}')
+    # config['logger'].info(f'Feature set: {config["features_set"]}')
+    #
+    # config['logger'].info(f'Final configuration used: {config}')
 
     # save feature set used
     if rank == 0:
-        np.save(config['paths']['experiment_dir'] / 'features_set.npy', config['features_set'])
+        np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
         # save model configuration used
-        np.save(config['paths']['experiment_dir'] / 'config.npy', config['config'])
+        np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])
 
         # save the YAML file with training-evaluation parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-        with open(config['paths']['experiment_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
-            yaml.dump(json_dict, cv_run_file)
+        with open(config['paths']['experiment_root_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
+            yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
     if config['train_parallel']:
         # run each CV iteration in parallel
         cv_id = config['rank']
         config['logger'].info(f'Running prediction for CV iteration {cv_id} (out of {len(config["cv_iters"])}): '
-                    f'{config["cv_iters"][cv_id]}')
+                              f'{config["cv_iters"][cv_id]}')
         config['cv_id'] = cv_id
         cv_pred_run(
             config,
@@ -229,4 +256,5 @@ def cv_pred():
 
 
 if __name__ == '__main__':
+
     cv_pred()

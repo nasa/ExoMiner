@@ -1,3 +1,5 @@
+""" Utility functions for training, evaluating and running inference with a Keras model. """
+
 # 3rd party
 from tensorflow.keras.utils import plot_model
 from tensorflow import keras

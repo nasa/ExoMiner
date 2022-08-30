@@ -12,12 +12,12 @@ import numpy as np
 # %%
 
 # cv experiment directory
-cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_labeledvsunlabeled_8-3-2022_1646')
+cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_noplanets_ruwe-l1.2_8-26-2022_1148')
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
-# cats = {'PC': 1, 'AFP': 1, 'NTP': 1, 'UNK': 0}
-cats = {'PC': 1, 'AFP': 1, 'UNK': 0}
+cats = {'PC': 1, 'AFP': 0, 'NTP': 0}
+# cats = {'PC': 1, 'AFP': 1, 'UNK': 0}
 
 class_ids = [0, 1]
 top_k_vals = [50, 100, 250, 500]  # , 750]  # 1000, 1500, 2000, 2500]

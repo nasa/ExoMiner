@@ -7,12 +7,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
 import logging
-# from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras import callbacks
-# import itertools
 import copy
-# import shutil
 import time
 import argparse
 import sys
@@ -26,8 +23,7 @@ import pandas as pd
 from models.models_keras import ExoMiner, TransformerExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
-from src_cv.utils_cv import processing_data_run  # , train_model, eval_ensemble
-from paths import path_main
+from src_cv.utils_cv import processing_data_run
 from src.utils_train_eval_predict import train_model, evaluate_model, predict_model
 from src.utils_dataio import get_data_from_tfrecord
 
@@ -38,7 +34,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     :param cv_dir: Path, CV root directory
     :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
     respectively, for this CV iteration
-    :param run_params: dict, configuration parameters for the CV ru
+    :param run_params: dict, configuration parameters for the CV run
     :return:
     """
 
@@ -64,7 +60,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
     run_params['datasets_fps'] = processing_data_run(data_shards_fps_eval, run_params,
                                                      run_params['paths']['experiment_dir'])
-    # run_params['paths']['tfrec_dir'] = run_params['paths']['experiment_dir'] / 'norm_data'
 
     # sequential training
     models_dir = run_params['paths']['experiment_dir'] / 'models'
@@ -76,14 +71,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
                                       f'{run_params["training"]["n_epochs"]} epochs...')
         model_dir = models_dir / f'model{model_id}'
         model_dir.mkdir(exist_ok=True)
-        # p = multiprocessing.Process(target=train_model,
-        #                             args=(
-        #                                 run_params,
-        #                                 model_id,
-        #                                 {dataset: fps for dataset, fps in data_shards_fps_eval.items() if
-        #                                  dataset != 'test'},
-        #                                 cv_run_dir,
-        #                             ))
 
         p = multiprocessing.Process(target=train_model,
                                     args=(
@@ -102,20 +89,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
                                                for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
 
-    # evaluate ensemble
-    # p = multiprocessing.Process(target=eval_ensemble,
-    #                             args=(
-    #                                 models_filepaths,
-    #                                 run_params,
-    #                                 data_shards_fps_eval,
-    #                                 cv_run_dir,
-    #                             ))
-    # p = multiprocessing.Process(target=evaluate_model,
-    #                             args=(
-    #                                 run_params,
-    #                             ))
-    # p.start()
-    # p.join()
     res_eval = evaluate_model(run_params)
     np.save(run_params['paths']['experiment_dir'] / 'res_eval.npy', res_eval)
 
@@ -141,12 +114,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
             res_file.write('\n')
 
-    # p = multiprocessing.Process(target=predict_model,
-    #                             args=(
-    #                                 run_params,
-    #                             ))
-    # p.start()
-    # p.join()
     scores = predict_model(run_params)
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
                              for dataset in run_params['datasets']}
