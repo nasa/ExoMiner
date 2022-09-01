@@ -18,24 +18,10 @@ num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
 cats = {'PC': 1, 'AFP': 0, 'NTP': 0}
 # cats = {'PC': 1, 'AFP': 1, 'UNK': 0}
+# cats = {'PC': 1, 'AFP': 1, 'NTP': 1, 'UNK': 0}
 
 class_ids = [0, 1]
 top_k_vals = [50, 100, 250, 500]  # , 750]  # 1000, 1500, 2000, 2500]
-
-# compute metrics
-auc_pr = AUC(num_thresholds=num_thresholds,
-             summation_method='interpolation',
-             curve='PR',
-             name='auc_pr')
-auc_roc = AUC(num_thresholds=num_thresholds,
-              summation_method='interpolation',
-              curve='ROC',
-              name='auc_roc')
-
-precision = Precision(name='precision', thresholds=clf_threshold)
-recall = Recall(name='recall', thresholds=clf_threshold)
-
-binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
 # compute metrics for each CV fold
 metrics_lst = ['fold', 'auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced accuracy', 'avg precision']
@@ -48,6 +34,21 @@ cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.st
 
 cv_iters_tbls = []
 for cv_iter_dir in cv_iters_dirs:
+
+    # compute metrics
+    auc_pr = AUC(num_thresholds=num_thresholds,
+                 summation_method='interpolation',
+                 curve='PR',
+                 name='auc_pr')
+    auc_roc = AUC(num_thresholds=num_thresholds,
+                  summation_method='interpolation',
+                  curve='ROC',
+                  name='auc_roc')
+
+    precision = Precision(name='precision', thresholds=clf_threshold)
+    recall = Recall(name='recall', thresholds=clf_threshold)
+
+    binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
     ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_testset.csv')
 
@@ -100,6 +101,21 @@ data_to_tbl = {col: [] for col in metrics_lst}
 ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
 
 data_to_tbl['fold'].extend(['all'])
+
+# compute metrics
+auc_pr = AUC(num_thresholds=num_thresholds,
+             summation_method='interpolation',
+             curve='PR',
+             name='auc_pr')
+auc_roc = AUC(num_thresholds=num_thresholds,
+              summation_method='interpolation',
+              curve='ROC',
+              name='auc_roc')
+
+precision = Precision(name='precision', thresholds=clf_threshold)
+recall = Recall(name='recall', thresholds=clf_threshold)
+
+binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
 _ = auc_pr.update_state(ranking_tbl['label'].tolist(), ranking_tbl['score'].tolist())
 data_to_tbl['auc_pr'].append(auc_pr.result().numpy())

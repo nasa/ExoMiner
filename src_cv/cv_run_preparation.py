@@ -134,3 +134,21 @@ tce_splits = np.array_split(range(len(tce_tbl_noteval)), n_folds_predict, axis=0
 for fold_i, tce_split in enumerate(tce_splits):
     fold_tce_tbl = tce_tbl_noteval[tce_split[0]:tce_split[-1] + 1]
     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+
+#%% Check distribution of examples per fold
+
+
+fold_dir = Path('/Users/msaragoc/Downloads/eval')
+
+for tbl_fp in fold_dir.iterdir():
+
+    tbl = pd.read_csv(tbl_fp)
+    print(f'Fold {tbl_fp}')
+    print(f'Disposition distribution:\n{tbl["label"].value_counts()}')
+
+    cnt_tces_target = \
+        tbl['target_id'].value_counts().to_frame(name='num_tces_target').reset_index().rename(
+            columns={'index': 'target_id'})
+
+    print(f'Number of TCEs per TIC:\n{cnt_tces_target["num_tces_target"].value_counts()}')
+    print(f'{"#" * 100}')

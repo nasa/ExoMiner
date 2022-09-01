@@ -28,9 +28,17 @@ logger.info(f'Starting run...')
 
 #%% Create catalog dataset to be used
 
-tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Using TCE table from: {tce_tbl_fp}')
+
+# set planets with RUWE > 1.2 and not validated by RV to UNKs
+tce_tbl.loc[(tce_tbl['ruwe'] > 1.2) & (tce_tbl['RV_status'] == 0) & (tce_tbl['label'] == 'PC'), 'label'] = 'UNK'
+logger.info('Set planets with RUWE > 1.2 and not validated by RV to UNK TCEs.')
+
+# remove rogue TCEs
+tce_tbl = tce_tbl.loc[tce_tbl['tce_rogue_flag'] == 0]
+logger.info('Removed rogue TCEs.')
 
 #%% count different quantities needed for estimates that are plugged into the statistical framework
 
@@ -70,3 +78,15 @@ logger.info(f'Number of Planets per KIC:\n{tce_tbl["num_planets_target"].value_c
 logger.info(f'Number of FPs per KIC:\n{tce_tbl["num_fps_target"].value_counts().sort_index()}')
 
 tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_counts.csv', index=False)
+
+#%% Check counts
+
+for tce_i, tce in tce_tbl.iterrows():
+
+    if tce['num_tces_target'] < tce['num_kois_target']:
+        print(f'[{tce["uid"]}] Number of TCEs ({tce["num_tces_target"]}) is '
+              f'smaller than number of KOIs ({tce["num_kois_target"]}).')
+
+    if tce['num_kois_target'] < tce['num_fps_target'] + tce['num_planets_target']:
+        print(f'[{tce["uid"]}] Number of KOIs ({tce["num_kois_target"]}) is '
+              f'smaller than number of FPs+Planets ({tce["num_fps_target"] + tce["num_planets_target"]}).')
