@@ -14,7 +14,6 @@ import time
 import argparse
 import sys
 from mpi4py import MPI
-import json
 import multiprocessing
 import yaml
 import pandas as pd
@@ -51,9 +50,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
 
     # save fold used
-    with open(run_params['paths']['experiment_dir'] / 'fold_split.json', 'w') as cv_run_file:
-        json.dump({dataset: [str(fp) for fp in data_shards_fps_eval[dataset]] for dataset in data_shards_fps_eval},
-                  cv_run_file)
+    with open(run_params['paths']['experiment_dir'] / 'fold_split.json', 'w') as fold_split_file:
+        yaml.dump(data_shards_fps_eval, fold_split_file, sort_keys=False)
 
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['config'] is not None:
@@ -114,6 +112,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
             res_file.write('\n')
 
+    # run inference on different data sets defined in run_params['datasets']
     scores = predict_model(run_params)
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
                              for dataset in run_params['datasets']}
@@ -244,14 +243,18 @@ def cv():
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
-        config['config'].update(id2config[config_id_hpo]['config'])
+        config_hpo_chosen = id2config[config_id_hpo]['config']
+        config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
         # example - check config.json
         # config = id2config[(0, 0, 0)]['config']
 
         config['logger'].info(f'Using configuration from HPO study {hpo_path.name}')
-        config['logger'].info(f'HPO Config {config_id_hpo}: {config["config"]}')
+        config['logger'].info(f'HPO Config chosen: {config_id_hpo}.')
+        # save the YAML file with the HPO configuration that was used
+        with open(config['paths']['experiment_root_dir'] / 'hpo_config.yaml', 'w') as hpo_config_file:
+            yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
 
     # base model used - check models/models_keras.py to see which models are implemented
     config['base_model'] = TransformerExoMiner  # ExoMiner
@@ -263,13 +266,13 @@ def cv():
         if feature['dtype'] == 'int':
             config['features_set'][feature_name]['dtype'] = tf.int64
 
-    config['logger'].info(f'Feature set: {config["features_set"]}')
+    # config['logger'].info(f'Feature set: {config["features_set"]}')
 
     # early stopping callback
     # config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
     config['callbacks_list'] = {'train': [callbacks.EarlyStopping(**config['callbacks']['early_stopping'])]}
 
-    config['logger'].info(f'Final configuration used: {config}')
+    # config['logger'].info(f'Final configuration used: {config}')
 
     # save feature set used
     if config['rank'] == 0:
@@ -280,14 +283,13 @@ def cv():
         # save the YAML file with training-evaluation parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['paths']['experiment_root_dir'] / 'cv_params.yaml', 'w') as cv_run_file:
-            yaml.dump(json_dict, cv_run_file)
+            yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
     if config['train_parallel']:
         # run each CV iteration in parallel
         cv_id = config['rank']
         if config['logger'] is not None:
-            config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
-                                  f'{config["data_shards_fps"][cv_id]}')
+            config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])})')
         config['cv_id'] = cv_id
         cv_run(
             config['paths']['experiment_root_dir'],
@@ -298,8 +300,7 @@ def cv():
         # run each CV iteration sequentially
         for cv_id, cv_iter in enumerate(config['data_shards_fps']):
             config['logger'].info(
-                f'[cv_iter_{cv_iter}] Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])}): '
-                f'{cv_iter}')
+                f'[cv_iter_{cv_id}] Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
                 config['paths']['experiment_root_dir'],

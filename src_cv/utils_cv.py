@@ -146,24 +146,33 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
     p.join()
 
     if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data')
-    norm_data_dir = cv_run_dir / 'norm_data'
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
+    norm_data_dir = cv_run_dir / 'norm_data'  # create folder for normalized data set
     norm_data_dir.mkdir(exist_ok=True)
 
     # load normalization statistics
-    norm_stats = {
-        'scalar_params': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
-                                 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
-                                'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
-                            'train_centroid_norm_stats.npy', allow_pickle=True).item()
-    }
+    norm_stats = {}
+    if run_params['compute_norm_stats_params']['timeSeriesFDLList'] is not None:
+        norm_stats.update({'fdl_centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                                'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item()})
+    if run_params['compute_norm_stats_params']['centroidList'] is not None:
+        norm_stats.update({'centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                            'train_centroid_norm_stats.npy', allow_pickle=True).item()})
+    if run_params['compute_norm_stats_params']['scalarParams'] is not None:
+        scalar_params_norm_info = np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                                 'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
+        scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
+                                   if k in run_params['compute_norm_stats_params']['scalarParams']}
+        norm_stats.update({'scalar_params': scalar_params_norm_info})
+
+    # normalize data using the normalization statistics
+    if len(norm_stats) == 0:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
+                                  f'statistics were loaded.')
+        raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
+                                  f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    # jobs = [(file, norm_stats, run_params['aux_params'], norm_data_dir)
-    #         for file in np.concatenate(list(data_shards_fps.values()))]
-    # async_results = [pool.apply_async(normalize_data, job) for job in jobs]
     jobs = [(norm_data_dir, file, norm_stats, run_params['norm_examples_params']['aux_params'])
             for file in np.concatenate(list(data_shards_fps.values()))]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]

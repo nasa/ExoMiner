@@ -70,14 +70,14 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
 
         # get FDL centroid time series data
         if timeSeriesFDLList is not None:
-            transitDuration = example.features.feature['tce_duration'].float_list.value[0]
-            orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-            idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(kwargs['num_bins_glob'],
-                                                                        transitDuration,
-                                                                        orbitalPeriod)
             for timeSeries in timeSeriesFDLList:
                 timeSeriesTce = np.array(example.features.feature[timeSeries].float_list.value)
                 if 'glob' in timeSeries:
+                    transitDuration = example.features.feature['tce_duration'].float_list.value[0]
+                    orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
+                    idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(kwargs['num_bins_glob'],
+                                                                                transitDuration,
+                                                                                orbitalPeriod)
                     timeSeriesFDLDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_glob])
                 else:
                     timeSeriesFDLDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])
@@ -87,6 +87,11 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
             for timeSeries in centroidList:
                 timeSeriesTce = np.array(example.features.feature[timeSeries].float_list.value)
                 if 'glob' in timeSeries:
+                    transitDuration = example.features.feature['tce_duration'].float_list.value[0]
+                    orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
+                    idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(kwargs['num_bins_glob'],
+                                                                                transitDuration,
+                                                                                orbitalPeriod)
                     centroidDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_glob])
                 else:
                     centroidDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])

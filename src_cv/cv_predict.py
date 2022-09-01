@@ -45,16 +45,27 @@ def cv_pred_run(run_params, cv_iter_dir):
     norm_data_dir.mkdir(exist_ok=True)
 
     # load normalization statistics
-    norm_stats = {
-        'scalar_params': np.load(cv_iter_dir / 'norm_stats' /
-                                 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-        'fdl_centroid': np.load(cv_iter_dir / 'norm_stats' /
-                                'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(cv_iter_dir / 'norm_stats' /
-                            'train_centroid_norm_stats.npy', allow_pickle=True).item()
-    }
+    norm_stats = {}
+    if run_params['compute_norm_stats_params']['timeSeriesFDLList'] is not None:
+        norm_stats.update({'fdl_centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                                'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item()})
+    if run_params['compute_norm_stats_params']['centroidList'] is not None:
+        norm_stats.update({'centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                            'train_centroid_norm_stats.npy', allow_pickle=True).item()})
+    if run_params['compute_norm_stats_params']['scalarParams'] is not None:
+        scalar_params_norm_info = np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                                 'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
+        scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
+                                   if k in run_params['compute_norm_stats_params']['scalarParams']}
+        norm_stats.update({'scalar_params': scalar_params_norm_info})
 
     # normalize the data
+    if len(norm_stats) == 0:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
+                                  f'statistics were loaded.')
+        raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
+                                  f'statistics were loaded.')
+
     data_shards_fps = {'predict': list(run_params['paths']["tfrec_dir"].iterdir())}
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
     jobs = [(norm_data_dir, file, norm_stats, run_params['norm_examples_params']['aux_params'])
@@ -68,21 +79,25 @@ def cv_pred_run(run_params, cv_iter_dir):
                                   for dataset, data_fps in data_shards_fps.items()}
 
     if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference')
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference...')
     # get the filepaths for the trained models
     models_dir = cv_iter_dir / 'models'
     run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
                                                for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
 
+    # run inference for the data set defined in run_params['datasets']
     scores = predict_model(run_params)
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
                              for dataset in run_params['datasets']}
-    for dataset in run_params['datasets']:
+    for dataset in run_params['datasets']:  # apply classification threshold
         # threshold for classification
         if not run_params['config']['multi_class']:
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
 
     # instantiate variable to get data from the TFRecords
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Getting data from TFRecords to be added to '
+                                  f'ranking table...')
     data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
     for dataset in run_params['datasets']:
         for tfrec_fp in run_params['datasets_fps'][dataset]:
@@ -92,6 +107,8 @@ def cv_pred_run(run_params, cv_iter_dir):
                 data[dataset][field].extend(data_aux[field])
 
     # add predictions to the data dict
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Create ranking table...')
     for dataset in run_params['datasets']:
         if not run_params['config']['multi_class']:
             data[dataset]['score'] = scores[dataset].ravel()
@@ -201,14 +218,18 @@ def cv_pred():
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
-        config['config'].update(id2config[config_id_hpo]['config'])
+        config_hpo_chosen = id2config[config_id_hpo]['config']
+        config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
         # example - check config.json
         # config = id2config[(0, 0, 0)]['config']
 
         config['logger'].info(f'Using configuration from HPO study {hpo_path.name}')
-        config['logger'].info(f'HPO Config {config_id_hpo}: {id2config[config_id_hpo]["config"]}')
+        config['logger'].info(f'HPO Config chosen: {config_id_hpo}')
+        # save the YAML file with the HPO configuration that was used
+        with open(config['paths']['experiment_root_dir'] / 'hpo_config.yaml', 'w') as hpo_config_file:
+            yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
 
     # base model used - check estimator_util.py to see which models are implemented
     config['base_model'] = TransformerExoMiner
@@ -224,7 +245,7 @@ def cv_pred():
 
     # save feature set used
     if rank == 0:
-        np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
+        # np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
         # save model configuration used
         np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])
 
@@ -236,8 +257,7 @@ def cv_pred():
     if config['train_parallel']:
         # run each CV iteration in parallel
         cv_id = config['rank']
-        config['logger'].info(f'Running prediction for CV iteration {cv_id} (out of {len(config["cv_iters"])}): '
-                              f'{config["cv_iters"][cv_id]}')
+        config['logger'].info(f'Running prediction for CV iteration {cv_id} (out of {len(config["cv_iters"])})')
         config['cv_id'] = cv_id
         cv_pred_run(
             config,
@@ -246,8 +266,8 @@ def cv_pred():
     else:
         # run each CV iteration sequentially
         for cv_id, cv_iter in enumerate(config['cv_iters']):
-            config['logger'].info(f'[cv_iter_{cv_iter}] Running prediction for CV iteration {cv_id} '
-                                  f'(out of {len(config["cv_iters"])}): {cv_iter}')
+            config['logger'].info(f'[cv_iter_{cv_id}] Running prediction for CV iteration {cv_id} '
+                                  f'(out of {len(config["cv_iters"])})')
             config['cv_id'] = cv_id
             cv_pred_run(
                 config,
