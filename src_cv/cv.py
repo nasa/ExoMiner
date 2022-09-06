@@ -4,6 +4,7 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 from pathlib import Path
 import numpy as np
 import logging
@@ -163,15 +164,18 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 def cv():
     """ Run CV experiment. """
 
-    path_to_yaml = Path(
-        '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
-    with(open(path_to_yaml, 'r')) as file:
-        config = yaml.safe_load(file)
-
-    # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
     args = parser.parse_args()
+
+    if args.config_file is None:  # use default config file in codebase
+        path_to_yaml = Path('/home/msaragoc/Projects/exoplnt_dl/codebase/src_cv/config_cv_train.yaml')
+    else:  # use config file given as input
+        path_to_yaml = Path(args.config_file)
+
+    with(open(path_to_yaml, 'r')) as file:
+        config = yaml.safe_load(file)
 
     # uncomment for MPI multiprocessing
     rank = MPI.COMM_WORLD.rank
@@ -201,7 +205,7 @@ def cv():
     print(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
     # tf.debugging.set_log_device_placement(True)
-
+    
     for path_name, path_str in config['paths'].items():
         if path_str is not None:
             config['paths'][path_name] = Path(path_str)
