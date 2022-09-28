@@ -1,19 +1,19 @@
-ngpus_per_node: 1  # number of GPUs per node
+ngpus_per_node: 2  # number of GPUs per node
 rank: null
-train_parallel: false  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
+train_parallel: true  # set to true to use MPI to train models in parallel; only useful when number of GPUs > 1
 n_processes_norm_data: 15  # number of processes to parallelize data normalization for each CV iteration
 #rnd_seed: 2
 logger: null
 #experiment: &experiment_name
 paths:
   # directory for predict run
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_kepler_noplanets_ruwe-l1.2_8-26-2022_1148
+  experiment_root_dir: /home/msaragoc/Projects/exoplnt_dl/experiments/cv_predict_kepler_exominer_multiplicityboost_9-23-2022_1425 
   # path to CV run to be used to predict
-  cv_experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_noplanets_ruwe-l1.2_8-26-2022_1148
+  cv_experiment_dir: /home/msaragoc/Projects/exoplnt_dl/experiments/cv_kepler_exominer_multiplicityboost_9-22-2022_1816 
   # TFRecord directory
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/cv_keplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-22-2022_1028/predict_set
+  tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv_keplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-22-2022_1028/tfrecords/predict/set_without_planets_ruwe_excluded/ 
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
+  hpo_dir: /data5/tess_project/experiments/hpo_configs/experiments_paper(9-14-2020_to_1-19-2021)/ConfigK-bohb_keplerdr25-dv_g301-l31_spline_nongapped_starshuffle_norobovetterkois_glflux-glcentr_std_noclip-loe-lwks-6stellar-bfap-ghost-rollingband-convscalars_loesubtract/ 
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
@@ -87,11 +87,11 @@ config:  # {
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
+  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
   # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -107,7 +107,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
 #  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
 #  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -119,10 +121,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 #  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
-  local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  # local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
   tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   # other diagnostic parameters
@@ -130,7 +132,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
-  #  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
   #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
   # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -216,9 +218,9 @@ compute_norm_stats_params:
   num_bins_loc: 31  # number of bins for local view
   num_bins_glob: 301  # number of bins for global view
 
-  timeSeriesFDLList:
-    - 'global_centr_fdl_view'
-    - 'local_centr_fdl_view'
+  timeSeriesFDLList: null
+  # - 'global_centr_fdl_view'
+  #  - 'local_centr_fdl_view'
 
   centroidList:
     - 'global_centr_view'

@@ -45,15 +45,16 @@ def cv_pred_run(run_params, cv_iter_dir):
     norm_data_dir.mkdir(exist_ok=True)
 
     # load normalization statistics
+    norm_stats_dir = cv_iter_dir / 'norm_stats'
     norm_stats = {}
     if run_params['compute_norm_stats_params']['timeSeriesFDLList'] is not None:
-        norm_stats.update({'fdl_centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+        norm_stats.update({'fdl_centroid': np.load(norm_stats_dir /
                                 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item()})
     if run_params['compute_norm_stats_params']['centroidList'] is not None:
-        norm_stats.update({'centroid': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+        norm_stats.update({'centroid': np.load(norm_stats_dir /
                             'train_centroid_norm_stats.npy', allow_pickle=True).item()})
     if run_params['compute_norm_stats_params']['scalarParams'] is not None:
-        scalar_params_norm_info = np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+        scalar_params_norm_info = np.load(norm_stats_dir /
                                  'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
         scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
                                    if k in run_params['compute_norm_stats_params']['scalarParams']}
