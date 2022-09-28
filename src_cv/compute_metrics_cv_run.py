@@ -6,13 +6,12 @@ Computing metrics for each CV fold and for the whole dataset.
 import pandas as pd
 from pathlib import Path
 from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy  # , TopKCategoricalAccuracy
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, average_precision_score
-import numpy as np
+from sklearn.metrics import balanced_accuracy_score, average_precision_score
 
 # %%
 
 # cv experiment directory
-cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_noplanets_ruwe-l1.2_8-26-2022_1148')
+cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_exominer_multiplicityboost_9-22-2022_1816')
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
@@ -21,7 +20,7 @@ cats = {'PC': 1, 'AFP': 0, 'NTP': 0}
 # cats = {'PC': 1, 'AFP': 1, 'NTP': 1, 'UNK': 0}
 
 class_ids = [0, 1]
-top_k_vals = [50, 100, 250, 500]  # , 750]  # 1000, 1500, 2000, 2500]
+top_k_vals = [50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
 
 # compute metrics for each CV fold
 metrics_lst = ['fold', 'auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced accuracy', 'avg precision']

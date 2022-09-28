@@ -15,13 +15,12 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tesss1s40-dv_all_features_phases_8-9-2022_1022')
+    data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess-s1s40-dv_all_features_phases_09-07-2022_1547')
     data_dir.mkdir(exist_ok=True)
 
     # set up logger
     logger = logging.getLogger(name=f'create_cv_folds_shards')
-    logger_handler = logging.FileHandler(filename=data_dir / f'create_cv_folds_shards.log',
-                                         mode='w')
+    logger_handler = logging.FileHandler(filename=data_dir / f'create_cv_folds_shards.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -30,7 +29,7 @@ if __name__ == '__main__':
 
     # TFRecord source directory; non-normalized examples
     src_tfrec_dir = Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats')
+        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats_toidv')
     logger.info(f'Source TFRecords: {str(src_tfrec_dir)}')
 
     # table that maps a TCE to a given TFRecord file in the source TFRecords

@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.spatial import distance
 
 # local
-from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
+from data_wrangling.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 
 def match_toi_tce(toi, singlesector_tce_tbls, multisector_tce_tbls, match_thr, sampling_interval, max_num_tces,

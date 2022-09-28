@@ -2,13 +2,12 @@
 
 # 3rd party
 from scipy.spatial import distance
-import numpy as np
 import os
 from datetime import datetime
 import logging
 
 # local
-from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
+from data_wrangling.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 
 def match_tces_to_astronet_traininset(matching_tbl, astronet_tbl, sampling_interval, astronet_tbl_cols, res_dir):

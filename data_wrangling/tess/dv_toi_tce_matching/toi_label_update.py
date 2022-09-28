@@ -65,7 +65,7 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = Path('/Users/msaragoc/Downloads/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_matching/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Using TCE table: {tce_tbl_fp}')
 
