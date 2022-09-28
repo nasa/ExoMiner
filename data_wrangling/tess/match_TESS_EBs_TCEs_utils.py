@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 
 # local
-from data_wrangling.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
+from data_wrangling.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 
 def match_tces_to_ebs(matching_tbl, eb_tbl, sampling_interval, eb_tbl_cols, res_dir):

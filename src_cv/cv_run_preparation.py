@@ -2,20 +2,15 @@
 
 # 3rd party
 import logging
-# import multiprocessing
 from datetime import datetime
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# # local
-# from src_cv.utils_cv import create_shard_fold
-
 # %% set up CV experiment variables
 
-# experiment = f'cv_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
-# data_dir = Path(f'/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/cv/{experiment}')
-data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tesss1s40-dv_all_features_phases_8-9-2022_1022')
+experiment = f'cv_tess-s1s40-dv_all_features_phases_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+data_dir = Path(f'/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/{experiment}')
 data_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -31,7 +26,7 @@ rnd_seed = 24
 logger.info(f'Setting random seed to {rnd_seed}')
 rng = np.random.default_rng(rnd_seed)
 
-n_folds_eval = 10  # which is also the number of shards
+n_folds_eval = 3  # which is also the number of shards
 logger.info(f'Number of folds used for CV: {n_folds_eval}')
 n_folds_predict = 10
 
@@ -40,12 +35,12 @@ n_folds_predict = 10
 
 #%% prepare the shards for CV by splitting the TCE table into shards (n folds)
 
-shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
+shard_tbls_dir = data_dir / 'shard_tables' / 'predict'
 shard_tbls_dir.mkdir(exist_ok=True, parents=True)
 
 # load the TCE table
 tce_tbl_fp = Path(
-    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail.csv')
+    '/Users/msaragoc/Downloads/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_final.csv')
 logger.info(f'Reading TCE table {tce_tbl_fp}')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
@@ -61,8 +56,8 @@ dataset_tbl = pd.read_csv(dataset_tbl_fp)
 logger.info(f'Using data set table: {dataset_tbl_fp}')
 
 # remove TCEs not used in the dataset
-logger.info(
-    f'Removing examples not in the data  set... (Total number of examples in dataset before removing examples: {len(tce_tbl)})')
+logger.info(f'Removing examples not in the data set... (Total number of examples in dataset before removing '
+            f'examples: {len(tce_tbl)})')
 # dataset_tbl['tceid'] = dataset_tbl[['target_id', 'tce_plnt_num']].apply(
 #     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
 # tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
@@ -137,10 +132,9 @@ for fold_i, tce_split in enumerate(tce_splits):
 
 #%% Check distribution of examples per fold
 
+shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
 
-fold_dir = Path('/Users/msaragoc/Downloads/eval')
-
-for tbl_fp in fold_dir.iterdir():
+for tbl_fp in shard_tbls_dir.iterdir():
 
     tbl = pd.read_csv(tbl_fp)
     print(f'Fold {tbl_fp}')

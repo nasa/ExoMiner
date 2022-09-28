@@ -71,10 +71,10 @@ if __name__ == "__main__":
     #               (tbl['label'].isin(['T-CP', 'T-KP']))]
     # tbl.sort_values(by=exp, inplace=True, ascending=True)
 
-    tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/aum_agg_allruns.csv')
-    tbl = tbl.loc[tbl['dataset'] == 'train']
-    tbl.sort_values(by='epoch_299', ascending=True, inplace=True)
-    target_list = tbl['target_id'][:30].unique()
+    # tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/label_noise_detection_aum/run_04-13-2022_1155/aum_agg_allruns.csv')
+    # tbl = tbl.loc[tbl['dataset'] == 'train']
+    # tbl.sort_values(by='epoch_299', ascending=True, inplace=True)
+    # target_list = tbl['target_id'][:30].unique()
     
     kic_list = [] #  [8492101, 4067336, 7767559, 6061119, 10904857]  # tbl.loc[tbl['top_30_cnts'] == 9, 'target_id'].unique() # tbl.loc[: 10, 'target_id'].unique()  # [100001645]  # [1028246, 5451336, 11456839]  # [8561063, 3239945, 6933567, 8416523, 9663113]
     download_dir = '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/Kepler/'
@@ -92,6 +92,6 @@ if __name__ == "__main__":
     #
     # sampled_tbl = tbl.sample(n=20, replace=False)
     # sampled_tbl.to_csv(f'{run_dir}sampled_tbl.csv', index=False)
-    tic_list = []  # tbl['target_id'].to_numpy()  # []
+    tic_list = [441739020]  # tbl['target_id'].to_numpy()  # []
     for tic in tic_list:
         get_tic_dv_report_and_summary(tic, download_dir, verbose=False)
