@@ -7,6 +7,7 @@ the lc FITS file.
 from pathlib import Path
 import pandas as pd
 from astropy.io import fits
+import numpy as np
 
 
 def get_start_end_timestamps_tics_sector_run(sector_dir):
@@ -21,9 +22,15 @@ def get_start_end_timestamps_tics_sector_run(sector_dir):
 
     target_timestamps = {'target': [], 'start': [], 'end': []}
     for target_lc_fp in sector_dir.iterdir():
-        target_timestamps['target'].append(fits.getheader(target_lc_fp)['TICID'])
-        target_timestamps['start'].append(fits.getheader(target_lc_fp)['TSTART'])
-        target_timestamps['end'].append(fits.getheader(target_lc_fp)['TSTOP'])
+        try:
+            target_timestamps['target'].append(fits.getheader(target_lc_fp, ignore_missing_end=True)['TICID'])
+            target_timestamps['start'].append(fits.getheader(target_lc_fp, ignore_missing_end=True)['TSTART'])
+            target_timestamps['end'].append(fits.getheader(target_lc_fp, ignore_missing_end=True)['TSTOP'])
+        except Exception as e:
+            print(f'{target_lc_fp}|Error getting start and end timestamps from header of lc FITS file: {e}')
+            target_timestamps['target'].append(int(target_lc_fp.name.split('-')[2])) 
+            target_timestamps['start'].append(np.nan)
+            target_timestamps['end'].append(np.nan)
 
     target_timestamps = pd.DataFrame(target_timestamps)
     target_timestamps['sector'] = int(sector_dir.name.split('_')[-1])
@@ -51,9 +58,9 @@ def get_start_end_timestamps_tics_sector_runs(sector_dirs, save_dir):
 
 if __name__ == '__main__':
 
-    root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/')
-    # lc_root_dir = Path('/data5/tess_project/Data/TESS_lc_fits')
-    lc_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc/')
+    root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching_dv/')
+    lc_root_dir = Path('/data5/tess_project/Data/TESS_lc_fits')
+    # lc_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc/')
     sector_dirs = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]
     save_dir = root_dir / 'start_end_timestamps_tics_lc'
     save_dir.mkdir(exist_ok=True)
