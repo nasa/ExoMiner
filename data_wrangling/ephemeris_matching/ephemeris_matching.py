@@ -162,13 +162,10 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for toi_i, toi in tois_in_tic.iterrows():
-                    try:
-                        corr_coef_mat[tce_i, toi_i] = \
-                            match_transit_signals(tce, toi, sampling_interval, tstart, tend,
-                                                  plot_signals,
-                                                  plot_dir)
-                    except:
-                        aaaa
+                    corr_coef_mat[tce_i, toi_i] = \
+                        match_transit_signals(tce, toi, sampling_interval, tstart, tend,
+                                              plot_signals,
+                                              plot_dir)
 
             tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'], columns=tois_in_tic['uid'])
 

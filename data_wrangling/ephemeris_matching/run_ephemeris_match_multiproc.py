@@ -41,7 +41,7 @@ if __name__ == '__main__':
     plot_dir = exp_dir / 'bin_ts_plots'
     plot_dir.mkdir(exist_ok=True)
 
-    plot_prob = 0.01
+    plot_prob = 0.1
     sampling_interval = 2 / 60 / 24  # sampling rate for binary time series
 
     targets_arr = tce_tbl['target_id'].unique()
