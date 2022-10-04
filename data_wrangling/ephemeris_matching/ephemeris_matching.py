@@ -116,7 +116,6 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
         print(f'Iterating over TIC {target}...')
 
         # get start and end timestamps for this TIC
-        # tic_timestamps_sector = sector_timestamps_tbl.copy(deep=True)
         tic_timestamps_sector = sector_timestamps_tbl.loc[sector_timestamps_tbl['target'] == target]
         if len(tic_timestamps_sector) == 0:
             print(f'TIC {target} not found in the timestamps table.')
@@ -141,12 +140,14 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             # get start and end timestamps for the sector run
             if '-' in sector_run:
                 s_sector, e_sector = [int(s) for s in sector_run.split('-')]
-                if ((tic_timestamps_sector['sector'] == s_sector) &
-                    (tic_timestamps_sector['sector'] == e_sector)).sum() == 0:
+                sector_flag = (tic_timestamps_sector['sector'] >= s_sector) & \
+                              (tic_timestamps_sector['sector'] <= e_sector)
+                if sector_flag.sum() == 0:
                     print(f'No start and end timestamps available for TIC {target} in sector run {sector_run}')
                     continue
-                tstart = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == s_sector, 'start'].values[0]
-                tend = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == e_sector, 'end'].values[0]
+
+                tstart = tic_timestamps_sector.loc[sector_flag, 'start'].values[0]
+                tend = tic_timestamps_sector.loc[sector_flag, 'end'].values[-1]
             else:
                 sector = int(sector_run)
                 if (tic_timestamps_sector['sector'] == sector).sum() == 0:
@@ -161,10 +162,13 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for toi_i, toi in tois_in_tic.iterrows():
-                    corr_coef_mat[tce_i, toi_i] = \
-                        match_transit_signals(tce, toi, sampling_interval, tstart, tend,
-                                              plot_signals,
-                                              plot_dir)
+                    try:
+                        corr_coef_mat[tce_i, toi_i] = \
+                            match_transit_signals(tce, toi, sampling_interval, tstart, tend,
+                                                  plot_signals,
+                                                  plot_dir)
+                    except:
+                        aaaa
 
             tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'], columns=tois_in_tic['uid'])
 
