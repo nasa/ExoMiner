@@ -5,15 +5,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from datetime import datetime
+# from datetime import datetime
 import logging
 from astroquery.mast import Catalogs
 
 # local
 from data_wrangling.ruwe.query_gaia import query_gaia
 
-res_dir = Path(f'/data5/tess_project/Data/Ephemeris_tables/TESS/tic_gaia_ruwe/'
-               f'{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+#%%
+
+# res_dir = Path(f'/data5/tess_project/Data/Ephemeris_tables/TESS/tic_gaia_ruwe/'
+#                f'{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+res_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338')
 res_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -25,19 +28,19 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = Path(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_tecfluxtriage_eb_label.csv')
+tce_tbl_fp = res_dir / 'tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Getting TICs from {str(tce_tbl_fp)}')
 
 logger.info('Getting source ids from TIC')
 catalog_data = Catalogs.query_criteria(catalog='TIC',
                                        ID=tce_tbl['target_id'].unique().tolist()).to_pandas()[['ID', 'GAIA']]
-catalog_data.to_csv(res_dir / 'tic.csv', index=False)
+# catalog_data.to_csv(res_dir / 'tic.csv', index=False)
 
 source_ids_tic_tbl = catalog_data.rename(columns={'GAIA': 'source_id', 'ID': 'target_id'})
 
 # remove TICs with missing source id
+logger.info('Removing TICs with missing Gaia source ID')
 source_ids_tic_tbl = source_ids_tic_tbl.loc[~source_ids_tic_tbl['source_id'].isna()]
 
 source_ids_tic_tbl = source_ids_tic_tbl.astype(dtype={'source_id': np.int64, 'target_id': np.int64})
@@ -90,4 +93,11 @@ ax.set_yscale('log')
 ax.set_xlim([0, 2])
 # ax.set_xscale('log')
 # plt.show()
-f.savefig(res_dir / 'hist_ruwe_tce_tics.png')
+f.savefig(res_dir / 'hist_ruwe_tics.png')
+
+# add ruwe to TCE table
+tce_tbl = tce_tbl.merge(ruwe_tbl[['target_id', 'ruwe']], on='target_id', how='left', validate='many_to_one')
+logger.info(f'Number of TCEs without RUWE value: {tce_tbl["ruwe"].isna().sum()} ouf of {len(tce_tbl)}')
+
+tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_ruwe.csv', index=False)
+logger.info('Saved TCE table with RUWE')

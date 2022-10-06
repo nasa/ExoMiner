@@ -10,16 +10,22 @@ import numpy as np
 
 #%% Check TOIs matched
 
-exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/09-28-2022_1139/')
-save_dir = exp_dir / 'sector_run_tic_tbls'
+exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621/')
 
 match_tbl = pd.read_csv(exp_dir / 'matched_signals.csv')
-tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_matching/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_final.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs.csv')
 match_tbl = match_tbl.rename(columns={'signal_a': 'uid'})
+tce_tbl = tce_tbl.rename(columns={'planetToiId': 'toi_dv', 'planetToiCorrelation': 'toi_dv_corr'})
+
 match_tbl = match_tbl.merge(tce_tbl[['uid', 'toi_dv', 'toi_dv_corr']], on='uid', how='left', validate='one_to_one')
 
 # check if TCEs were matched to different TOIs
-diff_match = match_tbl.loc[match_tbl['signal_b'] != match_tbl['toi_dv']]
+# diff_match = match_tbl.loc[(match_tbl['signal_b'] != match_tbl['toi_dv']) &
+#                            (~match_tbl['signal_b'].isna()) &
+#                            (~match_tbl['toi_dv'].isna())]
+diff_match = match_tbl.loc[(match_tbl['signal_b'] != match_tbl['toi_dv']) &
+                           (~match_tbl['signal_b'].isna()) &
+                           (match_tbl['toi_dv'] != -1)]
 print(f'Number of TCEs matched with our method that have a different match between us and DV: {len(diff_match)}')
 
 match_tbl_same = match_tbl.loc[match_tbl['signal_b'] == match_tbl['toi_dv']]
@@ -27,7 +33,7 @@ f, ax = plt.subplots()
 ax.scatter(match_tbl_same['match_corr_coef'], match_tbl_same['toi_dv_corr'], s=8)
 ax.set_xlabel('Correlation Coefficient')
 ax.set_ylabel('DV Correlation Coefficient')
-f.savefig(save_dir.parent / 'scatter_matched_tois.png')
+f.savefig(exp_dir.parent / 'scatter_matched_tois.png')
 
 #%% Check TOIs not matched
 
@@ -37,11 +43,11 @@ tois_in_s14_notmatched = tois_in_s14_dv.loc[~tois_in_s14_dv['uid'].isin(match_tb
 print(f'Number of TCEs matched with DV that were not matched with our method: {len(tois_in_s14_notmatched)}')
 
 tois_in_s14_notmatched['match_corr_coef'] = np.nan
-dir_no_matches = save_dir.parent / 'tois_not_matched'
+dir_no_matches = exp_dir / 'tois_not_matched'
 dir_no_matches.mkdir(exist_ok=True)
 for tce_i, tce in tois_in_s14_notmatched.iterrows():
 
-    match_tbl_tic_fp = save_dir / f'match_tbl_s14_tic_{tce["target_id"]}.csv'
+    match_tbl_tic_fp = exp_dir / 'sector_run_tic_tbls' / f'match_tbl_s14_tic_{tce["target_id"]}.csv'
 
     if not match_tbl_tic_fp.exists():
         print(f'Matching table not found for TIC {tce["target_id"]}')

@@ -62,8 +62,8 @@ tess_px_scale: 21  # arcsec
 kepler_px_scale: 3.98  # arcsec
 #tess_to_kepler_px_scale_factor: tess_px_scale / kepler_px_scale
 
-tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
-kepler_lower_bound_dicco_msky_err: 2.5
+#tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
+#kepler_lower_bound_dicco_msky_err: 2.5
 
 sampling_rate_h: 2  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
 tess_to_kepler_sampling_ratio: 15

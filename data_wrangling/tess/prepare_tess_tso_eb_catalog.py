@@ -2,10 +2,10 @@
 
 # 3rd party
 import re
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import logging
 
 #%% Get sector run for each EB in the TSO EB catalog
 
@@ -103,9 +103,6 @@ pcs_ebs_matched.to_csv(tce_tbl_fp.parent / 'pcs_ebs_matched.csv', index=False)
 
 #%% Correct matching using Jon's table
 
-tce_tbl_fp = Path("/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid.csv")
-tce_tbl = pd.read_csv(tce_tbl_fp)
-
 
 def _create_uid_for_jon_tbl(x):
     """ Create UID for Jon's SPOC EB table that matched TSO EBs with SPOC TESS TCEs.
@@ -127,24 +124,44 @@ def _create_uid_for_jon_tbl(x):
     return f'{x["ticid"]}-{x["tce_plnt_num"]}-{sector_run}'
 
 
+res_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338')
+
+# set up logger
+logger = logging.getLogger(name='add_tso_ebs_to_tce_tbl')
+logger_handler = logging.FileHandler(filename=res_dir / f'add_tso_ebs_to_tce_tbl.log', mode='w')
+logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+logger.setLevel(logging.INFO)
+logger_handler.setFormatter(logger_formatter)
+logger.addHandler(logger_handler)
+logger.info(f'Starting run...')
+
+tce_tbl_fp = res_dir / Path('tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec.csv')
+tce_tbl = pd.read_csv(tce_tbl_fp)
+logger.info(f'Using TCE table {tce_tbl_fp}')
+
 # add uid to Jon SPOC TCE-to-TSO EB table
-jon_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_catalog_tso/spocEBs.csv')
+jon_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_catalog_tso/spocEBs.csv')
+jon_tbl = pd.read_csv(jon_tbl_fp)
+logger.info(f'Using TSO EB catalog in {jon_tbl_fp}')
 jon_tbl['uid'] = jon_tbl.apply(_create_uid_for_jon_tbl, axis=1)
 jon_tbl.drop_duplicates(subset='uid', inplace=True)
 
 tce_tbl['in_jon_spoc_ebs'] = 'no'
 tce_tbl.loc[tce_tbl['uid'].isin(jon_tbl['uid']), 'in_jon_spoc_ebs'] = 'yes'
-print(f'Number of TCEs previously matched to TSO EBs: {(tce_tbl["label_source"] == "TSO EB").sum()}')
-print(f'Number of SPOC EBs in the TCE table: {(tce_tbl["in_jon_spoc_ebs"] == "yes").sum()}')
-print(f'Number of TCEs mismatched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "no") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
-print(f'Number of TCEs correctly matched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "yes") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
+# print(f'Number of TCEs previously matched to TSO EBs: {(tce_tbl["label_source"] == "TSO EB").sum()}')
+# print(f'Number of SPOC EBs in the TCE table: {(tce_tbl["in_jon_spoc_ebs"] == "yes").sum()}')
+# print(f'Number of TCEs mismatched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "no") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
+# print(f'Number of TCEs correctly matched to TSO EBs : {((tce_tbl["in_jon_spoc_ebs"] == "yes") & (tce_tbl["label_source"] == "TSO EB")).sum()}')
+logger.info(f'Number of TCEs in TSO EB catalog: {(tce_tbl["in_jon_spoc_ebs"] == "yes").sum()}')
 
-# set TCEs that are in Jon's SPOC TSO EBs and were not associated with a TOI to EBs from TSO
-tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (~tce_tbl['label_source'].isin(['TFOPWG Disposition'])), ['label', 'label_source']] = 'EB', 'TSO EB'
-# set TCEs that are not in Jon's SPOC TSO EBs to missing label and label source
-tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'no') & (tce_tbl['label_source'] == 'TSO EB'), ['label', 'label_source']] = 'UNK', np.nan
+# # set TCEs that are in Jon's SPOC TSO EBs and were not associated with a TOI to EBs from TSO
+# tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (~tce_tbl['label_source'].isin(['TFOPWG Disposition'])), ['label', 'label_source']] = 'EB', 'TSO EB'
+# # set TCEs that are not in Jon's SPOC TSO EBs to missing label and label source
+# tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'no') & (tce_tbl['label_source'] == 'TSO EB'), ['label', 'label_source']] = 'UNK', np.nan
 
-tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_corrtsoebs.csv', index=False)
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_tsoebs.csv', index=False)
+
+logger.info('Saved TCE table with TSO EB results')
 
 #%% Checking which misclassified TSO EBs were actually TSO EBs according to Jon's SPOC EB matching table to TSO EBs
 

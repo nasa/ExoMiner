@@ -98,19 +98,30 @@ logger.info(f'Starting run...')
 toi_tbl = pd.read_csv(save_dir / 'exofop_toi_cat_9-7-2022.csv')
 tce_tbl = pd.read_csv(save_dir / 'tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv.csv')
 
-for tce_i, tce in tce_tbl.iterrows():
-    if tce['sector_run'] in ['8', '9'] and ~np.isnan(tce['toi_dv']):
-        # print(tce)
-        logger.info(f' #### Iterating over TCE TIC {tce["uid"]}... ####')
-        tce_toi_plnt_num = int(str(tce['toi_dv']).split('.')[1])
-        tois_in_tic = toi_tbl.loc[toi_tbl['TIC ID'] == tce['target_id']]
-        tois_in_tic['toi_plnt_num'] = tois_in_tic['TOI'].astype(str).str.extract('\.(.*)').astype(int)
-        tois_in_tic_same_plnt_num = tois_in_tic['toi_plnt_num'] == tce_toi_plnt_num
-        assert tois_in_tic_same_plnt_num.sum() == 1
-        logger.info(f'Number of TOIs in TIC with same TOI planet number: {len(tois_in_tic_same_plnt_num)}')
-        toi_for_tce = tois_in_tic.loc[tois_in_tic_same_plnt_num]
-        logger.info(f'Current TCE TOI ID: {tce["toi_dv"]} | TOI ID from TOI catalog: {toi_for_tce["TOI"].values[0]} {toi_for_tce["TFOPWG Disposition"].values[0]}')
-        tce_tbl.loc[tce_i, 'toi_dv'] = toi_for_tce['TOI'].values[0]
+tce_tbl_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338')
+toi_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/10-3-2022/exofop_tess_tois-4.csv')
+for tce_tbl_fp in [fp for fp in tce_tbl_dir.iterdir() if fp.name.startswith('tess_tces')]:
+    print(f'TCE tbl: {tce_tbl_fp}')
+    tce_tbl = pd.read_csv(tce_tbl_fp)
+    # tce_tbl = tce_tbl.rename(columns={'planetToiId': 'toi_dv', 'planetToiCorrelation': 'toi_dv_corr'})
+    for tce_i, tce in tce_tbl.iterrows():
+        if tce['sector_run'] in ['8', '9', '1-9'] and tce['toi_dv'] != -1:  # ~np.isnan(tce['toi_dv']):
+            # print(tce)
+            # logger.info(f' #### Iterating over TCE TIC {tce["uid"]}... ####')
+            print(f' #### Iterating over TCE TIC {tce["uid"]}... ####')
+            tce_toi_plnt_num = int(str(tce['toi_dv']).split('.')[1])
+            tois_in_tic = toi_tbl.loc[toi_tbl['TIC ID'] == tce['target_id']]
+            tois_in_tic['toi_plnt_num'] = tois_in_tic['TOI'].astype(str).str.extract('\.(.*)').astype(int)
+            tois_in_tic_same_plnt_num = tois_in_tic['toi_plnt_num'] == tce_toi_plnt_num
+            assert tois_in_tic_same_plnt_num.sum() == 1
+            # logger.info(f'Number of TOIs in TIC with same TOI planet number: {len(tois_in_tic_same_plnt_num)}')
+            print(f'Number of TOIs in TIC with same TOI planet number: {len(tois_in_tic_same_plnt_num)}')
+            toi_for_tce = tois_in_tic.loc[tois_in_tic_same_plnt_num]
+            # logger.info(f'Current TCE TOI ID: {tce["toi_dv"]} | TOI ID from TOI catalog: {toi_for_tce["TOI"].values[0]} {toi_for_tce["TFOPWG Disposition"].values[0]}')
+            print(f'Current TCE TOI ID: {tce["toi_dv"]} | TOI ID from TOI catalog: {toi_for_tce["TOI"].values[0]} {toi_for_tce["TFOPWG Disposition"].values[0]}')
+            tce_tbl.loc[tce_i, 'toi_dv'] = toi_for_tce['TOI'].values[0]
+    # aaa
+    tce_tbl.to_csv(tce_tbl_fp, index=False)
 
 tce_tbl.to_csv(save_dir / 'tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv.csv', index=False)
 

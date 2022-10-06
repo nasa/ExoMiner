@@ -63,9 +63,6 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
                             f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
 
             # look for TCE in the source TFRecords table
-            # tce_found = src_tfrec_tbl.loc[(src_tfrec_tbl['target_id'] == tce['target_id']) &
-            #                               (src_tfrec_tbl['tce_plnt_num'] == tce['tce_plnt_num']),
-            #                               ['shard', 'example_i']]
             tce_found = src_tfrec_tbl.loc[src_tfrec_tbl['uid'] == tce['uid'],  ['shard', 'Unnamed: 0']]
 
             if len(tce_found) == 0:
@@ -81,8 +78,6 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
                     example = tf.train.Example()
                     example.ParseFromString(string_record)
 
-                    # target_id = example.features.feature['target_id'].int64_list.value[0]
-                    # tce_id = example.features.feature['tce_plnt_num'].int64_list.value[0]
                     example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
 
                     assert f'{example_uid}' == f'{tce["uid"]}'

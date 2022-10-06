@@ -2282,14 +2282,14 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     #         mag_cat = 1 if tce['mag'] > config['tess_mag_cat_thr'] else 0
     # example_util.set_int64_feature(ex, 'mag_cat', [mag_cat])
 
-    # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor
-    if config['satellite'] == 'tess':
-        for centroid_scalar_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err']:
-            feat = tce[centroid_scalar_feat]
-            if centroid_scalar_feat == 'tce_dicco_msky_err':
-                feat -= config['kepler_lower_bound_dicco_msky_err'] - config['tess_lower_bound_dicco_msky_err']
-                feat /= config['tess_to_kepler_px_scale_factor']
-            example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat])
+    # # adjust TESS centroid scalars to Kepler by dividing by pixel scale factor
+    # if config['satellite'] == 'tess':
+    #     for centroid_scalar_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err']:
+    #         feat = tce[centroid_scalar_feat]
+    #         if centroid_scalar_feat == 'tce_dicco_msky_err':
+    #             feat -= config['kepler_lower_bound_dicco_msky_err'] - config['tess_lower_bound_dicco_msky_err']
+    #             feat /= config['tess_to_kepler_px_scale_factor']
+    #         example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat])
 
     # data for preprocessing table
     if config['satellite'] == 'tess':
