@@ -32,9 +32,9 @@ tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/e
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Using TCE table from: {tce_tbl_fp}')
 
-# set planets with RUWE > 1.2 and not validated by RV to UNKs
-tce_tbl.loc[(tce_tbl['ruwe'] > 1.2) & (tce_tbl['RV_status'] == 0) & (tce_tbl['label'] == 'PC'), 'label'] = 'UNK'
-logger.info('Set planets with RUWE > 1.2 and not validated by RV to UNK TCEs.')
+# # set planets with RUWE > 1.2 and not validated by RV to UNKs
+# tce_tbl.loc[(tce_tbl['ruwe'] > 1.2) & (tce_tbl['RV_status'] == 0) & (tce_tbl['label'] == 'PC'), 'label'] = 'UNK'
+# logger.info('Set planets with RUWE > 1.2 and not validated by RV to UNK TCEs.')
 
 # remove rogue TCEs
 tce_tbl = tce_tbl.loc[tce_tbl['tce_rogue_flag'] == 0]

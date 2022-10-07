@@ -101,7 +101,12 @@ def read_light_curve(tce, config):
     else:  # TESS
 
         # get sectors for the run
-        sectors = [int(sect) for sect in tce['sectors'].split(' ')]
+        if '-' in tce['sector_run']:
+            s_sector, e_sector = [int(sector) for sector in tce['sector_run'].split('-')]
+        else:
+            s_sector, e_sector = [int(tce['sector_run'])] * 2
+        sectors = range(s_sector, e_sector + 1)
+        # sectors = [int(sect) for sect in tce['sectors'].split(' ')]
 
         # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
         file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
@@ -2292,8 +2297,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     #         example_util.set_feature(ex, f'{centroid_scalar_feat}_adjscl', [feat])
 
     # data for preprocessing table
-    if config['satellite'] == 'tess':
-        example_stats['sectors'] = tce['sectors']
+    # if config['satellite'] == 'tess':
+    #     example_stats['sectors'] = tce['sectors']
 
     example_stats.update({f'num_transits_{view}': num_tr for view, num_tr in num_transits.items()})
     example_stats.update({f'odd_{key}': val for key, val in odd_data.items()

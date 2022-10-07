@@ -10,13 +10,13 @@ from src_preprocessing.tf_util import example_util
 
 #%%
 
-src_tfrecs_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats')
-dest_tfrecs_dir = src_tfrecs_dir.parent / f'{src_tfrecs_dir.name}_toidv'
+src_tfrecs_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats_toidv')
+dest_tfrecs_dir = src_tfrecs_dir.parent / f'tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats_ourtoimatch'
 dest_tfrecs_dir.mkdir(exist_ok=True)
 
-src_tfrecs_fps = [fp for fp in src_tfrecs_dir.iterdir() if fp]
+src_tfrecs_fps = [fp for fp in src_tfrecs_dir.iterdir() if fp.name.startswith('shard')]
 
-tce_tbl_fp = Path('/Users/msaragoc/Downloads/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_final.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet_ourmatch.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 tce_tbl.set_index('uid', inplace=True)
 
@@ -57,11 +57,12 @@ for src_tfrecs_fp in src_tfrecs_fps:
 
             example_label_new = tce_tbl.loc[example_uid, 'label']
             label_dict['label_new'].append(example_label_new)
+            # if not isinstance(example_label_new, str):
+            #     continue
 
             example_util.set_bytes_feature(example, 'label', [label_map[example_label_new]], allow_overwrite=True)
 
             writer.write(example.SerializeToString())
-
 
 label_tbl = pd.DataFrame(label_dict)
 label_tbl.to_csv(dest_tfrecs_dir / 'label_change.csv', index=False)

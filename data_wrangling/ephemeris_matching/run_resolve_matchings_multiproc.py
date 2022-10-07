@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
     match_thr = 0.75
     matching_root_dir = Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/09-26-2022_1708')
+        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():

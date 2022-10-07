@@ -217,7 +217,7 @@ def create_shards(config, tce_table):
 
 def main():
     # get the configuration parameters
-    path_to_yaml = Path(path_main + 'src_preprocessing/config_preprocessing.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)

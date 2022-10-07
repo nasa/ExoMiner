@@ -1,4 +1,4 @@
-""" """
+""" Preprocess features in the TCE table. """
 
 # 3rd party
 import pandas as pd

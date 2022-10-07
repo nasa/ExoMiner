@@ -45,7 +45,7 @@ def solve_matches(tbl_fp, match_thr):
 if __name__ == '__main__':
 
     match_thr = 0.75
-    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/09-28-2022_1139')
+    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-04-2022_1128')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():

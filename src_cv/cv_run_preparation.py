@@ -35,12 +35,12 @@ n_folds_predict = 10
 
 #%% prepare the shards for CV by splitting the TCE table into shards (n folds)
 
-shard_tbls_dir = data_dir / 'shard_tables' / 'predict'
+shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
 shard_tbls_dir.mkdir(exist_ok=True, parents=True)
 
 # load the TCE table
 tce_tbl_fp = Path(
-    '/Users/msaragoc/Downloads/toi-tce_matching_dv/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_final.csv')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet_ourmatch.csv')
 logger.info(f'Reading TCE table {tce_tbl_fp}')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 

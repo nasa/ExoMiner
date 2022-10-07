@@ -80,11 +80,11 @@ def get_tess_tce_table(config):
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
     tce_table = tce_table.astype(dtype={
-        'sectors': str,
+        # 'sectors': str,
         'sector_run': str,
-        'TOI': str,
+        # 'TOI': str,
         'label': str,
-        'toi_sectors': str,
+        # 'toi_sectors': str,
         'Comments': str,
         'TESS Disposition': str,
         'TFOPWG Disposition': str
