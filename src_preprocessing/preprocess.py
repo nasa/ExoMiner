@@ -328,7 +328,7 @@ def _process_tce(tce, table, config, conf_dict):
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    plot_preprocessing_tce = True  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 
@@ -773,7 +773,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
 
     # compute the corrected centroid time-series normalized by the transit depth fraction and centered on the avg oot
     # centroid position
-    transit_depth = tce['transit_depth'] + 1  # avoid zero transit depth
+    transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
     transitdepth_term = (1e6 - transit_depth) / transit_depth
     # avg_centroid_oot = {coord: avg_centroid_oot[coord] * 1.15 for coord in avg_centroid_oot}
     # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /
