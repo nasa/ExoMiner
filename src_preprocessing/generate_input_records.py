@@ -301,10 +301,10 @@ def main():
 
         tf_logging.info(f'Finished processing {config["n_shards"]} total file shards')
 
-        # concatenates shard tables into a single one
-        create_shards_tbl_flag = create_shards_table(config['output_dir'])
-        if not create_shards_tbl_flag:
-            tf_logging.info('Merged shard table not created.')
+        # # concatenates shard tables into a single one
+        # create_shards_tbl_flag = create_shards_table(config['output_dir'])
+        # if not create_shards_tbl_flag:
+        #     tf_logging.info('Merged shard table not created.')
 
 
 if __name__ == "__main__":

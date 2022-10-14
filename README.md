@@ -90,7 +90,9 @@ Research Center (NASA ARC).
 - Active developers
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
+    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification, Kepler to TESS 
+  transfer learning)
+    - William Zhong <sup>5</sup> (Difference Image)
 
 - Past developers 
     - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
@@ -130,7 +132,9 @@ We would like to acknowledge people that in some way supported our efforts:
 
 - David Armstrong for insightful discussion that helped improving our work.
 - Megan Ansdell for providing information on their code and work.
- 
+- Resources supporting this work were provided by the NASA High-End Computing (HEC) Program through the NASA Advanced 
+- Supercomputing (NAS) Division at Ames Research Center
+
 ## Contacts
 - Hamed Valizadegan (PI, USRA contractor),  hamed.valizadegan@nasa.gov
 - Miguel Martinho (Sub-I, USRA contractor), miguel.martinho@nasa.gov

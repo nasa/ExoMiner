@@ -3,6 +3,7 @@
 # 3rd party
 import os
 import socket
+import pandas as pd
 
 
 def is_pfe():
@@ -39,26 +40,73 @@ def report_exclusion(config, tce, id_str, stderr=None):
     # create exclusion logs directory if it does not exist
     os.makedirs(savedir, exist_ok=True)
 
-    # # TODO: what if TESS changes to multi-sector analysis; sector becomes irrelevant...
-    # if config['satellite'] == 'kepler':
-    #     main_str = f'Kepler ID {tce.target_id} TCE {tce[config["tce_identifier"]]}'
-    # else:  # 'tess'
-    #     main_str = f'TIC ID {tce.target_id} TCE {tce[config["tce_identifier"]]} Sector(s) {tce.sector_run}'
-    main_str = f'Example {tce.uid}'
+    uid_str = f'Example {tce.uid}'
     if stderr is None:
-        stderr = ''
+        stderr = 'Error:None'
 
     if is_pfe():
 
         # get node id
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
 
-        # write to exclusion log pertaining to this process and node
-        with open(os.path.join(savedir, 'exclusions_{}_{}-{}.txt'.format(config['process_i'], node_id,
-                                                                         main_str.replace(" ", ""))),
-                  "a") as myfile:
-            myfile.write('{}\n{}\n{}'.format(main_str, id_str, stderr))
+        fp = os.path.join(savedir, 'exclusions_{}_{}-{}.txt'.format(config['process_i'], node_id,
+                                                                    uid_str.replace(" ", "")))
     else:
-        # write to exclusion log locally
-        with open(os.path.join(savedir, 'exclusions-{}.txt'.format(main_str.replace(" ", ""))), "a") as myfile:
-            myfile.write('{}\n{}\n{}'.format(main_str, id_str, stderr))
+        fp = os.path.join(savedir, 'exclusions-{}.txt'.format(uid_str.replace(" ", "")))
+
+    # write to exclusion log pertaining to this process and node
+    if not os.path.exists(fp):
+        first_exclusion = True
+    else:
+        first_exclusion = False
+    with open(fp, "a") as excl_file:
+        if first_exclusion:
+            excl_file.write(uid_str)
+        excl_file.write(f'\nExclusion:{id_str}\nError:{stderr}')
+
+
+def create_tbl_from_exclusion_logs(excl_fps, max_n_errors_logged):
+    """ Create table for examples with exclusion logs that occurred while preprocessing the data.
+
+    Args:
+        excl_fps: list, file paths to exclusion logs.
+
+    Returns: exclusion_tbl, pandas DataFrame, table with examples and corresponding exclusion events that occurred when
+    preprocessing.
+
+    """
+
+    n_examples = len(excl_fps)
+
+    data_to_tbl = {
+        'uid': [''] * n_examples,
+        'filename': [''] * n_examples,
+    }
+
+    for error_i in range(max_n_errors_logged):
+        data_to_tbl[f'exclusion_{error_i}'] = [''] * n_examples
+        data_to_tbl[f'error_{error_i}'] = [''] * n_examples
+
+    for excl_fp_i, excl_fp in enumerate(excl_fps):
+
+        data_to_tbl['filename'][excl_fp_i] = excl_fp.name
+
+        with open(excl_fp, 'r') as excl_file:
+
+            line = excl_file.readline()
+            data_to_tbl['uid'][excl_fp_i] = line.split(' ')[1][:-1]
+
+            cnt_lines = 0
+            line = excl_file.readline()
+            while line:
+                if cnt_lines % 2 == 0:  # exclusion
+                    data_to_tbl[f'exclusion_{cnt_lines // 2}'][excl_fp_i] = line[10:-1]
+                elif cnt_lines % 2 == 1:  # error associated with exclusion
+                    data_to_tbl[f'error_{(cnt_lines - 1) // 2}'][excl_fp_i] = line[6:-1]
+
+                line = excl_file.readline()
+                cnt_lines += 1
+
+    exclusion_tbl = pd.DataFrame(data_to_tbl)
+
+    return exclusion_tbl

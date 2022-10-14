@@ -313,7 +313,7 @@ def _process_tce(tce, table, config, conf_dict):
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
     # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if f'{tce["uid"]}' in ['367911750-1-S24']:
+    # if f'{tce["matched_toi_our"]}' in [4473.01]:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
         # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
         # if '{}'.format(tce['target_id']) in ['9455556']:
@@ -328,7 +328,7 @@ def _process_tce(tce, table, config, conf_dict):
     #     return None
 
     # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = True  # False
+    plot_preprocessing_tce = False  # False
     if np.random.random() < 0.01:
         plot_preprocessing_tce = config['plot_figures']
 

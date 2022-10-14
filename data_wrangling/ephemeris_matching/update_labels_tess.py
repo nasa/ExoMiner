@@ -51,6 +51,8 @@ for toi_i, toi in toi_tbl.iterrows():
     tce_tbl.loc[tces_found, ['label', 'TFOPWG Disposition']] = toi['TFOPWG Disposition']
     tce_tbl.loc[tces_found, 'label_source'] = 'TFOPWG Disposition'
 
+    tce_tbl.loc[tces_found, toi_cols] = toi[toi_cols].values
+
 # print(f'Number of unlabeled TCEs that changed their disposition: {cnt_unks_updated}')
 # print(f'Number of TCEs that changed their disposition: {cnt_updates}')
 
