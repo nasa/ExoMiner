@@ -170,7 +170,7 @@ def cv():
     args = parser.parse_args()
 
     if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path('/home/msaragoc/Projects/exoplnt_dl/codebase/src_cv/config_cv_train.yaml')
+        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
     else:  # use config file given as input
         path_to_yaml = Path(args.config_file)
 
@@ -293,7 +293,7 @@ def cv():
         # run each CV iteration in parallel
         cv_id = config['rank']
         if config['logger'] is not None:
-            config['logger'].info(f'Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])})')
+            config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
         config['cv_id'] = cv_id
         cv_run(
             config['paths']['experiment_root_dir'],
@@ -304,7 +304,7 @@ def cv():
         # run each CV iteration sequentially
         for cv_id, cv_iter in enumerate(config['data_shards_fps']):
             config['logger'].info(
-                f'[cv_iter_{cv_id}] Running CV iteration {cv_id} (out of {len(config["data_shards_fps"])})')
+                f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
                 config['paths']['experiment_root_dir'],

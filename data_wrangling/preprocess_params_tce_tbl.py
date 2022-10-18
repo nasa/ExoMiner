@@ -12,8 +12,8 @@ tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # create categorical magnitude
 tess_mag_thr = 7
-tce_tbl['mag_cat'] = 0
-tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1
+tce_tbl['mag_cat'] = 0.0
+tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1.0
 
 # create adjusted
 tess_px_scale = 21  # arcsec
@@ -39,7 +39,7 @@ tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # create categorical magnitude
 kepler_mag_thr = 12
-tce_tbl['mag_cat'] = 0
-tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1
+tce_tbl['mag_cat'] = 0.0
+tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1.0
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_preproc.csv', index=False)
