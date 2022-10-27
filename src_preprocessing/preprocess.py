@@ -311,7 +311,7 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    # if tce['target_id'] == 100001645 and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
+    # if tce['target_id'] == 7376983:  #  and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
     # if f'{tce["matched_toi_our"]}' in [4473.01]:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
@@ -774,6 +774,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     # compute the corrected centroid time-series normalized by the transit depth fraction and centered on the avg oot
     # centroid position
     transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
+    # transit_depth = tce['transit_depth'] + 1  # avoid zero transit depth
     transitdepth_term = (1e6 - transit_depth) / transit_depth
     # avg_centroid_oot = {coord: avg_centroid_oot[coord] * 1.15 for coord in avg_centroid_oot}
     # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /

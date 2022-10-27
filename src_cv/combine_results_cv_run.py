@@ -2,8 +2,6 @@
 
 # 3rd party
 from pathlib import Path
-
-import numpy as np
 import pandas as pd
 
 # %% Combine predictions from all CV iterations in the used dataset
@@ -25,7 +23,7 @@ ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', i
 # %% Combine predictions from all CV iterations in the not-used dataset
 
 cv_pred_run_dir = Path(
-    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_kepler_noplanets_ruwe-l1.2_8-26-2022_1148')
+    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_predict_kepler_exominer_multiplicityboost_kic7376983_replace_flux_branches_10-26-2022_1000')
 
 cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 

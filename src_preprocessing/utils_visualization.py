@@ -776,7 +776,9 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
         tce['tce_time0bk'],
         tce['tce_period'],
         tce['tce_duration'] * 24,
-        tce['tce_depth'])
+        tce['tce_depth'],
+        # tce['transit_depth'],
+    )
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
     k = 0

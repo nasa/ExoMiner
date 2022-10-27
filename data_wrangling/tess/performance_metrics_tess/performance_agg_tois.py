@@ -20,10 +20,10 @@ class_ids = [0, 1]
 top_k_vals = [50, 100, 250, 500, 750, 1000, 1250, 1400]
 cats = {'T-CP': 1, 'T-KP': 1, 'T-FP': 0, 'T-EB': 0, 'T-FA': 0, 'T-NTP': 0}
 
-tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet_ourmatch.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
 
 # experiment directory
-exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/results_10-4_10-10/cv_merged_fluxvar_noglobal_stellar_10-10-2022_1028')
+exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/results_10_18-10-24/cv_merged_base_10-18-2022_1028')
 
 ranking_tbl = pd.read_csv(exp_dir / 'ensemble_ranked_predictions_allfolds.csv')
 
@@ -37,7 +37,8 @@ agg_cols = [
     'score',
     'predicted class',
 ]
-toi_ranking_tbl = ranking_tbl.loc[~ranking_tbl['matched_toi_our'].isna(), agg_cols].groupby('matched_toi_our').mean().reset_index().rename(columns={'matched_toi_our': 'uid'})
+# toi_ranking_tbl = ranking_tbl.loc[~ranking_tbl['matched_toi_our'].isna(), agg_cols].groupby('matched_toi_our').mean().reset_index().rename(columns={'matched_toi_our': 'uid'})
+toi_ranking_tbl = ranking_tbl.loc[~ranking_tbl['matched_toi_our'].isna(), agg_cols].groupby('matched_toi_our').median().reset_index().rename(columns={'matched_toi_our': 'uid'})
 toi_ranking_tbl['matched_toi_our'] = toi_ranking_tbl['uid']
 ranking_tbl_aggtois = ranking_tbl.copy()
 
@@ -47,7 +48,7 @@ for toi_i, toi in toi_ranking_tbl.iterrows():
     ranking_tbl_aggtois.loc[tcesintoi, 'predicted class'] = 0
     ranking_tbl_aggtois.loc[tcesintoi & (ranking_tbl_aggtois['score'] > clf_threshold), 'predicted class'] = 1
 
-ranking_tbl_aggtois.to_csv(exp_dir / 'ensemble_ranked_predictions_allfolds_tces_score_aggtois.csv', index=False)
+ranking_tbl_aggtois.to_csv(exp_dir / 'ensemble_ranked_predictions_allfolds_tces_score_aggtois_median.csv', index=False)
 
 # compute metrics for each CV fold
 metrics_lst = ['auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced accuracy', 'avg precision']
@@ -126,7 +127,7 @@ for k_val in top_k_vals:
 
 metrics_df = pd.DataFrame(data_to_tbl)
 
-metrics_df.to_csv(exp_dir / 'metrics_tces_score_aggtois.csv', index=False)
+metrics_df.to_csv(exp_dir / 'metrics_tces_score_aggtois_median.csv', index=False)
 
 #%% Compute metrics when aggregating scores for TCEs associated with the same TOI and then only considering the TOI
 

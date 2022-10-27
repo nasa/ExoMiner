@@ -2,8 +2,8 @@ ngpus_per_node: 1  # number of GPUs per node
 rank: null
 
 paths:
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_config_7-18-2022_1616
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/andres_carranza/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_unfolded_cap20_copied/experiment-normalized_EB_RELABELED-renamed_features
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_10-27-2022_1221
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split-normalized
   prev_run_dir: null  # warm-up from previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -52,6 +52,7 @@ config: # fixed parameters
         - tce_ptemp_stat_norm
         - tce_albedo_stat_norm
         - tce_maxmes_norm
+        - tce_prad_norm
     #        - wst_depth_norm
     local_centroid:
       views:
@@ -64,10 +65,10 @@ config: # fixed parameters
         #        - tce_dicco_msky_norm
         #        - tce_dicco_msky_err_norm
         #        - mag_norm
-        - mag_cat
-        #        - mag_cat_norm
-#        - ruwe_norm
-        - tce_ruwe_norm
+#        - mag_cat
+        - mag_cat_norm
+        - ruwe_norm
+#        - tce_ruwe_norm
     global_centroid:
       views:
         #        - global_centr_fdl_view_norm
@@ -94,17 +95,17 @@ config: # fixed parameters
       - tce_hap_stat_norm
       #          - tce_cap_hap_stat_diff_norm
       #      - tce_rb_tcount0n_norm
-      - tce_prad_norm
+#      - tce_prad_norm
       - tce_period_norm
-  transformer_branches:
+  transformer_branches: null
 #      global:
 #        - unfolded_global_flux_view_fluxnorm
-      local:
-        - unfolded_local_flux_view_fluxnorm
+#      local:
+#        - unfolded_local_flux_view_fluxnorm
 
   #transformer hyperparameters
   #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
-  use_transformer: true
+  use_transformer: false
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
@@ -169,20 +170,20 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-#  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
-  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+#  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+#  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-  #  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -210,15 +211,15 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+#  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
-feature_map: # null
+feature_map: null
 #  feature_name: feature_name_model
-  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
-  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
+#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
+#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
+#  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
+#  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -226,16 +227,15 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-#  n_epochs: 300  # number of epochs used to train each model
   use_kepler_ce: false
   opt_metric: auc_pr
   batch_size: 32
   ce_weights: null
   filter_data: null
-  category_weights:
-    PC: 1.0
-    AFP: 1.0
-    NTP: 1.0
+  category_weights: null
+#    PC: 1.0
+#    AFP: 1.0
+#    NTP: 1.0
 evaluation:
   batch_size: 32
 inference:
@@ -301,7 +301,6 @@ metrics:
 datasets: [ 'train', 'val', 'test' ]  # datasets - same name convention as used for the TFRecords
 verbose: true
 verbose_model: 2  # 'auto', 0, 1, or 2
-#satellite: kepler
 
 configuration_space:
   hyperparameters: # hyper-parameters to be optimized (they will overwrite hyper-parameters set in config

@@ -27,7 +27,6 @@ import hpbandster.core.result as hpres
 from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner
 from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
-# import paths
 from utils.utils_dataio import is_yamlble
 
 
@@ -39,9 +38,9 @@ def run_main(hpo_config, logger=None):
     :return:
     """
 
-    # for each rank, create a folder to save temporarily the models created for a given run
-    hpo_config['model_dir_rank'] = hpo_config['paths']['experiment_dir'] / f'models_rank{hpo_config["rank"]}'
-    hpo_config['model_dir_rank'].mkdir(exist_ok=True)
+    # # for each rank, create a folder to save temporarily the models created for a given run
+    # hpo_config['model_dir_rank'] = hpo_config['paths']['experiment_dir'] / f'models_rank{hpo_config["rank"]}'
+    # hpo_config['model_dir_rank'].mkdir(exist_ok=True)
 
     host = hpns.nic_name_to_host(hpo_config['nic_name'])
 
@@ -168,8 +167,11 @@ if __name__ == '__main__':
 
     # set up logger
     logger = logging.getLogger(name='hpo_run')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
-                                                  f'hpo_run_{config["rank"]}.log', mode='w')
+    logger_handler = logging.FileHandler(
+        filename=config['paths']['experiment_dir'] /
+                 f'hpo_run_{config["rank"]}.log' if config['rank'] is not None
+        else config['paths']['experiment_dir'] / 'hpo_run.log',
+        mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -211,14 +213,20 @@ if __name__ == '__main__':
             config['features_set'][feature_name]['dtype'] = tf.int64
 
     # add fit parameters
-    config['callbacks_list'] = []
+    config['callbacks_list'] = {'train': None}
 
     config['base_model'] = TransformerExoMiner
 
     config['study'] = config['paths']['experiment_dir'].name
 
+    config['datasets_fps'] = {
+        'train': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('train')],
+        'val': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('val')],
+        'test': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('test')],
+    }
+
     if config['rank'] == 0:
-        (config['paths']['experiment_dir'] / 'logs').mkdir(exist_ok=True)
+        # (config['paths']['experiment_dir'] / 'logs').mkdir(exist_ok=True)
 
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)
 
@@ -227,7 +235,7 @@ if __name__ == '__main__':
         with open(config['paths']['experiment_dir'] / 'hpo_run_config.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
 
-    logger.info(f'HPO run parameters: {config}')
-    sys.stdout.flush()
+    # logger.info(f'HPO run parameters: {config}')
+    # sys.stdout.flush()
 
     run_main(config, logger)

@@ -40,7 +40,12 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
 
     # print model summary
     if config['rank'] is None or config['rank'] == 0:
-        model.summary()
+        if logger is not None:
+            model.summary(print_fn=lambda x: logger.info(x + '\n'))
+        else:
+            with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+                model.summary(print_fn=lambda x: f.write(x + '\n'))
+        # model.summary()
 
     # setup metrics to be monitored
     if not config['config']['multi_class']:
@@ -149,7 +154,11 @@ def evaluate_model(config, logger=None):
         # save ensemble
         model.save(config['paths']['experiment_dir'] / 'ensemble_model.h5')
 
-    model.summary()
+    if logger is not None:
+        model.summary(print_fn=lambda x: logger.info(x + '\n'))
+    else:
+        with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+            model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # plot ensemble model and save the figure
     if config['plot_model']:
@@ -252,7 +261,11 @@ def predict_model(config, logger=None):
         # save ensemble
         model.save(config['paths']['experiment_dir'] / 'ensemble_model.h5')
 
-    model.summary()
+    if logger is not None:
+        model.summary(print_fn=lambda x: logger.info(x + '\n'))
+    else:
+        with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+            model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # plot model and save the figure
     if config['plot_model']:

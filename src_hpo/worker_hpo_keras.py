@@ -39,6 +39,7 @@ def _delete_model_files(model_dir):
     for model_filepath in model_dir.iterdir():
         # model_filepath.unlink(missing_ok=True)
         model_filepath.unlink(missing_ok=True)
+    model_dir.rmdir()
 
 
 # @profile
@@ -392,7 +393,7 @@ def _evaluate_config(worker_id_custom, config_id, budget, config, verbose):
             #                          verbose)
             config_aux = config.copy()
             config_aux['training']['n_epochs'] = budget
-            model_dir = config['paths']['experiment_dir'] / f'models_rank{worker_id_custom}'
+            model_dir = config['paths']['experiment_dir'] / f'models'
             try:
                 res_model_i = train_model(
                     base_model=config_aux['base_model'],
@@ -539,6 +540,12 @@ class TransitClassifier(Worker):
         # merge sampled and fixed configurations
         run_config = self.base_config.copy()
         run_config['config'].update(config)
+        run_config['rank'] = 0
+
+        self.config_dir = self.results_directory / f'config{config_id}'
+        run_config['paths']['experiment_dir'] = self.config_dir
+        run_config['paths']['experiment_dir'].mkdir(exist_ok=True)
+        (self.config_dir / 'models').mkdir(exist_ok=True)
 
         budget = int(budget)
 
@@ -572,7 +579,8 @@ class TransitClassifier(Worker):
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}
-        np.save(self.results_directory / f'config{config_id}_budget{budget}_ensemblemetrics.npy', res_total)
+        np.save(run_config['paths']['experiment_dir'] /
+                f'config{config_id}_budget{budget}_ensemblemetrics.npy', res_total)
 
         # draw loss and evaluation metric plots for the model on this given budget
         if 'error' not in res_ensemble:
@@ -606,6 +614,10 @@ class TransitClassifier(Worker):
             res_hpo = {'loss': np.inf, 'info': res_ensemble['error']}
 
         sys.stdout.flush()
+
+        # delete single and ensemble models used to evaluate this configuration
+        _delete_model_files(self.config_dir / 'models')
+        (self.config_dir / 'ensemble_model.h5').unlink(missing_ok=True)
 
         return res_hpo
 
@@ -717,7 +729,7 @@ class TransitClassifier(Worker):
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
         ax.set_title('Precision Recall curve')
-        f.savefig(self.results_directory / f'config{config_id}_budget{epochs[-1]}_prcurve.png')
+        f.savefig(self.config_dir / f'config{config_id}_budget{epochs[-1]}_prcurve.png')
         plt.close()
 
     # @profile
@@ -776,7 +788,7 @@ class TransitClassifier(Worker):
         ax[1].legend(loc="lower right")
         f.suptitle(f'Config {config_id} | Budget = {epochs[-1]}')
         f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
-        f.savefig(self.results_directory / f'config{config_id}_budget{epochs[-1]}_mloss-hpoloss.png')
+        f.savefig(self.config_dir / f'config{config_id}_budget{epochs[-1]}_mloss-hpoloss.png')
         plt.close()
 
         # # plot PR curve
