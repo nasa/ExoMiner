@@ -304,9 +304,9 @@ verbose_model: 2  # 'auto', 0, 1, or 2
 
 configuration_space:
   hyperparameters: # hyper-parameters to be optimized (they will overwrite hyper-parameters set in config
-    num_transformer_blocks:
-      type: categorical
-      parameters: [1, 2, 3]
+#    num_transformer_blocks:
+#      type: categorical
+#      parameters: [1, 2, 3]
     lr: # name (should match name expected in model function)
       type: uniform_float  # type of hyper-parameter
       parameters:
@@ -365,7 +365,19 @@ configuration_space:
         lower: 2
         upper: 6
         default_value: 4
-    kernel_size:
+#    kernel_size:
+#      type: uniform_integer
+#      parameters:
+#        lower: 1
+#        upper: 8
+#        default_value: 2
+    kernel_size_glob:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 8
+        default_value: 2
+    kernel_size_loc:
       type: uniform_integer
       parameters:
         lower: 1

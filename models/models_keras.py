@@ -2540,7 +2540,9 @@ class TransformerExoMiner(object):
 
         odd_even_branch_name = 'local_odd_even'
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-                         'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'}}
+                         'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
+                         'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
+                         }
 
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
             else 'glorot_uniform'
@@ -2560,6 +2562,8 @@ class TransformerExoMiner(object):
             # get number of conv blocks for the given view
             n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
 
+            kernel_size = self.config[config_mapper['kernel_size'][('local_view', 'global_view')['global' in branch]]]
+
             # get pool size for the given view
             pool_size = self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
 
@@ -2570,9 +2574,9 @@ class TransformerExoMiner(object):
                 # set convolution layer parameters from config
                 conv_kwargs = {'filters': num_filters,
                                'kernel_initializer': weight_initializer,
-                               'kernel_size': (1, self.config['kernel_size'])
+                               'kernel_size': (1, kernel_size)  # (1, self.config['kernel_size'])
                                if branch == odd_even_branch_name else self.config['kernel_size'],
-                               'strides': (1, self.config['kernel_stride'])
+                               'strides': (1, kernel_size)  # (1, self.config['kernel_stride'])
                                if branch == odd_even_branch_name else self.config['kernel_stride'],
                                'padding': 'same'
                                }

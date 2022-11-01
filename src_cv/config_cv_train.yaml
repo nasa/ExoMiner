@@ -6,7 +6,7 @@ logger: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_tess_10-17-2022_0939
+  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_tess_10-20-2022_1528
   # TFRecord directory with the CV folds
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess-s1s55-dv_all_features_phases_10-12-2022_1520/tfrecords/eval
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
