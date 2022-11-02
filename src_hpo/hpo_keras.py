@@ -211,6 +211,8 @@ if __name__ == '__main__':
             config['features_set'][feature_name]['dtype'] = tf.float32
         elif feature['dtype'] == 'int':
             config['features_set'][feature_name]['dtype'] = tf.int64
+        elif feature['dtype'] == 'str':
+            config['features_set'][feature_name]['dtype'] = tf.string
 
     # add fit parameters
     config['callbacks_list'] = {'train': None}

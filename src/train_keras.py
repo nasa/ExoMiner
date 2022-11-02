@@ -113,7 +113,8 @@ def run_main(config, base_model, model_id, logger=None):
         category_weights=config['training']['category_weights'],
         multiclass=config['config']['multi_class'],
         use_transformer=config['config']['use_transformer'],
-        feature_map=config['feature_map']
+        feature_map=config['feature_map'],
+        shuffle_buffer_size=config['training']['shuffle_buffer_size'],
     )
     if 'val' in config['datasets']:
         val_input_fn = InputFn(

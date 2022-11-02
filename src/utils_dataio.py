@@ -274,15 +274,15 @@ class InputFnv2(object):
         if self.mode == 'TRAIN':
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
 
-        # do not repeat the dataset
-        dataset = dataset.repeat(1)
+        # # do not repeat the dataset
+        # dataset = dataset.repeat(1)
 
         # map the example parser across the tfrecords dataset to extract the examples and manipulate them
         # (e.g., real-time data augmentation, shuffling, ...)
         # dataset = dataset.map(_example_parser, num_parallel_calls=4)
         # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
         # process asynchronously
-        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE)
 
         # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size)

@@ -216,9 +216,11 @@ training:
   #  ce_weights: null
   filter_data: null  # deprecated; useless
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-#    PC: 1.0
-#    AFP: 0.5
-#    NTP: 1.0
+  #    PC: 1.0
+  #    AFP: 0.5
+  #    NTP: 1.0
+  shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+
 evaluation:
   batch_size: 32
 inference:

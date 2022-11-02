@@ -214,6 +214,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
 #  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+#  uid: { 'dim': [ 1, ], 'dtype': str }
+
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -238,6 +240,8 @@ training:
 #    PC: 1.0
 #    AFP: 1.0
 #    NTP: 1.0
+  shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+
 evaluation:
   batch_size: 32
 inference:
