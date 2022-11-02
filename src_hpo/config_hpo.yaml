@@ -2,8 +2,8 @@ ngpus_per_node: 1  # number of GPUs per node
 rank: null
 
 paths:
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_10-27-2022_1221
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split-normalized
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_11-1-2022_1530
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/combined/cv_merged_10-13-2022/tfrecords-normalized
   prev_run_dir: null  # warm-up from previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -37,6 +37,7 @@ config: # fixed parameters
     local_flux:
       views:
         - local_flux_view_fluxnorm
+        - local_flux_view_var
       scalars:
         #        - transit_depth_norm
         - tce_max_mult_ev_norm
@@ -69,11 +70,11 @@ config: # fixed parameters
         - mag_cat_norm
         - ruwe_norm
 #        - tce_ruwe_norm
-    global_centroid:
-      views:
-        #        - global_centr_fdl_view_norm
-        - global_centr_view_std_noclip
-      scalars: null
+#    global_centroid:
+#      views:
+#        #        - global_centr_fdl_view_norm
+#        - global_centr_view_std_noclip
+#      scalars: null
     local_odd_even:
       views:
         - local_flux_odd_view_fluxnorm
@@ -154,6 +155,7 @@ config: # fixed parameters
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
   #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -170,7 +172,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
 #  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
 #  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }

@@ -2551,13 +2551,15 @@ class TransformerExoMiner(object):
         for branch_i, branch in enumerate(self.config['conv_branches']):  # create a convolutional branch
 
             branch_view_inputs = [self.inputs[view_name] for view_name in self.config['conv_branches'][branch]['views']]
-            branch_view_inputs = branch_view_inputs if len(branch_view_inputs) > 1 else branch_view_inputs[0]
-            if branch == odd_even_branch_name:  # for odd and even views, inputs are combined as two channels
-
-                branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format('branch'))(
+            # branch_view_inputs = branch_view_inputs if len(branch_view_inputs) > 1 else branch_view_inputs[0]
+            if len(branch_view_inputs) == 2:
+                branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name='input_{}'.format(branch))(
                     branch_view_inputs)
-                branch_view_inputs = tf.keras.layers.Permute((2, 1), name='permute_oe')(branch_view_inputs)
-                branch_view_inputs = tf.expand_dims(branch_view_inputs, axis=-1, name='expanding_oe')
+                if branch == odd_even_branch_name:  # for odd and even views, inputs are combined as two channels
+                    branch_view_inputs = tf.keras.layers.Permute((2, 1), name='permute_oe')(branch_view_inputs)
+                    branch_view_inputs = tf.expand_dims(branch_view_inputs, axis=-1, name='expanding_oe')
+            else:
+                branch_view_inputs = branch_view_inputs[0]
 
             # get number of conv blocks for the given view
             n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
@@ -2575,8 +2577,8 @@ class TransformerExoMiner(object):
                 conv_kwargs = {'filters': num_filters,
                                'kernel_initializer': weight_initializer,
                                'kernel_size': (1, kernel_size)  # (1, self.config['kernel_size'])
-                               if branch == odd_even_branch_name else self.config['kernel_size'],
-                               'strides': (1, kernel_size)  # (1, self.config['kernel_stride'])
+                               if branch == odd_even_branch_name else kernel_size,  # self.config['kernel_size'],
+                               'strides': (1, self.config['kernel_stride'])
                                if branch == odd_even_branch_name else self.config['kernel_stride'],
                                'padding': 'same'
                                }

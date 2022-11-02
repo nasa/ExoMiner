@@ -54,7 +54,7 @@ cnt_kois_target = \
 tbls.append(cnt_kois_target)
 # number of FPs per target (AFPs in the TCE table)
 cnt_fps_target = \
-    tce_tbl.loc[((tce_tbl['label'] == 'AFP') | ((tce_tbl['label'] == 'NTP') & (tce_tbl['fpwg_disp_status'] == 'CERTIFIED FP'))), 'target_id'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'target_id'})
+    tce_tbl.loc[((tce_tbl['label'] == 'AFP') | ((tce_tbl['label'] == 'NTP') & (tce_tbl['fpwg_disp_status'] == 'CERTIFIED FA'))), 'target_id'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'target_id'})
 tbls.append(cnt_fps_target)
 # number of Confirmed Planets (PCs in the TCE table)
 cnt_planets_target = \
