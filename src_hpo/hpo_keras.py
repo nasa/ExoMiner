@@ -176,12 +176,13 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
-    if config['rank'] == 0:
-        logger.info(f'Starting run {config["paths"]["experiment_dir"].name}...')
 
     config['rank'] = MPI.COMM_WORLD.rank
     config['size'] = MPI.COMM_WORLD.size
     logger.info(f'Rank (size) = {config["rank"]} ({config["size"]})')
+
+    if config['rank'] == 0:
+        logger.info(f'Starting run {config["paths"]["experiment_dir"].name}...')
 
     if config['rank'] != 0:
         time.sleep(20)

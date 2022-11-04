@@ -419,6 +419,9 @@ if __name__ == '__main__':
         logger.info(f'Using configuration from HPO study {hpo_path.name}')
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
 
+    config['config']['kernel_size_glob'] = config['config']['kernel_size']
+    config['config']['kernel_size_loc'] = config['config']['kernel_size']
+
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = TransformerExoMiner  # ExoMiner
     # config['config']['parameters'].update(baseline_configs.astronet)

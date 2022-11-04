@@ -2815,6 +2815,169 @@ class TransformerExoMiner(object):
 
         return conv_branches
 
+    def build_diff_img_branch(self):
+        """ Builds the difference image branch.
+
+        :return: dict with the difference image branch
+        """
+
+        # config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
+        #                  'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
+        #                  'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
+        #                  }
+
+        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
+            else 'glorot_uniform'
+
+        # branch_view_inputs = [self.inputs[view_name] for view_name in self.config['diff_img_branch']['imgs']]
+        branch_view_inputs = [self.inputs['diff_img'], self.inputs['diff_img']]
+        branch_view_inputs = [tf.expand_dims(l, axis=-1, name='expanding_diff_img') for l in branch_view_inputs]
+
+        branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
+
+        # self.config.update(
+        #     {
+        #         'blocks_diff_img': 3,
+        #         'kernel_size_diff_img': 3,
+        #         'pool_size_diff_img'
+        #         # 'kernel_size_fc':
+        #     }
+        # )
+
+        # get number of conv blocks for the given view
+        n_blocks = 1  # self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
+
+        kernel_size = (3, 3, 1)  # self.config[config_mapper['kernel_size'][('local_view', 'global_view')['global' in branch]]]
+
+        # get pool size for the given view
+        pool_size = (2, 2, 1)  # self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+
+        for conv_block_i in range(n_blocks):  # create convolutional blocks
+
+            num_filters = 2 ** (2 + conv_block_i)
+            # num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+
+            # set convolution layer parameters from config
+            conv_kwargs = {'filters': num_filters,
+                           'kernel_initializer': weight_initializer,
+                           'kernel_size': kernel_size,  # self.config['kernel_size'],
+                           'strides': 1,  # (1, self.config['kernel_stride'])
+                           'padding': 'same'
+                           }
+
+            for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
+
+                net = tf.keras.layers.Conv3D(dilation_rate=1,
+                                             activation=None,
+                                             use_bias=True,
+                                             bias_initializer='zeros',
+                                             kernel_regularizer=None,
+                                             bias_regularizer=None,
+                                             activity_regularizer=None,
+                                             kernel_constraint=None,
+                                             bias_constraint=None,
+                                             name='convdiff_img_{}_{}'.format(conv_block_i, seq_conv_block_i),
+                                             **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
+                                                                                  seq_conv_block_i == 0
+                                                            else net)
+
+                if self.config['non_lin_fn'] == 'lrelu':
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01,
+                                                    name='lreludiff_img_{}_{}'.format(conv_block_i,
+                                                                                seq_conv_block_i))(net)
+                elif self.config['non_lin_fn'] == 'relu':
+                    net = tf.keras.layers.ReLU(name='reludiff_img_{}_{}'.format(conv_block_i,
+                                                                          seq_conv_block_i))(net)
+                elif self.config['non_lin_fn'] == 'prelu':
+                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                                alpha_regularizer=None,
+                                                alpha_constraint=None,
+                                                shared_axes=[1, 2],
+                                                name='preludiff_img_{}_{}'.format(conv_block_i,
+                                                                            seq_conv_block_i))(net)
+
+                net = tf.keras.layers.MaxPooling3D(pool_size=pool_size,
+                                                   strides=self.config['pool_stride'],
+                                                   name='maxpooling_diff_img_{}'.format(conv_block_i))(net)
+
+        # flatten output of the convolutional branch
+        net = tf.keras.layers.Permute((1, 2, 4, 3), name='permute_diff_img')(net)
+        net = tf.keras.layers.Reshape((np.prod(net.shape[1:-1].as_list()), net.shape[-1]))(net)
+
+        # add scalar features
+        if self.config['diff_img_branch']['scalars'] is not None:
+            scalar_inputs = [self.inputs[feature_name] for feature_name in self.config['diff_img_branch']['scalars']]
+            if len(scalar_inputs) > 1:
+                scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_scalar_input')(scalar_inputs)
+            else:
+                scalar_inputs = scalar_inputs[0]
+            net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img')([
+                net,
+                scalar_inputs
+            ])
+
+        # 2D convolution with kernel size equal to feature map size
+        net = tf.expand_dims(net, axis=-1, name='expanding_input_convfc')
+        net = tf.keras.layers.Conv2D(filters=4,  # self.config['num_fc_conv_units'],
+                                     kernel_size=net.shape[1:-1],
+                                     strides=1,
+                                     padding='valid',
+                                     kernel_initializer=weight_initializer,
+                                     dilation_rate=1,
+                                     activation=None,
+                                     use_bias=True,
+                                     bias_initializer='zeros',
+                                     kernel_regularizer=None,
+                                     bias_regularizer=None,
+                                     activity_regularizer=None,
+                                     kernel_constraint=None,
+                                     bias_constraint=None,
+                                     name='convfc_{}'.format('diff_img'),
+                                     )(net)
+
+        if self.config['non_lin_fn'] == 'lrelu':
+            net = tf.keras.layers.LeakyReLU(alpha=0.01, name='convfc_lrelu_diff_img')(net)
+        elif self.config['non_lin_fn'] == 'relu':
+            net = tf.keras.layers.ReLU(name='convfc_relu_diff_img')(net)
+        elif self.config['non_lin_fn'] == 'prelu':
+            net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                        alpha_regularizer=None,
+                                        alpha_constraint=None,
+                                        shared_axes=[1],
+                                        name='convfc_prelu_diff_img')(net)
+
+        net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_convfc_diff_img')(net)
+
+        # add FC layer that extracts features from the combined feature vector of features from the convolutional
+        # branch (flattened) and corresponding scalar features
+        if self.config['num_fc_conv_units'] > 0:
+            net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
+                                        kernel_regularizer=None,
+                                        activation=None,
+                                        use_bias=True,
+                                        kernel_initializer='glorot_uniform',
+                                        bias_initializer='zeros',
+                                        bias_regularizer=None,
+                                        activity_regularizer=None,
+                                        kernel_constraint=None,
+                                        bias_constraint=None,
+                                        name='fc_diff_img')(net)
+
+            if self.config['non_lin_fn'] == 'lrelu':
+                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_diff_img')(net)
+            elif self.config['non_lin_fn'] == 'relu':
+                net = tf.keras.layers.ReLU(name='fc_relu_diff_img')(net)
+            elif self.config['non_lin_fn'] == 'prelu':
+                net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                            alpha_regularizer=None,
+                                            alpha_constraint=None,
+                                            shared_axes=[1],
+                                            name='fc_prelu_diff_img')(net)
+
+            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+
+        return {'diff_img': net}
+
     def build_scalar_branches(self):
         """ Builds the scalar branches.
 
@@ -2975,6 +3138,9 @@ class TransformerExoMiner(object):
 
         if self.config['conv_branches'] is not None:
             branches_net.update(self.build_conv_branches())
+
+        if self.config['diff_img_branch'] is not None:
+            branches_net.update(self.build_diff_img_branch())
 
         # merge branches
         net = self.connect_segments(branches_net)

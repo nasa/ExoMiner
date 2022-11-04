@@ -4,9 +4,9 @@ train_parallel: false  # set to true to use MPI to train models in parallel; onl
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_new_phase_data_7-22-2022_1008
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/trained_models/test_diff_img_branch_11-2-2022_1705
   # TFRecord dataset directory
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237-dataset_split-normalized
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_dataset_split-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 config:
@@ -19,6 +19,7 @@ config:
     local_flux:
       views:
         - local_flux_view_fluxnorm
+        - local_flux_view_var
       scalars:
         #        - transit_depth_norm
         - tce_max_mult_ev_norm
@@ -35,6 +36,7 @@ config:
         - tce_albedo_stat_norm
         - tce_maxmes_norm
     #        - wst_depth_norm
+        - tce_prad_norm
     local_centroid:
       views:
         - local_centr_view_std_noclip
@@ -50,11 +52,11 @@ config:
         - mag_cat_norm
         - ruwe_norm
 #        - tce_ruwe_norm
-    global_centroid:
-      views:
-        #        - global_centr_fdl_view_norm
-        - global_centr_view_std_noclip
-      scalars: null
+#    global_centroid:
+#      views:
+#        #        - global_centr_fdl_view_norm
+#        - global_centr_view_std_noclip
+#      scalars: null
     local_odd_even:
       views:
         - local_flux_odd_view_fluxnorm
@@ -76,13 +78,18 @@ config:
       - tce_hap_stat_norm
       #          - tce_cap_hap_stat_diff_norm
       #      - tce_rb_tcount0n_norm
-      - tce_prad_norm
+#      - tce_prad_norm
       - tce_period_norm
-  transformer_branches:  # null
+  transformer_branches:  null
 ##      global:
 ##        - unfolded_global_flux_view_fluxnorm
-      local:
-        - unfolded_local_flux_view_fluxnorm
+#      local:
+#        - unfolded_local_flux_view_fluxnorm
+  diff_img_branch: null
+#    imgs:
+#      - diff_img
+#    scalars:
+#      - target_subpx_diff
 
     #transformer hyperparameters
     #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
@@ -135,6 +142,7 @@ config:
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
   #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -151,7 +159,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
 #  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
 #  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -192,7 +200,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+#  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  # difference image
+#  diff_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+#  target_subpx_diff: { 'dim': [ 2, 5 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -219,7 +230,7 @@ training:
   #    PC: 1.0
   #    AFP: 0.5
   #    NTP: 1.0
-  shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 27000  # should be larger than size of the training set to allow perfect sampling
 
 evaluation:
   batch_size: 32
@@ -291,5 +302,5 @@ datasets: # datasets - same name convention as used for the TFRecords
   - train
   - val
   - test
-  - predict
+#  - predict
 verbose: true

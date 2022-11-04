@@ -260,6 +260,9 @@ def cv():
         with open(config['paths']['experiment_root_dir'] / 'hpo_config.yaml', 'w') as hpo_config_file:
             yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
 
+    config['config']['kernel_size_glob'] = config['config']['kernel_size']
+    config['config']['kernel_size_loc'] = config['config']['kernel_size']
+
     # base model used - check models/models_keras.py to see which models are implemented
     config['base_model'] = TransformerExoMiner  # ExoMiner
 

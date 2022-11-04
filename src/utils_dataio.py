@@ -190,7 +190,7 @@ class InputFnv2(object):
             for feature_name, value in parsed_features.items():
 
                 feature_info = self.features_set[feature_name]
-                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
+                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # parse tensors
                     value = tf.io.parse_tensor(serialized=value[0], out_type=self.features_set[feature_name]['dtype'])
                     value = tf.reshape(value, self.features_set[feature_name]['dim'])
                     if not self.use_transformer:

@@ -113,6 +113,12 @@ config:
     ##        - unfolded_global_flux_view_fluxnorm
 #    local:
 #      - unfolded_local_flux_view_fluxnorm
+  diff_img_branch:  # null
+    imgs:
+      - diff_img
+      - oot_img
+    scalars:
+      - target_subpx_pos
 
     #transformer hyperparameters
     #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
@@ -224,6 +230,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # unfolded time series
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
 #  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  # difference image
+  diff_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+  oot_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+  target_subpx_pos: { 'dim': [ 2, 5 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -277,10 +287,10 @@ callbacks:
 
 label_map:  # maps label to a label id
   # Kepler
-#  PC: 1
-#  AFP: 0  # 2
+  PC: 1
+  AFP: 0  # 2
 #  AFP2: 0
-#  NTP: 0
+  NTP: 0
 #  UNK: 0
   # TESS
 #  KP: 1
@@ -299,12 +309,12 @@ label_map:  # maps label to a label id
 #  K-AFP2: 0
 #  K-NTP: 0
 #  # TESS
-  T-KP: 1
-  T-CP: 1
-  T-FP: 0
-  T-FA: 0
-  T-EB: 0
-  T-NTP: 0
+#  T-KP: 1
+#  T-CP: 1
+#  T-FP: 0
+#  T-FA: 0
+#  T-EB: 0
+#  T-NTP: 0
 
 datasets:
   - train
