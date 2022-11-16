@@ -238,6 +238,7 @@ def cv():
 
     config['rng'] = np.random.default_rng(seed=config['rnd_seed'])
 
+    # overwrite configuration in YAML file with configuration sampled from HPO run
     if config['paths']['hpo_dir'] is not None:
         hpo_path = Path(config['paths']['hpo_dir'])
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_path.name}')
@@ -248,6 +249,10 @@ def cv():
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
         config_hpo_chosen = id2config[config_id_hpo]['config']
+        # for older HPO runs when kernel size was not optimized separately for local and global branches
+        if 'kernel_size_glob' not in config_hpo_chosen:
+            config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
+            config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
         config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
@@ -259,9 +264,6 @@ def cv():
         # save the YAML file with the HPO configuration that was used
         with open(config['paths']['experiment_root_dir'] / 'hpo_config.yaml', 'w') as hpo_config_file:
             yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
-
-    config['config']['kernel_size_glob'] = config['config']['kernel_size']
-    config['config']['kernel_size_loc'] = config['config']['kernel_size']
 
     # base model used - check models/models_keras.py to see which models are implemented
     config['base_model'] = TransformerExoMiner  # ExoMiner

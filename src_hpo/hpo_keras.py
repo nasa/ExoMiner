@@ -47,7 +47,6 @@ def run_main(hpo_config, logger=None):
     if hpo_config['rank'] != 0:  # workers go here
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
         time.sleep(2 * hpo_config['rank'])
-        # hpo_config['study'] = check_run_id(hpo_config['study'], hpo_config['paths']['experiment_dir'], worker=True)
 
         if logger is not None:
             logger.info(f'Starting worker {hpo_config["rank"]}')
@@ -58,9 +57,6 @@ def run_main(hpo_config, logger=None):
         w.load_nameserver_credentials(working_directory=hpo_config['paths']['experiment_dir'])
         w.run(background=False)
         exit(0)
-
-    # args.run_id = check_run_id(args.run_id, shared_directory)
-    # hpo_config['study'] = check_run_id(hpo_config['study'], hpo_config['paths']['experiment_dir'])
 
     # Start nameserver:
     name_server = hpns.NameServer(run_id=hpo_config['study'], host=host, port=0,
@@ -74,13 +70,11 @@ def run_main(hpo_config, logger=None):
                           nameserver=ns_host, nameserver_port=ns_port)
     w.run(background=True)
 
-    # result_logger = json_result_logger(directory=hpo_config['paths']['experiment_dir'], run_id=hpo_config['study'],
-    #                                    overwrite=False)
     result_logger = hpres.json_result_logger(directory=hpo_config['paths']['experiment_dir'], overwrite=True)
 
-    # Let us load the src_old run now to use its results to warmstart a new run with slightly
+    # let us load results from previous HPO run to use its results to warm-start a new run with slightly
     # different budgets in terms of data points and epochs.
-    # Note that the search space has to be identical though!
+    # note that the search space has to be identical though!
     # directory must contain a config.json and results.json for the same configuration space.'
     if hpo_config['paths']['prev_run_dir'] is not None:
         if logger is not None:
@@ -237,8 +231,5 @@ if __name__ == '__main__':
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['paths']['experiment_dir'] / 'hpo_run_config.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file)
-
-    # logger.info(f'HPO run parameters: {config}')
-    # sys.stdout.flush()
 
     run_main(config, logger)

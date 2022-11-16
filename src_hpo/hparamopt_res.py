@@ -12,6 +12,7 @@ import matplotlib.colors as mcolors
 # import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 # local
 import paths
@@ -19,13 +20,13 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logg
 
 # %% load results from a HPO study
 
-paths.path_hpoconfigs = '/data5/tess_project/experiments/current_experiments/hpo_configs/'
-study = 'config-C_11-17-2021'
+hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK')
+study = 'ConfigK'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
 ensemble_study = True
-nmodels = 10
+nmodels = 3  # number of models in the ensemble trained for each configuration
 # set which metric to be used when ranking configurations evaluated
 rankmetric = 'val_auc_pr'  # 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
@@ -34,11 +35,13 @@ metrics_plot = ['test_recall', 'test_precision']  # ['test recall', 'test precis
 min_val = 0.90
 
 # load results json
-res = logged_results_to_HBS_result(os.path.join(paths.path_hpoconfigs, study), '_{}'.format(study))
-# res = logged_results_to_HBS_result('/home/msaragoc/Projects/Kepler-TESS_exoplanet/Kepler_planet_finder/hpo_configs/bohb_keplerdr25_g2001-l201_spline_nongapped_glflux-glcentrmedcmaxn-loe-lwks-6stellar-bfap-ghost_norobovetterkois_starshuffle', '_{}'.format(study))
+res = logged_results_to_HBS_result(hpo_dir, '')
+
+#%%
 
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
+# get configurations with reported results (even if invalid)
 unique_configs = []
 for run in all_runs:
     if run.config_id not in unique_configs:
@@ -116,7 +119,7 @@ f, ax = plt.subplots()
 ax.plot(idxs_modelbased)
 ax.set_xlabel('Time Ordered Runs')
 ax.set_ylabel('Model based (1)/Random (0) \npicked configs.')
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'time_model-random.png'))
+f.savefig(hpo_dir / 'time_model-random.png')
 
 nconfigs_valid = len(idxs_modelbased)
 nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
@@ -152,7 +155,7 @@ ax.set_xlabel(metrics_plot[0])
 ax.set_ylabel(metrics_plot[1])
 ax.set_title('2D histogram of configs performance metrics')
 plt.colorbar(axh[3])
-f.savefig(os.path.join(paths.path_hpoconfigs, study, '2dhist_precision-recall.png'))
+f.savefig(hpo_dir / '2dhist_precision-recall.png')
 
 # rank configurations based on metric
 if ensemble_study:
@@ -191,7 +194,7 @@ else:
 ax.set_xlabel('{}'.format(rankmetric))
 ax.set_ylabel('Counts')
 ax.set_title('Histogram top configs ({:.2f})'.format(min_val))
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(min_val, rankmetric)))
+f.savefig(hpo_dir / 'hist_top{}_{}.png'.format(min_val, rankmetric))
 
 #%% Learning curves and tracking best configuration
 
@@ -216,7 +219,7 @@ f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_top{}_{}.png'.format(
 # best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
 
 # returns the best configuration over time/over cumulative budget
-nmodels = 10
+nmodels = 3
 hpo_loss = 'val_auc_pr'  # 'pr auc'
 budget_chosen = 50  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
@@ -304,7 +307,7 @@ ax.grid(True, which='both')
 ax.legend()
 plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
 plt.subplots_adjust(left=0.145)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'walltime-hpoloss_budget_{}.png'.format(budget_chosen)))
+f.savefig(hpo_dir / 'walltime-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
 ax.plot(cum_budget_vec, tinc_hpoloss, label='Ensemble')
@@ -323,7 +326,7 @@ ax.set_xlabel('Cumulative budget [Epochs]')
 ax.grid(True, which='both')
 plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
 plt.subplots_adjust(left=0.145)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen)))
+f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
 
 
 #%% Study analysis plots
@@ -350,28 +353,29 @@ print('It achieved optimization loss ({}) of {} (validation) and {} (test).'.for
                                                                                     inc_test_hpoloss))
 
 # Let's plot the observed losses grouped by budget,
-f, _ = hpvis.losses_over_time(all_runs)
+f, ax = hpvis.losses_over_time(all_runs)
+ax.set_yscale('log')
 f.set_size_inches(10, 6)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'losses_over_time_budgets.png'))
+f.savefig(hpo_dir / 'losses_over_time_budgets.png')
 
 # the number of concurrent runs,
 f, _ = hpvis.concurrent_runs_over_time(all_runs)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'concurrent_runs_over_time.png'))
+f.savefig(hpo_dir / 'concurrent_runs_over_time.png')
 # f.set_size_inches(10, 6)
 
 # and the number of finished runs.
 hpvis.finished_runs_over_time(all_runs)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'finished_runs_over_time.png'))
+f.savefig(hpo_dir / 'finished_runs_over_time.png')
 
 # This one visualizes the spearman rank correlation coefficients of the losses
 # between different budgets.
 f, _ = hpvis.correlation_across_budgets(res)
 f.set_size_inches(10, 8)
-f.savefig(os.path.join(paths.path_hpoconfigs, study, 'spearman_corr_budgets.png'))
+f.savefig(hpo_dir / 'spearman_corr_budgets.png')
 
 # For model based optimizers, one might wonder how much the model actually helped.
 # The next plot compares the performance of configs picked by the model vs. random ones
 if model_based_optimizer:
     f, _ = hpvis.performance_histogram_model_vs_random(all_runs, id2config)
     f.set_size_inches(10, 8)
-    f.savefig(os.path.join(paths.path_hpoconfigs, study, 'hist_model-random.png'))
+    f.savefig(hpo_dir / 'hist_model-random.png')

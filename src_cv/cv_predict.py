@@ -210,6 +210,7 @@ def cv_pred():
     config['dev_train'] = f'/gpu:{config["gpu_id"]}'
     config['dev_predict'] = f'/gpu:{config["gpu_id"]}'
 
+    # overwrite configuration in YAML file with configuration sampled from HPO run
     if config['paths']['hpo_dir'] is not None:
         hpo_path = Path(config['paths']['hpo_dir'])
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_path.name}')
@@ -220,6 +221,10 @@ def cv_pred():
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
         config_hpo_chosen = id2config[config_id_hpo]['config']
+        # for older HPO runs when kernel size was not optimized separately for local and global branches
+        if 'kernel_size_glob' not in config_hpo_chosen:
+            config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
+            config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
         config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
@@ -240,13 +245,8 @@ def cv_pred():
         if feature['dtype'] == 'float32':
             config['features_set'][feature_name]['dtype'] = tf.float32
 
-    # config['logger'].info(f'Feature set: {config["features_set"]}')
-    #
-    # config['logger'].info(f'Final configuration used: {config}')
-
     # save feature set used
     if rank == 0:
-        # np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
         # save model configuration used
         np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])
 

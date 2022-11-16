@@ -579,7 +579,7 @@ class TransitClassifier(Worker):
 
         # save metrics and loss for the ensemble
         res_total = {'ensemble': res_ensemble, 'single_models': res_models}
-        np.save(run_config['paths']['experiment_dir'] /
+        np.save(self.config_dir /
                 f'config{config_id}_budget{budget}_ensemblemetrics.npy', res_total)
 
         # draw loss and evaluation metric plots for the model on this given budget

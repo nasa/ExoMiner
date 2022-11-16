@@ -1,9 +1,9 @@
 # source TFRecord directory
-tfrecDir: /data5/tess_project/Data/tfrecords/Combined/all_kepler_tess_tces_08-23-2022_1355_relabeled
+tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_dataset_split
 # destination directory for computed statistics
-norm_dir: /data5/tess_project/Data/tfrecords/Combined/all_kepler_tess_tces_08-23-2022_1355_relabeled
+norm_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_dataset_split
 
-n_processes_compute_norm_stats: 15  # number of processes used to parallelize reading the values for the dataset
+n_processes_compute_norm_stats: 4  # number of processes used to parallelize reading the values for the dataset
 
 clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 
@@ -12,9 +12,9 @@ nr_transit_durations: 5  # number of transit durations in the local view
 num_bins_loc: 31  # number of bins for local view
 num_bins_glob: 301  # number of bins for global view
 
-timeSeriesFDLList:
-  - 'global_centr_fdl_view'
-  - 'local_centr_fdl_view'
+timeSeriesFDLList: null
+#  - 'global_centr_fdl_view'
+#  - 'local_centr_fdl_view'
 
 centroidList:
   - 'global_centr_view'

@@ -399,8 +399,7 @@ if __name__ == '__main__':
     # TFRecord files directory
     logger.info(f'Using data from {config["paths"]["tfrec_dir"]}')
 
-    # name of the HPO study from which to get a configuration; config needs to be set to None
-    # set the configuration from an HPO study
+    # overwrite configuration in YAML file with configuration sampled from HPO run
     if config['paths']['hpo_dir'] is not None:
         hpo_path = Path(config['paths']['hpo_dir'])
         res = utils_hpo.logged_results_to_HBS_result(hpo_path, f'_{hpo_path.name}')
@@ -410,7 +409,12 @@ if __name__ == '__main__':
         # best config - incumbent
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
-        config['config'].update(id2config[config_id_hpo]['config'])
+        config_hpo_chosen = id2config[config_id_hpo]['config']
+        # for older HPO runs when kernel size was not optimized separately for local and global branches
+        if 'kernel_size_glob' not in config_hpo_chosen:
+            config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
+            config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
+        config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
         # example - check config.json
@@ -418,9 +422,6 @@ if __name__ == '__main__':
 
         logger.info(f'Using configuration from HPO study {hpo_path.name}')
         logger.info(f'HPO Config {config_id_hpo}: {config["config"]}')
-
-    config['config']['kernel_size_glob'] = config['config']['kernel_size']
-    config['config']['kernel_size_loc'] = config['config']['kernel_size']
 
     # base model used - check estimator_util.py to see which models are implemented
     BaseModel = TransformerExoMiner  # ExoMiner

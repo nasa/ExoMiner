@@ -28,17 +28,29 @@ logger.info(f'Starting run...')
 
 #%% Create catalog dataset to be used
 
-tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+# using TCE table
+# tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+# tce_tbl = pd.read_csv(tce_tbl_fp)
+# logger.info(f'Using TCE table from: {tce_tbl_fp}')
+#
+# # # set planets with RUWE > 1.2 and not validated by RV to UNKs
+# # tce_tbl.loc[(tce_tbl['ruwe'] > 1.2) & (tce_tbl['RV_status'] == 0) & (tce_tbl['label'] == 'PC'), 'label'] = 'UNK'
+# # logger.info('Set planets with RUWE > 1.2 and not validated by RV to UNK TCEs.')
+#
+# # remove rogue TCEs
+# tce_tbl = tce_tbl.loc[tce_tbl['tce_rogue_flag'] == 0]
+# logger.info('Removed rogue TCEs.')
+
+# using ranking table instead of TCE table
+tce_tbl_fp = Path('/Users/msaragoc/Downloads/ranking_comparison_with_paper_12-18-2020_merged_ra_dec_prad_CV_v20 (1).csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Using TCE table from: {tce_tbl_fp}')
-
-# # set planets with RUWE > 1.2 and not validated by RV to UNKs
-# tce_tbl.loc[(tce_tbl['ruwe'] > 1.2) & (tce_tbl['RV_status'] == 0) & (tce_tbl['label'] == 'PC'), 'label'] = 'UNK'
-# logger.info('Set planets with RUWE > 1.2 and not validated by RV to UNK TCEs.')
-
-# remove rogue TCEs
-tce_tbl = tce_tbl.loc[tce_tbl['tce_rogue_flag'] == 0]
-logger.info('Removed rogue TCEs.')
+# remove examples not used in the data set for the ExoMiner 2021 paper
+tce_tbl = tce_tbl.loc[~((tce_tbl['original_label'] == 'NTP') & (tce_tbl['dataset'] == 'not_used'))]
+tce_tbl = tce_tbl.loc[~((tce_tbl['original_label'] == 'PC') & (tce_tbl['dataset'] == 'not_used'))]
+tce_tbl.drop(columns='label', inplace=True)
+tce_tbl = tce_tbl.rename(columns={'original_label': 'label'})
+logger.info(f'Labels of examples: \n{tce_tbl["label"].value_counts()}')
 
 #%% count different quantities needed for estimates that are plugged into the statistical framework
 
