@@ -31,6 +31,7 @@ conda install -c conda-forge pydot
 conda install -c anaconda graphviz
 #conda install -c conda-forge tensorflow
 #conda install -c anaconda tensorflow
+conda install -c anaconda pydot
 
 # pip installations
 pip install hpbandster

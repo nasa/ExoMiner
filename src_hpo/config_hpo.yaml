@@ -2,7 +2,7 @@ ngpus_per_node: 1  # number of GPUs per node
 rank: null
 
 paths:
-  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_11-1-2022_1530
+  experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_11-22-2022_0929
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/combined/cv_merged_10-13-2022/tfrecords-normalized
   prev_run_dir: null  # warm-up from previous HPO run
 
@@ -156,6 +156,9 @@ config: # fixed parameters
   decay_rate: null
   batch_norm: false
   multi_class: false  # switch to multiclass classification
+  optimizer: Adam
+  kernel_stride: 1
+  pool_stride: 1
 
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
@@ -318,10 +321,8 @@ verbose: true
 verbose_model: 2  # 'auto', 0, 1, or 2
 
 configuration_space:
-  hyperparameters: # hyper-parameters to be optimized (they will overwrite hyper-parameters set in config
-#    num_transformer_blocks:
-#      type: categorical
-#      parameters: [1, 2, 3]
+  hyperparameters: # hyperparameters to be optimized (they will overwrite hyperparameters set in config)
+
     lr: # name (should match name expected in model function)
       type: uniform_float  # type of hyper-parameter
       parameters:
@@ -329,16 +330,16 @@ configuration_space:
         upper: 1.0e-1
         default_value: 1e-2
         log: true
-    optimizer:
-      type: categorical
-      parameters: [ 'Adam', 'SGD' ]
-    sgd_momentum:
-      type: uniform_float
-      parameters:
-        lower: 1.0e-3
-        upper: 0.99
-        default_value: 0.9
-        log: true
+#    optimizer:
+#      type: categorical
+#      parameters: [ 'Adam', 'SGD' ]
+#    sgd_momentum:
+#      type: uniform_float
+#      parameters:
+#        lower: 1.0e-3
+#        upper: 0.99
+#        default_value: 0.9
+#        log: true
 
     #  batch_size:
     #    type: categorical
@@ -398,31 +399,31 @@ configuration_space:
         lower: 1
         upper: 8
         default_value: 2
-    kernel_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 2
-        default_value: 1
+#    kernel_stride:
+#      type: uniform_integer
+#      parameters:
+#        lower: 1
+#        upper: 2
+#        default_value: 1
 
     pool_size_loc:
-      type: uniform_integer
-      parameters:
-        lower: 2
-        upper: 8
-        default_value: 2
+      type: categorical  # uniform_integer
+      parameters: [2, 4, 8, 16]
+#        lower: 2
+#        upper: 8
+#        default_value: 2
     pool_size_glob:
-      type: uniform_integer
-      parameters:
-        lower: 2
-        upper: 8
-        default_value: 2
-    pool_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 2
-        default_value: 1
+      type: categorical  # uniform_integer
+      parameters: [2, 4, 8, 16]
+#        lower: 2
+#        upper: 8
+#        default_value: 2
+#    pool_stride:
+#      type: uniform_integer
+#      parameters:
+#        lower: 1
+#        upper: 2
+#        default_value: 1
 
     dropout_rate_fc_conv:
       type: uniform_float
@@ -434,14 +435,14 @@ configuration_space:
     num_fc_conv_units:
       type: uniform_integer
       parameters:
-        lower: 4
-        upper: 8
+        lower: 1
+        upper: 4
         default_value: 4
     num_fc_layers:
       type: uniform_integer
       parameters:
         lower: 1
-        upper: 4
+        upper: 8
         default_value: 2
     init_fc_neurons:
       type: categorical
@@ -453,10 +454,13 @@ configuration_space:
         upper: 2.0e-1
         default_value: 0.2
         log: true
+#    num_transformer_blocks:
+#      type: categorical
+#      parameters: [1, 2, 3]
 
-  conditions:
-    sgd_momentum:
-      type: equal
-      child: sgd_momentum
-      parent: optimizer
-      value: SGD
+  conditions: {}  # replace by empty dictionary `{}` if not using any condition
+#    sgd_momentum:
+#      type: equal
+#      child: sgd_momentum
+#      parent: optimizer
+#      value: SGD
