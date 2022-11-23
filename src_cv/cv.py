@@ -278,14 +278,13 @@ def cv():
     # config['logger'].info(f'Feature set: {config["features_set"]}')
 
     # early stopping callback
-    # config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
     config['callbacks_list'] = {'train': [callbacks.EarlyStopping(**config['callbacks']['early_stopping'])]}
 
     # config['logger'].info(f'Final configuration used: {config}')
 
     # save feature set used
     if config['rank'] == 0:
-        # np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
+
         # save configuration used
         np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])
 

@@ -6,12 +6,12 @@ logger: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_tess_10-20-2022_1528
+  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/test_kepler_diffimg_11-23-2022_1503
   # TFRecord directory with the CV folds
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess-s1s55-dv_all_features_phases_10-12-2022_1520/tfrecords/eval
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_corrected_11_3
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
-  cv_folds: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess-s1s55-dv_all_features_phases_10-12-2022_1520/cv_folds_runs.npy
+  cv_folds: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/cv_keplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-22-2022_1028/cv_folds_runs.npy
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK/
 
@@ -29,7 +29,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   'tce_time0bk': 'float_scalar'
   'original_label': 'string'
 #  'transit_depth': 'float_scalar'
-  'tce_depth': 'float_scalar'
+#  'tce_depth': 'float_scalar'
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   'tce_max_mult_ev': 'float_scalar'
@@ -65,26 +65,26 @@ config:
         - tce_maxmes_norm
 #        - wst_depth_norm
         - tce_prad_norm
-    local_centroid:
-      views:
-        - local_centr_view_std_noclip
-      #        - local_centr_fdl_view_norm
-      scalars:
-#        - tce_fwm_stat_norm
-        - tce_dikco_msky_norm
-        - tce_dikco_msky_err_norm
-#        - tce_dicco_msky_norm
-#        - tce_dicco_msky_err_norm
-        #        - mag_norm
-        #        - mag_cat
-        - mag_cat_norm
-        - ruwe_norm
-    #        - tce_ruwe_norm
-    global_centroid:
-      views:
-        #        - global_centr_fdl_view_norm
-        - global_centr_view_std_noclip
-      scalars: null
+#    local_centroid:
+#      views:
+#        - local_centr_view_std_noclip
+#      #        - local_centr_fdl_view_norm
+#      scalars:
+##        - tce_fwm_stat_norm
+#        - tce_dikco_msky_norm
+#        - tce_dikco_msky_err_norm
+##        - tce_dicco_msky_norm
+##        - tce_dicco_msky_err_norm
+#        #        - mag_norm
+#        #        - mag_cat
+#        - mag_cat_norm
+#        - ruwe_norm
+#    #        - tce_ruwe_norm
+#    global_centroid:
+#      views:
+#        #        - global_centr_fdl_view_norm
+#        - global_centr_view_std_noclip
+#      scalars: null
     local_odd_even:
       views:
         - local_flux_odd_view_fluxnorm
@@ -122,7 +122,7 @@ config:
 
     #transformer hyperparameters
     #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
-  use_transformer: false
+  use_transformer: true
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
@@ -186,21 +186,21 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # centroid related features
   # global_centr_fdl_view_norm: {'dim': [301, 1], 'dtype': float}
   # local_centr_fdl_view_norm: {'dim': [31, 1], 'dtype': float}
-  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
-  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+#  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+#  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
 #  global_centr_view_adjscl_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
 #  local_centr_view_adjscl_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
 #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_dikco_msky_adjscl_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_dikco_msky_err_adjscl_shifted_norm: { 'dim': [ 1, ], 'dtype': float }
   #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
 #  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+#  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+#  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
@@ -351,9 +351,9 @@ compute_norm_stats_params:
 #    - 'global_centr_fdl_view'
 #    - 'local_centr_fdl_view'
 
-  centroidList:  # set to null to not compute normalization statistics and normalize centroid
-    - 'global_centr_view'
-    - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
+  centroidList:  null # set to null to not compute normalization statistics and normalize centroid
+#    - 'global_centr_view'
+#    - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
 
   clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 
@@ -394,7 +394,7 @@ compute_norm_stats_params:
       standardize: true
     mag_cat:
       clip_factor: .nan
-      dtype: int  # int
+      dtype: float  # int
       log_transform: false
       log_transform_eps: .nan
       missing_value: null
