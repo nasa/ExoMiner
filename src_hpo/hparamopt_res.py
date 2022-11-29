@@ -15,9 +15,9 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result
 # %% load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/test_hpo_11-22-2022_0929/')
+hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/hpo_merged_fluxvar_11-2-22')
 # name of the study
-study = 'test_hpo_11-22-2022_0929'
+study = 'hpo_merged_fluxvar_11-2-22'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -218,7 +218,7 @@ best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_bette
 
 # returns the best configuration over time/over cumulative budget
 hpo_loss = 'val_auc_pr'  # 'pr auc'
-budget_chosen = 1  # 'all'  # 50.0  # 'all
+budget_chosen = 50  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
@@ -293,7 +293,7 @@ if ensemble_study:
                 tinc_hpoloss_dev, capsize=5, label='Single model variability')
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_ylim(top=1)
+# ax.set_ylim(top=1)
 # ax.set_xlim(right=1e5)
 ax.set_ylabel(f'Optimization loss\n{hpo_loss}')
 ax.set_xlabel('Wall clock time [s]')
@@ -312,7 +312,7 @@ if ensemble_study:
                 tinc_hpoloss_dev, capsize=5, label='Single model variability')
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_ylim(top=1)
+# ax.set_ylim(top=1)
 ax.legend()
 # ax.set_xlim(right=1e5)
 ax.set_ylabel(f'Optimization loss\n{hpo_loss}')

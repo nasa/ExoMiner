@@ -32,7 +32,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     if model_id == 0 and config['plot_model']:
         # save plot of model
         plot_model(model,
-                   to_file=config['paths']['experiment_dir'] / 'model_train.png',
+                   to_file=model_dir_sub / 'model_train.png',
                    show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
@@ -44,7 +44,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
         if logger is not None:
             model.summary(print_fn=lambda x: logger.info(x + '\n'))
         else:
-            with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+            with open(model_dir_sub / 'model_summary.txt', 'w') as f:
                 model.summary(print_fn=lambda x: f.write(x + '\n'))
         # model.summary()
 

@@ -1,4 +1,4 @@
-ngpus_per_node: 2  # number of GPUs per node; each GPU is used to run a CV iteration
+ngpus_per_node: 4  # number of GPUs per node; each GPU is used to run a CV iteration
 rank: null
 train_parallel: false  # set to true to use MPI to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
@@ -6,7 +6,7 @@ logger: null
 #experiment: &experiment_name
 paths:
   # experiment directory; results are saved here
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/test_kepler_diffimg_11-23-2022_1503
+  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_kepler_diffimg_11-23-2022_1615
   # TFRecord directory with the CV folds
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_corrected_11_3
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
