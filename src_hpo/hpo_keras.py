@@ -22,6 +22,7 @@ import yaml
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
+import argparse
 
 # local
 from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner
@@ -148,8 +149,12 @@ def run_main(hpo_config, logger=None):
 
 if __name__ == '__main__':
 
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_hpo/config_hpo.yaml')
-    with(open(path_to_yaml, 'r')) as file:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+                        default='/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/config_hpo.yaml')
+    args = parser.parse_args()
+
+    with(open(args.config_file, 'r')) as file:
         config = yaml.safe_load(file)
 
     for path_name, path_str in config['paths'].items():  # converting paths from string to Path

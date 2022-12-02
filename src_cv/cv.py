@@ -165,22 +165,19 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # # TODO: delete the models as well?
 
     if run_params['logger']['logger'] is not None:
-        run_params['logger']['logger'].info('Finished CV iteration.')
+        run_params['logger'].info('Finished CV iteration.')
+
 
 def cv():
     """ Run CV experiment. """
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
     args = parser.parse_args()
 
-    if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
-    else:  # use config file given as input
-        path_to_yaml = Path(args.config_file)
-
-    with(open(path_to_yaml, 'r')) as file:
+    with(open(args.config_file, 'r')) as file:
         config = yaml.safe_load(file)
 
     # uncomment for MPI multiprocessing

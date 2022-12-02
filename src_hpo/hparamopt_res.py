@@ -15,9 +15,7 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result
 # %% load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/hpo_merged_fluxvar_11-2-22')
-# name of the study
-study = 'hpo_merged_fluxvar_11-2-22'
+hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_kepler-reduced_tess_12-1-2022_2051')
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -193,6 +191,31 @@ ax.set_ylabel('Counts')
 ax.set_title('Histogram top configs ({:.2f})'.format(min_val))
 f.savefig(hpo_dir / 'hist_top{}_{}.png'.format(min_val, rankmetric))
 
+#%% Check model's weights
+
+configs_dirs = [fp for fp in hpo_dir.iterdir() if fp.is_dir() and fp.name.startswith('config')]
+
+configs_model_weights = {}
+for config_dir in configs_dirs:
+    model_summary_fp = Path(config_dir / 'model_summary.txt')  # MODEL SUMMARY FOR THE ENSEMBLE; NEED TO DIVIDE BY NUMBER OF MODELS
+
+    if model_summary_fp.exists():
+        with open(model_summary_fp, 'r') as model_summary_file:
+            for line in model_summary_file.readlines():
+                if 'Total params' in line:
+                    configs_model_weights[config_dir.name[6:]] = int(line[14:-1].replace(',', '')) / nmodels
+
+# plot histogram of models' weights
+bins = np.logspace(5, 6, 10)
+f, ax = plt.subplots()
+ax.hist(configs_model_weights.values(), bins=bins, edgecolor='k')
+ax.set_xlabel('Number Model Weights')
+ax.set_ylabel('Number Configurations Evaluated')
+ax.set_yscale('log')
+ax.grid(axis='y')
+ax.set_xscale('log')
+f.savefig(hpo_dir / 'hist_num_weights.png')
+
 #%% Learning curves and tracking best configuration
 
 # plot learning curves for each configuration as function of the different budgets - it is a mess
@@ -225,9 +248,12 @@ if ensemble_study:
     ensmetrics_list = [config_dir / f'{config_dir.name}_budget{budget_chosen}_ensemblemetrics.npy'
                        for config_dir in hpo_dir.iterdir()
                        if config_dir.is_dir() and config_dir.name.startswith('config')]
+    # ensmetrics_list = [f'{config_dir.name}_budget{budget_chosen}_ensemblemetrics.npy'
+    #                    for file in hpo_dir.iterdir()
+    #                    if file.is_file() and file.name.startswith('config') and file.suffix == '.npy']
 bconfig_loss, cum_budget = np.inf, 0
 bmu_hpoloss, bsem_hpoloss = None, None
-timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
+timestamps, cum_budget_vec, tinc_hpoloss, models_n_weights = [], [], [], []
 if ensemble_study:
     tinc_hpoloss_centraltend = []
     tinc_hpoloss_dev = []
@@ -271,22 +297,24 @@ for run_i, run in enumerate(timesorted_allruns):
             dev_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
             ens_hpoloss = run.loss  # ensemble hpo loss
 
-            if run.loss < bconfig_loss:
+            if run.loss < bconfig_loss:  # found run with better HPO loss than the best run so far
                 bens_hpoloss, bcentraltend_hpoloss, bdev_hpoloss = ens_hpoloss, centraltend_hpoloss, dev_hpoloss
 
                 tinc_hpoloss.append(ens_hpoloss)
                 tinc_hpoloss_centraltend.append(centraltend_hpoloss)
                 tinc_hpoloss_dev.append(dev_hpoloss)
+                models_n_weights.append(configs_model_weights[str(run.config_id)])
             else:
                 tinc_hpoloss.append(bens_hpoloss)
                 tinc_hpoloss_centraltend.append(bcentraltend_hpoloss)
                 tinc_hpoloss_dev.append(bdev_hpoloss)
+                models_n_weights.append(models_n_weights[-1])
 
         if run.loss < bconfig_loss:
             bconfig_loss = run.loss
 
 f, ax = plt.subplots()
-ax.plot(timestamps, tinc_hpoloss, label='Ensemble')
+ax.plot(timestamps, tinc_hpoloss, label='Ensemble' if ensemble_study else None)
 ax.scatter(timestamps, tinc_hpoloss, c='r')
 if ensemble_study:
     ax.errorbar(timestamps, tinc_hpoloss_centraltend,
@@ -305,7 +333,7 @@ f.tight_layout()
 f.savefig(hpo_dir / 'walltime-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
-ax.plot(cum_budget_vec, tinc_hpoloss, label='Ensemble')
+ax.plot(cum_budget_vec, tinc_hpoloss, label='Ensemble' if ensemble_study else None)
 ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
 if ensemble_study:
     ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
@@ -323,6 +351,21 @@ ax.set_title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
 f.tight_layout()
 f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
 
+f, ax = plt.subplots()
+ax.plot(cum_budget_vec, models_n_weights, label='Ensemble' if ensemble_study else None)
+ax.scatter(cum_budget_vec, models_n_weights, c='r')
+# ax.set_yscale('log')
+ax.set_xscale('log')
+# ax.set_ylim(top=1)
+ax.legend()
+# ax.set_xlim(right=1e5)
+ax.set_ylabel('Num model weights')
+ax.set_xlabel('Cumulative budget [Epochs]')
+# ax.set_title('')
+ax.grid(True, which='both')
+ax.set_title('Budget {} (Best: {} weights)'.format(budget_chosen, models_n_weights[-1]))
+f.tight_layout()
+f.savefig(hpo_dir / 'cumbudget-num_model_weights_budget_{}.png'.format(budget_chosen))
 
 #%% Study analysis plots
 
