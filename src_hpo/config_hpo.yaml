@@ -215,7 +215,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
 #  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 #  uid: { 'dim': [ 1, ], 'dtype': str }
-
+  # difference image
+#  diff_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+#  oot_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+#  target_subpx_pos: { 'dim': [ 2, 5 ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: null

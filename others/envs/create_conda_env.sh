@@ -25,21 +25,28 @@ conda install matplotlib
 conda install yaml
 conda install jupyter
 conda install astropy
-conda install mpi4py
+# mpich and openmpi work for Linux and Mac OSes; msmpi for Windows OS
+# check which mpiexec the conda environment is using by running `which mpiexec`; the output should be coming from your conda environment directory
+#conda install mpi4py  # mpich implementation by default
+conda install -c conda-forge mpi4py openmpi
 conda install scipy
 conda install -c conda-forge pydot
 conda install -c anaconda graphviz
 #conda install -c conda-forge tensorflow
 #conda install -c anaconda tensorflow
+conda install -c anaconda pydot
+conda install -c conda-forge pydl
 
 # pip installations
 pip install hpbandster
 #conda install -c conda-forge hpbandster
-pip install tensorflow==2.3.0
+# GPU CUDA compatibility: https://www.tensorflow.org/install/source#gpu
+pip install tensorflow==2.5.0
 #pip install tensorboard==2.5.0
 pip install tensorflow-probability==0.11.0
 
-# For HECC (comment if not using HECC)
-#conda install cudnn=7.6.5
-#conda install cudatoolkit=10.1.243
-#conda install cupti=10.1.168
+# For systems using GPUs (e.g., HECC Pleiades, remembrane)
+conda install cudnn  # cudnn 8.1.x, cudatoolkit 11.x, cupti 11.x - these libraries should be these versions
+# #conda install cudnn=7.6.5
+# #conda install cudatoolkit=10.1.243
+# #conda install cupti=10.1.168

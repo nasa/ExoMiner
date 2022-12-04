@@ -2542,6 +2542,7 @@ class TransformerExoMiner(object):
         config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
                          'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
                          'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
+                         # 'kernel_size': {'global_view': 'kernel_size', 'local_view': 'kernel_size'},
                          }
 
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
@@ -2860,7 +2861,7 @@ class TransformerExoMiner(object):
                                                          alpha_constraint=None,
                                                          shared_axes=[1],
                                                          name=f'fc_prelu_{scalar_branch_name}_scalar')(scalar_fc_output)
-            scalar_branches_net[scalar_branch_name] = scalar_fc_output
+            scalar_branches_net[scalar_branch_name] = scalar_fc_output  # scalar_input  # scalar_fc_output
 
         return scalar_branches_net
 

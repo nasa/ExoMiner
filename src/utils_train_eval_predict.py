@@ -137,6 +137,8 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
 
     res = history.history
 
+    np.save(model_dir_sub / 'res_eval.npy', res)
+
     return res
 
 

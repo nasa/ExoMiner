@@ -71,19 +71,21 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         model_dir = models_dir / f'model{model_id}'
         model_dir.mkdir(exist_ok=True)
 
+        # instantiate child process for training the model; prevent GPU memory issues
         p = multiprocessing.Process(target=train_model,
                                     args=(
                                         run_params['base_model'],
                                         run_params,
                                         model_dir,
                                         model_id,
+                                        # run_params['logger']
                                     ))
-        p.start()
-        p.join()
+        p.start()  # start child process
+        p.join()  # wait for child process to terminate
         # p.close()
 
     if run_params['config'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble')
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble...')
     # get the filepaths for the trained models
     run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
                                                for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
@@ -114,6 +116,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
             res_file.write('\n')
 
     # run inference on different data sets defined in run_params['datasets']
+    if run_params['config'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference using ensemble...')
     scores = predict_model(run_params)
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
                              for dataset in run_params['datasets']}
@@ -159,6 +163,9 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # # remove preprocessed data for this run
     # shutil.rmtree(cv_run_dir / 'norm_data')
     # # TODO: delete the models as well?
+
+    if run_params['logger']['logger'] is not None:
+        run_params['logger'].info('Finished CV iteration.')
 
 
 def cv():
@@ -278,14 +285,13 @@ def cv():
     # config['logger'].info(f'Feature set: {config["features_set"]}')
 
     # early stopping callback
-    # config['callbacks']['early_stopping']['obj'] = callbacks.EarlyStopping(**config['callbacks']['early_stopping'])
     config['callbacks_list'] = {'train': [callbacks.EarlyStopping(**config['callbacks']['early_stopping'])]}
 
     # config['logger'].info(f'Final configuration used: {config}')
 
     # save feature set used
     if config['rank'] == 0:
-        # np.save(config['paths']['experiment_root_dir'] / 'features_set.npy', config['features_set'])
+
         # save configuration used
         np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])
 
@@ -308,8 +314,9 @@ def cv():
     else:
         # run each CV iteration sequentially
         for cv_id, cv_iter in enumerate(config['data_shards_fps']):
-            config['logger'].info(
-                f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
+            if config['logger'] is not None:
+                config['logger'].info(
+                    f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
                 config['paths']['experiment_root_dir'],

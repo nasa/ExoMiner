@@ -22,6 +22,7 @@ import yaml
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB, RandomSearch
 import hpbandster.core.result as hpres
+import argparse
 
 # local
 from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner
@@ -209,13 +210,16 @@ if __name__ == '__main__':
         elif feature['dtype'] == 'str':
             config['features_set'][feature_name]['dtype'] = tf.string
 
-    # add fit parameters
+    # add callback parameters
     config['callbacks_list'] = {'train': None}
 
+    # select base model architecture
     config['base_model'] = TransformerExoMiner
 
+    # set HPO run name
     config['study'] = config['paths']['experiment_dir'].name
 
+    # set TFRecords for training, validation, and test
     config['datasets_fps'] = {
         'train': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('train')],
         'val': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('val')],
@@ -227,9 +231,9 @@ if __name__ == '__main__':
 
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)
 
-        # save the YAML file with training-evaluation parameters that are YAML serializable
+        # save the YAML file with configuration parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['paths']['experiment_dir'] / 'hpo_run_config.yaml', 'w') as cv_run_file:
-            yaml.dump(json_dict, cv_run_file)
+            yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
     run_main(config, logger)
