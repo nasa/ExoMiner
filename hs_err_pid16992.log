@@ -1,0 +1,196 @@
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (mmap) failed to map 266338304 bytes for Failed to commit area from 0x0000000703800000 to 0x0000000713600000 of length 266338304.
+# Possible reasons:
+#   The system is out of physical RAM or swap space
+#   The process is running with CompressedOops enabled, and the Java Heap may be blocking the growth of the native heap
+# Possible solutions:
+#   Reduce memory load on the system
+#   Increase physical memory or swap space
+#   Check if swap backing store is full
+#   Decrease Java heap size (-Xmx/-Xms)
+#   Decrease number of Java threads
+#   Decrease Java thread stack sizes (-Xss)
+#   Set larger code cache with -XX:ReservedCodeCacheSize=
+# This output file may be truncated or incomplete.
+#
+#  Out of Memory Error (src/hotspot/os/windows/os_windows.cpp:3627), pid=16992, tid=22344
+#
+# JRE version:  (11.0.15+10) (build )
+# Java VM: OpenJDK 64-Bit Server VM (11.0.15+10-b2043.56, mixed mode, sharing, tiered, compressed oops, g1 gc, windows-amd64)
+# No core dump will be written. Minidumps are not enabled by default on client versions of Windows
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: git4idea.http.GitAskPassApp Username for 'https://babelfish.arc.nasa.gov': 
+
+Host: Intel(R) Core(TM) i5-10310U CPU @ 1.70GHz, 8 cores, 15G,  Windows 10 , 64 bit Build 19041 (10.0.19041.1806)
+Time: Sat Jul 30 01:17:40 2022 Pacific Daylight Time elapsed time: 0.009215 seconds (0d 0h 0m 0s)
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x00000143fd8ad000):  JavaThread "Unknown thread" [_thread_in_vm, id=22344, stack(0x0000003839000000,0x0000003839100000)]
+
+Stack: [0x0000003839000000,0x0000003839100000]
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+V  [jvm.dll+0x61612a]
+V  [jvm.dll+0x79c450]
+V  [jvm.dll+0x79da6d]
+V  [jvm.dll+0x79e143]
+V  [jvm.dll+0x24cc18]
+V  [jvm.dll+0x613174]
+V  [jvm.dll+0x607e55]
+V  [jvm.dll+0x30b1cb]
+V  [jvm.dll+0x30b13a]
+V  [jvm.dll+0x30b012]
+V  [jvm.dll+0x30ff76]
+V  [jvm.dll+0x35b4c3]
+V  [jvm.dll+0x35bbc6]
+V  [jvm.dll+0x35b5c3]
+V  [jvm.dll+0x2e5918]
+V  [jvm.dll+0x2e6ab7]
+V  [jvm.dll+0x7794f7]
+V  [jvm.dll+0x77acec]
+V  [jvm.dll+0x368a59]
+V  [jvm.dll+0x75ce8e]
+V  [jvm.dll+0x3d6a33]
+V  [jvm.dll+0x3d9001]
+C  [jli.dll+0x536b]
+C  [ucrtbase.dll+0x21bb2]
+C  [KERNEL32.DLL+0x17034]
+C  [ntdll.dll+0x52651]
+
+
+---------------  P R O C E S S  ---------------
+
+Threads class SMR info:
+_java_thread_list=0x00000143fb6fda40, length=0, elements={
+}
+
+Java Threads: ( => current thread )
+
+Other Threads:
+  0x00000143fd8c7800 GCTaskThread "GC Thread#0" [stack: 0x0000003839100000,0x0000003839200000] [id=12332]
+  0x00000143fd923000 ConcurrentGCThread "G1 Main Marker" [stack: 0x0000003839200000,0x0000003839300000] [id=21724]
+  0x00000143fd925800 ConcurrentGCThread "G1 Conc#0" [stack: 0x0000003839300000,0x0000003839400000] [id=9732]
+
+[error occurred during error reporting (printing all threads), id 0xc0000005, EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x00007fff6fbf6017]
+
+VM state:not at safepoint (not fully initialized)
+
+VM Mutex/Monitor currently owned by a thread:  ([mutex/lock_event])
+[0x00000143fd8a8160] Heap_lock - owner thread: 0x00000143fd8ad000
+
+Heap address: 0x0000000703800000, size: 4040 MB, Compressed Oops mode: Non-zero based: 0x0000000703800000
+Narrow klass base: 0x0000000000000000, Narrow klass shift: 0
+
+GC Heap History (0 events):
+No events
+
+Deoptimization events (0 events):
+No events
+
+Classes redefined (0 events):
+No events
+
+Internal exceptions (0 events):
+No events
+
+Events (1 events):
+Event: 0.006 Loaded shared library C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\zip.dll
+
+
+Dynamic libraries:
+0x00007ff632240000 - 0x00007ff63224a000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\java.exe
+0x00007fffe5990000 - 0x00007fffe5b88000 	C:\WINDOWS\SYSTEM32\ntdll.dll
+0x00007fffe3b20000 - 0x00007fffe3bdd000 	C:\WINDOWS\System32\KERNEL32.DLL
+0x00007fffe30b0000 - 0x00007fffe337e000 	C:\WINDOWS\System32\KERNELBASE.dll
+0x00007fffe34c0000 - 0x00007fffe35c0000 	C:\WINDOWS\System32\ucrtbase.dll
+0x00007fff26040000 - 0x00007fff26056000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\VCRUNTIME140.dll
+0x00007fff24f00000 - 0x00007fff24f19000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\jli.dll
+0x00007fffe3c40000 - 0x00007fffe3de0000 	C:\WINDOWS\System32\USER32.dll
+0x00007fffe39c0000 - 0x00007fffe39e2000 	C:\WINDOWS\System32\win32u.dll
+0x00007fffc5170000 - 0x00007fffc540a000 	C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.1110_none_60b5254171f9507e\COMCTL32.dll
+0x00007fffe45c0000 - 0x00007fffe45ea000 	C:\WINDOWS\System32\GDI32.dll
+0x00007fffe53f0000 - 0x00007fffe548e000 	C:\WINDOWS\System32\msvcrt.dll
+0x00007fffe37c0000 - 0x00007fffe38cb000 	C:\WINDOWS\System32\gdi32full.dll
+0x00007fffe3920000 - 0x00007fffe39bd000 	C:\WINDOWS\System32\msvcp_win.dll
+0x00007fffe5490000 - 0x00007fffe54c0000 	C:\WINDOWS\System32\IMM32.DLL
+0x00007fff24d70000 - 0x00007fff24e1a000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\msvcp140.dll
+0x00007fff6f900000 - 0x00007fff7047b000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\server\jvm.dll
+0x00007fffe4250000 - 0x00007fffe42fe000 	C:\WINDOWS\System32\ADVAPI32.dll
+0x00007fffe3e40000 - 0x00007fffe3edc000 	C:\WINDOWS\System32\sechost.dll
+0x00007fffe39f0000 - 0x00007fffe3b15000 	C:\WINDOWS\System32\RPCRT4.dll
+0x00007fffe4730000 - 0x00007fffe4738000 	C:\WINDOWS\System32\PSAPI.DLL
+0x00007fffd9e30000 - 0x00007fffd9e39000 	C:\WINDOWS\SYSTEM32\WSOCK32.dll
+0x00007fffca410000 - 0x00007fffca437000 	C:\WINDOWS\SYSTEM32\WINMM.dll
+0x00007fffd47f0000 - 0x00007fffd47fa000 	C:\WINDOWS\SYSTEM32\VERSION.dll
+0x00007fffe48f0000 - 0x00007fffe495b000 	C:\WINDOWS\System32\WS2_32.dll
+0x00007fffe1830000 - 0x00007fffe1842000 	C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+0x00007fffde580000 - 0x00007fffde591000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\verify.dll
+0x00007fffe0e40000 - 0x00007fffe1024000 	C:\WINDOWS\SYSTEM32\DBGHELP.DLL
+0x00007fffc93c0000 - 0x00007fffc93ec000 	C:\WINDOWS\SYSTEM32\dbgcore.DLL
+0x00007fffe3430000 - 0x00007fffe34b2000 	C:\WINDOWS\System32\bcryptPrimitives.dll
+0x00007fffcf260000 - 0x00007fffcf289000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\java.dll
+0x00007fffda5c0000 - 0x00007fffda5cb000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\jimage.dll
+0x00007fffda1b0000 - 0x00007fffda1c9000 	C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\zip.dll
+
+dbghelp: loaded successfully - version: 4.0.5 - missing functions: none
+symbol engine: initialized successfully - sym options: 0x614 - pdb path: .;C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin;C:\WINDOWS\SYSTEM32;C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.1110_none_60b5254171f9507e;C:\Users\cyates2\AppData\Local\JetBrains\PyCharm Community Edition 2022.1.2\jbr\bin\server
+
+VM Arguments:
+java_command: git4idea.http.GitAskPassApp Username for 'https://babelfish.arc.nasa.gov': 
+java_class_path (initial): C:/Users/cyates2/AppData/Local/JetBrains/PyCharm Community Edition 2022.1.2/plugins/git4idea/lib/git4idea-rt.jar;C:/Users/cyates2/AppData/Local/JetBrains/PyCharm Community Edition 2022.1.2/lib/externalProcess-rt.jar;C:/Users/cyates2/AppData/Local/JetBrains/PyCharm Community Edition 2022.1.2/lib/app.jar;C:/Users/cyates2/AppData/Local/JetBrains/PyCharm Community Edition 2022.1.2/lib/3rd-party-rt.jar
+Launcher Type: SUN_STANDARD
+
+[Global flags]
+     intx CICompilerCount                          = 4                                         {product} {ergonomic}
+     uint ConcGCThreads                            = 2                                         {product} {ergonomic}
+     uint G1ConcRefinementThreads                  = 8                                         {product} {ergonomic}
+   size_t G1HeapRegionSize                         = 1048576                                   {product} {ergonomic}
+    uintx GCDrainStackTargetSize                   = 64                                        {product} {ergonomic}
+   size_t InitialHeapSize                          = 266338304                                 {product} {ergonomic}
+   size_t MarkStackSize                            = 4194304                                   {product} {ergonomic}
+   size_t MaxHeapSize                              = 4236247040                                {product} {ergonomic}
+   size_t MinHeapDeltaBytes                        = 1048576                                   {product} {ergonomic}
+    uintx NonNMethodCodeHeapSize                   = 5836300                                {pd product} {ergonomic}
+    uintx NonProfiledCodeHeapSize                  = 122910970                              {pd product} {ergonomic}
+    uintx ProfiledCodeHeapSize                     = 122910970                              {pd product} {ergonomic}
+    uintx ReservedCodeCacheSize                    = 251658240                              {pd product} {ergonomic}
+     bool SegmentedCodeCache                       = true                                      {product} {ergonomic}
+     bool UseCompressedClassPointers               = true                                 {lp64_product} {ergonomic}
+     bool UseCompressedOops                        = true                                 {lp64_product} {ergonomic}
+     bool UseG1GC                                  = true                                      {product} {ergonomic}
+     bool UseLargePagesIndividualAllocation        = false                                  {pd product} {ergonomic}
+
+Logging:
+Log output configuration:
+ #0: stdout all=warning uptime,level,tags
+ #1: stderr all=off uptime,level,tags
+
+Environment Variables:
+PATH=C:/Users/cyates2/AppData/Local/Programs/Git/mingw64/libexec/git-core;C:/Users/cyates2/AppData/Local/Programs/Git/mingw64/libexec/git-core;C:\Users\cyates2\AppData\Local\Programs\Git\mingw64\bin;C:\Users\cyates2\AppData\Local\Programs\Git\usr\bin;C:\Users\cyates2\bin;C:\Users\cyates2\Anaconda3\envs\tess_env;C:\Users\cyates2\Anaconda3\envs\tess_env\Library\mingw-w64\bin;C:\Users\cyates2\Anaconda3\envs\tess_env\Library\usr\bin;C:\Users\cyates2\Anaconda3\envs\tess_env\Library\bin;C:\Users\cyates2\Anaconda3\envs\tess_env\Scripts;C:\Users\cyates2\Anaconda3\envs\tess_env\bin;C:\Users\cyates2\Anaconda3\condabin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0;C:\WINDOWS\System32\OpenSSH;c:\Program Files (x86)\HID Global\ActivClient;c:\Program Files\HID Global\ActivClient;C:\Users\cyates2\AppData\Local\Microsoft\WindowsApps;C:\Users\cyates2\AppData\Local\Programs\Git\cmd
+USERNAME=cyates2
+DISPLAY=:0.0
+LC_ALL=en_US.UTF-8
+OS=Windows_NT
+PROCESSOR_IDENTIFIER=Intel64 Family 6 Model 142 Stepping 12, GenuineIntel
+
+
+
+---------------  S Y S T E M  ---------------
+
+OS: Windows 10 , 64 bit Build 19041 (10.0.19041.1806)
+OS uptime: 8 days 18:12 hours
+
+CPU:total 8 (initial active 8) (4 cores per cpu, 2 threads per core) family 6 model 142 stepping 12 microcode 0xf0, cmov, cx8, fxsr, mmx, sse, sse2, sse3, ssse3, sse4.1, sse4.2, popcnt, avx, avx2, aes, clmul, erms, 3dnowpref, lzcnt, ht, tsc, tscinvbit, bmi1, bmi2, adx, fma
+
+Memory: 4k page, system-wide physical 16157M (6338M free)
+TotalPageFile size 19178M (AvailPageFile size 248M)
+current process WorkingSet (physical memory assigned to process): 10M, peak: 10M
+current process commit charge ("private bytes"): 60M, peak: 314M
+
+vm_info: OpenJDK 64-Bit Server VM (11.0.15+10-b2043.56) for windows-amd64 JRE (11.0.15+10-b2043.56), built on May 16 2022 02:28:12 by "" with MS VC++ 14.0 (VS2015)
+
+END.

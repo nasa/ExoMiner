@@ -1,0 +1,27 @@
+# Conduct CV run using a job array and MPIEXEC; each job in the array runs mpiprocs CV iterations (one per GPU);
+# Number of CV iterations needs to be less or equal to n_jobs_array*mpi_procs.
+#PBS -S /bin/bash
+#PBS -N cv_exoplnt
+#PBS -l walltime=23:59:59
+#PBS -l select=1:ncpus=36:mpiprocs=4:model=sky_gpu:ngpus=4:mem=360g
+#PBS -l place=scatter:exclhost
+# #PBS -l select=1:ncpus=36:mpiprocs=4:model=sky_gpu
+#  #PBS -l select=1:ncpus=16:mpiprocs=1:model=san_gpu
+#PBS -q dsg_gpu@pbspl4
+# #PBS -q testing_free
+# #PBS -q v100
+# #PBS -q k40
+#PBS -o /home6/cyates2/jobs/tess_project/job_cv_mgpus.out
+#PBS -e /home6/cyates2/jobs/tess_project/job_cv_mgpus.err
+#PBS -W group_list=a1509
+#PBS -m bea
+# #PBS -J 0-2
+
+module list
+
+# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
+source activate tess_project_env
+
+cd /home6/cyates2/codebase/
+
+mpiexec python src_cv/cv.py --job_idx=0 &> /nobackup/cyates2/experiments/cvs/cv_iter_$PBS_ARRAY_INDEX.txt

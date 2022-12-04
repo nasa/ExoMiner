@@ -1,0 +1,23 @@
+# Run inference for a single ensemble (single GPU).
+#PBS -S /bin/bash
+#PBS -N predict_exoplnt
+#PBS -l walltime=01:00:00
+#PBS -l select=1:ncpus=9:model=sky_gpu:ngpus=1:mem=90gb
+#PBS -l place=vscatter:shared
+# #PBS -l select=1:ncpus=16:model=san_gpu
+#PBS -q dsg_gpu@pbspl4
+# #PBS -q v100
+# #PBS -q k40
+#PBS -o /home6/cyates2/jobs/tess_project/job_nontp_exoplnt.out
+#PBS -e /home6/cyates2/jobs/tess_project/job_nontp_exoplnt.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+module list
+
+# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
+source activate tess_project_env
+
+cd /home6/cyates2/codebase
+
+python src_preprocessing/remove_Kepler_NTP.py &> /home6/cyates2/experiments/nontp.txt
