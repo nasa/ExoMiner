@@ -4,6 +4,9 @@
 from tensorflow.keras.utils import plot_model
 from tensorflow import keras
 from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn
@@ -96,7 +99,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
                         batch_size=None,
                         epochs=config['training']['n_epochs'],
                         verbose=config['verbose_model'],
-                        callbacks=config['callbacks_list']['train'],
+                        # callbacks=config['callbacks_list']['train'],
                         validation_split=0.,
                         validation_data=val_input_fn() if val_input_fn is not None else None,
                         shuffle=True,  # does the input function shuffle for every epoch?
@@ -109,6 +112,20 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
                         workers=1,  # same
                         use_multiprocessing=False  # same
                         )
+    model_history = pd.DataFrame(history.history)
+    model_history['epoch'] = history.epoch
+    num_epochs = model_history.shape[0]
+
+    plt.plot(np.arange(0, num_epochs), model_history["auc_pr"],
+            label="Training auc_pr")
+    plt.plot(np.arange(0, num_epochs), model_history["val_auc_pr"],
+            label="Validation auc_pr")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+    plt.savefig(model_dir_sub / f'auc_pr_graph_{model_id}.png')
+    plt.close()
 
     if logger is None:
         print('Saving model...')
@@ -217,7 +234,7 @@ def evaluate_model(config, logger=None):
                                   verbose=config['verbose_model'],
                                   sample_weight=None,
                                   steps=None,
-                                  callbacks=callbacks_list if dataset == 'train' else None,
+                                  # callbacks=callbacks_list if dataset == 'train' else None,
                                   max_queue_size=10,
                                   workers=1,
                                   use_multiprocessing=False)

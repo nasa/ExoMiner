@@ -148,7 +148,7 @@ def run_main(hpo_config, logger=None):
 
 if __name__ == '__main__':
 
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_hpo/config_hpo.yaml')
+    path_to_yaml = Path('/home6/cyates2/codebase/src_hpo/config_hpo.yaml')
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 

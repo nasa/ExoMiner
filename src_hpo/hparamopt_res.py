@@ -1,27 +1,23 @@
 """
-Evaluate a hyperparameter optimization study using BOHB, BO and RS implementation by Falkner et al.
+Evaluate a hyperparameter optimization study using BOHB, BO or RS implementation by Falkner et al.
 """
 
 # 3rd party
-# import matplotlib.cm as mcm
-import glob
-# import random
-import os
 import hpbandster.visualization as hpvis
 import matplotlib.colors as mcolors
-# import hpbandster.core.result as hpres
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
 # local
-import paths
-from src_hpo.utils_hpo import logged_results_to_HBS_result  # , json_result_logger
+from utils_hpo import logged_results_to_HBS_result
 
 # %% load results from a HPO study
 
-hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK')
-study = 'ConfigK'
+# HPO run directory
+hpo_dir = Path('/nobackup/cyates2/experiments/hpo/hpo_exp/hpo_merged_fluxvar_11-17-2022/')
+# name of the study
+study = 'hpo_merged_fluxvar_11-22-2022'
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -48,9 +44,10 @@ for run in all_runs:
         unique_configs.append(run.config_id)
 
 print('Number of configurations submitted: {}'.format(len(id2config)))
-print('Number of configurations evaluated (valid and nonviable): %i' % len(unique_configs))
+print('Number of configurations evaluated (i.e., at least one result (valid or invalid) was logged): %i' %
+      len(unique_configs))
 total_runs = len(all_runs)
-print('Total number of runs: {} (viable, nonviable and possibly non-evaluated)'.format(total_runs))
+print('Total number of runs: {}'.format(total_runs))
 
 # remove invalid configs
 all_runs = [run for run in all_runs if run.info is not None]
@@ -82,8 +79,8 @@ for run in all_runs:
         configs_per_budget[int(run.budget)][0] += 1
         configs_per_budget[int(run.budget)][1].append(run.config_id)
 
-print('Runs per budget (viable): ', {k: runs_per_budget[k][0] for k in runs_per_budget})
-print('Configs per budget (viable): ', {k: configs_per_budget[k][0] for k in configs_per_budget})
+print('Runs per budget (valid): ', {k: runs_per_budget[k][0] for k in runs_per_budget})
+print('Configs per budget (valid): ', {k: configs_per_budget[k][0] for k in configs_per_budget})
 
 # extract model based and random picks per budget
 modelspicks_per_budget = {key: {'model based': [0, []], 'random': [0, []]} for key in budgets}
@@ -123,8 +120,8 @@ f.savefig(hpo_dir / 'time_model-random.png')
 
 nconfigs_valid = len(idxs_modelbased)
 nconfigs_modelbased = len(np.nonzero(idxs_modelbased)[0])
-print('Number of nonviable configurations: {}'. format(len(unique_configs) - nconfigs_valid))
-print('Number of viable configurations: {}'.format(nconfigs_valid))
+print('Number of invalid configurations (i.e., results are errors): {}'. format(len(unique_configs) - nconfigs_valid))
+print('Number of valid configurations: {}'.format(nconfigs_valid))
 print('Number of model based pick configurations: {}'.format(nconfigs_modelbased))
 print('Number of random picked configurations: {}'.format(nconfigs_valid - nconfigs_modelbased))
 
@@ -198,34 +195,36 @@ f.savefig(hpo_dir / 'hist_top{}_{}.png'.format(min_val, rankmetric))
 
 #%% Learning curves and tracking best configuration
 
-# # plot learning curves for each configuration as function of the different budgets - it is a mess
-# lc_configs = res.get_learning_curves(config_ids=None)
-# fig, ax = plt.subplots()
-# for config in lc_configs:
-#     bdgt, lc = [], []
-#     # print(config)
-#     # print(lc_configs)
-#     for run in lc_configs[config][0]:
-#         bdgt.append(run[0])
-#         lc.append(run[1])
-#     ax.plot(lc, bdgt)
-#     # ax.scatter(lc, bdgt)
-# ax.set_ylabel('Budget [number of epochs]')
-# ax.set_xlabel('Loss')
-# ax.set_ylim(bottom=0)
-# ax.set_xlim(left=0)
+# plot learning curves for each configuration as function of the different budgets - it is a mess
+lc_configs = res.get_learning_curves(config_ids=None)
+fig, ax = plt.subplots()
+for config in lc_configs:
+    bdgt, lc = [], []
+    # print(config)
+    # print(lc_configs)
+    for run in lc_configs[config][0]:
+        bdgt.append(run[0])
+        lc.append(run[1])
+    ax.plot(lc, bdgt)
+    # ax.scatter(lc, bdgt)
+ax.set_ylabel('Budget [number of epochs]')
+ax.set_xlabel('Loss')
+ax.set_ylim(bottom=0)
+ax.set_xlim(left=0)
+plt.close()
 
 # returns the best configuration over time
-# best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
+best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
 
 # returns the best configuration over time/over cumulative budget
-nmodels = 3
 hpo_loss = 'val_auc_pr'  # 'pr auc'
 budget_chosen = 50  # 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
-    ensmetrics_list = [file for file in glob.glob(paths.path_hpoconfigs + study + '/*.*') if 'ensemblemetrics' in file]
+    ensmetrics_list = [config_dir / f'{config_dir.name}_budget{budget_chosen}_ensemblemetrics.npy'
+                       for config_dir in hpo_dir.iterdir()
+                       if config_dir.is_dir() and config_dir.name.startswith('config')]
 bconfig_loss, cum_budget = np.inf, 0
 bmu_hpoloss, bsem_hpoloss = None, None
 timestamps, cum_budget_vec, tinc_hpoloss = [], [], []
@@ -259,22 +258,18 @@ for run_i, run in enumerate(timesorted_allruns):
             tinc_hpoloss.append(run.loss)
         else:  # for ensemble studies, use the mean and std
 
-            # search for the numpy file with the values for the given run
-            for ensmetrics in ensmetrics_list:
-                # if str(run.config_id) + 'budget' + str(int(run.budget)) in ensmetrics:
-                if str(run.config_id) + '_budget' + str(int(run.budget)) in ensmetrics:
-                    censemetrics = ensmetrics
-                    break
-            else:  # did not find the file for that run
+            ensmetrics_fp = Path(hpo_dir / f'config{run.config_id}' /
+                                 f'config{run.config_id}_budget{int(run.budget)}_ensemblemetrics.npy')
+            if not ensmetrics_fp.exists():
+                 # did not find the file for that run
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
                                                                                                     int(run.budget)))
 
-            # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['validation'][hpo_loss]['all scores'])
-            # ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()[hpo_loss]['all scores'])
-            ensmetrics = np.array(np.load(censemetrics, allow_pickle=True).item()['single_models'][hpo_loss]['all scores'])
+            ensmetrics = np.array(np.load(ensmetrics_fp,
+                                          allow_pickle=True).item()['single_models'][hpo_loss]['all scores'])
             centraltend_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
             dev_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
-            ens_hpoloss = run.loss
+            ens_hpoloss = run.loss  # ensemble hpo loss
 
             if run.loss < bconfig_loss:
                 bens_hpoloss, bcentraltend_hpoloss, bdev_hpoloss = ens_hpoloss, centraltend_hpoloss, dev_hpoloss
@@ -300,13 +295,13 @@ ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_ylim(top=1)
 # ax.set_xlim(right=1e5)
-ax.set_ylabel('Optimization loss')
+ax.set_ylabel(f'Optimization loss\n{hpo_loss}')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
 ax.grid(True, which='both')
 ax.legend()
-plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
-plt.subplots_adjust(left=0.145)
+ax.set_title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
+f.tight_layout()
 f.savefig(hpo_dir / 'walltime-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
@@ -320,12 +315,12 @@ ax.set_xscale('log')
 ax.set_ylim(top=1)
 ax.legend()
 # ax.set_xlim(right=1e5)
-ax.set_ylabel('Optimization loss')
+ax.set_ylabel(f'Optimization loss\n{hpo_loss}')
 ax.set_xlabel('Cumulative budget [Epochs]')
 # ax.set_title('')
 ax.grid(True, which='both')
-plt.title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
-plt.subplots_adjust(left=0.145)
+ax.set_title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
+f.tight_layout()
 f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
 
 
@@ -364,7 +359,7 @@ f.savefig(hpo_dir / 'concurrent_runs_over_time.png')
 # f.set_size_inches(10, 6)
 
 # and the number of finished runs.
-hpvis.finished_runs_over_time(all_runs)
+f, _ = hpvis.finished_runs_over_time(all_runs)
 f.savefig(hpo_dir / 'finished_runs_over_time.png')
 
 # This one visualizes the spearman rank correlation coefficients of the losses

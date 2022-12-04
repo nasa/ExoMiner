@@ -44,8 +44,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # split training folds into training and validation sets by randomly selecting one of the folds as the validation
     # set
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
+    # data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
+    # data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
@@ -170,7 +170,7 @@ def cv():
     args = parser.parse_args()
 
     if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
+        path_to_yaml = Path('/nobackup/cyates2/data/yamls/config_cv_train_fluxvar_merged.yaml')
     else:  # use config file given as input
         path_to_yaml = Path(args.config_file)
 
