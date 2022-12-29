@@ -18,4 +18,4 @@ source activate exoplnt_dl
 
 cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
 
-mpiexec python src_hpo/hpo_keras.py  &>  /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/hpo_configs/hpo.txt
+mpiexec python src_hpo/hpo_keras.py  &>  /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo.txt

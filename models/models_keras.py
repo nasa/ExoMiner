@@ -2831,7 +2831,7 @@ class TransformerExoMiner(object):
             else 'glorot_uniform'
 
         # branch_view_inputs = [self.inputs[view_name] for view_name in self.config['diff_img_branch']['imgs']]
-        branch_view_inputs = [self.inputs['diff_img'], self.inputs['diff_img']]
+        branch_view_inputs = [self.inputs['diff_img'], self.inputs['oot_img']]
         branch_view_inputs = [tf.expand_dims(l, axis=-1, name='expanding_diff_img') for l in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
