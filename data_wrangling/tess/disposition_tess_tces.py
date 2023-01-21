@@ -99,7 +99,7 @@ tce_tbl.loc[tce_tbl['match_dist'] < matching_thr, ['label', 'label_source']] = \
 # tce_tbl.loc[(tce_tbl['tso_eb'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
 tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
 
-# 3) match TCEs to Jon's EBs
+# 3) match TCEs to Jon's EBs (TESS EBWG primary mission first EB catalog)
 tce_tbl.loc[(tce_tbl['eb_match_dist'] < matching_thr) &
             (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'Jon\'s EBs'
 

@@ -4,7 +4,8 @@
 CONDA_ENV_NAME=exoplnt_dl
 
 # make conda detectable by the current bash shell
-source "$HOME"/.bash_profile
+#source "$HOME"/.bash_profile
+source "$HOME"/.bashrc
 #conda init bash
 
 # start by creating empty environment
@@ -46,7 +47,7 @@ pip install tensorflow==2.5.0
 pip install tensorflow-probability==0.11.0
 
 # For systems using GPUs (e.g., HECC Pleiades, remembrane)
-conda install cudnn  # cudnn 8.1.x, cudatoolkit 11.x, cupti 11.x - these libraries should be these versions
+# conda install cudnn  # cudnn 8.1.x, cudatoolkit 11.x, cupti 11.x - these libraries should be these versions
 # #conda install cudnn=7.6.5
 # #conda install cudatoolkit=10.1.243
 # #conda install cupti=10.1.168
