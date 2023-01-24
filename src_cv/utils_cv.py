@@ -4,6 +4,7 @@ Utility functions for CV.
 
 # 3rd party
 import multiprocessing
+import shutil
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -13,6 +14,7 @@ from pathlib import Path
 # local
 from src_preprocessing.compute_normalization_stats_tfrecords import compute_normalization_stats
 from src_preprocessing.normalize_data_tfrecords import normalize_examples
+from src_preprocessing.tf_util import example_util
 
 
 def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log=False):
@@ -113,6 +115,88 @@ def check_normalized_features(norm_features, norm_data_dir, tceid):
                 file.write(feature_str)
 
 
+def add_sample_weights_to_tfrecords(data_shards_fps, weights_cats, temp_data_dir):
+    """ Add sample weights to examples in the training set TFRecords.
+
+    Args:
+        data_shards_fps: list, TFRecords folds used as training set for this CV iteration
+        weights_cats: dict, categories weights
+        temp_data_dir: Path, temporary data directory in which the new data is stored
+
+    Returns:
+
+    """
+
+    for data_shards_fp in data_shards_fps:
+        with tf.io.TFRecordWriter(str(temp_data_dir / data_shards_fp.name)) as writer:
+            tfrecord_dataset = tf.data.TFRecordDataset(data_shards_fp)
+            for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+                example = tf.train.Example()
+                example.ParseFromString(string_record)
+                example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
+                example_util.set_float_feature(example, 'sample_weight', [weights_cats[example_label]])
+                writer.write(example.SerializeToString())
+            writer.close()
+
+
+def compute_sample_weights(data_shards_fps, run_params):
+    """ Compute sample weights and add them to the examples in the TFRecords for the training set.
+
+    Args:
+        data_shards_fps: dict, 'train', 'val', and 'test' keys with TFRecords folds used as training and test sets,
+    respectively, for this CV iteration
+        param run_params: dict, configuration parameters for the CV run
+
+    Returns:
+
+    """
+
+    curr_data_dir = data_shards_fps['train'][0].parent.parent
+    temp_data_dir = curr_data_dir / 'temp_data'
+    temp_data_dir.mkdir(exist_ok=True)
+
+    sample_weights_dict = {'uid': [], 'label': []}
+    for train_data_shards_fp in data_shards_fps['train']:
+        tfrecord_dataset = tf.data.TFRecordDataset(str(train_data_shards_fp))
+        for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+            sample_weights_dict['uid'].append(example.features.feature['uid'].bytes_list.value[0].decode("utf-8"))
+            sample_weights_dict['label'].append(example.features.feature['label'].bytes_list.value[0].decode("utf-8"))
+
+    sample_weights_df = pd.DataFrame(sample_weights_dict)
+    CATS = [['PC', 'T-KP', 'T-CP'], ['AFP', 'T-EB', 'T-FP'], ['NTP', 'T-NTP', 'T-FA']]
+    n_cats = len(CATS)  # len(sample_weights_df['label'].unique())
+    n_total_samples = len(sample_weights_df)
+    # n_samples_per_cat = sample_weights_df['label'].value_counts()
+    weights_cats = {cat: np.nan for cat in sample_weights_df['label'].unique()}
+    for cat_grp in CATS:
+        n_samples_per_cat_grp = (sample_weights_df['label'].isin(cat_grp)).sum()
+        for cat in cat_grp:
+            weights_cats[cat] = n_total_samples / (n_samples_per_cat_grp * n_cats)
+
+    weights_cats_df = pd.DataFrame({key: [val]
+                                    for key, val in weights_cats.items()}).T.rename(columns={0: 'category_weight'})
+    weights_cats_df.to_csv(curr_data_dir / 'samples_weights.csv')
+
+    pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
+    data_shards_fps_jobs = np.array_split(data_shards_fps['train'],
+                                          run_params['norm_examples_params']['n_processes_norm_data'])
+    jobs = [(fps, weights_cats, temp_data_dir) for fps in data_shards_fps_jobs]
+    _ = [pool.apply_async(add_sample_weights_to_tfrecords, job) for job in jobs]
+    pool.close()
+    for async_result in _:
+        async_result.get()
+
+    for dataset in data_shards_fps:
+        if dataset != 'train':
+            for fp in data_shards_fps[dataset]:
+                shutil.copy(fp, temp_data_dir / fp.name)
+
+    shutil.rmtree(curr_data_dir / 'norm_data')
+    shutil.move(temp_data_dir, curr_data_dir / 'norm_data')
+
+
 def processing_data_run(data_shards_fps, run_params, cv_run_dir):
     """ Processing data for a given CV run. This step involves computing normalization statistics from the training set,
     and then normalizing and clipping the data using those statistics.
@@ -177,6 +261,10 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
 
     data_shards_fps_norm = {dataset: [norm_data_dir / data_fp.name for data_fp in data_fps]
                             for dataset, data_fps in data_shards_fps.items()}
+
+    # compute sample weights
+    if run_params['training']['sample_weights']:
+        compute_sample_weights(data_shards_fps_norm, run_params)
 
     return data_shards_fps_norm
 

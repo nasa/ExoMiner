@@ -52,9 +52,9 @@ class InputFnv2(object):
     """Class that acts as a callable input function."""
 
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, category_weights=None, multiclass=False,
-                 shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256, use_transformer=False,
-                 feature_map=None):
+                 online_preproc_params=None, filter_data=None, category_weights=None, sample_weights=False,
+                 multiclass=False, shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256,
+                 use_transformer=False, feature_map=None):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -70,6 +70,8 @@ class InputFnv2(object):
         :param filter_data:
         :param category_weights: dict, each key/val pair represents the weight for any sample associated with the
         given category as key
+        :param sample_weights: bool, if True uses sample weights provided in the TFRecords for the examples in the
+        training set.
         :param multiclass: bool, if True maps label ids to  one-hot encoding
         :param shuffle_buffer_size: int, size of the buffer used for shuffling. Buffer size equal or larger than dataset
         size guarantees perfect shuffling
@@ -96,6 +98,7 @@ class InputFnv2(object):
         self.filter_data = filter_data
 
         self.category_weights = category_weights
+        self.sample_weights = sample_weights
         self.multiclass = multiclass
 
         self.use_transformer = use_transformer
@@ -118,8 +121,6 @@ class InputFnv2(object):
             """
 
             # get features names, shapes and data types to be extracted from the TFRecords
-            # data_fields = {feature_name: tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
-            #                for feature_name, feature_info in self.features_set.items()}
             data_fields = {}
             for feature_name, feature_info in self.features_set.items():
                 if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
@@ -143,7 +144,10 @@ class InputFnv2(object):
                     value_dtype=tf.float32)
 
                 label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
-                sample_weight = label_to_weight.lookup(parsed_label['label'])
+                example_weight = label_to_weight.lookup(parsed_label['label'])
+            elif self.sample_weights and self.mode == 'TRAIN':
+                sample_weight_field = {'sample_weight': tf.io.FixedLenFeature([], tf.float32)}
+                example_weight = tf.io.parse_single_example(serialized=serialized_example, features=sample_weight_field)
 
             # prepare data augmentation
             if self.data_augmentation:
@@ -232,8 +236,8 @@ class InputFnv2(object):
                     output[feature_name] = value
 
             # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            if self.category_weights is not None and self.mode == 'TRAIN':
-                return output, label_id, sample_weight
+            if (self.category_weights is not None or self.sample_weights) and self.mode == 'TRAIN':
+                return output, label_id, example_weight
             else:
                 return output, label_id
 
