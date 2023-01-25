@@ -79,6 +79,7 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    # tce_table = tce_table.loc[tce_table['target_id'] == 178284730]
     tce_table = tce_table.astype(dtype={
         # 'sectors': str,
         'sector_run': str,

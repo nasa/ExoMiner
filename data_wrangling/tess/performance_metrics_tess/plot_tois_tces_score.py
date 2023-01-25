@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 #%% plot score as function of number of observed transits
 
-tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet_ourmatch.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
 # toi_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/10-3-2022/exofop_tess_tois-4.csv')
 # toi_tbl = toi_tbl.rename(columns={'TOI': 'matched_toi_our'})
 
@@ -35,7 +35,7 @@ tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projec
 # tois_tces = tce_tbl.loc[tce_tbl['matched_toi_our'].isin(tois)]
 
 # experiment directory
-exp_dir = Path('/Users/msaragoc/Downloads/cv_merged_base_10-5-2022_1028/')
+exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_1-24-2023_1126')
 plot_dir = exp_dir / 'tois_num_obs_transits_v_score'
 plot_dir.mkdir(exist_ok=True)
 
@@ -44,7 +44,9 @@ ranking_tbl = pd.read_csv(exp_dir / 'ensemble_ranked_predictions_allfolds.csv')
 ranking_tbl = ranking_tbl.merge(tce_tbl[['uid', 'tce_num_transits_obs', 'matched_toi_our', 'match_corr_coef',
                                          'sector_run', 'tce_model_snr', 'Period (days)', 'Depth (ppm)',
                                          'Planet Radius (R_Earth)', 'Planet SNR', 'tce_steff', 'tce_slogg', 'mag',
-                                         'tce_smet', 'ruwe', 'Comments']],
+                                         'tce_smet',
+                                         # 'ruwe',
+                                         'Comments']],
                                 on='uid', how='left', validate='one_to_one')
 
 tois = ranking_tbl.loc[~ranking_tbl['matched_toi_our'].isna(), 'matched_toi_our'].unique()

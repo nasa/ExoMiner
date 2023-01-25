@@ -27,4 +27,4 @@ source activate exoplnt_dl
 
 cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-mpiexec python src_cv/cv.py --job_idx=$PBS_ARRAY_INDEX &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/cv_experiments/cv_iter_$PBS_ARRAY_INDEX.txt
+mpiexec python src_cv/cv.py --job_idx=$PBS_ARRAY_INDEX &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_iter_$PBS_ARRAY_INDEX.txt
