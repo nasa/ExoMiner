@@ -41,8 +41,6 @@ branches_range = np.arange(n_branches)
 runs = {}
 for L in range(1, n_branches + 1):
     for subset in itertools.combinations(branches_range, L):
-        # print(subset)
-        # print(np.array(branches_names)[np.array(subset)])
         branches_run = [branches_names[idx] for idx in range(n_branches) if idx in subset]
         features_run = []
         for branch in branches_run:
@@ -76,7 +74,7 @@ runs = {run_name: run_data for run_name, run_data in runs.items()
 config_runs_fp = config_dir / f'list_config_runs.txt'
 if config_runs_fp.is_file():
     config_runs_fp.unlink()
-# aa
+
 for run_name, run_data in runs.items():
 
     with(open(run_config['default_train_config_fp'], 'r')) as file:  # read default YAML configuration pred file
@@ -90,10 +88,7 @@ for run_name, run_data in runs.items():
     train_config['paths']['experiment_dir'] = f'{str(trained_models_dir / run_name)}'
 
     # assign branches
-    # train_config['config']['branches'] = run_data['branches']
-    # aaaa
     for branch_name in run_data['branches']:
-        # aa
         branch_to_add = {branch_name: run_config['branches_features'][branch_name]['features']}
         if run_config['branches_features'][branch_name]['type'] == 'convolutional':
             if train_config['config']['conv_branches'] is None:

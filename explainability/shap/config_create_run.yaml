@@ -5,14 +5,6 @@ default_pred_config_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experimen
 
 # branches' names (for model) to nicknames (for person)
 branches:
-  #    global_flux_view_fluxnorm: gf
-  #    local_flux_view_fluxnorm: lf
-  #    local_flux_oddeven_views: oe
-  #    global_centr_view_std_noclip: gc
-  #    local_centr_view_std_noclip: lc
-  #    local_weak_secondary_view_max_flux-wks_norm: wks
-  #    stellar: s
-  #    dv+tce_fit: dvtf
   global_flux: gf
   local_flux: lf
   local_odd_even: oe
@@ -21,55 +13,6 @@ branches:
   local_weak_secondary: wks
   stellar: s
   dv_tce_fit: dvtf
-
-# mapping of branches to features in each branch
-#branches_features:
-#    global_flux_view_fluxnorm:
-#      - global_flux_view_fluxnorm
-#    local_flux_view_fluxnorm:
-#      - local_flux_view_fluxnorm
-#      - tce_max_mult_ev_norm
-#      - tce_max_sngle_ev_norm
-#      - tce_robstat_norm
-#      - tce_model_chisq_norm
-##      - transit_depth_norm
-#    local_flux_oddeven_views:
-#      - local_flux_odd_view_fluxnorm
-#      - local_flux_even_view_fluxnorm
-#      - odd_se_oot_norm
-#      - even_se_oot_norm
-#    global_centr_view_std_noclip:
-#      - global_centr_view_std_noclip
-#    local_centr_view_std_noclip:
-#      - local_centr_view_std_noclip
-##      - tce_fwm_stat_norm
-#      - tce_dikco_msky_norm
-#      - tce_dikco_msky_err_norm
-##      - tce_dicco_msky_norm
-##      - tce_dicco_msky_err_norm
-#      - mag_cat_norm
-#    local_weak_secondary_view_max_flux-wks_norm:
-##      - local_weak_secondary_view_max_flux-wks_norm
-#      - local_weak_secondary_view_selfnorm
-#      - tce_maxmes_norm
-##      - wst_depth_norm
-#      - tce_albedo_stat_norm
-#      - tce_ptemp_stat_norm
-#      - tce_prad_norm
-#    stellar:
-#      - tce_sdens_norm
-#      - tce_steff_norm
-#      - tce_smet_norm
-#      - tce_slogg_norm
-#      - tce_smass_norm
-#      - tce_sradius_norm
-#    dv+tce_fit:
-#      - boot_fap_norm
-#      - tce_cap_stat_norm
-#      - tce_hap_stat_norm
-##      - tce_rb_tcount0n_norm
-##      - tce_prad_norm
-#      - tce_period_norm
 
 branches_features:
   global_flux:
@@ -83,34 +26,34 @@ branches_features:
     features:
       views:
         - local_flux_view_fluxnorm
-      scalars:
-        #        - transit_depth_norm
-        - tce_max_mult_ev_norm
-        - tce_max_sngle_ev_norm
-        - tce_robstat_norm
-        - tce_model_chisq_norm
+      scalars: null
+#        - transit_depth_norm
+#        - tce_max_mult_ev_norm
+#        - tce_max_sngle_ev_norm
+#        - tce_robstat_norm
+#        - tce_model_chisq_norm
 
   local_weak_secondary:
     type: convolutional
     features:
       views:
-        #        - local_weak_secondary_view_fluxnorm
-        - local_weak_secondary_view_selfnorm
-      #        - local_weak_secondary_view_max_flux-wks_norm
+        - local_weak_secondary_view_fluxnorm
+#        - local_weak_secondary_view_selfnorm
+#        - local_weak_secondary_view_max_flux-wks_norm
       scalars:
         - tce_ptemp_stat_norm
         - tce_albedo_stat_norm
         - tce_maxmes_norm
-        - tce_prad_norm
-    #        - wst_depth_norm
+#        - tce_prad_norm
+#        - wst_depth_norm
   local_centroid:
     type: convolutional
     features:
       views:
         - local_centr_view_std_noclip
-      #        - local_centr_fdl_view_norm
+#        - local_centr_fdl_view_norm
       scalars:
-        #        - tce_fwm_stat_norm
+#        - tce_fwm_stat_norm
         - tce_dikco_msky_norm
         - tce_dikco_msky_err_norm
         #        - tce_dicco_msky_norm
@@ -119,12 +62,12 @@ branches_features:
         #        - mag_cat
         - mag_cat_norm
         - ruwe_norm
-  #        - tce_ruwe_norm
+#        - tce_ruwe_norm
   global_centroid:
     type: convolutional
     features:
       views:
-        #        - global_centr_fdl_view_norm
+#        - global_centr_fdl_view_norm
         - global_centr_view_std_noclip
       scalars: null
   local_odd_even:
@@ -151,6 +94,7 @@ branches_features:
       - boot_fap_norm
       - tce_cap_stat_norm
       - tce_hap_stat_norm
-      #          - tce_cap_hap_stat_diff_norm
-      #      - tce_rb_tcount0n_norm
+#      - tce_cap_hap_stat_diff_norm
+#      - tce_rb_tcount0n_norm
       - tce_period_norm
+      - tce_prad_norm

@@ -25,6 +25,11 @@ module list
 # source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
 source activate exoplnt_dl
 
+CV_SCRIPT_NAME=cv.py
+# CV_SCRIPT_NAME=cv_predict.py
+CV_CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_train.yaml
+# CV_CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_predict.yaml
+
 cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-mpiexec python src_cv/cv.py --job_idx=$PBS_ARRAY_INDEX &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_iter_$PBS_ARRAY_INDEX.txt
+mpiexec python src_cv/"$CV_SCRIPT_NAME" --config_file=$CV_CONFIG_FP --job_idx=$PBS_ARRAY_INDEX &> /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_iter_$PBS_ARRAY_INDEX.txt
