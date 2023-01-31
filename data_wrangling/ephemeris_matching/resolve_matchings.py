@@ -45,7 +45,7 @@ def solve_matches(tbl_fp, match_thr):
 if __name__ == '__main__':
 
     match_thr = 0.75
-    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-04-2022_1128')
+    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/01-27-2023_1132')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():
@@ -53,4 +53,4 @@ if __name__ == '__main__':
         matched_signals.append(solve_matches(tbl_fp, match_thr))
 
     matched_signals = pd.concat(matched_signals, axis=0)
-    matched_signals.to_csv(matching_root_dir / 'matched_signals.csv', index=False)
+    matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)

@@ -67,7 +67,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # get the configuration parameters
-    path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/shap/config_compute_mcs.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/shap/config_compute_mcs.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -82,13 +82,16 @@ if __name__ == "__main__":
     #     config['rank'] = 0
     rank = args.job_idx
 
-    runs_tbl = pd.read_csv(config['runs_tbl_fp'], index_col=['target_id', 'tce_plnt_num', 'run'])
-    examples_tbl = pd.read_csv(config['examples_tbl_fp'], index_col=['target_id', 'tce_plnt_num'])
-    score_nofeats = examples_tbl.loc[examples_tbl['dataset'] == 'train']['label'].mean()
+    # runs_tbl = pd.read_csv(config['runs_tbl_fp'], index_col=['target_id', 'tce_plnt_num', 'run'])
+    runs_tbl = pd.read_csv(config['runs_tbl_fp'], index_col=['uid', 'run'])
+    # examples_tbl = pd.read_csv(config['examples_tbl_fp'], index_col=['target_id', 'tce_plnt_num'])
+    examples_tbl = pd.read_csv(config['examples_tbl_fp'], index_col=['uid'])
+    # score of model without features is the mean label of the training set
+    score_nofeats = 3423 / 41615  # examples_tbl.loc[examples_tbl['dataset'] == 'train']['label'].mean()
     n_features = len(config['features'])
     config_runs = np.array_split(np.load(config['config_runs_fp']), config['n_jobs'])[rank]
     # config_runs = ['gc-lc-wks']
-    config_runs = config_runs[np.where(config_runs == 'gf-gc-lc-wks')[0][0]:]
+    # config_runs = config_runs[np.where(config_runs == 'gf-gc-lc-wks')[0][0]:]
 
     for config_run_i, config_run in enumerate(config_runs):
 
@@ -97,9 +100,9 @@ if __name__ == "__main__":
         # set of features used in the run
         # feats_in_run = [feat for feat in config['features'] if feat in config_run]
         feats_in_run = config_run.split('-')
-        if 'gc' in feats_in_run:  # special case for gc-lc
-            feats_in_run[feats_in_run.index('gc')] = 'gc-lc'  # preserve the ordering
-            feats_in_run.remove('lc')
+        # if 'gc' in feats_in_run:  # special case for gc-lc
+        #     feats_in_run[feats_in_run.index('gc')] = 'gc-lc'  # preserve the ordering
+        #     feats_in_run.remove('lc')
         n_feats_in_run = len(feats_in_run)
         print(f'[{rank}] Number of features in the run: {n_feats_in_run}')
 

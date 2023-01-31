@@ -35,7 +35,7 @@ tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projec
 # tois_tces = tce_tbl.loc[tce_tbl['matched_toi_our'].isin(tois)]
 
 # experiment directory
-exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_1-24-2023_1126')
+exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_1-24-2023_1544')
 plot_dir = exp_dir / 'tois_num_obs_transits_v_score'
 plot_dir.mkdir(exist_ok=True)
 
@@ -51,7 +51,14 @@ ranking_tbl = ranking_tbl.merge(tce_tbl[['uid', 'tce_num_transits_obs', 'matched
 
 tois = ranking_tbl.loc[~ranking_tbl['matched_toi_our'].isna(), 'matched_toi_our'].unique()
 
-cats_plot = {'T-CP': 1, 'T-KP': 1, 'T-FP': 0, 'T-FA': 0}
+cats_plot = {
+    'T-CP': 1,
+    'T-KP': 1,
+    'T-FP': 0,
+    'T-FA': 0,
+    'T-EB': 0,
+    # 'T-NTP': 0,
+}
 
 for cat in cats_plot:
 

@@ -1,7 +1,7 @@
-exp_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler
+exp_dir:  /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/shap_test_kepler-tess_1-26-2023_1436
 # default configuration files; parameters shared by all configurations are already filled
-default_train_config_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/default_config_train.yaml
-default_pred_config_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/shap_tessvkepler/default_config_predict.yaml
+default_train_config_fp: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/shap_kepler-tess_cycle4/default_config_train.yaml
+default_pred_config_fp: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/shap_kepler-tess_cycle4/default_config_predict.yaml
 
 # branches' names (for model) to nicknames (for person)
 branches:
@@ -37,9 +37,9 @@ branches_features:
     type: convolutional
     features:
       views:
-        - local_weak_secondary_view_fluxnorm
+#        - local_weak_secondary_view_fluxnorm
 #        - local_weak_secondary_view_selfnorm
-#        - local_weak_secondary_view_max_flux-wks_norm
+        - local_weak_secondary_view_max_flux-wks_norm
       scalars:
         - tce_ptemp_stat_norm
         - tce_albedo_stat_norm

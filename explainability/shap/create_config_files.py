@@ -13,7 +13,7 @@ from datetime import datetime
 from utils.utils_dataio import is_yamlble
 
 # load configuration for the explainability run
-path_to_yaml = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/explainability/shap/config_create_run.yaml')
+path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/shap/config_create_run.yaml')
 with(open(path_to_yaml, 'r')) as file:
     run_config = yaml.safe_load(file)
 
