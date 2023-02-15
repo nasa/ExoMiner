@@ -1,6 +1,4 @@
-"""
-Analyzing number of candidates in multi-planet systems in Kepler.
-"""
+""" Analyzing number of candidates in multi-planet systems in Kepler. """
 
 # 3rd party
 import pandas as pd

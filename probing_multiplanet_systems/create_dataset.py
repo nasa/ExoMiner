@@ -1,6 +1,7 @@
 """
 Create data set.
 """
+
 import numpy as np
 import pandas as pd
 from pathlib import Path

@@ -11,7 +11,7 @@ from sklearn.metrics import balanced_accuracy_score, average_precision_score
 # %%
 
 # cv experiment directory
-cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_1-24-2023_1544')
+cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_tessonlytrainingset_1-25-2023_1318')
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
@@ -20,9 +20,9 @@ clf_threshold = 0.5  # classification threshold used to compute accuracy, precis
 cats = {
     # data set (since each data set might contain different populations of examples
     'train': {
-        'PC': 1,
-        'AFP': 0,
-        'NTP': 0,
+        # 'PC': 1,
+        # 'AFP': 0,
+        # 'NTP': 0,
         # 'UNK': 0,
         'T-KP': 1,
         'T-CP': 1,
@@ -113,7 +113,8 @@ for dataset in datasets:
         _ = binary_accuracy.update_state(ranking_tbl['label'].tolist(), ranking_tbl['score'].tolist())
         data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-        data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class']))
+        data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl['label'],
+                                                                        ranking_tbl['predicted class']))
 
         data_to_tbl['avg precision'].append(average_precision_score(ranking_tbl['label'], ranking_tbl['score']))
 
@@ -182,7 +183,8 @@ for dataset in datasets:
         _ = binary_accuracy.update_state(ranking_tbl['label'].tolist(), ranking_tbl['score'].tolist())
         data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-        data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class']))
+        data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl['label'],
+                                                                        ranking_tbl['predicted class']))
 
         data_to_tbl['avg precision'].append(average_precision_score(ranking_tbl['label'], ranking_tbl['score']))
 

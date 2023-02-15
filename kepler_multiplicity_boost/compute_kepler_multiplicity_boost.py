@@ -17,7 +17,7 @@ from kepler_multiplicity_boost.utils_multiplicity_boost import _compute_expected
 
 #%% Experiment initial setup
 
-res_root_dir = Path('/data5/tess_project/experiments/current_experiments/kepler_multiplicity_boost/')
+res_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/kepler_multiplicity_boost/')
 
 res_dir = res_root_dir / f'cumulativekoi_linlstsqr_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 res_dir.mkdir(exist_ok=True)
@@ -43,10 +43,11 @@ logger.info(f'Using stellar catalog: {str(stellar_cat_fp)}')
 logger.info(f'Number of targets in the stellar catalog: {len(stellar_cat)}')
 
 # koi_cat_fp = Path(res_root_dir / 'q1_q17_dr25_sup_koi_2021.11.16_11.10.03.csv')
-koi_cat_fp = Path(res_root_dir / 'cumulative_2021.11.22_15.20.09.csv')
+# koi_cat_fp = Path(res_root_dir / 'cumulative_2021.11.22_15.20.09.csv')
+koi_cat_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/koi_catalogs/cumulative_2023.02.10_09.28.11.csv')
 # koi_cat_fp = Path(res_root_dir / 'q1_q8_koi_2021.11.16_15.27.49.csv')
 koi_cat = pd.read_csv(koi_cat_fp,
-                      header=56  # 56  # 94
+                      header=146  # 56  # 94
                       )
 logger.info(f'Using KOI catalog: {str(koi_cat_fp)}')
 logger.info(f'Number of KOIs in the KOI catalog: {len(koi_cat)}')
@@ -56,10 +57,16 @@ koi_cat = koi_cat.loc[koi_cat['kepid'].isin(stellar_cat['kepid'])]
 logger.info(f'Number of KOIs in the KOI catalog after keeping only KOIs associated with targets in the stellar '
             f'catalog: {len(koi_cat)}')
 
-# binary flag true and greater than 2%
-koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
-logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with periods smaller than 1.6 days '
-            f'and KOIs with stellar eclipse flag set to 1 and that have a transit depth greater than 2%:'
+# # binary flag true and greater than 2%
+# koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
+# logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with periods smaller than 1.6 days '
+#             f'and KOIs with stellar eclipse flag set to 1 and that have a transit depth greater than 2%:'
+#             f' {len(koi_cat)}')
+
+# removing low-depth EBs (depth smaller than 2%)
+koi_cat = koi_cat[~((koi_cat['koi_depth'] < 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
+logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with stellar eclipse flag set to 1 and that have a '
+            f'transit depth smaller than 2%:'
             f' {len(koi_cat)}')
 
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
@@ -67,35 +74,53 @@ koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
 #%% count different quantities needed for estimates that are plugged into the statistical framework
 
 # add FPWG dispositions
-cfp_cat_fp = Path('/data5/tess_project/Data/Ephemeris_tables/Kepler/kois_tables/fpwg_2021.03.02_12.09.58.csv')
+cfp_cat_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/koi_catalogs/fpwg_2021.03.02_12.09.58.csv')
 cfp_cat = pd.read_csv(cfp_cat_fp, header=75)
 logger.info(f'Using Certified FP table from {cfp_cat_fp}. Adding FPWG dispositions to compute number of observed FPs')
-koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left', validate='one_to_one')
+koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left',
+                        validate='one_to_one')
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_fpwg.csv', index=False)
 
 tbls = []
+
+koi_cat['label'] = ''
+koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED', 'label'] = 'candidate'
+koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FA') & (koi_cat['label'] == '')), 'label'] = 'fp'
+koi_cat.loc[((koi_cat['koi_disposition'] == 'CANDIDATE') & (koi_cat['label'] == '')), 'label'] = 'candidate'
+koi_cat.loc[((koi_cat['koi_disposition'] == 'FALSE POSITIVE') & (koi_cat['label'] == '')), 'label'] = 'fp'
+assert (koi_cat['label'] == '').sum() == 0
 
 # number of KOIs in target
 cnt_kois_target = \
     koi_cat['kepid'].value_counts().to_frame(name='num_kois_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_kois_target)
+
 # number of Candidate KOIs in target
+# cnt_candidates_target = \
+#     koi_cat.loc[(koi_cat['koi_pdisposition'] == 'CANDIDATE'), 'kepid'].value_counts().to_frame(name='num_candidates_target').reset_index().rename(columns={'index': 'kepid'})
 cnt_candidates_target = \
-    koi_cat.loc[(koi_cat['koi_pdisposition'] == 'CANDIDATE'), 'kepid'].value_counts().to_frame(name='num_candidates_target').reset_index().rename(columns={'index': 'kepid'})
+    koi_cat.loc[(koi_cat['label'] == 'candidate'),
+    'kepid'].value_counts().to_frame(name='num_candidates_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_candidates_target)
+
 # number of known FP KOIs in target
 # cnt_fps_target = koi_cat.loc[koi_cat['koi_pdisposition'] == 'FALSE POSITIVE', 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['koi_pdisposition'] == 'FALSE POSITIVE') & (koi_cat['koi_disposition'] != 'CONFIRMED')), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') & (koi_cat['koi_disposition'] != 'CONFIRMED')), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
+# cnt_fps_target = \
+#     koi_cat.loc[(koi_cat['fpwg_disp_status'] == 'CERTIFIED FP'), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 cnt_fps_target = \
-    koi_cat.loc[(koi_cat['fpwg_disp_status'] == 'CERTIFIED FP'), 'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
+    koi_cat.loc[(koi_cat['label'] == 'fp'),
+    'kepid'].value_counts().to_frame(name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 # cnt_fps_target = koi_cat.loc[((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') &
 #                               koi_cat['koi_pdisposition'] != 'CANDIDATE'), 'kepid'].value_counts().to_frame(
 #     name='num_fps_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_fps_target)
+
 # number of Confirmed KOIs in target
 cnt_planets_target = \
-    koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED', 'kepid'].value_counts().to_frame(name='num_planets_target').reset_index().rename(columns={'index': 'kepid'})
+    koi_cat.loc[koi_cat['koi_disposition'] == 'CONFIRMED',
+    'kepid'].value_counts().to_frame(name='num_planets_target').reset_index().rename(columns={'index': 'kepid'})
 tbls.append(cnt_planets_target)
 
 for tbl in tbls:
@@ -106,7 +131,7 @@ koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_counts.csv', index=False)
 #%% update FP observations using Jon's table
 
 logger.info('Updating number of FP observations according to Jon\'s analysis...')
-fps_jon_tbl = pd.read_csv('/data5/tess_project/experiments/current_experiments/kepler_multiplicity_boost/Kepler FPs from Miguel JJ.csv')
+fps_jon_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/kepler_multiplicity_boost/Kepler FPs from Miguel JJ.csv')
 
 koi_cat['jon_obs'] = 'no_comment'
 for fp_i, fp in fps_jon_tbl.iterrows():
@@ -174,8 +199,10 @@ p_1_estimates = {
 #
 # for n_cand_in_target in range(1, stellar_cat_koi_cnt['num_candidates_target'].max() + 1):
 #     quantities[f'n_{n_cand_in_target}_cands'] = (stellar_cat_koi_cnt['num_candidates_target'] == n_cand_in_target).sum()
-for n_cand_in_target in range(1, int(stellar_cat_koi_cnt['num_candidates_target'].max()) + 1):
-    quantities[f'n_{n_cand_in_target}'] = (stellar_cat_koi_cnt['num_candidates_target'] == n_cand_in_target).sum()
+# for n_cand_in_target in range(1, int(stellar_cat_koi_cnt['num_candidates_target'].max()) + 1):
+#     quantities[f'n_{n_cand_in_target}'] = (stellar_cat_koi_cnt['num_candidates_target'] == n_cand_in_target).sum()
+for n_cand_in_target in range(1, int(stellar_cat_koi_cnt['num_kois_target'].max()) + 1):
+    quantities[f'n_{n_cand_in_target}'] = (stellar_cat_koi_cnt['num_kois_target'] == n_cand_in_target).sum()
 #
 # # quantities['n_targets'] = 140016
 # # quantities['n_1_cands'] = 2499
@@ -224,8 +251,8 @@ logger.info(observations)
 #     'n_fp_cand_multi': 24.9
 # }
 
-quantities['n_fm'] = 24.9  # 2.09  # ((koi_cat['num_kois_target'] >= 2) & (koi_cat['num_fps_target'] >= 0)).sum()
-quantities['p_1'] = 0.5922
+quantities['n_fm'] = 29.4  # 24.9  # 2.09  # ((koi_cat['num_kois_target'] >= 2) & (koi_cat['num_fps_target'] >= 0)).sum()
+quantities['p_1'] = 0.5612  # 0.5922
 # quantities['n_k'] = quantities['n_1']
 logger.info(f'Quantities without conducting optimization:\n {quantities}')
 

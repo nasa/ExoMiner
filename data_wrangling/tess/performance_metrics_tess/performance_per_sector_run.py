@@ -1,6 +1,4 @@
-"""
-Computing metrics for TESS CV experiments by sector run.
-"""
+""" Computing metrics for TESS experiments by sector run. """
 
 # 3rd party
 import pandas as pd
@@ -9,19 +7,19 @@ from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy  # ,
 from sklearn.metrics import balanced_accuracy_score, average_precision_score
 import numpy as np
 
-# %%
+#%% Set experiment directory and auxiliary parameters
 
-# experiment directory
-exp_dir = Path('/Users/msaragoc/Downloads/cv_merged_base_10-5-2022_1028/')
+exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/interns/charles_yates/cv_merged_fluxvar_2-4-2023_1-19-2023/')
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
+# map categories to label ids
 # cats = {'PC': 1, 'AFP': 0, 'NTP': 0}
 # cats = {'PC': 1, 'AFP': 1, 'UNK': 0}
 # cats = {'PC': 1, 'AFP': 1, 'NTP': 1, 'UNK': 0}
 cats = {'T-CP': 1, 'T-KP': 1, 'T-FP': 0, 'T-EB': 0, 'T-FA': 0, 'T-NTP': 0}
-
-class_ids = [0, 1]
+class_ids = [0, 1]  # binary classification ids
+# k values for precision-at-k
 top_k_vals = [40, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500]
 
 #%% metrics per sector run
@@ -46,9 +44,11 @@ for sector_run in ranking_tbl['sector_run'].unique():
 
     data_to_tbl['n_examples'].append(len(ranking_tbl_sector))
 
-    data_to_tbl['n_pos_examples'].append((ranking_tbl_sector['original_label'].isin([k for k in cats if cats[k] == 1])).sum())
+    data_to_tbl['n_pos_examples'].append((ranking_tbl_sector['original_label'].isin([k for k in cats
+                                                                                     if cats[k] == 1])).sum())
     data_to_tbl['frac_pos_examples'].append(data_to_tbl['n_pos_examples'][-1] / data_to_tbl['n_examples'][-1])
-    data_to_tbl['n_neg_examples'].append((ranking_tbl_sector['original_label'].isin([k for k in cats if cats[k] == 0])).sum())
+    data_to_tbl['n_neg_examples'].append((ranking_tbl_sector['original_label'].isin([k for k in cats
+                                                                                     if cats[k] == 0])).sum())
 
     for cat in cats:
         data_to_tbl[f'n_{cat}'].append((ranking_tbl_sector['original_label'] == cat).sum())
@@ -84,14 +84,17 @@ for sector_run in ranking_tbl['sector_run'].unique():
     _ = binary_accuracy.update_state(ranking_tbl_sector['label'].tolist(), ranking_tbl_sector['score'].tolist())
     data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-    data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl_sector['label'], ranking_tbl_sector['predicted class']))
+    data_to_tbl['balanced accuracy'].append(balanced_accuracy_score(ranking_tbl_sector['label'],
+                                                                    ranking_tbl_sector['predicted class']))
 
-    data_to_tbl['avg precision'].append(average_precision_score(ranking_tbl_sector['label'], ranking_tbl_sector['score']))
+    data_to_tbl['avg precision'].append(average_precision_score(ranking_tbl_sector['label'],
+                                                                ranking_tbl_sector['score']))
 
     for cat, cat_lbl in cats.items():
         data_to_tbl[f'recall {cat}'].append(
-            ((ranking_tbl_sector['original_label'] == cat) & (ranking_tbl_sector['predicted class'] == cat_lbl)).sum() / (
-                        ranking_tbl_sector['original_label'] == cat).sum())
+            ((ranking_tbl_sector['original_label'] == cat) &
+             (ranking_tbl_sector['predicted class'] == cat_lbl)).sum() /
+            (ranking_tbl_sector['original_label'] == cat).sum())
     for class_id in class_ids:
         data_to_tbl[f'accuracy class {class_id}'].append((((ranking_tbl_sector['label'] == class_id) & (
                 ranking_tbl_sector['predicted class'] == class_id)).sum() +
@@ -104,10 +107,37 @@ for sector_run in ranking_tbl['sector_run'].unique():
         if data_to_tbl['n_examples'][-1] < k_val:
             data_to_tbl[f'precision at {k_val}'].append(np.nan)
         else:
-            _ = precision_at_k.update_state(ranking_tbl_sector['label'].to_list(), ranking_tbl_sector['score'].to_list())
+            _ = precision_at_k.update_state(ranking_tbl_sector['label'].to_list(),
+                                            ranking_tbl_sector['score'].to_list())
             data_to_tbl[f'precision at {k_val}'].append(precision_at_k.result().numpy())
 
 
 metrics_df = pd.DataFrame(data_to_tbl)
 
 metrics_df.to_csv(exp_dir / 'metrics_per_sector_run.csv', index=False)
+
+#%% Plot precision-recall curve
+
+import matplotlib.pyplot as plt
+
+ranking_tbl_sector = ranking_tbl.loc[ranking_tbl['sector_run'] == 'S33']
+precision_thr = Precision(name='precision_thr', thresholds=list(np.linspace(0, 1, num_thresholds)))
+recall_thr = Recall(name='recall_thr', thresholds=list(np.linspace(0, 1, num_thresholds)))
+_ = precision_thr.update_state(ranking_tbl_sector['label'].tolist(), ranking_tbl_sector['score'].tolist())
+_ = recall_thr.update_state(ranking_tbl_sector['label'].tolist(), ranking_tbl_sector['score'].tolist())
+
+prec, rec = precision_thr.result().numpy(), recall_thr.result().numpy()
+idxs_valid = np.where(prec+rec != 0)
+prec, rec = prec[idxs_valid], rec[idxs_valid]
+f, ax = plt.subplots(figsize=(10, 8))
+ax.plot(rec, prec)
+ax.scatter(rec, prec, c='r', s=8)
+ax.set_ylim([0, 1.01])
+ax.set_xlim([0, 1.01])
+ax.set_xticks(np.linspace(0, 1, 11))
+ax.set_yticks(np.linspace(0, 1, 11))
+ax.set_ylabel('Precision')
+ax.set_xlabel('Recall')
+ax.grid(True)
+ax.set_title(f'Sector 33 {len(ranking_tbl_sector)} TCEs\n{"".join([f" {el[0]}:{el[1]} |" for el in ranking_tbl_sector["original_label"].value_counts().items()])}')
+f.savefig('/Users/msaragoc/Downloads/pr_curve_S33_kepler_tess.png')

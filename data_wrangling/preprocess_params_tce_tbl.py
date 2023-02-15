@@ -19,15 +19,19 @@ tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1.0
 tess_px_scale = 21  # arcsec
 kepler_px_scale = 3.98  # arcsec
 tess_to_kepler_px_scale_factor = tess_px_scale / kepler_px_scale
-kepler_lower_bound_dicco_msky_err = 0.667
+kepler_lower_bound_dicco_msky_err = 0.0667
 tess_lower_bound_dicco_msky_err = 2.5
-delta_lower_bound_dicco_msky_err = tess_lower_bound_dicco_msky_err - kepler_lower_bound_dicco_msky_err
+delta_lower_bound_dicco_msky_err = tess_lower_bound_dicco_msky_err / tess_to_kepler_px_scale_factor - kepler_lower_bound_dicco_msky_err
 for diff_img_centr_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err']:
     if diff_img_centr_feat in ['tce_dicco_msky_err', 'tce_dikco_msky_err']:
-        tce_tbl[f'{diff_img_centr_feat}_adjscl'] = (tce_tbl[diff_img_centr_feat] - delta_lower_bound_dicco_msky_err) / \
-                                                   tess_to_kepler_px_scale_factor
+        tce_tbl[f'{diff_img_centr_feat}_adjscl'] = tce_tbl[diff_img_centr_feat] / tess_to_kepler_px_scale_factor - \
+                                                   delta_lower_bound_dicco_msky_err
     else:
         tce_tbl[f'{diff_img_centr_feat}_adjscl'] = tce_tbl[diff_img_centr_feat] / tess_to_kepler_px_scale_factor
+
+# set missing values to placeholder value
+tce_tbl.loc[tce_tbl['tce_dikco_msky_err'] == -1, ['tce_dikco_msky_adjscl', 'tce_dikco_msky_err_adjscl']] = [0, -1]
+tce_tbl.loc[tce_tbl['tce_dicco_msky_err'] == -1, ['tce_dicco_msky_adjscl', 'tce_dicco_msky_err_adjscl']] = [0, -1]
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_preproc.csv', index=False)
 
