@@ -12,68 +12,11 @@ import pandas as pd
 
 # local
 import paths
+from src.utils_dataio import InputFnv2 as InputFn
 
 
 if 'home6' in paths.path_hpoconfigs:
     plt.switch_backend('agg')
-
-
-def phase_inversion(timeseries_tensor, should_reverse):
-    """ Inverts phase of the time-series.
-
-    :param timeseries_tensor: time-series tensor; shape (N,) in which N is the length of the time-series; dtype float32
-    :param should_reverse:
-    :return:
-        original time-series with inverted phase
-    """
-
-    return tf.cond(should_reverse,
-                   lambda: tf.reverse(timeseries_tensor, axis=[0]),
-                   lambda: tf.identity(timeseries_tensor), name='inversion')
-
-
-def add_whitegaussiannoise(timeseries_tensor, mean, rms_oot):
-    """ Adds Gaussian noise with mean "mean" and standard deviation sample uniformly from [0, rms_oot].
-
-    :param timeseries_tensor: time-series tensor; shape (N,) in which N is the length of the time-series; dtype float32
-    :param mean: float, mean value for the Gaussian
-    :param rms_oot: float, out-of-transit RMS of the time-series
-    :return:
-        original time-series with added Gaussian noise
-    """
-
-    return timeseries_tensor + tf.random.normal(timeseries_tensor.shape,
-                                                mean,
-                                                tf.random.uniform(shape=(),
-                                                                  minval=0,
-                                                                  maxval=rms_oot,
-                                                                  dtype=tf.dtypes.float32),
-                                                name='gaussiannoise')
-
-
-def phase_shift(timeseries_tensor, bin_shift):
-    """ Shifts the time-series by n bins with n being drawn uniformly from bin_shift. The time-series slides and the
-    shifted end parts move from one end to the other.
-
-    :param timeseries_tensor: time-series tensor; shape (N,) in which N is the length of the time-series; dtype float32
-    :param bin_shift: shift, int number of bins to shift the time-series
-    :return:
-        original time-series phase-shifted
-    """
-
-    if bin_shift == 0:
-        return timeseries_tensor
-    elif bin_shift > 0:
-        return tf.concat([tf.slice(timeseries_tensor, (bin_shift, 0),
-                                   (timeseries_tensor.get_shape()[0] - bin_shift, 1)),
-                          tf.slice(timeseries_tensor, (0, 0), (bin_shift, 1))],
-                         axis=0, name='pos_shift')
-    else:
-        bin_shift = tf.math.abs(bin_shift)
-        return tf.concat([tf.slice(timeseries_tensor,
-                                   (timeseries_tensor.get_shape()[0] - bin_shift, 0), (bin_shift, 1)),
-                          tf.slice(timeseries_tensor, (0, 0), (timeseries_tensor.get_shape()[0] - bin_shift, 1))],
-                         axis=0, name='neg_shift')
 
 
 class LayerOutputCallback(tf.keras.callbacks.Callback):
@@ -492,3 +435,100 @@ def plot_roc(res, ep_idx, datasets, save_path):
     ax.set_title('ROC')
     f.savefig(save_path)
     plt.close()
+
+
+class PredictDuringFitCallback(tf.keras.callbacks.Callback):
+    """
+    Callback for predicting scores at the end of the epoch for different data sets.
+    """
+    def __init__(self, dataset_fps, root_save_dir, batch_size, label_map, features_set, multi_class, md_features,
+                 feature_map, data_to_tbl, verbose=False):
+        """ Initialize callback.
+
+        Args:
+            dataset_fps: dict, each data set key maps to a list of TFRecord file paths
+            root_save_dir: Path, root saving directory for the model
+            batch_size: int, batch size for inference
+            label_map: dict, map between category and label id
+            features_set: dict, features used by the model
+            multi_class: bool, if True running multiclassification setting
+            md_features: bool, if True features with dimension >= 2 are being used
+            feature_map: dict, map between TFRecord feature name and model feature name
+            data_to_tbl: dict, each data set key maps to dict with features to be integrated in the score table such as examples' ids
+            verbose:
+        """
+
+        super(PredictDuringFitCallback, self).__init__()
+        self.dataset_fps = dataset_fps
+        self.save_dir = root_save_dir / 'scores_per_epoch'
+        self.save_dir.mkdir()
+        self.batch_size = batch_size
+        self.label_map = label_map
+        self.features_set = features_set
+        self.multi_class = multi_class
+        self.md_features = md_features
+        self.feature_map = feature_map
+        self.data_to_tbl = data_to_tbl
+        self.verbose = verbose
+
+    def create_score_table(self, scores, data_to_tbl):
+        """ Create score table from scores output by the model.
+
+        Args:
+            scores: NumPy array, scores for examples
+            data_to_tbl: dict, data to display in the scores table besides scores.
+
+        Returns:
+
+        """
+
+        if not self.multi_class:
+            data_to_tbl['score'] = scores.ravel()
+            # data['predicted class'] = scores_classification[dataset].ravel()
+        else:
+            for class_label, label_id in self.label_map.items():
+                data_to_tbl[f'score_{class_label}'] = scores[:, label_id]
+            # data['predicted class'] = scores_classification[dataset]
+
+        data_df = pd.DataFrame(data_to_tbl)
+
+        # sort in descending order of output
+        if not self.multi_class:
+            data_df.sort_values(by='score', ascending=False, inplace=True)
+
+        return data_df
+
+    def on_epoch_end(self, epoch, logs=None):
+        """ Write scores by running inference with the model at the end of the epoch.
+
+        :param epoch: int, epoch
+        :param logs: dict, logs
+        :return:
+        """
+
+        for dataset, fps in self.dataset_fps.items():
+            predict_input_fn = InputFn(
+                file_paths=fps,
+                batch_size=self.batch_size,
+                mode='PREDICT',
+                label_map=self.label_map,
+                features_set=self.features_set,
+                multiclass=self.multi_class,
+                use_transformer=self.md_features,
+                feature_map=self.feature_map
+            )
+
+            scores = self.model.predict(
+                predict_input_fn(),
+                batch_size=None,
+                verbose=self.verbose,
+                steps=None,
+                callbacks=None,
+                max_queue_size=10,
+                workers=1,
+                use_multiprocessing=False
+            )
+
+            tbl = self.create_score_table(scores, self.data_to_tbl[dataset])
+
+            tbl.to_csv(self.save_dir / f'scores_{dataset}set_epoch{epoch}.csv', index=False)

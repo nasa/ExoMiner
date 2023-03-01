@@ -236,3 +236,171 @@ ax[1].set_yscale('log')
 ax[1].set_ylabel('Cumulative TCE Count')
 ax[1].set_xlabel('Average Transit Source Offset from TIC pixel (px)')
 f.savefig(run_dir / 'hist_diff_src_mean_dist.png')
+
+
+#%% Plot histogram of difference image quality metric
+
+qual_metric_dir = Path('/Users/msaragoc/Downloads/diff_img_quality_metric_tess')
+thr = 0.7
+plot_dir = qual_metric_dir / 'plots'
+plot_dir.mkdir(exist_ok=True)
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
+
+categories = {
+    'KP': {'zorder': 2, 'alpha': 0.8},
+    'CP': {'zorder': 1, 'alpha': 1},
+    'EB': {'zorder': 2, 'alpha': 0.8},
+    'FP': {'zorder': 1, 'alpha': 1},
+    'NTP': {'zorder': 1, 'alpha': 1.0},
+    'FA': {'zorder': 3, 'alpha': 0.5},
+    # 'UNK': {'zorder': 2, 'alpha': 0.5},
+# }
+
+# unlbl_categories = {
+    'PC': {'zorder': 3, 'alpha': 0.5},
+    'APC': {'zorder': 2, 'alpha': 0.8},
+    'UNK': {'zorder': 1, 'alpha': 1.0},
+}
+
+for qual_metric_tbl_fp in [fp for fp in qual_metric_dir.iterdir() if fp.suffix == '.csv']:
+
+    qual_metric_tbl = pd.read_csv(qual_metric_tbl_fp)
+
+    sector_id = qual_metric_tbl_fp.stem.split('_')[-1]
+    if '-' in sector_id:
+        s_sector, e_sector = [int(s) for s in sector_id.split('-')]
+    else:
+        s_sector, e_sector = [int(sector_id)] * 2
+
+    n_sectors = e_sector - s_sector + 1
+
+    s_value_cols = [f's{s}_value' for s in range(s_sector, e_sector + 1)]
+    qual_metric_tbl['valid_sectors'] = qual_metric_tbl.apply(lambda x: (x[s_value_cols] > thr).sum(), axis=1)
+
+    qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label']], on='uid', how='left', validate='one_to_one')
+
+    bins = np.linspace(0, n_sectors + 1, n_sectors + 2, endpoint=True, dtype='int')
+
+    f, ax = plt.subplots(figsize=(12, 8))
+    ax.hist(qual_metric_tbl['valid_sectors'], bins=bins, edgecolor='k')
+    ax.set_xlabel(f'Number of valid difference images')
+    ax.set_ylabel('Count')
+    ax.set_xticks(bins[:-1] + 0.5)
+    ax.set_xticklabels(bins[:-1])
+    ax.set_xlim(bins[[0, -1]])
+    ax.set_title(f'All TESS data\n Quality thr={thr}')
+    f.tight_layout()
+    f.savefig(plot_dir / f'hist_s{sector_id}_all_tess_tces_valid_diff_imgs_qm_thr{thr}.png')
+    plt.close()
+
+    f, ax = plt.subplots(2, 1, figsize=(12, 8))
+    for lbl in ['CP', 'KP']:
+        ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=False)
+        ax[0].legend()
+        ax[0].set_ylabel('Count')
+        ax[0].set_xticks(bins[:-1] + 0.5)
+        ax[0].set_xticklabels(bins[:-1])
+        ax[0].set_xlim(bins[[0, -1]])
+        ax[0].set_yscale('log')
+        ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                   edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=True)
+        ax[1].legend()
+        ax[1].set_xticks(bins[:-1] + 0.5)
+        ax[1].set_xticklabels(bins[:-1])
+        ax[1].set_xlim(bins[[0, -1]])
+        ax[1].set_xlabel(f'Number of valid difference images')
+        ax[1].set_ylabel('Cumulative Count')
+        ax[1].set_yscale('log')
+
+    f.suptitle(f'TESS Planets\n Quality thr={thr}')
+    # f.tight_layout()
+    f.savefig(plot_dir / f'hist_s{sector_id}_planets_tess_tces_valid_diff_imgs_qm_thr{thr}.png')
+    plt.close()
+
+    f, ax = plt.subplots(2, 1, figsize=(12, 8))
+    for lbl in ['EB', 'FP', 'FA']:
+        ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=False)
+        # ax[0].legend()
+        ax[0].set_ylabel('Count')
+        ax[0].set_xticks(bins[:-1] + 0.5)
+        ax[0].set_xticklabels(bins[:-1])
+        ax[0].set_xlim(bins[[0, -1]])
+        ax[0].set_yscale('log')
+        ax[0].legend()
+        ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                   edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'],
+                   alpha=categories[lbl]['alpha'],
+                   cumulative=True)
+        # ax[1].legend()
+        ax[1].set_xticks(bins[:-1] + 0.5)
+        ax[1].set_xticklabels(bins[:-1])
+        ax[1].set_xlim(bins[[0, -1]])
+        ax[1].set_xlabel(f'Number of valid difference images')
+        ax[1].set_ylabel('Cumulative Count')
+        ax[1].set_yscale('log')
+        ax[1].legend()
+    f.suptitle(f'TESS FPs\n Quality thr={thr}')
+    # f.tight_layout()
+    f.savefig(plot_dir / f'hist_s{sector_id}_fps_tess_tces_valid_diff_imgs_qm_thr{thr}.png')
+    plt.close()
+
+    f, ax = plt.subplots(2, 1, figsize=(12, 8))
+    for lbl in ['NTP']:
+        ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=False)
+        ax[0].legend()
+        ax[0].set_ylabel('Count')
+        ax[0].set_xticks(bins[:-1] + 0.5)
+        ax[0].set_xticklabels(bins[:-1])
+        ax[0].set_xlim(bins[[0, -1]])
+        ax[0].set_yscale('log')
+        ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                   edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=True)
+        ax[1].legend()
+        ax[1].set_xticks(bins[:-1] + 0.5)
+        ax[1].set_xticklabels(bins[:-1])
+        ax[1].set_xlim(bins[[0, -1]])
+        ax[1].set_xlabel(f'Number of valid difference images')
+        ax[1].set_ylabel('Cumulative Count')
+        ax[1].set_yscale('log')
+
+    f.suptitle(f'TESS NTPs\n Quality thr={thr}')
+    # f.tight_layout()
+    f.savefig(plot_dir / f'hist_s{sector_id}_ntps_tess_tces_valid_diff_imgs_qm_thr{thr}.png')
+    plt.close()
+
+    f, ax = plt.subplots(2, 1, figsize=(12, 8))
+    for lbl in ['APC', 'PC', 'UNK']:
+        ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+                   cumulative=False)
+        # ax[0].legend()
+        ax[0].set_ylabel('Count')
+        ax[0].set_xticks(bins[:-1] + 0.5)
+        ax[0].set_xticklabels(bins[:-1])
+        ax[0].set_xlim(bins[[0, -1]])
+        ax[0].set_yscale('log')
+        ax[0].legend()
+        ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_sectors'], bins=bins,
+                   edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'],
+                   alpha=categories[lbl]['alpha'],
+                   cumulative=True)
+        # ax[1].legend()
+        ax[1].set_xticks(bins[:-1] + 0.5)
+        ax[1].set_xticklabels(bins[:-1])
+        ax[1].set_xlim(bins[[0, -1]])
+        ax[1].set_xlabel(f'Number of valid difference images')
+        ax[1].set_ylabel('Cumulative Count')
+        ax[1].set_yscale('log')
+        ax[1].legend()
+    f.suptitle(f'TESS Unused\n Quality thr={thr}')
+    # f.tight_layout()
+    f.savefig(plot_dir / f'hist_s{sector_id}_unused_tess_tces_valid_diff_imgs_qm_thr{thr}.png')
+    plt.close()

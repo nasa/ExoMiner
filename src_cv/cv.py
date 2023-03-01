@@ -26,6 +26,7 @@ from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run
 from src.utils_train_eval_predict import train_model, evaluate_model, predict_model
 from src.utils_dataio import get_data_from_tfrecord
+from src.utils_train import PredictDuringFitCallback
 
 
 def cv_run(cv_dir, data_shards_fps, run_params):
@@ -60,6 +61,15 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     run_params['datasets_fps'] = processing_data_run(data_shards_fps_eval, run_params,
                                                      run_params['paths']['experiment_dir'])
 
+    # instantiate variable to get data from the TFRecords
+    data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
+    for dataset in run_params['datasets']:
+        for tfrec_fp in run_params['datasets_fps'][dataset]:
+            # get dataset of the TFRecord
+            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
+            for field in data_aux:
+                data[dataset][field].extend(data_aux[field])
+
     # sequential training
     models_dir = run_params['paths']['experiment_dir'] / 'models'
     models_dir.mkdir(exist_ok=True)
@@ -70,6 +80,23 @@ def cv_run(cv_dir, data_shards_fps, run_params):
                                       f'{run_params["training"]["n_epochs"]} epochs...')
         model_dir = models_dir / f'model{model_id}'
         model_dir.mkdir(exist_ok=True)
+
+        # predict_fit_callback = PredictDuringFitCallback(run_params['datasets_fps'],
+        #                                                 model_dir,
+        #                                                 run_params['inference']['batch_size'],
+        #                                                 run_params['label_map'],
+        #                                                 run_params['features_set'],
+        #                                                 run_params['config']['multi_class'],
+        #                                                 run_params['config']['use_transformer'],
+        #                                                 run_params['feature_map'],
+        #                                                 data,
+        #                                                 verbose=True
+        #                                                 )
+        #
+        # if len(run_params['callbacks_list']['train']) == 1:
+        #     run_params['callbacks_list']['train'].append(predict_fit_callback)
+        # else:
+        #     run_params['callbacks_list']['train'][1] = predict_fit_callback
 
         # instantiate child process for training the model; prevent GPU memory issues
         p = multiprocessing.Process(target=train_model,
@@ -126,14 +153,14 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         if not run_params['config']['multi_class']:
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
 
-    # instantiate variable to get data from the TFRecords
-    data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
-    for dataset in run_params['datasets']:
-        for tfrec_fp in run_params['datasets_fps'][dataset]:
-            # get dataset of the TFRecord
-            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
-            for field in data_aux:
-                data[dataset][field].extend(data_aux[field])
+    # # instantiate variable to get data from the TFRecords
+    # data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
+    # for dataset in run_params['datasets']:
+    #     for tfrec_fp in run_params['datasets_fps'][dataset]:
+    #         # get dataset of the TFRecord
+    #         data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
+    #         for field in data_aux:
+    #             data[dataset][field].extend(data_aux[field])
 
     # add predictions to the data dict
     for dataset in run_params['datasets']:
@@ -218,6 +245,7 @@ def cv():
     config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
     config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
                                   for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
+    # config['data_shards_fps'][0]['train'] = [fp for fp in config['data_shards_fps'][0]['train'] if fp.name == 'Kepler-shard-0000' or 'TESS' in fp.name]
 
     if config["rank"] >= len(config['data_shards_fps']):
         return
@@ -281,7 +309,11 @@ def cv():
     # config['logger'].info(f'Feature set: {config["features_set"]}')
 
     # early stopping callback
-    config['callbacks_list'] = {'train': [callbacks.EarlyStopping(**config['callbacks']['early_stopping'])]}
+    config['callbacks_list'] = {
+        'train': [
+            callbacks.EarlyStopping(**config['callbacks']['early_stopping']),
+                  ],
+    }
 
     # config['logger'].info(f'Final configuration used: {config}')
 

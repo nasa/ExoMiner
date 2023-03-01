@@ -8,7 +8,7 @@ import tensorflow_probability as tfp
 import traceback
 
 # local
-from src.utils_train import phase_shift, phase_inversion, add_whitegaussiannoise
+from src.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
 
 
 def filt_func(x, y):

@@ -15,10 +15,7 @@ import yaml
 
 # local
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
-# from paths import path_main
 
-
-# %%
 
 def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
     """  Extracts feature values from a TFRecord file for computing normalization statistics.

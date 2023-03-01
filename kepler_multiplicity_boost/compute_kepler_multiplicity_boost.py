@@ -57,22 +57,6 @@ koi_cat = koi_cat.loc[koi_cat['kepid'].isin(stellar_cat['kepid'])]
 logger.info(f'Number of KOIs in the KOI catalog after keeping only KOIs associated with targets in the stellar '
             f'catalog: {len(koi_cat)}')
 
-# # binary flag true and greater than 2%
-# koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
-# logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with periods smaller than 1.6 days '
-#             f'and KOIs with stellar eclipse flag set to 1 and that have a transit depth greater than 2%:'
-#             f' {len(koi_cat)}')
-
-# removing low-depth EBs (depth smaller than 2%)
-koi_cat = koi_cat[~((koi_cat['koi_depth'] < 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
-logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with stellar eclipse flag set to 1 and that have a '
-            f'transit depth smaller than 2%:'
-            f' {len(koi_cat)}')
-
-koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
-
-#%% count different quantities needed for estimates that are plugged into the statistical framework
-
 # add FPWG dispositions
 cfp_cat_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/koi_catalogs/fpwg_2021.03.02_12.09.58.csv')
 cfp_cat = pd.read_csv(cfp_cat_fp, header=75)
@@ -80,6 +64,29 @@ logger.info(f'Using Certified FP table from {cfp_cat_fp}. Adding FPWG dispositio
 koi_cat = koi_cat.merge(cfp_cat[['kepoi_name', 'fpwg_disp_status']], on=['kepoi_name'], how='left',
                         validate='one_to_one')
 koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_fpwg.csv', index=False)
+
+# # binary flag true and greater than 2%
+# koi_cat = koi_cat[(koi_cat['koi_period'] > 1.6) & ~((koi_cat['koi_depth'] > 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
+# logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with periods smaller than 1.6 days '
+#             f'and KOIs with stellar eclipse flag set to 1 and that have a transit depth greater than 2%:'
+#             f' {len(koi_cat)}')
+
+# removing low-SNR KOIs
+koi_cat = koi_cat[koi_cat['koi_model_snr'] >= 7.1]
+logger.info(f'Number of KOIs in the KOI catalog after removing KOIs with SNR < 7.1: {len(koi_cat)}')
+
+# removing low-depth EBs (depth smaller than 2%)
+# koi_cat = koi_cat[~((koi_cat['koi_depth'] < 20000) & (koi_cat['koi_fpflag_ss'] == 1))]
+koi_cat = koi_cat[~((koi_cat['koi_depth'] < 20000) & (koi_cat['koi_fpflag_ss'] == 1) &
+                    (koi_cat['koi_disposition'] != 'CONFIRMED') &
+                    ((koi_cat['fpwg_disp_status'] == 'CERTIFIED FP') |
+                     (koi_cat['koi_disposition'] == 'FALSE POSITIVE')))]
+logger.info(f'Number of KOIs in the KOI catalog after removing Certified FP and FP KOIs with stellar eclipse flag set '
+            f'to 1 and that have a transit depth smaller than 2%: {len(koi_cat)}')
+
+koi_cat.to_csv(res_dir / f'{koi_cat_fp.stem}_filtered_stellar.csv', index=False)
+
+#%% count different quantities needed for estimates that are plugged into the statistical framework
 
 tbls = []
 
@@ -181,19 +188,21 @@ logger.info('Computing estimates for quantities needed for the statistical frame
 
 quantities = {
     'n_t': len(stellar_cat_koi_cnt),
-    'n_k': (stellar_cat_koi_cnt['num_candidates_target'] >= 1).sum(),
-    'n_m': (stellar_cat_koi_cnt['num_candidates_target'] >= 2).sum(),
+    'n_k': (stellar_cat_koi_cnt['num_kois_target'] >= 1).sum(),  # (stellar_cat_koi_cnt['num_candidates_target'] >= 1).sum(),
+    'n_m': (stellar_cat_koi_cnt['num_kois_target'] >= 2).sum(),  # (stellar_cat_koi_cnt['num_candidates_target'] >= 2).sum(),
     'n_fm': np.nan,
-    'p_1': np.nan,
+    'p_1': ((stellar_cat_koi_cnt['num_candidates_target'] == 1) &
+            (stellar_cat_koi_cnt['num_kois_target'] == 1)).sum() /
+           (stellar_cat_koi_cnt['num_kois_target'] == 1).sum()  # np.nan,
 }
-p_1_estimates = {
-    'p_1_sngle_cand_in_kois,': ((koi_cat['num_kois_target'] == 1) & (
-            koi_cat['koi_pdisposition'] == 'CANDIDATE')).sum() / (koi_cat['num_kois_target'] == 1).sum(),
-    'p_1_sngle_plnt_in_cands': (koi_cat['num_planets_target'] == 1 & (koi_cat['num_candidates_target'] == 1)).sum() / (
-            koi_cat['num_candidates_target'] == 1).sum(),
-    'p_1_no_sngle_fp_in_cands': (koi_cat['num_fps_target'] == 0 & (koi_cat['num_candidates_target'] == 1)).sum() / (
-            koi_cat['num_candidates_target'] == 1).sum(),
-}
+# p_1_estimates = {
+#     'p_1_sngle_cand_in_kois,': ((koi_cat['num_kois_target'] == 1) & (
+#             koi_cat['koi_pdisposition'] == 'CANDIDATE')).sum() / (koi_cat['num_kois_target'] == 1).sum(),
+#     'p_1_sngle_plnt_in_cands': (koi_cat['num_planets_target'] == 1 & (koi_cat['num_candidates_target'] == 1)).sum() / (
+#             koi_cat['num_candidates_target'] == 1).sum(),
+#     'p_1_no_sngle_fp_in_cands': (koi_cat['num_fps_target'] == 0 & (koi_cat['num_candidates_target'] == 1)).sum() / (
+#             koi_cat['num_candidates_target'] == 1).sum(),
+# }
 # logger.info(f'Estimates for P_1:\n {p_1_estimates}')
 # quantities['p_1'] = np.nan
 #
@@ -252,7 +261,10 @@ logger.info(observations)
 # }
 
 quantities['n_fm'] = 29.4  # 24.9  # 2.09  # ((koi_cat['num_kois_target'] >= 2) & (koi_cat['num_fps_target'] >= 0)).sum()
-quantities['p_1'] = 0.5612  # 0.5922
+quantities['p_1'] = ((stellar_cat_koi_cnt['num_candidates_target'] == 1) &
+                     (stellar_cat_koi_cnt['num_kois_target'] == 1)).sum() / \
+                     (stellar_cat_koi_cnt['num_kois_target'] == 1).sum()
+# quantities['p_1'] = 0.5612  # 0.5922
 # quantities['n_k'] = quantities['n_1']
 logger.info(f'Quantities without conducting optimization:\n {quantities}')
 
@@ -276,12 +288,12 @@ logger.info(f'Quantities used for optimization:\n {quantities_opt}')
 
 # initial input values
 x_0 = np.array([
-    quantities_opt['p_1'],
+    # quantities_opt['p_1'],
     quantities_opt['n_fm']
 ])
 # x_0 = np.array([0.42, 250])
 opt_quantities = [
-    'p_1',
+    # 'p_1',
     'n_fm',
 ]
 # scenarios to take into account for the optimization
@@ -296,8 +308,8 @@ optimization_params = {
     'loss': 'linear',
     'f_scale': 1.0,
     'bounds': (
-        [0, 0],  # [-np.inf, -np.inf],
-        [1, np.inf],  # [np.inf, np.inf],  # ([0, 1], [0, 100])
+        [0],  # [0, 0],  # [-np.inf, -np.inf],
+        [np.inf],  # [1, np.inf],  # [np.inf, np.inf],  # ([0, 1], [0, 100])
     )
 }
 
@@ -310,12 +322,15 @@ res = optimize.least_squares(residual_expect_ntargets,
                              )
 logger.info(f'Optimization results:\n{res}')
 
-logger.info(f'Results of optimization:\n p_1: {res.x[0]} (p_1_0={quantities_opt["p_1"]})\n '
-            f'n_fm: {res.x[1]} (n_fm_0={quantities_opt["n_fm"]})')
+logger.info(f'Results of optimization:')
+# logger.info(f'p_1: {res.x[0]} (p_1_0={quantities_opt["p_1"]})')
+# logger.info(f'n_fm: {res.x[1]} (n_fm_0={quantities_opt["n_fm"]})')
+logger.info(f'n_fm: {res.x[0]} (n_fm_0={quantities_opt["n_fm"]})')
 
 quantities_new = quantities_opt.copy()
-quantities_new['p_1'] = res.x[0]
-quantities_new['n_fm'] = res.x[1]
+# quantities_new['p_1'] = res.x[0]
+# quantities_new['n_fm'] = res.x[1]
+quantities_new['n_fm'] = res.x[0]
 logger.info(f'New quantities after optimization:\n {quantities_new}')
 estimated_observations = _compute_expected_ntargets_for_obs(n_plnts_fps_inputs,
                                    _compute_expected_ntargets,

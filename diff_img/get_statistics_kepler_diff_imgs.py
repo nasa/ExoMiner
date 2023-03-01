@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # from astropy.stats import mad_std
 
@@ -12,7 +13,7 @@ plt.switch_backend('agg')
 
 # %% Choose processing experiment
 
-run_dir = Path('/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dv/dv_xml/preprocessing/8-17-2022_1205/')
+run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-17-2022_1205')
 
 # %% Load difference image data
 
@@ -230,3 +231,154 @@ ax[1].set_yscale('log')
 ax[1].set_ylabel('Cumulative TCE Count')
 ax[1].set_xlabel('Average Transit Source Offset from KIC pixel (px)')
 f.savefig(run_dir / 'hist_diff_src_mean_dist.png')
+
+#%% Plot difference image data
+
+plot_dir = run_dir / 'plots_22-2-2023_1129'
+plot_dir.mkdir(exist_ok=True)
+
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+
+n_samples = 200
+sampled_examples_ids = ['757099-1']  # np.random.choice(list(data.keys()), n_samples)
+
+for sampled_example_id in sampled_examples_ids:
+
+    sampled_example_data = data[sampled_example_id]
+
+    n_qs_avail = len(sampled_example_data['image_data'])
+    q_chosen = 2  # np.random.choice(n_qs_avail, 1)[0]
+
+    f, ax = plt.subplots(1, 2, figsize=(12, 8))
+    im = ax[0].imshow(sampled_example_data['image_data'][q_chosen][:, :, 2, 0])
+    divider = make_axes_locatable(ax[0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[0].scatter(sampled_example_data['target_ref_centroid'][q_chosen]['col']['value'],
+                     sampled_example_data['target_ref_centroid'][q_chosen]['row']['value'],
+                     marker='x',
+                     color='r',
+                     label='Target')
+    ax[0].set_ylabel('Row')
+    ax[0].set_xlabel('Col')
+    # ax[0].legend()
+    ax[0].set_title('Difference image (e-/cadence)')
+    im = ax[1].imshow(sampled_example_data['image_data'][q_chosen][:, :, 1, 0])
+    divider = make_axes_locatable(ax[1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[1].scatter(sampled_example_data['target_ref_centroid'][q_chosen]['col']['value'],
+                     sampled_example_data['target_ref_centroid'][q_chosen]['row']['value'],
+                     marker='x',
+                     color='r',
+                     label='Target')
+    ax[1].set_ylabel('Row')
+    ax[1].set_xlabel('Col')
+    # ax[1].legend()
+    ax[1].set_title('Out-of-transit image (e-/cadence)')
+    f.suptitle(f'KIC {sampled_example_id} '
+               f'{tce_tbl.loc[tce_tbl["uid"] == sampled_example_id, "label"].values[0]}\nQuarter {q_chosen + 1}')
+    f.tight_layout()
+    f.savefig(plot_dir / f'{sampled_example_id}_diff_img_q{q_chosen + 1}.png')
+    aaa
+    plt.close()
+
+#%%
+
+
+data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-17-2022_1205/data')
+
+for data_dict_fp in data_dir.iterdir():
+    data = np.load(data_dict_fp, allow_pickle=True).item()
+    if '757099-1' in data:
+        break
+
+#%% Plot histogram of difference image quality metric
+
+qual_metric_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+plot_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/qual_metric_plots')
+plot_dir.mkdir(exist_ok=True)
+
+thr = 0.7
+N_QUARTERS = 17
+
+q_value_cols = [f'q{q}_value' for q in range(1, N_QUARTERS + 1)]
+qual_metric_tbl['valid_quarters'] = qual_metric_tbl.apply(lambda x: (x[q_value_cols] > thr).sum(), axis=1)
+
+qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left', validate='one_to_one')
+qual_metric_tbl = qual_metric_tbl.loc[qual_metric_tbl['tce_rogue_flag'] == 0]
+
+bins = np.linspace(0, N_QUARTERS + 1, N_QUARTERS + 2, endpoint=True, dtype='int')
+
+f, ax = plt.subplots(figsize=(12, 8))
+ax.hist(qual_metric_tbl['valid_quarters'], bins=bins, edgecolor='k')
+ax.set_xlabel(f'Number of valid difference images')
+ax.set_ylabel('Count')
+ax.set_xticks(bins[:-1] + 0.5)
+ax.set_xticklabels(bins[:-1])
+ax.set_xlim(bins[[0, -1]])
+ax.set_title(f'All Kepler data\n Quality thr={thr}')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_all_kepler_tces_valid_diff_imgs_qm_thr{thr}.png')
+plt.close()
+
+categories = {
+    'PC': {'zorder': 3, 'alpha': 0.5},
+    'AFP': {'zorder': 2, 'alpha': 0.8},
+    'NTP': {'zorder': 1, 'alpha': 1.0},
+    # 'UNK': {'zorder': 2, 'alpha': 0.5},
+}
+f, ax = plt.subplots(2, 1, figsize=(12, 8))
+for lbl in categories:
+    ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_quarters'], bins=bins,
+            edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+               cumulative=False)
+    ax[0].legend()
+    ax[0].set_ylabel('Count')
+    ax[0].set_xticks(bins[:-1] + 0.5)
+    ax[0].set_xticklabels(bins[:-1])
+    ax[0].set_xlim(bins[[0, -1]])
+    ax[0].set_yscale('log')
+    ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_quarters'], bins=bins,
+               edgecolor='k', label=lbl, zorder=categories[lbl]['zorder'], alpha=categories[lbl]['alpha'],
+               cumulative=True)
+    ax[1].legend()
+    ax[1].set_xticks(bins[:-1] + 0.5)
+    ax[1].set_xticklabels(bins[:-1])
+    ax[1].set_xlim(bins[[0, -1]])
+    ax[1].set_xlabel(f'Number of valid difference images')
+    ax[1].set_ylabel('Cumulative Count')
+    ax[1].set_yscale('log')
+
+f.suptitle(f'Kepler Categories\n Quality thr={thr}')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_cats_kepler_tces_valid_diff_imgs_qm_thr{thr}.png')
+plt.close()
+
+f, ax = plt.subplots(2, 1, figsize=(12, 8))
+for lbl in ['UNK']:
+    ax[0].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_quarters'], bins=bins,
+            edgecolor='k', label=lbl, zorder=None, alpha=None,
+               cumulative=False)
+    # ax[0].legend()
+    ax[0].set_ylabel('Count')
+    ax[0].set_xticks(bins[:-1] + 0.5)
+    ax[0].set_xticklabels(bins[:-1])
+    ax[0].set_xlim(bins[[0, -1]])
+    ax[0].set_yscale('log')
+    ax[1].hist(qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl, 'valid_quarters'], bins=bins,
+               edgecolor='k', label=lbl, zorder=None, alpha=None,
+               cumulative=True)
+    # ax[1].legend()
+    ax[1].set_xticks(bins[:-1] + 0.5)
+    ax[1].set_xticklabels(bins[:-1])
+    ax[1].set_xlim(bins[[0, -1]])
+    ax[1].set_xlabel(f'Number of valid difference images')
+    ax[1].set_ylabel('Cumulative Count')
+    ax[1].set_yscale('log')
+
+f.suptitle(f'Kepler UNKs\n Quality thr={thr}')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_unk_kepler_tces_valid_diff_imgs_qm_thr{thr}.png')
+plt.close()

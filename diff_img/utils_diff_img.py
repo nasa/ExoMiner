@@ -6,8 +6,80 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.switch_backend('agg')
+
+
+def plot_diff_img_data(diff_imgs, target_col, target_row, uid, tce_lbl, plot_dir):
+    """ Plot difference image data for TCE in a given quarter/sector.
+
+    Args:
+        diff_imgs: NumPy array, difference image data [cols, rows, it|oot|diff|snr, value| uncertainty]
+        target_col: float, target column location
+        target_row: float, target row location
+        uid: str, TCE ID
+        tce_lbl: str, TCE label
+        plot_dir: Path, plot directory
+
+    Returns:
+
+    """
+
+    f, ax = plt.subplots(2, 2, figsize=(12, 8))
+    # diff img
+    im = ax[0, 0].imshow(diff_imgs[:, :, 2, 0])
+    divider = make_axes_locatable(ax[0, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[0, 0].scatter(target_col, target_row,
+                     marker='x',
+                     color='r', label='Target')
+    ax[0, 0].set_ylabel('Row')
+    ax[0, 0].set_xlabel('Col')
+    ax[0, 0].legend()
+    ax[0, 0].set_title('Difference Flux (e-/cadence)')
+    # oot img
+    im = ax[0, 1].imshow(diff_imgs[:, :, 1, 0])
+    divider = make_axes_locatable(ax[0, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[0, 1].scatter(target_col, target_row,
+                     marker='x',
+                     color='r', label='Target')
+    ax[0, 1].set_ylabel('Row')
+    ax[0, 1].set_xlabel('Col')
+    ax[0, 1].legend()
+    ax[0, 1].set_title('Out of Transit Flux (e-/cadence)')
+    # it img
+    im = ax[1, 0].imshow(diff_imgs[:, :, 0, 0])
+    divider = make_axes_locatable(ax[1, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[1, 0].scatter(target_col, target_col,
+                     marker='x',
+                     color='r', label='Target')
+    ax[1, 0].set_ylabel('Row')
+    ax[1, 0].set_xlabel('Col')
+    ax[1, 0].legend()
+    ax[1, 0].set_title('In Transit Flux (e-/cadence)')
+    # snr img
+    im = ax[1, 1].imshow(diff_imgs[:, :, 3, 0])
+    divider = make_axes_locatable(ax[1, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+    ax[1, 1].scatter(target_col, target_row,
+                     marker='x',
+                     color='r', label='Target')
+    ax[1, 1].set_ylabel('Row')
+    ax[1, 1].set_xlabel('Col')
+    ax[1, 1].legend()
+    ax[1, 1].set_title('Difference SNR')
+
+    f.suptitle(f'TCE {uid} {tce_lbl}')
+    f.tight_layout()
+    f.savefig(plot_dir / f'{uid}_diff_img.png')
+    plt.close()
 
 
 def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
@@ -131,17 +203,12 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
 
                     # plot difference image with target location
                     if np.random.uniform() <= plot_prob:
-                        f, ax = plt.subplots()
-                        ax.imshow(diff_imgs[:, :, 2, 0])
-                        ax.scatter(kic_centroid_ref_dict['col']['value'], kic_centroid_ref_dict['row']['value'],
-                                   marker='x',
-                                   color='r', label='Target')
-                        ax.set_ylabel('Row')
-                        ax.set_xlabel('Col')
-                        ax.set_title(f'KIC {uid} {tces.loc[uid]["label"]}')
-                        ax.legend()
-                        f.savefig(plot_dir / f'{uid}_diff_img.png')
-                        plt.close()
+                        plot_diff_img_data(diff_imgs,
+                                           kic_centroid_ref_dict['col']['value'],
+                                           kic_centroid_ref_dict['row']['value'],
+                                           uid,
+                                           tces.loc[uid]["label"],
+                                           plot_dir)
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
                 data[uid]['image_data'].append(diff_imgs)
@@ -223,6 +290,18 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, tce_tbl, logger):
 
         tree = et.parse(dv_xml_fp)
         root = tree.getroot()
+        # check if there are results for more than one processing run for this TIC and sector run
+        tic_id = root.attrib['ticId']
+        tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
+        if len(tic_drs) > 1:
+            curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
+            latest_dr = sorted(tic_drs)[-1]
+            if curr_dr != latest_dr:
+                logger.info(f'[{proc_id}] [{sector_run_id}] Skipping {dv_xml_fp.name} for TIC {tic_id} since there is '
+                            f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
+                            f'... ({target_i}/{n_targets} targets)')
+                continue
+
         planet_res_lst = [el for el in root if 'planetResults' in el.tag]
 
         # sectors_obs = root.attrib['sectorsObserved']
@@ -314,17 +393,12 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, tce_tbl, logger):
 
                     # plot difference image with target location
                     if np.random.uniform() <= plot_prob and uid in tce_tbl.index:
-                        f, ax = plt.subplots()
-                        ax.imshow(diff_imgs[:, :, 2, 0])
-                        ax.scatter(tic_centroid_ref_dict['col']['value'], tic_centroid_ref_dict['row']['value'],
-                                   marker='x',
-                                   color='r', label='Target')
-                        ax.set_ylabel('Row')
-                        ax.set_xlabel('Col')
-                        ax.set_title(f'TIC {uid} {tce_tbl.loc[uid]["label"]}')
-                        ax.legend()
-                        f.savefig(plot_dir / f'{uid}_diff_img.png')
-                        plt.close()
+                        plot_diff_img_data(diff_imgs,
+                                           tic_centroid_ref_dict['col']['value'],
+                                           tic_centroid_ref_dict['row']['value'],
+                                           uid,
+                                           tce_tbl.loc[uid]["label"],
+                                           plot_dir)
 
                 data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
                 data[uid]['image_data'].append(diff_imgs)
