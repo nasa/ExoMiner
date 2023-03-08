@@ -45,7 +45,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # split training folds into training and validation sets by randomly selecting one of the folds as the validation
     # set
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    # data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
+    data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
     data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
     if run_params['logger'] is not None:

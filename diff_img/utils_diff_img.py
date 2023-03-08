@@ -124,7 +124,7 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
             uid = f'{elem.attrib["keplerId"]}-{elem.attrib["planetNumber"]}'
 
             if tce_i % 500 == 0:
-                print(f'[{proc_id}] Iterating over TCE {tce_i}', flush=True)
+                print(f'[{proc_id}] Iterating over TCE {tce_i} in {dv_xml_fp.name}', flush=True)
 
             if n_tces_added == n_tces:  # stop reading XML file once all TCEs were iterated through
                 break
@@ -286,7 +286,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, tce_tbl, logger):
         target_i += 1
 
         if target_i % 1000 == 0:
-            print(f'[{proc_id}] Iterating over TIC {target_i}/{n_targets}', flush=True)
+            print(f'[{proc_id}] Iterating over TIC {target_i}/{n_targets} in {dv_xml_fp.name}', flush=True)
 
         tree = et.parse(dv_xml_fp)
         root = tree.getroot()

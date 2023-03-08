@@ -9,8 +9,8 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-experiment = f'cv_tess-s1s40-dv_all_features_phases_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
-data_dir = Path(f'/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/{experiment}')
+experiment = f'cv_keplerq1q17dr25-dv_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+data_dir = Path(f'/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/{experiment}')
 data_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -26,7 +26,7 @@ rnd_seed = 24
 logger.info(f'Setting random seed to {rnd_seed}')
 rng = np.random.default_rng(rnd_seed)
 
-n_folds_eval = 3  # which is also the number of shards
+n_folds_eval = 10  # which is also the number of shards
 logger.info(f'Number of folds used for CV: {n_folds_eval}')
 n_folds_predict = 10
 
@@ -39,13 +39,12 @@ shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
 shard_tbls_dir.mkdir(exist_ok=True, parents=True)
 
 # load the TCE table
-tce_tbl_fp = Path(
-    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet_ourmatch.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
 logger.info(f'Reading TCE table {tce_tbl_fp}')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # load table with TCEs used in the dataset
-dataset_tbl_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624/merged_shards.csv'
+dataset_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237/merged_shards.csv')
 dataset_tbl = pd.read_csv(dataset_tbl_fp)
 
 # dataset_tbls_dir = Path(
@@ -56,21 +55,23 @@ dataset_tbl = pd.read_csv(dataset_tbl_fp)
 logger.info(f'Using data set table: {dataset_tbl_fp}')
 
 # remove TCEs not used in the dataset
-logger.info(f'Removing examples not in the data set... (Total number of examples in dataset before removing '
-            f'examples: {len(tce_tbl)})')
-# dataset_tbl['tceid'] = dataset_tbl[['target_id', 'tce_plnt_num']].apply(
-#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-# tce_tbl['tceid'] = tce_tbl[['target_id', 'tce_plnt_num']].apply(
-#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-# tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(dataset_tbl['tceid'])]
-tce_tbl_dataset = tce_tbl.loc[tce_tbl['uid'].isin(dataset_tbl['uid'])]
-# # removing unlabeled examples or examples not used for evaluation
-# Kepler
-# working_tce_tbl = tce_tbl_dataset.loc[tce_tbl_dataset['label'] != 'UNK']
-# TESS
-working_tce_tbl = tce_tbl_dataset.loc[~tce_tbl_dataset['label'].isin(['UNK', 'PC', 'APC'])]
+logger.info(f'Removing examples not in the data set... (total number of examples in dataset before removing '
+            f'examples: {len(dataset_tbl)})')
 
-logger.info(f'(Total number of examples in dataset after removing examples: {len(tce_tbl)})')
+tces_found_in_src_dataset = tce_tbl['uid'].isin(dataset_tbl['uid'])
+logger.info(f'TCEs found in source data set that are in the TCE table: {tces_found_in_src_dataset.sum()} (out of {len(tce_tbl)})')
+tce_tbl_dataset = tce_tbl.loc[tces_found_in_src_dataset]
+# removing unlabeled examples or examples not used for evaluation
+# Kepler
+used_tces = tce_tbl_dataset['label'] != 'UNK'
+working_tce_tbl = tce_tbl_dataset.loc[used_tces]
+# TESS
+# used_tces = ~tce_tbl_dataset['label'].isin(['UNK', 'PC', 'APC'])
+# working_tce_tbl = tce_tbl_dataset.loc[used_tces]
+
+logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
+
+logger.info(f'Total number of examples in dataset after removing examples: {len(working_tce_tbl)}')
 
 # shuffle per target stars
 logger.info('Shuffling TCE table per target stars...')
@@ -123,7 +124,9 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
 logger.info('Splitting at TCE level...')
 shard_tbls_dir = data_dir / 'shard_tables' / 'predict'
 shard_tbls_dir.mkdir(exist_ok=True, parents=True)
-tce_tbl_noteval = tce_tbl_dataset.loc[~tce_tbl_dataset['uid'].isin(working_tce_tbl['uid'])]
+unused_tces = ~tce_tbl_dataset['uid'].isin(working_tce_tbl['uid'])
+logger.info(f'Number of TCEs in the predict set: {unused_tces.sum()}')
+tce_tbl_noteval = tce_tbl_dataset.loc[unused_tces]
 tce_tbl_noteval.to_csv(data_dir / f'examples_noteval.csv', index=False)
 tce_splits = np.array_split(range(len(tce_tbl_noteval)), n_folds_predict, axis=0)
 for fold_i, tce_split in enumerate(tce_splits):
@@ -144,5 +147,5 @@ for tbl_fp in shard_tbls_dir.iterdir():
         tbl['target_id'].value_counts().to_frame(name='num_tces_target').reset_index().rename(
             columns={'index': 'target_id'})
 
-    print(f'Number of TCEs per TIC:\n{cnt_tces_target["num_tces_target"].value_counts()}')
+    print(f'Number of TCEs per target:\n{cnt_tces_target["num_tces_target"].value_counts()}')
     print(f'{"#" * 100}')
