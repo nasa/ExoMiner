@@ -5,9 +5,11 @@
 CONDA_ENV_NAME=exoplnt_dl
 # source conda environment explicit spec file
 SRC_CONDA_ENV_LIST="/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/others/envs/conda_env_exoplnt_dl_hecc.txt"
+# source file with setup to initialize conda - check which file sets up conda init (e.g., .bashrc, .bash_profile, .profile)!
+SRC_CONDA_INIT="$HOME"/.bashrc
 
 # make conda detectable by the current bash shell
-source "$HOME"/.bash_profile
+source $SRC_CONDA_INIT
 
 # create conda environment based on source conda environment explicit spec file
 conda create --name $CONDA_ENV_NAME --file "$SRC_CONDA_ENV_LIST"
@@ -21,3 +23,5 @@ pip install hpbandster
 pip install tensorflow==2.5.0
 #pip install tensorboard==2.5.0
 pip install tensorflow-probability==0.11.0
+pip uninstall numpy
+conda install numpy

@@ -268,7 +268,8 @@ def read_kepler_light_curve(filenames,
         'all_centroids_px': {'x': [], 'y': []},
         'quarter': [],
         'module': [],
-        'target_position': []
+        'target_position': [],
+        'quarter_timestamps': {},
     }
 
     files_not_read = []
@@ -359,6 +360,8 @@ def read_kepler_light_curve(filenames,
         if not len(time) == len(flux) == len(centroid_x) == len(centroid_y):
             files_not_read.append(filename)
             continue
+
+        data['quarter_timestamps'].update({quarter: [time[0], time[-1]]})
 
         # use quality flags to remove cadences
         MAX_BIT = 16

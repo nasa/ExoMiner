@@ -2303,7 +2303,7 @@ def create_ensemble(features, models, feature_map=None):
 
     :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
     :param models: list, list of Keras models
-    :param feature_map: maps features' names to features names expected by the model
+    :param feature_map: maps features' names to features' names expected by the model
 
     :return:
         Keras average ensemble
@@ -2810,7 +2810,8 @@ class TransformerExoMiner(object):
                                                 name='fc_prelu_{}'.format(branch))(net)
                 # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
-                net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+                net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'],
+                                              name=f'dropout_fc_conv_{branch}')(net)
 
             conv_branches[branch] = net
 
@@ -2975,7 +2976,7 @@ class TransformerExoMiner(object):
                                             shared_axes=[1],
                                             name='fc_prelu_diff_img')(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
+            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_diff_img')(net)
 
         return {'diff_img': net}
 
@@ -3118,7 +3119,7 @@ class TransformerExoMiner(object):
                                             shared_axes=[1],
                                             name='fc_prelu{}'.format(fc_layer_i))(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate'])(net)
+            net = tf.keras.layers.Dropout(self.config['dropout_rate'], name=f'dropout_fc{fc_layer_i}')(net)
 
         return net
 

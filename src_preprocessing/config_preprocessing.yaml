@@ -1,8 +1,8 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/kics_robovetter_centroid_offset_only_1-31-2023_1354
+output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_unfolded_quarters_sampling_gapothertces_3-23-2023_1650
 # TCE table
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
-input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv
+input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv
 # light curve FITS file directory
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
 lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
@@ -21,6 +21,7 @@ omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
+plot_prob: 0.01
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -29,25 +30,28 @@ bin_width_factor_loc: 0.16
 num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
 
 # unfolded time series
-n_max_phases: 20  #max amount of phases considered for phase split view
+n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
-min_n_phases: 2  # minimum number of phases that need to be available for a given example
+min_n_phases: 20  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning
 phase_extend_method: copy_phases
+quarter_sampling: true  # sample transits from different seasons for Kepler
 
 # split arrays if consecutive cadences are more than gapWidth days apart
 gapWidth: 0.75
 
 # gapping other TCEs from the data
 gapped: false
-gap_keep_overlap: false
-gap_padding: 1
-gap_padding_primary: 3
-gap_imputed: false
-gap_with_confidence_level: false
+gap_keep_overlap: true  # if true, cadences that overlap between TCE of interest and other TCE are kept
+gap_padding: 1  # transit duration that is gapped is `transit_duration * (1 + 2 * gap_pad)`
+gap_imputed: false  # fill in gapped cadences
+gap_with_confidence_level: false  # not implemented
 gap_confidence_level: 0.75
+
+# primary gapping
+gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)
 
 # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
 # (world coordinates)

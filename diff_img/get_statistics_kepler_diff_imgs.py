@@ -300,14 +300,34 @@ tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projec
 plot_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/qual_metric_plots')
 plot_dir.mkdir(exist_ok=True)
 
-thr = 0.7
-N_QUARTERS = 17
+thr = -1
 
-q_value_cols = [f'q{q}_value' for q in range(1, N_QUARTERS + 1)]
-qual_metric_tbl['valid_quarters'] = qual_metric_tbl.apply(lambda x: (x[q_value_cols] > thr).sum(), axis=1)
 
-qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left', validate='one_to_one')
+def _count_valid_thr_quarters(x, thr):
+
+    N_QUARTERS = 17
+    q_value_cols = [f'q{q}_value' for q in range(1, N_QUARTERS + 1)]
+    q_valid_cols = [f'q{q}_valid' for q in range(1, N_QUARTERS + 1)]
+
+    return ((x[q_value_cols] > thr) & (x[q_valid_cols])).sum()
+
+
+# qual_metric_tbl['valid_quarters'] = qual_metric_tbl.apply(lambda x: (x[q_value_cols] > thr).sum(), axis=1)
+qual_metric_tbl['valid_quarters'] = qual_metric_tbl.apply(_count_valid_thr_quarters, axis=1, args=(thr, ))
+
+qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left',
+                                        validate='one_to_one')
 qual_metric_tbl = qual_metric_tbl.loc[qual_metric_tbl['tce_rogue_flag'] == 0]
+
+# plot quality metric for a single quarter
+q_chosen = 12
+f, ax = plt.subplots()
+ax.hist(qual_metric_tbl.loc[qual_metric_tbl[f'q{q_chosen}_valid'], f'q{q_chosen}_value'],
+        bins=np.linspace(-1, 1, 100), edgecolor='k')
+ax.set_yscale('log')
+ax.set_ylabel('Counts')
+ax.set_xlabel('Quality Metric Value')
+ax.set_title(f'Q{q_chosen} Kepler Q1-Q17 DR25')
 
 bins = np.linspace(0, N_QUARTERS + 1, N_QUARTERS + 2, endpoint=True, dtype='int')
 

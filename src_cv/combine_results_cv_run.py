@@ -6,19 +6,22 @@ import pandas as pd
 
 # %% Combine predictions from all CV iterations in the used dataset
 
-cv_run_dir = Path(
-    '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_tessonlytrainingset_1-25-2023_1318')
+# cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
+cv_run_dirs = [Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_frozenbeforefcconv_3-22-2023_1440')]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
+for cv_run_dir in cv_run_dirs:
 
-cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
+    # cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_full_exominer_3-9-2023_1147')
 
-cv_iters_tbls = []
-for cv_iter_dir in cv_iters_dirs:
-    ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_testset.csv')
-    ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
-    cv_iters_tbls.append(ranking_tbl)
+    cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
-ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
-ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', index=False)
+    cv_iters_tbls = []
+    for cv_iter_dir in cv_iters_dirs:
+        ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_testset.csv')
+        ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
+        cv_iters_tbls.append(ranking_tbl)
+
+    ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
+    ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', index=False)
 
 # %% Combine predictions from all CV iterations in the not-used dataset
 

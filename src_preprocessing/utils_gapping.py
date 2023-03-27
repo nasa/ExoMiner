@@ -72,45 +72,46 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
     if config['satellite'] == 'kepler':  # Kepler
         # get the ephemeris for TCEs in the same target star
         gap_ephems = table.loc[(table['target_id'] == tce.target_id) &
-                               (table[config['tce_identifier']] != tce[config['tce_identifier']])][['tce_period',
-                                                                                                    'tce_duration',
-                                                                                                    'tce_time0bk']]
+                               (table['uid'] != tce['uid'])][['tce_period', 'tce_duration', 'tce_time0bk']]
     else:  # TESS
-        # gap_ephems = table.loc[(table['target_id'] == tce.tic) &
-        #                        (table['sector'] == tce.sector) &
-        #                        (table[config['tce_identifier']] != tce[config['tce_identifier']])]
+        # gap TCEs in the same sector run
+        # TODO what about TCEs in other sector runs? This requires ephemerides matching
+          gap_ephems = table.loc[(table['target_id'] == tce.tic) & (table['sector_run'] == tce.sector_run) &
+                                 (table['uid'] != tce[config['tce_identifier']])]
+    #
+    #     # # if sector column exists in the TCE table
+    #     # if 'sector' in table:
+    #
+    #     # get observed sectors for the current TCE
+    #     sectors = np.array([int(sect) for sect in tce['sectors'].split(' ')])
+    #
+    #     # get ephemeris for the TCEs which belong to the same target star
+    #     candidateGapTceTable = table.loc[(table['target_id'] == tce.target_id) &
+    #                                      (table[config['uid']] != tce[config['uid']])][[
+    #         'tce_period',
+    #         'tce_duration',
+    #         'tce_time0bk',
+    #         # 'sectors'
+    #     ],
+    #     ]
 
-        # # if sector column exists in the TCE table
-        # if 'sector' in table:
-
-        # get observed sectors for the current TCE
-        sectors = np.array([int(sect) for sect in tce['sectors'].split(' ')])
-
-        # get ephemeris for the TCEs which belong to the same target star
-        candidateGapTceTable = table.loc[(table['target_id'] == tce.target_id) &
-                                         (table[config['tce_identifier']] != tce[config['tce_identifier']])][[
-            'tce_period',
-            'tce_duration',
-            'tce_time0bk',
-            'sectors']]
-
-        # get TCEs whose observed sectors overlap with the observed sectors for the current TCE
-        candidatesRemoved = []
-        gapSectors = []
-        for i, candidate in candidateGapTceTable.iterrows():
-
-            candidateSectors = np.array([int(sect) for sect in candidate['sectors'].split(' ')])
-
-            # get only overlapping sectors
-            sectorsIntersection = np.intersect1d(sectors, candidateSectors)
-            if len(sectorsIntersection) > 0:
-                gapSectors.append(sectorsIntersection)
-            else:
-                candidatesRemoved.append(i)
-
-        # remove candidates that do not have any overlapping sectors
-        gap_ephems = candidateGapTceTable.drop(candidateGapTceTable.index[candidatesRemoved],
-                                               inplace=False).reset_index()
+        # # get TCEs whose observed sectors overlap with the observed sectors for the current TCE
+        # candidatesRemoved = []
+        # gapSectors = []
+        # for i, candidate in candidateGapTceTable.iterrows():
+        #
+        #     candidateSectors = np.array([int(sect) for sect in candidate['sectors'].split(' ')])
+        #
+        #     # get only overlapping sectors
+        #     sectorsIntersection = np.intersect1d(sectors, candidateSectors)
+        #     if len(sectorsIntersection) > 0:
+        #         gapSectors.append(sectorsIntersection)
+        #     else:
+        #         candidatesRemoved.append(i)
+        #
+        # # remove candidates that do not have any overlapping sectors
+        # gap_ephems = candidateGapTceTable.drop(candidateGapTceTable.index[candidatesRemoved],
+        #                                        inplace=False).reset_index()
 
         # else:  # if not, gap all TCEs that belong to the same target star
         #
@@ -126,11 +127,11 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
     if config['gap_with_confidence_level'] and config['satellite'] == 'kepler':
         poplist = []
         for index, gapped_tce in gap_ephems.iterrows():
-            if (tce.kepid, gapped_tce[config['tce_identifier']]) not in conf_dict or \
-                    conf_dict[(tce.target_id, gapped_tce[config['tce_identifier']])] < config['gap_confidence_level']:
-                poplist += [gapped_tce[config['tce_identifier']]]
+            if (tce.kepid, gapped_tce['uid']) not in conf_dict or \
+                    conf_dict[(tce.target_id, gapped_tce['uid'])] < config['gap_confidence_level']:
+                poplist += [gapped_tce['uid']]
 
-        gap_ephems = gap_ephems.loc[gap_ephems[config['tce_identifier']].isin(poplist)]
+        gap_ephems = gap_ephems.loc[gap_ephems['uid'].isin(poplist)]
     elif config['gap_with_confidence_level'] and config['satellite'] == 'tess':
         raise NotImplementedError('Using confidence level for gapping TCEs not implemented for TESS.')
 
@@ -153,9 +154,9 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
             #                             ephem['tce_duration'])
             duration_gapped = ephem['tce_duration'] * (1 + 2 * gap_pad)
 
-            # for TESS, check if this time array belongs to one of the overlapping sectors
-            if config['satellite'] != 'kepler' and add_info['sectors'][i] not in gapSectors[ephem_i]:
-                continue
+            # # for TESS, check if this time array belongs to one of the overlapping sectors
+            # if config['satellite'] != 'kepler' and add_info['sectors'][i] not in gapSectors[ephem_i]:
+            #     continue
 
             # get timestamp of the first transit of the gapped TCE in the current time array
             epoch = find_first_epoch_after_this_time(ephem['tce_time0bk'], ephem['tce_period'], begin_time)

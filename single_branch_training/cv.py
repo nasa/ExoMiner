@@ -1,4 +1,6 @@
-""" Run cross-validation experiment. """
+"""
+Run cross-validation experiment for single-branch model experiments.
+"""
 
 # 3rd party
 import os
@@ -15,18 +17,89 @@ import time
 import argparse
 import sys
 from mpi4py import MPI
-import multiprocessing
+# import multiprocessing
 import yaml
 import pandas as pd
+from tensorflow import keras
+from tensorflow.keras.models import load_model
+from tensorflow.keras import regularizers
 
 # local
-from models.models_keras import ExoMiner, TransformerExoMiner
+from models.models_keras import TransformerExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run
-from src.utils_train_eval_predict import train_model, evaluate_model, predict_model
+from src.utils_train_eval_predict import evaluate_model, predict_model, train
 from src.utils_dataio import get_data_from_tfrecord
-from src.utils_train import PredictDuringFitCallback
+from models.models_keras import Time2Vec, create_inputs
+from single_branch_training.utils_cv_single_branch import LayerWeightCallback
+
+
+def create_model_from_single_branch(output_single_branch_models, run_params):
+    """ Create full model from pre-trained single-branch models. Concatenates output from single-trained models (expects
+     flattened array of extracted features at the bottom of the branch) and adds an FC block.
+
+    Args:
+        output_single_branch_models: list, single-branch Keras functional models.
+        run_params: dict, run parameters
+    Returns:
+        output, TF tensor with full model output
+    """
+
+    # concatenate single branches and add FC block
+    # net = tf.keras.layers.Concatenate(axis=1, name='branch_concat')([branch_model.output for branch_model in single_branch_models])
+    net = tf.keras.layers.Concatenate(axis=1, name='branch_concat')(output_single_branch_models)
+    for fc_layer_i in range(run_params['config']['num_fc_layers']):
+
+        fc_neurons = run_params['config']['init_fc_neurons']
+
+        if run_params['config']['decay_rate'] is not None:
+            net = tf.keras.layers.Dense(units=fc_neurons,
+                                        kernel_regularizer=regularizers.l2(run_params['config']['decay_rate']) if run_params['config']['decay_rate'] is not None else None,
+                                        activation=None,
+                                        use_bias=True,
+                                        kernel_initializer='glorot_uniform',
+                                        bias_initializer='zeros',
+                                        bias_regularizer=None,
+                                        activity_regularizer=None,
+                                        kernel_constraint=None,
+                                        bias_constraint=None,
+                                        name='fc{}'.format(fc_layer_i))(net)
+        else:
+            net = tf.keras.layers.Dense(units=fc_neurons,
+                                        kernel_regularizer=None,
+                                        activation=None,
+                                        use_bias=True,
+                                        kernel_initializer='glorot_uniform',
+                                        bias_initializer='zeros',
+                                        bias_regularizer=None,
+                                        activity_regularizer=None,
+                                        kernel_constraint=None,
+                                        bias_constraint=None,
+                                        name='fc{}'.format(fc_layer_i))(net)
+
+        if run_params['config']['non_lin_fn'] == 'lrelu':
+            net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu{}'.format(fc_layer_i))(net)
+        elif run_params['config']['non_lin_fn'] == 'relu':
+            net = tf.keras.layers.ReLU(name='fc_relu{}'.format(fc_layer_i))(net)
+        elif run_params['config']['non_lin_fn'] == 'prelu':
+            net = tf.keras.layers.PReLU(alpha_initializer='zeros',
+                                        alpha_regularizer=None,
+                                        alpha_constraint=None,
+                                        shared_axes=[1],
+                                        name='fc_prelu{}'.format(fc_layer_i))(net)
+
+        net = tf.keras.layers.Dropout(run_params['config']['dropout_rate'], name=f'dropout_fc{fc_layer_i}')(net)
+
+    # create output layer
+    logits = tf.keras.layers.Dense(units=1, name="logits")(net)
+
+    # if self.output_size == 1:
+    output = tf.keras.layers.Activation(tf.nn.sigmoid, name='sigmoid')(logits)
+    # else:
+    #     output = tf.keras.layers.Activation(tf.nn.softmax, name='softmax')(logits)
+
+    return output
 
 
 def cv_run(cv_dir, data_shards_fps, run_params):
@@ -81,31 +154,107 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         model_dir = models_dir / f'model{model_id}'
         model_dir.mkdir(exist_ok=True)
 
-        # predict_fit_callback = PredictDuringFitCallback(run_params['datasets_fps'],
-        #                                                 model_dir,
-        #                                                 run_params['inference']['batch_size'],
-        #                                                 run_params['label_map'],
-        #                                                 run_params['features_set'],
-        #                                                 run_params['config']['multi_class'],
-        #                                                 run_params['config']['use_transformer'],
-        #                                                 run_params['feature_map'],
-        #                                                 data,
-        #                                                 verbose=True
-        #                                                 )
-        #
-        # if len(run_params['callbacks_list']['train']) == 1:
-        #     run_params['callbacks_list']['train'].append(predict_fit_callback)
-        # else:
-        #     run_params['callbacks_list']['train'][1] = predict_fit_callback
+        # load trained model for each of the N branches
+        custom_objects = {"Time2Vec": Time2Vec}
+        single_branch_model_fps = []
+        # single_branch_exp_dir = [fp for fp in run_params['paths']['single_branch_models_dir'].iterdir() if fp.is_dir()]
+        # for single_branch_exp in single_branch_exp_dir:
+        for single_branch_exp in run_params['paths']['single_branch_models_fps']:
+            if run_params['logger'] is not None:
+                run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Getting single-branch model in '
+                                          f'{single_branch_exp} for model {model_id}')
+            model_fp = single_branch_exp / f'cv_iter_{run_params["cv_id"]}' / 'models' / f'model{model_id}' / \
+                       f'model{model_id}.h5'
+            single_branch_model_fps.append(model_fp)
 
-        # instantiate child process for training the model; prevent GPU memory issues
-        train_model(
-            run_params['base_model'],
+        # get outputs before FC block for each model of the N branches
+        output_layer_name = {
+            'single_branch_secondary': 'dropout',
+            'single_branch_local_centroid': 'dropout',
+            'single_branch_local_flux': 'dropout',
+            'single_branch_global_flux': 'dropout',
+            'single_branch_oddeven': 'dropout',
+            'single_branch_stellar': 'fc_prelu_stellar_scalar',
+            'single_branch_dvtcefit': 'fc_prelu_dv_tce_fit_scalar',
+        }
+        stop_frozen_layer_name = {
+            'single_branch_secondary': 'fc_local_weak_secondary',
+            'single_branch_local_centroid': 'fc_local_centroid',
+            'single_branch_local_flux': 'fc_local_flux',
+            'single_branch_global_flux': 'fc_global_flux',
+            'single_branch_oddeven': 'fc_local_odd_even',
+            'single_branch_stellar': 'fc_stellar_scalar',
+            'single_branch_dvtcefit': 'fc_dv_tce_fit_scalar',
+        }
+        output_single_branch_models = []
+        inputs = create_inputs(run_params['features_set'], run_params['feature_map'])
+        for model_fp in single_branch_model_fps:
+            with keras.utils.custom_object_scope(custom_objects):
+                model = load_model(filepath=model_fp, compile=False)
+                branch_model_name = '_'.join(model_fp.parents[3].name.split('_')[2:-2])
+                for l in model.layers:
+                    if l.name == stop_frozen_layer_name[branch_model_name]:
+                        break
+                    l.trainable = False
+                if output_layer_name[branch_model_name] == 'dropout':
+                    layer_name = [l.name for l in model.layers if 'dropout' in l.name][0]
+                else:
+                    layer_name = output_layer_name[branch_model_name]
+                branch_model = keras.Model(inputs=model.inputs, outputs=model.get_layer(layer_name).output,
+                                           name=branch_model_name)
+                # branch_model.trainable = True  # set branch weights to not trainable
+                output_single_branch_models.append(branch_model({k: v for k, v in inputs.items() if k in model.input}))
+
+        # create full model from single branch models
+        if run_params['logger'] is not None:
+            run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Creating full model from single-branches for '
+                                      f'CV iteration...')
+        output = create_model_from_single_branch(output_single_branch_models, run_params)
+
+        full_model = keras.Model(inputs=inputs, outputs=output)
+
+        if run_params['logger'] is not None:
+            run_params['logger'].info('Check full model layers and trainable status...')
+            for l in full_model.layers:
+                run_params['logger'].info(f'{l.name}: {l.trainable}')
+
+        # add callback for storing single-branch layer FC weights
+        # single_branch_output_layer_weights = {
+        #     'single_branch_global_flux': 'fc_global_flux',
+        #     'single_branch_local_flux': 'fc_local_flux',
+        #     'single_branch_oddeven': 'fc_local_odd_even',
+        #     'single_branch_secondary': 'fc_local_weak_secondary',
+        #     'single_branch_stellar': 'fc_stellar_scalar',
+        #     'single_branch_local_centroid': 'fc_local_centroid',
+        #     'single_branch_dvtcefit': 'fc_dv_tce_fit_scalar',
+        # }
+        # single_branch_output_layer_weights = {
+        #     'single_branch_global_flux': 'convglobal_flux_2_0',
+        #     'single_branch_local_flux': 'convlocal_flux_1_0',
+        #     'single_branch_oddeven': 'convlocal_odd_even_1_0',
+        #     'single_branch_secondary': 'convlocal_weak_secondary_1_0',
+        #     # 'single_branch_stellar': 'fc_stellar_scalar',
+        #     'single_branch_local_centroid': 'convlocal_centroid_1_0',
+        #     # 'single_branch_dvtcefit': 'fc_dv_tce_fit_scalar',
+        # }
+        # # for single_branch_name, layer_name in single_branch_output_layer_weights.items():
+        # weights_dir = models_dir / 'log_weights_single_branches_fc'
+        # weights_dir.mkdir(exist_ok=True)
+        # # add callback to list of training callbacks
+        # run_params['callbacks_list']['train'].append(LayerWeightCallback(
+        #     layers=single_branch_output_layer_weights,
+        #     log_dir=weights_dir,
+        # ))
+
+        _ = train(
+            full_model,
             run_params,
             model_dir,
             model_id,
             # run_params['logger']
         )
+
+        # # instantiate child process for training the model; prevent GPU memory issues
         # p = multiprocessing.Process(target=train_model,
         #                             args=(
         #                                 run_params['base_model'],
@@ -192,12 +341,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         data_df.to_csv(run_params['paths']['experiment_dir'] / f'ensemble_ranked_predictions_{dataset}set.csv',
                        index=False)
 
-    # if run_params['logger'] is not None:
-    # run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Deleting normalized data')
-    # # remove preprocessed data for this run
-    # shutil.rmtree(cv_run_dir / 'norm_data')
-    # # TODO: delete the models as well?
-
     if run_params['logger'] is not None:
         run_params['logger'].info('Finished CV iteration.')
 
@@ -208,7 +351,7 @@ def cv():
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
     parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
+                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/single_branch_training/config_cv_train.yaml')
     args = parser.parse_args()
 
     with(open(args.config_file, 'r')) as file:
@@ -245,7 +388,10 @@ def cv():
     
     for path_name, path_str in config['paths'].items():
         if path_str is not None:
-            config['paths'][path_name] = Path(path_str)
+            if path_name == 'single_branch_models_fps':
+                config['paths'][path_name] = [Path(fp) for fp in config['paths'][path_name]]
+            else:
+                config['paths'][path_name] = Path( config['paths'][path_name])
     config['paths']['experiment_root_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary

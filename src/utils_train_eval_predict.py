@@ -12,11 +12,11 @@ from src.utils_metrics import get_metrics, get_metrics_multiclass
 from models.models_keras import create_ensemble, compile_model, Time2Vec
 
 
-def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
+def train(model, config, model_dir_sub, model_id=1, logger=None):
     """ Train a model with a given configuration. Support for model selection using a validation set and early stopping
     callback.
 
-    :param base_model: model fn, core model to be used
+    :param model: model, TF Keras model
     :param config: dict, configuration for model hyper-parameters
     :param model_dir_sub: Path, model directory
     :param model_id: int, model id
@@ -24,9 +24,6 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     :return:
         res, dict with training results
     """
-
-    # instantiate model
-    model = base_model(config, config['features_set']).kerasModel
 
     # save model, features and config used for training this model
     if model_id == 0 and config['plot_model']:
@@ -122,6 +119,28 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     res = history.history
 
     np.save(model_dir_sub / 'res_eval.npy', res)
+
+    return res
+
+
+def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
+    """ Train a model with a given configuration. Support for model selection using a validation set and early stopping
+    callback.
+
+    :param base_model: model fn, core model to be used
+    :param config: dict, configuration for model hyper-parameters
+    :param model_dir_sub: Path, model directory
+    :param model_id: int, model id
+    :param logger: logger
+    :return:
+        res, dict with training results
+    """
+
+    # instantiate model
+    model = base_model(config, config['features_set']).kerasModel
+
+    # train model
+    res = train(model, config, model_dir_sub, model_id=model_id, logger=logger)
 
     return res
 

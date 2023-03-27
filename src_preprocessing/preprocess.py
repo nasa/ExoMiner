@@ -271,7 +271,7 @@ def remove_non_finite_values(arrs):
 
         for arr in arrs:
             finite_idxs.append(np.isfinite(arr[sub_arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs)
+        finite_idxs = np.logical_and.reduce(finite_idxs, dtype='uint')
 
         for arr_i in range(num_arrs):
             arrs[arr_i][sub_arr_i] = arrs[arr_i][sub_arr_i][finite_idxs]
@@ -311,7 +311,7 @@ def _process_tce(tce, table, config, conf_dict):
     # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
     # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
     # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    # if tce['target_id'] == 7376983:  #  and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
+    # if tce['target_id'] == 178284730:  #  and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
     # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
     # if f'{tce["matched_toi_our"]}' in [4473.01]:
     #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
@@ -329,7 +329,7 @@ def _process_tce(tce, table, config, conf_dict):
 
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = False  # False
-    if np.random.random() < 0.01:
+    if np.random.random() < config['plot_prob']:
         plot_preprocessing_tce = config['plot_figures']
 
     # sample TCE ephemeris using uncertainty interval
@@ -483,10 +483,12 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
         flux: list of NumPy arrays, preprocessed flux time series
     """
 
-    all_time, all_flux = remove_non_finite_values([all_time, all_flux])
+    time_arrs, flux_arrs = [np.array(el) for el in all_time], [np.array(el) for el in all_flux]
+
+    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
 
     # split on gaps
-    all_time, all_flux, _ = util.split(all_time, all_flux, gap_width=config['gapWidth'])
+    time_arrs, flux_arrs, _ = util.split(time_arrs, flux_arrs, gap_width=config['gapWidth'])
 
     # add gap after and before transit based on transit duration
     if 'tce_maxmesd' in tce:
@@ -497,37 +499,37 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                              for time in all_time]
+                              for time in time_arrs]
 
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, all_time)]
+                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config,
+        utils_visualization.plot_binseries_flux(time_arrs, flux_arrs, binary_time_all, tce, config,
                                                 os.path.join(config['output_dir'], 'plots'),
                                                 '2_binarytimeseriesandflux')
 
     # linearly interpolate across TCE transits
-    all_flux_lininterp = lininterp_transits(all_flux, binary_time_all, centroid=False)
+    flux_arrs_lininterp = lininterp_transits(flux_arrs, binary_time_all, centroid=False)
 
     # fit a spline to the flux time-series
-    spline_flux = kepler_spline.fit_kepler_spline(all_time, all_flux_lininterp, verbose=False)[0]
+    spline_flux = kepler_spline.fit_kepler_spline(time_arrs, flux_arrs_lininterp, verbose=False)[0]
 
     # compute residual
-    res_flux = [all_flux_lininterp[arr_i] - spline_flux[arr_i] for arr_i in range(len(all_flux))]
+    res_flux = [flux_arrs_lininterp[arr_i] - spline_flux[arr_i] for arr_i in range(len(flux_arrs))]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_flux_fit_spline(all_time,
-                                                 all_flux,
+        utils_visualization.plot_flux_fit_spline(time_arrs,
+                                                 flux_arrs,
                                                  spline_flux,
                                                  tce,
                                                  config,
                                                  os.path.join(config['output_dir'], 'plots'),
                                                  f'3_smoothingandnormalizationflux_aug{tce["augmentation_idx"]}',
-                                                 flux_interp=all_flux_lininterp)
+                                                 flux_interp=flux_arrs_lininterp)
 
-        utils_visualization.plot_residual(all_time,
+        utils_visualization.plot_residual(time_arrs,
                                           res_flux,
                                           tce,
                                           config,
@@ -538,17 +540,17 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     # get indices for which the spline has finite values
     finite_i = [np.isfinite(spline_flux[i]) for i in range(len(spline_flux))]
     # normalize flux time-series by the fitted spline
-    all_flux = [all_flux[i][finite_i[i]] / spline_flux[i][finite_i[i]] for i in range(len(spline_flux))
+    flux_arrs = [flux_arrs[i][finite_i[i]] / spline_flux[i][finite_i[i]] for i in range(len(spline_flux))
                 if len(finite_i[i]) > 0]
 
-    all_time = [all_time[i][finite_i[i]] for i in range(len(all_time)) if len(finite_i[i]) > 0]
+    time_arrs = [time_arrs[i][finite_i[i]] for i in range(len(time_arrs)) if len(finite_i[i]) > 0]
 
     # impute the time series with Gaussian noise based on global estimates of median and std
     if config['gap_imputed']:
-        all_time, all_flux = imputing_gaps(all_time, all_flux, gap_time)
+        time_arrs, flux_arrs = imputing_gaps(time_arrs, flux_arrs, gap_time)
 
-    time = np.concatenate(all_time)
-    flux = np.concatenate(all_flux)
+    time = np.concatenate(time_arrs)
+    flux = np.concatenate(flux_arrs)
 
     return time, flux
 
@@ -567,9 +569,11 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         flux_noprimary: list of NumPy arrays, preprocessed weak secondary flux time series
     """
 
-    all_time, all_flux_noprimary = remove_non_finite_values([all_time, all_flux_noprimary])
+    time_arrs, flux_arrs = [np.array(el) for el in all_time], [np.array(el) for el in all_flux_noprimary]
 
-    all_time, all_flux_noprimary, _ = util.split(all_time, all_flux_noprimary, gap_width=config['gapWidth'])
+    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
+
+    time_arrs, flux_arrs, _ = util.split(time_arrs, flux_arrs, gap_width=config['gapWidth'])
 
     # add gap after and before transit based on transit duration
     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
@@ -577,47 +581,47 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
 
     first_transit_time_all_noprimary = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                          tce['tce_period'], time[0])
-                                        for time in all_time]
+                                        for time in time_arrs]
     binary_time_all_noprimary = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                                  for first_transit_time, time in
-                                 zip(first_transit_time_all_noprimary, all_time)]
+                                 zip(first_transit_time_all_noprimary, time_arrs)]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_binseries_flux(all_time, all_flux_noprimary, binary_time_all_noprimary,
+        utils_visualization.plot_binseries_flux(time_arrs, flux_arrs, binary_time_all_noprimary,
                                                 tce, config,
                                                 os.path.join(config['output_dir'], 'plots'),
                                                 f'2_binarytimeseries_wksflux_aug{tce["augmentation_idx"]}')
 
     # spline fitting for the secondary flux time-series
-    all_flux_noprimary_lininterp = lininterp_transits(all_flux_noprimary, binary_time_all_noprimary, centroid=False)
+    flux_arrs_lininterp = lininterp_transits(flux_arrs, binary_time_all_noprimary, centroid=False)
 
-    spline_flux_noprimary = kepler_spline.fit_kepler_spline(all_time, all_flux_noprimary_lininterp, verbose=False)[0]
+    spline_flux_noprimary = kepler_spline.fit_kepler_spline(time_arrs, flux_arrs_lininterp, verbose=False)[0]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_flux_fit_spline(all_time,
-                                                 all_flux_noprimary,
+        utils_visualization.plot_flux_fit_spline(time_arrs,
+                                                 flux_arrs,
                                                  spline_flux_noprimary,
                                                  tce,
                                                  config,
                                                  os.path.join(config['output_dir'], 'plots'),
                                                  f'3_smoothingandnormalization_wksflux_aug{tce["augmentation_idx"]}',
-                                                 flux_interp=all_flux_noprimary_lininterp)
+                                                 flux_interp=flux_arrs_lininterp)
 
     # TODO: deal with cases for which the spline fitting fails (this should apply to all time series)
     finite_i = [np.isfinite(spline_flux_noprimary[i]) for i in range(len(spline_flux_noprimary))]
 
-    all_time = [all_time[i][finite_i[i]] for i in range(len(all_time)) if len(finite_i[i]) > 0]
+    time_arrs = [time_arrs[i][finite_i[i]] for i in range(len(time_arrs)) if len(finite_i[i]) > 0]
 
-    all_flux_noprimary = [all_flux_noprimary[i][finite_i[i]] /
+    flux_arrs = [flux_arrs[i][finite_i[i]] /
                           spline_flux_noprimary[i][finite_i[i]]
                           for i in range(len(spline_flux_noprimary)) if len(finite_i[i]) > 0]
 
     # impute the time series with Gaussian noise based on global estimates of median and std
     if config['gap_imputed']:
-        all_time, all_flux_noprimary = imputing_gaps(all_time, all_flux_noprimary, gap_time)
+        time_arrs, flux_arrs = imputing_gaps(time_arrs, flux_arrs, gap_time)
 
-    time = np.concatenate(all_time)
-    flux_noprimary = np.concatenate(all_flux_noprimary)
+    time = np.concatenate(time_arrs)
+    flux_noprimary = np.concatenate(flux_arrs)
 
     return time, flux_noprimary
 
@@ -643,21 +647,24 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
         transit to the target
     """
 
-    all_time, all_centroids['x'], all_centroids['y'] = remove_non_finite_values([all_time,
-                                                                                 all_centroids['x'],
-                                                                                 all_centroids['y']])
+    time_arrs, centroid_dict = [np.array(el) for el in all_time], \
+        {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()}
 
-    all_time, all_centroids, add_info = util.split(all_time, all_centroids, add_info=add_info, centroid=True,
+    time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
+                                                                                 centroid_dict['x'],
+                                                                                 centroid_dict['y']])
+
+    time_arrs, centroid_dict, add_info = util.split(time_arrs, centroid_dict, add_info=add_info, centroid=True,
                                                    gap_width=config['gapWidth'])
 
     # pixel coordinate transformation for targets on module 13 for Kepler
     if config['px_coordinates'] and config['satellite'] == 'kepler':
         if add_info['module'][0] == 13:
-            all_centroids = kepler_transform_pxcoordinates_mod13(all_centroids, add_info)
+            centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
 
             if plot_preprocessing_tce:
-                utils_visualization.plot_centroids(all_time,
-                                                   all_centroids,
+                utils_visualization.plot_centroids(time_arrs,
+                                                   centroid_dict,
                                                    None,
                                                    tce,
                                                    config,
@@ -674,22 +681,22 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                              for time in all_time]
+                              for time in time_arrs]
 
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, all_time)]
+                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     # get out-of-transit indices for the centroid time series
     centroid_oot = {coord: [centroids[np.where(binary_time == 0)] for binary_time, centroids in
-                            zip(binary_time_all, all_centroids[coord])]
-                    for coord in all_centroids}
+                            zip(binary_time_all, centroid_dict[coord])]
+                    for coord in centroid_dict}
     # estimate average out-of-transit centroid as the median across quarters - same as they do in the Kepler pipeline
     # TODO: how to compute the average oot? mean, median, other...
     avg_centroid_oot = {coord: np.nanmedian(np.concatenate(centroid_oot[coord])) for coord in centroid_oot}
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_binseries_flux(all_time, all_centroids, binary_time_all,
+        utils_visualization.plot_binseries_flux(time_arrs, centroid_dict, binary_time_all,
                                                 tce, config,
                                                 os.path.join(config['output_dir'], 'plots'),
                                                 f'2_binarytimeseries_centroid_aug{tce["augmentation_idx"]}',
@@ -698,13 +705,13 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     # spline fitting and normalization - fit a piecewise-cubic spline with default arguments
     # FIXME: wouldn't it be better to fit a spline to oot values or a Savitzky Golay filter
     #  (as Jeff and Doug mentioned)?
-    all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
-    spline_centroid = {coord: kepler_spline.fit_kepler_spline(all_time, all_centroids_lininterp[coord],
-                                                              verbose=False)[0] for coord in all_centroids_lininterp}
+    centroid_dict_lininterp = lininterp_transits(centroid_dict, binary_time_all, centroid=True)
+    spline_centroid = {coord: kepler_spline.fit_kepler_spline(time_arrs, centroid_dict_lininterp[coord],
+                                                              verbose=False)[0] for coord in centroid_dict_lininterp}
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_centroids(all_time,
-                                           all_centroids,
+        utils_visualization.plot_centroids(time_arrs,
+                                           centroid_dict,
                                            spline_centroid,
                                            tce,
                                            config,
@@ -719,51 +726,51 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     # # get average oot per quarter
     # oot_idxs = [np.where(~binary_time) for binary_time in binary_time_all]  # compute it using only finite and oot values
     # oot_idxs = [np.union1d(oot_idxs[i], finite_i[i]) for i in range(len(oot_idxs))]
-    # avg_centroid_oot = {coord: [np.median(all_centroids[coord][i][oot_idxs[i]])
-    #                             for i in range(len(all_centroids[coord]))] for coord in all_centroids}
+    # avg_centroid_oot = {coord: [np.median(centroid_dict[coord][i][oot_idxs[i]])
+    #                             for i in range(len(centroid_dict[coord]))] for coord in centroid_dict}
 
     # normalize by the spline
-    all_centroids = {coord: [all_centroids[coord][i][finite_i[i]] / spline_centroid[coord][i][finite_i[i]] *
+    centroid_dict = {coord: [centroid_dict[coord][i][finite_i[i]] / spline_centroid[coord][i][finite_i[i]] *
                              avg_centroid_oot[coord] for i in range(len(spline_centroid[coord]))
                              if len(finite_i[i]) > 0]
-                     for coord in all_centroids}
-    # all_centroids = {coord: [all_centroids[coord][i][finite_i[i]] - spline_centroid[coord][i][finite_i[i]]
+                     for coord in centroid_dict}
+    # centroid_dict = {coord: [centroid_dict[coord][i][finite_i[i]] - spline_centroid[coord][i][finite_i[i]]
     #                          for i in range(len(spline_centroid[coord]))
     #                          if len(finite_i[i]) > 0]
-    #                  for coord in all_centroids}
+    #                  for coord in centroid_dict}
     # normalize by the fitted splines and recover the range by multiplying by the average oot for each quarter
-    # all_centroids = {coord: [all_centroids[coord][i][finite_i[i]] / spline_centroid[coord][i][finite_i[i]] *
+    # centroid_dict = {coord: [centroid_dict[coord][i][finite_i[i]] / spline_centroid[coord][i][finite_i[i]] *
     #                          avg_centroid_oot[coord][i] for i in range(len(spline_centroid[coord]))]
-    #                  for coord in all_centroids}
-    # all_centroids = {coord: [all_centroids[coord][i][finite_i[i]] - spline_centroid[coord][i][finite_i[i]]
+    #                  for coord in centroid_dict}
+    # centroid_dict = {coord: [centroid_dict[coord][i][finite_i[i]] - spline_centroid[coord][i][finite_i[i]]
     #                          for i in range(len(spline_centroid[coord]))]
-    #                  for coord in all_centroids}
+    #                  for coord in centroid_dict}
 
     binary_time_all = [binary_time_all[i][finite_i[i]] for i in range(len(binary_time_all)) if len(finite_i[i]) > 0]
-    all_time = [all_time[i][finite_i[i]] for i in range(len(all_time)) if len(finite_i[i]) > 0]
+    time_arrs = [time_arrs[i][finite_i[i]] for i in range(len(time_arrs)) if len(finite_i[i]) > 0]
 
     # # set outliers to zero using Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
-    # q25_75 = {'x': {'q25': np.percentile(np.concatenate(all_centroids['x']), 25),
-    #                 'q75': np.percentile(np.concatenate(all_centroids['x']), 75)},
-    #           'y': {'q25': np.percentile(np.concatenate(all_centroids['y']), 25),
-    #                 'q75': np.percentile(np.concatenate(all_centroids['y']), 75)}
+    # q25_75 = {'x': {'q25': np.percentile(np.concatenate(centroid_dict['x']), 25),
+    #                 'q75': np.percentile(np.concatenate(centroid_dict['x']), 75)},
+    #           'y': {'q25': np.percentile(np.concatenate(centroid_dict['y']), 25),
+    #                 'q75': np.percentile(np.concatenate(centroid_dict['y']), 75)}
     #           }
     # iqr = {'x': q25_75['x']['q75'] - q25_75['x']['q25'],
     #        'y': q25_75['y']['q75'] - q25_75['y']['q25']}
     # outlier_thr = 1.5
-    # for coord in all_centroids:
-    #     for i in range(len(all_centroids[coord])):
-    #         all_centroids[coord][i][np.where(all_centroids[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-    #         all_centroids[coord][i][np.where(all_centroids[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
+    # for coord in centroid_dict:
+    #     for i in range(len(centroid_dict[coord])):
+    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
+    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
 
-    avg_centroid_oot = {coord: np.median(np.concatenate(all_centroids[coord])) for coord in all_centroids}
+    avg_centroid_oot = {coord: np.median(np.concatenate(centroid_dict[coord])) for coord in centroid_dict}
 
     # compute the new average oot after the spline fitting and normalization
     # TODO: how to compute the average oot? mean, median, other...
     if plot_preprocessing_tce:
-        utils_visualization.plot_centroids_it_oot(all_time,
+        utils_visualization.plot_centroids_it_oot(time_arrs,
                                                   binary_time_all,
-                                                  all_centroids,
+                                                  centroid_dict,
                                                   avg_centroid_oot,
                                                   target_position,
                                                   tce, config,
@@ -777,34 +784,34 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     # transit_depth = tce['transit_depth'] + 1  # avoid zero transit depth
     transitdepth_term = (1e6 - transit_depth) / transit_depth
     # avg_centroid_oot = {coord: avg_centroid_oot[coord] * 1.15 for coord in avg_centroid_oot}
-    # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /
+    # centroid_dict_corr = {coord: [-((centroid_dict[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /
     #                               (1, np.cos(target_position[1] * np.pi / 180))[coord == 'x'] +
-    #                               avg_centroid_oot[coord] for i in range(len(all_centroids[coord]))]
-    #                       for coord in all_centroids}
+    #                               avg_centroid_oot[coord] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
     # only oot centroid
-    # all_centroids_corr = {coord: [avg_centroid_oot[coord] * np.ones(len(all_centroids[coord][i])) for i in range(len(all_centroids[coord]))]
-    #                       for coord in all_centroids}
+    # centroid_dict_corr = {coord: [avg_centroid_oot[coord] * np.ones(len(centroid_dict[coord][i])) for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
     # only it centroid
-    all_centroids_corr = {coord: [-(all_centroids[coord][i] - avg_centroid_oot[coord]) * transitdepth_term /
-                                  (1, np.cos(all_centroids['y'][i] * np.pi / 180))[coord == 'x'] +
+    centroid_dict_corr = {coord: [-(centroid_dict[coord][i] - avg_centroid_oot[coord]) * transitdepth_term /
+                                  (1, np.cos(centroid_dict['y'][i] * np.pi / 180))[coord == 'x'] +
                                   avg_centroid_oot[coord]
-                                  for i in range(len(all_centroids[coord]))]
-                          for coord in all_centroids}
-    # all_centroids_corr = {coord: [all_centroids[coord][i] for i in range(len(all_centroids[coord]))]
-    #                       for coord in all_centroids}
+                                  for i in range(len(centroid_dict[coord]))]
+                          for coord in centroid_dict}
+    # centroid_dict_corr = {coord: [centroid_dict[coord][i] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
     # correction performed using quarter average oot estimates
-    # all_centroids_corr = {coord: [-((all_centroids[coord][i] - avg_centroid_oot[coord][i]) * transitdepth_term) /
-    #                               (1, np.cos(all_centroids['y'][i] * np.pi / 180))[coord == 'x'] +
-    #                               avg_centroid_oot[coord][i] for i in range(len(all_centroids[coord]))]
-    #                       for coord in all_centroids}
-    # all_centroids_corr = {coord: [-(all_centroids[coord][i] * transitdepth_term) /
-    #                               (1, np.cos((all_centroids['y'][i]) * np.pi / 180))[coord == 'x'] +
-    #                               avg_centroid_oot[coord] for i in range(len(all_centroids[coord]))]
-    #                       for coord in all_centroids}
+    # centroid_dict_corr = {coord: [-((centroid_dict[coord][i] - avg_centroid_oot[coord][i]) * transitdepth_term) /
+    #                               (1, np.cos(centroid_dict['y'][i] * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord][i] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # centroid_dict_corr = {coord: [-(centroid_dict[coord][i] * transitdepth_term) /
+    #                               (1, np.cos((centroid_dict['y'][i]) * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_corrected_centroids(all_time,
-                                                     all_centroids_corr,
+        utils_visualization.plot_corrected_centroids(time_arrs,
+                                                     centroid_dict_corr,
                                                      avg_centroid_oot,
                                                      target_position,
                                                      tce,
@@ -815,22 +822,22 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     if config['px_coordinates']:
         # TODO: map target position from celestial coordinates to CCD frame
         # compute the euclidean distance of the corrected centroid time series to the target star position
-        all_centroid_dist = [np.sqrt(np.square(all_centroids['x'][i] - target_position[0]) +
-                                     np.square(all_centroids['y'][i] - target_position[1]))
-                             for i in range(len(all_centroids['x']))]
+        all_centroid_dist = [np.sqrt(np.square(centroid_dict['x'][i] - target_position[0]) +
+                                     np.square(centroid_dict['y'][i] - target_position[1]))
+                             for i in range(len(centroid_dict['x']))]
     else:
         # compute the angular distance of the corrected centroid time series to the target star position
-        # all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - target_position[0])) +
-        #                              np.square(all_centroids['y'][i] - target_position[1]))
-        #                      for i in range(len(all_centroids['x']))]
-        all_centroid_dist = [np.sqrt(np.square((all_centroids['x'][i] - tce['ra'])) +
-                                     np.square(all_centroids['y'][i] - tce['dec']))
-                             for i in range(len(all_centroids['x']))]
+        # all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - target_position[0])) +
+        #                              np.square(centroid_dict['y'][i] - target_position[1]))
+        #                      for i in range(len(centroid_dict['x']))]
+        all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - tce['ra'])) +
+                                     np.square(centroid_dict['y'][i] - tce['dec']))
+                             for i in range(len(centroid_dict['x']))]
 
     # # get the across quarter average oot estimate using only finite and oot values
     # avg_centroid_oot_dist_global = np.median(np.concatenate([all_centroid_dist[i][oot_idxs[i]]
     #                                                          for i in range(len(all_centroid_dist))]))
-    # spline_centroid_dist = kepler_spline.fit_kepler_spline(all_time, all_centroid_dist, verbose=False)[0]
+    # spline_centroid_dist = kepler_spline.fit_kepler_spline(time_arrs, all_centroid_dist, verbose=False)[0]
     # # center the offset centroid distance to the across quarter average oot estimate
     # all_centroid_dist = [all_centroid_dist[i] / np.median(all_centroid_dist[i][oot_idxs[i]]) *
     #                      avg_centroid_oot_dist_global
@@ -841,7 +848,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
         all_centroid_dist = [centroid_dist_arr * 3600 for centroid_dist_arr in all_centroid_dist]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(all_time,
+        utils_visualization.plot_dist_centroids(time_arrs,
                                                 all_centroid_dist,
                                                 None,
                                                 None,
@@ -852,9 +859,9 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
 
     # impute the time series with Gaussian noise based on global estimates of median and std
     if config['gap_imputed']:
-        time, all_centroid_dist = imputing_gaps(all_time, all_centroid_dist, gap_time)
+        time, all_centroid_dist = imputing_gaps(time_arrs, all_centroid_dist, gap_time)
 
-    time = np.concatenate(all_time)
+    time = np.concatenate(time_arrs)
     centroid_dist = np.concatenate(all_centroid_dist)
 
     return time, centroid_dist  # , add_info
@@ -1027,6 +1034,8 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     data_views['time_centroid_distFDL'] = time_centroidFDL
     data_views['centroid_distFDL'] = centroid_distFDL
     data_views['errors'] = data['errors']
+    if config['satellite'] == 'kepler':
+        data_views['quarter_timestamps'] = data['quarter_timestamps']
 
     return data_views
 
@@ -1068,7 +1077,8 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
 
 
 def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases, keep_odd_even_order,
-                            it_cadences_per_thr, num_cadences_per_h, extend_method, augmentation=False):
+                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None,
+                            augmentation=False):
     """ Splits a 1D time series phases using the detected orbital period and epoch. Extracts `n_max_phases` from the
     time series.
 
@@ -1085,6 +1095,9 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       num_cadences_per_h: float, number of cadences sampled per hour in the time series.
       extend_method: str, method used to deal with examples with less than `n_max_phases`. If 'zero_padding', baseline
       phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
+      quarter_timestamps: dict, each value is a list. The key is the quarter id and the value is a list with the
+      start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
+      sampling takes into account transits from different quarters.
       augmentation: bool; if True samples cycles with replacement.
 
     Returns:
@@ -1102,6 +1115,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
 
     expected_num_it_cadences = duration * num_cadences_per_h
 
+    # find mid-transit points in [time[0], t0] and [t0, time[-1]]
     k_min, k_max = int(np.ceil((t0 - time[0]) / period)), int(np.ceil((time[-1] - t0) / period))
     epochs = [t0 - k * period for k in range(k_min)]
     epochs += [t0 + k * period for k in range(1, k_max)]
@@ -1113,11 +1127,11 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     odd_even_id_arr[1::2] = 1
 
     # fold time array over the estimated period to create phase array
-    if not augmentation:
-        phase = util.phase_fold_time(time, period, t0)
-    else:
-        phase, sampled_idxs, _ = util.phase_fold_time_aug(time, period, t0)
-        timeseries = timeseries[sampled_idxs]
+    # if not augmentation:
+    phase = util.phase_fold_time(time, period, t0)
+    # else:
+    #     phase, sampled_idxs, _ = util.phase_fold_time_aug(time, period, t0)
+    #     timeseries = timeseries[sampled_idxs]
 
     # split time series over phases
     diff_phase = np.diff(phase, prepend=np.nan)
@@ -1185,36 +1199,150 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             return None, None, 0, None
 
     # choosing a random consecutive set of phases if there are more than the requested maximum number of phases
-    if n_obs_phases > n_max_phases:
-        chosen_phases_st = np.random.randint(n_obs_phases - n_max_phases)
-        chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
-        time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
-        timeseries_split = [timeseries_split[chosen_phase] for chosen_phase in chosen_phases]
-        phase_split = [phase_split[chosen_phase] for chosen_phase in chosen_phases]
-        odd_even_obs = [odd_even_obs[chosen_phase] for chosen_phase in chosen_phases]
-        n_obs_phases = len(time_split)
-    elif n_obs_phases < n_max_phases:
-        n_miss_phases = n_max_phases - n_obs_phases
-        if extend_method == 'zero_padding':  # new phases are assigned baseline value
-            # new phases have median number of cadences of observed phases
-            med_n_cadences = np.median([time_split[phase_i] for phase_i in range(n_obs_phases)])
-            # linear phase space
-            phase_split_miss = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
-            phase_split += [phase_split_miss] * n_miss_phases
-            timeseries_split += [np.ones(med_n_cadences, dtype='float')] * n_miss_phases  # baseline value (1)
-            time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
-        elif extend_method == 'copy_phases':  # phases are copied from the start
-            n_full_group_phases = n_max_phases // n_obs_phases
-            n_partial_group_phases = n_max_phases % n_obs_phases
-            phase_split = list(phase_split) * n_full_group_phases + \
-                           list(phase_split[:n_partial_group_phases])
-            time_split = list(time_split) * n_full_group_phases + \
-                          list(time_split[:n_partial_group_phases])
-            timeseries_split = list(timeseries_split) * n_full_group_phases + \
-                                list(timeseries_split[:n_partial_group_phases])
-            n_obs_phases = len(time_split)
-        else:
-            raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
+    if quarter_timestamps is None:
+            if n_obs_phases > n_max_phases:
+
+                chosen_phases_st = np.random.randint(n_obs_phases - n_max_phases)
+                chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
+
+                time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
+                timeseries_split = [timeseries_split[chosen_phase] for chosen_phase in chosen_phases]
+                phase_split = [phase_split[chosen_phase] for chosen_phase in chosen_phases]
+                odd_even_obs = [odd_even_obs[chosen_phase] for chosen_phase in chosen_phases]
+
+            elif n_obs_phases < n_max_phases:
+
+                if extend_method == 'zero_padding':  # new phases are assigned baseline value
+                    n_miss_phases = n_max_phases - n_obs_phases
+
+                    # zero phases have median number of cadences of observed phases
+                    med_n_cadences = np.median([time_split[phase_i] for phase_i in range(n_obs_phases)])
+                    # zero phases have median value of observed phases
+                    med_timeseries_val = np.median([timeseries_split[phase_i] for phase_i in range(n_obs_phases)])
+                    # linear phase space
+                    phase_split_miss = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
+
+                    phase_split += [phase_split_miss] * n_miss_phases
+                    timeseries_split += [med_timeseries_val * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
+                    time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
+                    odd_even_obs += [np.nan] * n_miss_phases
+
+                elif extend_method == 'copy_phases':  # phases are copied from the start
+
+                    n_full_group_phases = n_max_phases // n_obs_phases
+                    n_partial_group_phases = n_max_phases % n_obs_phases
+                    phase_split = np.concatenate((np.tile(phase_split, n_full_group_phases),
+                                                  phase_split[:n_partial_group_phases]), axis=1)
+
+                    time_split = list(time_split) * n_full_group_phases + \
+                                 list(time_split[:n_partial_group_phases])
+                    timeseries_split = list(timeseries_split) * n_full_group_phases + \
+                                       list(timeseries_split[:n_partial_group_phases])
+                    odd_even_obs = odd_even_obs * n_full_group_phases + odd_even_obs[:n_partial_group_phases]
+
+                else:
+                    raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
+
+    else:
+        # assign each phase to a season
+        n_seasons = 4
+        n_phases_per_season = n_max_phases // n_seasons
+        # n_phases_left = n_max_phases % n_seasons
+        t0_time_split = [time_phase[0] for time_phase in time_split]
+        season_phases = np.nan * np.ones(len(time_split))
+        for t_i, t in enumerate(t0_time_split):
+            for q, q_t in quarter_timestamps.items():
+                if t >= q_t[0] and t <= q_t[1]:
+                    season_phases[t_i] = q % n_seasons
+                    break
+
+        chosen_idx_phases_all_seasons = []
+        not_chosen_idxs_phases_all_seasons = []
+        # if extend_method == 'zero_padding':
+        #     phase_split_zero_padding = []
+        for season_i in range(n_seasons):
+            idxs_phases_in_season = np.where(season_phases == season_i)[0]  # get phases for this season
+            n_phases_in_season = len(idxs_phases_in_season)  # number of seasons available for this season
+            # more phases available than the requested number of phases per season
+            if n_phases_in_season >= n_phases_per_season:
+                # choose set of consecutive phases with random starting point
+                chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season)
+                chosen_idx_phases_season = \
+                    idxs_phases_in_season[chosen_phases_st: chosen_phases_st + n_phases_per_season]
+                # book keeping for phases not chosen
+                not_chosen_idxs_phases_all_seasons.append(np.setdiff1d(idxs_phases_in_season, chosen_idx_phases_season))
+            else:  # less phases available than the requested number of phases per season
+                chosen_idx_phases_season = idxs_phases_in_season
+                # not_chosen_idxs_phases_all_seasons.append([])  # no phases left unchosen
+
+            chosen_idx_phases_all_seasons.append(chosen_idx_phases_season)  # add chosen phases indices for this season
+
+        chosen_idx_phases_all_seasons = np.concatenate(chosen_idx_phases_all_seasons)
+        if len(not_chosen_idxs_phases_all_seasons) != 0:
+            not_chosen_idxs_phases_all_seasons = np.concatenate(not_chosen_idxs_phases_all_seasons)
+
+        # count number of chosen phases per season
+        # n_chosen_phases_per_season = [len(season_phases) for season_phases in chosen_idx_phases_all_seasons]
+        # total number of chosen phases
+        n_chosen_phases_all_seasons = len(chosen_idx_phases_all_seasons)
+
+        # # same for unchosen phases
+        # n_notchosen_phases_per_season = [len(season_phases) for season_phases in not_chosen_idxs_phases_all_seasons]
+        # n_notchosen_phases_all_seasons = len(not_chosen_idxs_phases_all_seasons)
+
+        n_phases_left = n_max_phases - n_chosen_phases_all_seasons
+
+        # add unchosen phases
+        # np.random.shuffle(not_chosen_idxs_phases_all_seasons)  # shuffle phases indices
+        if len(not_chosen_idxs_phases_all_seasons) != 0:
+            chosen_idx_phases_all_seasons = np.concatenate([chosen_idx_phases_all_seasons,
+                                                            not_chosen_idxs_phases_all_seasons[:n_phases_left]],
+                                                           dtype='int')
+        # not_chosen_idxs_phases_all_seasons = not_chosen_idxs_phases_all_seasons[n_phases_left:]
+
+        n_chosen_phases_all_seasons = len(chosen_idx_phases_all_seasons)
+        n_phases_left = n_max_phases - n_chosen_phases_all_seasons
+        if n_phases_left > 0:
+            if extend_method == 'copy_phases':
+                n_full_group_phases = n_max_phases // n_chosen_phases_all_seasons
+                n_partial_group_phases = n_max_phases % n_chosen_phases_all_seasons
+                chosen_idx_phases_all_seasons = \
+                    np.concatenate([np.tile(chosen_idx_phases_all_seasons, n_full_group_phases),
+                                    chosen_idx_phases_all_seasons[:n_partial_group_phases]],
+                                   axis=0)
+            elif extend_method == 'zero_padding':
+                # zero phases are flagged by index -1
+                chosen_idx_phases_all_seasons = \
+                    np.concatenate((chosen_idx_phases_all_seasons, -1 * np.ones(n_phases_left, dtype='int')), axis=1)
+                # zero phases have median number of cadences of observed phases
+                med_timeseries_val = np.median([time_split[phase_i] for phase_i in chosen_idx_phases_all_seasons])
+                # zero phases have median value of observed phases
+                med_n_cadences = np.median([time_split[phase_i] for phase_i in chosen_idx_phases_all_seasons])
+
+                # linear phase space
+                phase_split_zeropadding = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
+                time_split_zeroppading = np.nan * np.ones(med_n_cadences, dtype='float')
+                timeseries_split_zeropadding = med_timeseries_val * np.ones(med_n_cadences, dtype='float')
+            else:
+                raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
+
+        time_split_n, timeseries_split_n, phase_split_n, odd_even_obs_n = [], [], [], []
+        for chosen_phase in chosen_idx_phases_all_seasons:
+            if chosen_phase == -1:
+                phase_split_n.append(phase_split_zeropadding)
+                time_split_n.append(time_split_zeroppading)
+                timeseries_split_n.append(timeseries_split_zeropadding)
+                odd_even_obs_n.append(np.nan)
+            else:
+                time_split_n.append(time_split[chosen_phase])
+                timeseries_split_n.append(timeseries_split[chosen_phase])
+                phase_split_n.append(phase_split[chosen_phase])
+                odd_even_obs_n.append(odd_even_obs[chosen_phase])
+
+        time_split, timeseries_split, phase_split, odd_even_obs = time_split_n, timeseries_split_n, phase_split_n, \
+            odd_even_obs_n
+
+    n_obs_phases = len(time_split)
 
     if n_obs_phases == 0:
         return None, None, 0, None
@@ -1532,17 +1660,21 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                           tce['tce_duration'])
 
     # phase folding for flux time series
-    time_split, flux_split, n_phases_split, _ = phase_split_light_curve(data['time'],
-                            data['flux'],
-                            tce['tce_period'],
-                            tce['tce_time0bk'],
-                            tce['tce_duration'],
-                            config['n_max_phases'],
-                            config['keep_odd_even_order'],
-                            config['frac_it_cadences_thr'],
-                            config['sampling_rate_h'],
-                            config['phase_extend_method'],
-                            augmentation=False)
+    time_split, flux_split, n_phases_split, _ = phase_split_light_curve(
+        data['time'],
+        data['flux'],
+        tce['tce_period'],
+        tce['tce_time0bk'],
+        tce['tce_duration'],
+        config['n_max_phases'],
+        config['keep_odd_even_order'],
+        config['frac_it_cadences_thr'],
+        config['sampling_rate_h'],
+        config['phase_extend_method'],
+        augmentation=False,
+        quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config['quarter_sampling']
+        else None
+    )
 
     if n_phases_split < config['min_n_phases']:
         report_exclusion(config, tce, f'Only found {n_phases_split} phase, need at least {config["min_n_phases"]} to '
@@ -1669,7 +1801,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         glob_flux_view_var /= np.sqrt(bin_counts)  # divide number of cadences in each bin by SE of the mean
         binned_timeseries['Global Flux'] = (binned_time, glob_flux_view, glob_flux_view_var)
 
-        #create unfolded global flux views
+        # create unfolded global flux views
         unfolded_glob_flux_view = []
         unfolded_glob_flux_view_var = []
         for phase in range(n_phases_split):
