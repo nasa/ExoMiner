@@ -69,6 +69,7 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
         use_transformer=config['config']['use_transformer'],
         feature_map=config['feature_map'],
         shuffle_buffer_size=config['training']['shuffle_buffer_size'],
+        label_field_name=config['label_field_name'],
     )
     if 'val' in config['datasets']:
         val_input_fn = InputFn(
@@ -79,7 +80,8 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
-            feature_map=config['feature_map']
+            feature_map=config['feature_map'],
+            label_field_name=config['label_field_name'],
         )
     else:
         val_input_fn = None
@@ -224,7 +226,8 @@ def evaluate_model(config, logger=None):
                                 online_preproc_params=None,
                                 multiclass=config['config']['multi_class'],
                                 use_transformer=config['config']['use_transformer'],
-                                feature_map=config['feature_map']
+                                feature_map=config['feature_map'],
+                                label_field_name=config['label_field_name'],
                                 )
 
         callbacks_list = []
@@ -317,7 +320,8 @@ def predict_model(config, logger=None):
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
-            feature_map=config['feature_map']
+            feature_map=config['feature_map'],
+            label_field_name=config['label_field_name'],
         )
 
         scores[dataset] = model.predict(

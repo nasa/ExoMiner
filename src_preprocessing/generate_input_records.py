@@ -23,7 +23,6 @@ from src_preprocessing.preprocess import _process_tce
 from src_preprocessing.utils_generate_input_records import get_tess_tce_table, get_kepler_tce_table, shuffle_tce
 from utils.utils_dataio import is_yamlble
 from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
-# from paths import path_main
 from src_preprocessing.utils_preprocessing_io import report_exclusion
 
 

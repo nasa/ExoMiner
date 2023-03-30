@@ -54,7 +54,7 @@ class InputFnv2(object):
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
                  online_preproc_params=None, filter_data=None, category_weights=None, sample_weights=False,
                  multiclass=False, shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256,
-                 use_transformer=False, feature_map=None):
+                 use_transformer=False, feature_map=None, label_field_name='label'):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -79,6 +79,8 @@ class InputFnv2(object):
         :param prefetch_buffer_nsamples: int, number of samples which when divided by the batch size gives the number of
         batches prefetched
         :use_transformer: bool, set to True if using a transformer
+        :feature_map: dict, mapping of label to label id
+        :label_field_name: std, name for label stored in the TFRecord files
         :return:
         """
 
@@ -90,6 +92,7 @@ class InputFnv2(object):
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
+        self.label_field_name = label_field_name
 
         self.shuffle_buffer_size = shuffle_buffer_size
         self.shuffle_seed = shuffle_seed
@@ -133,7 +136,7 @@ class InputFnv2(object):
 
             # get labels if in TRAIN or EVAL mode
             if include_labels:
-                label_field = {'label': tf.io.FixedLenFeature([], tf.string)}
+                label_field = {self.label_field_name: tf.io.FixedLenFeature([], tf.string)}
                 parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
 
             if self.category_weights is not None and self.mode == 'TRAIN':
@@ -144,7 +147,7 @@ class InputFnv2(object):
                     value_dtype=tf.float32)
 
                 label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
-                example_weight = label_to_weight.lookup(parsed_label['label'])
+                example_weight = label_to_weight.lookup(parsed_label[self.label_field_name])
             elif self.sample_weights and self.mode == 'TRAIN':
                 sample_weight_field = {'sample_weight': tf.io.FixedLenFeature([], tf.float32)}
                 example_weight = tf.io.parse_single_example(serialized=serialized_example, features=sample_weight_field)
@@ -176,11 +179,11 @@ class InputFnv2(object):
             label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
             if include_labels:
                 # map label to integer
-                label_id = label_to_id.lookup(parsed_label['label'])
+                label_id = label_to_id.lookup(parsed_label[self.label_field_name])
 
                 # Ensure that the label_id is non negative to verify a successful hash map lookup.
                 assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
-                                               ["Unknown label string:", parsed_label['label']],
+                                               ["Unknown label string:", parsed_label[self.label_field_name]],
                                                name='assert_non-negativity')
 
                 with tf.control_dependencies([assert_known_label]):

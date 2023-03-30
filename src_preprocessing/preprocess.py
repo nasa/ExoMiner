@@ -1266,7 +1266,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             # more phases available than the requested number of phases per season
             if n_phases_in_season >= n_phases_per_season:
                 # choose set of consecutive phases with random starting point
-                chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season)
+                chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season + 1)
                 chosen_idx_phases_season = \
                     idxs_phases_in_season[chosen_phases_st: chosen_phases_st + n_phases_per_season]
                 # book keeping for phases not chosen

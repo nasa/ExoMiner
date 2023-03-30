@@ -14,14 +14,15 @@
 
 """Functions for reading Kepler data."""
 
+# 3rd party
 import os.path
-
 from astropy.io import fits
 import numpy as np
 # from tensorflow import gfile
 from tensorflow.io import gfile
 from astropy import wcs
 
+# local
 from src_preprocessing.light_curve import util
 # from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 

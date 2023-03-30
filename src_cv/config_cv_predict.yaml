@@ -7,11 +7,11 @@ logger: null
 #experiment: &experiment_name
 paths:
   # directory for predict run
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_1-24-2023_1544_predict_10-25-2022_1425
+  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/toi_418.01_score_study/cv_kepler-tess_weightedcats_1-24-2023_1544_predict_TOI418.01_minus1e-2arcsec_it_centroid_views
   # path to CV run to be used to predict
   cv_experiment_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_1-24-2023_1544
   # TFRecord directory
-  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/combined/cv_merged_10-13-2022/tfrecords_tessS40plus_predict/predict_corrected
+  tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/test_replace_features_toi_418.01_KP_1-25-2023_1421/minus1e-2arcsec_it_centroid_views
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/ConfigK
 

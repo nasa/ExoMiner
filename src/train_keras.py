@@ -53,7 +53,8 @@ def run_main(config, base_model, model_id, logger=None):
 
     # get labels for each dataset
     labels = {dataset: [] for dataset in config['datasets']}
-    original_labels = {dataset: [] for dataset in config['datasets']}
+    if config['label_field_name'] == 'label':
+        original_labels = {dataset: [] for dataset in config['datasets']}
 
     tfrec_files = [file for file in config['paths']['tfrec_dir'].iterdir() if file.name.split('-')[0]
                    in config['datasets']]
@@ -62,15 +63,17 @@ def run_main(config, base_model, model_id, logger=None):
         dataset = tfrec_file.name.split('-')[0]
 
         data_tfrec = get_data_from_tfrecord(tfrec_file,
-                                            {'label': 'string', 'original_label': 'string'},
+                                            {config['label_field_name']: 'string', 'original_label': 'string'},
                                             config['label_map'])
 
-        labels[dataset] += data_tfrec['label']
-        original_labels[dataset] += data_tfrec['original_label']
+        labels[dataset] += data_tfrec[config['label_field_name']]
+        if config['label_field_name'] == 'label':
+            original_labels[dataset] += data_tfrec['original_label']
 
     # convert from list to numpy array
     labels = {dataset: np.array(labels[dataset], dtype='uint8') for dataset in config['datasets']}
-    original_labels = {dataset: np.array(original_labels[dataset]) for dataset in config['datasets']}
+    if config['label_field_name'] == 'label':
+        original_labels = {dataset: np.array(original_labels[dataset]) for dataset in config['datasets']}
 
     # instantiate Keras model
     model = base_model(config, config['features_set']).kerasModel
@@ -115,6 +118,7 @@ def run_main(config, base_model, model_id, logger=None):
         use_transformer=config['config']['use_transformer'],
         feature_map=config['feature_map'],
         shuffle_buffer_size=config['training']['shuffle_buffer_size'],
+        label_field_name=config['label_field_name'],
     )
     if 'val' in config['datasets']:
         val_input_fn = InputFn(
@@ -126,7 +130,8 @@ def run_main(config, base_model, model_id, logger=None):
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
-            feature_map=config['feature_map']
+            feature_map=config['feature_map'],
+            label_field_name=config['label_field_name'],
         )
     else:
         val_input_fn = None
@@ -140,7 +145,8 @@ def run_main(config, base_model, model_id, logger=None):
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
-            feature_map=config['feature_map']
+            feature_map=config['feature_map'],
+            label_field_name=config['label_field_name']
         )
     else:
         test_input_fn = None
@@ -213,7 +219,7 @@ def run_main(config, base_model, model_id, logger=None):
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
             feature_map=config['feature_map'],
-
+            label_field_name=config['label_field_name'],
         )
 
         predictions[dataset] = model.predict(predict_input_fn(),
@@ -227,17 +233,18 @@ def run_main(config, base_model, model_id, logger=None):
                                              )
 
     # sort predictions per class based on ground truth labels
-    output_cl = {dataset: {} for dataset in config['datasets']}
-    for dataset in output_cl:
-        for original_label in config['label_map']:
-            # get predictions for each original class individually to compute histogram
-            if config['config']['multi_class']:
-                output_cl[dataset][original_label] = \
-                    predictions[dataset][np.where(original_labels ==
-                                                  original_label)][:, config['label_map'][original_label]]
-            else:
-                output_cl[dataset][original_label] = \
-                    predictions[dataset][np.where(original_labels[dataset] == original_label)]
+    if config['label_field_name'] == 'label':
+        output_cl = {dataset: {} for dataset in config['datasets']}
+        for dataset in output_cl:
+            for original_label in config['label_map']:
+                # get predictions for each original class individually to compute histogram
+                if config['config']['multi_class']:
+                    output_cl[dataset][original_label] = \
+                        predictions[dataset][np.where(original_labels ==
+                                                      original_label)][:, config['label_map'][original_label]]
+                else:
+                    output_cl[dataset][original_label] = \
+                        predictions[dataset][np.where(original_labels[dataset] == original_label)]
 
     # compute precision at top-k
     labels_sorted = {}

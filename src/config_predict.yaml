@@ -130,6 +130,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
+label_field_name: label
+
 # maps features' names to features names expected by the model
 feature_map: # null
   #  feature_name: feature_name_model
