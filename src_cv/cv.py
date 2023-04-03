@@ -66,7 +66,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     for dataset in run_params['datasets']:
         for tfrec_fp in run_params['datasets_fps'][dataset]:
             # get dataset of the TFRecord
-            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
+            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'])
             for field in data_aux:
                 data[dataset][field].extend(data_aux[field])
 
@@ -185,6 +185,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         #       f'{run_params["paths"]["experiment_dir"] / f"ranked_predictions_{dataset}"}...')
 
         data_df = pd.DataFrame(data[dataset])
+        # add label id
+        data_df['label_id'] = data_df[run_params['label_field_name']].apply(lambda x: run_params['label_map'][x])
 
         # sort in descending order of output
         if not run_params['config']['multi_class']:

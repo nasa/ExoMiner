@@ -22,6 +22,7 @@
 
 module list
 
+source ~/.bashrc
 # source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
 # source activate exoplnt_dl
 conda activate exoplnt_dl

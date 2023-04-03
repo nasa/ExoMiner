@@ -22,11 +22,15 @@ data_fields: # scalar data from TFRecords to add to ranking table
   'tce_plnt_num': 'int_scalar'
   #  'oi': 'float_scalar'
   'label': 'string'  # REQUIRED to run script
+  odd_even_flag: 'string'
+  sec_flag: 'string'
+  centroid_flag: 'string'
+  not_transit_like_flag: 'string'
   #  'TESS Disposition': 'string'
   'tce_period': 'float_scalar'
   'tce_duration': 'float_scalar'
   'tce_time0bk': 'float_scalar'
-  'original_label': 'string'
+#  'original_label': 'string'
 #  'transit_depth': 'float_scalar'
 #  'tce_depth': 'float_scalar'
   ruwe: 'float_scalar'
@@ -281,14 +285,16 @@ training:
   batch_size: 32
   #  ce_weights: null
   filter_data: null  # deprecated; useless
-  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
+  category_weights: # null  # category weights used in weighted loss; set to null for non-weighted loss
+    '0': 68.5
+    '1': 0.5
   #    PC: 1.0
   #    AFP: 0.5
   #    NTP: 1.0
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
 
-label_field_name: not_transit_like_flag
+label_field_name: odd_even_flag
 
 evaluation:
   batch_size: 32

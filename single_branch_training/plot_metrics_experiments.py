@@ -15,8 +15,9 @@ from src.utils_train import plot_loss_metric
 #%% Plot loss curves for all models in all CV iterations for a set of experiments
 
 # cv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
-cv_exp_dirs = [Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments/cv_kepler_single_branch_stellar_3-15-2023_0936'),
-               Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments/cv_kepler_single_branch_local_centroid_3-14-2023_1840')]  # [fp for fp in cv_root_dir.iterdir() if fp.is_dir()]
+cv_exp_dirs = [
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_3-31-2023_1215'),
+               ]
 
 # cv_exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments/cv_kepler_single_branch_local_centroid_3-11-2023_1026')
 
@@ -27,7 +28,7 @@ for cv_exp_dir in cv_exp_dirs:
     patience = 20
     metric = 'auc_pr'
 
-    save_dir = Path(f'/Users/msaragoc/Downloads/plot_loss_{metric}_{cv_exp_dir.name}')
+    save_dir = Path(cv_exp_dir / f'plot_loss_{metric}_{cv_exp_dir.name}')
     save_dir.mkdir(exist_ok=True)
 
     for cv_iter_dir in cv_iters_dirs:

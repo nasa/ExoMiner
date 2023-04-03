@@ -402,3 +402,208 @@ f.suptitle(f'Kepler UNKs\n Quality thr={thr}')
 f.tight_layout()
 f.savefig(plot_dir / f'hist_unk_kepler_tces_valid_diff_imgs_qm_thr{thr}.png')
 plt.close()
+
+#%% Study variation in quality metric intra-example
+
+qual_metric_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+plot_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/qual_metric_plots')
+plot_dir.mkdir(exist_ok=True)
+
+qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left',
+                                        validate='one_to_one')
+qual_metric_tbl = qual_metric_tbl.loc[qual_metric_tbl['tce_rogue_flag'] == 0]
+
+thr = -1
+
+
+def _get_valid_thr_quarters_stats(x, thr):
+
+    N_QUARTERS = 17
+    # q_value_cols = [f'q{q}_value' for q in range(1, N_QUARTERS + 1)]
+    q_valid_cols = [f'q{q}_valid' for q in range(1, N_QUARTERS + 1)]
+
+    q_valid_value_cols = [f'{k.split("_")[0]}_value' for k, v in x[q_valid_cols].items() if v]
+
+    return x[q_valid_value_cols].mean(), x[q_valid_value_cols].std(ddof=1)
+
+
+# qual_metric_tbl['valid_quarters'] = qual_metric_tbl.apply(lambda x: (x[q_value_cols] > thr).sum(), axis=1)
+qual_metric_tbl[['mean', 'std']] = qual_metric_tbl.apply(_get_valid_thr_quarters_stats, axis=1, args=(thr, ),
+                                                         result_type='expand')
+
+f, ax = plt.subplots(1, 2, figsize=(16, 8))
+ax[0].hist(qual_metric_tbl['std'], bins=np.linspace(0, 2, 100), edgecolor='k')
+ax[0].set_ylabel('Counts')
+ax[0].set_xlabel('Quality Metric std')
+ax[0].set_yscale('log')
+ax[0].set_xlim([0, 2])
+ax[0].grid(True)
+ax[1].hist(qual_metric_tbl['mean'], bins=np.linspace(-1, 1, 100), edgecolor='k')
+# ax[0].set_ylabel('Counts')
+ax[1].set_xlabel('Quality Metric mean')
+ax[1].set_yscale('log')
+ax[1].set_xlim([-1, 1])
+ax[1].grid(True)
+f.suptitle('Q1-Q17 DR25 TCEs')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_mean_std_qual_metric_allexamples.png')
+
+lbls = [
+    'PC',
+    'AFP',
+    'NTP',
+    'UNK',
+]
+for lbl in lbls:
+    qual_metric_tbl_lbl = qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl]
+
+    f, ax = plt.subplots(1, 2, figsize=(16, 8))
+    ax[0].hist(qual_metric_tbl_lbl['std'], bins=np.linspace(0, 2, 100), edgecolor='k')
+    ax[0].set_ylabel('Counts')
+    ax[0].set_xlabel('Quality Metric std')
+    ax[0].set_yscale('log')
+    ax[0].set_xlim([0, 2])
+    ax[0].grid(True)
+    ax[1].hist(qual_metric_tbl_lbl['mean'], bins=np.linspace(-1, 1, 100), edgecolor='k')
+    # ax[0].set_ylabel('Counts')
+    ax[1].set_xlabel('Quality Metric mean')
+    ax[1].set_yscale('log')
+    ax[1].set_xlim([-1, 1])
+    ax[1].grid(True)
+    f.suptitle(f'Q1-Q17 DR25 {lbl} TCEs')
+    f.tight_layout()
+    f.savefig(plot_dir / f'hist_mean_std_qual_metric_{lbl}.png')
+
+#%% check distribution of all quality metric values (not distribution of summary statistics)
+
+qual_metric_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+plot_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/qual_metric_plots')
+plot_dir.mkdir(exist_ok=True)
+
+qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left',
+                                        validate='one_to_one')
+qual_metric_tbl = qual_metric_tbl.loc[qual_metric_tbl['tce_rogue_flag'] == 0]
+
+qm_vals = {
+    'all': [],
+    'PC': [],
+    'AFP': [],
+    'NTP': [],
+    'UNK': [],
+}
+N_QUARTERS = 17
+q_valid_cols = [f'q{q}_valid' for q in range(1, N_QUARTERS + 1)]
+for tce_i, tce in qual_metric_tbl.iterrows():
+    q_valid_value_cols = [f'{k.split("_")[0]}_value' for k, v in tce[q_valid_cols].items() if v]
+    qm_vals['all'].extend(tce[q_valid_value_cols].to_list())
+    qm_vals[tce['label']].extend(tce[q_valid_value_cols].to_list())
+
+
+f, ax = plt.subplots()
+ax.hist(qm_vals['all'], bins=np.linspace(-1, 1, 100), edgecolor='k')
+ax.set_ylabel('Counts')
+ax.set_xlabel('Quality Metric')
+ax.set_yscale('log')
+ax.set_xlim([-1, 1])
+ax.grid(True)
+f.suptitle('Q1-Q17 DR25 TCEs')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_qual_metric_allexamples.png')
+
+lbls = [
+    'PC',
+    'AFP',
+    'NTP',
+    'UNK'
+]
+for lbl in lbls:
+
+    f, ax = plt.subplots()
+    ax.hist(qm_vals[lbl], bins=np.linspace(-1, 1, 100), edgecolor='k')
+    ax.set_ylabel('Counts')
+    ax.set_xlabel('Quality Metric')
+    ax.set_yscale('log')
+    ax.set_xlim([-1, 1])
+    ax.grid(True)
+    f.suptitle(f'Q1-Q17 DR25 {lbl} TCEs')
+    f.tight_layout()
+    f.savefig(plot_dir / f'hist_qual_metric_{lbl}.png')
+
+
+#%% check fraction of positive quality metric quarters
+
+qual_metric_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid_rv_posprob.csv')
+plot_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/qual_metric_plots')
+plot_dir.mkdir(exist_ok=True)
+
+qual_metric_tbl = qual_metric_tbl.merge(tce_tbl[['uid', 'label', 'tce_rogue_flag']], on='uid', how='left',
+                                        validate='one_to_one')
+qual_metric_tbl = qual_metric_tbl.loc[qual_metric_tbl['tce_rogue_flag'] == 0]
+
+thr = -1
+
+
+def _count_frac_thr_quarters(x, thr):
+
+    N_QUARTERS = 17
+    q_value_cols = [f'q{q}_value' for q in range(1, N_QUARTERS + 1)]
+    q_valid_cols = [f'q{q}_valid' for q in range(1, N_QUARTERS + 1)]
+
+    n_q_thr = ((x[q_value_cols] > thr) & (x[q_valid_cols])).sum()
+    n_q = x[q_valid_cols].sum()
+    # print(n_q, n_q_thr)
+
+    if n_q == 0:
+        return np.nan
+
+    return n_q_thr, n_q_thr / n_q
+
+
+qual_metric_tbl[['n_qs_pos', 'frac_qs_pos']] = qual_metric_tbl.apply(_count_frac_thr_quarters, axis=1, args=(thr, ),
+                                                                     result_type='expand')
+
+f, ax = plt.subplots(1, 2, figsize=(16, 8))
+ax[0].hist(qual_metric_tbl['n_qs_pos'], bins=np.linspace(0, 19, 18), edgecolor='k')
+ax[0].set_ylabel('Counts')
+ax[0].set_xlabel('Number Positive Quarter Metric Values')
+ax[0].set_yscale('log')
+ax[0].set_xlim([0, 18])
+ax[0].grid(True)
+ax[1].hist(qual_metric_tbl['frac_qs_pos'], bins=np.linspace(0, 1, 100), edgecolor='k')
+# ax[0].set_ylabel('Counts')
+ax[1].set_xlabel('Fraction Positive Quarter Metric Values')
+ax[1].set_yscale('log')
+ax[1].set_xlim([0, 1])
+ax[1].grid(True)
+f.suptitle('Q1-Q17 DR25 TCEs')
+f.tight_layout()
+f.savefig(plot_dir / f'hist_npos_qual_metric_allexamples.png')
+
+lbls = [
+    'PC',
+    'AFP',
+    'NTP',
+    'UNK',
+]
+for lbl in lbls:
+    qual_metric_tbl_lbl = qual_metric_tbl.loc[qual_metric_tbl['label'] == lbl]
+
+    f, ax = plt.subplots(1, 2, figsize=(16, 8))
+    ax[0].hist(qual_metric_tbl_lbl['n_qs_pos'], bins=np.linspace(0, 19, 18), edgecolor='k')
+    ax[0].set_ylabel('Counts')
+    ax[0].set_xlabel('Number Positive Quarter Metric Values')
+    ax[0].set_yscale('log')
+    ax[0].set_xlim([0, 18])
+    ax[0].grid(True)
+    ax[1].hist(qual_metric_tbl_lbl['frac_qs_pos'], bins=np.linspace(0, 1, 100), edgecolor='k')
+    # ax[0].set_ylabel('Counts')
+    ax[1].set_xlabel('Fraction Positive Quarter Metric Values')
+    ax[1].set_yscale('log')
+    ax[1].set_xlim([0, 1])
+    ax[1].grid(True)
+    f.suptitle(f'Q1-Q17 DR25 {lbl} TCEs')
+    f.tight_layout()
+    f.savefig(plot_dir / f'hist_npos_qual_metric_{lbl}.png')
