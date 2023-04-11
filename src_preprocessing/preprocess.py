@@ -271,7 +271,7 @@ def remove_non_finite_values(arrs):
 
         for arr in arrs:
             finite_idxs.append(np.isfinite(arr[sub_arr_i]))
-        finite_idxs = np.logical_and.reduce(finite_idxs, dtype='uint')
+        finite_idxs = np.logical_and.reduce(finite_idxs, dtype='bool')
 
         for arr_i in range(num_arrs):
             arrs[arr_i][sub_arr_i] = arrs[arr_i][sub_arr_i][finite_idxs]

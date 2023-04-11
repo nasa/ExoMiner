@@ -169,11 +169,18 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
         # get outputs before FC block for each model of the N branches
         output_layer_name = {
-            'single_branch_secondary': 'dropout',
-            'single_branch_local_centroid': 'dropout',
-            'single_branch_local_flux': 'dropout',
-            'single_branch_global_flux': 'dropout',
-            'single_branch_oddeven': 'dropout',
+            # 'single_branch_secondary': 'dropout',
+            # 'single_branch_local_centroid': 'dropout',
+            # 'single_branch_local_flux': 'dropout',
+            # 'single_branch_global_flux': 'dropout',
+            # 'single_branch_oddeven': 'dropout',
+            # 'single_branch_stellar': 'fc_prelu_stellar_scalar',
+            # 'single_branch_dvtcefit': 'fc_prelu_dv_tce_fit_scalar',
+
+            'single_branch_fpflags_sec': 'dropout',
+            'single_branch_fpflags_centroid': 'dropout',
+            'single_branch_fpflags_ntl': 'dropout',
+            'single_branch_fpflags_oddeven': 'dropout',
             'single_branch_stellar': 'fc_prelu_stellar_scalar',
             'single_branch_dvtcefit': 'fc_prelu_dv_tce_fit_scalar',
         }
@@ -192,10 +199,10 @@ def cv_run(cv_dir, data_shards_fps, run_params):
             with keras.utils.custom_object_scope(custom_objects):
                 model = load_model(filepath=model_fp, compile=False)
                 branch_model_name = '_'.join(model_fp.parents[3].name.split('_')[2:-2])
-                for l in model.layers:
-                    if l.name == stop_frozen_layer_name[branch_model_name]:
-                        break
-                    l.trainable = False
+                # for l in model.layers:
+                #     if l.name == stop_frozen_layer_name[branch_model_name]:
+                #         break
+                #     l.trainable = False
                 if output_layer_name[branch_model_name] == 'dropout':
                     layer_name = [l.name for l in model.layers if 'dropout' in l.name][0]
                 else:

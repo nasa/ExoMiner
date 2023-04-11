@@ -16,17 +16,17 @@ from src.utils_train import plot_loss_metric
 
 # cv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_exp_dirs = [
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_3-31-2023_1215'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_sec_4-8-2023_1246'),
                ]
 
 # cv_exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments/cv_kepler_single_branch_local_centroid_3-11-2023_1026')
 
+patience = 0
+metric = 'auc_pr'
+
 for cv_exp_dir in cv_exp_dirs:
     print(f'Iterating through experiment {cv_exp_dir}...')
     cv_iters_dirs = [fp for fp in cv_exp_dir.iterdir() if fp.is_dir()]
-
-    patience = 20
-    metric = 'auc_pr'
 
     save_dir = Path(cv_exp_dir / f'plot_loss_{metric}_{cv_exp_dir.name}')
     save_dir.mkdir(exist_ok=True)

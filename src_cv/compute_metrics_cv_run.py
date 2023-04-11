@@ -7,6 +7,7 @@ import pandas as pd
 from pathlib import Path
 from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy  # , TopKCategoricalAccuracy
 from sklearn.metrics import balanced_accuracy_score, average_precision_score
+import numpy as np
 
 # %%
 
@@ -55,7 +56,7 @@ cats = {
 }
 cats = None
 class_ids = [0, 1]
-top_k_vals = [50, 100, 250, 500, 750, 1000, 1500, 2000]  # , 2500]
+top_k_vals = [10, 20, 30, 40, 50, 75, 100, 150, 200]  #  [10, 20, 30, 40, 50, 75, 100, 150, 200]  # 100, 250, 500, 750, 1000, 1500, 2000]  # , 2500]
 datasets = [
     'train',
     'val',
@@ -65,7 +66,9 @@ datasets = [
 # cv experiment directory
 # cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_tessonlytrainingset_1-25-2023_1318')
 # cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
-cv_run_dirs = [Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_kepler_single_branch_fpflags_3-30-2023_1156/')]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
+cv_run_dirs = [
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_2330'),
+]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
 for cv_run_dir in cv_run_dirs:
     print(f'Getting metrics for experiment {cv_run_dir}...')
     for dataset in datasets:
@@ -129,7 +132,7 @@ for cv_run_dir in cv_run_dirs:
             for class_id in class_ids:
                 data_to_tbl[f'recall_class_{class_id}'].append(
                     ((ranking_tbl['label_id'] == class_id) & (ranking_tbl['predicted class'] == class_id)).sum() /
-                    len(ranking_tbl['label_id'] == class_id))
+                    (ranking_tbl['label_id'] == class_id).sum())
                 data_to_tbl[f'n_{class_id}'].append((ranking_tbl['label_id'] == class_id).sum())
 
             if cats is not None:
@@ -141,8 +144,11 @@ for cv_run_dir in cv_run_dirs:
 
             for k_val in top_k_vals:
                 precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
-                _ = precision_at_k.update_state(ranking_tbl['label_id'].to_list(), ranking_tbl['score'].to_list())
-                data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
+                if len(ranking_tbl['label_id']) >= k_val:
+                    _ = precision_at_k.update_state(ranking_tbl['label_id'].to_list(), ranking_tbl['score'].to_list())
+                    data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
+                else:
+                    data_to_tbl[f'precision_at_{k_val}'].append(np.nan)
 
         metrics_df = pd.DataFrame(data_to_tbl)
 
@@ -198,8 +204,8 @@ for cv_run_dir in cv_run_dirs:
 
             for class_id in class_ids:
                 data_to_tbl[f'recall_class_{class_id}'].append(((ranking_tbl['label_id'] == class_id) & (
-                        ranking_tbl['predicted class'] == class_id)).sum() \
-                                                           / len(ranking_tbl['label_id'] == class_id))
+                        ranking_tbl['predicted class'] == class_id)).sum() /
+                                                               (ranking_tbl['label_id'] == class_id).sum())
                 data_to_tbl[f'n_{class_id}'].append((ranking_tbl['label_id'] == class_id).sum())
 
             if cats is not None:

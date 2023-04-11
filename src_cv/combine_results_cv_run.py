@@ -7,7 +7,10 @@ import pandas as pd
 # %% Combine predictions from all CV iterations in the used dataset
 
 # cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
-cv_run_dirs = [Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_frozenbeforefcconv_3-22-2023_1440')]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
+cv_run_dirs = [
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_2330'),
+    # Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_ntl_4-5-2023_0007')
+               ]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
 for cv_run_dir in cv_run_dirs:
 
     # cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_full_exominer_3-9-2023_1147')

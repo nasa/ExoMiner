@@ -9,16 +9,19 @@ import pandas as pd
 
 #%%
 
-cv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
+# cv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_exp_dirs = [
-                  Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_3-14-2023_2348'),
-                  Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_full_exominer_3-9-2023_1147'),
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_3-21-2023_1255'),
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_trainalllayers_3-22-2023_0944'),
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_combine_frozenbeforefcconv_3-22-2023_1440'),
-               ] + \
-                   [fp for fp in cv_root_dir.iterdir() if fp.is_dir()]
-save_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/')
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_ntl_4-5-2023_1042'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_centroid_4-4-2023_1027'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_centroid_allfeatureskepler_4-10-2023_0937'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_sec_4-4-2023_0049'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_sec_4-8-2023_1246'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_4-3-2023_1612'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_4-6-2023_1019'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_1543'),
+    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_2330')
+               ]  # + [fp for fp in cv_root_dir.iterdir() if fp.is_dir()]
+save_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments')
 datasets = [
     # 'train',
     # 'val',
@@ -33,12 +36,33 @@ stats = [
 n_samples = 10  # number of CV folds
 
 metrics = [
-    'auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy',
-    'balanced accuracy', 'avg precision', 'precision at 50',
-    'precision at 100', 'precision at 250', 'precision at 500',
-    'precision at 750', 'precision at 1000', 'precision at 1500',
-    'precision at 2000', 'accuracy class 0', 'accuracy class 1',
-    'recall PC', 'recall AFP', 'recall NTP', 'n_PC', 'n_AFP', 'n_NTP'
+    'auc_pr',
+    'auc_roc',
+    'precision',
+    'recall',
+    'accuracy',
+    'balanced_accuracy',
+    'avg_precision',
+    # 'precision at 50',
+    # 'precision at 100',
+    # 'precision at 250',
+    # 'precision at 500',
+    # 'precision at 750',
+    # 'precision at 1000',
+    # 'precision at 1500',
+    # 'precision at 2000',
+    # 'accuracy class 0',
+    # 'accuracy class 1',
+    # 'recall PC',
+    # 'recall AFP',
+    # 'recall NTP',
+    # 'n_PC',
+    # 'n_AFP',
+    # 'n_NTP',
+    'recall_class_0',
+    'recall_class_1',
+    'n_0',
+    'n_1',
 ]
 
 for dataset in datasets:

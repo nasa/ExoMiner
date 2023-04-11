@@ -5,7 +5,7 @@ rnd_seed: 2  # random seed used to select the validation fold in each CV iterati
 logger: null
 paths:
   # experiment directory; results are saved here
-  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_kepler_single_branch_fpflags_3-30-2023_1156
+  experiment_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_test_add_qual_metric_4-4-2023_1057
   # TFRecord directory with the CV folds
   tfrec_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/cv_keplerq1q17dr25-dv_03-07-2023_1053/tfrecords/eval_fpflags/
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
@@ -21,7 +21,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   'target_id': 'int_scalar'
   'tce_plnt_num': 'int_scalar'
   #  'oi': 'float_scalar'
-  'label': 'string'  # REQUIRED to run script
+  'label': 'string'
   odd_even_flag: 'string'
   sec_flag: 'string'
   centroid_flag: 'string'
