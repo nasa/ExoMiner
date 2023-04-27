@@ -1,8 +1,8 @@
 # Configuration parameters for explainability run using zeroing-out strategy
 
-exp_root_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/explainability_runs/
+exp_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/occlusion/
 #tfrec_dir: /nobackup/khauskne/Desktop/kepler-shift-all/records_shift_all/
-data_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/presaved_data/
+data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/tfrecord_to_dict_data/run_04-26-2023_1249
 #ce_weights_args = {'tfrec_dir':tfrec_dir,'datasets': ['train'],'label_fieldname': 'label','verbose': False }
 #verbose: false
 datasets:  # datasets for which to run explainability on; train must be present
@@ -13,7 +13,7 @@ datasets:  # datasets for which to run explainability on; train must be present
 features_set:
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -67,7 +67,7 @@ features_set:
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
 # Model's file path
-model_filepath: /Users/msaragoc/Downloads/khauskne_cluster/kdd/ensemble_model.h5
+model_filepath: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/shap1/shap1_1-10-2022/results_ensemble/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_explainability_allfeatures_1-6-2022/ensemble_model.h5
 
 # groupings of features that are replaced together
 features_grouping:

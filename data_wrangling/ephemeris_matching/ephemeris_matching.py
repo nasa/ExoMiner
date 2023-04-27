@@ -181,9 +181,13 @@ if __name__ == '__main__':
 
     # load table with start and end timestamps for each sector run
     # sector_timestamps_tbl = pd.read_csv(root_dir / 'sector_times_btjd.csv')
-    sector_timestamps_tbl = pd.read_csv(root_dir / 'all_sectors_times_btjd_start_end.csv')
+    sector_timestamps_tbl_fp = root_dir / 'all_sectors_times_btjd_start_end.csv'
+    sector_timestamps_tbl = pd.read_csv(sector_timestamps_tbl_fp)
+    print(f'Using sector timestamps table {sector_timestamps_tbl_fp}')
+
     # load TOI catalog
-    toi_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/tois_catalog/exofop_toilists_1-26-2023.csv')
+    toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/tois_catalog/exofop_toilists_1-26-2023.csv')
+    toi_tbl = pd.read_csv(toi_tbl_fp)
     toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
     toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid'}, inplace=True)
     # toi_tbl = toi_tbl.loc[toi_tbl['period'] != 0]
@@ -196,16 +200,20 @@ if __name__ == '__main__':
     # create experiment directory
     exp_dir = root_dir / f'{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     exp_dir.mkdir(exist_ok=True)
+    print(f'Run {exp_dir}')
     save_dir = exp_dir / 'sector_run_tic_tbls'
     save_dir.mkdir(exist_ok=True)
     plot_dir = exp_dir / 'bin_ts_plots'
     plot_dir.mkdir(exist_ok=True)
 
     plot_prob = 0.01  # 0.01
+    print(f'Plot probability: {plot_prob}')
     sampling_interval = 2 / 60 / 24  # sampling rate for binary time series
+    print(f'Sampling interval for binary time series: {sampling_interval}')
 
     # targets_arr = sector_timestamps_tbl['target']  # tce_tbl.loc[~tce_tbl['TOI'].isna(), 'target_id'][:5]  # tce_tbl.loc[(tce_tbl['target_id'].isin(sector_timestamps_tbl['target'])), 'target_id'].unique()  # & (tce_tbl['sector_run'].isin(sector_timestamps_tbl['sector'])
     targets_arr = tce_tbl['target_id'].unique()
+    print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     # sequential option
     # match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,

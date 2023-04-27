@@ -33,7 +33,7 @@ def get_start_end_timestamps_tics_sector_run(sector_dir):
             target_timestamps['end'].append(np.nan)
 
     target_timestamps = pd.DataFrame(target_timestamps)
-    target_timestamps['sector'] = int(sector_dir.name.split('_')[-1])
+    target_timestamps['sector'] = int(sector_dir.name[1:])
 
     return target_timestamps
 

@@ -76,7 +76,7 @@ def tess_filenames(base_dir,
                    ticid,
                    sectors,
                    check_existence=True):
-    """ Returns the light curve filenames for a TESS target star.
+    """ Returns the light curve filenames for a TESS target star in 2-min cadence data.
 
     This function assumes the file structure of the Mikulski Archive for Space Telescopes
     (https://archive.stsci.edu/missions-and-data/transiting-exoplanet-survey-satellite-tess/data-products.html).
@@ -85,42 +85,33 @@ def tess_filenames(base_dir,
     sector_${sector}/tess${sector_obs_date}-s00${sector}-${tic_id}-0${scid}-s_lc.fits,
 
     where:
-    sector is the observed sector;
-    sector_obs_date is the timestamp associated with the file (yyyydddhhmmss format);
-    tic_id is target identifier that refers to an object in the TESS Input Catalog;
-    scid is the identifier of the spacecraft configuration map used to process this data;
-    s denotes the cosmic ray mitigation procedure performed on the spacecraft
+        sector is the observed sector;
+        sector_obs_date is the timestamp associated with the file (yyyydddhhmmss format);
+        tic_id is target identifier that refers to an object in the TESS Input Catalog;
+        scid is the identifier of the spacecraft configuration map used to process this data;
+        s denotes the cosmic ray mitigation procedure performed on the spacecraft
 
     Args:
-    base_dir: Base directory containing TESS data
+    base_dir: Base directory containing TESS 2-min cadence data
     ticid: Id of the TESS target star. May be an int or a possibly zero-padded string
     sectors: list of observation sector(s)
-    # multisector: str, either 'table' or 'no-table'; if 'table', the sectors list defines from which sectors to extract
-    # the TCE; if 'no-table', then looks for the target star in all the sectors in `sectors`.
     check_existence: If True, only return filenames corresponding to files that exist
 
     Returns:
     A list of filepaths to the FITS files for a given TIC and observation sector(s)
-    # A string containing all the sectors in which the TCE was observed separated by a space
     """
 
     # initialize variables
     filenames = []
-    # tce_sectors = ''
 
     # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
     tess_id = str(ticid).zfill(16)
-
-    # if multisector:  # multi-sector run
-    #     sectors = [int(sector) for sector in sectors.split(' ')]
-    # else:  # single-sector run
-    #     sectors = [sectors]
 
     for sector in sectors:
 
         sector_timestamp = SECTOR_ID[sector][0]  # timestamp associated with the file (yyyydddhhmmss format)
 
-        # A zero - padded, four - digit identifier of the spacecraft configuration map used to process this data.
+        # a zero - padded, four - digit identifier of the spacecraft configuration map used to process this data.
         scft_configmapid = SECTOR_ID[sector][1]
 
         # zero-padded 2-digit integer indicating the sector in which the data were collected
@@ -131,11 +122,51 @@ def tess_filenames(base_dir,
 
         if not check_existence or gfile.exists(filename):
             filenames.append(filename)
-            # tce_sectors += '{} '.format(sector)
+
     # else:
     #     print("File {} does not exist.".format(filename))
 
     return filenames  # , tce_sectors[:-1]
+
+
+def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):
+    """ Returns the light curve filenames for a TESS target star observed in the TESS SPOC FFI data.
+
+        This function assumes the filenames for a particular TESS target star have the following format:
+
+        ${tic_id:0:4}/${tic_id:4:8}/tic_id:8:12}/tic_id:12:16}/
+            hlsp_tess-spoc_tess_phot_${tic_id}-$s{sector_id}_tess_v1_lc.fits,
+
+        where:
+            tic_id is the TESS id left-padded with zeros to length 16;
+            sector_id is the filename sector run left-padded with zeros to length 4;
+
+        Args:
+        base_dir: str, base directory containing TESS SPOC FFI data.
+        tic_id: int, id of the TIC target star. It may be an int or a possibly zero-padded string.
+        sector_run: list of ints, for all the sector runs the TIC was observed.
+        check_existence: If True, only return filenames corresponding to files that exist (not all stars have data for
+        all sector runs).
+
+        Returns:
+        A list of filenames.
+    """
+
+    # pad the TIC id with zeros to length 16
+    tic_id = f'{tic_id}'.zfill(16)
+    # pad the sector runs ids with zeros to length 4
+    sector_runs_ids = [f'{sector_i}'.zfill(4) for sector_i in sector_run]
+
+    filenames = []
+    for sector_run_id in sector_runs_ids:
+        base_dir_sector_run = os.path.join(base_dir, f's{sector_run_id}', 'target', tic_id[0:4], tic_id[4:8], tic_id[8:12], tic_id[12:16])
+        base_name = f'hlsp_tess-spoc_tess_phot_{tic_id}-s{sector_run_id}_tess_v1_lc.fits'
+        filename = os.path.join(base_dir_sector_run, base_name)
+        # not all stars have data for all sector runs
+        if not check_existence or gfile.exists(filename):
+            filenames.append(filename)
+
+    return filenames
 
 
 def read_tess_light_curve(filenames,

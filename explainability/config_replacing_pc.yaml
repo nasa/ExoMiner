@@ -1,12 +1,12 @@
 # Configuration parameters for explainability run using representative PC blocking strategy
 
-exp_root_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/explainability_runs/
+exp_root_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/model_pc_replacement
 num_PCs: 2  # number of representative PCs used
 best_pcs_score_thr: 0.98  # score threshold used to select set of candidates to representative PCs
 num_trials:  2  # number of trials per number of representative PCs
 
 #tfrec_dir: /nobackup/khauskne/Desktop/kepler-shift-all/records_shift_all/
-data_dir: /Users/msaragoc/Downloads/khauskne_cluster/kdd/presaved_data/
+data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/tfrecord_to_dict_data/run_04-26-2023_1249
 #verbose: false
 datasets:  # datasets for which to run explainability on; train must be present
   - train
@@ -16,7 +16,7 @@ datasets:  # datasets for which to run explainability on; train must be present
 features_set:
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -70,7 +70,7 @@ features_set:
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
 # Model's file path
-model_filepath: /Users/msaragoc/Downloads/khauskne_cluster/kdd/ensemble_model.h5
+model_filepath: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/explainability/shap1/shap1_1-10-2022/results_ensemble/keplerdr25-dv_g301-l31_5tr_spline_nongapped_configK_explainability_allfeatures_1-6-2022/ensemble_model.h5
 
 # groupings of features that are replaced together
 features_grouping:

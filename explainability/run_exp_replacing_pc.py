@@ -18,113 +18,81 @@ from tensorflow.keras.models import load_model
 import yaml
 from datetime import datetime
 import logging
+import multiprocessing
 
 # local
-from utils import explain_branches_pcs, form_info_table_pcs
+from utils_replacing_pc import run_trial
 
-# load configuration for the explainability run
-path_to_yaml = Path('/kdd/config_replacing_pc.yaml')
-with(open(path_to_yaml, 'r')) as file:
-    run_config = yaml.safe_load(file)
 
-# create experiment directory
-exp_dir = Path(run_config['exp_root_dir']) / f'run_blocking_pc_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
-exp_dir.mkdir(exist_ok=True)
+if __name__ == '__main__':
 
-# save run configuration file
-with open(exp_dir / 'run_config.yaml', 'w') as config_file:
-    yaml.dump(run_config, config_file)
+    # load configuration for the explainability run
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_replacing_pc.yaml')
+    with(open(path_to_yaml, 'r')) as file:
+        run_config = yaml.safe_load(file)
 
-# set up logger
-logger = logging.getLogger(name=f'explainability run')
-logger_handler = logging.FileHandler(filename=exp_dir / f'run.log',
-                                     mode='w')
-logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
-logger.setLevel(logging.INFO)
-logger_handler.setFormatter(logger_formatter)
-logger.addHandler(logger_handler)
-logger.info(f'Starting explainability run {exp_dir.name}...')
+    # create experiment directory
+    exp_dir = Path(run_config['exp_root_dir']) / f'run_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+    exp_dir.mkdir(exist_ok=True)
 
-data_dir = Path(run_config['data_dir'])
+    # save run configuration file
+    with open(exp_dir / 'run_config.yaml', 'w') as config_file:
+        yaml.dump(run_config, config_file)
 
-# iterate over the data sets to get examples additional information
-logger.info('Loading additional data for examples in each dataset...')
-examples_info = {dataset:
-                     pd.DataFrame.from_dict(np.load(data_dir /
-                                                    f'{dataset}_data_params.npy', allow_pickle=True).item()[dataset])
-                 for dataset in run_config['datasets']}
+    # set up logger
+    logger = logging.getLogger(name=f'explainability run')
+    logger_handler = logging.FileHandler(filename=exp_dir / f'run.log',
+                                         mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting explainability run {exp_dir.name}...')
 
-# load model
-logger.info(f'Loading model from {run_config["model_filepath"]}')
-model = load_model(filepath=run_config['model_filepath'], compile=False)
-# model.summary()
+    data_dir = Path(run_config['data_dir'])
 
-# load data for the different data sets
-logger.info('Loading data for examples in each dataset...')
-all_data = {f'{dataset}': np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()
-            for dataset in run_config['datasets']}
+    # iterate over the data sets to get examples additional information
+    logger.info('Loading additional data for examples in each dataset...')
+    examples_info = {
+        dataset: pd.DataFrame.from_dict(
+            np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()['example_info'])
+        for dataset in run_config['datasets']}
 
-train_info = np.load(data_dir / 'train_data_params.npy', allow_pickle=True).item()
+    # load model
+    logger.info(f'Loading model from {run_config["model_filepath"]}')
+    model = load_model(filepath=run_config['model_filepath'], compile=False)
+    # model.summary()
 
-# load scores for all examples in the data sets
-full_dataset_scores = {dataset: model.predict(all_data[f'{dataset}']) for dataset in run_config['datasets']}
+    # load data for the different data sets
+    logger.info('Loading data for examples in each dataset...')
+    all_data = {f'{dataset}': np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()['features']
+                for dataset in run_config['datasets']}
 
-# select candidate examples to representative PCs
-best_PCs = np.where(full_dataset_scores['train'] > run_config['best_pcs_score_thr'])[0]
-logger.info(f'Number of candidate examples from the training set as representative PCs: {len(best_PCs)}')
+    # train_info = np.load(data_dir / 'all_train_data.npy', allow_pickle=True).item()['example_info']
 
-for trial_num in range(run_config['num_trials']):  # iterate over trials
+    # run inference on examples in the data sets to generate the full model scores
+    full_dataset_scores = {dataset: model.predict(all_data[f'{dataset}']) for dataset in run_config['datasets']}
 
-    logger.info(f'Trial {trial_num + 1}/{run_config["num_trials"]}')
+    # select indices of candidate examples to representative PCs (i.e., examples that have a model score > thr)
+    best_PCs = np.where(full_dataset_scores['train'] > run_config['best_pcs_score_thr'])[0]
+    n_best_pcs = len(best_PCs)
+    logger.info(f'Number of candidate examples from the training set as representative PCs: {len(best_PCs)}')
+    if n_best_pcs < run_config['num_PCs']:
+        raise ValueError(f'The number of candidate model PCs ({n_best_pcs}) in training set for thr '
+                         f'{run_config["best_pcs_score_thr"]} is less than the number of requested model PCs '
+                         f'({run_config["num_PCs"]})')
 
-    trial_run = f'exp_{run_config["num_PCs"]}_PCs_trial_{trial_num}'
-    trial_run_dir = exp_dir / trial_run
-    trial_run_dir.mkdir(exist_ok=True)
+    # for trial_num in range(run_config['num_trials']):  # iterate over trials
+    #     run_trial(trial_num, run_config, exp_dir, best_PCs, examples_info, model, all_data, full_dataset_scores)  # , logger)
 
-    # randomly select num_PCs out of the candidates to representative PCs
-    pc_inds = np.random.choice(best_PCs, run_config['num_PCs'])
-    logger.info(f'[Trial {trial_num + 1}/{run_config["num_trials"]}] Selected {run_config["num_PCs"]} examples from '
-                f'the training set as representative PCs')
+    nprocesses = 2
+    logger.info(f'Starting {nprocesses} processes for running {run_config["num_trials"]} trials...')
+    pool = multiprocessing.Pool(processes=nprocesses)
+    jobs = [(trial_num, run_config, exp_dir, best_PCs, examples_info, all_data, full_dataset_scores)
+            for trial_num in range(run_config['num_trials'])]
+    async_results = [pool.apply_async(run_trial, job) for job in jobs]
+    pool.close()
+    for async_result in async_results:
+        async_result.get()
 
-    # write which PCs were used as the best templates
-    with open(trial_run_dir / "PC_list.txt", "w") as text_file:
-        for best_example_ind in pc_inds:
-            text_file.write(f'KIC {train_info["train"]["target_id"][best_example_ind]}.'
-                            f'{train_info["train"]["tce_plnt_num"][best_example_ind]}\n')
-
-    for dataset in run_config['datasets']:  # iterate over the datasets
-
-        logger.info(f'[Trial {trial_num + 1}/{run_config["num_trials"]}] - Dataset {dataset}')
-
-        for pc_ind_i, pc_ind in enumerate(pc_inds):  # iterate over the PC templates
-
-            logger.info(f'[Trial {trial_num + 1}/{run_config["num_trials"]}, Dataset {dataset}] - '
-                        f'PC {pc_ind_i + 1}/{run_config["num_PCs"]}')
-
-            # iterate over the combinations of branches/features to be replaced
-            features_grouping_scores = {feature_grouping_name: []
-                                     for feature_grouping_name in run_config['features_grouping']}
-            for feature_grouping_name, feature_grouping in run_config['features_grouping'].items():
-
-                logger.info(f'[Trial {trial_num + 1}/{run_config["num_trials"]}, Dataset {dataset}, '
-                            f'PC {pc_ind_i + 1}/{run_config["num_PCs"]}] - Feature grouping {feature_grouping_name}')
-
-                explain_feature_grouping_scores = explain_branches_pcs([feature_grouping],
-                                                                    all_data[dataset],
-                                                                    all_data['train'],
-                                                                    model,
-                                                                    pc_ind
-                                                                    )
-                features_grouping_scores[feature_grouping_name] = explain_feature_grouping_scores
-
-            # put results into table
-            group = form_info_table_pcs(full_dataset_scores[dataset],
-                                        full_dataset_scores['train'],
-                                        features_grouping_scores,
-                                        pc_ind,
-                                        examples_info[dataset])
-
-            # save results for each representative PC into a csv file
-            group.to_csv(trial_run_dir / f'{dataset}_top_{pc_ind_i}.csv', index=False)
-
-logger.info(f'Finished explainability run.')
+    logger.info(f'Finished explainability run.')

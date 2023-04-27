@@ -109,7 +109,10 @@ def read_light_curve(tce, config):
         # sectors = [int(sect) for sect in tce['sectors'].split(' ')]
 
         # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
-        file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
+        if config['ffi_data']:
+            file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], tce.target_id, sectors)
+        else:
+            file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
 
         if not file_names:
             if not config['omit_missing']:

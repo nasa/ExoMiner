@@ -54,9 +54,9 @@ cats = {
         # 'T-NTP': 0,
     },
 }
-cats = None
+# cats = None
 class_ids = [0, 1]
-top_k_vals = [10, 20, 30, 40, 50, 75, 100, 150, 200]  #  [10, 20, 30, 40, 50, 75, 100, 150, 200]  # 100, 250, 500, 750, 1000, 1500, 2000]  # , 2500]
+top_k_vals = [50, 100, 250, 500, 750, 1000, 1500, 2000]  #  [10, 20, 30, 40, 50, 75, 100, 150, 200]  # 100, 250, 500, 750, 1000, 1500, 2000]  # , 2500]
 datasets = [
     'train',
     'val',
@@ -67,7 +67,10 @@ datasets = [
 # cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_tessonlytrainingset_1-25-2023_1318')
 # cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_run_dirs = [
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_2330'),
+    Path(
+        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/cv_kepler_single_branch_fpflags_combine_frozenbranches_4-17-2023_0922'),
+    Path(
+        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/cv_kepler_single_branch_fpflags_combine_frozenbeforefcconv_4-14-2023_1427')
 ]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
 for cv_run_dir in cv_run_dirs:
     print(f'Getting metrics for experiment {cv_run_dir}...')
@@ -80,7 +83,7 @@ for cv_run_dir in cv_run_dirs:
         metrics_lst += [f'recall_class_{class_id}' for class_id in class_ids]
         metrics_lst += [f'n_{class_id}' for class_id in class_ids]
         if cats is not None:
-            metrics_lst += [f'recall {cat}' for cat in cats[dataset]]
+            metrics_lst += [f'recall_{cat}' for cat in cats[dataset]]
             metrics_lst += [f'n_{cat}' for cat in cats[dataset]]
         data_to_tbl = {col: [] for col in metrics_lst}
 
@@ -137,10 +140,10 @@ for cv_run_dir in cv_run_dirs:
 
             if cats is not None:
                 for cat, cat_lbl in cats[dataset].items():
-                    data_to_tbl[f'recall_{cat}'].append(((ranking_tbl['original_label'] == cat) &
+                    data_to_tbl[f'recall_{cat}'].append(((ranking_tbl['label'] == cat) &
                                                          (ranking_tbl['predicted class'] == cat_lbl)).sum() /
-                                                        (ranking_tbl['original_label'] == cat).sum())
-                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['original_label'] == cat).sum())
+                                                        (ranking_tbl['label'] == cat).sum())
+                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['label'] == cat).sum())
 
             for k_val in top_k_vals:
                 precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
@@ -211,9 +214,9 @@ for cv_run_dir in cv_run_dirs:
             if cats is not None:
                 for cat, cat_lbl in cats[dataset].items():
                     data_to_tbl[f'recall_{cat}'].append(
-                        ((ranking_tbl['original_label'] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / (
-                                    ranking_tbl['original_label'] == cat).sum())
-                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['original_label'] == cat).sum())
+                        ((ranking_tbl['label'] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / (
+                                    ranking_tbl['label'] == cat).sum())
+                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['label'] == cat).sum())
 
             for k_val in top_k_vals:
                 precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)

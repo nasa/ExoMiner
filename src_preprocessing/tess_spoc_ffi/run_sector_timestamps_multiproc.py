@@ -8,7 +8,7 @@ import pandas as pd
 import multiprocessing
 
 # local
-from src_preprocessing.spoc_ffi.get_start_end_timestamps_sector_runs import get_start_end_timestamps_tics_sector_runs
+from src_preprocessing.tess_spoc_ffi.get_start_end_timestamps_sector_runs import get_start_end_timestamps_tics_sector_runs
 
 if __name__ == '__main__':
 

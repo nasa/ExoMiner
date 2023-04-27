@@ -50,7 +50,7 @@ def get_kepler_tce_table(config):
     # read the CSV file of Kepler KOIs.
     tce_table = pd.read_csv(config['input_tce_csv_file'])
     # tce_table = tce_table.sample(n=100)
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['77047356-2', '7816992-3', '11288072-2', '12365719-2'])]
+    # tce_table = tce_table.loc[tce_table['uid'].isin(['7778980-1', ])]
     # tce_table = tce_table.loc[tce_table['target_id'].isin([11442793])]
     tce_table['tce_depth'] = tce_table['transit_depth']
     tce_table["tce_duration"] /= 24  # Convert hours to days.
@@ -82,8 +82,9 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    # tce_table = tce_table.loc[tce_table['target_id'] == 178284730]
-    tce_table = tce_table.astype(dtype={
+    # tce_table = tce_table.loc[tce_table['sector_run'] == 47]
+    # tce_table = tce_table.loc[tce_table['uid'] == '459212272-1-S47']
+    cols_change_data_type = {
         # 'sectors': str,
         'sector_run': str,
         # 'TOI': str,
@@ -92,7 +93,8 @@ def get_tess_tce_table(config):
         'Comments': str,
         'TESS Disposition': str,
         'TFOPWG Disposition': str
-    })
+    }
+    tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
 
     # convert transit duration from hour to day
     tce_table["tce_duration"] /= 24

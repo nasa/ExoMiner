@@ -1,19 +1,21 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_unfolded_quarters_sampling_gapothertces_3-23-2023_1650
+output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_spoc_ffi_4-13-2023_1052
 # TCE table
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
-input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv
+input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
 # light curve FITS file directory
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
-lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
+lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
 dict_savedir: null
 
 using_mpi: false  # use MPI
 
+ffi_data: true  # set to true for SPOC FFI data
+
 shuffle: false
 shuffle_seed: 24
 
-satellite: kepler  # kepler or tess
+satellite: tess  # kepler or tess
 #tce_identifier: tce_plnt_num
 
 # skips target IDs that are not in the FITS files
@@ -21,7 +23,7 @@ omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 0.01
+plot_prob: 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -37,7 +39,7 @@ frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a ph
 # ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning
 phase_extend_method: copy_phases
-quarter_sampling: true  # sample transits from different seasons for Kepler
+quarter_sampling: false  # sample transits from different seasons for Kepler
 
 # split arrays if consecutive cadences are more than gapWidth days apart
 gapWidth: 0.75
@@ -110,7 +112,7 @@ scalar_params: [
 #    'tce_rb_tcount0',
     'boot_fap',
   # stellar parameters
-    'tce_smass',
+#    'tce_smass',
     'tce_sdens',
     'tce_steff',
     'tce_slogg',

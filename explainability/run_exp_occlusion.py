@@ -16,10 +16,10 @@ from datetime import datetime
 import logging
 
 # local
-from utils import explain_branches_occlusion, form_info_table_occlusion
+from utils_occlusion import explain_branches_occlusion, form_info_table_occlusion
 
 # load configuration for the explainability run
-path_to_yaml = Path('/Users/msaragoc/Downloads/khauskne_cluster/kdd/config_occlusion.yaml')
+path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_occlusion.yaml')
 with(open(path_to_yaml, 'r')) as file:
     run_config = yaml.safe_load(file)
 
@@ -45,10 +45,10 @@ data_dir = Path(run_config['data_dir'])
 
 # iterate over the data sets to get examples additional information
 logger.info('Loading additional data for examples in each dataset...')
-examples_info = {dataset:
-                     pd.DataFrame.from_dict(np.load(data_dir /
-                                                    f'{dataset}_data_params.npy', allow_pickle=True).item()[dataset])
-                 for dataset in run_config['datasets']}
+examples_info = {
+    dataset: pd.DataFrame.from_dict(
+        np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()['example_info'])
+    for dataset in run_config['datasets']}
 
 # load model
 logger.info(f'Loading model from {run_config["model_filepath"]}')
@@ -57,12 +57,10 @@ model = load_model(filepath=run_config['model_filepath'], compile=False)
 
 # load data for the different data sets
 logger.info('Loading data for examples in each dataset...')
-all_data = {f'{dataset}': np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()
+all_data = {f'{dataset}': np.load(data_dir / f'all_{dataset}_data.npy', allow_pickle=True).item()['features']
             for dataset in run_config['datasets']}
 
-train_info = np.load(data_dir / 'train_data_params.npy', allow_pickle=True).item()
-
-# load scores for all examples in the data sets
+# run inference on examples in the data sets to generate the full model scores
 full_dataset_scores = {dataset: model.predict(all_data[f'{dataset}']) for dataset in run_config['datasets']}
 
 for dataset in run_config['datasets']:  # iterate over the datasets
@@ -76,12 +74,14 @@ for dataset in run_config['datasets']:  # iterate over the datasets
 
         logger.info(f'[Dataset {dataset}] - Feature grouping {feature_grouping_name}')
 
-        explain_feature_grouping_scores = explain_branches_occlusion([feature_grouping],
-                                                                     all_data[dataset],
-                                                                     model
-                                                                     )
+        explain_feature_grouping_scores = explain_branches_occlusion(
+            [feature_grouping],
+            all_data[dataset],
+            model
+        )
         features_grouping_scores[feature_grouping_name] = explain_feature_grouping_scores
 
+    # create table with scores for the different branch occlusion + full model for the data set
     group = form_info_table_occlusion(full_dataset_scores[dataset],
                                       features_grouping_scores,
                                       examples_info[dataset])
