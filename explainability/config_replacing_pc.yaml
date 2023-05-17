@@ -10,7 +10,7 @@ data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_
 #verbose: false
 datasets:  # datasets for which to run explainability on; train must be present
   - train
-  - val
+#  - val
   - test
 # features received by the model; each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 features_set:
@@ -74,50 +74,50 @@ model_filepath: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exop
 
 # groupings of features that are replaced together
 features_grouping:
-  global flux:
-    - global_flux_view_fluxnorm
-  local_flux:
-    - local_flux_view_fluxnorm
-    - transit_depth_norm
-  global_and_local_centroid:
-    - global_centr_view_std_noclip
-    - local_centr_view_std_noclip
-    - tce_dikco_msky_norm
-    - tce_dikco_msky_err_norm
-    - tce_fwm_stat_norm
-    - tce_dicco_msky_norm
-    - tce_dicco_msky_err_norm
-    - mag_cat
-#    global_centroid:
-#      - global_centr_view_std_noclip
-#    local_centroid:
-#      - local_centr_view_std_noclip
-#      - tce_dikco_msky_norm
-#      - tce_dikco_msky_err_norm
-#      - tce_fwm_stat_norm
-#      - tce_dicco_msky_norm
-#      - tce_dicco_msky_err_norm
-#      - mag_cat
-#    local_centroid_1:
-#      - local_centr_view_std_noclip
-#      - tce_dikco_msky_norm
-#      - tce_dikco_msky_err_norm
-#      - tce_fwm_stat_norm
-#      - tce_dicco_msky_norm
-#      - tce_dicco_msky_err_norm
-#    local_centroid_2:
-#      - mag_cat
-  odd_even:
-    - local_flux_odd_view_fluxnorm
-    - local_flux_even_view_fluxnorm
-    - even_se_oot_norm
-    - odd_se_oot_norm
-  secondary:
-    - tce_albedo_stat_norm
-    - wst_depth_norm
-    - tce_maxmes_norm
-    - tce_ptemp_stat_norm
-    - local_weak_secondary_view_max_flux-wks_norm
+#  global flux:
+#    - global_flux_view_fluxnorm
+#  local_flux:
+#    - local_flux_view_fluxnorm
+#    - transit_depth_norm
+#  global_and_local_centroid:
+#    - global_centr_view_std_noclip
+#    - local_centr_view_std_noclip
+#    - tce_dikco_msky_norm
+#    - tce_dikco_msky_err_norm
+#    - tce_fwm_stat_norm
+#    - tce_dicco_msky_norm
+#    - tce_dicco_msky_err_norm
+#    - mag_cat
+##    global_centroid:
+##      - global_centr_view_std_noclip
+##    local_centroid:
+##      - local_centr_view_std_noclip
+##      - tce_dikco_msky_norm
+##      - tce_dikco_msky_err_norm
+##      - tce_fwm_stat_norm
+##      - tce_dicco_msky_norm
+##      - tce_dicco_msky_err_norm
+##      - mag_cat
+##    local_centroid_1:
+##      - local_centr_view_std_noclip
+##      - tce_dikco_msky_norm
+##      - tce_dikco_msky_err_norm
+##      - tce_fwm_stat_norm
+##      - tce_dicco_msky_norm
+##      - tce_dicco_msky_err_norm
+##    local_centroid_2:
+##      - mag_cat
+#  odd_even:
+#    - local_flux_odd_view_fluxnorm
+#    - local_flux_even_view_fluxnorm
+#    - even_se_oot_norm
+#    - odd_se_oot_norm
+#  secondary:
+#    - tce_albedo_stat_norm
+#    - wst_depth_norm
+#    - tce_maxmes_norm
+#    - tce_ptemp_stat_norm
+#    - local_weak_secondary_view_max_flux-wks_norm
 #  secondary_1:
 #    - tce_albedo_stat_norm
 #    - tce_ptemp_stat_norm

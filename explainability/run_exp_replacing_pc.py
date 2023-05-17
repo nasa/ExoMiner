@@ -19,6 +19,7 @@ import yaml
 from datetime import datetime
 import logging
 import multiprocessing
+import argparse
 
 # local
 from utils_replacing_pc import run_trial
@@ -26,13 +27,21 @@ from utils_replacing_pc import run_trial
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_pcs', type=int, help='Number of model PCs', default=0)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_replacing_pc.yaml')
+    args = parser.parse_args()
+
     # load configuration for the explainability run
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_replacing_pc.yaml')
-    with(open(path_to_yaml, 'r')) as file:
+    with(open(args.config_file, 'r')) as file:
         run_config = yaml.safe_load(file)
 
+    if args.num_pcs is not None:
+        run_config['num_PCs'] = args.num_pcs
+
     # create experiment directory
-    exp_dir = Path(run_config['exp_root_dir']) / f'run_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+    exp_dir = Path(run_config['exp_root_dir']) / f'run_numPCs_{run_config["num_PCs"]}_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     exp_dir.mkdir(exist_ok=True)
 
     # save run configuration file

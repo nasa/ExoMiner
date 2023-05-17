@@ -19,24 +19,27 @@ def explain_branches_occlusion(branches_to_block, all_data_dataset, model):
         scores, NumPy array, scores for all examples in the dataset after replacing features
     """
 
-    data_to_modify = all_data_dataset.copy()
-
     # choose which features that are not replaced based on their index
     indices_to_keep = []
-    param_list = np.array(list(data_to_modify.keys()))
+    param_list = np.array(list(all_data_dataset.keys()))
     for branch in branches_to_block:  # iterate over the branches that are blocked
         for parameter in branch:  # iterate over the features in a given branch
             index = np.where(param_list == parameter)[0][0]
             indices_to_keep.append(index)
+
+    modified_data = {param: np.array(values) for param, values in all_data_dataset.items()}
+
     # get the indices of the features that are to be changed
-    indices_to_replace = np.setdiff1d(np.arange(len(data_to_modify.keys())), indices_to_keep)
-    params_to_perfect = param_list[indices_to_replace]
+    # indices_to_replace = np.setdiff1d(np.arange(len(data_to_modify.keys())), indices_to_keep)
+    # params_to_perfect = param_list[indices_to_replace]
+    params_to_zero = param_list[indices_to_keep]
+
     # zero out features in examples
-    for parameters in params_to_perfect:
-        data_to_modify[parameters][:] = np.zeros_like(data_to_modify[parameters][0])
+    for parameters in params_to_zero:
+        modified_data[parameters][:] = np.zeros_like(modified_data[parameters][0])
 
     # run inference for modified set of features
-    scores = model.predict(data_to_modify)
+    scores = model.predict(modified_data)
 
     return scores
 

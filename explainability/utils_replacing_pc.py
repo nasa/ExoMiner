@@ -37,12 +37,12 @@ def explain_branches_pcs(branches_to_block, all_data_dataset, all_data_train, mo
     indices_to_replace = np.setdiff1d(np.arange(len(data_to_modify.keys())), indices_to_keep)
     params_to_perfect = param_list[indices_to_replace]
     # replace non-blocked features in all examples with the features from the representative PC
+    modified_data = {param: np.array(values) for param, values in data_to_modify.items()}
     for parameters in params_to_perfect:
-        data_to_modify[parameters][:] = all_data_train[parameters][best_example_ind]
+        modified_data[parameters][:] = np.array(all_data_train[parameters][best_example_ind])
 
     # run inference for modified set of features
-    scores = model.predict(data_to_modify)
-
+    scores = model.predict(modified_data)
     return scores
 
 
@@ -81,9 +81,10 @@ def generate_scores_replace_pc(trial_num, pc_ind_i, pc_ind, all_data, examples_i
 
     Args:
         trial_num: int, trial run id
-        pc_ind_i:
-        pc_ind:
-        all_data: dict, features for all examples for each data set (keys are the data sets)
+        pc_ind_i: int, model PC iteration index
+        pc_ind: int, model PC index in the training set
+        all_data: dict, features for all examples for each data set (keys are the data sets), values are dictionaries
+        each key is a feature name that maps to a Numpy array [n_examples x n_dims_feats]
         examples_info: dict, information on examples for each data set (keys are the data sets)
         full_dataset_scores: dict, full model scores for all examples for each data set (keys are the data sets)
         dataset: str, data set to be run
