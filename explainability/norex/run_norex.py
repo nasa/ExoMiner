@@ -22,26 +22,35 @@ import multiprocessing
 import argparse
 
 # local
-from utils_replacing_pc import run_trial
+from norex_utils import run_trial
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_pcs', type=int, help='Number of model PCs', default=0)
+    parser.add_argument('--num_pcs', type=int, help='Number of model PCs', default=-1)
+    parser.add_argument('--thr_modelpcs', type=int, help='Threshold index for choosing model PCs based on their score', default=-1)
     parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_replacing_pc.yaml')
+                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_norex.yaml')
     args = parser.parse_args()
 
     # load configuration for the explainability run
     with(open(args.config_file, 'r')) as file:
         run_config = yaml.safe_load(file)
 
-    if args.num_pcs is not None:
+    if args.num_pcs != -1:
         run_config['num_PCs'] = args.num_pcs
+
+    if args.thr_modelpcs != -1:
+        run_config['num_PCs'] = args.num_pcs
+
+    # thr_modelpcs_arr = [0.5, 0.6, 0.7, 0.8, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.99]
+    # run_config['num_PCs'] = args.num_pcs
+    # run_config['best_pcs_score_thr'] = thr_modelpcs_arr[args.thr_modelpcs]
 
     # create experiment directory
     exp_dir = Path(run_config['exp_root_dir']) / f'run_numPCs_{run_config["num_PCs"]}_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+    # exp_dir = Path(run_config['exp_root_dir']) / f'run_num_model_pcs_{run_config["num_PCs"]}_thr_{run_config["best_pcs_score_thr"]}_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     exp_dir.mkdir(exist_ok=True)
 
     # save run configuration file
@@ -91,17 +100,18 @@ if __name__ == '__main__':
                          f'{run_config["best_pcs_score_thr"]} is less than the number of requested model PCs '
                          f'({run_config["num_PCs"]})')
 
-    # for trial_num in range(run_config['num_trials']):  # iterate over trials
-    #     run_trial(trial_num, run_config, exp_dir, best_PCs, examples_info, model, all_data, full_dataset_scores)  # , logger)
+    for trial_num in range(run_config['num_trials']):  # iterate over trials
+        logger.info(f'Running trial {trial_num + 1} out of {run_config["num_trials"]}...')
+        run_trial(trial_num, run_config, exp_dir, best_PCs, examples_info, all_data, full_dataset_scores)  # , logger)
 
-    nprocesses = 2
-    logger.info(f'Starting {nprocesses} processes for running {run_config["num_trials"]} trials...')
-    pool = multiprocessing.Pool(processes=nprocesses)
-    jobs = [(trial_num, run_config, exp_dir, best_PCs, examples_info, all_data, full_dataset_scores)
-            for trial_num in range(run_config['num_trials'])]
-    async_results = [pool.apply_async(run_trial, job) for job in jobs]
-    pool.close()
-    for async_result in async_results:
-        async_result.get()
+    # nprocesses = 2
+    # logger.info(f'Starting {nprocesses} processes for running {run_config["num_trials"]} trials...')
+    # pool = multiprocessing.Pool(processes=nprocesses)
+    # jobs = [(trial_num, run_config, exp_dir, best_PCs, examples_info, all_data, full_dataset_scores)
+    #         for trial_num in range(run_config['num_trials'])]
+    # async_results = [pool.apply_async(run_trial, job) for job in jobs]
+    # pool.close()
+    # for async_result in async_results:
+    #     async_result.get()
 
     logger.info(f'Finished explainability run.')

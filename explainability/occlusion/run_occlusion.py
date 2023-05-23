@@ -16,10 +16,10 @@ from datetime import datetime
 import logging
 
 # local
-from utils_occlusion import explain_branches_occlusion, form_info_table_occlusion
+from explainability.norex.norex_exclusion import explain_branches_occlusion, form_info_table_occlusion
 
 # load configuration for the explainability run
-path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/explainability/config_occlusion.yaml')
+path_to_yaml = Path('/explainability/occlusion/config_occlusion.yaml')
 with(open(path_to_yaml, 'r')) as file:
     run_config = yaml.safe_load(file)
 

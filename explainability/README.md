@@ -6,11 +6,11 @@ explaining scores output by the model for subject matter experts. The methods cu
 - SHapley Additive exPlanations (SHAP) values
 - Random Baseline
 - Feature Occlusion (zeroing out)
-- Model-based Positive Class Replacement
+- Normal Class Explainability (NOREX)
 
 ## Methods
 
-### SHAP
+### SHAP and SHAP1
 Check `README.md` in `shap`.
 
 ### Feature Occlusion (zeroing out) 
@@ -22,19 +22,19 @@ zeroing out a feature does not necessarily mean that it is not conveying any use
 i.e., that it is neutral for the classification of the example.
 
 Hyper-parameters
-- Change in score threshold
+- Change in explainability score threshold
 
 Algorithm
 1. For feature f_1, ..., f_L
       1. For example e_1, ..., e_K
          1. Replace feature f_l by zero array in example e_k.
          2. Use model to run inference on this modified example and produce an 'occlusion' score _occl_score_.
-         3. Subtract from the new score the original one, i.e., delta_score = occl_score - original_score
+         3. Subtract from the new score the original one, i.e., explain_score = occl_score - original_score
 
-Run script `run_exp_occlusion.py` to conduct a feature occlusion experiment. The configuration file 
+Run script `run_occlusion.py` to conduct a feature occlusion experiment. The configuration file 
 `config_occlusion.yaml` defines the parameters for the run.
 
-### Model-based Positive Class Replacement
+### Normal Class Explainability (NOREX)
 This method is based on the concept of planet that the model learns from the training data. A set of examples highly 
 scored by the model is chosen as representative prototypes of planets. For each one of these, groups of features are 
 sequentially replaced by the corresponding features from the example which we are trying to explain. If such replacement
@@ -49,8 +49,7 @@ examples is selected as prototypes. The results are then averaged over the trial
 Hyper-parameters
 - Number of planet prototypes
 - Score threshold for candidates to planet prototypes
-- Number of trials
-- Change in score threshold
+- Change in explainability score threshold
 
 Algorithm
 1. For trial t_1, ..., t_N
@@ -60,13 +59,14 @@ Algorithm
             1. For example e_1, ..., e_K
                1. Replace feature f_l in planet prototype p_m for corresponding feature in example e_k.
                2. Use model to run inference on this modified example, which generates a new score _replace_score_.
-               3. Subtract from the new score the original one, i.e., delta_score = replace_score - original_score.
+               3. Subtract from the new score the original one, i.e., explain_score = replace_score - original_score.
 
-Run script `run_exp_replacing_pc.py` to conduct a model-based positive class replacement experiment. The configuration 
-file `config_replacing_pc.yaml` defines the parameters for the run.
+Run script `run_norex.py` to conduct a model-based positive class replacement experiment. The configuration 
+file `config_norex.yaml` defines the parameters for the run.
 
 ### Random Explanations
-This method is a baseline method used to compare other explanability methods against random selection of explanations.
+This method is a baseline method used to compare other explanability methods against random selection of explanations. 
+Randomly produces an explanability score for each feature group.
 
 Hyper-parameters
 - Number of trials
@@ -80,5 +80,3 @@ Algorithm
    3. Compute mean of performance metrics across trials.
 
 Run script `Random Analysis.ipynb` to conduct random explanation runs.
-
-## Validation
