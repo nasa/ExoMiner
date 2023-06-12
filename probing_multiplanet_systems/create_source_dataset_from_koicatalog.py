@@ -1,5 +1,5 @@
 """
-Create data set.
+Create source data set from Cumulative KOI catalog.
 """
 
 import numpy as np
