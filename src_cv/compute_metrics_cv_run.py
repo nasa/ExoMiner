@@ -13,50 +13,52 @@ import numpy as np
 
 num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
+multiclass = True  # multiclass or bin class?
+target_score = 'score_AFP'  # get auc_pr metrics for different class labels
 
 # mapping of category/disposition to label id
 cats = {
     # data set (since each data set might contain different populations of examples)
     'train': {
         'PC': 1,
-        'AFP': 0,
+        'AFP': 2,
         'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 0,
-        # 'T-FP': 0,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'T-KP': 1,
+        'T-CP': 1,
+        'T-EB': 2,
+        'T-FP': 2,
+        'T-FA': 0,
+        'T-NTP': 0,
     },
     'val': {
         'PC': 1,
-        'AFP': 0,
+        'AFP': 2,
         'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 0,
-        # 'T-FP': 0,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'T-KP': 1,
+        'T-CP': 1,
+        'T-EB': 2,
+        'T-FP': 2,
+        'T-FA': 0,
+        'T-NTP': 0,
     },
     'test': {
         'PC': 1,
-        'AFP': 0,
+        'AFP': 2,
         'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 0,
-        # 'T-FP': 0,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'T-KP': 1,
+        'T-CP': 1,
+        'T-EB': 2,
+        'T-FP': 2,
+        'T-FA': 0,
+        'T-NTP': 0,
     },
 }
 # cats = None
-class_ids = [0, 1]
-top_k_vals = [50, 100, 250, 500, 750, 1000, 1500, 2000]  #  [10, 20, 30, 40, 50, 75, 100, 150, 200]  # 100, 250, 500, 750, 1000, 1500, 2000]  # , 2500]
+class_ids = [0, 1, 2]
+top_k_vals = [50, 100, 250, 500]  # , 2500]
 datasets = [
     'train',
     'val',
@@ -64,18 +66,17 @@ datasets = [
 ]
 
 # cv experiment directory
-# cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_tessonlytrainingset_1-25-2023_1318')
-# cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_run_dirs = [
-    Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/cv_kepler_single_branch_fpflags_combine_frozenbranches_4-17-2023_0922'),
-    Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/cv_kepler_single_branch_fpflags_combine_frozenbeforefcconv_4-14-2023_1427')
+    Path('/Users/msaragoc/Downloads/cv_merged_conv_6-14-2023_50/'),
 ]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
 for cv_run_dir in cv_run_dirs:
+
     print(f'Getting metrics for experiment {cv_run_dir}...')
+
     for dataset in datasets:
+
         print(f'Getting metrics for experiment {cv_run_dir} for data set {dataset}...')
+
         # compute metrics for each CV fold
         metrics_lst = ['fold', 'auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced_accuracy',
                        'avg_precision']
@@ -108,29 +109,33 @@ for cv_run_dir in cv_run_dirs:
             binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
             ranking_tbl = pd.read_csv(cv_iter_dir / f'ensemble_ranked_predictions_{dataset}set.csv')
+            ranking_tbl['label_id'] = ranking_tbl['label']
             # # exclude Kepler examples from set
             # ranking_tbl = ranking_tbl.loc[~ranking_tbl['original_label'].isin(['PC', 'AFP', 'NTP'])]
 
+            # if it is multi classification get specific score
+            scores = ranking_tbl[target_score].tolist() if multiclass else ranking_tbl['score'].tolist()
+
             data_to_tbl['fold'].extend([cv_iter_dir.name.split('_')[-1]])
 
-            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['auc_pr'].append(auc_pr.result().numpy())
 
-            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['auc_roc'].append(auc_roc.result().numpy())
 
-            _ = precision.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = precision.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['precision'].append(precision.result().numpy())
-            _ = recall.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = recall.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['recall'].append(recall.result().numpy())
 
-            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
             data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(ranking_tbl['label_id'],
                                                                             ranking_tbl['predicted class']))
 
-            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], ranking_tbl['score']))
+            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], scores))
 
             for class_id in class_ids:
                 data_to_tbl[f'recall_class_{class_id}'].append(
@@ -168,6 +173,10 @@ for cv_run_dir in cv_run_dirs:
             data_to_tbl = {col: [] for col in metrics_lst}
 
             ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
+            ranking_tbl['label_id'] = ranking_tbl['label']
+
+            # if it is multi classification get specific score
+            scores = ranking_tbl[target_score].tolist() if multiclass else ranking_tbl['score'].tolist()
 
             data_to_tbl['fold'].extend(['all'])
 
@@ -186,24 +195,24 @@ for cv_run_dir in cv_run_dirs:
 
             binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
-            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['auc_pr'].append(auc_pr.result().numpy())
 
-            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['auc_roc'].append(auc_roc.result().numpy())
 
-            _ = precision.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = precision.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['precision'].append(precision.result().numpy())
-            _ = recall.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = recall.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['recall'].append(recall.result().numpy())
 
-            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), ranking_tbl['score'].tolist())
+            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), scores)
             data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
             data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(ranking_tbl['label_id'],
                                                                             ranking_tbl['predicted class']))
 
-            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], ranking_tbl['score']))
+            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], scores))
 
             for class_id in class_ids:
                 data_to_tbl[f'recall_class_{class_id}'].append(((ranking_tbl['label_id'] == class_id) & (
@@ -226,35 +235,3 @@ for cv_run_dir in cv_run_dirs:
             metrics_df = pd.concat([metrics_df, pd.DataFrame(data_to_tbl)])
 
         metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=False)
-
-# #%% Per class accuracy and per category recall
-#
-# ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
-#
-# std_acc = accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class'])
-# bal_acc = balanced_accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class'])
-# # bin_acc = accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class'], average='binary', pos_label=1)
-# # avg_acc = accuracy_score(ranking_tbl['label'], ranking_tbl['predicted class'], average='macro')
-#
-# cats = {'PC': 1, 'AFP': 1, 'NTP': 1, 'UNK': 0}
-# cat_recall = {cat: np.nan for cat in cats}
-# class_ids = [0, 1]
-# class_accuracy = {class_id: np.nan for class_id in class_ids}
-# for cat, cat_lbl in cats.items():
-#     cat_recall[cat] = ((ranking_tbl['original_label'] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / \
-#                       (ranking_tbl['original_label'] == cat).sum()
-# for class_id in class_ids:
-#     class_accuracy[class_id] = (((ranking_tbl['label'] == class_id) & (ranking_tbl['predicted class'] == class_id)).sum() +
-#                          ((ranking_tbl['original_label'] != class_id) & (ranking_tbl['predicted class'] != class_id)).sum()) \
-#                         / len(ranking_tbl)
-#
-# with open(cv_run_dir / 'additional_metrics.txt', 'w') as add_metrics_file:
-#     add_metrics_file.write(f'Category to class id mapping: {cats}\n')
-#     add_metrics_file.write(f'\nBalanced accuracy: {bal_acc:.4f}\n')
-#     add_metrics_file.write(f'\nPer-category recall ----\n')
-#     for cat, cat_rec in cat_recall.items():
-#         add_metrics_file.write(f'Category {cat}: {cat_rec:.4}\n')
-#
-#     add_metrics_file.write(f'\nPer-class accuracy ----\n')
-#     for class_id, class_acc in class_accuracy.items():
-#         add_metrics_file.write(f'Class {class_id}: {class_acc:.4}\n')

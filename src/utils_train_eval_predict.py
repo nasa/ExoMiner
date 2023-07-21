@@ -17,7 +17,7 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
     callback.
 
     :param model: model, TF Keras model
-    :param config: dict, configuration for model hyper-parameters
+    :param config: dict, configuration for model hyperparameters
     :param model_dir_sub: Path, model directory
     :param model_id: int, model id
     :param logger: logger

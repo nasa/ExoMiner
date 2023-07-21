@@ -92,3 +92,36 @@ def plot_precision_at_k(labels_ord, k_curve_arr, save_path):
     ax.set_xlim([k_curve_arr[0], k_curve_arr[-1]])
     f.savefig(str(save_path) + '_misclassifiedatk.svg')
     plt.close()
+
+
+def plot_metric_curve(results_df, multiclass, save_dir):
+    """ Plot metric curves for training and validation.
+
+    Args:
+        results_df: pandas DataFrame, evaluation results for the model
+        multiclass: bool, True for multiclass
+        save_dir: Path, save directory
+
+    Returns:
+
+    """
+    # graph model history
+    num_epochs = len(results_df['epoch'])
+
+    if multiclass:  # if multiclass, use val_loss for graph
+        plt.plot(np.arange(0, num_epochs), results_df["loss"],
+            label="Training loss")
+        plt.plot(np.arange(0, num_epochs), results_df["val_loss"],
+            label="Validation loss")
+    else:  # else use val_auc_pr
+      plt.plot(np.arange(0, num_epochs), results_df["auc_pr"],
+            label="Training auc_pr")
+      plt.plot(np.arange(0, num_epochs), results_df["val_auc_pr"],
+            label="Validation auc_pr")
+    plt.legend()
+
+    # save graph
+    plt.tight_layout()
+    plt.show()
+    plt.savefig(save_dir / f'loss_graph.png')
+    plt.close()

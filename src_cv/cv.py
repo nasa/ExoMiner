@@ -20,7 +20,7 @@ import yaml
 import pandas as pd
 
 # local
-from models.models_keras import ExoMiner, TransformerExoMiner
+from models.models_keras import ExoMiner, TransformerExoMiner, UnfoldedConvExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run
@@ -159,6 +159,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         # threshold for classification
         if not run_params['config']['multi_class']:
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
+        else:
+            scores_classification[dataset] = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
 
     # # instantiate variable to get data from the TFRecords
     # data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
