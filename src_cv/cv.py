@@ -20,7 +20,7 @@ import yaml
 import pandas as pd
 
 # local
-from models.models_keras import ExoMiner, TransformerExoMiner
+from models.models_keras import ExoMiner, TransformerExoMiner, UnfoldedConvExoMiner
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run
@@ -44,8 +44,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # split training folds into training and validation sets by randomly selecting one of the folds as the validation
     # set
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    # data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    # data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
+    data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
+    data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
@@ -125,6 +125,9 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         # threshold for classification
         if not run_params['config']['multi_class']:
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
+        else:
+            temp = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
+            scores_classification[dataset] = temp
 
     # instantiate variable to get data from the TFRecords
     data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
@@ -164,7 +167,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # shutil.rmtree(cv_run_dir / 'norm_data')
     # # TODO: delete the models as well?
 
-    if run_params['logger']['logger'] is not None:
+    if run_params['logger'] is not None:
         run_params['logger'].info('Finished CV iteration.')
 
 
@@ -177,7 +180,7 @@ def cv():
     args = parser.parse_args()
 
     if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path('/nobackup/cyates2/data/yamls/config_cv_train_fluxvar_merged.yaml')
+        path_to_yaml = Path('/nobackup/cyates2/data/yamls/config_cv_train_baseline_TESS.yaml')
     else:  # use config file given as input
         path_to_yaml = Path(args.config_file)
 

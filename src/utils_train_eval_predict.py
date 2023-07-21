@@ -84,6 +84,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
             use_transformer=config['config']['use_transformer'],
+            # category_weights=config['training']['category_weights'],
             feature_map=config['feature_map']
         )
     else:
@@ -99,7 +100,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
                         batch_size=None,
                         epochs=config['training']['n_epochs'],
                         verbose=config['verbose_model'],
-                        # callbacks=config['callbacks_list']['train'],
+                        callbacks=config['callbacks_list']['train'],
                         validation_split=0.,
                         validation_data=val_input_fn() if val_input_fn is not None else None,
                         shuffle=True,  # does the input function shuffle for every epoch?
@@ -112,19 +113,28 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
                         workers=1,  # same
                         use_multiprocessing=False  # same
                         )
+
+    # graph model history
     model_history = pd.DataFrame(history.history)
     model_history['epoch'] = history.epoch
     num_epochs = model_history.shape[0]
 
-    plt.plot(np.arange(0, num_epochs), model_history["auc_pr"],
+    if config['config']['multi_class']:  # if multiclass, use val_loss for graph
+        plt.plot(np.arange(0, num_epochs), model_history["loss"],
+            label="Training loss")
+        plt.plot(np.arange(0, num_epochs), model_history["val_loss"],
+            label="Validation loss")
+    else:  # else use val_auc_pr
+      plt.plot(np.arange(0, num_epochs), model_history["auc_pr"],
             label="Training auc_pr")
-    plt.plot(np.arange(0, num_epochs), model_history["val_auc_pr"],
+      plt.plot(np.arange(0, num_epochs), model_history["val_auc_pr"],
             label="Validation auc_pr")
     plt.legend()
 
+    # save graph
     plt.tight_layout()
     plt.show()
-    plt.savefig(model_dir_sub / f'auc_pr_graph_{model_id}.png')
+    plt.savefig(model_dir_sub / f'loss_graph_{model_id}.png')
     plt.close()
 
     if logger is None:
@@ -236,7 +246,7 @@ def evaluate_model(config, logger=None):
                                   verbose=config['verbose_model'],
                                   sample_weight=None,
                                   steps=None,
-                                  # callbacks=callbacks_list if dataset == 'train' else None,
+                                  callbacks=callbacks_list if dataset == 'train' else None,
                                   max_queue_size=10,
                                   workers=1,
                                   use_multiprocessing=False)

@@ -25,7 +25,7 @@ import hpbandster.core.result as hpres
 import argparse
 
 # local
-from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner
+from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner, UnfoldedConvExoMiner
 from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
 from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
 from utils.utils_dataio import is_yamlble
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     config['callbacks_list'] = {'train': None}
 
     # select base model architecture
-    config['base_model'] = TransformerExoMiner
+    config['base_model'] = UnfoldedConvExoMiner
 
     # set HPO run name
     config['study'] = config['paths']['experiment_dir'].name

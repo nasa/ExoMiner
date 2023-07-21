@@ -2,8 +2,8 @@ ngpus_per_node: 4  # number of GPUs per node
 rank: null
 
 paths:
-  experiment_dir: /nobackup/cyates2/experiments/hpo/hpo_exp/hpo_merged_fluxvar_12-3-2022
-  tfrec_dir: /nobackup/cyates2/data/cvs/cv_merged_10-13-2022/tfrecords-reduced
+  experiment_dir: /nobackup/cyates2/experiments/hpo/hpo_exp/hpo_merged_unfolded_7-5-2023
+  tfrec_dir: /nobackup/cyates2/data/cvs/updt_diffimg_centr_2-8-2023/tfrecords/norm_data
   prev_run_dir: null  # warm-up from previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -30,6 +30,11 @@ plot_model: true
 config: # fixed parameters
 # branches used in ExoMiner
   conv_branches:
+    local_unfolded_flux:
+      views:
+        - unfolded_local_flux_view_fluxnorm
+      scalars:
+        - tce_num_transits_obs
     global_flux:
       views:
         - global_flux_view_fluxnorm
@@ -37,7 +42,7 @@ config: # fixed parameters
     local_flux:
       views:
         - local_flux_view_fluxnorm
-        - local_flux_view_fluxnorm_var
+#        - local_flux_view_fluxnorm_var
       scalars:
         #        - transit_depth_norm
         - tce_max_mult_ev_norm
@@ -106,7 +111,7 @@ config: # fixed parameters
 
   #transformer hyperparameters
   #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
-  use_transformer: false
+  use_transformer: true
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
@@ -155,7 +160,7 @@ config: # fixed parameters
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -212,8 +217,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
   # unfolded time series
-  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-#  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  tce_num_transits_obs: { 'dim': [ 1, ], 'dtype': float }
 #  uid: { 'dim': [ 1, ], 'dtype': str }
   # difference image
 #  diff_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
