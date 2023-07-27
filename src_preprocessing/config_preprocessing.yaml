@@ -1,11 +1,14 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_spoc_ffi_4-13-2023_1052
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_kepler_q1q17dr25_inj_7-26-2023_1410
 # TCE table
+input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar_final_7-24-2023_1548.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
-input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
+#input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
 # light curve FITS file directory
+#lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc/
+lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25_plti/inj1/
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
-lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
+#lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
 dict_savedir: null
 
 using_mpi: false  # use MPI
@@ -15,15 +18,14 @@ ffi_data: true  # set to true for SPOC FFI data
 shuffle: false
 shuffle_seed: 24
 
-satellite: tess  # kepler or tess
-#tce_identifier: tce_plnt_num
+satellite: kepler  # kepler or tess
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 0.1
+plot_prob: 1  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -89,7 +91,7 @@ scalar_params: [
   'tce_depth',
   'tce_max_mult_ev',
   'tce_max_sngle_ev',
-  'tce_robstat',
+#  'tce_robstat',
   'tce_model_chisq',
   # secondary parameters
   'tce_maxmes',
@@ -133,8 +135,9 @@ tce_min_err:
   tce_duration: 0.000385  # in days
   tce_time0bk: 2.44455e-6
 
+light_curve_extension: INJECTED LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
+
 # simulated Kepler data options
-injected_group: false
-light_curve_extension: LIGHTCURVE
-scramble_type: null
-invert: false
+injected_group: INJ1  # set to `INJ1`, `INJ2`, or `INJ3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
+scramble_type: null  # choose between `SCR1`, `SCR2`, and `SCR3`groups or null for no scrambling
+invert: false  # inverted group

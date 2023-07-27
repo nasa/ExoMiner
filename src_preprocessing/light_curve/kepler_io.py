@@ -137,7 +137,9 @@ def kepler_filenames(base_dir,
     quarters = sorted(quarters)  # Sort quarters chronologically.
 
     filenames = []
-    base_dir = os.path.join(base_dir, kep_id[0:4], kep_id)
+    if not injected_group:
+        base_dir = os.path.join(base_dir, kep_id[0:4], kep_id)
+
     for quarter in quarters:
         for quarter_prefix in quarter_prefixes[quarter]:
             if injected_group:
@@ -185,16 +187,16 @@ def scramble_light_curve(all_time, all_flux, all_quarters, scramble_type):
     return scr_time, scr_flux
 
 
-def scramble_light_curve_with_centroids(all_time, all_flux, all_centroids, all_quarters, scramble_type):
-    """ Scrambles a light curve according to a given scrambling procedure.
+def scramble_light_curve_with_centroids(all_time, fluxes, centroids, all_quarters, scramble_type):
+    """ Scrambles light curve data according to a given scrambling procedure.
 
         Args:
         all_time: List holding arrays of time values, each containing a quarter of
           time data.
-        all_flux: List holding arrays of flux values, each containing a quarter of
-          flux data.
-        all_centroids: Dictionary of row and col centroid, each with lists holding arrays of centroid values, each list
-          containing a quarter of centroid data.
+        fluxes: dict, each key maps to a type of flux data, which is a list of lists containing flux data for each
+        quarter
+        centroids: dict, each key maps to a type of centroid data, which is a dictionary of row and col centroid, each
+        with lists holding arrays of centroid values, each list containing a quarter of centroid data.
         all_quarters: List of integers specifying which quarters are present in
           the light curve (max is 18: Q0...Q17).
         scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2',
@@ -202,24 +204,26 @@ def scramble_light_curve_with_centroids(all_time, all_flux, all_centroids, all_q
 
         Returns:
         scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
-        scr_flux: Scrambled flux values; the same list as the input flux in another
-          order.
-        scr_centroid: Scrambled centroid values; the same dict as the input centroid in another order.
+        scr_fluxes: Scrambled flux values; the same dict as the input `fluxes` in another order.
+        scr_centroids: Scrambled centroid values; the same dict as the input `centroids` in another order.
     """
 
     order = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
-    scr_flux = []
-    scr_centroids = {'x': [], 'y': []}
+    scr_fluxes = {flux_name: [] for flux_name in fluxes}
+    scr_centroids = {centroids_name: {'x': [], 'y': []} for centroids_name in centroids}
+
     for quarter in order:
         # Ignore missing quarters in the scramble order.
         if quarter in all_quarters:
-            scr_flux.append(all_flux[all_quarters.index(quarter)])
-            scr_centroids['x'].append((all_centroids['x'][all_quarters.index(quarter)]))
-            scr_centroids['y'].append((all_centroids['y'][all_quarters.index(quarter)]))
+            for flux_name in fluxes:
+                scr_fluxes[flux_name].append(fluxes[flux_name][all_quarters.index(quarter)])
+            for centroids_name in centroids:
+                scr_centroids[centroids_name]['x'].append((centroids[centroids_name]['x'][all_quarters.index(quarter)]))
+                scr_centroids[centroids_name]['y'].append((centroids[centroids_name]['y'][all_quarters.index(quarter)]))
 
-    scr_time = util.reshard_arrays(all_time, scr_flux)
+    scr_time = util.reshard_arrays(all_time, scr_fluxes[list(scr_fluxes)[0]])
 
-    return scr_time, scr_flux, scr_centroids
+    return scr_time, scr_fluxes, scr_centroids
 
 
 def read_kepler_light_curve(filenames,
@@ -412,19 +416,20 @@ def read_kepler_light_curve(filenames,
         data['module'].append(module)
 
     # scrambles data according to the scramble type selected
-    # TODO: currently only scrambling for the all_centroids variable
     if scramble_type:
-        # data['all_time'], data['all_flux'] = scramble_light_curve(data['all_time'],
-        #                                                           data['all_flux'],
-        #                                                           data['quarter'],
-        #                                                           scramble_type)
-        data['all_time'], data['all_flux'], data['all_centroids'] = \
-            scramble_light_curve_with_centroids(data['all_time'],
-                                                data['all_flux'],
-                                                data['all_centroids'],
-                                                data['quarter'],
-                                                scramble_type)
 
+        scr_time, scr_fluxes, scr_centroids = scramble_light_curve_with_centroids(
+            data['all_time'],
+            fluxes={'all_flux': data['all_flux']},
+            centroids={'all_centroids': data['all_centroids'],
+                       'all_centroids_px': data['all_centroids_px']},
+            all_quarters=data['quarter'],
+            scramble_type=scramble_type
+        )
+
+        data['all_time'] = scr_time
+        data.update(scr_fluxes)
+        data.update(scr_centroids)
         data['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
 
     # inverts light curve

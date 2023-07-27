@@ -41,8 +41,6 @@ def report_exclusion(config, tce, id_str, stderr=None):
     os.makedirs(savedir, exist_ok=True)
 
     uid_str = f'Example {tce.uid}'
-    if stderr is None:
-        stderr = 'Error:None'
 
     if is_pfe():
 
@@ -62,7 +60,7 @@ def report_exclusion(config, tce, id_str, stderr=None):
     with open(fp, "a") as excl_file:
         if first_exclusion:
             excl_file.write(uid_str)
-        excl_file.write(f'\nExclusion:{id_str}\nError:{stderr}')
+        excl_file.write(f'\nExclusion: {id_str}\nError: {stderr}\n#####')
 
 
 def create_tbl_from_exclusion_logs(excl_fps, max_n_errors_logged):

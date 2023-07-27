@@ -215,6 +215,7 @@ def create_shards(config, tce_table):
 
 
 def main():
+
     # get the configuration parameters
     path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
 
@@ -307,6 +308,7 @@ def main():
 
 
 if __name__ == "__main__":
+
     tf_logging.set_verbosity(tf_logging.INFO)
 
     main()

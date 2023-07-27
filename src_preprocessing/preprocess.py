@@ -80,7 +80,8 @@ def read_light_curve(tce, config):
             if not config['omit_missing']:
                 raise IOError(f'Failed to find .fits files in {config["lc_data_dir"]} for Kepler ID {tce.target_id}')
             else:
-                report_exclusion(config, tce, 'No available lightcurve FITS files')
+                report_exclusion(config, tce, f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
+                                              f'KIC {tce.target_id}')
                 return None
 
         data, fits_files_not_read = kepler_io.read_kepler_light_curve(file_names,
@@ -118,7 +119,8 @@ def read_light_curve(tce, config):
             if not config['omit_missing']:
                 raise IOError(f'Failed to find .fits files in {config["lc_data_dir"]} for TESS ID {tce.target_id}')
             else:
-                report_exclusion(config, tce, 'No available lightcurve FITS files')
+                report_exclusion(config, tce, f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
+                                              f'TIC {tce.target_id}')
                 return None
 
         fits_data, fits_files_not_read = tess_io.read_tess_light_curve(file_names,
@@ -135,7 +137,7 @@ def read_light_curve(tce, config):
                 warn_string += f'{el[0]}:{el[1]}\n'
             report_exclusion(config, tce, warn_string)
             if len(fits_files_not_read) == len(file_names):
-                report_exclusion(config, tce, 'No FITS files were read.')
+                report_exclusion(config, tce, f'No FITS files were read in {config["lc_data_dir"]}.')
                 return None
 
         return fits_data
@@ -295,41 +297,6 @@ def _process_tce(tce, table, config, conf_dict):
         a tensorflow.train.Example proto containing TCE features
     """
 
-    # import pandas as pd
-    # import pickle
-    # with open('/data5/tess_project/Data/tfrecords/TESS/tfrecordstessS1S35-tces_dv_g301-l31_5tr_spline_nongapped_allts-allscalars_07-20-2021_13-39/exclusion_logs/tces_not_preprocessed.pkl', 'rb') as fp:
-    #     tces_not_read = pickle.load(fp)
-    # rankingTbl = pd.read_csv('/data5/tess_project/experiments/current_experiments/cv_experiments/cv_keplerq1q17dr25_exominer_configk_addnewval_12-1-2021/ranking_tbl_oddevenkoicomment_only_with_tcebinoedpstat.csv')
-    # rankingTbl = pd.read_csv('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_flux-loe-lwks-centroid-centroid_fdl-scalars_rbanorm_oecheck_oestd_extrastats_koiephemonlydiff/merged_shards_disp_set.csv')
-    # rankingTbl = rankingTbl.loc[(rankingTbl['mid_global_flux_shift'].abs() >= 15) & (rankingTbl['label'] == 'PC')]
-    # rankingTbl = rankingTbl.loc[(rankingTbl['odd_even_flag'] != 'ok') & (rankingTbl['label'].isin(['PC', 'AFP']))]
-    # rankingTbl = rankingTbl.loc[(rankingTbl['tfopwg_disp'].isin(['KP', 'CP'])) & (rankingTbl['predicted class'] == 0)]
-    # cfpTbl = pd.read_csv('/home/msaragoc/Downloads/fpwg_2020.10.02_15.25.08.csv', header=10)
-    # koiTTVs = cfpTbl.loc[cfpTbl['fpwg_comment'].str.contains('TTV', na=False)]['kepoi_name'].values
-
-    # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id']) &
-    #                       (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
-    # if len(rankingTbl.loc[rankingTbl['oi'] == tce['oi']]) == 1:
-    # if tce['kepoi_name'] in koiTTVs:
-    # # if tce['target_id'] in rankingTbl[0:30]['target_id'].values:
-    # # if tce['target_id'] in rankingTbl['KICID'].values and tce['tce_plnt_num'] == 1:
-    # if tce['target_id'] in rankingTbl[0:10]['target_id'].values:
-    # if tce['target_id'] == 178284730:  #  and tce['tce_plnt_num'] == 1:  # tce['av_training_set'] == 'PC' and
-    # if (str(tce['target_id']), str(tce['tce_plnt_num']), str(tce['sectors'])) in tces_not_read:
-    # if f'{tce["matched_toi_our"]}' in [4473.01]:
-    #     'tce_plnt_num']) == '3323887-2':  # and tce['sector_run'] == '14-26':  # , '3239945-1', '6933567-1', '8416523-1', '9663113-2']:
-        # if '{}-{}_{}'.format(tce['target_id'], tce['tce_plnt_num'], tce['sector_run']) in ['234825296-1_6']:
-        # if '{}'.format(tce['target_id']) in ['9455556']:
-        # if '{}'.format(tce['target_id']) in ['7431665']:
-        # if len(rankingTbl.loc[(rankingTbl['target_id'] == tce['target_id'])  & (rankingTbl['tce_plnt_num'] == tce['tce_plnt_num'])]) == 1:
-        # if tce['oi'] in [1774.01]:
-        # tce['tce_time0bk'] = 1325.726
-        # tce['tce_period'] = 0.941451
-        # tce['sectors'] = '1'
-        # print(tce['uid'])
-    # else:
-    #     return None
-
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = False  # False
     if np.random.random() < config['plot_prob']:
@@ -361,7 +328,7 @@ def _process_tce(tce, table, config, conf_dict):
     data = read_light_curve(tce, config)
 
     if data is None:
-        report_exclusion(config, tce, 'Empty arrays when reading FITS file.')
+        report_exclusion(config, tce, 'Issue when reading data from the FITS file(s).')
         return None
 
     data['errors'] = check_inputs(data)
@@ -889,18 +856,23 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
      Learning." The Astrophysical Journal Letters 869.1 (2018): L7.
      """
 
-    all_time, all_centroids['x'], all_centroids['y'] = remove_non_finite_values([all_time,
-                                                                                 all_centroids['x'],
-                                                                                 all_centroids['y']])
+    time_arrs, centroid_dict = [np.array(el) for el in all_time], \
+        {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()}
 
-    all_time, all_centroids, add_info = util.split(all_time, all_centroids, gap_width=config['gapWidth'], centroid=True,
-                                                   add_info=add_info)
+    time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
+                                                                                 centroid_dict['x'],
+                                                                                 centroid_dict['y']])
+
+    time_arrs, centroid_dict, add_info = util.split(time_arrs, centroid_dict,
+                                                    gap_width=config['gapWidth'],
+                                                    centroid=True,
+                                                    add_info=add_info)
 
     if config['satellite'] == 'kepler' and add_info['quarter'][0] == 13:
-        all_centroids = kepler_transform_pxcoordinates_mod13(all_centroids, add_info)
+        centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
 
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                              for time in all_time]
+                              for time in time_arrs]
 
     if 'tce_maxmesd' in tce:
         duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
@@ -909,11 +881,11 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
         duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, all_time)]
+                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
-    all_centroids_lininterp = lininterp_transits(all_centroids, binary_time_all, centroid=True)
+    all_centroids_lininterp = lininterp_transits(centroid_dict, binary_time_all, centroid=True)
 
-    spline_centroid = {coord: kepler_spline.fit_kepler_spline(all_time,
+    spline_centroid = {coord: kepler_spline.fit_kepler_spline(time_arrs,
                                                               all_centroids_lininterp[coord],
                                                               verbose=False)[0] for coord in all_centroids_lininterp}
 
@@ -924,19 +896,19 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
     #                          spline_centroid[coord][i][finite_i_centroid[i]]
     #                          for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
     #                  for coord in all_centroids}
-    all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] -
+    centroid_dict = {coord: [centroid_dict[coord][i][finite_i_centroid[i]] -
                              spline_centroid[coord][i][finite_i_centroid[i]]
                              for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
-                     for coord in all_centroids}
+                     for coord in centroid_dict}
 
 
-    all_time = [all_time[i][finite_i_centroid[i]] for i in range(len(all_time)) if len(finite_i_centroid[i]) > 0]
+    time_arrs = [time_arrs[i][finite_i_centroid[i]] for i in range(len(time_arrs)) if len(finite_i_centroid[i]) > 0]
 
-    all_centroid_dist = [np.sqrt(np.square(all_centroids['x'][i]) + np.square(all_centroids['y'][i]))
-                         for i in range(len(all_centroids['x']))]
+    all_centroid_dist = [np.sqrt(np.square(centroid_dict['x'][i]) + np.square(centroid_dict['y'][i]))
+                         for i in range(len(centroid_dict['x']))]
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(all_time,
+        utils_visualization.plot_dist_centroids(time_arrs,
                                                 all_centroid_dist,
                                                 None,
                                                 None,
@@ -948,9 +920,9 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
 
     # impute the time series with Gaussian noise based on global estimates of median and std
     if config['gap_imputed']:
-        all_time, all_centroid_dist = imputing_gaps(all_time, all_centroid_dist, gap_time)
+        time_arrs, all_centroid_dist = imputing_gaps(time_arrs, all_centroid_dist, gap_time)
 
-    time = np.concatenate(all_time)
+    time = np.concatenate(time_arrs)
     centroid_dist = np.concatenate(all_centroid_dist)
 
     return time, centroid_dist
@@ -963,7 +935,7 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
       data: dictionary containing data related to the time-series to be preprocessed before generating views
       config: dict, holds preprocessing parameters
       tce: Pandas Series, row of the TCE table for the TCE that is being processed; it contains data such as the
-      ephemeris
+      ephemerides
       plot_preprocessing_tce: bool, if True plots figures for several steps in the preprocessing pipeline
 
     Returns:
@@ -1104,7 +1076,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       augmentation: bool; if True samples cycles with replacement.
 
     Returns:
-      phase_split: 2D NumPy array of phase folded time values in
+      phase_split: 2D NumPy array (n_phases x n_points) of phase folded time values in
           [-period / 2, period / 2), where 0 corresponds to t0 in the original
           time array. Values are split by phase.
       timeseries_split: 2D NumPy array. Values are the same as the original input
@@ -1234,8 +1206,9 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
 
                     n_full_group_phases = n_max_phases // n_obs_phases
                     n_partial_group_phases = n_max_phases % n_obs_phases
-                    phase_split = np.concatenate((np.tile(phase_split, n_full_group_phases),
-                                                  phase_split[:n_partial_group_phases]), axis=1)
+                    # phase_split = np.concatenate((np.tile(phase_split, n_full_group_phases),
+                    #                               phase_split[:n_partial_group_phases]), axis=1)
+                    phase_split = phase_split * n_full_group_phases + phase_split[:n_partial_group_phases]
 
                     time_split = list(time_split) * n_full_group_phases + \
                                  list(time_split[:n_partial_group_phases])
@@ -1272,9 +1245,9 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
                 chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season + 1)
                 chosen_idx_phases_season = \
                     idxs_phases_in_season[chosen_phases_st: chosen_phases_st + n_phases_per_season]
-                # book keeping for phases not chosen
+                # bookkeeping for phases not chosen
                 not_chosen_idxs_phases_all_seasons.append(np.setdiff1d(idxs_phases_in_season, chosen_idx_phases_season))
-            else:  # less phases available than the requested number of phases per season
+            else:  # fewer phases available than the requested number of phases per season
                 chosen_idx_phases_season = idxs_phases_in_season
                 # not_chosen_idxs_phases_all_seasons.append([])  # no phases left unchosen
 
@@ -1621,7 +1594,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     # check if data for all views is valid after preprocessing the raw time series
     for key, val in data.items():
         if val is None:
-            report_exclusion(config, tce, f'No data before creating views for {key}.')
+            report_exclusion(config, tce, f'No data for {key} before creating the views.')
             return None
 
     # time interval for the transit

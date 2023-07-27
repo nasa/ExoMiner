@@ -1361,6 +1361,6 @@ def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
-    f.subplots_adjust()
+    f.tight_layout()
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()

@@ -49,10 +49,12 @@ def get_kepler_tce_table(config):
 
     # read the CSV file of Kepler KOIs.
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    # tce_table = tce_table.sample(n=100)
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['7778980-1', ])]
-    # tce_table = tce_table.loc[tce_table['target_id'].isin([11442793])]
-    tce_table['tce_depth'] = tce_table['transit_depth']
+    # tce_table = tce_table.loc[((tce_table['uid'].str.contains('12062660')) & (tce_table['dataset'] == 'INV'))]
+    # tce_table = tce_table.loc[((tce_table['dataset'] == 'INJ1'))]
+    # tce_table = tce_table.sample(n=20)
+    # tce_table = tce_table.loc[tce_table['uid'].isin(['6307062-1', ])]
+    # tce_table = tce_table.loc[tce_table['target_id'].isin([11761169])]
+    # tce_table['tce_depth'] = tce_table['transit_depth']
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 
     tf_logging.info(f'Read TCE CSV file with {len(tce_table)} rows.')

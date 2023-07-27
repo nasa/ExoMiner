@@ -3,6 +3,7 @@ Updated stellar parameters in the Kepler Simulated DV TCE tables.
 
 - Use Gaia DR3 parameters.
 - Use KIC parameters from Q1-Q17 DR25 Stellar Supplemental Catalog.
+- Set categorical magnitude based on Kepler magnitude and threshold.
 """
 
 # 3rd party
@@ -25,7 +26,8 @@ tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification
 
 targets_in_tce_tbl = tce_tbl['keplerId'].isin(kepler_dr3_fits['kepid'])
 n_targets_in_tce_tbl = len(tce_tbl.loc[targets_in_tce_tbl, 'keplerId'].unique())
-print(f'Number of KICs in Gaia DR3 that are in the TCE table: {n_targets_in_tce_tbl} out of {len(tce_tbl["keplerId"].unique())}')
+print(f'Number of KICs in Gaia DR3 that are in the TCE table: {n_targets_in_tce_tbl} '
+      f'out of {len(tce_tbl["keplerId"].unique())}')
 print(f'Number of associated TCEs: {targets_in_tce_tbl.sum()} out of {len(tce_tbl)}')
 
 tces_kics_not_in_gaiadr3 = tce_tbl.loc[~targets_in_tce_tbl]
@@ -60,7 +62,8 @@ q1q17dr25_stellar_supp = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit
 
 targets_in_tce_tbl = tce_tbl['keplerId'].isin(q1q17dr25_stellar_supp['kepid'])
 n_targets_in_tce_tbl = len(tce_tbl.loc[targets_in_tce_tbl, 'keplerId'].unique())
-print(f'Number of KICs in Kepler Q1-Q17 DR25 stellar + supplemental that are in the TCE table: {n_targets_in_tce_tbl} out of {len(tce_tbl["keplerId"].unique())}')
+print(f'Number of KICs in Kepler Q1-Q17 DR25 stellar + supplemental that are in the TCE table: {n_targets_in_tce_tbl} '
+      f'out of {len(tce_tbl["keplerId"].unique())}')
 print(f'Number of associated TCEs: {targets_in_tce_tbl.sum()} out of {len(tce_tbl)}')
 
 tces_kics_not_in_q1q17dr25_stellar_supp = tce_tbl.loc[~targets_in_tce_tbl]
@@ -127,11 +130,19 @@ for tce_i, tce in tce_tbl.iterrows():
 cnts_sources_params_df = pd.DataFrame(cnts_sources_params)
 print(cnts_sources_params_df.value_counts())
 
-tce_tbl.to_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar.csv', index=False)
+#%% add categorical variable for Kepler magnitude
+
+tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar.csv')
+
+kepler_mag_thr = 12
+tce_tbl['mag_cat'] = 0.0
+tce_tbl.loc[tce_tbl['mag'] > kepler_mag_thr, 'mag_cat'] = 1.0  # set to 1 if target star is not saturated
+tce_tbl.loc[tce_tbl['mag'].isna(), 'mag_cat'] = np.nan  # set to nan if magnitude is nan
 
 #%% Compare stellar parameters from DV TCE table with updated estimates
 
 updt_tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar.csv')
+# old table
 tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns.csv')
 
 plot_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/plots')
@@ -166,7 +177,8 @@ for param in map_columns:
     ax[0].grid(axis='both')
 
     ax[1].scatter(np.arange(len(updt_tce_tbl)),
-                  np.abs((updt_tce_tbl[param] - tce_tbl[map_columns[param]]) / tce_tbl[map_columns[param]] + 1e-32) * 100,
+                  np.abs((updt_tce_tbl[param] - tce_tbl[map_columns[param]]) /
+                         tce_tbl[map_columns[param]] + 1e-32) * 100,
                   s=8, edgecolor='k')
     ax[1].set_ylabel(f'Absolute Relative Difference (%)')
     ax[1].set_xlabel(f'TCE Sample Number')
@@ -176,3 +188,7 @@ for param in map_columns:
     f.tight_layout()
     plt.savefig(plot_dir / f'scatter_{param}_vs_{map_columns[param]}.png')
     plt.close()
+
+#%% save updated table
+
+tce_tbl.to_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar.csv', index=False)
