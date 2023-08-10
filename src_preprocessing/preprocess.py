@@ -2248,10 +2248,10 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                        'local_centr_fdl_view': loc_centr_fdl_view
                        }
 
-        # adjust TESS centroids to Kepler by dividing by pixel scale factor
-        if config['satellite'] == 'tess':
-            centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
-            centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
+        # # adjust TESS centroids to Kepler by dividing by pixel scale factor
+        # if config['satellite'] == 'tess':
+        #     centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
+        #     centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
 
         centr_views_var = {'global_centr_view': glob_centr_view_var,
                            'local_centr_view': loc_centr_view_var,
