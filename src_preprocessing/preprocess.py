@@ -792,17 +792,17 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     if config['px_coordinates']:
         # TODO: map target position from celestial coordinates to CCD frame
         # compute the euclidean distance of the corrected centroid time series to the target star position
-        all_centroid_dist = [np.sqrt(np.square(centroid_dict['x'][i] - target_position[0]) +
-                                     np.square(centroid_dict['y'][i] - target_position[1]))
-                             for i in range(len(centroid_dict['x']))]
+        all_centroid_dist = [np.sqrt(np.square(centroid_dict_corr['x'][i] - target_position[0]) +
+                                     np.square(centroid_dict_corr['y'][i] - target_position[1]))
+                             for i in range(len(centroid_dict_corr['x']))]
     else:
         # compute the angular distance of the corrected centroid time series to the target star position
         # all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - target_position[0])) +
         #                              np.square(centroid_dict['y'][i] - target_position[1]))
         #                      for i in range(len(centroid_dict['x']))]
-        all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - tce['ra'])) +
-                                     np.square(centroid_dict['y'][i] - tce['dec']))
-                             for i in range(len(centroid_dict['x']))]
+        all_centroid_dist = [np.sqrt(np.square((centroid_dict_corr['x'][i] - tce['ra'])) +
+                                     np.square(centroid_dict_corr['y'][i] - tce['dec']))
+                             for i in range(len(centroid_dict_corr['x']))]
 
     # # get the across quarter average oot estimate using only finite and oot values
     # avg_centroid_oot_dist_global = np.median(np.concatenate([all_centroid_dist[i][oot_idxs[i]]

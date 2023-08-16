@@ -506,11 +506,13 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
 
     if centroid_dist_spline is None:
 
+        time, centroid_quadr = [np.concatenate(time)], [np.concatenate(centroid_dist)]
+
         f, ax = plt.subplots(figsize=(16, 10))
 
         for i in range(len(centroid_dist)):
             # ax.plot(time[i], centroid_dist[i], 'b')
-            ax.scatter(time[i], centroid_dist[i], c='k', s=4)
+            ax.scatter(time, centroid_quadr, c='k', s=4)
 
         if config['px_coordinates'] or pxcoordinates:
             ax.set_ylabel('Euclidean distance [pixel]')
@@ -552,16 +554,6 @@ def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_
         ax[1].set_title('Spline normalized centroid-to-target distance time-series')
         ax[0].set_xlim([time[0][0], time[-1][-1]])
         ax[1].set_xlim([time[0][0], time[-1][-1]])
-
-    # if config['satellite'] == 'kepler':
-    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                tce.label, basename)))
-    # else:
-    #     f.suptitle(
-    #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                    tce.sector_run, tce.label, basename)))
 
     f.suptitle('{} {}'.format(tce.uid, tce.label))
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))

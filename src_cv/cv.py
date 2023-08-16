@@ -106,17 +106,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
             model_id,
             # run_params['logger']
         )
-        # p = multiprocessing.Process(target=train_model,
-        #                             args=(
-        #                                 run_params['base_model'],
-        #                                 run_params,
-        #                                 model_dir,
-        #                                 model_id,
-        #                                 # run_params['logger']
-        #                             ))
-        # p.start()  # start child process
-        # p.join()  # wait for child process to terminate
-        # # p.close()
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble...')
@@ -161,15 +150,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
         else:
             scores_classification[dataset] = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
-
-    # # instantiate variable to get data from the TFRecords
-    # data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
-    # for dataset in run_params['datasets']:
-    #     for tfrec_fp in run_params['datasets_fps'][dataset]:
-    #         # get dataset of the TFRecord
-    #         data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
-    #         for field in data_aux:
-    #             data[dataset][field].extend(data_aux[field])
 
     # add predictions to the data dict
     for dataset in run_params['datasets']:
