@@ -9,7 +9,8 @@ import numpy as np
 # local
 from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics, get_metrics_multiclass
-from models.models_keras import create_ensemble, compile_model, Time2Vec
+from models.utils_models import create_ensemble, compile_model
+from models.models_keras import Time2Vec
 
 
 def train(model, config, model_dir_sub, model_id=1, logger=None):

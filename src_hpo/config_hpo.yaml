@@ -53,6 +53,7 @@ config: # fixed parameters
       views:
         #        - local_weak_secondary_view_fluxnorm
         - local_weak_secondary_view_selfnorm
+#        - local_weak_secondary_view_selfnorm_var
       #        - local_weak_secondary_view_max_flux-wks_norm
       scalars:
         - tce_ptemp_stat_norm
@@ -83,7 +84,9 @@ config: # fixed parameters
     local_odd_even:
       views:
         - local_flux_odd_view_fluxnorm
+#        - local_flux_odd_view_fluxnorm_var
         - local_flux_even_view_fluxnorm
+#        - local_flux_even_view_fluxnorm_var
       scalars:
         - odd_se_oot_norm
         - even_se_oot_norm
@@ -108,6 +111,7 @@ config: # fixed parameters
 #        - unfolded_global_flux_view_fluxnorm
 #      local:
 #        - unfolded_local_flux_view_fluxnorm
+  diff_img_branch: null
 
   #transformer hyperparameters
   #if true, will use transformer branches. Otherwise will use convolutional branches for unfolded flux data
@@ -168,7 +172,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
   # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_flux_even_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   #  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
   #  odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
   #  even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
@@ -194,6 +200,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # secondary related features
   # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_weak_secondary_view_selfnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   #  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
   tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
   #  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -367,13 +374,61 @@ configuration_space:
         lower: 1
         upper: 5
         default_value: 3
-    conv_ls_per_block:
+    num_centr_conv_blocks:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 5
+        default_value: 2
+    num_unfolded_conv_blocks:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 5
+        default_value: 3
+    loc_conv_ls_per_block:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    init_conv_filters:
+    glob_conv_ls_per_block:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+    unfolded_conv_ls_per_block:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+    centr_conv_ls_per_block:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+    init_loc_conv_filters:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 6
+        default_value: 4
+    init_glob_conv_filters:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 6
+        default_value: 4
+    init_unfolded_conv_filters:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 6
+        default_value: 4
+    init_centr_conv_filters:
       type: uniform_integer
       parameters:
         lower: 2
@@ -397,6 +452,18 @@ configuration_space:
         lower: 1
         upper: 8
         default_value: 2
+    kernel_size_centr:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 8
+        default_value: 2
+    kernel_size_unfolded:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 8
+        default_value: 2
 #    kernel_stride:
 #      type: uniform_integer
 #      parameters:
@@ -408,6 +475,12 @@ configuration_space:
       type: categorical
       parameters: [2, 4, 8, 16]
     pool_size_glob:
+      type: categorical
+      parameters: [2, 4, 8, 16]
+    pool_size_centr:
+      type: categorical
+      parameters: [2, 4, 8, 16]
+    pool_size_unfolded:
       type: categorical
       parameters: [2, 4, 8, 16]
 #    pool_stride:

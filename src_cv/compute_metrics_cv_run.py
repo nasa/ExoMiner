@@ -15,6 +15,8 @@ num_thresholds = 1000  # number of thresholds used to compute AUC
 clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
 multiclass = True  # multiclass or bin class?
 target_score = 'score_AFP'  # get auc_pr metrics for different class labels
+class_name = 'label_id'
+cat_name = 'label'
 
 # mapping of category/disposition to label id
 cats = {
@@ -116,44 +118,50 @@ for cv_run_dir in cv_run_dirs:
             # if it is multi classification get specific score
             scores = ranking_tbl[target_score].tolist() if multiclass else ranking_tbl['score'].tolist()
 
+            labels = ranking_tbl[class_name].tolist()
+
+            # if multiclass change labels
+            if multiclass:
+                label_1 = cats['train'][target_score.split('_')[-1]]
+                labels = [int(label == label_1) for label in ranking_tbl[class_name].tolist()]
+
             data_to_tbl['fold'].extend([cv_iter_dir.name.split('_')[-1]])
 
-            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = auc_pr.update_state(labels, scores)
             data_to_tbl['auc_pr'].append(auc_pr.result().numpy())
 
-            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = auc_roc.update_state(labels, scores)
             data_to_tbl['auc_roc'].append(auc_roc.result().numpy())
 
-            _ = precision.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = precision.update_state(labels, scores)
             data_to_tbl['precision'].append(precision.result().numpy())
-            _ = recall.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = recall.update_state(labels, scores)
             data_to_tbl['recall'].append(recall.result().numpy())
 
-            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = binary_accuracy.update_state(labels, scores)
             data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-            data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(ranking_tbl['label_id'],
+            data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels,
                                                                             ranking_tbl['predicted class']))
 
-            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], scores))
+            data_to_tbl['avg_precision'].append(average_precision_score(labels, scores))
 
             for class_id in class_ids:
                 data_to_tbl[f'recall_class_{class_id}'].append(
-                    ((ranking_tbl['label_id'] == class_id) & (ranking_tbl['predicted class'] == class_id)).sum() /
-                    (ranking_tbl['label_id'] == class_id).sum())
-                data_to_tbl[f'n_{class_id}'].append((ranking_tbl['label_id'] == class_id).sum())
+                    ((ranking_tbl[class_name] == class_id) & (ranking_tbl['predicted class'] == class_id)).sum() /
+                    (ranking_tbl[class_name] == class_id).sum())
+                data_to_tbl[f'n_{class_id}'].append((ranking_tbl[class_name] == class_id).sum())
 
-            if cats is not None:
-                for cat, cat_lbl in cats[dataset].items():
-                    data_to_tbl[f'recall_{cat}'].append(((ranking_tbl['label'] == cat) &
-                                                         (ranking_tbl['predicted class'] == cat_lbl)).sum() /
-                                                        (ranking_tbl['label'] == cat).sum())
-                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['label'] == cat).sum())
+            for cat, cat_lbl in cats[dataset].items():
+                data_to_tbl[f'recall_{cat}'].append(
+                    ((ranking_tbl[cat_name] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / (
+                            ranking_tbl[cat_name] == cat).sum())
+                data_to_tbl[f'n_{cat}'].append((ranking_tbl[cat_name] == cat).sum())
 
             for k_val in top_k_vals:
                 precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
-                if len(ranking_tbl['label_id']) >= k_val:
-                    _ = precision_at_k.update_state(ranking_tbl['label_id'].to_list(), ranking_tbl['score'].to_list())
+                if len(ranking_tbl[class_name]) >= k_val:
+                    _ = precision_at_k.update_state(labels, scores)
                     data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
                 else:
                     data_to_tbl[f'precision_at_{k_val}'].append(np.nan)
@@ -173,10 +181,16 @@ for cv_run_dir in cv_run_dirs:
             data_to_tbl = {col: [] for col in metrics_lst}
 
             ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
-            ranking_tbl['label_id'] = ranking_tbl['label']
 
             # if it is multi classification get specific score
             scores = ranking_tbl[target_score].tolist() if multiclass else ranking_tbl['score'].tolist()
+
+            labels = ranking_tbl[class_name].tolist()
+
+            # if multiclass change labels
+            if multiclass:
+                label_1 = cats['train'][target_score.split('_')[-1]]
+                labels = [int(label == label_1) for label in ranking_tbl[class_name].tolist()]
 
             data_to_tbl['fold'].extend(['all'])
 
@@ -195,41 +209,40 @@ for cv_run_dir in cv_run_dirs:
 
             binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
-            _ = auc_pr.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = auc_pr.update_state(labels, scores)
             data_to_tbl['auc_pr'].append(auc_pr.result().numpy())
 
-            _ = auc_roc.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = auc_roc.update_state(labels, scores)
             data_to_tbl['auc_roc'].append(auc_roc.result().numpy())
 
-            _ = precision.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = precision.update_state(labels, scores)
             data_to_tbl['precision'].append(precision.result().numpy())
-            _ = recall.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = recall.update_state(labels, scores)
             data_to_tbl['recall'].append(recall.result().numpy())
 
-            _ = binary_accuracy.update_state(ranking_tbl['label_id'].tolist(), scores)
+            _ = binary_accuracy.update_state(labels, scores)
             data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-            data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(ranking_tbl['label_id'],
+            data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels,
                                                                             ranking_tbl['predicted class']))
 
-            data_to_tbl['avg_precision'].append(average_precision_score(ranking_tbl['label_id'], scores))
+            data_to_tbl['avg_precision'].append(average_precision_score(labels, scores))
 
             for class_id in class_ids:
-                data_to_tbl[f'recall_class_{class_id}'].append(((ranking_tbl['label_id'] == class_id) & (
+                data_to_tbl[f'recall_class_{class_id}'].append(((ranking_tbl[class_name] == class_id) & (
                         ranking_tbl['predicted class'] == class_id)).sum() /
-                                                               (ranking_tbl['label_id'] == class_id).sum())
-                data_to_tbl[f'n_{class_id}'].append((ranking_tbl['label_id'] == class_id).sum())
+                                                               (ranking_tbl[class_name] == class_id).sum())
+                data_to_tbl[f'n_{class_id}'].append((ranking_tbl[class_name] == class_id).sum())
 
-            if cats is not None:
-                for cat, cat_lbl in cats[dataset].items():
-                    data_to_tbl[f'recall_{cat}'].append(
-                        ((ranking_tbl['label'] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / (
-                                    ranking_tbl['label'] == cat).sum())
-                    data_to_tbl[f'n_{cat}'].append((ranking_tbl['label'] == cat).sum())
+            for cat, cat_lbl in cats[dataset].items():
+                data_to_tbl[f'recall_{cat}'].append(
+                    ((ranking_tbl[cat_name] == cat) & (ranking_tbl['predicted class'] == cat_lbl)).sum() / (
+                            ranking_tbl[cat_name] == cat).sum())
+                data_to_tbl[f'n_{cat}'].append((ranking_tbl[cat_name] == cat).sum())
 
             for k_val in top_k_vals:
                 precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
-                _ = precision_at_k.update_state(ranking_tbl['label_id'].to_list(), ranking_tbl['score'].to_list())
+                _ = precision_at_k.update_state(labels, scores)
                 data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
 
             metrics_df = pd.concat([metrics_df, pd.DataFrame(data_to_tbl)])

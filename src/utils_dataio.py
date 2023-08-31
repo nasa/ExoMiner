@@ -163,8 +163,8 @@ class InputFnv2(object):
                 if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # parse tensors
                     value = tf.io.parse_tensor(serialized=value[0], out_type=self.features_set[feature_name]['dtype'])
                     value = tf.reshape(value, self.features_set[feature_name]['dim'])
-                    if not self.use_transformer:
-                        value = tf.transpose(value)
+                    # if not self.use_transformer:
+                    # value = tf.transpose(value)
 
                 # data augmentation for time series features
                 if 'view' in feature_name and self.data_augmentation:
@@ -388,26 +388,7 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
                 elif data_fields[field] == 'int_scalar':
                     datum[field] = example.features.feature[field].int64_list.value[0]
                 elif data_fields[field] == 'string':
-                    # if field == 'original_label':
-                    #     try:
-                    #         datum['original_label'] = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
-                    #     except:
-                    #         datum['original_label'] = ''
-                    #
-                    # elif field == 'label' and label_map is not None:
-                    #     try:
-                            # datum[field] = label_map[example.features.feature[field].bytes_list.value[0].decode("utf-8")]
-                    #     except:
-                    #         datum[field] = -1
-                    #
-                    # elif field == 'TESS Disposition':
-                    #     try:
                     datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
-                    #     except:
-                    #         datum[field] = ''
-                    #
-                    # else:
-                    #     datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
 
                 elif data_fields[field] == 'float_list':
                     datum[field] = example.features.feature[field].float_list.value

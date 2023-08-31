@@ -15,18 +15,18 @@ import time
 import argparse
 import sys
 from mpi4py import MPI
-import multiprocessing
+# import multiprocessing
 import yaml
 import pandas as pd
 
 # local
-from models.models_keras import ExoMiner, TransformerExoMiner, UnfoldedConvExoMiner
+from models.models_keras import ExoMiner_JointLocalFlux
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src_cv.utils_cv import processing_data_run
 from src.utils_train_eval_predict import train_model, evaluate_model, predict_model
 from src.utils_dataio import get_data_from_tfrecord
-from src.utils_train import PredictDuringFitCallback
+# from src.utils_train import PredictDuringFitCallback
 
 
 def cv_run(cv_dir, data_shards_fps, run_params):
@@ -45,8 +45,9 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # split training folds into training and validation sets by randomly selecting one of the folds as the validation
     # set
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
+    if run_params['val_from_train']:
+        data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
+        data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
@@ -104,7 +105,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
             run_params,
             model_dir,
             model_id,
-            # run_params['logger']
+            run_params['logger']
         )
 
     if run_params['logger'] is not None:
@@ -236,7 +237,7 @@ def cv():
     config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
     config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
                                   for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
-    # config['data_shards_fps'][0]['train'] = [fp for fp in config['data_shards_fps'][0]['train'] if fp.name == 'Kepler-shard-0000' or 'TESS' in fp.name]
+    # config['data_shards_fps'][0] = {dataset: [fps[0]] for dataset, fps in config['data_shards_fps'][0].items()}
 
     if config["rank"] >= len(config['data_shards_fps']):
         return
@@ -271,10 +272,10 @@ def cv():
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
         config_hpo_chosen = id2config[config_id_hpo]['config']
-        # for older HPO runs when kernel size was not optimized separately for local and global branches
-        if 'kernel_size_glob' not in config_hpo_chosen:
-            config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
-            config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
+
+        # for legacy HPO runs
+        config_hpo_chosen = utils_hpo.update_legacy_configs(config_hpo_chosen)
+
         config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
@@ -288,7 +289,7 @@ def cv():
             yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
 
     # base model used - check models/models_keras.py to see which models are implemented
-    config['base_model'] = TransformerExoMiner  # ExoMiner
+    config['base_model'] = ExoMiner_JointLocalFlux
 
     # choose features set
     for feature_name, feature in config['features_set'].items():

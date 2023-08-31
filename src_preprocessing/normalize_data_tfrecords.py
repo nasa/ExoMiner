@@ -168,6 +168,7 @@ def normalize_centroid(example, normStatsCentroid):
 
     glob_centr_view = np.array(example.features.feature['global_centr_view'].float_list.value)
     loc_centr_view = np.array(example.features.feature['local_centr_view'].float_list.value)
+    loc_centr_view_var = np.array(example.features.feature['local_centr_view_var'].float_list.value)
 
     # 1) clipping to physically meaningful distance in arcsec
     glob_centr_view_std_clip = np.clip(glob_centr_view,
@@ -204,8 +205,10 @@ def normalize_centroid(example, normStatsCentroid):
                                                             # normStats['centroid']['local_centr_view']['median'],
                                                             np.median(loc_centr_view),
                                                             normStatsCentroid['local_centr_view']['std'])
+    loc_centr_view_std_noclip_var = loc_centr_view_var / normStatsCentroid['local_centr_view']['std']
     norm_centroid_feat.update({'global_centr_view_std_noclip': glob_centr_view_std_noclip,
-                               'local_centr_view_std_noclip': loc_centr_view_std_noclip})
+                               'local_centr_view_std_noclip': loc_centr_view_std_noclip,
+                               'local_centr_view_std_noclip_var': loc_centr_view_std_noclip_var})
 
     # # 3) center each centroid individually using their median and divide by the standard deviation of the
     # # training set
