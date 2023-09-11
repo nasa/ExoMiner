@@ -17,6 +17,7 @@ from pathlib import Path
 import multiprocessing
 import numpy as np
 import yaml
+import argparse
 
 # local
 from src_preprocessing.preprocess import _process_tce
@@ -216,21 +217,35 @@ def create_shards(config, tce_table):
 
 def main():
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rank', type=int, help='Rank', default=-1)
+    parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
+    parser.add_argument('--output_dir', type=str, help='File path output directory for this preprocessing run', default=None)
+    args = parser.parse_args()
+    
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
+    path_to_yaml = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_preprocessing.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
     config['output_dir'] = Path(config['output_dir'])
+    if args.output_dir is not None:
+        config['output_dir'] = Path(args.output_dir)
+
     config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
     config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
     config['tce_min_err']['tce_duration'] = config['tce_min_err']['tce_duration'] / 24
 
     if config['using_mpi']:
-        config['process_i'] = MPI.COMM_WORLD.rank
-        config['n_shards'] = MPI.COMM_WORLD.size
-        config['n_processes'] = MPI.COMM_WORLD.size
+        if args.rank != -1:  # using parallel
+            config['process_i'] = args.rank
+            config['n_shards'] = args.n_runs
+            config['n_processes'] = args.n_runs
+        else:  # using mpi
+            config['process_i'] = MPI.COMM_WORLD.rank
+            config['n_shards'] = MPI.COMM_WORLD.size
+            config['n_processes'] = MPI.COMM_WORLD.size
         print(f'Process {config["process_i"]} ({config["n_shards"]})')
         sys.stdout.flush()
     else:

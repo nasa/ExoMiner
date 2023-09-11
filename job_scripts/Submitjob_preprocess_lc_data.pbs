@@ -2,10 +2,9 @@
 # parallelize the process.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplnt
-#PBS -l walltime=24:00:00
-# #PBS -l walltime=1:00:00
-# #PBS -l walltime=24:00:00
-#PBS -l select=20:ncpus=10:mpiprocs=20:model=san
+#PBS -l walltime=08:00:00
+# #PBS -l select=1:ncpus=128:mpiprocs=5:model=rom_ait
+#PBS -l select=1:ncpus=128:model=rom_ait
 #PBS -q long
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.err
@@ -24,7 +23,13 @@ cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 OUTPUT_FILE=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/preprocessing_data_exoplnt.txt
 
-mpiexec python src_preprocessing/generate_input_records.py  &>  $OUTPUT_FILE
+# module load mpi-hpe/mpt
+# export MPI_SHEPHERD=1
+# export MPI_DSM_DISTRIBUTE=0
+
+which mpiexec
+
+mpiexec -np 128 python src_preprocessing/generate_input_records.py  &>  $OUTPUT_FILE
 
 DIR_DATA=$(grep "END-PI" $OUTPUT_FILE)
 mv $OUTPUT_FILE ${DIR_DATA:23}
