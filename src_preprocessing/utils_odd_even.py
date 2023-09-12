@@ -550,12 +550,14 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
     elif num_pts_local_even == 0 and num_pts_local_odd > 0:  # copy odd data to even
         even_time, even_flux, num_tr_even = np.array(odd_time), np.array(odd_flux), num_tr_odd
         odd_even_flag = 'no local time series (even)'
+    elif num_pts_local_even == 0 and num_pts_local_odd == 0:
+        odd_even_flag = 'no local time series (even and odd)'
 
     # time interval for the transit
     t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
                                    min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
 
-    if 'no local time series' not in odd_even_flag:
+    if odd_even_flag == 'ok':  # create odd and even views based on their respective data
 
         # create local odd flux view
         loc_flux_odd_view, binned_time_odd, loc_flux_odd_view_var, bin_counts_odd, bin_values_odd = \
@@ -642,7 +644,8 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
         bin_counts_even[bin_counts_even == 0] = max(1, np.median(bin_counts_even))
 
-    else:  # copy values from one to the other
+    # copy values from one to the other (that is missing)
+    elif odd_even_flag in ['no local time series (odd)', 'no local time series (even)']:
 
         # create local odd flux view
         loc_flux_odd_view, binned_time_odd, loc_flux_odd_view_var, bin_counts_odd, bin_values_odd = \
@@ -668,6 +671,47 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         else:
             inds_nan_odd_init = inds_nan
             inds_nan_even_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
+
+        inds_nan_var = np.isnan(loc_flux_odd_view_var)
+        loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)
+
+        # add median count to missing bins to avoid division by zero
+        bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
+
+        # given that odd and even are the same
+        loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
+            np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
+            np.array(bin_counts_odd), np.array(bin_values_odd)
+
+    # filling odd and even views with Gaussian noise based on available flux values
+    elif odd_even_flag == 'no local time series (even and odd)':
+
+        med = np.median(odd_flux)
+        std_rob_estm = stats.mad_std(odd_flux)  # robust std estimator of the time series
+        loc_flux_odd_view_var = std_rob_estm * np.ones(config['num_bins_loc'], dtype='float')
+        loc_flux_odd_view = med + np.random.normal(0, std_rob_estm, config['num_bins_loc'])
+        binned_time_odd = np.linspace(tmin_local, tmax_local, config['num_bins_loc'], endpoint=True)
+        bin_counts_odd = np.ones(config['num_bins_loc'], dtype='float')
+        bin_values_odd = [np.array([loc_flux_odd_view[i]]) for i in range(config['num_bins_loc'])]
+
+        # create local odd flux view by imputing odd time series
+        loc_flux_odd_view, inds_nan_odd = impute_binned_ts(binned_time_odd,
+                                                           loc_flux_odd_view,
+                                                           odd_time,
+                                                           odd_flux,
+                                                           tce['tce_period'],
+                                                           tce['tce_duration'])
+
+        # fill missing bin values
+        loc_flux_odd_view, inds_nan = impute_binned_ts(binned_time_odd,
+                                                       loc_flux_odd_view,
+                                                       odd_time,
+                                                       odd_flux,
+                                                       tce['tce_period'],
+                                                       tce['tce_duration'])
+
+        inds_nan_even_init = inds_nan
+        inds_nan_odd_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
 
         inds_nan_var = np.isnan(loc_flux_odd_view_var)
         loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)

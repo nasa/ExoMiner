@@ -9,7 +9,7 @@ from pathlib import Path
 import multiprocessing
 
 # local
-from diff_img.utils_diff_img import get_data_from_kepler_dv_xml_multiproc
+from diff_img.extracting.utils_diff_img import get_data_from_kepler_dv_xml_multiproc
 
 if __name__ == '__main__':
 

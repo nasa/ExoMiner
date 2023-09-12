@@ -17,19 +17,21 @@ import yaml
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 
-def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, diff_imgList=None, **kwargs):
     """  Extracts feature values from a TFRecord file for computing normalization statistics.
 
     :param tfrec_file: path to source TFRecord file
     :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
     :param timeSeriesFDLList: list, name of FDL centroid time series
     :param centroidList: list, name of centroid time series
+    :param diff_imgList: list, name of difference image features
     :param kwargs: dict, auxiliary parameters
     :return:
         scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
         timeSeriesFDLDict: dict, list of values for  the FDL centroid  time series used to compute normalization
         statistics
         centroidDict: dict, list of values for the centroid time series used to compute normalization statistics
+        diff_imgDict: dict, list of values for the difference image features used to compute normalization statistics
     """
 
     if scalar_params is not None:
@@ -48,6 +50,11 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
         centroidDict = {timeSeries: [] for timeSeries in centroidList}
     else:
         centroidDict = None
+
+    if diff_imgList is not None:
+        diff_imgDict = {diffimgs: [] for diffimgs in diff_imgList}
+    else:
+        diff_imgDict = None
 
     # iterate through the shard
     tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_file))
@@ -93,22 +100,30 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
                 else:
                     centroidDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])
 
-    return scalarParamsDict, timeSeriesFDLDict, centroidDict
+        # get diff img data
+        if diff_imgList is not None:
+            for diffimgs in diff_imgList:
+                diffimgsTce = tf.io.parse_tensor(serialized=example.features.feature[diffimgs].bytes_list.value[0], out_type='float').numpy()
+                diff_imgDict[diffimgs].extend(diffimgsTce)
+
+    return scalarParamsDict, timeSeriesFDLDict, centroidDict, diff_imgDict
 
 
-def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList=None, centroidList=None, **kwargs):
+def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList=None, centroidList=None, diff_imgList=None, **kwargs):
     """ Extracts feature values from a list of TFRecord files for computing normalization statistics.
 
     :param tfrec_files: list, paths to source TFRecord files
     :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
     :param timeSeriesFDLList: list, name of FDL centroid time series
     :param centroidList: list, name of centroid time series
+    :param diff_imgList: list, name of difference image features
     :param kwargs: dict, auxiliary parameters needed for normalization
     :return:
         scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
         timeSeriesFDLDict: dict, list of values for  the FDL centroid  time series used to compute normalization
         statistics
         centroidDict: dict, list of values for the centroid time series used to compute normalization statistics
+        diff_imgDict: dict, list of values for the difference image features used to compute normalization statistics
     """
 
     if scalar_params is not None:
@@ -128,13 +143,18 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
     else:
         centroidDict = None
 
+    if diff_imgList is not None:
+        diff_imgDict = {diffimgs: [] for diffimgs in diff_imgList}
+    else:
+        diff_imgDict = None
+
     for tfrec_i, tfrecFile in enumerate(tfrec_files):
 
         print(f'[{multiprocessing.current_process().name}] Getting data from {tfrecFile.name} '
               f'({tfrec_i / len(tfrec_files) * 100} %)')
 
-        scalarParamsDict_tfrecord, timeSeriesFDLDict_tfrecord, centroidDict_tfrecord = \
-            get_values_from_tfrecord(tfrecFile, scalar_params, timeSeriesFDLList, centroidList, **kwargs)
+        scalarParamsDict_tfrecord, timeSeriesFDLDict_tfrecord, centroidDict_tfrecord, diff_imgDict_tfrecord = \
+            get_values_from_tfrecord(tfrecFile, scalar_params, timeSeriesFDLList, centroidList, diff_imgList, **kwargs)
 
         if scalar_params is not None:
             for param in scalar_params:
@@ -148,12 +168,26 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, timeSeriesFDLList
             for param in centroidList:
                 centroidDict[param].extend(centroidDict_tfrecord[param])
 
+        if diff_imgList is not None:
+            for param in diff_imgList:
+                diff_imgDict[param].extend(diff_imgDict_tfrecord[param])
+
     print(f'[{multiprocessing.current_process().name}] Finished extracting data (100 %)')
 
-    return scalarParamsDict, timeSeriesFDLDict, centroidDict
+    return scalarParamsDict, timeSeriesFDLDict, centroidDict, diff_imgDict
 
 
 def compute_normalization_stats(tfrec_fps, config):
+    """ Compute normalization statistics for different features from data in a set of TFRecord files specified by the
+    file paths in `tfrec_fps`.
+
+    Args:
+        tfrec_fps: list, Path objects of TFRecord file paths used to compute the normalization statistics
+        config: dict, auxiliary configuration parameters for normalization methods
+
+    Returns:
+
+    """
 
     if config['scalarParams'] is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in config['scalarParams']}
@@ -172,6 +206,12 @@ def compute_normalization_stats(tfrec_fps, config):
     else:
         centroidDict = None
 
+    # diff img normalization statistics parameters
+    if config['diff_imgList'] is not None:
+        diff_imgDict = {diffimgs: [] for diffimgs in config['diff_imgList']}
+    else:
+        diff_imgDict = None
+
     idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(config['num_bins_loc'],
                                                               config['nr_transit_durations'])  # same for all TCEs
 
@@ -179,7 +219,7 @@ def compute_normalization_stats(tfrec_fps, config):
         pool = multiprocessing.Pool(processes=config['n_processes_compute_norm_stats'])
 
         tfrecTrainFiles_split = np.array_split(tfrec_fps, config['n_processes_compute_norm_stats'])
-        jobs = [(files, config['scalarParams'], config['timeSeriesFDLList'], config['centroidList'])
+        jobs = [(files, config['scalarParams'], config['timeSeriesFDLList'], config['centroidList'], config['diff_imgList'])
                 for files in tfrecTrainFiles_split]
         async_results = [pool.apply_async(get_values_from_tfrecords, job,
                                           kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
@@ -198,12 +238,16 @@ def compute_normalization_stats(tfrec_fps, config):
             if config['centroidList'] is not None:
                 for param in config['centroidList']:
                     centroidDict[param].extend(partial_values[2][param])
+            if config['diff_imgList'] is not None:
+                for param in config['diff_imgList']:
+                    diff_imgDict[param].extend(partial_values[3][param])
     else:
-        scalarParamsDict, timeSeriesFDLDict, centroidDict = \
+        scalarParamsDict, timeSeriesFDLDict, centroidDict, diff_imgDict = \
             get_values_from_tfrecords(tfrec_fps,
                                       config['scalarParams'],
                                       config['timeSeriesFDLList'],
                                       config['centroidList'],
+                                      config['diff_imgList'],
                                       idxs_nontransitcadences_loc=idxs_nontransitcadences_loc,
                                       num_bins_loc=config['num_bins_loc'],
                                       num_bins_glob=config['num_bins_glob']
@@ -303,6 +347,27 @@ def compute_normalization_stats(tfrec_fps, config):
             normStatsCentroidDataForDf[f'{timeSeries}_std_clip'] = [normStatsCentroid[timeSeries]['std_clip']]
         normStatsCentroidDf = pd.DataFrame(data=normStatsCentroidDataForDf)
         normStatsCentroidDf.to_csv(config['norm_dir'] / 'train_centroid_norm_stats.csv', index=False)
+
+    if config['diff_imgList'] is not None:
+        normStatsDiff_img = {diffimgs: {
+            'median': np.nanmedian(diff_imgDict[diffimgs]),  # need to flatten each entry
+            'std': stats.mad_std(diff_imgDict[diffimgs], ignore_nan=True),
+            'min': np.nanmin(diff_imgDict[diffimgs]),
+            'max': np.nanmax(diff_imgDict[diffimgs]),
+        }
+            for diffimgs in config['diff_imgList']}
+
+        np.save(config['norm_dir'] / 'train_diff_img_stats.npy', normStatsDiff_img)
+
+        # create additional csv file with normalization statistics
+        normStatsDiff_imgForDf = {}
+        for diffimgs in config['diff_imgList']:
+            normStatsDiff_imgForDf[f'{diffimgs}_median'] = [normStatsDiff_img[diffimgs]['median']]
+            normStatsDiff_imgForDf[f'{diffimgs}_std'] = [normStatsDiff_img[diffimgs]['std']]
+            normStatsDiff_imgForDf[f'{diffimgs}_min'] = [normStatsDiff_img[diffimgs]['min']]
+            normStatsDiff_imgForDf[f'{diffimgs}_max'] = [normStatsDiff_img[diffimgs]['max']]
+        normStatsDiff_img = pd.DataFrame(data=normStatsDiff_imgForDf)
+        normStatsDiff_img.to_csv(config['norm_dir'] / 'train_diff_img_stats.csv', index=False)
 
 
 if __name__ == '__main__':

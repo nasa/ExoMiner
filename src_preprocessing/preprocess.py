@@ -1489,18 +1489,36 @@ def local_view(time,
       1D NumPy array of size num_bins containing the median flux values of
       uniformly spaced bins on the phase-folded time axis.
     """
-    return generate_view(
-        time,
-        flux,
-        tce=tce,
-        num_bins=num_bins,
-        bin_width=duration * bin_width_factor,
-        t_min=max(-period / 2, -duration * num_durations),
-        t_max=min(period / 2, duration * num_durations),
-        centroid=centroid,
-        normalize=normalize,
-        centering=centering,
-        **kwargs)
+
+    t_min = max(-period / 2, -duration * num_durations)
+    t_max = min(period / 2, duration * num_durations)
+
+    if t_min > time[-1] or t_max < time[0]:
+        report_exclusion(kwargs['report']['config'],
+                         tce,
+                         f'No in-transit cadences in view {kwargs["report"]["view"]}.')
+        time_bins = np.linspace(t_min, t_max, num_bins, endpoint=True)
+        med = np.median(flux)
+        std_rob_estm = mad_std(flux)  # robust std estimator of the time series
+        view_var = std_rob_estm * np.ones(num_bins, dtype='float')
+        view = med + np.random.normal(0, std_rob_estm, num_bins)
+        inds_nan = {'oot': False * np.ones(num_bins, dtype='bool'), 'it': False * np.ones(num_bins, dtype='bool')}
+        bin_counts = np.ones(num_bins, dtype='float')
+    else:
+        view, time_bins, view_var, inds_nan, bin_counts = generate_view(
+            time,
+            flux,
+            tce=tce,
+            num_bins=num_bins,
+            bin_width=duration * bin_width_factor,
+            t_min=t_min,
+            t_max=t_max,
+            centroid=centroid,
+            normalize=normalize,
+            centering=centering,
+            **kwargs)
+
+    return view, time_bins, view_var, inds_nan, bin_counts
 
 
 def remove_positive_outliers(time, ts, sigma, fill=False):
@@ -1653,8 +1671,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     )
 
     if n_phases_split < config['min_n_phases']:
-        report_exclusion(config, tce, f'Only found {n_phases_split} phase, need at least {config["min_n_phases"]} to '
-                                      f'create example.')
+        report_exclusion(config, tce, f'Only found {n_phases_split} phase, need at least '
+                                      f'{config["min_n_phases"]} to create example.')
         return None
 
     # phase folding for centroid time series
@@ -1803,7 +1821,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         unfolded_glob_flux_view = np.array(unfolded_glob_flux_view)
         unfolded_glob_flux_view_var = np.array(unfolded_glob_flux_view_var)
 
-        if plot_preprocessing_tce:
+        if plot_preprocessing_tce and len(unfolded_glob_flux_view) > 0:
             utils_visualization.plot_riverplot(unfolded_glob_flux_view,
                                                config['num_bins_glob'],
                                                tce,
@@ -1981,26 +1999,26 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         even_data['se_oot'] = even_data['se_oot'] / flux_views_stats['min']['local']
         even_data['std_oot_bin'] = even_data['std_oot_bin'] / flux_views_stats['min']['local']
 
-        # create local flux view for detecting non-centered transits
-        loc_flux_view_shift, _, _, _, _ = local_view(time,
-                                                     flux,
-                                                     tce['tce_period'],
-                                                     tce['tce_duration'],
-                                                     tce=tce,
-                                                     normalize=False,
-                                                     centering=False,
-                                                     num_durations=5,
-                                                     num_bins=config['num_bins_loc'],
-                                                     bin_width_factor=config['bin_width_factor_loc'],
-                                                     report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
-                                                     )
-        flux_views['local_flux_view_shift'] = loc_flux_view_shift
-        med_view = np.median(flux_views['local_flux_view_shift'])
-        flux_views['local_flux_view_shift_fluxnorm'] = \
-            centering_and_normalization(flux_views['local_flux_view_shift'],
-                                        med_view,
-                                        np.abs(np.min(flux_views['local_flux_view_shift'] - med_view)),
-                                        report={'config': config, 'tce': tce, 'view': 'local_flux_view_shift'})
+        # # create local flux view for detecting non-centered transits
+        # loc_flux_view_shift, _, _, _, _ = local_view(time,
+        #                                              flux,
+        #                                              tce['tce_period'],
+        #                                              tce['tce_duration'],
+        #                                              tce=tce,
+        #                                              normalize=False,
+        #                                              centering=False,
+        #                                              num_durations=5,
+        #                                              num_bins=config['num_bins_loc'],
+        #                                              bin_width_factor=config['bin_width_factor_loc'],
+        #                                              report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
+        #                                              )
+        # flux_views['local_flux_view_shift'] = loc_flux_view_shift
+        # med_view = np.median(flux_views['local_flux_view_shift'])
+        # flux_views['local_flux_view_shift_fluxnorm'] = \
+        #     centering_and_normalization(flux_views['local_flux_view_shift'],
+        #                                 med_view,
+        #                                 np.abs(np.min(flux_views['local_flux_view_shift'] - med_view)),
+        #                                 report={'config': config, 'tce': tce, 'view': 'local_flux_view_shift'})
 
         # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
         weak_secondary_flux_views = {

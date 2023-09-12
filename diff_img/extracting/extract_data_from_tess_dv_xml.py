@@ -3,13 +3,12 @@ Extracting difference image data from the TESS DV XML files.
 """
 
 # 3rd party
-import numpy as np
 from pathlib import Path
 import multiprocessing
 import pandas as pd
 
 # local
-from diff_img.utils_diff_img import get_data_from_tess_dv_xml_multiproc
+from diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 
 if __name__ == '__main__':
     # DV XML file path

@@ -13,7 +13,6 @@ import yaml
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 from src_preprocessing.preprocess import centering_and_normalization
-# from paths import path_main
 
 
 def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
@@ -240,6 +239,85 @@ def normalize_centroid(example, normStatsCentroid):
     return norm_centroid_feat
 
 
+def normalize_diff_img(example, normStatsDiff_img):
+    """ Normalize the difference image features for the example.
+
+    Args:
+        example: serialized example
+        normStatsDiff_img: dict, normalization statistics for the centroid views
+
+    Returns: norm_diff_img_feat, dict with normalized difference image features for the example
+    """
+
+    # initialize dictionary to store the normalized features
+    norm_diff_img_feat = {}
+
+    # read non-normalized difference image features for example
+    diff_imgs = tf.io.parse_tensor(serialized=example.features.feature['diff_img'].bytes_list.value[0],
+                                   out_type='float').numpy()
+    oot_imgs = tf.io.parse_tensor(serialized=example.features.feature['oot_img'].bytes_list.value[0],
+                                  out_type='float').numpy()
+
+    # option 2) min/max
+    diff_imgs_opt2 = np.array(diff_imgs)
+    oot_imgs_opt2 = np.array(oot_imgs)
+
+    # set NaNs to zero for diff img
+    nan_diff_opt2 = np.isnan(diff_imgs_opt2)
+    diff_imgs_opt2[nan_diff_opt2] = 0
+
+    # x_n = (x - min(x)) / (max(x) - min(x))
+    diff_imgs_opt2 = ((diff_imgs_opt2 - normStatsDiff_img['diff_img']['min']) /
+                      (normStatsDiff_img['diff_img']['max'] - normStatsDiff_img['diff_img']['min']))
+    oot_imgs_opt2 = ((oot_imgs_opt2 - normStatsDiff_img['oot_img']['min']) /
+                     (normStatsDiff_img['oot_img']['max'] - normStatsDiff_img['oot_img']['min']))
+
+    # set NaNs to -1 for oot img
+    nan_oot_opt2 = np.isnan(oot_imgs_opt2)
+    oot_imgs_opt2[nan_oot_opt2] = -1
+
+    norm_diff_img_feat.update({'diff_imgs_opt2': diff_imgs_opt2,
+                               'oot_imgs_opt2': oot_imgs_opt2})
+
+    # option 4) med/std
+    diff_imgs_opt4 = np.array(diff_imgs)
+    oot_imgs_opt4 = np.array(oot_imgs)
+
+    # x_n = (x - med(x)) / (std(x) + eps)
+    diff_imgs_opt4 = ((diff_imgs_opt4 - normStatsDiff_img['diff_img']['median']) /
+                      (normStatsDiff_img['diff_img']['std'] + 1e-10))
+
+    # set NaNs to zero for diff img
+    nan_diff_opt4 = np.isnan(diff_imgs_opt4)
+    diff_imgs_opt4[nan_diff_opt4] = 0
+
+    # get 25th quantile for each oot image in the example
+    oot_imgs_opt4 = ((oot_imgs_opt4 - normStatsDiff_img['oot_img']['median']) /
+                     (normStatsDiff_img['oot_img']['std'] + 1e-10))
+
+    quantile_oot_img = np.nanquantile(oot_imgs_opt4, 0.25, axis=(1, 2))
+
+    # replace NaNs with quantile value; if whole image is NaNs, set to -1
+    for index in range(len(oot_imgs_opt4)):
+        c_img = np.array(oot_imgs_opt4[index])
+        c_img_nan = np.isnan(c_img)
+        if np.isnan(quantile_oot_img[index]):  # entire image is nan
+            c_img[c_img_nan] = ((-1 - normStatsDiff_img['oot_img']['median']) /
+                                (normStatsDiff_img['oot_img']['std'] + 1e-10))
+        else:
+            c_img[c_img_nan] = quantile_oot_img[index]
+
+        oot_imgs_opt4[index] = c_img
+
+    nan_oot_opt4 = np.isnan(oot_imgs_opt4)
+    oot_imgs_opt4[nan_oot_opt4] = -1
+
+    norm_diff_img_feat.update({'diff_imgs_opt4': diff_imgs_opt4,
+                               'oot_imgs_opt4': oot_imgs_opt4})
+
+    return norm_diff_img_feat
+
+
 def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
     """ Normalize examples in TFRecords.
 
@@ -284,10 +362,19 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                 norm_centr_feat = normalize_centroid(example, normStats['centroid'])
                 normalizedFeatures.update(norm_centr_feat)
 
-            # add features to the example in the TFRecord
+            # normalize diff img and oot img
+            if 'diff_img' in normStats:
+                norm_diff_img_feat = normalize_diff_img(example, normStats['diff_img'])
+                normalizedFeatures.update(norm_diff_img_feat)
+
             for normalizedFeature in normalizedFeatures:
-                example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
-                                               allow_overwrite=True)
+
+                if isinstance(normalizedFeatures[normalizedFeature], list):  # check for 1-D lists
+                    example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature], allow_overwrite=True)
+                elif len(normalizedFeatures[normalizedFeature].shape) < 2:  # check for 1-D NumPy arrays
+                    example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature], allow_overwrite=True)
+                elif len(normalizedFeatures[normalizedFeature].shape) >= 2:  # check for N-D Numpy arrays with N >= 2
+                    example_util.set_tensor_feature(example, normalizedFeature, np.array(normalizedFeatures[normalizedFeature]), allow_overwrite=True)
 
             writer.write(example.SerializeToString())
 
@@ -316,7 +403,8 @@ if __name__ == '__main__':
     normStats = {
         'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
         # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item()
+        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item(),
+        'diff_img': np.load(normStatsDir / 'train_diff_img_stats.npy', allow_pickle=True).item()
     }
 
     # WRITE CODE HERE TO ADJUST NORMALIZATION STATISTICS (E.G., ADD SCALAR FEATURES THAT YOU  WANT TO NORMALIZE AND ARE
