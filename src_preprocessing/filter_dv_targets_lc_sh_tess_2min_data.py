@@ -29,7 +29,7 @@ dest_lc_sh_dir.mkdir(exist_ok=True)
 #%%
 
 dv_sh_fps = dv_sh_dir.iterdir()  # get iterator for fps of DV sh files
-n_dv_sh_files = len(dv_sh_fps)  # number of DV sh files
+n_dv_sh_files = len(list(dv_sh_fps))  # number of DV sh files
 
 # get tic ids of all target stars with DV results; i.e., with a curl statement for DV products in the DV sh files
 tics_dv_dict = {}
@@ -41,8 +41,8 @@ for dv_sh_fp_i, dv_sh_fp in enumerate(dv_sh_dir.iterdir()):  # iterate through D
         s_sector, e_sector = dv_sh_fp.stem.split('_')[2].split('-')
         s_sector, e_sector = s_sector[1:], e_sector[1:]
     else:  # single-sector tesscurl_sector_X_dv.sh
-        sectors = np.array([int(dv_sh_fp.stem.split('2'))])
-        s_sector, e_sector = [dv_sh_fp.stem.split('2').zfill(4)] * 2
+        sectors = np.array([int(dv_sh_fp.stem.split('_')[2])])
+        s_sector, e_sector = [dv_sh_fp.stem.split('_')[2].zfill(4)] * 2
 
     # find targets in sector run with DV results
     with open(dv_sh_fp, 'r') as dv_file:
