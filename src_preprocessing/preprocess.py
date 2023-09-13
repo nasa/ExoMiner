@@ -502,7 +502,6 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
         utils_visualization.plot_residual(time_arrs,
                                           res_flux,
                                           tce,
-                                          config,
                                           os.path.join(config['output_dir'], 'plots'),
                                           f'3_residual_flux_aug{tce["augmentation_idx"]}',
                                           )

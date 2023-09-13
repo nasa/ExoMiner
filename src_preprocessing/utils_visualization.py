@@ -1200,11 +1200,12 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     :return:
     """
 
-    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
+    timeseries_madstd, timeseries_med = (mad_std(timeseries['Flux'][1], ignore_nan=True),
+                                         np.nanmedian(timeseries['Flux'][1]))
     std_range = sigma_factor * timeseries_madstd
-    min_range = delta_factor * min(min(binned_timeseries['Local Flux'][1]),
-                                   min(binned_timeseries['Local Odd Flux'][1]),
-                                   min(binned_timeseries['Local Even Flux'][1]))
+    min_range = delta_factor * np.nanmin(np.concatenate([binned_timeseries['Local Flux'][1],
+                                                         binned_timeseries['Local Odd Flux'][1],
+                                                         binned_timeseries['Local Even Flux'][1]]))
     range_timeseries = [min_range, timeseries_med + std_range]
 
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
@@ -1222,7 +1223,8 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     ax.set_xlabel('Phase (hour)')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Odd')
-    ax.set_ylim(range_timeseries)
+    if not np.isnan(range_timeseries).any():
+        ax.set_ylim(range_timeseries)
 
     # local even flux (phase-folded + binned ts)
     ax = plt.subplot(gs[0, 1])
@@ -1234,7 +1236,8 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     ax.set_xlabel('Phase (hour)')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Even')
-    ax.set_ylim(range_timeseries)
+    if not np.isnan(range_timeseries).any():
+        ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[1, :])
     # local flux
@@ -1255,37 +1258,21 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (hour)')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    ax.set_ylim(range_timeseries)
+    if not np.isnan(range_timeseries).any():
+        ax.set_ylim(range_timeseries)
 
-    # plt.subplots_adjust(
-    #     hspace=0.526,
-    #     wspace=0.202,
-    #     top=0.943,
-    #     bottom=0.06,
-    #     left=0.057,
-    #     right=0.98
-    # )
-    # if config['satellite'] == 'kepler':
-    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                tce.label, basename)))
-    # else:
-    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                    tce.sector_run, tce.label, basename)))
     f.suptitle('{} {}'.format(tce.uid, tce.label))
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
 
 
-def plot_residual(time, res_flux, tce, config, savedir, basename):
+def plot_residual(time, res_flux, tce, savedir, basename):
     """ Creates and saves a figure with plot for the residual time series after fitting the spline
     (res = time_series - spline) a given TCE.
 
     :param time: list, timestamps
     :param res_flux: list, residual flux
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -1299,14 +1286,7 @@ def plot_residual(time, res_flux, tce, config, savedir, basename):
     ax.set_xlabel('Time [day]')
     ax.set_xlim([time[0][0], time[-1][-1]])
     plt.subplots_adjust(left=0.048, right=0.983)
-    # if config['satellite'] == 'kepler':
-    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                tce.label, basename)))
-    # else:
-    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                    tce.sector_run, tce.label, basename)))
+
     f.suptitle('{} {}'.format(tce.uid, tce.label))
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
