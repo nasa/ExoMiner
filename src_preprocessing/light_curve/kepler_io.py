@@ -16,9 +16,9 @@
 
 # 3rd party
 import os.path
+import pandas as pd
 from astropy.io import fits
 import numpy as np
-# from tensorflow import gfile
 from tensorflow.io import gfile
 from astropy import wcs
 
@@ -229,6 +229,7 @@ def scramble_light_curve_with_centroids(all_time, fluxes, centroids, all_quarter
 def read_kepler_light_curve(filenames,
                             light_curve_extension="LIGHTCURVE",
                             scramble_type=None,
+                            cadence_no_quarters_tbl_fp=None,
                             interpolate_missing_time=False,
                             centroid_radec=False,
                             prefer_psfcentr=False,
@@ -242,6 +243,8 @@ def read_kepler_light_curve(filenames,
         light_curve_extension: Name of the HDU 1 extension containing light curves.
         scramble_type: What scrambling procedure to use: 'SCR1', 'SCR2', or 'SCR3'
           (pg 9: https://exoplanetarchive.ipac.caltech.edu/docs/KSCI-19114-002.pdf).
+        cadence_no_quarters_tbl_fp: pandas DataFrame. For each quarter, gives information on the first and last
+        cadences, and on the number of cadences in the interquarter gap.
         interpolate_missing_time: Whether to interpolate missing (NaN) time values.
           This should only affect the output if scramble_type is specified (NaN time
           values typically come with NaN flux values, which are removed anyway, but
@@ -255,8 +258,8 @@ def read_kepler_light_curve(filenames,
         data: dictionary with data extracted from the FITS files
             - all_time: A list of numpy arrays; the time values of the light curve.
             - all_flux: A list of numpy arrays; the flux values of the light curve.
-            - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid values
-            of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
+            - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid
+            values of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
             - target_postiion: A list of two elements which correspond to the target star position, either in world
             (RA, Dec) or local CCD (x, y) pixel coordinates
             - module: A list with the module IDs
@@ -265,17 +268,24 @@ def read_kepler_light_curve(filenames,
 
   """
 
-    # initialize data dict
+    # initialize data dict for time series data
     data = {
         'all_time': [],
         'all_flux': [],
         'all_centroids': {'x': [], 'y': []},
         'all_centroids_px': {'x': [], 'y': []},
+        'flag_keep': [],
+    }
+    timeseries_fields = list(data.keys())
+
+    # add fields for additional data
+    data.update({
         'quarter': [],
         'module': [],
         'target_position': [],
         'quarter_timestamps': {},
     }
+    )
 
     files_not_read = []
 
@@ -354,6 +364,14 @@ def read_kepler_light_curve(filenames,
             world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=False)
             centroid_x, centroid_y = world[:, 0], world[:, 1]
 
+        # if get_px_centr:
+        # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
+        # aperture
+        # 1st attempt at reproducing FDL centroid; they mention centroid relative to the Target Pixel File center,
+        # It is not clear what exactly that means
+        # centroid_fdl_x = centroid_fdl_x - ref_px_ccdf[0])
+        # centroid_fdl_y = centroid_fdl_y - ref_px_ccdf[1])
+
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME
         flux = light_curve.PDCSAP_FLUX
@@ -368,56 +386,65 @@ def read_kepler_light_curve(filenames,
 
         data['quarter_timestamps'].update({quarter: [time[0], time[-1]]})
 
-        # use quality flags to remove cadences
+        inds_keep = True * np.ones(len(time), dtype='bool')
+        # set indices for missing flux values to false
+        inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
+
+        # use quality flags to exclude cadences
         MAX_BIT = 16
         BITS = []  # [2048, 4096, 32768]
         flags = {bit: np.binary_repr(bit).zfill(MAX_BIT).find('1') for bit in BITS}
-        inds_keep = True * np.ones(len(time), dtype='bool')
+        qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.SAP_QUALITY])  # SAP_QUALITY
+        for flag_bit in flags:
+            qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
+            inds_keep[qflags_bit] = False
 
-        # FITS file might not have quality flags: set a try/except block?
-        try:
-            qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
-            for flag_bit in flags:
-                qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
-                inds_keep[qflags_bit] = False
-        except:
-            pass
+        data['flag_keep'].append(inds_keep)
 
-        inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
-        time = time[inds_keep]
-        flux = flux[inds_keep]
-        centroid_x = centroid_x[inds_keep]
-        centroid_y = centroid_y[inds_keep]
-        centroid_fdl_x = centroid_fdl_x[inds_keep]
-        centroid_fdl_y = centroid_fdl_y[inds_keep]
-
-        # Possibly interpolate missing time values.
-        if interpolate_missing_time:
+        # Possibly interpolate missing time values IN EXISTING ARRAY.
+        if interpolate_missing_time or scramble_type:
             time = util.interpolate_missing_time(time, light_curve.CADENCENO)
 
         data['all_time'].append(time)
         data['all_flux'].append(flux)
         data['all_centroids']['x'].append(centroid_x)
         data['all_centroids']['y'].append(centroid_y)
-
-        # if get_px_centr:
-        # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
-        # aperture
-        # 1st attempt at reproducing FDL centroid; they mention centroid relative to the Target Pixel File center,
-        # It is not clear what exactly that means
-        # data['all_centroids_px']['x'].append(centroid_fdl_x - ref_px_ccdf[0])
-        # data['all_centroids_px']['y'].append(centroid_fdl_y - ref_px_ccdf[1])
-        # 2nd attempt - instead of subtracting the ref_px_ccdf coordinates, the spline is subtracted during
-        # preprocessing
         data['all_centroids_px']['x'].append(centroid_fdl_x)
         data['all_centroids_px']['y'].append(centroid_fdl_y)
-
         data['quarter'].append(quarter)
         data['module'].append(module)
 
     # scrambles data according to the scramble type selected
     if scramble_type:
 
+        interquarter_cadence_tbl = pd.read_csv(cadence_no_quarters_tbl_fp, index_col='quarter')
+
+        # extend timeseries data arrays with NaNs to account for interquarter gaps
+        for qi, quarter in enumerate(data['quarter']):
+
+            if quarter == 17:  # no interquarter gap after quarter 17
+                continue
+
+            ncadences_interquarter = int(interquarter_cadence_tbl.loc[quarter, 'interquarter_cadence_gap'])
+            for data_field in timeseries_fields:
+                if 'centroids' in data_field:
+                    data[data_field]['x'][qi] = np.concatenate([data[data_field]['x'][qi],
+                                                                np.nan * np.ones(ncadences_interquarter)])
+                    data[data_field]['y'][qi] = np.concatenate([data[data_field]['y'][qi],
+                                                          np.nan * np.ones(ncadences_interquarter)])
+                else:
+                    data[data_field][qi] = np.concatenate([data[data_field][qi],
+                                                          np.nan * np.ones(ncadences_interquarter)])
+
+            # interpolate timestamps array for interquarter cadences
+            data['all_time'][qi] = (
+                util.interpolate_missing_time(
+                    data['all_time'][qi],
+                    np.arange(int(interquarter_cadence_tbl.loc[quarter, 'first_cadence_no']),
+                              int(interquarter_cadence_tbl.loc[quarter, 'last_cadence_no'] + 1 +
+                                  ncadences_interquarter))))
+
+        # reindex data arrays
         scr_time, scr_fluxes, scr_centroids = scramble_light_curve_with_centroids(
             data['all_time'],
             fluxes={'all_flux': data['all_flux']},
@@ -436,5 +463,13 @@ def read_kepler_light_curve(filenames,
     if invert:
         data['all_flux'] = [flux - 2 * np.median(flux) for flux in data['all_flux']]
         data['all_flux'] = [-1 * flux for flux in data['all_flux']]
+
+    # exclude data points based on keep flags
+    for arr_i, inds_keep in enumerate(data['flag_keep']):
+        if 'centroids' in data_field:
+            data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
+            data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
+        else:
+            data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
 
     return data, files_not_read

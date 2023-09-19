@@ -1,19 +1,19 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_kepler_q1q17dr25_inj_7-26-2023_1410
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_scrambling_kepler_q1q17dr25_scr2_9-15-2023_1419
 # TCE table
 input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar_final_7-24-2023_1548.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
 # light curve FITS file directory
 #lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc/
-lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25_plti/inj1/
+lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
 dict_savedir: null
 
 using_mpi: false  # use MPI
 
-ffi_data: true  # set to true for SPOC FFI data
+ffi_data: false  # set to true for SPOC FFI data
 
 shuffle: false
 shuffle_seed: 24
@@ -36,7 +36,7 @@ num_durations: 2.5  # number of transit durations to include in the local view: 
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
-min_n_phases: 20  # minimum number of phases that need to be available for a given example
+min_n_phases: 0  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning
@@ -135,9 +135,12 @@ tce_min_err:
   tce_duration: 0.000385  # in days
   tce_time0bk: 2.44455e-6
 
-light_curve_extension: INJECTED LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
+light_curve_extension: LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
 
 # simulated Kepler data options
-injected_group: INJ1  # set to `INJ1`, `INJ2`, or `INJ3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
-scramble_type: null  # choose between `SCR1`, `SCR2`, and `SCR3`groups or null for no scrambling
+injected_group: null  # set to `INJ1`, `INJ2`, or `INJ3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
+scramble_type: SCR2  # choose between `SCR1`, `SCR2`, and `SCR3`groups or null for no scrambling
 invert: false  # inverted group
+
+# when scrambling, information about the cadence number for the different quarters is required
+cadence_no_quarters_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/quarters_cadence_numbers.csv

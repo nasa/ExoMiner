@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/')
 
     # create experiment directory
-    exp_dir = root_dir / f'tces_spoc_dv_2mindata_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+    exp_dir = root_dir / f'tces_spoc_dv_ffidata_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     exp_dir.mkdir(exist_ok=True)
     print(f'Starting run {exp_dir}...')
     save_dir = exp_dir / 'sector_run_tic_tbls'
@@ -37,21 +37,22 @@ if __name__ == '__main__':
     sector_timestamps_tbl = pd.read_csv(sector_timestamps_tbl_fp).sort_values('sector')
     print(f'Using sector timestamps table {sector_timestamps_tbl_fp}')
 
-    # # load TOI catalog
-    # toi_tbl = pd.read_csv(root_dir / 'exofop_toilists.csv')
-    # # toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-    # toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-    # toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid'}, inplace=True)
-    # toi_tbl = toi_tbl.dropna(subset=['period', 'epoch', 'duration'])
-    # toi_tbl = toi_tbl.loc[(~toi_tbl['period'].isna() & (toi_tbl['period'] > 0) & ~toi_tbl['epoch'].isna() & ~toi_tbl['duration'].isna())]
-
-    toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
+    # load TOI catalog
+    toi_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/9-19-2023/exofop_tess_tois.csv')
     toi_tbl = pd.read_csv(toi_tbl_fp)
+    # toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
+    toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
+    toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid'}, inplace=True)
+    toi_tbl = toi_tbl.dropna(subset=['period', 'epoch', 'duration'])
+    toi_tbl = toi_tbl.loc[(~toi_tbl['period'].isna() & (toi_tbl['period'] > 0) & ~toi_tbl['epoch'].isna() & ~toi_tbl['duration'].isna())]
+
+    # toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
+    # toi_tbl = pd.read_csv(toi_tbl_fp)
     toi_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration', 'target_id': 'TIC ID'}, inplace=True)
     print(f'Using TOI table {toi_tbl_fp}')
 
     # load TCE table
-    tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623.csv')
+    tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv')
     tce_tbl = pd.read_csv(tce_tbl_fp)
     # tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail_toidv_smet.csv')
     tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
@@ -61,8 +62,8 @@ if __name__ == '__main__':
     targets_arr = tce_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
-    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
-                                    plot_prob, plot_dir)
+    # match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
+    #                                 plot_prob, plot_dir)
 
     n_procs = 10
     n_jobs = 10

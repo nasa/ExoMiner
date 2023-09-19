@@ -11,6 +11,7 @@ import pandas as pd
 from diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 
 if __name__ == '__main__':
+
     # DV XML file path
     dv_xml_root_fp = Path('/data5/tess_project/Data/TESS_dv_fits/dv_xml/sector_runs')
     single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(processes=n_processes)
     # n_jobs = len(dv_xml_runs)
     # dv_xml_runs_jobs = np.array_split(dv_xml_runs, n_jobs)
-    jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, tce_tbl, job_i)
+    jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i, tce_tbl)
             for job_i, dv_xml_run in enumerate(dv_xml_runs)]
     async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
     pool.close()

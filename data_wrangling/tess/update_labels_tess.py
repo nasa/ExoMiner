@@ -5,20 +5,29 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 
-#%%
+#%% Load TCE table
 
 tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
-#%% update based on TCE-TOI matchings using our algorithm
+#%% Initialize label field to unknown
 
+tce_tbl['label'] = 'UNK'
+tce_tbl['label_source'] = 'N/A'
+
+#%% Update based on TCE-TOI matchings using our algorithm
+
+# load TCE-TOI matching table
 match_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621/matched_signals.csv')
 match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_toi_our'})
 
+# merge matching results to TCE table
 tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
 
+# load TOI table used in matching TCEs with TOIs
 toi_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/10-3-2022/exofop_tess_tois-4.csv')
 
+# define columns that want to be added from the TOI catalog
 toi_cols = [
     'TFOPWG Disposition',
     'TESS Disposition',
@@ -33,35 +42,26 @@ toi_cols = [
     'Time Series Observations',
     'Comments',
 ]
-tce_tbl[toi_cols] = np.nan
+tce_tbl[toi_cols] = np.nan  # initialize them to nan
 
-tce_tbl['label_source'] = np.nan
-# cnt_updates = 0
-# cnt_unks_updated = 0
+# iterate through TOIs and check which TCEs matched to a given TOI
 for toi_i, toi in toi_tbl.iterrows():
 
     tces_found = tce_tbl['matched_toi_our'] == toi['TOI']
     if tces_found.sum() == 0 or not isinstance(toi['TFOPWG Disposition'], str):
-        continue
-
-    # cnt_updates += (tce_tbl.loc[tces_found, 'label'] != toi['TFOPWG Disposition']).sum()
-    # cnt_unks_updated += ((tce_tbl.loc[tces_found, 'label'] != toi['TFOPWG Disposition']) &
-    #                      (tce_tbl.loc[tces_found, 'label'] == 'UNK')).sum()
+        continue  # no TCEs matched or TOI does not have TFOPWG disposition
 
     tce_tbl.loc[tces_found, ['label', 'TFOPWG Disposition']] = toi['TFOPWG Disposition']
     tce_tbl.loc[tces_found, 'label_source'] = 'TFOPWG Disposition'
 
     tce_tbl.loc[tces_found, toi_cols] = toi[toi_cols].values
 
-# print(f'Number of unlabeled TCEs that changed their disposition: {cnt_unks_updated}')
-# print(f'Number of TCEs that changed their disposition: {cnt_updates}')
-
-tce_tbl.loc[tce_tbl['label_source'].isna(), ['label', 'label_source', 'TFOPWG Disposition']] = 'UNK', 'N/A', np.nan
 print(f'TCE disposition counts after update:\n {tce_tbl["label"].value_counts()}')
 
 # tce_tbl.to_csv(save_dir / f'{tce_tbl_fp.stem}_toidv.csv', index=False)
 
-#%%
+#%% Add labels from other sources besides TOI catalog
+
 # 2) match TCEs to TSO EBs
 # tce_tbl.loc[(tce_tbl['tso_eb'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
 tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') &

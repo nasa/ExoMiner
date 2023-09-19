@@ -84,13 +84,15 @@ def read_light_curve(tce, config):
                                               f'KIC {tce.target_id}')
                 return None
 
-        data, fits_files_not_read = kepler_io.read_kepler_light_curve(file_names,
-                                                                      centroid_radec=not config['px_coordinates'],
-                                                                      prefer_psfcentr=config['prefer_psfcentr'],
-                                                                      light_curve_extension=config[
-                                                                          'light_curve_extension'],
-                                                                      scramble_type=config['scramble_type'],
-                                                                      invert=config['invert'])
+        data, fits_files_not_read = kepler_io.read_kepler_light_curve(
+            file_names,
+            centroid_radec=not config['px_coordinates'],
+            prefer_psfcentr=config['prefer_psfcentr'],
+            light_curve_extension=config['light_curve_extension'],
+            scramble_type=config['scramble_type'],
+            cadence_no_quarters_tbl_fp=config['cadence_no_quarters_tbl_fp'],
+            invert=config['invert']
+        )
 
         if len(fits_files_not_read) > 0:
             report_exclusion(config, tce, 'FITS files not read correctly')
