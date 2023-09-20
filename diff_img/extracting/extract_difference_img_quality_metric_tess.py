@@ -30,6 +30,10 @@ for sector_run in sector_runs:
         sector_run_id = sector_run.name.split('_')[1]
         s_sector, e_sector = int(sector_run_id), int(sector_run_id)
 
+    if (save_dir / f'diff_img_quality_metric_tess_{sector_run_id}.csv').exists():
+        print(f'Quality metric table for {sector_run_id} already exists.')
+        continue
+
     s_arr = np.arange(s_sector, e_sector + 1)
     qual_metric_fields = ['value', 'valid', 'attempted']
     for s in s_arr:

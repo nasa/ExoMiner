@@ -56,15 +56,13 @@ def preprocess_diff_img_tces(diff_img_data, number_of_imgs_to_sample, pad_n_pxs,
     """
 
     if mission == 'kepler':
-        # if n_max_imgs_avail != 17:
-        #     raise ValueError(f'Number of max images available `n_max_imgs_avail` was not set to 17 '
-        #                      f'({n_max_imgs_avail}).')
         prefix = 'q'
     elif mission == 'tess':
         prefix = 's'
     else:
         raise ValueError(f'Mission not recognized ({mission}). Set variable to `kepler` or `tess`.')
 
+    # check the (potential) number of maximum images available using the quality metrics table
     imgs_t = [int(col[1:-6]) for col in quality_metrics.columns if '_value' in col]
     n_max_imgs_avail = imgs_t[-1] - imgs_t[0] + 1
 
@@ -276,7 +274,6 @@ if __name__ == '__main__':
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--sat_thr', type=int, help='Saturation threshold.', default=12)
-    # parser.add_argument('--n_max_imgs_avail', type=int, help='Maximum number of images available.', default=5)
     parser.add_argument('--num_sampled_imgs', type=int, help='Number of images to sample.', default=5)
     parser.add_argument('--pad_n_pxs', type=int, help='Number of pixels to pad images in each dimension and side.', default=20)
     parser.add_argument('--final_dim', type=int, help='Final image size (final_dim, final_dim).', default=11)
@@ -285,6 +282,9 @@ if __name__ == '__main__':
     parser.add_argument('--dest_dir', type=str, help='Path to directory with the preprocessed results is going to be created.', default=f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
     parser.add_argument('--diff_img_tbl_fp', type=str, help='File path to NumPy array with the extracted difference image data for a set of TCEs.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-17-2022_1205/keplerq1q17_dr25_diffimg.npy')
     parser.add_argument('--qual_metrics_tbl_fp', type=str, help='File path to table with quality metrics for each image in each TCE.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+    parser.add_argument('--n_processes', type=int, help='Number of processes to spawn to parallelize work', default=4)
+    parser.add_argument('--n_jobs', type=int, help='Number of jobs.', default=4)
+
     args = parser.parse_args()
 
     # mission; either `tess` or `kepler`
@@ -301,7 +301,6 @@ if __name__ == '__main__':
     # file path to table with information on saturated stars
     saturated_tbl_fp = Path(args.sat_tbl_fp)  # Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
     sat_thr = args.sat_thr  # 12  # saturated target threshold
-    # n_max_imgs_avail = args.n_max_imgs_avail  # 17  # maximum number of images available
     num_sampled_imgs = args.num_sampled_imgs  # 5  # number of quarters/sectors to get
     pad_n_pxs = args.pad_n_pxs  # 20  # padding original images with this number of pixels
     final_dim = args.final_dim  # 11  # dimension of final image
@@ -340,8 +339,8 @@ if __name__ == '__main__':
     #                                                        saturated_tce_ids, mission, dest_dir, logger)
 
     # parallelize work
-    n_processes = 4
-    n_jobs = 4
+    n_processes = args.n_processes
+    n_jobs = args.n_jobs
     tces_ids = np.array_split(np.array(list(diff_img_data.keys())), n_jobs)
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [({tce_id: tce_diff_data for tce_id, tce_diff_data in diff_img_data.items() if tce_id in tces_ids_job},

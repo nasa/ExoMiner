@@ -50,14 +50,6 @@ if __name__ == '__main__':
     async_results = [pool.apply_async(get_data_from_kepler_dv_xml_multiproc, job) for job in jobs]
     pool.close()
 
-    # data = {}
-    # for async_res in async_results:
-    #     data.update(async_res.get())
-
-    # data = get_data_from_dv_xml(dv_xml_fp, tces, plot_prob, plot_dir)
-
-    # np.save(run_dir / 'keplerq1q17_dr25_diffimg.npy', data)
-
     # aggregating difference image data into a single numpy file
     data = {}
     for data_fp in sorted([fp for fp in data_dir.iterdir() if 'keplerq1q17_dr25_diffimg_' in fp.name and
