@@ -466,10 +466,11 @@ def read_kepler_light_curve(filenames,
 
     # exclude data points based on keep flags
     for arr_i, inds_keep in enumerate(data['flag_keep']):
-        if 'centroids' in data_field:
-            data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
-            data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
-        else:
-            data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
+        for data_field in timeseries_fields:
+            if 'centroids' in data_field:
+                data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
+                data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
+            else:
+                data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
 
     return data, files_not_read

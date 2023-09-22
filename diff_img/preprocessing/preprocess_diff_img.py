@@ -2,12 +2,15 @@
 Preprocess extracted difference image data.
 
 1 - Set negative pixels in OOT images to NaN.
-2 - Get number of valid quarters.
-3 - Sample quarters from valid quarters set. If no valid quarters, images are set to NaN and px positions are set to
-zero. Valid quarters are defined as those whose target reference pixel uncertainty is not -1 AND quality metric is
-valid (i.e., qX_valid is set to True).
-4 - Pad with NaNs and crop images to desired size.
-5 - Set images to NaN and px positions to zero if TCE is from a saturated target star.
+2 - Get number of valid quarters/sector_runs.
+3- If there are no valid images, set difference and oot images to NaN, px and subpx coordinates to zero, quality metric
+to NaN.
+4 - Sample quarters/sector_runs from valid quarters/sector runs set. If no valid quarters, images are set to NaN and px
+positions are set to zero. Valid quarters/sector runs are defined as those whose target reference pixel uncertainty is
+not -1 AND quality metric is valid (i.e., qX_valid is set to True).
+5 - Pad with NaNs and crop images to desired size.
+6 - Compute subpixel target location as the location relative to the upper left of the pixel.
+7 - Set images to NaN, px positions to zero and quality metric to NaN if TCE is from a saturated target star.
 """
 
 # 3rd party

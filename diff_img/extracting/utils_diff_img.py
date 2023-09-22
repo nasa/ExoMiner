@@ -19,7 +19,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
         target_col: float, target column location
         target_row: float, target row location
         uid: str, TCE ID
-            plot_dir: Path, plot directory
+        plot_dir: Path, plot directory
         tce_lbl: str, TCE label
 
     Returns:
@@ -250,14 +250,13 @@ def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_dir, p
     np.save(save_dir / f'keplerq1q17_dr25_diffimg_{job_i}.npy', data)
 
 
-def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl):
+def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
     """ Extract difference image data from the DV XML files for a TESS sector run.
 
     :param dv_xml_run: Path, path to sector run with DV XML files.
     :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param logger: logger
-    :param tce_tbl: pandas DataFrame, TCE table
 
     :return: dict, each item is the difference image data for a given TCE. The TCE is identified by the string key
     '{tic_id}-{tce_plnt_num}-S{sector_run}. The value is a dictionary that contains two items: 'target_ref_centroid' is
@@ -293,6 +292,10 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl):
         root = tree.getroot()
         # check if there are results for more than one processing run for this TIC and sector run
         tic_id = root.attrib['ticId']
+
+        # get TESS magnitude for TIC
+        tmag = float([el for el in root if 'tessMag' in el.tag][0].attrib['value'])
+
         tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
         if len(tic_drs) > 1:
             curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
@@ -320,7 +323,8 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl):
 
             data[uid] = {
                 'target_ref_centroid': [],
-                'image_data': []
+                'image_data': [],
+                'tic_tess_mag': tmag,
             }
 
             logger.info(f'[{proc_id}] [{sector_run_id}] Getting difference image data for TCE TIC '
@@ -393,13 +397,12 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl):
                     }
 
                     # plot difference image with target location
-                    if np.random.uniform() <= plot_prob and uid in tce_tbl.index:
+                    if np.random.uniform() <= plot_prob:
                         plot_diff_img_data(diff_imgs,
                                            tic_centroid_ref_dict['col']['value'],
                                            tic_centroid_ref_dict['row']['value'],
                                            uid,
                                            plot_dir,
-                                           tce_tbl.loc[uid]["label"],
                                            )
 
                 data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
@@ -410,7 +413,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl):
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_prob, log_dir, job_i, tce_tbl=None):
+def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_prob, log_dir, job_i):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
@@ -420,14 +423,13 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_pro
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param log_dir: Path, log directory
     :param job_i: int, job id
-    :param tce_tbl: pandas DataFrame, TCE table
 
     :return:
     """
 
     # set up logger
-    logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml_{job_i}')
-    logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml-{job_i}.log',
+    logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml_{dv_xml_run.name}')
+    logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml-{dv_xml_run.name}.log',
                                          mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
@@ -435,6 +437,6 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_pro
     logger.addHandler(logger_handler)
     logger.info(f'[{job_i}] Starting run {dv_xml_run.name}...')
 
-    data = get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger, tce_tbl)
+    data = get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger)
 
     np.save(save_dir / f'tess_diffimg_{dv_xml_run.name}.npy', data)

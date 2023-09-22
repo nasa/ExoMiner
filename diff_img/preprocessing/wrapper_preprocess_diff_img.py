@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 from datetime import datetime
 
+# file path to script that preprocesses difference image data for a sector run (i.e, for a DV xml file)
 script_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/diff_img/preprocessing/preprocess_diff_img.py'
 
 # path to directory with difference image data for the different sector runs

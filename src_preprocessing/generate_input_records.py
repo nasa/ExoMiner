@@ -132,8 +132,6 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     shard_size = len(tce_table)
 
     tceColumns = [
-        # 'target_id',
-        # config['tce_identifier'],
         'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
@@ -221,11 +219,12 @@ def main():
     parser.add_argument('--rank', type=int, help='Rank', default=-1)
     parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
     parser.add_argument('--output_dir', type=str, help='File path output directory for this preprocessing run', default=None)
+    parser.add_argument('--config_fp', type=str, help='File path to yaml config file for this preprocessing run',
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
     args = parser.parse_args()
     
     # get the configuration parameters
-    path_to_yaml = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_preprocessing.yaml')
-
+    path_to_yaml = Path(args.config_fp)
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -237,7 +236,7 @@ def main():
     config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
     config['tce_min_err']['tce_duration'] = config['tce_min_err']['tce_duration'] / 24
 
-    if config['using_mpi']:
+    if config['using_mpi']:  # using some sort of external library for parallelization
         if args.rank != -1:  # using parallel
             config['process_i'] = args.rank
             config['n_shards'] = args.n_runs
@@ -248,10 +247,10 @@ def main():
             config['n_processes'] = MPI.COMM_WORLD.size
         print(f'Process {config["process_i"]} ({config["n_shards"]})')
         sys.stdout.flush()
-    else:
-        config['process_i'] = -1
-        config['n_shards'] = 10
-        config['n_processes'] = 10
+    else:  # using Python multiprocessing
+        config['process_i'] = -1  # unassigned
+        config['n_shards'] = 10  # split data into `n_shards`
+        config['n_processes'] = 10  # number of processes to spawn in parallel
 
     # make the output directory if it doesn't already exist
     config['output_dir'].mkdir(exist_ok=True)
@@ -277,7 +276,16 @@ def main():
         with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as preproc_run_file:
             yaml.dump(json_dict, preproc_run_file)
 
-    if config['using_mpi']:  # use MPI
+    if config['using_mpi']:  # using some sort of external library for parallelization
+
+        if config['process_i'] == 0:
+
+            # save preprocessing configuration used
+            np.save(config['output_dir'] / 'config.npy', config)
+            # save the YAML file with preprocessing parameters that are YAML serializable
+            json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+            with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as cv_run_file:
+                yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
         filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
@@ -297,14 +305,18 @@ def main():
 
     else:  # use multiprocessing.Pool
 
-        # tce_table = (tce_table.loc[tce_table['label'].isin(['KP', 'CP', 'FP'])]).sample(n=20).reset_index(drop=True)
+        # save preprocessing configuration used
+        np.save(config['output_dir'] / 'config.npy', config)
+        # save the YAML file with preprocessing parameters that are YAML serializable
+        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+        with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as cv_run_file:
+            yaml.dump(json_dict, cv_run_file, sort_keys=False)
+
         file_shards = create_shards(config, tce_table)
 
         # launch subprocesses for the file shards
         # n_process = min(config.num_shards, config.num_worker_processes)
-        tf_logging.info(
-            f'Launching {config["n_processes"]} processes for {config["n_shards"]} total file '
-            f'shards')
+        tf_logging.info(f'Launching {config["n_processes"]} processes for {config["n_shards"]} total file shards')
 
         pool = multiprocessing.Pool(processes=config['n_shards'])
         async_results = [pool.apply_async(_process_file_shard_local, file_shard) for file_shard in file_shards]
@@ -317,9 +329,11 @@ def main():
         tf_logging.info(f'Finished processing {config["n_shards"]} total file shards')
 
         # # concatenates shard tables into a single one
-        # create_shards_tbl_flag = create_shards_table(config['output_dir'])
-        # if not create_shards_tbl_flag:
-        #     tf_logging.info('Merged shard table not created.')
+        create_shards_tbl_flag = create_shards_table(config['output_dir'])
+        if not create_shards_tbl_flag:
+            tf_logging.info('Merged shard table not created.')
+
+        tf_logging.info(f'END-PI:{config["output_dir"]}')
 
 
 if __name__ == "__main__":
