@@ -7,7 +7,7 @@ import numpy as np
 
 #%% Load TCE table
 
-tce_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 #%% Initialize label field to unknown
@@ -15,17 +15,20 @@ tce_tbl = pd.read_csv(tce_tbl_fp)
 tce_tbl['label'] = 'UNK'
 tce_tbl['label_source'] = 'N/A'
 
-#%% Update based on TCE-TOI matchings using our algorithm
+print(f'TCE disposition counts before any update:\n{tce_tbl["label"].value_counts()}')
+print(f'TCE label source counts before any update:\n {tce_tbl["label_source"].value_counts()}')
+
+#%% Add labels from ExoFOP TOI catalog using our TCE-TOI matchings
 
 # load TCE-TOI matching table
-match_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621/matched_signals.csv')
+match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/tces_spoc_dv_2mindata_s1-s68_09-25-2023_2028/matched_signals_thr0.75.csv')
 match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_toi_our'})
 
 # merge matching results to TCE table
 tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
 
 # load TOI table used in matching TCEs with TOIs
-toi_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/10-3-2022/exofop_tess_tois-4.csv')
+toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/9-19-2023/exofop_tess_tois.csv', header=1)
 
 # define columns that want to be added from the TOI catalog
 toi_cols = [
@@ -34,7 +37,7 @@ toi_cols = [
     'Period (days)',
     'Duration (hours)',
     'Depth (ppm)',
-    'Epoch (BJD)',
+    'Transit Epoch (BJD)',
     'Planet Radius (R_Earth)',
     'Planet SNR',
     'Spectroscopy Observations',
@@ -56,20 +59,22 @@ for toi_i, toi in toi_tbl.iterrows():
 
     tce_tbl.loc[tces_found, toi_cols] = toi[toi_cols].values
 
-print(f'TCE disposition counts after update:\n {tce_tbl["label"].value_counts()}')
+print(f'TCE disposition counts after ExoFOP TOI update:\n{tce_tbl["label"].value_counts()}')
+print(f'TCE label source counts after ExoFOP TOI update:\n {tce_tbl["label_source"].value_counts()}')
 
 # tce_tbl.to_csv(save_dir / f'{tce_tbl_fp.stem}_toidv.csv', index=False)
 
 #%% Add labels from other sources besides TOI catalog
 
-# 2) match TCEs to TSO EBs
-# tce_tbl.loc[(tce_tbl['tso_eb'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
-tce_tbl.loc[(tce_tbl['in_jon_spoc_ebs'] == 'yes') &
-            (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO EB'
+# 2) match TCEs to TSO SPOC EBs
+tso_spoc_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_catalog_tso/spocEBs_processed.csv')
+tce_tbl['in_tso_spoc_ebs'] = 'no'
+tce_tbl.loc[tce_tbl['uid'].isin(tso_spoc_tbl['uid']), 'in_tso_spoc_ebs'] = 'yes'
+tce_tbl.loc[(tce_tbl['in_tso_spoc_ebs'] == 'yes') &
+            (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'TSO SPOC EB'
 
-# # 3) match TCEs to Jon's EBs
-# tce_tbl.loc[(tce_tbl['eb_match_dist'] < matching_thr) &
-#             (tce_tbl['label'] == 'UNK'), ['label', 'label_source']] = 'EB', 'Jon\'s EBs'
+print(f'TCE disposition counts after TSO SPOC EB update:\n{tce_tbl["label"].value_counts()}')
+print(f'TCE label source counts after TSO SPOC EB update:\n {tce_tbl["label_source"].value_counts()}')
 
 # 4) create NTPs based on TEC flux triage
 tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &

@@ -32,8 +32,7 @@ if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621')
+    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
 
     # sequential processing
@@ -48,7 +47,10 @@ if __name__ == '__main__':
     jobs = [(match_tbl_fp, match_thr) for match_tbl_fp in match_dir.iterdir()]
     async_results = [pool.apply_async(solve_matches, job) for job in jobs]
     pool.close()
+    pool.join()
 
     # aggregate match results into a single file
     matched_signals = pd.concat([async_result.get() for async_result in async_results], axis=0)
-    matched_signals.to_csv(matching_root_dir / 'matched_signals.csv', index=False)
+    matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)
+
+    print('Finished resolving matchings.')

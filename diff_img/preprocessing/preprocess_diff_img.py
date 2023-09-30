@@ -119,7 +119,7 @@ def preprocess_diff_img_tces(diff_img_data, number_of_imgs_to_sample, pad_n_pxs,
         # get the list of valid quarters/sectors
         curr_tce_df = quality_metrics[quality_metrics['uid'] == tce_uid]
         # get quarters/sectors with data
-        available_imgs_idxs = [q_i for q_i in range(1, n_max_imgs_avail)
+        available_imgs_idxs = [q_i for q_i in range(n_max_imgs_avail)
                                if ~np.isnan(curr_tce_df[f'{prefix}{imgs_t[q_i]}_value'].values[0])]
         tces_info_df.loc[tces_info_df['uid'] == tce_uid, [f'available_{prefix}s']] = (
             ''.join(['1' if q_i in available_imgs_idxs else '0' for q_i in range(n_max_imgs_avail)]))
@@ -276,15 +276,15 @@ if __name__ == '__main__':
 
     # used in job arrays
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sat_thr', type=int, help='Saturation threshold.', default=12)
+    parser.add_argument('--sat_thr', type=int, help='Saturation threshold.', default=7)
     parser.add_argument('--num_sampled_imgs', type=int, help='Number of images to sample.', default=5)
     parser.add_argument('--pad_n_pxs', type=int, help='Number of pixels to pad images in each dimension and side.', default=20)
     parser.add_argument('--final_dim', type=int, help='Final image size (final_dim, final_dim).', default=11)
-    parser.add_argument('--mission', type=str, help='Mission. Either `kepler` or `tess`.', default='kepler')
-    parser.add_argument('--sat_tbl_fp', type=str, help='File path to table with magnitude values for the target star associated with each TCE.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
-    parser.add_argument('--dest_dir', type=str, help='Path to directory with the preprocessed results is going to be created.', default=f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
-    parser.add_argument('--diff_img_tbl_fp', type=str, help='File path to NumPy array with the extracted difference image data for a set of TCEs.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-17-2022_1205/keplerq1q17_dr25_diffimg.npy')
-    parser.add_argument('--qual_metrics_tbl_fp', type=str, help='File path to table with quality metrics for each image in each TCE.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv')
+    parser.add_argument('--mission', type=str, help='Mission. Either `kepler` or `tess`.', default='tess')
+    parser.add_argument('--sat_tbl_fp', type=str, help='File path to table with magnitude values for the target star associated with each TCE.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv')
+    parser.add_argument('--dest_dir', type=str, help='Path to directory with the preprocessed results is going to be created.', default=f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/test_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+    parser.add_argument('--diff_img_tbl_fp', type=str, help='File path to NumPy array with the extracted difference image data for a set of TCEs.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/9-19-2023_1642/data/tess_diffimg_sector_4.npy')
+    parser.add_argument('--qual_metrics_tbl_fp', type=str, help='File path to table with quality metrics for each image in each TCE.', default='/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/diff_img_quality_metric/diff_img_quality_metric_tess_4.csv')
     parser.add_argument('--n_processes', type=int, help='Number of processes to spawn to parallelize work', default=4)
     parser.add_argument('--n_jobs', type=int, help='Number of jobs.', default=4)
 
@@ -319,8 +319,9 @@ if __name__ == '__main__':
 
     # load difference image data
     logger.info(f'Loading difference image data from {diff_img_data_fp}')
-    diff_img_data = np.load(diff_img_data_fp, allow_pickle=True).item()
-    # diff_img_data = {k: v for k, v in diff_img_data.items() if k == '757099-1'}
+    # diff_img_data = np.load(diff_img_data_fp, allow_pickle=True).item()
+    diff_img_data = np.load('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/9-19-2023_1642/data/tess_diffimg_sector_4.npy', allow_pickle=True).item()
+    diff_img_data = {k: v for k, v in diff_img_data.items() if k == '165184400-1-S4'}
 
     logger.info(f'Number of TCEs to preprocess: {len(diff_img_data)}')
     # load table with quality metrics
@@ -364,16 +365,16 @@ if __name__ == '__main__':
 
     # adding additional TCE information to the preprocessing table
     tces_info_df = tces_info_df.merge(
-        saturated[['uid', 'target_id', 'label',
+        saturated[['uid', 'target_id',  # 'label',
                    # 'kepoi_name',
-                   'matched_toi_our',
+                   # 'matched_toi_our',
                    'tce_period',
                    # 'transit_depth',
                    'tce_depth',
                    'tce_max_mult_ev', 'mag', 'tce_dikco_msky', 'tce_dikco_msky_err',
                    'tce_dicco_msky', 'tce_dicco_msky_err',
                    # 'tce_fwm_stat',
-                   'ruwe',
+                   # 'ruwe',
                    # 'tce_datalink_dvs', 'tce_datalink_dvr'
                    ]],
         how='left', on='uid', validate='one_to_one')

@@ -1,6 +1,10 @@
 """
 Match pairs of transit signals based on the correlation between the in-transit binary time series created using their
 ephemerides (orbital period, epoch, and transit duration).
+
+The signals in the two tables should have the columns `period`, `duration`, and `epoch`, for period (in days),
+duration (in hours), and epoch (in days and same frame, e.g., TBJD), respectively. They should also have a column
+`target_id` for the id of the target star they are associated with.
 """
 
 # 3rd party
@@ -114,29 +118,29 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
 
     for target in targets_arr:
 
-        print(f'Iterating over TIC {target}...')
+        print(f'Iterating over target {target}...')
 
         # get start and end timestamps for this TIC
         tic_timestamps_sector = sector_timestamps_tbl.loc[sector_timestamps_tbl['target'] == target]
         tic_timestamps_sector = tic_timestamps_sector.sort_values('sector')
         if len(tic_timestamps_sector) == 0:
-            print(f'TIC {target} not found in the timestamps table.')
+            print(f'Target {target} not found in the timestamps table.')
             continue
 
         # get TOIs in this TIC
-        tois_in_tic = toi_tbl.loc[toi_tbl['TIC ID'] == target].reset_index()
+        tois_in_tic = toi_tbl.loc[toi_tbl['target_id'] == target].reset_index()
         if len(tois_in_tic) == 0:
-            print(f'No TOIs in TIC {target}.')
+            print(f'No TOIs in target {target}.')
             continue
 
         for sector_run in tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique():
-            print(f'Iterating over sector run {sector_run} for TIC {target}')
+            print(f'Iterating over sector run {sector_run} for target {target}')
 
             # get TCEs in this TIC and sector run
             tces_in_tic_sectorun = tce_tbl.loc[(tce_tbl['target_id'] == target) &
                                                (tce_tbl['sector_run'] == sector_run)].reset_index()
             if len(tces_in_tic_sectorun) == 0:
-                print(f'No TCEs in TIC {target} for sector run {sector_run}.')
+                print(f'No TCEs in target {target} for sector run {sector_run}.')
                 continue
 
             # get start and end timestamps for the sector run
@@ -145,7 +149,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
                 sector_flag = (tic_timestamps_sector['sector'] >= s_sector) & \
                               (tic_timestamps_sector['sector'] <= e_sector)
                 if sector_flag.sum() == 0:
-                    print(f'No start and end timestamps available for TIC {target} in sector run {sector_run}')
+                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
 
                 tstart = tic_timestamps_sector.loc[sector_flag, 'start'].values[0]
@@ -153,7 +157,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             else:
                 sector = int(sector_run)
                 if (tic_timestamps_sector['sector'] == sector).sum() == 0:
-                    print(f'No start and end timestamps available for TIC {target} in sector run {sector_run}')
+                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
                 tstart = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'start'].values[0]
                 tend = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'end'].values[0]
