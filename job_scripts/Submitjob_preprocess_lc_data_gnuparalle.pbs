@@ -1,5 +1,5 @@
-# Conduct preprocessing run that creates a TFRecord dataset; uses MPIEXEC to generate  mpiprocs*n_nodes (select=) to
-# parallelize the process.
+# Conduct preprocessing run that creates a TFRecord dataset; uses GNU parallel to generate multiple processes, each one
+# conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplnt
 #PBS -l walltime=08:00:00
@@ -16,18 +16,19 @@ conda activate exoplnt_dl
 
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
-
+# create output directory for preprocessing results
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_scr1_9-1-2023_1119
 mkdir -p $OUTPUT_DIR
 
+# script file path
+SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/generate_input_records.py
+
+# number of total runs
 NUM_TOTAL_RUNS=$((1 * 128))
+# number of runs set to each node
 NUM_RUNS_PER_NODE=128
 
-echo "Python"
-which python
-
-seq 0 $(($NUM_TOTAL_RUNS - 1)) | parallel -j $NUM_RUNS_PER_NODE -u "python -u src_preprocessing/generate_input_records.py --rank={} --n_runs=$NUM_TOTAL_RUNS --output_dir=$OUTPUT_DIR > $OUTPUT_DIR/preprocessing_{}.log"
+# run with GNU parallel
+seq 0 $(($NUM_TOTAL_RUNS - 1)) | parallel -j $NUM_RUNS_PER_NODE -u "python -u $SCRIPT_FP --rank={} --n_runs=$NUM_TOTAL_RUNS --output_dir=$OUTPUT_DIR > $OUTPUT_DIR/preprocessing_{}.log"
 
 # seq $NUM_TOTAL_RUNS | parallel -j $NUM_RUNS_PER_NODE -u --sshloginfile $PBS_NODEFILE "python src_preprocessing/generate_input_records.py --rank={} --n_runs=$NUM_TOTAL_RUNS --output_dir=$OUTPUT_DIR &>  $OUTPUT_DIR/preprocessing_data_exoplnt_{}.txt"
-

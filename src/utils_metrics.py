@@ -1,12 +1,7 @@
 """ Utility script that defines metrics to be monitored by the models during training, evaluation and prediciton. """
 
-# import tensorflow as tf
-# from tensorflow.python.keras import backend as K
 from tensorflow import keras
 import numpy as np
-
-
-# from tensorflow.compat.v1.metrics import precision_at_k
 
 
 def get_metrics(clf_threshold=0.5, num_thresholds=1000):

@@ -243,15 +243,15 @@ def save_metrics_to_file(model_dir_sub, res, datasets, ep_idx, metrics_names, pr
         res_file.write('\n')
 
 
-def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
+def plot_loss_metric(res, epochs, save_path, ep_idx=-1, opt_metric=None):
     """ Plot loss and evaluation metric plots.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set (for every epoch, except
     for the test set)
     :param epochs: Numpy array, epochs
-    :param ep_idx: idx of the epoch in which the test set was evaluated
-    :param opt_metric: str, optimization metric to be plotted alongside the model's loss
     :param save_path: str, filepath used to save the plots figure
+    :param opt_metric: str, optimization metric to be plotted alongside the model's loss
+    :param ep_idx: idx of the epoch in which the test set was evaluated
     :return:
     """
 
@@ -266,7 +266,6 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
             ax.scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
             val_test_str += f'Test {res["test_loss"]:.4} '
         ax.set_xlim([0, epochs[-1] + 1])
-        # ax[0].set_ylim(bottom=0)
         ax.set_xlabel('Epochs')
         ax.set_ylabel('Loss')
         ax.set_title(val_test_str)
@@ -283,7 +282,6 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
             ax[0].scatter(epochs[ep_idx], res['test_loss'], c='k', label='Test')
             val_test_str += f'Test {res["test_loss"]:.4} '
         ax[0].set_xlim([0, epochs[-1] + 1])
-        # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epochs')
         ax[0].set_ylabel('Loss')
         ax[0].set_title(val_test_str)
@@ -306,7 +304,27 @@ def plot_loss_metric(res, epochs, ep_idx, save_path, opt_metric=None):
         ax[1].set_title(val_test_str)
         ax[1].legend(loc="lower right")
     f.suptitle(f'Epochs = {epochs[-1]}(Best:{epochs[ep_idx]:})')
-    f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+    # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+    f.tight_layout()
+    f.savefig(save_path)
+    plt.close()
+
+
+def plot_metric_from_res_file(res, save_path):
+    """ Plot loss/metric from results NumPy file.
+
+    :param res: dict, keys are loss and metrics on the training, validation and test set
+    :param save_path: str, filepath used to save the plots figure
+    :return:
+    """
+
+    f, ax = plt.subplots()
+    for metric_name, metric_vals in res.items():
+        ax.plot(metric_vals['epochs'], metric_vals['values'], label=metric_name)
+    ax.legend()
+    ax.set_ylabel('Value')
+    ax.set_xlabel('Epoch Number')
+    f.tight_layout()
     f.savefig(save_path)
     plt.close()
 

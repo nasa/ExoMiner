@@ -6,8 +6,8 @@ from pathlib import Path
 
 #%% For TESS
 
-exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/')
-tce_tbl_fp = exp_dir / 'tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch.csv'
+exp_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/')
+tce_tbl_fp = exp_dir / 'tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe_ticstellar.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # create categorical magnitude
@@ -33,7 +33,7 @@ for diff_img_centr_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_m
 tce_tbl.loc[tce_tbl['tce_dikco_msky_err'] == -1, ['tce_dikco_msky_adjscl', 'tce_dikco_msky_err_adjscl']] = [0, -1]
 tce_tbl.loc[tce_tbl['tce_dicco_msky_err'] == -1, ['tce_dicco_msky_adjscl', 'tce_dicco_msky_err_adjscl']] = [0, -1]
 
-tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_preproc.csv', index=False)
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_features_adjusted.csv', index=False)
 
 #%% For Kepler
 

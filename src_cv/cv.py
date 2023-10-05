@@ -49,8 +49,8 @@ def cv_run(cv_dir, data_shards_fps, run_params):
         data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
         data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
+    # if run_params['logger'] is not None:
+    #     run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
 
     # save fold used
     with open(run_params['paths']['experiment_dir'] / 'fold_split.json', 'w') as fold_split_file:
@@ -111,7 +111,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble...')
     # get the filepaths for the trained models
-    run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
+    run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.keras'
                                                for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
 
     res_eval = evaluate_model(run_params)
@@ -237,7 +237,6 @@ def cv():
     config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
     config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
                                   for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
-    # config['data_shards_fps'][0] = {dataset: [fps[0]] for dataset, fps in config['data_shards_fps'][0].items()}
 
     if config["rank"] >= len(config['data_shards_fps']):
         return
@@ -246,14 +245,10 @@ def cv():
     config['logger'] = logging.getLogger(name=f'cv_run_rank_{config["rank"]}')
     logger_handler = logging.FileHandler(filename=config['paths']['experiment_root_dir'] /
                                                   f'cv_iter_{config["rank"]}.log', mode='w')
-    # logger_handler_stream = logging.StreamHandler(sys.stdout)
-    # logger_handler_stream.setLevel(logging.INFO)
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     config['logger'].setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
-    # logger_handler_stream.setFormatter(logger_formatter)
     config['logger'].addHandler(logger_handler)
-    # logger.addHandler(logger_handler_stream)
     config['logger'].info(f'Starting run {config["paths"]["experiment_root_dir"].name}...')
 
     config['dev_train'] = f'/gpu:{config["gpu_id"]}'

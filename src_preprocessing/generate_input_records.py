@@ -43,8 +43,6 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
     # defined columns in the shard table
     tceColumns = [
-        # 'target_id',
-        # config['tce_identifier'],
         'uid'
     ]
     # columnsDf = tceColumns + ['augmentation_idx', 'shard']
@@ -262,7 +260,6 @@ def main():
     # get TCE and gapping ephemeris tables
     tce_table, eph_table = (get_kepler_tce_table(config) if config['satellite'] == 'kepler'
                             else get_tess_tce_table(config))
-    # tce_table['transit_depth'] = tce_table['tce_depth']
 
     # TODO: does this ensure that all processes shuffle the same way? it does call np.random.seed inside the function
     # shuffle tce table
@@ -328,7 +325,7 @@ def main():
 
         tf_logging.info(f'Finished processing {config["n_shards"]} total file shards')
 
-        # # concatenates shard tables into a single one
+        # concatenates shard tables into a single one
         create_shards_tbl_flag = create_shards_table(config['output_dir'])
         if not create_shards_tbl_flag:
             tf_logging.info('Merged shard table not created.')

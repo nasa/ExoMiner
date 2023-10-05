@@ -1684,7 +1684,7 @@ class ExoMiner_JointLocalFlux(object):
             else:
                 scalar_input = scalar_inputs[0]
 
-            scalar_fc_output = tf.keras.layers.Dense(units=4,
+            scalar_fc_output = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
                                                      kernel_regularizer=regularizers.l2(self.config['decay_rate']) if
                                                      self.config['decay_rate'] is not None else None,
                                                      activation=None,
@@ -1827,7 +1827,8 @@ class ExoMiner_JointLocalFlux(object):
         if self.config['conv_branches'] is not None:
             branches_net.update(self.build_conv_branches())
             branches_net.update(self.build_joint_local_conv_branches())
-            branches_net.update(self.build_conv_unfolded_flux())
+            if 'local_unfolded_flux' in self.config['conv_branches']:
+                branches_net.update(self.build_conv_unfolded_flux())
 
         if self.config['diff_img_branch'] is not None:
             branches_net.update(self.build_diff_img_branch())

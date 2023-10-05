@@ -37,14 +37,13 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
                    expand_nested=False,
                    dpi=48)
 
-    # print model summary
+    # get model summary
     if config['rank'] is None or config['rank'] == 0:
-        if logger is not None:
-            model.summary(print_fn=lambda x: logger.info(x + '\n'))
-        else:
-            with open(model_dir_sub / 'model_summary.txt', 'w') as f:
-                model.summary(print_fn=lambda x: f.write(x + '\n'))
-        # model.summary()
+        # if logger is not None:
+        #     model.summary(print_fn=lambda x: logger.info(x + '\n'))
+        # else:
+        with open(model_dir_sub / 'model_summary.txt', 'w') as f:
+            model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # setup metrics to be monitored
     if not config['config']['multi_class']:
@@ -117,7 +116,7 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
         logger.info('Saving model...')
 
     # save model
-    model.save(model_dir_sub / f'model{model_id}.h5')
+    model.save(model_dir_sub / f'model{model_id}.keras')
 
     res = history.history
 
@@ -286,7 +285,7 @@ def predict_model(config, logger=None):
                                 models=model_list,
                                 feature_map=config['feature_map'])
         # save ensemble
-        model.save(config['paths']['experiment_dir'] / 'ensemble_model.h5')
+        model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
 
     if logger is not None:
         model.summary(print_fn=lambda x: logger.info(x + '\n'))

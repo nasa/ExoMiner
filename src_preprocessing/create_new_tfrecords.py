@@ -51,7 +51,7 @@ if __name__ == '__main__':
     srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
 
     # create destination directory
-    destTfrecDir = config['dest_tfrec_dir']
+    destTfrecDir = Path(config['dest_tfrec_dir'])
     destTfrecDir.mkdir(exist_ok=True)
 
     # get number of items per dataset table
@@ -104,9 +104,8 @@ if __name__ == '__main__':
 
     print('TFRecord dataset created.')
 
-    # %% check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
+    # check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
     # TFRecords
-
     tfrecFiles = [file for file in destTfrecDir.iterdir() if 'shard' in file.stem]
     countExamples = []  # total number of examples
     for tfrecFile in tfrecFiles:

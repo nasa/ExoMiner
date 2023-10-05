@@ -32,8 +32,6 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
         for tce_i, tce in shardTbl.iterrows():
 
             # check if TCE is in the source TFRecords TCE table
-            # foundTce = srcTbl.loc[(srcTbl['target_id'] == tce['target_id']) &
-            #                       (srcTbl[tceIdentifier] == tce[tceIdentifier])]['shard']
             foundTce = srcTbl.loc[(srcTbl['uid'] == tce['uid'])]['shard']
 
             if len(foundTce) > 0:
@@ -50,17 +48,6 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
                     if string_i == tceIdx:
                         example = tf.train.Example()
                         example.ParseFromString(string_record)
-
-                        # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
-                        # if tceIdentifier == 'tce_plnt_num':
-                        #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-                        # else:  # OIs, because when saving float with two decimal cases to TFRecord it sometimes messes
-                        #     # it up
-                        #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
-                        #     # tceIdentifierTfrec = example.features.feature[tceIdentifier].float_list.value[0]
-                        #
-                        # # print(targetIdTfrec, tce['target_id'], tceIdentifierTfrec, tce[tceIdentifier])
-                        # assert targetIdTfrec == tce['target_id'] and tceIdentifierTfrec == tce[tceIdentifier]
 
                         example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
 
@@ -297,6 +284,7 @@ def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir
 
 
 def create_shards_table(srcTfrecDir):
+
     """ Create table that merges tables for each TFRecord file. Keeps track of examples stored in each file.
 
     :param srcTfrecDir: str, source TFRecord directory filepath

@@ -101,3 +101,25 @@ def compile_model(model, config, metrics_list):
     model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
 
     return model
+
+
+def plot_keras_model(model_fp, save_dir, save_name='model.png'):
+    """ Plot model architecture into a PNG file.
+
+    Args:
+        model_fp: Path, model file path
+        save_dir: Path, saving directory for png file
+        save_name: str, image filename
+
+    Returns:
+
+    """
+    model = keras.saving.load_model(model_fp)  # load Keras model
+
+    keras.utils.plot_model(model,
+                           to_file=save_dir / save_name,
+                           show_shapes=True,
+                           show_layer_names=True,
+                           rankdir='TB',
+                           expand_nested=False,
+                           dpi=48)
