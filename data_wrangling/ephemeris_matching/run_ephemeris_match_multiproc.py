@@ -14,7 +14,7 @@ Parameters:
 
 `tce_tbl` and `toi_tbl` must contain the following columns:
 - tce_tbl: uid, duration (hours), period (days), epoch (days), target_id
-- toi_tbl: uid, duration (hours,period, epoch, target_id
+- toi_tbl: uid, duration (hours), period (days), epoch (days), target_id
 """
 
 # 3rd party
@@ -63,10 +63,10 @@ if __name__ == '__main__':
     # load TOI catalog
     toi_tbl = pd.read_csv(toi_tbl_fp, header=1)
     # toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-    toi_tbl['Epoch (BTJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
-    toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid', 'TIC ID': 'target_id'}, inplace=True)
-    toi_tbl = toi_tbl.dropna(subset=['period', 'epoch', 'duration'])
-    toi_tbl = toi_tbl.loc[(~toi_tbl['period'].isna() & (toi_tbl['period'] > 0) & ~toi_tbl['epoch'].isna() & ~toi_tbl['duration'].isna())]
+    # toi_tbl['Epoch (BTJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
+    # toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid', 'TIC ID': 'target_id'}, inplace=True)
+    # toi_tbl = toi_tbl.dropna(subset=['period', 'epoch', 'duration'])
+    # toi_tbl = toi_tbl.loc[(~toi_tbl['period'].isna() & (toi_tbl['period'] > 0) & ~toi_tbl['epoch'].isna() & ~toi_tbl['duration'].isna())]
 
     # toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
     # toi_tbl = pd.read_csv(toi_tbl_fp)

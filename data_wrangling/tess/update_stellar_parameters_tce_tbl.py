@@ -9,8 +9,8 @@ import logging
 
 # %%
 
-res_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338')
-# res_dir.mkdir(exist_ok=True)
+res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tic_stellar')
+res_dir.mkdir(exist_ok=True)
 
 # set up logger
 logger = logging.getLogger(name='add_stellar_params_tic_to_tce_tbl')
@@ -21,7 +21,7 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = res_dir / 'tess_tces_dv_s1-s55_10-05-2022_1338.csv'
+tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Loading TCE table {tce_tbl_fp}...')
 
@@ -61,8 +61,6 @@ catalog_data = catalog_data.astype({'target_id': np.int64})
 logger.info('Adding TIC values to the TCE table...')
 tce_tbl = tce_tbl.merge(catalog_data[list(tic_fields.values())], on=['target_id'], validate='many_to_one')
 
-# tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_ticparams.csv', index=False)
-
 # %% Update TIC parameters for the TCEs
 
 logger.info(f'Checking number of DV SPOC TCEs with solar parameters...')
@@ -76,6 +74,7 @@ solar_params = {
 }
 logger.info(f'Solar parameters: {solar_params}')
 
+logger.info(f'Checking number of TCEs with TICs with stellar parameter ~close~ to Solar parameters...')
 for solar_param in solar_params:
     if solar_param not in ['tce_smass']:
         # print(f'{solar_param}: {(tce_tbl[solar_param] == solar_params[solar_param]).sum()}')
@@ -128,14 +127,22 @@ tce_tbl[list(tic_map.keys())] = tce_tbl[list(tic_map.values())]
 # add stellar mass which is not available in the TCE table
 tce_tbl[['tce_smass', 'tce_smass_err']] = tce_tbl[['tic_smass', 'tic_smass_err']]
 
+# fill missing values with values previously available in the DV TCE table
+for tic_i, tic in enumerate(tce_tbl['target_id'].unique()):
+    # get TCEs in same tic
+    tces_in_tic = tce_tbl['target_id'] == tic
+    for stellar_param in tic_map:
+        if np.isnan(tce_tbl.loc[tces_in_tic, stellar_param].values[0]):
+            tce_tbl.loc[tces_in_tic, stellar_param] = tce_tbl.loc[tces_in_tic, f'{stellar_param}_dv'].values[0]
+
 # # replace missing values by Solar parameters
 # for solar_param, solar_param_val in solar_params.items():
 #     tce_tbl.loc[tce_tbl[solar_param].isna()] = solar_param_val
 
 # check missing values (NaN)
-logger.info('Missing values before updating stellar parameters with TIC')
+logger.info('Missing values after updating stellar parameters with TIC')
 for stellar_col in stellar_params_cols:
     logger.info(f'{stellar_col}: {tce_tbl[stellar_col].isna().sum()}')
 
-tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_ticstellar.csv', index=False)
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_ticstellar.csv', index=False)
 logger.info('Saved TCE table with updated stellar parameters from TIC')

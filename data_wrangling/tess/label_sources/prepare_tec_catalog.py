@@ -11,7 +11,8 @@ import logging
 
 # %% Processing TEC flux triage tables
 
-tec_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/TEC_SPOC')
+tec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/TEC_SPOC/sector_run_results')
+save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/TEC_SPOC/')
 
 tec_tbls = []
 tec_tbls_dirs = [fp for fp in tec_dir.iterdir() if fp.is_dir()]
@@ -32,13 +33,14 @@ for run_dir in tec_tbls_dirs:
     tec_tbl['sector_run'] = sector_run
     tec_tbls.append(tec_tbl)
 
-tec_tbl_full = pd.concat(tec_tbls)
-tec_tbl_full.rename(columns={'pass': 'tec_fluxtriage_pass', 'comment': 'tec_fluxtriage_comment'}, inplace=True)
-tec_tbl_full.to_csv(
-    '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated.csv',
-    index=False)
+tec_tbl_full = pd.concat(tec_tbls, axis=0)
 
-# tec_tbl_full['id'] = tec_tbl_full.apply(lambda x: f'{x["target_id"]}_{x["tce_plnt_num"]}_{x["sector_run"]}', axis=1)
+# setting tces uids
+tec_tbl_full['uid'] = tec_tbl_full[['target_id', 'tce_plnt_num', 'sector_run']].apply(lambda x: f'{x["target_id"]}-{x["tce_plnt_num"]}-S{x["sector_run"]}', axis=1)
+
+tec_tbl_full.rename(columns={'pass': 'tec_fluxtriage_pass', 'comment': 'tec_fluxtriage_comment'}, inplace=True)
+
+tec_tbl_full.to_csv(save_fp / 'tec_tbl_fluxtriage_s1-s41_10-4-2023.csv', index=False)
 
 #%% Adding TEC results to TCE table
 

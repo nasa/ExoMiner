@@ -1,10 +1,21 @@
 """
-Create new TFRecord files based on a set of previous TFRecord files. Script used to create training, validation,
-test and predict TFRecord datasets. E.g., use as source directory the TFRecords created from preprocessing light curve
-data (Kepler, TESS, ...). These original TFRecords will be named 'shard-xxx-of-xxx...'. TFRecords fed as input to the
-model are selected as training, validation, test and predict records depending on their prefix: '{dataset}-shard-xxx...'
+Create new TFRecord files based on a set of original TFRecord files and data set tables. Script used to create
+training, validation, test and predict TFRecord datasets. E.g., use as source directory the TFRecords created from
+preprocessing light curve data (Kepler, TESS, ...).
 
-dataset = {'train', 'val', 'test', 'predict'}
+The original TFRecords are named 'shard-xxx-of-xxx...'. The TFRecord files created for the training, validation,
+test, and predict sets records are identified by their prefix: '{dataset}-shard-xxx...'
+
+Data set prefixes: 'train', 'val', 'test', 'predict'
+
+Input:
+    - source TFRecord data set (shard files)
+    - shard TCE table
+
+The shard TCE table should contain the following columns:
+    - 'uid': Unique identifier for the example (TCE)
+    - 'shard': shard filename where the example is stored.
+    - '
 
 """
 
@@ -19,70 +30,28 @@ import yaml
 
 # local
 from src_preprocessing.utils_manipulate_tfrecords import create_shard
-# from paths import path_main
 from utils.utils_dataio import is_yamlble
 
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
-    # %%
-
     # source TFRecord directory
     srcTfrecDir = Path(config['src_tfrec_dir'])
 
-    # unique identifier for TCEs (+ 'target_id')
-    # tceIdentifier = 'tce_plnt_num'
-
-    # %% load train, val and test datasets; the keys of the `datasetTbl` dictionary determines the prefix name of the new
-    # TFRecords files
-
+    # load data set TCE tables
     datasetTblDir = Path(config['split_tbls_dir'])
     datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in config['datasets']}
 
-
-    # Filter out items from the datasets that we do not want to have in the final TFRecords
-
-    # # for AUM experiments
-    # datasetTbl['train'] = pd.concat([datasetTbl['train'], datasetTbl['val'], datasetTbl['test']], axis=0,
-    #                                 ignore_index=True)
-    # del datasetTbl['test']
-    # del datasetTbl['val']
-    # datasetTbl['predict'] = pd.concat([datasetTbl['predict'],
-    #                                    datasetTbl['train'].loc[datasetTbl['train']['label'] == 'NTP']],
-    #                                   axis=0, ignore_index=True)
-    # datasetTbl['train'] = datasetTbl['train'].loc[datasetTbl['train']['label'].isin(['PC', 'AFP'])]
-    # for dataset in datasetTbl:
-    #     datasetTbl[dataset]['uid'] = \
-    #         datasetTbl[dataset][['target_id', 'tce_plnt_num']].apply(lambda x: '{}-{}'.format(x['target_id'],
-    #                                                                                           x['tce_plnt_num']),
-    #                                                                  axis=1)
-
-    # get only TCEs with tce_plnt_num = 1
-    # datasetTbl = {dataset: datasetTbl[dataset].loc[datasetTbl[dataset]['tce_plnt_num'] == 1] for dataset in datasetTbl}
-
-    # get TCEs not used for training nor evaluation
-    # datasetTbl = {'predict': pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/4-22-2021/exofop_toilists_nomissingpephem_sectors.csv')
-    #               }
-    # # remove rogue TCEs
-    # datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['tce_rogue_flag'] == 0]
-    # # remove CONFIRMED KOIs
-    # datasetTbl['predict'] = datasetTbl['predict'].loc[datasetTbl['predict']['koi_disposition'] != 'CONFIRMED']
-    # # remove CFP and CFA KOIs
-    # datasetTbl['predict'] = datasetTbl['predict'].loc[~((datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FP') |
-    #                         (datasetTbl['predict']['fpwg_disp_status'] == 'CERTIFIED FA'))]
-    # # remove non-KOIs
-    # datasetTbl['predict'] = datasetTbl['predict'].loc[~(datasetTbl['predict']['kepoi_name'].isna())]
-
-    # %% Create new TFRecords by setting the number of items per TFRecord
-
-    # input parameters
+    # load merged shards table
     srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
-    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}-{config["destTfrecDirName"]}'
+
+    # create destination directory
+    destTfrecDir = config['dest_tfrec_dir']
     destTfrecDir.mkdir(exist_ok=True)
 
     # get number of items per dataset table
@@ -153,13 +122,6 @@ if __name__ == '__main__':
 
             example = tf.train.Example()
             example.ParseFromString(string_record)
-
-            # if tceIdentifier == 'tce_plnt_num':
-            #     tceIdentifierTfrec = example.features.feature[tceIdentifier].int64_list.value[0]
-            # else:
-            #     tceIdentifierTfrec = round(example.features.feature[tceIdentifier].float_list.value[0], 2)
-            #
-            # targetIdTfrec = example.features.feature['target_id'].int64_list.value[0]
 
             example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
 

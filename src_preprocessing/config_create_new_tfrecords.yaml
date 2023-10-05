@@ -1,7 +1,7 @@
 # source TFRecord dataset directory
-src_tfrec_dir: /data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237
+src_tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_updated_stellar_ruwe_confirmedkois_adddiffimg_perimg_normdiffimg
 # directory with tables used to split the examples into different sets (train, validation, test, predict, ...)
-split_tbls_dir: /data5/tess_project/Data/dataset_splits/kepler/split_alltces_nopredict_08-23-2022_1327
+split_tbls_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/dataset_splits/kepler_q1q17dr25/split_10-04-2023_1537/
 # defines which tables are used and the prefix of the TFRecord shards; e.g., if train split table is loaded, it will
 # put all examples from that table that can find in the shards in the source TFRecord dataset into shards starting with
 # the prefix `train-shard`
@@ -9,8 +9,9 @@ datasets:
   - train
   - val
   - test
-#  - predict
+  - predict
 omitMissing: True  # skip missing TCEs in the TFRecords that exist in the dataset tables
-nProcesses: 15  # number of processes used to create the new TFRecord dataset
+nProcesses: 10  # number of processes used to create the new TFRecord dataset
 n_examples_per_shard: 100  # number of examples in each shard in the new TFRecord dataset; min(n_examples_per_shard, n_total_examples)
-destTfrecDirName: dataset_split_alltces_nopredict
+# destination directory
+dest_tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_updated_stellar_ruwe_confirmedkois_adddiffimg_perimg_normdiffimg_dataset_split

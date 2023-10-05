@@ -1,4 +1,9 @@
-""" Extract RUWE values for TICs from Gaia data releases. """
+"""
+Extract RUWE values for TICs from Gaia data releases.
+
+This works by querying the TIC catalog for a set of TIC IDs. From the TIC catalog, we get the Gaia DR2 source ids that
+can be used to query Gaia DR2 catalog and extract RUWE values for that set of TIC IDs.
+"""
 
 # 3rd party
 import matplotlib.pyplot as plt
@@ -12,15 +17,22 @@ from astroquery.mast import Catalogs
 # local
 from data_wrangling.ruwe.query_gaia import query_gaia
 
-#%%
+#%% Set run parameters
 
-# res_dir = Path(f'/data5/tess_project/Data/Ephemeris_tables/TESS/tic_gaia_ruwe/'
-#                f'{datetime.now().strftime("%m-%d-%Y_%H%M")}')
-res_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338')
+res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/gaiadr2_tics_ruwe')
 res_dir.mkdir(exist_ok=True)
 
-# set up logger
-logger = logging.getLogger(name='ruwe')
+# set list of TIC IDs to query
+# file path to TCE table
+tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv')
+tce_tbl = pd.read_csv(tce_tbl_fp)
+tic_ids = tce_tbl['target_id'].unique()
+
+query_gaia_dr = 'gaiadr2'
+
+#%% Run
+
+logger = logging.getLogger(name='ruwe')  # set up logger
 logger_handler = logging.FileHandler(filename=res_dir / f'ruwe_run.log', mode='w')
 logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
 logger.setLevel(logging.INFO)
@@ -28,16 +40,12 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = res_dir / 'tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar.csv'
-tce_tbl = pd.read_csv(tce_tbl_fp)
-logger.info(f'Getting TICs from {str(tce_tbl_fp)}')
+# get Gaia DR2 source ids from tic ids in the tce table
+logger.info('Getting Gaia DR2 source ids from TIC')
+catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tic_ids.tolist()).to_pandas()
+catalog_data.to_csv(res_dir / 'tics.csv', index=False)
 
-logger.info('Getting source ids from TIC')
-catalog_data = Catalogs.query_criteria(catalog='TIC',
-                                       ID=tce_tbl['target_id'].unique().tolist()).to_pandas()[['ID', 'GAIA']]
-# catalog_data.to_csv(res_dir / 'tic.csv', index=False)
-
-source_ids_tic_tbl = catalog_data.rename(columns={'GAIA': 'source_id', 'ID': 'target_id'})
+source_ids_tic_tbl = catalog_data[['ID', 'GAIA']].rename(columns={'GAIA': 'source_id', 'ID': 'target_id'})
 
 # remove TICs with missing source id
 logger.info('Removing TICs with missing Gaia source ID')
@@ -54,11 +62,9 @@ source_ids_tic_tbl = source_ids_tic_tbl.merge(source_ids_cnts,
                                               how='left',
                                               validate='many_to_one')
 
-query_gaia_dr = 'gaiadr2'
-
+# query Gaia DR2
 query_gaia(source_ids_tic_tbl[['source_id']], query_gaia_dr, res_dir, logger=logger)
-output_fp = res_dir / f'{query_gaia_dr}.csv'
-
+output_fp = res_dir / f'{query_gaia_dr}.csv'  # save results from query to csv file
 logger.info(f'Query finished and results saved to {str(output_fp)}.')
 
 ruwe_tbl = pd.read_csv(output_fp)
@@ -94,10 +100,3 @@ ax.set_xlim([0, 2])
 # ax.set_xscale('log')
 # plt.show()
 f.savefig(res_dir / 'hist_ruwe_tics.png')
-
-# add ruwe to TCE table
-tce_tbl = tce_tbl.merge(ruwe_tbl[['target_id', 'ruwe']], on='target_id', how='left', validate='many_to_one')
-logger.info(f'Number of TCEs without RUWE value: {tce_tbl["ruwe"].isna().sum()} ouf of {len(tce_tbl)}')
-
-tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_ruwe.csv', index=False)
-logger.info('Saved TCE table with RUWE')
