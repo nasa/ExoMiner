@@ -1,8 +1,7 @@
 ngpus_per_node: 1  # 4  # number of GPUs per node; each GPU is used to run a CV iteration
 rank: null
-train_parallel: false  # set to true to use MPI to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
+train_parallel: false  # set to true to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
-logger: null
 paths:
   # experiment directory; results are saved here
   experiment_root_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train-test-val_m2_10-5-2023_1158
@@ -399,7 +398,8 @@ datasets:
   - test
 
 plot_model: true
-verbose_model: 1
+verbose_model: 1  # for fit, eval, predict functions
+verbose: true  # general
 
 metrics:
   'clf_thr': 0.5  # classification threshold
@@ -412,8 +412,6 @@ metrics:
     train: { 'start': 25, 'stop': 1500, 'num': 100,  'endpoint': true, 'dtype': 'int' }
     val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
     test: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
-
-verbose: true
 
 compute_norm_stats_params:
 

@@ -1336,3 +1336,55 @@ def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
     f.tight_layout()
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()
+
+
+def plot_momentum_dump(loc_mom_dump_view, binned_time, momentum_dump, time, tce, savedir, basename):
+    """ Plot phase-folded and binned momentum dump timeseries.
+
+    Args:
+        loc_mom_dump_view: NumPy array, local view of binned momentum dump timeseries
+        binned_time: NumPy array, binned time
+        momentum_dump: NumPy array, phase-folded momentum dump timeseries
+        time: NumPy array, phase-folded time
+        tce: Pandas Series, TCE information
+        savedir: str, save directory
+        basename: str, added to the figure filename
+
+    Returns:
+
+    """
+
+    f, ax = plt.subplots(2, 1)
+    ax[0].plot(time, momentum_dump)
+    ax[0].set_ylabel('Flag')
+    ax[0].set_xlabel('Phase (day)')
+    ax[1].plot(binned_time, loc_mom_dump_view)
+    ax[1].set_ylabel('Flag')
+    ax[1].set_xlabel('Binned Time (day)')
+    ax[1].set_title('Transit View')
+    f.tight_layout()
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()
+
+
+def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savedir, basename):
+    """ Plot momentum dump timeseries.
+
+    Args:
+        time_momentum_dump: NumPy array, time array
+        momentum_dump: NumPy array, momentum dump
+        tce: Pandas Series, TCE information
+        savedir: str, save directory
+        basename: str, added to the figure filename
+
+    Returns:
+
+    """
+
+    f, ax = plt.subplots()
+    ax.plot(time_momentum_dump, momentum_dump)
+    ax.set_xlabel('Time (day)')
+    ax.set_ylabel('Flag')
+    f.tight_layout()
+    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()

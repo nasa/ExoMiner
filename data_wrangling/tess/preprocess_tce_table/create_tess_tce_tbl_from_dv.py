@@ -37,7 +37,8 @@ for sector_tce_tbls_name in sector_tce_tbls:
     logger.info(f'{sector_tce_tbls_name}: {len(sector_tce_tbls[sector_tce_tbls_name])} TCEs.')
 
 for sector_tce_tbls_name in sector_tce_tbls:
-    sector_tce_tbls[sector_tce_tbls_name]['sector_run'] = sector_tce_tbls_name
+    sector_tce_tbls[sector_tce_tbls_name]['sector_run'] = sector_tce_tbls_name if '-' in sector_tce_tbls_name \
+        else str(int(sector_tce_tbls_name))
 
 tce_tbl = pd.concat([sector_tce_tbls[sector_tce_tbl_name] for sector_tce_tbl_name in sector_tce_tbls], axis=0,
                     ignore_index=True)

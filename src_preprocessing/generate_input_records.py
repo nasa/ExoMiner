@@ -4,8 +4,6 @@ Main script used to generate TFRecords to be used as input to models.
 
 # 3rd party
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pickle
 from mpi4py import MPI
 import datetime

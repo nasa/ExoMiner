@@ -13,6 +13,10 @@ from tensorflow.io import gfile
 from src_preprocessing.light_curve import util
 # from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 
+
+MOMENTUM_DUMP_VALUE = 32  # momentum dump value in the DQ array
+MAX_BIT = 12  # max number of bits in the DQ array
+
 # mapping sector number to date and id
 SECTOR_ID = {1: ("2018206045859", "120"),
              2: ("2018234235059", "121"),
@@ -159,7 +163,8 @@ def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):
 
     filenames = []
     for sector_run_id in sector_runs_ids:
-        base_dir_sector_run = os.path.join(base_dir, f's{sector_run_id}', 'target', tic_id[0:4], tic_id[4:8], tic_id[8:12], tic_id[12:16])
+        base_dir_sector_run = os.path.join(base_dir, f's{sector_run_id}', 'target', tic_id[0:4], tic_id[4:8],
+                                           tic_id[8:12], tic_id[12:16])
         base_name = f'hlsp_tess-spoc_tess_phot_{tic_id}-s{sector_run_id}_tess_v1_lc.fits'
         filename = os.path.join(base_dir_sector_run, base_name)
         # not all stars have data for all sector runs
@@ -174,7 +179,9 @@ def read_tess_light_curve(filenames,
                           interpolate_missing_time=False,
                           centroid_radec=False,
                           prefer_psfcentr=False,
-                          invert=False):
+                          get_momentum_dump=False,
+                          dq_values_filter=None,
+                          ):
     """ Reads data from FITS files for a TESS target star.
 
     Args:
@@ -187,7 +194,10 @@ def read_tess_light_curve(filenames,
         centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
           and Dec, or not
         prefer_psfcentr: bool, if True, uses PSF centroids when available
-        invert: bool, if True, inverts time series
+        get_momentum_dump: bool, if True the momentum dump information is extracted from the FITS file
+        dq_values_filter: list, values (integers) in the data quality flag array for a set of anomalies. Cadences with
+        the associated bit active are excluded. See 'TESS Science Data Products Description Document' for more
+        information. If set to `None`, no anomalies in the DQ array are filtered.
 
     Returns:
         data: dictionary with data extracted from the FITS files
@@ -203,15 +213,30 @@ def read_tess_light_curve(filenames,
         files_not_read: list with file paths for FITS files that were not read correctly
     """
 
-    # initialize data dict
-    data = {'all_time': [],
-            'all_flux': [],
-            'all_centroids': {'x': [], 'y': []},
-            'all_centroids_px': {'x': [], 'y': []},
-            'sectors': [],
-            'target_position': [],
-            'camera': [],
-            'ccd': []}
+    # initialize data dict for time series data
+    data = {
+        'all_time': [],
+        'all_flux': [],
+        'all_centroids': {'x': [], 'y': []},
+        'all_centroids_px': {'x': [], 'y': []},
+    }
+
+    timeseries_fields = list(data.keys())
+
+    if get_momentum_dump:
+        data['momentum_dump'] = []
+        data['time_momentum_dump'] = []
+
+    # add fields for additional data
+    data.update({
+        'flag_keep': [],
+        'sectors': [],
+        'module': [],
+        'camera': [],
+        'ccd': [],
+        'target_position': [],
+    }
+    )
 
     files_not_read = []
 
@@ -302,24 +327,21 @@ def read_tess_light_curve(filenames,
                                                  f'FW centroid {centroid_x.size}|{centroid_y.size}).'))
                 continue
 
-            # use quality flags to remove cadences
-            MAX_BIT = 16
-            BITS = []  # [2048, 4096, 32768]
-            flags = {bit: np.binary_repr(bit).zfill(MAX_BIT).find('1') for bit in BITS}
+            # use quality flags to exclude cadences
+            dq_values_filter = dq_values_filter if dq_values_filter else []  # [2048, 4096, 32768]
+            flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
             qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
             inds_keep = True * np.ones(len(qflags), dtype='bool')
-
-            for flag_bit in flags:
+            for flag_bit in flags:  # set cadences to be excluded based on selected dq flags
                 qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
                 inds_keep[qflags_bit] = False
 
-            inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
-            time = time[inds_keep]
-            flux = flux[inds_keep]
-            centroid_x = centroid_x[inds_keep]
-            centroid_y = centroid_y[inds_keep]
-            centroid_fdl_x = centroid_fdl_x[inds_keep]
-            centroid_fdl_y = centroid_fdl_y[inds_keep]
+            # exclude cadences that are NaN in the PDCSAP flux
+            inds_keep[np.isnan(flux)] = False
+
+            if get_momentum_dump:
+                momentum_dump_bit = np.binary_repr(MOMENTUM_DUMP_VALUE).zfill(MAX_BIT).find('1')
+                momentum_dump_arr = np.array([el[momentum_dump_bit] == '1' for el in qflags]).astype('uint')
 
             # Possibly interpolate missing time values.
             if interpolate_missing_time:
@@ -329,20 +351,27 @@ def read_tess_light_curve(filenames,
             data['all_flux'].append(flux)
             data['all_centroids']['x'].append(centroid_x)
             data['all_centroids']['y'].append(centroid_y)
-
             data['all_centroids_px']['x'].append(centroid_fdl_x)
             data['all_centroids_px']['y'].append(centroid_fdl_y)
-
             data['camera'].append(camera)
             data['ccd'].append(ccd)
             data['sectors'].append(sector)
+            data['flag_keep'].append(inds_keep)
+
+            if get_momentum_dump:
+                data['momentum_dump'].append(momentum_dump_arr)
+                data['time_momentum_dump'].append(np.array(time))
+
+            # exclude data points based on keep flags
+            for arr_i, inds_keep in enumerate(data['flag_keep']):
+                for data_field in timeseries_fields:
+                    if 'centroids' in data_field:
+                        data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
+                        data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
+                    else:
+                        data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
 
         except:
             files_not_read.append((basename, 'FITS file not read correctly.'))
-
-    # inverts light curve
-    if invert:
-        data['all_flux'] = [flux - 2 * np.median(flux) for flux in data['all_flux']]
-        data['all_flux'] = [-1 * flux for flux in data['all_flux']]
 
     return data, files_not_read

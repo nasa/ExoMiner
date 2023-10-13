@@ -91,7 +91,8 @@ def read_light_curve(tce, config):
             light_curve_extension=config['light_curve_extension'],
             scramble_type=config['scramble_type'],
             cadence_no_quarters_tbl_fp=config['cadence_no_quarters_tbl_fp'],
-            invert=config['invert']
+            invert=config['invert'],
+            dq_values_filter=config['dq_values_filter'],
         )
 
         if len(fits_files_not_read) > 0:
@@ -130,7 +131,8 @@ def read_light_curve(tce, config):
                                                                        prefer_psfcentr=config['prefer_psfcentr'],
                                                                        light_curve_extension=config[
                                                                            'light_curve_extension'],
-                                                                       invert=config['invert']
+                                                                       get_momentum_dump=config['get_momentum_dump'],
+                                                                       dq_values_filter=config['dq_values_filter'],
                                                                        )
 
         if len(fits_files_not_read) > 0:
@@ -278,6 +280,7 @@ def remove_non_finite_values(arrs):
 
         for arr in arrs:
             finite_idxs.append(np.isfinite(arr[sub_arr_i]))
+
         finite_idxs = np.logical_and.reduce(finite_idxs, dtype='bool')
 
         for arr_i in range(num_arrs):
@@ -999,6 +1002,16 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     except:
         time_centroidFDL, centroid_distFDL = None, None
 
+    if config['get_momentum_dump']:
+        time_momentum_dump, momentum_dump = remove_non_finite_values([data['time_momentum_dump'],
+                                                                      data['momentum_dump']])
+        momentum_dump, time_momentum_dump = np.concatenate(momentum_dump), np.concatenate(time_momentum_dump)
+
+        if plot_preprocessing_tce:
+            utils_visualization.plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce,
+                                                              os.path.join(config['output_dir'], 'plots'),
+                                                              '2_momentum_dump_timeseries')
+
     # dictionary with preprocessed time series used to generate views
     data_views = {}
     data_views['time'] = time
@@ -1012,6 +1025,9 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     data_views['errors'] = data['errors']
     if config['satellite'] == 'kepler':
         data_views['quarter_timestamps'] = data['quarter_timestamps']
+    if config['get_momentum_dump']:
+        data_views['momentum_dump'] = momentum_dump
+        data_views['time_momentum_dump'] = time_momentum_dump
 
     return data_views
 
@@ -1368,6 +1384,34 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
     return view, time_bins, view_var, inds_nan, bin_counts
 
 
+def generate_view_momentum_dump(time, momentum_dumps, num_bins, bin_width, t_min, t_max):
+    """ Generates a view of a phase-folded momentum dump array curve using a max filter.
+
+        Args:
+          time: 1D array of time values, sorted in ascending order.
+          momentum_dumps: 1D uint array of momentum dump flags.
+          num_bins: The number of intervals to divide the time axis into.
+          bin_width: The width of each bin on the time axis.
+          t_min: The inclusive leftmost value to consider on the time axis.
+          t_max: The exclusive rightmost value to consider on the time axis.
+
+        Returns:
+          1D NumPy array of size num_bins containing the max momentum dump flag values uniformly spaced bins on the
+          phase-folded time axis.
+        """
+
+    # binning using max function
+    view, time_bins, view_var, bin_counts = median_filter.median_filter(time, momentum_dumps, num_bins, bin_width,
+                                                                        t_min, t_max, bin_fn=np.max)
+
+    # impute missing bin values with zero; although there shouldn't be any NaNs by construction
+    inds_nan = np.isnan(view)
+    view[inds_nan] = 0
+    view_var[inds_nan] = 0
+
+    return view, time_bins
+
+
 def normalize_view(view, val=None, centroid=False, **kwargs):
     """ Normalize the phase-folded time series.
 
@@ -1616,16 +1660,16 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             report_exclusion(config, tce, f'No data for {key} before creating the views.')
             return None
 
-    # time interval for the transit
-    t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
-                                   min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
-
     # initialize dictionary with data for the preprocessing table
     example_stats = {}
     # initialize number of transits per time series dictionary
     num_transits = {}
     # initialize dictionary with number of empty bins per view
     inds_bin_nan = {}
+
+    # time interval for the transit
+    t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
+                                   min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
 
     # phase folding for odd and even time series
     (odd_time, odd_flux, _, odd_time_nophased), \
@@ -1654,7 +1698,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                           tce['tce_time0bk'],
                                           tce['tce_duration'])
 
-    # phase folding for flux time series
+    # phase folding for flux time series to generate phases separately
     time_split, flux_split, n_phases_split, _ = phase_split_light_curve(
         data['time'],
         data['flux'],
@@ -1712,6 +1756,14 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                   tce['tce_period'],
                                                   tce['tce_time0bk'],
                                                   tce['tce_duration'])
+
+    # phase folding for flux time series
+    if config['get_momentum_dump']:
+        time_momentum_dump, momentum_dump, _ = phase_fold_and_sort_light_curve(data['time_momentum_dump'],
+                                                                               data['momentum_dump'],
+                                                                               tce['tce_period'],
+                                                                               tce['tce_time0bk'],
+                                                                               augmentation=False)
 
     phasefolded_timeseries = {'Flux': (time, flux),
                               'Odd Flux': (odd_time, odd_flux),
@@ -2276,11 +2328,33 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                            'local_centr_view': loc_centr_view_var,
                            }
 
+        # create local view for momentum dump
+        if config['get_momentum_dump']:
+
+            loc_mom_dump_view, binned_time = generate_view_momentum_dump(
+                time_momentum_dump,
+                momentum_dump,
+                config['num_bins_loc'],
+                config['bin_width_factor_loc'],
+                max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations']),
+                min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations']),
+            )
+
+            if plot_preprocessing_tce:
+                utils_visualization.plot_momentum_dump(loc_mom_dump_view, binned_time, momentum_dump,
+                                                       time_momentum_dump, tce,
+                                                       os.path.join(config['output_dir'], 'plots'),
+                                                       f'9_momentum_dump_phase_and_binned')
+
         # initialize dictionary with the views that will be stored in the TFRecords example for this TCE
         views = {}
         views.update(flux_views)
         views.update(weak_secondary_flux_views)
         views.update(centr_views)
+
+        if config['get_momentum_dump']:
+            views['local_momentum_dump_view'] = loc_mom_dump_view
+
 
         views_var = {}
         views_var.update(flux_views_var)

@@ -1,0 +1,47 @@
+# PBS job script example for requesting resources in a Skylake GPU node for applications that require GPU usage
+# E.g., training/evaluating a TensorFlow Keras deep learning model
+#PBS -S /bin/bash
+# job name
+#PBS -N job_name
+# request job time hh:mm:ss (different queues will have different constraints on max walltime)
+#PBS -l walltime=02:00:00
+# GPU NODES: sky_gpu (Skylake), cas_gpu (Caswell)
+# for more info see https://www.nas.nasa.gov/hecc/support/kb/using-gpu-nodes_298.html
+# requesting 1 Skylake gpu chunk, with 18 cpus, 1 gpu, 90 gb of memory
+# for more info see https://www.nas.nasa.gov/hecc/support/kb/changes-to-pbs-job-requests-for-v100-gpu-resources_645.html
+#PBS -l select=1:ncpus=18:ngpus=1:mem=90g:model=sky_gpu
+# place the chunk wherever it is possible for the requested resources; share resources with other people
+#PBS -l place=free:shared
+# SET QUEUE
+# data sciences group GPU dedicated queue: dsg_gpu
+# GPU queues: dsg_gpu, v100
+# for more info see https://www.nas.nasa.gov/hecc/support/kb/pbs-job-queue-structure_187.html
+#PBS -q dsg_gpu@pbspl4
+# set path to job output (not application output necessarily!)
+#PBS -o path/to/job_output_file.out
+# set path to job error (not application error necessarily!)
+#PBS -e /path/to/job_error_file.err
+# set charge to group
+#PBS -W group_list=a1509
+#PBS -m bea
+
+
+#### code to be run in your job starts here ####
+
+# initiate conda
+source ~/.bashrc
+
+# activate conda environment
+conda activate conda_env_name
+
+# export path to codebase
+export PYTHONPATH=/path/to/codebase
+
+# file path to text file that logs Python stdout output
+OUTPUT_LOG=/path/to/log.txt
+
+# file path to Python script
+SCRIPT_FP=/path/to/the/script
+
+# run python application
+python $SCRIPT_FP &> $OUTPUT_LOG

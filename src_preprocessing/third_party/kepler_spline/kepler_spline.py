@@ -71,7 +71,7 @@ def kepler_spline(time, flux, bkspace=1.5, maxiter=5, outlier_cut=3):
 
   for _ in range(maxiter):
     if spline is None:
-      mask = np.ones_like(time, dtype=np.bool)  # Try to fit all points.
+      mask = np.ones_like(time, dtype=np.bool_)  # Try to fit all points.
     else:
       # Choose points where the absolute deviation from the median residual is
       # less than outlier_cut*sigma, where sigma is a robust estimate of the
@@ -190,7 +190,7 @@ def choose_kepler_spline(all_time,
   scaled_diffs = np.concatenate(scaled_diffs) if scaled_diffs else np.array([])
   if not scaled_diffs.size:
     best_spline = [np.array([np.nan] * len(f)) for f in all_flux]
-    metadata.light_curve_mask = [np.zeros_like(f, dtype=np.bool) for f in all_flux]
+    metadata.light_curve_mask = [np.zeros_like(f, dtype=np.bool_) for f in all_flux]
     return best_spline, metadata
 
   # Compute the median absoute deviation as a robust estimate of sigma. The
@@ -218,7 +218,7 @@ def choose_kepler_spline(all_time,
         if verbose:
           warnings.warn(str(e))
         spline.append(np.array([np.nan] * len(flux)))
-        light_curve_mask.append(np.zeros_like(flux, dtype=np.bool))
+        light_curve_mask.append(np.zeros_like(flux, dtype=np.bool_))
         continue
       except SplineError as e:
         # It's expected to get a SplineError occasionally for small values of
@@ -269,7 +269,7 @@ def choose_kepler_spline(all_time,
     # All bkspaces resulted in a SplineError, or all light curve intervals had
     # insufficient points.
     best_spline = [np.array([np.nan] * len(f)) for f in all_flux]
-    metadata.light_curve_mask = [np.zeros_like(f, dtype=np.bool) for f in all_flux]
+    metadata.light_curve_mask = [np.zeros_like(f, dtype=np.bool_) for f in all_flux]
 
   return best_spline, metadata
 

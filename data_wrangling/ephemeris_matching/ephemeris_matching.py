@@ -100,7 +100,7 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
 
 def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval,
                                     save_dir, plot_prob=0, plot_dir=None):
-    """ Compute matching correlation coefficient between TCEs and TOIs for each TIC in each sector run.
+    """ Compute matching correlation coefficient between TCEs and set of objects for each TIC in each sector run.
 
     Args:
         targets_arr: pandas Series, transit signal a
@@ -127,10 +127,10 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             print(f'Target {target} not found in the timestamps table.')
             continue
 
-        # get TOIs in this TIC
+        # get objects in this TIC
         tois_in_tic = toi_tbl.loc[toi_tbl['target_id'] == target].reset_index()
         if len(tois_in_tic) == 0:
-            print(f'No TOIs in target {target}.')
+            print(f'No objects in target {target} to be matched to.')
             continue
 
         for sector_run in tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique():

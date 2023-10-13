@@ -103,7 +103,6 @@ fields_to_add = {
     'allTransitsFit_eccentricity_uncertainty': 'tce_eccen_err',
     'allTransitsFit_longitudeOfPeriDegrees_value': 'tce_longp',
     'allTransitsFit_longitudeOfPeriDegrees_uncertainty': 'tce_longp_err',
-    'rollingBandContaminationHistogram.transitFraction_level0': 'tce_rb_tcount0',
 
     'secondaryEventResults.planetParameters.geometricAlbedo_value': 'tce_albedo',
     'secondaryEventResults.planetParameters.geometricAlbedo_uncertainty': 'tce_albedo_err',
@@ -120,6 +119,12 @@ fields_to_add = {
     'ghostDiagnosticResults.coreApertureCorrelationStatistic_significance': 'tce_cap_stat_err',
     'ghostDiagnosticResults.haloApertureCorrelationStatistic_value': 'tce_hap_stat',
     'ghostDiagnosticResults.haloApertureCorrelationStatistic_significance': 'tce_hap_stat_err',
+
+    'rollingBandContaminationHistogram.transitFraction_level0': 'tce_rb_tcount0',
+    'rollingBandContaminationHistogram.transitFraction_level1': 'tce_rb_tcount1',
+    'rollingBandContaminationHistogram.transitFraction_level2': 'tce_rb_tcount2',
+    'rollingBandContaminationHistogram.transitFraction_level3': 'tce_rb_tcount3',
+    'rollingBandContaminationHistogram.transitFraction_level4': 'tce_rb_tcount4',
 
     'planetCandidate.observedTransitCount': 'tce_num_transits_obs',
     'planetCandidate.expectedTransitCount': 'tce_num_transits',

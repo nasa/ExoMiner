@@ -1,11 +1,11 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_kepler_q1q17dr25_inj2_9-25-2023_1147
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_momentum_dumps_10-11-2023_1109
 # TCE table
-input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_updtstellar_final_7-24-2023_1548.csv
+input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe_ticstellar_features_adjusted_label.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25_plti/inj2_filtered
+lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc
 #lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
@@ -18,7 +18,7 @@ ffi_data: false  # set to true for SPOC FFI data
 shuffle: false
 shuffle_seed: 24
 
-satellite: kepler  # kepler or tess
+satellite: tess  # kepler or tess
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
@@ -32,6 +32,15 @@ num_bins_loc: 31  # number of bins in local views
 # bin_width_factor_glob: 1 / num_bins_glob
 bin_width_factor_loc: 0.16
 num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
+
+# set which types of anomalies to be excluded from the data based on the data quality array in the lc fits file
+# set to null for no exclusion
+# otherwise list all values that map to the corresponding anomalies to be excluded based on the dq array
+dq_values_filter: null  # set to null
+#  - 2
+#  - 3
+
+get_momentum_dump: true  # get momentum dump dq flag and generate feature data
 
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
@@ -135,12 +144,12 @@ tce_min_err:
   tce_duration: 0.000385  # in days
   tce_time0bk: 2.44455e-6
 
-light_curve_extension: INJECTED LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
+light_curve_extension: LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
 
 # simulated Kepler data options
-injected_group: inj2  # set to `inj1`, `inj2`, or `inj3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
+injected_group: null  # set to `inj1`, `inj2`, or `inj3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
 scramble_type: null  # choose between `SCR1`, `SCR2`, and `SCR3`groups or null for no scrambling
 invert: false  # inverted group
 
 # when scrambling, information about the cadence number for the different quarters is required; set to null if not using scrambling data
-cadence_no_quarters_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/quarters_cadence_numbers.csv
+cadence_no_quarters_tbl_fp: null

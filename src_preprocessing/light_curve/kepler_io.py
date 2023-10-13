@@ -26,6 +26,10 @@ from astropy import wcs
 from src_preprocessing.light_curve import util
 # from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 
+
+MAX_BIT = 12  # max number of bits in the DQ array
+
+
 # Quarter index to filename prefix for long cadence Kepler data.
 # Reference: https://archive.stsci.edu/kepler/software/get_kepler.py
 LONG_CADENCE_QUARTER_PREFIXES = {
@@ -234,6 +238,7 @@ def read_kepler_light_curve(filenames,
                             centroid_radec=False,
                             prefer_psfcentr=False,
                             invert=False,
+                            dq_values_filter=None,
                             # get_px_centr=False
                             ):
     """ Reads data from FITS files for a Kepler target star.
@@ -253,6 +258,9 @@ def read_kepler_light_curve(filenames,
           and Dec, or not
         prefer_psfcentr: bool, if True, uses PSF centroids when available
         invert: bool, if True, inverts time series
+        dq_values_filter: list, values (integers) in the data quality flag array for a set of anomalies. Cadences with
+        the associated bit active are excluded. See the Kepler documentation on DQ flags for more information. If set
+        to `None`, no anomalies in the DQ array are filtered.
 
     Returns:
         data: dictionary with data extracted from the FITS files
@@ -391,15 +399,14 @@ def read_kepler_light_curve(filenames,
         inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
 
         # use quality flags to exclude cadences
-        MAX_BIT = 16
-        BITS = []  # [2048, 4096, 32768]
-        flags = {bit: np.binary_repr(bit).zfill(MAX_BIT).find('1') for bit in BITS}
-        qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.SAP_QUALITY])  # SAP_QUALITY
+        dq_values_filter = dq_values_filter if dq_values_filter else []  # [2048, 4096, 32768]
+        flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
+        qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
+        inds_keep = True * np.ones(len(qflags), dtype='bool')
+
         for flag_bit in flags:
             qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
             inds_keep[qflags_bit] = False
-
-        data['flag_keep'].append(inds_keep)
 
         # Possibly interpolate missing time values IN EXISTING ARRAY.
         if interpolate_missing_time or scramble_type:
@@ -413,6 +420,7 @@ def read_kepler_light_curve(filenames,
         data['all_centroids_px']['y'].append(centroid_fdl_y)
         data['quarter'].append(quarter)
         data['module'].append(module)
+        data['flag_keep'].append(inds_keep)
 
     # scrambles data according to the scramble type selected
     if scramble_type:

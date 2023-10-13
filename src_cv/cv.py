@@ -2,8 +2,6 @@
 
 # 3rd party
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 from pathlib import Path
 import numpy as np
@@ -29,17 +27,17 @@ from src.utils_dataio import get_data_from_tfrecord
 # from src.utils_train import PredictDuringFitCallback
 
 
-def cv_run(cv_dir, data_shards_fps, run_params):
+def cv_run(data_shards_fps, run_params):
     """ Run one iteration of CV.
 
-    :param cv_dir: Path, CV root directory
     :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
     respectively, for this CV iteration
     :param run_params: dict, configuration parameters for the CV run
     :return:
     """
 
-    run_params['paths']['experiment_dir'] = cv_dir / f'cv_iter_{run_params["cv_id"]}'
+    run_params['paths']['experiment_dir'] = (run_params['paths']['experiment_root_dir'] /
+                                             f'cv_iter_{run_params["cv_id"]}')
     run_params['paths']['experiment_dir'].mkdir(exist_ok=True)
 
     # split training folds into training and validation sets by randomly selecting one of the folds as the validation
@@ -48,9 +46,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     if run_params['val_from_train']:
         data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
         data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
-
-    # if run_params['logger'] is not None:
-    #     run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Split for CV iteration: {data_shards_fps_eval}')
 
     # save fold used
     with open(run_params['paths']['experiment_dir'] / 'fold_split.json', 'w') as fold_split_file:
@@ -147,9 +142,9 @@ def cv_run(cv_dir, data_shards_fps, run_params):
                              for dataset in run_params['datasets']}
     for dataset in run_params['datasets']:
         # threshold for classification
-        if not run_params['config']['multi_class']:
+        if not run_params['config']['multi_class']:  # binary classification
             scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
-        else:
+        else:  # multiclass
             scores_classification[dataset] = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
 
     # add predictions to the data dict
@@ -164,8 +159,6 @@ def cv_run(cv_dir, data_shards_fps, run_params):
 
     # write results to a txt file
     for dataset in run_params['datasets']:
-        # print(f'Saving ranked predictions in dataset {dataset} to '
-        #       f'{run_params["paths"]["experiment_dir"] / f"ranked_predictions_{dataset}"}...')
 
         data_df = pd.DataFrame(data[dataset])
         # add label id
@@ -184,7 +177,7 @@ def cv_run(cv_dir, data_shards_fps, run_params):
     # # TODO: delete the models as well?
 
     if run_params['logger'] is not None:
-        run_params['logger'].info('Finished CV iteration.')
+        run_params['logger'].info(f'Finished CV iteration {run_params["cv_id"]}.')
 
 
 def cv():
@@ -293,8 +286,6 @@ def cv():
         if feature['dtype'] == 'int':
             config['features_set'][feature_name]['dtype'] = tf.int64
 
-    # config['logger'].info(f'Feature set: {config["features_set"]}')
-
     # early stopping callback
     config['callbacks_list'] = {
         'train': [
@@ -302,9 +293,6 @@ def cv():
                   ],
     }
 
-    # config['logger'].info(f'Final configuration used: {config}')
-
-    # save feature set used
     if config['rank'] == 0:
 
         # save configuration used
@@ -322,7 +310,6 @@ def cv():
             config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
         config['cv_id'] = cv_id
         cv_run(
-            config['paths']['experiment_root_dir'],
             config['data_shards_fps'][cv_id],
             config,
         )
@@ -334,7 +321,6 @@ def cv():
                     f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
-                config['paths']['experiment_root_dir'],
                 cv_iter,
                 config,
             )

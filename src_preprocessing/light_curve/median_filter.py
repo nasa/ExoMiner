@@ -22,7 +22,7 @@ import numpy as np
 from astropy import stats
 
 
-def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
+def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None, bin_fn=np.median):
     """Computes the median y-value in uniform intervals (bins) along the x-axis.
 
   The interval [x_min, x_max) is divided into num_bins uniformly spaced
@@ -43,6 +43,7 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
       than or equal to the largest value of x. Defaults to min(x).
     x_max: The exclusive rightmost value to consider on the x-axis. Must be
       greater than x_min. Defaults to max(x).
+    bin_fn: function used to aggregate bin values
 
   Returns:
     1D NumPy array of size num_bins containing the median y-values of uniformly
@@ -122,7 +123,7 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
 
         if j_end > j_start:
             # Compute and insert the median bin value.
-            result[i] = np.median(y[j_start:j_end])
+            result[i] = bin_fn(y[j_start:j_end])
             # result_var[i] = np.std(y[j_start:j_end], ddof=1)
             result_var[i] = stats.mad_std(y[j_start:j_end])
             # _, result[i], result_var[i] = stats.sigma_clipped_stats(y[j_start:j_end], sigma=2, maxiters=10)

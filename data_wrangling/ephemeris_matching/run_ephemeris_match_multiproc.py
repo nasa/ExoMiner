@@ -56,28 +56,20 @@ if __name__ == '__main__':
     print(f'Plot probability: {plot_prob}')
     print(f'Sampling interval for binary time series: {sampling_interval}')
 
-    # load table with start and end timestamps for each sector run
-    sector_timestamps_tbl = pd.read_csv(sector_timestamps_tbl_fp).sort_values('sector')
-    print(f'Using sector timestamps table {sector_timestamps_tbl_fp}')
-
-    # load TOI catalog
+    # load object catalog to be matched against TCEs
     toi_tbl = pd.read_csv(toi_tbl_fp, header=1)
-    # toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-    # toi_tbl['Epoch (BTJD)'] = toi_tbl['Transit Epoch (BJD)'] - 2457000
-    # toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid', 'TIC ID': 'target_id'}, inplace=True)
-    # toi_tbl = toi_tbl.dropna(subset=['period', 'epoch', 'duration'])
-    # toi_tbl = toi_tbl.loc[(~toi_tbl['period'].isna() & (toi_tbl['period'] > 0) & ~toi_tbl['epoch'].isna() & ~toi_tbl['duration'].isna())]
-
-    # toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv')
-    # toi_tbl = pd.read_csv(toi_tbl_fp)
-    # toi_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration', 'target_id': 'TIC ID'}, inplace=True)
-    print(f'Using TOI table {toi_tbl_fp}')
+    print(f'Using objects\' table {toi_tbl_fp}')
 
     # load TCE table
     tce_tbl = pd.read_csv(tce_tbl_fp)
     tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
     tce_tbl = tce_tbl.dropna(subset=['period', 'epoch', 'duration'])
     tce_tbl['sector_run'] = tce_tbl['sector_run'].astype('str')
+
+    # load table with start and end timestamps for each sector run for the TICs associated with the tCEs in the TCE
+    # table
+    sector_timestamps_tbl = pd.read_csv(sector_timestamps_tbl_fp).sort_values('sector')
+    print(f'Using sector timestamps table {sector_timestamps_tbl_fp}')
 
     targets_arr = tce_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')

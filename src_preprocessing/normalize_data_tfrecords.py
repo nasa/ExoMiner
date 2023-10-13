@@ -366,11 +366,16 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             for normalizedFeature in normalizedFeatures:
 
                 if isinstance(normalizedFeatures[normalizedFeature], list):  # check for 1-D lists
-                    example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature], allow_overwrite=True)
+                    example_util.set_float_feature(example, normalizedFeature,
+                                                   normalizedFeatures[normalizedFeature],
+                                               allow_overwrite=True)
                 elif len(normalizedFeatures[normalizedFeature].shape) < 2:  # check for 1-D NumPy arrays
-                    example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature], allow_overwrite=True)
+                    example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
+                                                   allow_overwrite=True)
                 elif len(normalizedFeatures[normalizedFeature].shape) >= 2:  # check for N-D Numpy arrays with N >= 2
-                    example_util.set_tensor_feature(example, normalizedFeature, np.array(normalizedFeatures[normalizedFeature]), allow_overwrite=True)
+                    example_util.set_tensor_feature(example, normalizedFeature,
+                                                    np.array(normalizedFeatures[normalizedFeature]),
+                                                    allow_overwrite=True)
 
             writer.write(example.SerializeToString())
 

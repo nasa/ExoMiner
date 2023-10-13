@@ -49,7 +49,18 @@ def get_kepler_tce_table(config):
 
     # read the CSV file of Kepler KOIs.
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    tce_table = tce_table.loc[((tce_table['uid'].isin(['3221714-1'])) & (tce_table['dataset'] == 'INJ2'))]
+    # tces_lst = [
+    #     '407347423-1-S25',  # NTPs with momentum dump
+    #     '31313085-1-S4',
+    #     '17660071-1-S7',
+    #     '142086813-1-S3',
+    #     '453101762-1-S3',
+    #     '471015674-1-S3',
+    #     '167305688-1-S4',
+    #     '233684822-1-S14-50',  # EB
+    #     '158561566-1-S14-14',  # planet
+    # ]
+    # tce_table = tce_table.loc[(tce_table['uid'].isin(tces_lst))]
     # tce_table = tce_table.loc[((tce_table['dataset'] == 'INJ1'))]
     # tce_table = tce_table.sample(n=20)
     # tce_table = tce_table.loc[tce_table['uid'].isin(['6307062-1', ])]
@@ -84,6 +95,29 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    # tces_lst = [
+    #     '407347423-1-S25',  # NTPs with momentum dump
+    #     '31313085-1-S4',
+    #     '17660071-1-S7',
+    #     '142086813-1-S3',
+    #     '453101762-1-S3',
+    #     '471015674-1-S3',
+    #     '167305688-1-S4',
+    #     '233684822-1-S14-50',  # EB
+    #     '158561566-1-S14-14',  # planet
+    # ]
+    # tces_lst = [
+    #     '407347423-1-S25',
+    #     '31313085-1-S04',
+    #     '17660071-1-S07',
+    #     '142086813-1-S03',
+    #     '453101762-1-S03',
+    #     '471015674-1-S03',
+    #     '167305688-1-S04',
+    #     '233684822-1-S14-50',
+    #     '158561566-1-S14',
+    #             ]
+    tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
     # tce_table = tce_table.loc[tce_table['sector_run'] == 47]
     # tce_table = tce_table.loc[tce_table['uid'] == '459212272-1-S47']
     cols_change_data_type = {

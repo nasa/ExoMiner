@@ -2,8 +2,6 @@
 
 # 3rd party
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 import numpy as np
 import logging
@@ -17,7 +15,7 @@ import yaml
 import pandas as pd
 
 # local
-from models.models_keras import ExoMiner, TransformerExoMiner
+from models.models_keras import ExoMiner_JointLocalFlux
 from src_hpo import utils_hpo
 from utils.utils_dataio import is_yamlble
 from src.utils_train_eval_predict import predict_model
@@ -67,70 +65,72 @@ def cv_pred_run(run_params, cv_iter_dir):
         raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
                                   f'statistics were loaded.')
 
-    data_shards_fps = {'predict': list(run_params['paths']["tfrec_dir"].iterdir())}
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
     jobs = [(norm_data_dir, file, norm_stats, run_params['norm_examples_params']['aux_params'])
-            for file in np.concatenate(list(data_shards_fps.values()))]
+            for file in run_params['data_shards_fps']]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
     for async_result in async_results:
         async_result.get()
 
-    run_params['datasets_fps'] = {dataset: [norm_data_dir / data_fp.name for data_fp in data_fps]
-                                  for dataset, data_fps in data_shards_fps.items()}
+    run_params['datasets_fps'] = {'predict': [norm_data_dir / data_fp.name
+                                              for data_fp in run_params['data_shards_fps']]}
+
+    # instantiate variable to get data from the TFRecords
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Getting data from TFRecords to be added to '
+                                  f'ranking table...')
+    data = {'predict': {field: [] for field in run_params['data_fields']}}
+    for tfrec_fp in run_params['datasets_fps']['predict']:
+        # get dataset of the TFRecord
+        data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
+        for field in data_aux:
+            data['predict'][field].extend(data_aux[field])
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference...')
-    # get the filepaths for the trained models
+    # get the file paths for the trained models
     models_dir = cv_iter_dir / 'models'
-    run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.h5'
+    run_params['paths']['models_filepaths'] = [model_dir / f'{model_dir.stem}.keras'
                                                for model_dir in models_dir.iterdir() if 'model' in model_dir.stem]
 
     # run inference for the data set defined in run_params['datasets']
     scores = predict_model(run_params)
     scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
                              for dataset in run_params['datasets']}
-    for dataset in run_params['datasets']:  # apply classification threshold
-        # threshold for classification
-        if not run_params['config']['multi_class']:
-            scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
 
-    # instantiate variable to get data from the TFRecords
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Getting data from TFRecords to be added to '
-                                  f'ranking table...')
-    data = {dataset: {field: [] for field in run_params['data_fields']} for dataset in run_params['datasets']}
-    for dataset in run_params['datasets']:
-        for tfrec_fp in run_params['datasets_fps'][dataset]:
-            # get dataset of the TFRecord
-            data_aux = get_data_from_tfrecord(tfrec_fp, run_params['data_fields'], run_params['label_map'])
-            for field in data_aux:
-                data[dataset][field].extend(data_aux[field])
+    # threshold for classification
+    if not run_params['config']['multi_class']:
+        scores_classification['predict'][scores['predict'] >= run_params['metrics']['clf_thr']] = 1
+    else:
+        scores_classification['predict'] = [scores['predict'][i].argmax() for i in range(scores['predict'].shape[0])]
 
     # add predictions to the data dict
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Create ranking table...')
-    for dataset in run_params['datasets']:
-        if not run_params['config']['multi_class']:
-            data[dataset]['score'] = scores[dataset].ravel()
-            data[dataset]['predicted class'] = scores_classification[dataset].ravel()
-        else:
-            for class_label, label_id in run_params['label_map'].items():
-                data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
-            data[dataset]['predicted class'] = scores_classification[dataset]
+    if not run_params['config']['multi_class']:
+        data['predict']['score'] = scores['predict'].ravel()
+        data['predict']['predicted class'] = scores_classification['predict'].ravel()
+    else:
+        for class_label, label_id in run_params['label_map'].items():
+            data['predict'][f'score_{class_label}'] = scores['predict'][:, label_id]
+        data['predict']['predicted class'] = scores_classification['predict']
 
-    # write results to a txt file
+    # write results to a csv file
     for dataset in run_params['datasets']:
-        # print(f'Saving ranked predictions in dataset {dataset} to '
-        #       f'{run_params["paths"]["experiment_dir"] / f"ranked_predictions_{dataset}"}...')
 
         data_df = pd.DataFrame(data[dataset])
+        # add label id
+        data_df['label_id'] = data_df[run_params['label_field_name']].apply(lambda x: run_params['label_map'][x])
 
         # sort in descending order of output
         if not run_params['config']['multi_class']:
             data_df.sort_values(by='score', ascending=False, inplace=True)
         data_df.to_csv(run_params["paths"]["experiment_dir"] / f'ensemble_ranked_predictions_{dataset}set.csv',
                        index=False)
+
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'Finished CV iteration {run_params["cv_id"]}.')
 
 
 def cv_pred():
@@ -139,15 +139,11 @@ def cv_pred():
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.', default=None)
+    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_predict.yaml')
     args = parser.parse_args()
 
-    if args.config_file is None:
-        path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_predict.yaml')
-    else:
-        path_to_yaml = Path(args.config_file)
-
-    with(open(path_to_yaml, 'r')) as file:
+    with(open(args.config_file, 'r')) as file:
         config = yaml.safe_load(file)
 
     # uncomment for MPI multiprocessing
@@ -183,12 +179,15 @@ def cv_pred():
         config['paths'][path_name] = Path(path_str)
     config['paths']['experiment_root_dir'].mkdir(exist_ok=True)
 
-    config['data_fps'] = [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.is_file()
-                          and fp.name.startswith('predict-shard')]
     # cv iterations dictionary
     config['cv_iters'] = [fp for fp in config['paths']['cv_experiment_dir'].iterdir() if fp.is_dir()
                           and fp.name.startswith('cv_iter')]
 
+    # file paths to TFRecord data set to be run inference on
+    # config['data_shards_fps'] = [fp for fp in config['paths']['tfrec_dir'].iterdir()
+    #                              if fp.is_file() and fp.name.startswith('shard') and fp.suffix != '.csv']
+    config['data_shards_fps'] = [fp for fp in config['paths']['tfrec_dir'].iterdir()
+                                 if 'shard' in fp.name and fp.is_file() and fp.suffix != '.csv']
     if config["rank"] >= len(config['cv_iters']):
         return
 
@@ -197,14 +196,10 @@ def cv_pred():
     logger_handler = logging.FileHandler(filename=config['paths']['experiment_root_dir'] /
                                                   f'cv_run_{config["rank"]}.log',
                                          mode='w')
-    # logger_handler_stream = logging.StreamHandler(sys.stdout)
-    # logger_handler_stream.setLevel(logging.INFO)
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     config['logger'].setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
-    # logger_handler_stream.setFormatter(logger_formatter)
     config['logger'].addHandler(logger_handler)
-    # logger.addHandler(logger_handler_stream)
     config['logger'].info(f'Starting run {config["paths"]["experiment_root_dir"].name}...')
 
     config['dev_train'] = f'/gpu:{config["gpu_id"]}'
@@ -221,10 +216,10 @@ def cv_pred():
         incumbent = res.get_incumbent_id()
         config_id_hpo = incumbent
         config_hpo_chosen = id2config[config_id_hpo]['config']
-        # for older HPO runs when kernel size was not optimized separately for local and global branches
-        if 'kernel_size_glob' not in config_hpo_chosen:
-            config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
-            config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
+
+        # for legacy HPO runs
+        config_hpo_chosen = utils_hpo.update_legacy_configs(config_hpo_chosen)
+
         config['config'].update(config_hpo_chosen)
 
         # select a specific config based on its ID
@@ -238,14 +233,13 @@ def cv_pred():
             yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
 
     # base model used - check estimator_util.py to see which models are implemented
-    config['base_model'] = TransformerExoMiner
+    config['base_model'] = ExoMiner_JointLocalFlux
 
     # choose features set
     for feature_name, feature in config['features_set'].items():
         if feature['dtype'] == 'float32':
             config['features_set'][feature_name]['dtype'] = tf.float32
 
-    # save feature set used
     if rank == 0:
         # save model configuration used
         np.save(config['paths']['experiment_root_dir'] / 'config.npy', config['config'])

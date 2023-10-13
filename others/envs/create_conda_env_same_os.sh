@@ -17,7 +17,7 @@ conda create --name $CONDA_ENV_NAME --file "$SRC_CONDA_ENV_LIST"
 # activate environment just created
 conda activate $CONDA_ENV_NAME
 
-# --- install pip modules ---
+# --- install pip modules for HECC/non-M2 MacBook ---
 pip install hpbandster
 # GPU CUDA compatibility: https://www.tensorflow.org/install/source#gpu
 pip install tensorflow==2.5.0
@@ -25,3 +25,15 @@ pip install tensorflow==2.5.0
 pip install tensorflow-probability==0.11.0
 pip uninstall numpy
 conda install numpy
+
+
+# --- install pip modules for M2 MacBook ---
+pip install hpbandster
+pip install "grpcio>=1.37.0,<2.0"
+pip install "numpy>=1.22.3,<1.23.0"
+pip install h5py
+pip install pydl
+pip install pydot
+pip install tensorflow-macos
+pip install tensorflow-metal
+pip install --upgrade tensorflow-probability
