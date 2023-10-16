@@ -177,7 +177,7 @@ def evaluate_model(config, logger=None):
                                 models=model_list,
                                 feature_map=config['feature_map'])
         # save ensemble
-        model.save(config['paths']['experiment_dir'] / 'ensemble_model.h5')
+        model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
 
     if logger is not None:
         model.summary(print_fn=lambda x: logger.info(x + '\n'))

@@ -399,14 +399,14 @@ def read_kepler_light_curve(filenames,
         inds_keep[np.isnan(flux)] = False  # keep cadences for which the PDC-SAP flux was not gapped
 
         # use quality flags to exclude cadences
-        dq_values_filter = dq_values_filter if dq_values_filter else []  # [2048, 4096, 32768]
-        flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
-        qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
-        inds_keep = True * np.ones(len(qflags), dtype='bool')
+        if dq_values_filter:
+            flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
+            qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
+            inds_keep = True * np.ones(len(qflags), dtype='bool')
 
-        for flag_bit in flags:
-            qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
-            inds_keep[qflags_bit] = False
+            for flag_bit in flags:
+                qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
+                inds_keep[qflags_bit] = False
 
         # Possibly interpolate missing time values IN EXISTING ARRAY.
         if interpolate_missing_time or scramble_type:

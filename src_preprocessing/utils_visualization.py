@@ -155,17 +155,8 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
             if add_info is not None:
                 f.suptitle(f'Quarters: {add_info["quarter"]}\nModules: {add_info["module"]}')
 
-        if config['satellite'] == 'kepler':
-            ax[0].set_title('TCE {} {}'.format(tce.uid, tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-        else:
-            # ax[0].set_title(
-            #     'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-            # plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-            #                                                                tce.sector_run, tce.label, basename)))
-            ax[0].set_title('TCE {} {}'.format(tce.uid, tce.label))
-            plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-
+        ax[0].set_title('{} {}'.format(tce.uid, tce.label))
+        plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
         plt.close()
 
     else:
@@ -218,16 +209,7 @@ def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, base
         ax[0, 0].set_title('Non-normalized centroid time-series')
         ax[0, 1].set_title('Normalized centroid time-series')
 
-        # if config['satellite'] == 'kepler':
-        #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-        #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-        #                                                                tce.label, basename)))
-        # else:
-        #     f.suptitle(
-        #         'TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-        #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-        #                                                                    tce.sector_run, tce.label, basename)))
-        f.suptitle('TCE {} {}'.format(tce.uid, tce.label))
+        f.suptitle('{} {}'.format(tce.uid, tce.label))
         plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
 
         plt.close()
