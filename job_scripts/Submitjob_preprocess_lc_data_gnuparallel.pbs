@@ -2,11 +2,11 @@
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplnt
-#PBS -l walltime=08:00:00
-#PBS -l select=1:ncpus=128:model=rom_ait
-#PBS -q long
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_kepler-tess_preprocess.err
+#PBS -l walltime=02:00:00
+#PBS -l select=2:ncpus=128:model=rom_ait
+#PBS -q debug
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
 #PBS -W group_list=a1509
 #PBS -m bea
 
@@ -17,18 +17,20 @@ conda activate exoplnt_dl
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_scr1_9-1-2023_1119
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_10-18-2023_1054
 mkdir -p $OUTPUT_DIR
 
 # script file path
 SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/generate_input_records.py
+# config file path
+CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_preprocessing.yaml
+# job script for running preprocessing pipeline
+PREPROCESS_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/preprocessing_job.sh
 
-# number of total runs
-NUM_TOTAL_RUNS=$((1 * 128))
-# number of runs set to each node
-NUM_RUNS_PER_NODE=128
+# number of total jobs
+NUM_TOTAL_JOBS=$((1 * 128))
+# number of jobs run simultaneously
+NUM_JOBS_PARALLEL=128
 
 # run with GNU parallel
-seq 0 $(($NUM_TOTAL_RUNS - 1)) | parallel -j $NUM_RUNS_PER_NODE -u "python -u $SCRIPT_FP --rank={} --n_runs=$NUM_TOTAL_RUNS --output_dir=$OUTPUT_DIR > $OUTPUT_DIR/preprocessing_{}.log"
-
-# seq $NUM_TOTAL_RUNS | parallel -j $NUM_RUNS_PER_NODE -u --sshloginfile $PBS_NODEFILE "python src_preprocessing/generate_input_records.py --rank={} --n_runs=$NUM_TOTAL_RUNS --output_dir=$OUTPUT_DIR &>  $OUTPUT_DIR/preprocessing_data_exoplnt_{}.txt"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP NUM_TOTAL_JOBS" &

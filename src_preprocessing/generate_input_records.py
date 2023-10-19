@@ -224,9 +224,10 @@ def main():
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
-    config['output_dir'] = Path(config['output_dir'])
     if args.output_dir is not None:
         config['output_dir'] = Path(args.output_dir)
+    else:
+        config['output_dir'] = Path(config['output_dir'])
 
     config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
     config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
