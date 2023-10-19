@@ -61,7 +61,9 @@ def get_kepler_tce_table(config):
     #     '158561566-1-S14-14',  # planet
     # ]
     # tce_table = tce_table.loc[(tce_table['uid'].isin(tces_lst))]
-    # tce_table = tce_table.loc[((tce_table['dataset'] == 'INJ1'))]
+    # tce_table = tce_table.loc[((tce_table['dataset'] == 'INJ1') & (tce_table['uid'] == '3833819-1'))]
+    # tce_table[['tce_dikco_smsky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err', 'tce_fwm_stat']] = float(0)
+    # tce_table['mag_cat'] = 1.0
     # tce_table = tce_table.sample(n=20)
     # tce_table = tce_table.loc[tce_table['uid'].isin(['6307062-1', ])]
     # tce_table = tce_table.loc[tce_table['target_id'].isin([11761169])]
@@ -104,20 +106,9 @@ def get_tess_tce_table(config):
     #     '471015674-1-S3',
     #     '167305688-1-S4',
     #     '233684822-1-S14-50',  # EB
-    #     '158561566-1-S14-14',  # planet
+    #     '158561566-1-S14',  # planet
     # ]
-    # tces_lst = [
-    #     '407347423-1-S25',
-    #     '31313085-1-S04',
-    #     '17660071-1-S07',
-    #     '142086813-1-S03',
-    #     '453101762-1-S03',
-    #     '471015674-1-S03',
-    #     '167305688-1-S04',
-    #     '233684822-1-S14-50',
-    #     '158561566-1-S14',
-    #             ]
-    tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
+    # tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
     # tce_table = tce_table.loc[tce_table['sector_run'] == 47]
     # tce_table = tce_table.loc[tce_table['uid'] == '459212272-1-S47']
     cols_change_data_type = {

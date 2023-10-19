@@ -1396,20 +1396,28 @@ def generate_view_momentum_dump(time, momentum_dumps, num_bins, bin_width, t_min
           t_max: The exclusive rightmost value to consider on the time axis.
 
         Returns:
-          1D NumPy array of size num_bins containing the max momentum dump flag values uniformly spaced bins on the
+          1D NumPy array of size num_bins containing the mean momentum dump flag values uniformly spaced bins on the
           phase-folded time axis.
+          1D NumPy array of size num_bins containing the mad std momentum dump flag values uniformly spaced bins on the
+          phase-folded time axis.
+          1D NumPy array of size num_bins containing the number of points per bin for the phase folded momentum dump
+          flag time series uniformly spaced bins on the phase-folded time axis.
         """
 
     # binning using max function
-    view, time_bins, view_var, bin_counts = median_filter.median_filter(time, momentum_dumps, num_bins, bin_width,
-                                                                        t_min, t_max, bin_fn=np.max)
+    view, time_bins, view_var, _ = median_filter.median_filter(time, momentum_dumps,
+                                                               num_bins,
+                                                               bin_width,
+                                                               t_min, t_max,
+                                                               bin_fn=np.mean,
+                                                               bin_var_fn=np.std)
 
     # impute missing bin values with zero; although there shouldn't be any NaNs by construction
     inds_nan = np.isnan(view)
     view[inds_nan] = 0
     view_var[inds_nan] = 0
 
-    return view, time_bins
+    return view, view_var, time_bins
 
 
 def normalize_view(view, val=None, centroid=False, **kwargs):
@@ -2331,7 +2339,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # create local view for momentum dump
         if config['get_momentum_dump']:
 
-            loc_mom_dump_view, binned_time = generate_view_momentum_dump(
+            loc_mom_dump_view, loc_mom_dump_view_var, binned_time = generate_view_momentum_dump(
                 time_momentum_dump,
                 momentum_dump,
                 config['num_bins_loc'],
@@ -2341,7 +2349,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             )
 
             if plot_preprocessing_tce:
-                utils_visualization.plot_momentum_dump(loc_mom_dump_view, binned_time, momentum_dump,
+                utils_visualization.plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var,
+                                                       binned_time, momentum_dump,
                                                        time_momentum_dump, tce,
                                                        os.path.join(config['output_dir'], 'plots'),
                                                        f'9_momentum_dump_phase_and_binned')
@@ -2351,15 +2360,15 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         views.update(flux_views)
         views.update(weak_secondary_flux_views)
         views.update(centr_views)
-
         if config['get_momentum_dump']:
             views['local_momentum_dump_view'] = loc_mom_dump_view
-
 
         views_var = {}
         views_var.update(flux_views_var)
         views_var.update(weak_secondary_flux_views_var)
         views_var.update(centr_views_var)
+        if config['get_momentum_dump']:
+            views_var['local_momentum_dump_view'] = loc_mom_dump_view_var
 
         if plot_preprocessing_tce:
             # CHANGE NUMBER OF VIEWS PLOTTED!!!

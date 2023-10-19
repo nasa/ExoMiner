@@ -73,6 +73,21 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              53: ("202216409574", "226"),
              54: ("2022190063128", "227"),
              55: ("2022217014003", "242"),
+             56: ("2022244194134", "243"),
+             57: ("2022273165103", "245"),
+             58: ("2022302161335", "247"),
+             59: ("2022330142927", "248"),
+             60: ("2022357055054", "249"),
+             61: ("2023018032328", "250"),
+             62: ("2023043185947", "254"),
+             63: ("2023069172124", "255"),
+             64: ("2023096110322", "257"),
+             65: ("2023124020739", "259"),
+             66: ("2023153011303", "260"),
+             67: ("2023181235917", "261"),
+             68: ("", ""),
+             69: ("", ""),
+             70: ("", ""),
              }
 
 
@@ -123,14 +138,13 @@ def tess_filenames(base_dir,
 
         base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
         filename = os.path.join(base_dir, base_name)
+        # lc_dir = Path(f'{base_dir}/sector_{sector}')
+        # filename = list(lc_dir.glob(f"tess*-s0[0-9][0-9][0-9]-{tess_id}*"))[0]
 
         if not check_existence or gfile.exists(filename):
             filenames.append(filename)
 
-    # else:
-    #     print("File {} does not exist.".format(filename))
-
-    return filenames  # , tce_sectors[:-1]
+    return filenames
 
 
 def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):

@@ -1320,13 +1320,15 @@ def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
     plt.close()
 
 
-def plot_momentum_dump(loc_mom_dump_view, binned_time, momentum_dump, time, tce, savedir, basename):
+def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, momentum_dump, time, tce, savedir,
+                       basename):
     """ Plot phase-folded and binned momentum dump timeseries.
 
     Args:
-        loc_mom_dump_view: NumPy array, local view of binned momentum dump timeseries
+        loc_mom_dump_view: NumPy array, local view of binned momentum dump time series
+        loc_mom_dump_view_var: NumPy array, local view of binned momentum dump variability
         binned_time: NumPy array, binned time
-        momentum_dump: NumPy array, phase-folded momentum dump timeseries
+        momentum_dump: NumPy array, phase-folded momentum dump time series
         time: NumPy array, phase-folded time
         tce: Pandas Series, TCE information
         savedir: str, save directory
@@ -1341,6 +1343,8 @@ def plot_momentum_dump(loc_mom_dump_view, binned_time, momentum_dump, time, tce,
     ax[0].set_ylabel('Flag')
     ax[0].set_xlabel('Phase (day)')
     ax[1].plot(binned_time, loc_mom_dump_view)
+    ax[1].plot(binned_time, loc_mom_dump_view + loc_mom_dump_view_var, 'r--')
+    ax[1].plot(binned_time, loc_mom_dump_view - loc_mom_dump_view_var, 'r--')
     ax[1].set_ylabel('Flag')
     ax[1].set_xlabel('Binned Time (day)')
     ax[1].set_title('Transit View')
