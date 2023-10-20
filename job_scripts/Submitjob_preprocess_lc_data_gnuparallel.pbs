@@ -10,12 +10,6 @@
 #PBS -W group_list=a1509
 #PBS -m bea
 
-source ~/.bashrc
-
-conda activate exoplnt_dl
-
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
-
 # create output directory for preprocessing results
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_10-18-2023_1054
 mkdir -p $OUTPUT_DIR
@@ -33,4 +27,4 @@ NUM_TOTAL_JOBS=$((1 * 128))
 NUM_JOBS_PARALLEL=128
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP NUM_TOTAL_JOBS" &
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
