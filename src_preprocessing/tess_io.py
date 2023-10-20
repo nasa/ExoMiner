@@ -341,19 +341,21 @@ def read_tess_light_curve(filenames,
                                                  f'FW centroid {centroid_x.size}|{centroid_y.size}).'))
                 continue
 
-            # use quality flags to exclude cadences
-            dq_values_filter = dq_values_filter if dq_values_filter else []  # [2048, 4096, 32768]
-            flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
-            qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
-            inds_keep = True * np.ones(len(qflags), dtype='bool')
-            for flag_bit in flags:  # set cadences to be excluded based on selected dq flags
-                qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
-                inds_keep[qflags_bit] = False
+            inds_keep = True * np.ones(len(flux), dtype='bool')
+            inds_keep[np.isnan(flux)] = False  # exclude cadences that are NaN in the PDCSAP flux
 
-            # exclude cadences that are NaN in the PDCSAP flux
-            inds_keep[np.isnan(flux)] = False
+            # use quality flags to exclude cadences
+            if dq_values_filter:
+                dq_values_filter = dq_values_filter if dq_values_filter else []  # [2048, 4096, 32768]
+                flags = {dq_value: np.binary_repr(dq_value).zfill(MAX_BIT).find('1') for dq_value in dq_values_filter}
+                qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
+                for flag_bit in flags:  # set cadences to be excluded based on selected dq flags
+                    qflags_bit = [el[flags[flag_bit]] == '1' for el in qflags]
+                    inds_keep[qflags_bit] = False
 
             if get_momentum_dump:
+                if not dq_values_filter:
+                    qflags = np.array([np.binary_repr(el).zfill(MAX_BIT) for el in light_curve.QUALITY])
                 momentum_dump_bit = np.binary_repr(MOMENTUM_DUMP_VALUE).zfill(MAX_BIT).find('1')
                 momentum_dump_arr = np.array([el[momentum_dump_bit] == '1' for el in qflags]).astype('uint')
 
@@ -376,16 +378,16 @@ def read_tess_light_curve(filenames,
                 data['momentum_dump'].append(momentum_dump_arr)
                 data['time_momentum_dump'].append(np.array(time))
 
-            # exclude data points based on keep flags
-            for arr_i, inds_keep in enumerate(data['flag_keep']):
-                for data_field in timeseries_fields:
-                    if 'centroids' in data_field:
-                        data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
-                        data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
-                    else:
-                        data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
-
         except:
             files_not_read.append((basename, 'FITS file not read correctly.'))
+
+    # exclude data points based on keep flags
+    for arr_i, inds_keep in enumerate(data['flag_keep']):
+        for data_field in timeseries_fields:
+            if 'centroids' in data_field:
+                data[data_field]['x'][arr_i] = data[data_field]['x'][arr_i][inds_keep]
+                data[data_field]['y'][arr_i] = data[data_field]['y'][arr_i][inds_keep]
+            else:
+                data[data_field][arr_i] = data[data_field][arr_i][inds_keep]
 
     return data, files_not_read

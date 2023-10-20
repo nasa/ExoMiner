@@ -51,7 +51,7 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None, bin_fn
   Returns:
     1D NumPy array of size num_bins containing the median y-values of uniformly
     spaced bins on the x-axis.
-    1D Numpy array of size num_bins containing the the timestamp of the bin.
+    1D Numpy array of size num_bins containing the timestamp of the bin.
     1D NumPy array of size num_bins containing the MAD std y-values of uniformly
     spaced bins on the x-axis.
     1D NumPy array of size num_bins containing the number of y-values in each one of the uniformly

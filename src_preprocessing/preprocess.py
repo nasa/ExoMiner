@@ -2343,7 +2343,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                 time_momentum_dump,
                 momentum_dump,
                 config['num_bins_loc'],
-                config['bin_width_factor_loc'],
+                config['bin_width_factor_loc'] * tce['tce_duration'],
                 max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations']),
                 min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations']),
             )
