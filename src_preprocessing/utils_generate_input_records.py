@@ -97,16 +97,12 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    # tce_table = tce_table.loc[tce_table['uid'] == '161687311-3-S50']
     # tces_lst = [
-    #     '407347423-1-S25',  # NTPs with momentum dump
-    #     '31313085-1-S4',
-    #     '17660071-1-S7',
-    #     '142086813-1-S3',
-    #     '453101762-1-S3',
-    #     '471015674-1-S3',
-    #     '167305688-1-S4',
-    #     '233684822-1-S14-50',  # EB
-    #     '158561566-1-S14',  # planet
+    #     '367911750-2-S24',
+    #     # '385307168-1-S1-65',
+    #     # '387020248-2-S14-60',
+    #     # '394585218-2-S1',
     # ]
     # tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
     # tce_table = tce_table.loc[tce_table['sector_run'] == 47]

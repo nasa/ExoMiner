@@ -1,17 +1,17 @@
 # output directory for TFRecords
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_momentum_dumps_10-11-2023_1109
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/check_tceswithpreprocessingerrors__10-24-2023_1030
 # TCE table
+#input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed.csv
 input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe_ticstellar_features_adjusted_label.csv
-#input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv
 #input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
 # light curve FITS file directory
+#lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25_plti/inj1_filtered
 lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc
-#lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
 #lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
 dict_savedir: null
 
-using_mpi: false  # use MPI
+using_mpi: false  # use MPI/GNU parallel
 
 ffi_data: false  # set to true for SPOC FFI data
 
@@ -84,7 +84,9 @@ kepler_px_scale: 3.98  # arcsec
 #tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
 #kepler_lower_bound_dicco_msky_err: 2.5
 
-sampling_rate_h: 2  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
+sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
+  kepler: 2
+  tess: 30
 tess_to_kepler_sampling_ratio: 15
 
 ## magnitude threshold for categorical variable

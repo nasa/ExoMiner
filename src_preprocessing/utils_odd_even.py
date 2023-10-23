@@ -681,7 +681,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
             np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
-            np.array(bin_counts_odd), np.array(bin_values_odd)
+            np.array(bin_counts_odd), bin_values_odd
 
     # filling odd and even views with Gaussian noise based on available flux values
     elif odd_even_flag == 'no local time series (even and odd)':
@@ -689,7 +689,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         med = np.median(odd_flux)
         std_rob_estm = stats.mad_std(odd_flux)  # robust std estimator of the time series
         loc_flux_odd_view_var = std_rob_estm * np.ones(config['num_bins_loc'], dtype='float')
-        loc_flux_odd_view = med + np.random.normal(0, std_rob_estm, config['num_bins_loc'])
+        loc_flux_odd_view = med + loc_flux_odd_view_var
         binned_time_odd = np.linspace(tmin_local, tmax_local, config['num_bins_loc'], endpoint=True)
         bin_counts_odd = np.ones(config['num_bins_loc'], dtype='float')
         bin_values_odd = [np.array([loc_flux_odd_view[i]]) for i in range(config['num_bins_loc'])]
@@ -722,7 +722,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
             np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
-            np.array(bin_counts_odd), np.array(bin_values_odd)
+            np.array(bin_counts_odd), bin_values_odd
 
     # compute out-of-transit bin indices for odd and even flux views
     inds_oot_odd = (binned_time_odd < t_min_transit) | (binned_time_odd > t_max_transit)
