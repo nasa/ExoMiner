@@ -1069,8 +1069,7 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
 
 
 def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases, keep_odd_even_order,
-                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None,
-                            augmentation=False):
+                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None):
     """ Splits a 1D time series phases using the detected orbital period and epoch. Extracts `n_max_phases` from the
     time series.
 
@@ -1086,11 +1085,10 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       valid.
       num_cadences_per_h: float, number of cadences sampled per hour in the time series.
       extend_method: str, method used to deal with examples with less than `n_max_phases`. If 'zero_padding', baseline
-      phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
+      phases (i.e., filled with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
       quarter_timestamps: dict, each value is a list. The key is the quarter id and the value is a list with the
       start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
       sampling takes into account transits from different quarters.
-      augmentation: bool; if True samples cycles with replacement.
 
     Returns:
       phase_split: 2D NumPy array (n_phases x n_points) of phase folded time values in
@@ -1119,15 +1117,23 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     odd_even_id_arr[1::2] = 1
 
     # fold time array over the estimated period to create phase array
-    # if not augmentation:
     phase = util.phase_fold_time(time, period, t0)
-    # else:
-    #     phase, sampled_idxs, _ = util.phase_fold_time_aug(time, period, t0)
-    #     timeseries = timeseries[sampled_idxs]
 
     # split time series over phases
     diff_phase = np.diff(phase, prepend=np.nan)
+    # get indices between phases based on going from positive to negative phase
     idx_splits = np.where(diff_phase < 0)[0]
+    # get indices to split phases based on time
+    diff_time = np.diff(time, prepend=np.nan)
+    # time between negative and positive phase is longer than one period
+    idx_splits_per = np.where(diff_time > period)[0]
+    # time between same sign phases is longer than half period
+    idx_splits_same_phase_sign = np.where(np.logical_and(diff_time > period / 2, diff_time < period))[0]
+    idx_splits_same_phase_sign_valid = [idx for idx in idx_splits_same_phase_sign if phase[idx - 1] * phase[idx] == 1]
+    # concatenate indices and sort them
+    idx_splits = np.concatenate([idx_splits, idx_splits_per, idx_splits_same_phase_sign_valid]).astype('uint')
+    idx_splits.sort()
+    # use indices to split time series arrays
     time_split = np.array_split(time, idx_splits)
     phase_split = np.array_split(phase, idx_splits)
     timeseries_split = np.array_split(timeseries, idx_splits)
@@ -1145,9 +1151,6 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
                 odd_even_obs[phase_i] = odd_even_id_arr[epoch_i]
                 epoch_idx = epoch_i + 1  # update the first epoch to be checked as the one after the matched epoch
                 break
-
-        # if odd_even_obs[phase_i] == -1:
-        #     print(f'Phase {phase_i} did not match any epoch.')
 
     # remove phases that were not matched with any epoch; this shouldn't happen often (?) though
     idx_valid_phases = odd_even_obs != -1
@@ -1629,17 +1632,17 @@ def check_inputs_generate_example(data, tce, config):
             data['time_centroid_distFDL'] = np.array(data['time'])
             data['centroid_distFDL'] = np.zeros(len(data['time']))
         else:  # fill with Gaussian noise with timeseries statistics
-            report_exclusion(config, tce, f'{data["errors"]}. Setting centroid offset timeseries to Gaussian noise '
-                                          f'using statistics from this timeseries.')
+            report_exclusion(config, tce, f'{data["errors"]}. Setting centroid offset time series to Gaussian '
+                                          f'noise using statistics from this time series.')
 
             rob_std = mad_std(data['centroid_dist'])
             med = np.median(data['centroid_dist'])
-            data['centroid_dist'] = np.random.normal(med, rob_std, data['centroid_dist'].shape)
+            data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
             data['time_centroid_dist'] = np.array(data['time'])
 
             rob_std = mad_std(data['centroid_distFDL'])
             med = np.median(data['centroid_distFDL'])
-            data['centroid_distFDL'] = np.random.normal(med, rob_std, data['centroid_dist'].shape)
+            data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
             data['time_centroid_distFDL'] = np.array(data['time'])
 
     return data
@@ -1716,9 +1719,8 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         config['n_max_phases'],
         config['keep_odd_even_order'],
         config['frac_it_cadences_thr'],
-        config['sampling_rate_h'],
+        config['sampling_rate_h'][config['satellite']],
         config['phase_extend_method'],
-        augmentation=False,
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config['quarter_sampling']
         else None
     )
