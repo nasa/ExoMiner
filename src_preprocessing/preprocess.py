@@ -136,10 +136,10 @@ def read_light_curve(tce, config):
                                                                        )
 
         if len(fits_files_not_read) > 0:
-            warn_string = ''
+            err_str = ''
             for el in fits_files_not_read:
-                warn_string += f'{el[0]}:{el[1]}\n'
-            report_exclusion(config, tce, warn_string)
+                err_str += f'FITS file was not read correctly: {el}'
+                report_exclusion(config, tce, err_str)
             if len(fits_files_not_read) == len(file_names):
                 report_exclusion(config, tce, f'No FITS files were read in {config["lc_data_dir"]}.')
                 return None
@@ -974,10 +974,10 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
         time_wksecondaryflux, wksecondaryflux = None, None
 
     # preprocess centroid time series
-    if np.all(~np.isfinite(np.concatenate(data['all_centroids']['x']))) or \
-            np.all(~np.isfinite(np.concatenate(data['all_centroids']['y']))):
-        # report_exclusion(config, tce, 'No finite data for centroid time series preprocessing.')
-        raise ValueError('No finite data available for centroid time series preprocessing.')
+    # if np.all(~np.isfinite(np.concatenate(data['all_centroids']['x']))) or \
+    #         np.all(~np.isfinite(np.concatenate(data['all_centroids']['y']))):
+    #     # report_exclusion(config, tce, 'No finite data for centroid time series preprocessing.')
+    #     raise ValueError('No finite data available for centroid time series preprocessing.')
     try:
         time_centroid, centroid_dist = centroid_preprocessing(data['all_time'],
                                                               data['all_centroids'],
@@ -1346,8 +1346,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     return phase_split, timeseries_split, n_obs_phases, odd_even_obs
 
 
-def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
-                  centering=True, normalize=True, centroid=False, **kwargs):
+def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce, centering=True, normalize=True, centroid=False,
+                  **kwargs):
     """ Generates a view of a phase-folded light curve using a median filter.
 
     Args:
@@ -1363,24 +1363,25 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce,
       centroid: bool, if True considers these view a centroid time series
 
     Returns:
-      1D NumPy array of size num_bins containing the median flux values of
-      uniformly spaced bins on the phase-folded time axis.
+      view: 1D NumPy array of size num_bins containing the median values of uniformly spaced bins on the phase-folded
+      time axis.
+      time_bins: NumPy array, phase for the binned time series
+      view_var: 1D NumPy array of size num_bins containing the variability values of uniformly spaced bins on the
+      phase-folded time axis.
+      inds_nan: dict, boolean indices for the in-transit and out-of-transit imputed bins
+      bin_counts, list, number of points in each bin
     """
 
     # binning using median
     view, time_bins, view_var, bin_counts = median_filter.median_filter(time, flux, num_bins, bin_width, t_min, t_max)
 
     # impute missing bin values
-    view, inds_nan = impute_binned_ts(time_bins, view, time, flux, tce['tce_period'], tce['tce_duration'])
+    view, view_var, inds_nan = impute_binned_ts(time_bins, view, time, flux, tce['tce_period'], tce['tce_duration'],
+                                                view_var)
 
-    # variability of bins without any values is set to the std of the phase folded time series
-    view_var[np.isnan(view_var)] = mad_std(flux, ignore_nan=True)
-
-    # global median centering
     if centering:
         view -= np.median(view)
 
-    # normalization
     if normalize:
         view = normalize_view(view, val=None, centroid=centroid, **kwargs)
 
@@ -1493,10 +1494,16 @@ def global_view(time, flux, period, tce, num_bins=2001, bin_width_factor=1/2001,
 
 
     Returns:
-      1D NumPy array of size num_bins containing the median flux values of
-      uniformly spaced bins on the phase-folded time axis.
+      view: 1D NumPy array of size num_bins containing the median values of uniformly spaced bins on the phase-folded
+      time axis.
+      time_bins: NumPy array, phase for the binned time series
+      view_var: 1D NumPy array of size num_bins containing the variability values of uniformly spaced bins on the
+      phase-folded time axis.
+      inds_nan: dict, boolean indices for the in-transit and out-of-transit imputed bins
+      bin_counts, list, number of points in each bin
     """
-    return generate_view(
+
+    view, time_bins, view_var, inds_nan, bin_counts = generate_view(
         time,
         flux,
         num_bins=num_bins,
@@ -1508,6 +1515,8 @@ def global_view(time, flux, period, tce, num_bins=2001, bin_width_factor=1/2001,
         normalize=normalize,
         centering=centering,
         **kwargs)
+
+    return view, time_bins, view_var, inds_nan, bin_counts
 
 
 def local_view(time,
@@ -1542,8 +1551,13 @@ def local_view(time,
 
 
     Returns:
-      1D NumPy array of size num_bins containing the median flux values of
-      uniformly spaced bins on the phase-folded time axis.
+       view: 1D NumPy array of size num_bins containing the median values of uniformly spaced bins on the phase-folded
+      time axis.
+      time_bins: NumPy array, phase for the binned time series
+      view_var: 1D NumPy array of size num_bins containing the variability values of uniformly spaced bins on the
+      phase-folded time axis.
+      inds_nan: dict, boolean indices for the in-transit and out-of-transit imputed bins
+      bin_counts, list, number of points in each bin
     """
 
     t_min = max(-period / 2, -duration * num_durations)
@@ -1618,32 +1632,36 @@ def check_inputs_generate_example(data, tce, config):
     :param tce: pandas Series, TCE ephemeris, parameters and diagnostics from DV.
     :param config: dict, preprocessing parameters
     :return:
-        data, dict containing the preprocessed timeseries after checking inputs and ajusting them accordingly.
+        data, dict containing the preprocessed timeseries after checking inputs and adjusting them accordingly.
     """
 
-    if 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
-        if len(data['centroid_dist']) == 0:
-            report_exclusion(config, tce, f'{data["errors"]}. No data points available. '
-                                          f'Setting centroid offset timeseries to zero (target star position).')
+    if data['centroid_dist'] is None:  # set it to empty list
+        data['centroid_dist'] = []
 
-            data['time_centroid_dist'] = np.array(data['time'])
-            data['centroid_dist'] = np.zeros(len(data['time']))
+    # set centroid distance to zero (meaning on-target)
+    if len(data['centroid_dist']) == 0 or np.isnan(data['centroid_dist']).all():
+        report_exclusion(config, tce, f'No data points available. Setting centroid offset time series to zero '
+                                      f'(target star position).')
 
-            data['time_centroid_distFDL'] = np.array(data['time'])
-            data['centroid_distFDL'] = np.zeros(len(data['time']))
-        else:  # fill with Gaussian noise with timeseries statistics
-            report_exclusion(config, tce, f'{data["errors"]}. Setting centroid offset time series to Gaussian '
-                                          f'noise using statistics from this time series.')
+        data['time_centroid_dist'] = np.array(data['time'])
+        data['centroid_dist'] = np.zeros(len(data['time']))
 
-            rob_std = mad_std(data['centroid_dist'])
-            med = np.median(data['centroid_dist'])
-            data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
-            data['time_centroid_dist'] = np.array(data['time'])
+        data['time_centroid_distFDL'] = np.array(data['time'])
+        data['centroid_distFDL'] = np.zeros(len(data['time']))
+    # fill with Gaussian noise using time series statistics
+    elif 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
+        report_exclusion(config, tce, f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
+                                      f'offset time series to Gaussian noise using statistics from this time series.')
 
-            rob_std = mad_std(data['centroid_distFDL'])
-            med = np.median(data['centroid_distFDL'])
-            data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
-            data['time_centroid_distFDL'] = np.array(data['time'])
+        rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
+        med = np.nanmedian(data['centroid_dist'])
+        data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
+        data['time_centroid_dist'] = np.array(data['time'])
+
+        rob_std = mad_std(data['centroid_distFDL'])
+        med = np.median(data['centroid_distFDL'])
+        data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
+        data['time_centroid_distFDL'] = np.array(data['time'])
 
     return data
 
@@ -1805,7 +1823,6 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
         utils_visualization.plot_all_phasefoldedtimeseries(phasefolded_timeseries,
                                                            tce,
-                                                           config,
                                                            (3, 2),
                                                            os.path.join(config['output_dir'], 'plots'),
                                                            f'7_phasefoldedbinned_timeseries_'
@@ -1913,19 +1930,20 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         unfolded_loc_flux_view = []
         unfolded_loc_flux_view_var = []
         for phase in range(n_phases_split):
-            unfolded_loc_flux_view_phase,binned_time, unfolded_loc_flux_view_var_phase, _, bin_counts = \
+            unfolded_loc_flux_view_phase, binned_time, unfolded_loc_flux_view_var_phase, _, bin_counts = \
                 local_view(time_split[phase],
-                            flux_split[phase],
-                            tce['tce_period'],
-                            tce['tce_duration'],
-                            tce=tce,
-                            normalize=False,
-                            centering=False,
-                            num_durations=config['num_durations'],
-                            num_bins=config['num_bins_loc'],
-                            bin_width_factor=config['bin_width_factor_loc'],
-                            report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
-                            )
+                           flux_split[phase],
+                           tce['tce_period'],
+                           tce['tce_duration'],
+                           tce=tce,
+                           normalize=False,
+                           centering=False,
+                           num_durations=config['num_durations'],
+                           num_bins=config['num_bins_loc'],
+                           bin_width_factor=config['bin_width_factor_loc'],
+                           report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
+                           )
+
             bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
             unfolded_loc_flux_view_var_phase /= np.sqrt(bin_counts)
             # binned_timeseries[f'Unfolded Local Flux Phase #{phase}'] = (binned_time, unfolded_loc_flux_view_phase,

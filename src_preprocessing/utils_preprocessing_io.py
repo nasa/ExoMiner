@@ -40,17 +40,16 @@ def report_exclusion(config, tce, id_str, stderr=None):
     # create exclusion logs directory if it does not exist
     os.makedirs(savedir, exist_ok=True)
 
-    uid_str = f'Example {tce.uid}'
+    uid_str = f'Example {tce.uid}\n'
 
     if is_pfe():
 
         # get node id
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
 
-        fp = os.path.join(savedir, 'exclusions_{}_{}-{}.txt'.format(config['process_i'], node_id,
-                                                                    uid_str.replace(" ", "")))
+        fp = os.path.join(savedir, f'exclusions_{tce.uid}_node_{node_id}_proc_{config["process_i"]}.txt')
     else:
-        fp = os.path.join(savedir, 'exclusions-{}.txt'.format(uid_str.replace(" ", "")))
+        fp = os.path.join(savedir, f'exclusions-{tce.uid}.txt')
 
     # write to exclusion log pertaining to this process and node
     if not os.path.exists(fp):
@@ -60,7 +59,11 @@ def report_exclusion(config, tce, id_str, stderr=None):
     with open(fp, "a") as excl_file:
         if first_exclusion:
             excl_file.write(uid_str)
-        excl_file.write(f'\nExclusion: {id_str}\nError: {stderr}\n#####')
+        excl_file.write(f'Exclusion: {id_str}\n')
+        if stderr:
+            excl_file.write(f'Error: {stderr}\n')
+
+        excl_file.write('##############\n')
 
 
 def create_tbl_from_exclusion_logs(excl_fps, max_n_errors_logged):

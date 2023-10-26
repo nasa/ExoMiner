@@ -770,12 +770,11 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
     plt.close()
 
 
-def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, basename, timeseries_outliers=None):
+def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, timeseries_outliers=None):
     """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
 
     :param timeseries: dict, views to be plotted
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
@@ -800,12 +799,10 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, config, scheme, savedir, bas
                                          c='r', s=5, zorder=2)
                     ax[i, j].set_title(views_list[k], pad=20)
                     ax[i, j].set_xlim([timeseries[views_list[k]][0][0], timeseries[views_list[k]][0][-1]])
-                    # if 'Flux' in views_list[k]:
                     timeseries_madstd, timeseries_med = mad_std(timeseries[views_list[k]][1]), \
                                                         np.median(timeseries[views_list[k]][1])
                     std_range = SIGMA_FACTOR * timeseries_madstd
                     range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
-                    # else:
                     ax[i, j].set_ylim(range_timeseries)
                     if 'FDL' in views_list[k]:
                         ax[i, j].set_ylim(bottom=0)
@@ -841,14 +838,6 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
     ax[1].set_xlabel('Bin Number')
     ax[1].set_ylabel('Amplitude')
 
-    # if config['satellite'] == 'kepler':
-    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                tce.label, basename)))
-    # else:
-    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                    tce.sector_run, tce.label, basename)))
     f.suptitle('{} {}'.format(tce.uid, tce.label))
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()

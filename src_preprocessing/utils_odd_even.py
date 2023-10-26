@@ -313,7 +313,7 @@ def impute_odd_even_views(loc_flux_odd_view, loc_flux_odd_view_var, bin_counts_o
     odd_even_flag = f'replaced bins {np.sum(odd_to_even_bins)} (odd) {np.sum(even_to_odd_bins)} (even) '
 
     return loc_flux_odd_view, loc_flux_odd_view_var, loc_flux_even_view, loc_flux_even_view_var, odd_even_flag, \
-           bins_repl
+        bins_repl
 
 
 def odd_even_binning(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
@@ -555,7 +555,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
 
     # time interval for the transit
     t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
-                                   min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
+        min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
 
     if odd_even_flag == 'ok':  # create odd and even views based on their respective data
 
@@ -579,7 +579,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
                           tmax_local
                           )
 
-        # get indices of both view that are in-transit
+        # get indices of both views that are in-transit
         inds_even_it = (binned_time_even >= t_min_transit) & (binned_time_even <= t_max_transit)
         inds_odd_it = (binned_time_odd >= t_min_transit) & (binned_time_odd <= t_max_transit)
 
@@ -599,7 +599,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
 
         # replace missing bin values for each view by the other available bin values
         loc_flux_odd_view, loc_flux_odd_view_var, loc_flux_even_view, loc_flux_even_view_var, odd_even_flag, \
-        bins_repl = \
+            bins_repl = \
             impute_odd_even_views(loc_flux_odd_view,
                                   loc_flux_odd_view_var,
                                   bin_counts_odd,
@@ -609,30 +609,19 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
                                   inds_oot)
 
         # fill missing bin values that were not replaced because are missing in both (impute on odd view)
-        loc_flux_odd_view, inds_nan_odd = impute_binned_ts(binned_time_odd,
-                                                           loc_flux_odd_view,
-                                                           odd_time,
-                                                           odd_flux,
-                                                           tce['tce_period'],
-                                                           tce['tce_duration'])
+        loc_flux_odd_view, loc_flux_odd_view_var, inds_nan_odd = impute_binned_ts(binned_time_odd,
+                                                                                  loc_flux_odd_view,
+                                                                                  odd_time,
+                                                                                  odd_flux,
+                                                                                  tce['tce_period'],
+                                                                                  tce['tce_duration'],
+                                                                                  loc_flux_odd_view_var)
         # fill remaining missing bins for even with odd view values
         inds_nan_even = np.isnan(loc_flux_even_view)
         loc_flux_even_view[inds_nan_even] = loc_flux_odd_view[inds_nan_even]
-        _, inds_nan_even = impute_binned_ts(binned_time_even,
-                                            loc_flux_even_view,
-                                            even_time,
-                                            even_flux,
-                                            tce['tce_period'],
-                                            tce['tce_duration'])
+        loc_flux_even_view_var[inds_nan_even] = loc_flux_odd_view_var[inds_nan_even]
 
-        # variability of bins without any values is set to the std of the phase folded time series
-        inds_nan_var = np.isnan(loc_flux_odd_view_var)
-        loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)
-        inds_nan_var = np.isnan(loc_flux_even_view_var)
-        loc_flux_even_view_var[inds_nan_var] = stats.mad_std(even_flux, ignore_nan=True)
-
-        odd_even_flag += f'{np.sum(inds_nan_var)} (both)'
-
+        # update bin counts based on imputing
         bin_values_odd, bin_counts_odd, bin_values_even, bin_counts_even = \
             perform_bin_replacement_oddeven(bin_values_odd,
                                             bin_counts_odd,
@@ -654,16 +643,18 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
                           config['num_bins_loc'],
                           tce['tce_duration'] * config['bin_width_factor_loc'],
                           tmin_local,
-                          tmax_local
+                          tmax_local,
                           )
 
         # fill missing bin values
-        loc_flux_odd_view, inds_nan = impute_binned_ts(binned_time_odd,
-                                                       loc_flux_odd_view,
-                                                       odd_time,
-                                                       odd_flux,
-                                                       tce['tce_period'],
-                                                       tce['tce_duration'])
+        loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
+                                                                              loc_flux_odd_view,
+                                                                              odd_time,
+                                                                              odd_flux,
+                                                                              tce['tce_period'],
+                                                                              tce['tce_duration'],
+                                                                              loc_flux_odd_view_var
+                                                                              )
 
         if 'odd' in odd_even_flag:
             inds_nan_even_init = inds_nan
@@ -672,16 +663,13 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
             inds_nan_odd_init = inds_nan
             inds_nan_even_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
 
-        inds_nan_var = np.isnan(loc_flux_odd_view_var)
-        loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)
-
         # add median count to missing bins to avoid division by zero
         bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
 
         # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
             np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
-            np.array(bin_counts_odd), bin_values_odd
+                np.array(bin_counts_odd), bin_values_odd
 
     # filling odd and even views with Gaussian noise based on available flux values
     elif odd_even_flag == 'no local time series (even and odd)':
@@ -695,26 +683,16 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         bin_values_odd = [np.array([loc_flux_odd_view[i]]) for i in range(config['num_bins_loc'])]
 
         # create local odd flux view by imputing odd time series
-        loc_flux_odd_view, inds_nan_odd = impute_binned_ts(binned_time_odd,
-                                                           loc_flux_odd_view,
-                                                           odd_time,
-                                                           odd_flux,
-                                                           tce['tce_period'],
-                                                           tce['tce_duration'])
-
-        # fill missing bin values
-        loc_flux_odd_view, inds_nan = impute_binned_ts(binned_time_odd,
-                                                       loc_flux_odd_view,
-                                                       odd_time,
-                                                       odd_flux,
-                                                       tce['tce_period'],
-                                                       tce['tce_duration'])
+        loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
+                                                                              loc_flux_odd_view,
+                                                                              odd_time,
+                                                                              odd_flux,
+                                                                              tce['tce_period'],
+                                                                              tce['tce_duration'],
+                                                                              loc_flux_odd_view_var)
 
         inds_nan_even_init = inds_nan
         inds_nan_odd_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
-
-        inds_nan_var = np.isnan(loc_flux_odd_view_var)
-        loc_flux_odd_view_var[inds_nan_var] = stats.mad_std(odd_flux, ignore_nan=True)
 
         # add median count to missing bins to avoid division by zero
         bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
@@ -722,7 +700,7 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \
             np.array(loc_flux_odd_view), np.array(loc_flux_odd_view_var), np.array(binned_time_odd), \
-            np.array(bin_counts_odd), bin_values_odd
+                np.array(bin_counts_odd), bin_values_odd
 
     # compute out-of-transit bin indices for odd and even flux views
     inds_oot_odd = (binned_time_odd < t_min_transit) | (binned_time_odd > t_max_transit)
