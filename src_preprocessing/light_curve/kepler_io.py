@@ -28,7 +28,7 @@ from src_preprocessing.light_curve import util
 
 
 MAX_BIT = 12  # max number of bits in the DQ array
-
+N_TOTAL_QUARTERS = 17  # total number of quarters
 
 # Quarter index to filename prefix for long cadence Kepler data.
 # Reference: https://archive.stsci.edu/kepler/software/get_kepler.py
@@ -191,43 +191,131 @@ def scramble_light_curve(all_time, all_flux, all_quarters, scramble_type):
     return scr_time, scr_flux
 
 
-def scramble_light_curve_with_centroids(all_time, fluxes, centroids, all_quarters, scramble_type):
+def scramble_light_curve_with_centroids(fluxes, centroids, quarters_target, scramble_type):
     """ Scrambles light curve data according to a given scrambling procedure.
 
         Args:
-        all_time: List holding arrays of time values, each containing a quarter of
-          time data.
+        # all_time: List holding arrays of time values, each containing a quarter of
+        #   time data.
         fluxes: dict, each key maps to a type of flux data, which is a list of lists containing flux data for each
         quarter
         centroids: dict, each key maps to a type of centroid data, which is a dictionary of row and col centroid, each
         with lists holding arrays of centroid values, each list containing a quarter of centroid data.
-        all_quarters: List of integers specifying which quarters are present in
-          the light curve (max is 18: Q0...Q17).
-        scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2',
-          'SCR3'}.
+        quarters_target: List of integers specifying which quarters are present in the light curve
+        (max is 18: Q0...Q17).
+        scramble_type: String specifying the scramble order, one of {'SCR1', 'SCR2', 'SCR3'}.
 
         Returns:
-        scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
+        # scr_time: Time values, re-partitioned to match sizes of the scr_flux lists.
         scr_fluxes: Scrambled flux values; the same dict as the input `fluxes` in another order.
         scr_centroids: Scrambled centroid values; the same dict as the input `centroids` in another order.
+        quarter_idx_arr: list, quarter index order after scrambling
     """
 
+    quarter_idx_arr = []  # store new quarter index order
     order = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
+    # initialize data array for scrambled data
     scr_fluxes = {flux_name: [] for flux_name in fluxes}
     scr_centroids = {centroids_name: {'x': [], 'y': []} for centroids_name in centroids}
 
     for quarter in order:
-        # Ignore missing quarters in the scramble order.
-        if quarter in all_quarters:
-            for flux_name in fluxes:
-                scr_fluxes[flux_name].append(fluxes[flux_name][all_quarters.index(quarter)])
-            for centroids_name in centroids:
-                scr_centroids[centroids_name]['x'].append((centroids[centroids_name]['x'][all_quarters.index(quarter)]))
-                scr_centroids[centroids_name]['y'].append((centroids[centroids_name]['y'][all_quarters.index(quarter)]))
 
-    scr_time = util.reshard_arrays(all_time, scr_fluxes[list(scr_fluxes)[0]])
+        if quarter in quarters_target:
+            quarter_idx_arr.append(quarters_target.index(quarter))
 
-    return scr_time, scr_fluxes, scr_centroids
+        for flux_name in fluxes:
+            scr_fluxes[flux_name].append(fluxes[flux_name][quarters_target.index(quarter)])
+        for centroids_name in centroids:
+            scr_centroids[centroids_name]['x'].append((centroids[centroids_name]['x'][quarters_target.index(quarter)]))
+            scr_centroids[centroids_name]['y'].append((centroids[centroids_name]['y'][quarters_target.index(quarter)]))
+
+    # scr_time = util.reshard_arrays(all_time, scr_fluxes[list(scr_fluxes)[0]])
+
+    return scr_fluxes, scr_centroids, quarter_idx_arr
+
+
+def scramble_data(data, cadence_no_quarters_tbl_fp, scramble_type, timeseries_fields, centroid_radec):
+    """ Scramble data following a scrambling procedure
+
+    Args:
+        data: dict, data
+        cadence_no_quarters_tbl_fp: Path, file path to table that, for each quarter, gives information on the first and
+        last cadences, and on the number of cadences in the interquarter gap.
+        scramble_type: str, one from 'SCR1', 'SCR2', 'SCR2'
+        timeseries_fields: list, time series fields' names
+        centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
+        and Dec, or not
+    Returns: scrambled data, dict
+
+    """
+
+    scr_data = {
+        'all_time': [],
+        'all_flux': [],
+        'all_centroids': {'x': [], 'y': []},
+        'all_centroids_px': {'x': [], 'y': []},
+        'flag_keep': [],
+    }
+
+    # read table with cadence numbers for each quarter
+    interquarter_cadence_tbl = pd.read_csv(cadence_no_quarters_tbl_fp, index_col='quarter')
+
+    total_n_cadences = interquarter_cadence_tbl.loc[1:, 'total_no_cadences_with_interquarter_gap'].sum()
+    cadence_no_arr = np.arange(total_n_cadences)
+    all_time, all_quarters = [], []
+    for quarter in range(1, N_TOTAL_QUARTERS + 1):
+
+        ncadences_interquarter = int(interquarter_cadence_tbl.loc[quarter, 'interquarter_cadence_gap'])
+
+        if quarter in data['quarter']:  # for the quarters with data
+            quarter_idx = data['quarter'].index(quarter)
+
+            # extend time series data arrays with NaNs to account for interquarter gaps
+            all_time.append(np.concatenate([data['all_time'][quarter_idx],
+                                            np.nan * np.ones(ncadences_interquarter)]))
+
+        else:  # quarter not present in the data
+            all_time.append(np.zeros(ncadences_interquarter))
+
+        all_quarters.append(quarter * np.ones(len(all_time[-1]), dtype='uint8'))
+
+    # interpolate timestamps array with cadence number array
+    all_time, all_quarters = np.concatenate(all_time), np.concatenate(all_quarters)
+    all_time_interp = util.interpolate_missing_time(all_time, cadence_no_arr)
+    scr_all_quarters = np.concatenate([all_quarters[all_quarters == quarter]
+                                       for quarter in SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]])
+
+    scr_data['quarter'] = [quarter for quarter in SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
+                           if quarter in data['quarter']]
+    scr_quarters_order = [data['quarter'].index(quarter) for quarter in scr_data['quarter']]
+
+    # assign new timestamps after scrambling
+    scr_data['all_time'] = []
+    for quarter in SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]:
+        # get number of cadences with data (valid)
+        ncadences_valid_quarter = interquarter_cadence_tbl.loc[quarter, 'total_no_cadences']
+        # ncadences_valid_quarter = len(data['all_flux'][data['quarter'].index(quarter)])
+        idxs_quarter = scr_all_quarters == quarter  # get indices for quarter in scrambled array
+        # add timestamps for valid cadences for the quarter
+        scr_data['all_time'].append(all_time_interp[idxs_quarter][:ncadences_valid_quarter])
+
+    # scramble time series data
+    scr_data.update({field: [] for field in ['all_flux', 'flag_keep']})
+    scr_data.update({field: {'x': [], 'y': []} for field in ['all_centroids', 'all_centroids_px']})
+    for quarter_idx in scr_quarters_order:
+        for data_field in [field for field in timeseries_fields if field != 'all_time']:
+            if 'centroid' in data_field:
+                scr_data[data_field]['x'].append(data[data_field]['x'][quarter_idx])
+                scr_data[data_field]['y'].append(data[data_field]['y'][quarter_idx])
+            else:
+                scr_data[data_field].append(data[data_field][quarter_idx])
+
+    # other fields
+    scr_data['module'] = np.array(data['module'])[scr_quarters_order]
+    if centroid_radec:
+        scr_data['target_position_px'] = np.array(data['target_position_px'])[scr_quarters_order]
+
+    return scr_data
 
 
 def read_kepler_light_curve(filenames,
@@ -248,12 +336,9 @@ def read_kepler_light_curve(filenames,
         light_curve_extension: Name of the HDU 1 extension containing light curves.
         scramble_type: What scrambling procedure to use: 'SCR1', 'SCR2', or 'SCR3'
           (pg 9: https://exoplanetarchive.ipac.caltech.edu/docs/KSCI-19114-002.pdf).
-        cadence_no_quarters_tbl_fp: pandas DataFrame. For each quarter, gives information on the first and last
-        cadences, and on the number of cadences in the interquarter gap.
-        interpolate_missing_time: Whether to interpolate missing (NaN) time values.
-          This should only affect the output if scramble_type is specified (NaN time
-          values typically come with NaN flux values, which are removed anyway, but
-          scrambing decouples NaN time values from NaN flux values).
+        cadence_no_quarters_tbl_fp: Path, file path to table that, for each quarter, gives information on the first and
+        last cadences, and on the number of cadences in the interquarter gap.
+        interpolate_missing_time: Whether to interpolate missing (non-finite) time values.
         centroid_radec: bool, whether to transform the centroid time series from the CCD module pixel coordinates to RA
           and Dec, or not
         prefer_psfcentr: bool, if True, uses PSF centroids when available
@@ -268,7 +353,10 @@ def read_kepler_light_curve(filenames,
             - all_flux: A list of numpy arrays; the flux values of the light curve.
             - all_centroid: A dict, 'x' is a list of numpy arrays with either the col or RA coordinates of the centroid
             values of the light curve; 'y' is a list of numpy arrays with either the row or Dec coordinates.
-            - target_postiion: A list of two elements which correspond to the target star position, either in world
+            - target_position: A list of two elements which correspond to the target star position in world
+            coordinates (RA, Dec)
+            - target_position_px: A list of two elements for each quarter which correspond to the target star position
+            in the CCD pixel frame
             (RA, Dec) or local CCD (x, y) pixel coordinates
             - module: A list with the module IDs
             - quarter: A list with the observed quarters
@@ -291,6 +379,7 @@ def read_kepler_light_curve(filenames,
         'quarter': [],
         'module': [],
         'target_position': [],
+        'target_position_px': [],
         'quarter_timestamps': {},
     }
     )
@@ -333,18 +422,17 @@ def read_kepler_light_curve(filenames,
                 #                          light_curve.MOM_CENTR2
 
             centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-                # else:
-                #     continue  # no data
+            # else:
+            #     continue  # no data
 
             # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
             if centroid_radec:
-
                 # transformation matrix from aperture coordinate frame to RA and Dec
-                cd_transform_matrix = np.zeros((2, 2))
-                cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
-                                         hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
-                cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
-                                         hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
+                # cd_transform_matrix = np.zeros((2, 2))
+                # cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
+                #                          hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
+                # cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
+                #                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
 
                 # # reference pixel in the aperture coordinate frame
                 # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']],
@@ -358,19 +446,22 @@ def read_kepler_light_curve(filenames,
                 # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
                 #                          [hdu_list['APERTURE'].header['CRVAL2']]])
 
-        # convert from CCD pixel coordinates to world coordinates RA and Dec
-        if centroid_radec:
-            # centroid_ra, centroid_dec = convertpxtoradec_centr(centroid_x, centroid_y,
-            #                                                    cd_transform_matrix,
-            #                                                    ref_px_ccdf,  # np.array([[0], [0]])
-            #                                                    ref_px_apf,  # np.array([[0], [0]])
-            #                                                    ref_angcoord
-            #                                                    )
+                # convert from CCD pixel coordinates to world coordinates RA and Dec
+        # if centroid_radec:
+                # centroid_ra, centroid_dec = convertpxtoradec_centr(centroid_x, centroid_y,
+                #                                                    cd_transform_matrix,
+                #                                                    ref_px_ccdf,  # np.array([[0], [0]])
+                #                                                    ref_px_apf,  # np.array([[0], [0]])
+                #                                                    ref_angcoord
+                #                                                    )
 
-            w = wcs.WCS(hdu_list['APERTURE'].header)
-            pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
-            world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=False)
-            centroid_x, centroid_y = world[:, 0], world[:, 1]
+                w = wcs.WCS(hdu_list['APERTURE'].header)
+                pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
+                world = w.wcs_pix2world(pixcrd, 1, ra_dec_order=True)
+                centroid_x, centroid_y = world[:, 0], world[:, 1]
+                target_pos_px = w.wcs_world2pix(np.expand_dims(data['target_position'], 0), 1,
+                                                ra_dec_order=True)
+                data['target_position_px'].append(target_pos_px)
 
         # if get_px_centr:
         # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
@@ -409,9 +500,10 @@ def read_kepler_light_curve(filenames,
                 inds_keep[qflags_bit] = False
 
         # Possibly interpolate missing time values IN EXISTING ARRAY.
-        if interpolate_missing_time or scramble_type:
+        if interpolate_missing_time:
             time = util.interpolate_missing_time(time, light_curve.CADENCENO)
 
+        # add data
         data['all_time'].append(time)
         data['all_flux'].append(flux)
         data['all_centroids']['x'].append(centroid_x)
@@ -422,53 +514,16 @@ def read_kepler_light_curve(filenames,
         data['module'].append(module)
         data['flag_keep'].append(inds_keep)
 
-    # scrambles data according to the scramble type selected
-    if scramble_type:
+    if scramble_type:  # scrambles data according to the scramble type selected
 
-        interquarter_cadence_tbl = pd.read_csv(cadence_no_quarters_tbl_fp, index_col='quarter')
+        scr_data = scramble_data(data, cadence_no_quarters_tbl_fp, scramble_type, timeseries_fields, centroid_radec)
 
-        # extend timeseries data arrays with NaNs to account for interquarter gaps
-        for qi, quarter in enumerate(data['quarter']):
+        scr_data['target_position'] = data['target_position']
+        scr_data['quarter_timestamps'] = data['quarter_timestamps']
 
-            if quarter == 17:  # no interquarter gap after quarter 17
-                continue
+        data = scr_data
 
-            ncadences_interquarter = int(interquarter_cadence_tbl.loc[quarter, 'interquarter_cadence_gap'])
-            for data_field in timeseries_fields:
-                if 'centroids' in data_field:
-                    data[data_field]['x'][qi] = np.concatenate([data[data_field]['x'][qi],
-                                                                np.nan * np.ones(ncadences_interquarter)])
-                    data[data_field]['y'][qi] = np.concatenate([data[data_field]['y'][qi],
-                                                          np.nan * np.ones(ncadences_interquarter)])
-                else:
-                    data[data_field][qi] = np.concatenate([data[data_field][qi],
-                                                          np.nan * np.ones(ncadences_interquarter)])
-
-            # interpolate timestamps array for interquarter cadences
-            data['all_time'][qi] = (
-                util.interpolate_missing_time(
-                    data['all_time'][qi],
-                    np.arange(int(interquarter_cadence_tbl.loc[quarter, 'first_cadence_no']),
-                              int(interquarter_cadence_tbl.loc[quarter, 'last_cadence_no'] + 1 +
-                                  ncadences_interquarter))))
-
-        # reindex data arrays
-        scr_time, scr_fluxes, scr_centroids = scramble_light_curve_with_centroids(
-            data['all_time'],
-            fluxes={'all_flux': data['all_flux']},
-            centroids={'all_centroids': data['all_centroids'],
-                       'all_centroids_px': data['all_centroids_px']},
-            all_quarters=data['quarter'],
-            scramble_type=scramble_type
-        )
-
-        data['all_time'] = scr_time
-        data.update(scr_fluxes)
-        data.update(scr_centroids)
-        data['quarter'] = SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]
-
-    # inverts light curve
-    if invert:
+    if invert:  # inverts light curve for inverted group runs
         data['all_flux'] = [flux - 2 * np.median(flux) for flux in data['all_flux']]
         data['all_flux'] = [-1 * flux for flux in data['all_flux']]
 

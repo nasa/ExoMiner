@@ -43,7 +43,6 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     tceColumns = [
         'uid'
     ]
-    # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
     tf_logging.info(f'{config["process_i"]}: Processing {shard_size} items in shard {shard_name}')
@@ -130,7 +129,6 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     tceColumns = [
         'uid'
     ]
-    # columnsDf = tceColumns + ['augmentation_idx', 'shard']
     firstTceInDf = True
 
     tf_logging.info(f'{process_name}: Processing {shard_size} items in shard {shard_name}')
@@ -187,7 +185,7 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
 
 
 def create_shards(config, tce_table):
-    """ Distributes TCEs across shards for preprocessing.
+    """ Distributes examples across shards for preprocessing.
 
     :param config: dict, preprocessing parameters
     :param tce_table: Pandas DataFrame, TCE table
@@ -244,10 +242,6 @@ def main():
             config['n_processes'] = MPI.COMM_WORLD.size
         print(f'Process {config["process_i"]} ({config["n_shards"]})')
         sys.stdout.flush()
-    else:  # using Python multiprocessing
-        config['process_i'] = -1  # unassigned
-        config['n_shards'] = 10  # split data into `n_shards`
-        config['n_processes'] = 10  # number of processes to spawn in parallel
 
     # make the output directory if it doesn't already exist
     config['output_dir'].mkdir(exist_ok=True)

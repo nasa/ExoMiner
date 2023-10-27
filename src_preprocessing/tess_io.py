@@ -291,15 +291,15 @@ def read_tess_light_curve(filenames,
                 # Dec
                 if centroid_radec:
                     # transformation matrix from aperture coordinate frame to RA and Dec
-                    cd_transform_matrix = np.zeros((2, 2))
-                    cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header[
-                        'CDELT1'], \
-                                             hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header[
-                                                 'CDELT1']
-                    cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header[
-                        'CDELT2'], \
-                                             hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header[
-                                                 'CDELT2']
+                    # cd_transform_matrix = np.zeros((2, 2))
+                    # cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header[
+                    #     'CDELT1'], \
+                    #                          hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header[
+                    #                              'CDELT1']
+                    # cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header[
+                    #     'CDELT2'], \
+                    #                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header[
+                    #                              'CDELT2']
 
                     # # reference pixel in the aperture coordinate frame
                     # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
@@ -323,7 +323,7 @@ def read_tess_light_curve(filenames,
 
                 w = wcs.WCS(hdu_list['APERTURE'].header)
                 pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
-                world = w.wcs_pix2world(pixcrd, 0, ra_dec_order=False)
+                world = w.wcs_pix2world(pixcrd, 0, ra_dec_order=True)
                 # RA and Dec centroids
                 centroid_x, centroid_y = world[:, 0], world[:, 1]
 

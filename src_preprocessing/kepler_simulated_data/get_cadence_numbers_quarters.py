@@ -29,9 +29,14 @@ data_df = data_df.astype('int')
 data_df = data_df.sort_values('quarter', ascending=True, inplace=False).reset_index(drop=True)
 
 # compute interquarter cadence gap
-data_df['interquarter_cadence_gap'] = np.nan
-data_df['interquarter_cadence_gap'][:-1] = data_df['first_cadence_no'][1:].values - data_df['last_cadence_no'][:-1].values - 1
+data_df['interquarter_cadence_gap'] = 0
+data_df['interquarter_cadence_gap'][:-1] = (data_df['first_cadence_no'][1:].values -
+                                            data_df['last_cadence_no'][:-1].values - 1)
 
-data_df['total_no_cadences_with_interquarter_gaps'] = data_df['total_no_cadences'] + data_df['interquarter_cadence_gap']
+data_df['last_cadence_no_with_interquarter_gap'] = data_df['last_cadence_no'] + data_df['interquarter_cadence_gap']
+data_df['total_no_cadences_with_interquarter_gap'] = data_df['total_no_cadences'] + data_df['interquarter_cadence_gap']
+
+data_df['first_cadence_reset'] = data_df['first_cadence_no'] - 1105
+data_df['last_cadence_reset'] = data_df['last_cadence_no_with_interquarter_gap'] - 1105
 
 data_df.to_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/quarters_cadence_numbers.csv', index=False)
