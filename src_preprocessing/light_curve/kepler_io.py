@@ -265,17 +265,20 @@ def scramble_data(data, cadence_no_quarters_tbl_fp, scramble_type, timeseries_fi
     all_time, all_quarters = [], []
     for quarter in range(1, N_TOTAL_QUARTERS + 1):
 
-        ncadences_interquarter = int(interquarter_cadence_tbl.loc[quarter, 'interquarter_cadence_gap'])
+        # ncadences_interquarter = int(interquarter_cadence_tbl.loc[quarter, 'interquarter_cadence_gap'])
+        total_n_cadences_quarter = interquarter_cadence_tbl.loc[quarter, 'total_no_cadences_with_interquarter_gap']
 
         if quarter in data['quarter']:  # for the quarters with data
             quarter_idx = data['quarter'].index(quarter)
 
+            n_cadences_data = len(data['all_time'][quarter_idx])
+            n_cadences_to_add = total_n_cadences_quarter - n_cadences_data
+
             # extend time series data arrays with NaNs to account for interquarter gaps
-            all_time.append(np.concatenate([data['all_time'][quarter_idx],
-                                            np.nan * np.ones(ncadences_interquarter)]))
+            all_time.append(np.concatenate([data['all_time'][quarter_idx], np.nan * np.ones(n_cadences_to_add)]))
 
         else:  # quarter not present in the data
-            all_time.append(np.zeros(ncadences_interquarter))
+            all_time.append(np.nan * np.ones(total_n_cadences_quarter))
 
         all_quarters.append(quarter * np.ones(len(all_time[-1]), dtype='uint8'))
 
@@ -291,7 +294,7 @@ def scramble_data(data, cadence_no_quarters_tbl_fp, scramble_type, timeseries_fi
 
     # assign new timestamps after scrambling
     scr_data['all_time'] = []
-    for quarter in SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]:
+    for quarter in scr_data['quarter']:  # SIMULATED_DATA_SCRAMBLE_ORDERS[scramble_type]:
         # get number of cadences with data (valid)
         ncadences_valid_quarter = interquarter_cadence_tbl.loc[quarter, 'total_no_cadences']
         # ncadences_valid_quarter = len(data['all_flux'][data['quarter'].index(quarter)])
@@ -309,6 +312,25 @@ def scramble_data(data, cadence_no_quarters_tbl_fp, scramble_type, timeseries_fi
                 scr_data[data_field]['y'].append(data[data_field]['y'][quarter_idx])
             else:
                 scr_data[data_field].append(data[data_field][quarter_idx])
+
+    # add NaNs to time series that did not have the expected dimension (number of cadences)
+    for quarter_idx in range(len(scr_data['all_time'])):
+        n_cadences_data = len(scr_data['all_flux'][quarter_idx])
+        n_total_cadences_quarter = len(scr_data['all_time'][quarter_idx])
+        n_cadences_to_add = n_total_cadences_quarter - n_cadences_data
+        for data_field in [field for field in timeseries_fields if field != 'all_time']:
+
+            if 'centroid' in data_field:
+                scr_data[data_field]['x'][quarter_idx] = np.concatenate([scr_data[data_field]['x'][quarter_idx],
+                                                                         np.nan * np.ones(n_cadences_to_add)])
+                scr_data[data_field]['y'][quarter_idx] = np.concatenate([scr_data[data_field]['y'][quarter_idx],
+                                                                         np.nan * np.ones(n_cadences_to_add)])
+            elif data_field == 'flag_keep':
+                scr_data[data_field][quarter_idx] = np.concatenate([scr_data[data_field][quarter_idx],
+                                                                    False * np.ones(n_cadences_to_add, dtype='bool')])
+            else:
+                scr_data[data_field][quarter_idx] = np.concatenate([scr_data[data_field][quarter_idx],
+                                                                    np.nan * np.ones(n_cadences_to_add)])
 
     # other fields
     scr_data['module'] = np.array(data['module'])[scr_quarters_order]
