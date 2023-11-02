@@ -1,7 +1,7 @@
 # source TFRecord directory
-tfrecDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_dataset_split
+tfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_simdata_11-1-2023_1019_aggregated/agg_src_data_dataset_split
 # destination directory for computed statistics
-norm_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/8-16-2022_1147/tfrecords/option1_tfrecord_dataset_split
+norm_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_simdata_11-1-2023_1019_aggregated/agg_src_data_dataset_split
 
 n_processes_compute_norm_stats: 4  # number of processes used to parallelize reading the values for the dataset
 
@@ -19,6 +19,8 @@ timeSeriesFDLList: null
 centroidList:
   - 'global_centr_view'
   - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
+
+diff_imgList: null
 
 # dictionary that provides information on the normalization specificities for each scalar parameters (e.g., placeholder
 # for missing value other than NaN, perform log-transform, clipping factor, data type, replace value for missing value)
@@ -112,22 +114,22 @@ scalarParams:
     missing_value: 0
     replace_value: null
     standardize: true
-  #  tce_dicco_msky:
-  #    clip_factor: 20
-  #    dtype: float
-  #    log_transform: false
-  #    log_transform_eps: .nan
-  #    missing_value: 0
-  #    replace_value: null
-  #    standardize: true
-  #  tce_dicco_msky_err:
-  #    clip_factor: 20
-  #    dtype: float
-  #    log_transform: false
-  #    log_transform_eps: .nan
-  #    missing_value: -1
-  #    replace_value: null
-  #    standardize: true
+  tce_dicco_msky:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: 0
+    replace_value: null
+    standardize: true
+  tce_dicco_msky_err:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: -1
+    replace_value: null
+    standardize: true
   tce_dikco_msky:
     clip_factor: 20
     dtype: float
@@ -144,14 +146,14 @@ scalarParams:
     missing_value: -1
     replace_value: null
     standardize: true
-  #  tce_fwm_stat:
-  #    clip_factor: 20
-  #    dtype: float
-  #    log_transform: false
-  #    log_transform_eps: .nan
-  #    missing_value: 0
-  #    replace_value: null
-  #    standardize: true
+  tce_fwm_stat:
+    clip_factor: 20
+    dtype: float
+    log_transform: false
+    log_transform_eps: .nan
+    missing_value: 0
+    replace_value: null
+    standardize: true
   tce_hap_stat:
     clip_factor: 20
     dtype: float
@@ -216,22 +218,22 @@ scalarParams:
     missing_value: 0
     replace_value: null
     standardize: true
-  #  tce_rb_tcount0n:
-  #    clip_factor: .nan
-  #    dtype: float
-  #    log_transform: false
-  #    log_transform_eps: .nan
-  #    missing_value: null
-  #    replace_value: null
-  #    standardize: true
-  tce_robstat:
-    clip_factor: 20
+  tce_rb_tcount0n:
+    clip_factor: .nan
     dtype: float
     log_transform: false
     log_transform_eps: .nan
     missing_value: null
     replace_value: null
     standardize: true
+#  tce_robstat:
+#    clip_factor: 20
+#    dtype: float
+#    log_transform: false
+#    log_transform_eps: .nan
+#    missing_value: null
+#    replace_value: null
+#    standardize: true
   tce_sdens:
     clip_factor: 20
     dtype: float
@@ -280,7 +282,15 @@ scalarParams:
     missing_value: null
     replace_value: null
     standardize: true
-  transit_depth:
+#  transit_depth:
+#    clip_factor: 20
+#    dtype: float
+#    log_transform: false
+#    log_transform_eps: .nan
+#    missing_value: null
+#    replace_value: null
+#    standardize: true
+  tce_depth:
     clip_factor: 20
     dtype: float
     log_transform: false

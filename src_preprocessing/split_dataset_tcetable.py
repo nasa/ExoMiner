@@ -16,9 +16,9 @@ import logging
 
 # saving directory
 destTfrecDir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/dataset_splits/kepler_q1q17dr25/'
-                    f'split_alltces_nopredict_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+                    f'split_q1q17dr25_kepler_simulated_inj1-3_scr1-2_inv_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 # source TCE table
-experimentTceTbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
+experimentTceTbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed.csv')
 rnd_seed = 24  # random seed
 # split ratio
 dataset_frac = {'train': 0.8, 'val': 0.1, 'test': 0.1}
@@ -46,6 +46,7 @@ experimentTceTbl = pd.read_csv(experimentTceTbl_fp)
 experimentTceTbl.sort_values(['target_id', 'tce_plnt_num'], ascending=True, inplace=True)
 experimentTceTbl.reset_index(drop=True, inplace=True)
 
+# get TCEs with disposition and without (i.e, `label` set to 'UNK')
 predict_tces = experimentTceTbl.loc[experimentTceTbl['label'] == 'UNK']
 labeled_tces = experimentTceTbl.loc[experimentTceTbl['label'] != 'UNK']
 
@@ -97,3 +98,5 @@ for dataset in datasetTbl:
     logger.info(dataset)
     logger.info(datasetTbl[dataset]['label'].value_counts())
     logger.info(f'Number of TCEs in {dataset} set: {len(datasetTbl[dataset])}')
+
+logger.info('Finished splitting data in table.')

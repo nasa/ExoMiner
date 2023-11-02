@@ -10,12 +10,9 @@ import numpy as np
 import logging
 import tensorflow as tf
 from tensorflow.keras import callbacks
-import copy
 import time
 import argparse
 import sys
-from mpi4py import MPI
-# import multiprocessing
 import yaml
 import pandas as pd
 
@@ -28,7 +25,8 @@ from src.utils_dataio import get_data_from_tfrecord
 
 
 def train_single_model(run_params):
-    """ Train and evaluate a single model.
+    """ Train and evaluate a single model on labeled data. Run inference with trained model to generate scores for
+    examples in different data sets.
 
     :param run_params: dict, configuration parameters for the run
     :return:
@@ -168,8 +166,8 @@ def main():
 
     # set dictionary of TFRecord file paths for the different data sets
     config['datasets_fps'] = {dataset: [fp for fp in config['paths']['tfrec_dir'].iterdir()
-                                           if fp.name.startswith(dataset)]
-                                 for dataset in config['datasets']}
+                                        if fp.name.startswith(dataset)]
+                              for dataset in config['datasets']}
 
     if config["rank"] >= config['training']['n_models']:
         print(f'Number of processes requested to train models ({config["rank"]}) is higher than the number models that '

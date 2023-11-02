@@ -5,13 +5,12 @@ train_parallel: false
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_10-13-2023_1648
+  experiment_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_with_kepler_simulated_data_11-1-2023_1750
   # TFRecord directory with the CV folds
-  tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simulated_data_10-6-2023_0916/cv_iter_0/norm_data
+  tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_simdata_11-1-2023_1019_aggregated/agg_src_data_dataset_split-normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
-val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
 data_fields: # scalar data from TFRecords to add to ranking table
@@ -361,10 +360,10 @@ label_map:  # maps label to a label id
 #  '0': 0
 #  '1': 1
 #  # Kepler
-  PC: 1
-  AFP: 0  # 2
+#  PC: 1
+#  AFP: 0  # 2
 ###  AFP2: 0
-  NTP: 0
+#  NTP: 0
 #  UNK: 0
   # TESS
 #  KP: 1
@@ -389,6 +388,13 @@ label_map:  # maps label to a label id
 #  T-FA: 0
 #  T-EB: 0
 #  T-NTP: 0
+  # Kepler Simulated
+  INJ1: 1
+  INJ2: 0
+  INJ3: 0
+  INV: 0
+  SCR1: 0
+  SCR2: 0
 
 datasets:
   - train
@@ -402,11 +408,3 @@ verbose: true  # general
 metrics:
   'clf_thr': 0.5  # classification threshold
   'num_thr': 1000  # number of thresholds used to compute some metrics
-  'top_k_arr': # values of k for computing precision-at-k
-    'train': [ 100, 1000, 1500 ]
-    'val': [ 50, 100, 200 ]
-    'test': [ 50, 100, 200 ]
-  top_k_curve: # values of k for computing precision-at-k curve
-    train: { 'start': 25, 'stop': 1500, 'num': 100,  'endpoint': true, 'dtype': 'int' }
-    val: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }
-    test: { 'start': 25, 'stop': 200, 'num': 10,  'endpoint': true, 'dtype': 'int' }

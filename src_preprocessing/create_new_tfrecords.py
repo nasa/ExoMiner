@@ -13,10 +13,9 @@ Input:
     - shard TCE table
 
 The shard TCE table should contain the following columns:
-    - 'uid': Unique identifier for the example (TCE)
+    - 'Unnamed: 0': order of example in the TFRecord file (i.e., shard described in the 'shard' column).
+    - 'uid': Unique identifier for the example (TCE).
     - 'shard': shard filename where the example is stored.
-    - '
-
 """
 
 # 3rd party

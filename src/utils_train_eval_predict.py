@@ -57,7 +57,7 @@ def train(model, config, model_dir_sub, model_id=1, logger=None):
 
     # input function for training, validation and test
     train_input_fn = InputFn(
-        file_paths=config['datasets_fps']['train'],  # str(config['paths']['tfrec_dir']) + '/train*',
+        file_paths=config['datasets_fps']['train'],
         batch_size=config['training']['batch_size'],
         mode='TRAIN',
         label_map=config['label_map'],

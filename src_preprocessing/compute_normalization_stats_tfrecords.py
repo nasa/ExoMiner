@@ -373,8 +373,7 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path(
-        '/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
+    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
