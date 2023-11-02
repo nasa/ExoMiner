@@ -1,0 +1,32 @@
+# Train multiple models in parallel on a single GPU node with multiple GPUs and using a combination of GNU parallel and
+# job array
+#PBS -S /bin/bash
+#PBS -N train_exoplnt
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=18:ngpus=1:mem=90g:model=sky_gpu
+# place the chunk wherever it is possible for the requested resources; share resources with other people
+#PBS -l place=free:shared
+#PBS -q dsg_gpu
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.err
+#PBS -W group_list=a1509
+#PBS -m bea
+#PBS -J 0-2
+
+# script file path
+SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.py
+# config file path
+CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/config_train.yaml
+# job script for running the Python application to train the model
+TRAIN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.sh
+# output directory
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/train_test_2-11-1013
+mkdir -p $OUTPUT_DIR
+
+# number of total jobs per job in job array
+NUM_TOTAL_JOBS=$((1 * 4))
+# number of jobs run simultaneously
+NUM_JOBS_PARALLEL=4
+
+# run with GNU parallel
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR"

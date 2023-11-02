@@ -127,12 +127,16 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
                         default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml')
     args = parser.parse_args()
 
     with(open(args.config_file, 'r')) as file:
         config = yaml.safe_load(file)
+
+    if args.output_dir is not None:
+        config['paths']['experiment_dir'] = args.output_dir
 
     config['rank'] = config['ngpus_per_node'] * args.job_idx
     print(f'Rank = {config["rank"]}')
