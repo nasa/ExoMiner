@@ -13,6 +13,43 @@ import numpy as np
 from hpbandster.core.base_iteration import Datum
 
 
+def load_hpo_config(hpo_path, config_id='best', logger=None):
+    """ Load model hyperparameters from HPO run in directory in `hpo_path`. Setting `config_id` to 'best' will retrieve
+    the best configuration based on the HPO loss.
+
+    Args:
+        hpo_path: Path, directory for HPO run. Must contain a json file with configurations tested named 'configs.json'
+        config_id: tuple, (run_id, 0, sub_run_id). If set to 'best' get the best configuration.
+        logger: logger
+
+    Returns:
+        - config_hpo_chosen, dictionary with hyperparameters from the chosen configuration from the HPO run
+        - config_id_hpo, tuple of the config id
+    """
+
+    res = logged_results_to_HBS_result(hpo_path)
+
+    # get ID to config mapping
+    id2config = res.get_id2config_mapping()
+    # best config - incumbent
+    if config_id == 'best':
+        incumbent = res.get_incumbent_id()
+        config_id_hpo = incumbent
+    else:
+        config_id_hpo = config_id
+
+    config_hpo_chosen = id2config[config_id_hpo]['config']
+
+    # for legacy HPO runs
+    config_hpo_chosen = update_legacy_configs(config_hpo_chosen)
+
+    if logger:
+        logger.info(f'Using configuration from HPO study {hpo_path}')
+        logger.info(f'HPO Config chosen: {config_id_hpo}.')
+
+    return config_hpo_chosen, config_id_hpo
+
+
 def update_legacy_configs(config_hpo_chosen):
     """ Update configurations that did not use the same fields as the most recent version of ExoMiner.
 
@@ -289,7 +326,7 @@ class json_result_logger(hpres.json_result_logger):
         self.config_ids = set()
 
 
-def logged_results_to_HBS_result(directory, run_id):
+def logged_results_to_HBS_result(directory):
     """
     function to import logged 'live-results' and return a HB_result object
 
@@ -301,16 +338,10 @@ def logged_results_to_HBS_result(directory, run_id):
     ----------
     directory: str
         the directory containing the results.json and config.json files
-    run_id: str
-        the id of the study. If the study id is "study_example", then the json files are named
-        "config_study_example.json" and "results_study_example.json"
 
     Returns
     -------
     hpbandster.core.result.Result: :object:
-
-    TODO: the arguments are too convoluted...
-
     """
     data = {}
     time_ref = float('inf')
