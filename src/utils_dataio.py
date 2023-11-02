@@ -6,9 +6,38 @@ import tensorflow as tf
 import numpy as np
 import tensorflow_probability as tfp
 import traceback
+import pandas as pd
 
 # local
 from src.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
+
+
+def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
+    """ Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
+    pandas DataFrame with those data for each data set.
+
+    Args:
+        datasets: list, data sets (e.g., 'train', 'val', 'test')
+        data_fields: list, fields to extract data for from the TFRecord files
+        datasets_fps: dict, each key is a data set (e.g., 'train', 'val', 'test') that maps to a list of TFRecord
+        file paths
+
+    Returns:
+        - dataset_tbls, dict of pandas DataFrames for each data set in `datasets` containing as columns the
+        data in `data_fields` from the TFRecord files.
+    """
+
+    # instantiate dictionary to get data from the TFRecords to be displayed in the table with predictions
+    dataset_tbls = {dataset: {field: [] for field in data_fields} for dataset in datasets}
+    for dataset in datasets:  # iterate over the data sets
+        for tfrec_fp in datasets_fps[dataset]:  # iterate over the TFRecord files
+            data_aux = get_data_from_tfrecord(tfrec_fp, data_fields)
+            for field in data_aux:
+                dataset_tbls[dataset][field].extend(data_aux[field])
+
+    dataset_tbls = {dataset: pd.DataFrame(dataset_tbl) for dataset, dataset_tbl in dataset_tbls.items()}
+
+    return dataset_tbls
 
 
 class InputFnv2(object):

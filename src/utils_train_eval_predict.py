@@ -5,6 +5,7 @@ from tensorflow.keras.utils import plot_model
 from tensorflow import keras
 from tensorflow.keras.models import load_model
 import numpy as np
+import tensorflow as tf
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn
@@ -130,7 +131,7 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     callback.
 
     :param base_model: model fn, core model to be used
-    :param config: dict, configuration for model hyper-parameters
+    :param config: dict, configuration for model hyperparameters
     :param model_dir_sub: Path, model directory
     :param model_id: int, model id
     :param logger: logger
@@ -179,9 +180,7 @@ def evaluate_model(config, logger=None):
         # save ensemble
         model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
 
-    if logger is not None:
-        model.summary(print_fn=lambda x: logger.info(x + '\n'))
-    else:
+    if config['write_model_summary']:
         with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
 
@@ -287,9 +286,7 @@ def predict_model(config, logger=None):
         # save ensemble
         model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
 
-    if logger is not None:
-        model.summary(print_fn=lambda x: logger.info(x + '\n'))
-    else:
+    if config['write_model_summary']:
         with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
 
@@ -336,3 +333,62 @@ def predict_model(config, logger=None):
         )
 
     return scores
+
+
+def write_performance_metrics_to_txt_file(save_dir, datasets, res_eval):
+    """ Write performance metrics in dictionary `res_eval` based on a model's evaluation.
+
+    Args:
+        save_dir: Path, save directory
+        datasets: list, data sets for which to save metrics
+        res_eval: dict, performance metrics for each data set (should include data sets in `datasets`)
+
+    Returns:
+
+    """
+
+    # write results to a txt file
+    with open(save_dir / 'loss_and_performance_metrics.txt', 'w') as res_file:
+
+        str_aux = f'Performance metrics for the model\n'
+        res_file.write(str_aux)
+
+        for dataset in datasets:  # iterate over data sets
+            if dataset != 'predict':  # no metrics for unlabeled data set
+
+                # grab metrics names for data set
+                res_eval_dataset_metrics_names = [metric_name for metric_name in res_eval.keys()
+                                                  if dataset in metric_name]
+
+                str_aux = f'Dataset: {dataset}\n'
+                res_file.write(str_aux)
+
+                for metric in res_eval_dataset_metrics_names:
+                    if isinstance(res_eval[metric], float):  # only write metrics that are scalars
+                        str_aux = f'{metric}: {res_eval[f"{metric}"]}\n'
+                        res_file.write(str_aux)
+
+            res_file.write('\n')
+
+
+def set_tf_data_type_for_features(features_set):
+    """ Set TF data types for features in the feature set.
+
+    Args:
+        features_set: dict, each key is the name of a feature that maps to a dictionary with keys 'dim' and 'dtype'.
+        'dim' is a list that describes the dimensionality of the feature and 'dtype' the data type of the feature.
+        'dtype' should be a string (either 'float' - mapped to tf.float32; or 'int' - mapped to tf.int64).
+
+    Returns:
+        features_set: the data type is now a TensorFlow data type
+
+    """
+
+    # choose features set
+    for feature_name, feature in features_set.items():
+        if feature['dtype'] == 'float':
+            features_set[feature_name]['dtype'] = tf.float32
+        if feature['dtype'] == 'int':
+            features_set[feature_name]['dtype'] = tf.int64
+
+    return features_set

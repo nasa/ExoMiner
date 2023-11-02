@@ -38,6 +38,9 @@ data_fields: # scalar data from TFRecords to add to ranking table
 #  'sigma_oot_even': 'float_scalar'
 #  'sigma_it_even': 'float_scalar'
 
+# set general architecture of the model based on implementations under models.models_keras.py
+model_architecture: ExoMiner_JointLocalFlux
+
 config:
   # branches used in ExoMiner
   # branches with scalars have the option not to add scalars by setting `scalars` field to null
@@ -305,8 +308,8 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 2  # number of models in the ensemble
-  n_epochs: 2  # number of epochs used to train each model
+  n_models: 1  # number of models in the ensemble
+  n_epochs: 1  # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
@@ -402,6 +405,7 @@ datasets:
   - test
 
 plot_model: true
+write_model_summary: true
 verbose_model: 1  # for fit, eval, predict functions
 verbose: true  # general
 

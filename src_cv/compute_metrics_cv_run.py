@@ -108,6 +108,8 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         cv_iters_tbls = []
         for cv_iter_dir in cv_iters_dirs:  # iterate through each cv iteration
 
+            ranking_tbl = pd.read_csv(cv_iter_dir / f'ensemble_ranked_predictions_{dataset}set.csv')
+
             # compute metrics
             metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
                                                           top_k_vals, class_name, cat_name)
