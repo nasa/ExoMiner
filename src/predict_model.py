@@ -12,19 +12,18 @@ from tensorflow.keras import callbacks
 import time
 import argparse
 import yaml
+from keras.saving import load_model
 
 # local
-from models import models_keras
-from src_hpo.utils_hpo import load_hpo_config
 from utils.utils_dataio import is_yamlble
-from src.utils_train_eval_predict import (train_model, evaluate_model, predict_model,
-                                          write_performance_metrics_to_txt_file, set_tf_data_type_for_features)
+from src.utils_train_eval_predict import (evaluate_model, predict_model, write_performance_metrics_to_txt_file,
+                                          set_tf_data_type_for_features)
 from src.utils_dataio import get_data_from_tfrecords_for_predictions_table
 
 
-def train_evaluate_inference_for_single_model(run_params):
-    """ Train and evaluate a single model on labeled data. Run inference with trained model to generate scores for
-    examples in different data sets.
+def evaluate_inference_for_trained_model(run_params):
+    """ Evaluate a model on labeled data. Run inference with model to generate scores for examples in different data
+    sets.
 
     :param run_params: dict, configuration parameters for the run
     :return:
@@ -48,20 +47,8 @@ def train_evaluate_inference_for_single_model(run_params):
     model_dir = run_params['models_dir'] / f'model{run_params["model_id"]}'
     model_dir.mkdir(exist_ok=True)
 
-    # train model
-    train_model(
-        run_params['base_model'],
-        run_params,
-        model_dir,
-        run_params["model_id"],
-        run_params['logger'],
-    )
-    # create file path for trained model
-    run_params['paths']['models_filepaths'] = [model_dir / f'model{run_params["model_id"]}.keras']
-
-    # switch off plotting model or writing model summary when evaluating and predicting
-    run_params['plot_model'] = False
-    run_params['write_model_summary'] = False
+    # # load model
+    # model = load_model(run_params['paths']['models_filepaths'][run_params["model_id"]])
 
     # evaluate model on the labeled existing data sets
     if run_params['logger'] is not None:
@@ -73,18 +60,14 @@ def train_evaluate_inference_for_single_model(run_params):
     # write results to a txt file
     write_performance_metrics_to_txt_file(model_dir, run_params['datasets'], res_eval)
 
+    # switch off plotting model or writing model summary when predicting
+    run_params['plot_model'] = False
+    run_params['write_model_summary'] = False
+
     # run inference on different data sets defined in run_params['datasets']
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[model_{run_params["model_id"]}] Running inference...')
-    scores = predict_model(run_params, model_dir, run_params['logger'])
-    # scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
-    #                          for dataset in run_params['datasets']}
-    # for dataset in run_params['datasets']:
-    #     # threshold for classification
-    #     if not run_params['config']['multi_class']:  # binary classification
-    #         scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
-    #     else:  # multiclass
-    #         scores_classification[dataset] = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
+    scores = predict_model(run_params, run_params['logger'])
 
     # add predictions to the data dict
     for dataset in run_params['datasets']:
@@ -113,7 +96,7 @@ def main():
     parser.add_argument('--rank', type=int, help='Rank index', default=0)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml')
+                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_predict_model.yaml')
     args = parser.parse_args()
 
     # load yaml file with run setup
@@ -126,9 +109,10 @@ def main():
         time.sleep(2)
 
     # rank should always be less than the number of models to be trained
-    if config["rank"] >= config['training']['n_models']:
-        print(f'Number of processes requested to train models ({config["rank"]}) is higher than the number models that '
-              f'was set to be trained ({config["training"]["n_models"]}). Ending process.')
+    if config["rank"] >= len(config['paths']['models_filepaths']):
+        print(f'Number of processes requested to evaluate and run inference with models ({config["rank"]}) is higher '
+              f'than the number models that was set to be evaluated/used for prediction '
+              f'({len(config["paths"]["models_filepaths"])}). Ending process.')
         return
 
     # set random generator
@@ -138,8 +122,10 @@ def main():
     if args.output_dir is not None:
         config['paths']['experiment_dir'] = args.output_dir
     for path_name, path_str in config['paths'].items():
-        if path_str is not None:
+        if path_str is not None and path_name != 'models_filepaths':
             config['paths'][path_name] = Path(path_str)
+    for fp_i, fp in enumerate(config['paths']['models_filepaths']):
+        config['paths']['models_filepaths'][fp_i] = Path(fp)
     config['paths']['experiment_dir'].mkdir(exist_ok=True)
     # set models directory
     config['models_dir'] = config['paths']['experiment_dir'] / 'models'
@@ -170,18 +156,6 @@ def main():
                                         if fp.name.startswith(dataset)]
                               for dataset in config['datasets']}
 
-    # load model hyperparameters from HPO run; overwrites the one in the yaml file
-    config_hpo_chosen, config['hpo_config_id'] = (
-        load_hpo_config(Path(config['paths']['hpo_dir']), logger=config['logger']))
-    config['config'].update(config_hpo_chosen)
-    # save the YAML file with the HPO configuration that was used
-    if config['rank'] == 0:
-        with open(config['paths']['experiment_dir'] / 'hpo_config.yaml', 'w') as hpo_config_file:
-            yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
-
-    # base model used - check models/models_keras.py to see which models are implemented
-    config['base_model'] = getattr(models_keras, config['model_architecture'])
-
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
@@ -196,27 +170,27 @@ def main():
         # save all run parameters
         np.save(config['paths']['experiment_dir'] / 'run_params.npy', config)
         # save model's architecture and hyperparameters used
-        with open(config['paths']['experiment_dir'] / 'model_config.yaml', 'w') as file:
-            yaml.dump(config['config'], file, sort_keys=False)
+
         # save the YAML file for this run that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['paths']['experiment_dir'] / 'run_params.yaml', 'w') as file:
             yaml.dump(json_dict, file, sort_keys=False)
 
-    if config['train_parallel']:  # run each model in parallel
+    if config['predict_parallel']:  # run each model in parallel
         config['model_id'] = config['rank']  # rank of process defines model id
         if config['logger'] is not None:
-            config['logger'].info(f'Running model {config["model_id"] + 1} (out of {config["training"]["n_models"]})')
-        train_evaluate_inference_for_single_model(config)
+            config['logger'].info(f'Running model {config["model_id"] + 1} '
+                                  f'(out of {len(config["paths"]["models_filepaths"])})')
+        evaluate_inference_for_trained_model(config)
     else:
         # run each model sequentially
-        for model_id in range(config['training']['n_models']):
+        for model_id in range(len(config['paths']['models_filepaths'])):
             config['model_id'] = model_id
             if config['logger'] is not None:
                 config['logger'].info(
                     f'[model_{config["model_id"]}] Running model {config["model_id"] + 1} '
-                    f'(out of {config["training"]["n_models"]})')
-            train_evaluate_inference_for_single_model(config)
+                    f'(out of {len(config["paths"]["models_filepaths"])})')
+            evaluate_inference_for_trained_model(config)
 
 
 if __name__ == '__main__':

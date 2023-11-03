@@ -368,7 +368,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                 if isinstance(normalizedFeatures[normalizedFeature], list):  # check for 1-D lists
                     example_util.set_float_feature(example, normalizedFeature,
                                                    normalizedFeatures[normalizedFeature],
-                                               allow_overwrite=True)
+                                                   allow_overwrite=True)
                 elif len(normalizedFeatures[normalizedFeature].shape) < 2:  # check for 1-D NumPy arrays
                     example_util.set_float_feature(example, normalizedFeature, normalizedFeatures[normalizedFeature],
                                                    allow_overwrite=True)
@@ -399,20 +399,21 @@ if __name__ == '__main__':
     srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
     # load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
-    # normStatsDir = Path(config['normStatsDir'])
-    # normStats = {
-    #     'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-    #     # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-    #     'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item(),
-    #     'diff_img': np.load(normStatsDir / 'train_diff_img_stats.npy', allow_pickle=True).item()
-    # }
+    normStatsDir = Path(config['normStatsDir'])
     normStats = {
-        'diff_img': {
-            'diff_img': {'median': 1, 'std': 1e-1, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
-            'oot_img': {'median': 1, 'std': 1e-1, 'quantile_oot': 0.25, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
-            'zero_division_eps': 1e-10,
-        }
+        'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
+    #     # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
+        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item(),
+    #     'diff_img': np.load(normStatsDir / 'train_diff_img_stats.npy', allow_pickle=True).item()
     }
+    # del normStats['scalar_params']['tce_depth']
+    # normStats = {
+    #     'diff_img': {
+    #         'diff_img': {'median': 1, 'std': 1e-1, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
+    #         'oot_img': {'median': 1, 'std': 1e-1, 'quantile_oot': 0.25, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
+    #         'zero_division_eps': 1e-10,
+    #     }
+    # }
 
     # WRITE CODE HERE TO ADJUST NORMALIZATION STATISTICS (E.G., ADD SCALAR FEATURES THAT YOU  WANT TO NORMALIZE AND ARE
     # NOT IN  THE NORMALIZATION STATS DICTIONARY

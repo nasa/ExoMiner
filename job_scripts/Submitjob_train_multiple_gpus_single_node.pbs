@@ -5,7 +5,7 @@
 #PBS -l walltime=08:00:00
 #PBS -l select=1:ncpus=18:ngpus=1:mem=90g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=free:shared
+#PBS -l place=scatter:shared
 #PBS -q dsg_gpu
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.err
@@ -23,10 +23,14 @@ TRAIN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/trai
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/train_test_2-11-1013
 mkdir -p $OUTPUT_DIR
 
+# number of GPUs to be used by this job array
+N_GPUS_TOTAL=4
+
 # number of total jobs per job in job array
 NUM_TOTAL_JOBS=$((1 * 4))
 # number of jobs run simultaneously
 NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+

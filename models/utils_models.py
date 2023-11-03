@@ -65,12 +65,13 @@ def create_ensemble(features, models, feature_map=None):
     return keras.Model(inputs=inputs, outputs=outputs)
 
 
-def compile_model(model, config, metrics_list):
+def compile_model(model, config, metrics_list, train=True):
     """ Compile model.
 
     :param model: Keras model
     :param config: dict, configuration parameters
     :param metrics_list: list, monitored metrics
+    :param train: bool, if set to True, then model is also compiled with optimizer
     :return:
         compiled model
     """
@@ -84,21 +85,25 @@ def compile_model(model, config, metrics_list):
         model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
 
     # set optimizer
-    if config['config']['optimizer'] == 'Adam':
-        model_optimizer = optimizers.Adam(learning_rate=config['config']['lr'],
-                                          beta_1=0.9,
-                                          beta_2=0.999,
-                                          epsilon=1e-8,
-                                          amsgrad=False,
-                                          name='Adam')
-    else:  # SGD
-        model_optimizer = optimizers.SGD(learning_rate=config['config']['lr'],
-                                         momentum=config['config']['sgd_momentum'],
-                                         nesterov=False,
-                                         name='SGD')
+    if train:
+        if config['config']['optimizer'] == 'Adam':
+            model_optimizer = optimizers.Adam(learning_rate=config['config']['lr'],
+                                              beta_1=0.9,
+                                              beta_2=0.999,
+                                              epsilon=1e-8,
+                                              amsgrad=False,
+                                              name='Adam')
+        else:  # SGD
+            model_optimizer = optimizers.SGD(learning_rate=config['config']['lr'],
+                                             momentum=config['config']['sgd_momentum'],
+                                             nesterov=False,
+                                             name='SGD')
 
     # compile model with chosen optimizer, loss and monitored metrics
-    model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
+    if train:
+        model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
+    else:
+        model.compile(loss=model_loss, metrics=metrics_list)
 
     return model
 

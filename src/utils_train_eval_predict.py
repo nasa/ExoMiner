@@ -148,11 +148,12 @@ def train_model(base_model, config, model_dir_sub, model_id=1, logger=None):
     return res
 
 
-def evaluate_model(config, logger=None):
+def evaluate_model(config, save_dir, logger=None):
     """ Evaluate a model on a given configuration. Support for creating an average score ensemble based on a set of
     models (`config['paths']['models_filepaths']`).
 
     :param config: dict, configuration parameters
+    :param save_dir: Path, save directory
     :param logger: logger
     :return:
         res, dict with evaluation results
@@ -178,16 +179,16 @@ def evaluate_model(config, logger=None):
                                 models=model_list,
                                 feature_map=config['feature_map'])
         # save ensemble
-        model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
+        model.save(save_dir / 'ensemble_model.keras')
 
     if config['write_model_summary']:
-        with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+        with open(save_dir / 'model_summary.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # plot ensemble model and save the figure
     if config['plot_model']:
         keras.utils.plot_model(model,
-                               to_file=config['paths']['experiment_dir'] / 'model_eval.png',
+                               to_file=save_dir / 'model_eval.png',
                                show_shapes=False,
                                show_layer_names=True,
                                rankdir='TB',
@@ -201,8 +202,8 @@ def evaluate_model(config, logger=None):
     else:  # metrics for multiclass setting
         metrics_list = get_metrics_multiclass(config['label_map'])
 
-    # compile model - set optimizer, loss and metrics
-    model = compile_model(model, config, metrics_list)
+    # compile model - loss and metrics
+    model = compile_model(model, config, metrics_list, train=False)
 
     # initialize results dictionary for the evaluated datasets
     res = {}
@@ -217,7 +218,7 @@ def evaluate_model(config, logger=None):
             logger.info(f'Evaluating on dataset {dataset}')
 
         # input function for evaluating on each dataset
-        eval_input_fn = InputFn(file_paths=config['datasets_fps'][dataset],  # str(config['paths']['tfrec_dir']) + '/{}*'.format(dataset),
+        eval_input_fn = InputFn(file_paths=config['datasets_fps'][dataset],
                                 batch_size=config['evaluation']['batch_size'],
                                 mode='EVAL',
                                 label_map=config['label_map'],
@@ -254,11 +255,12 @@ def evaluate_model(config, logger=None):
     return res
 
 
-def predict_model(config, logger=None):
+def predict_model(config, save_dir, logger=None):
     """ Run inference using a model. Support for creating an average score ensemble based on a set of
     models (`config['paths']['models_filepaths']`).
 
     :param config: dict, configuration parameters
+    :param save_dir: Path, save directory
     :param logger: logger
     :return:
         scores, dict with predicted scores for each data set
@@ -284,16 +286,16 @@ def predict_model(config, logger=None):
                                 models=model_list,
                                 feature_map=config['feature_map'])
         # save ensemble
-        model.save(config['paths']['experiment_dir'] / 'ensemble_model.keras')
+        model.save(save_dir / 'ensemble_model.keras')
 
     if config['write_model_summary']:
-        with open(config['paths']['experiment_dir'] / 'model_summary.txt', 'w') as f:
+        with open(save_dir / 'model_summary.txt', 'w') as f:
             model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # plot model and save the figure
     if config['plot_model']:
         keras.utils.plot_model(model,
-                               to_file=config['paths']['experiment_dir'] / 'model_predict.png',
+                               to_file=save_dir / 'model_predict.png',
                                show_shapes=False,
                                show_layer_names=True,
                                rankdir='TB',
