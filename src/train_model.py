@@ -110,18 +110,18 @@ def train_evaluate_inference_for_single_model(run_params):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
+    parser.add_argument('--rank', type=int, help='Rank index', default=0)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
-    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
                         default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml')
     args = parser.parse_args()
 
     # load yaml file with run setup
-    with(open(args.config_file, 'r')) as file:
+    with(open(args.config_fp, 'r')) as file:
         config = yaml.safe_load(file)
 
     # set rank of process as function of number of GPUs per node and process id
-    config['rank'] = config['ngpus_per_node'] * args.job_idx
+    config['rank'] = args.rank
     if config['rank'] != 0:
         time.sleep(2)
 
