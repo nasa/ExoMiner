@@ -93,6 +93,7 @@ def read_light_curve(tce, config):
             cadence_no_quarters_tbl_fp=config['cadence_no_quarters_tbl_fp'],
             invert=config['invert'],
             dq_values_filter=config['dq_values_filter'],
+            get_momentum_dump=config['get_momentum_dump'],
         )
 
         if len(fits_files_not_read) > 0:
