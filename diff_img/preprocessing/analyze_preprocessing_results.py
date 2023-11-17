@@ -10,6 +10,9 @@ import numpy as np
 import ast
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+# local
+from diff_img.preprocessing.utils_diff_img import plot_diff_img_data
+
 #%% Load results
 
 save_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing_step2/09-07-2023_1515')
@@ -147,7 +150,7 @@ for cat in info_tbl['label'].unique():
     f.savefig(save_dir / f'hist_mag_cat_{cat}.svg')
 #%% Check processed image data vs extracted
 
-diff_img_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing_step2/09-07-2023_1515/diffimg_preprocess.npy')
+diff_img_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing_step2/test_11-07-2023_1152/diffimg_preprocess.npy')
 diff_img = np.load(diff_img_fp, allow_pickle=True).item()
 plot_dir = diff_img_fp.parent / 'plots_examples'
 plot_dir.mkdir(exist_ok=True)
@@ -156,46 +159,51 @@ diff_img_ext = np.load('/Users/msaragoc/Projects/exoplanet_transit_classificatio
 
 #%%
 
-tces_uids = ['3446451-1', '3246984-1', '11465813-1', '5130369-1']
+tces_uids = ['5130369-1']  # '3446451-1', '3246984-1', '11465813-1', '5130369-1']
 
 for tce_uid in tces_uids:
 
     # check preprocessed data
-    for img_i in range(len(diff_img[tce_uid]['cropped_imgs']['diff_imgs'])):
+    for img_i in range(len(diff_img[tce_uid]['preprocessed_data']['images']['diff_imgs'])):
 
-        f, ax = plt.subplots(1, 2, figsize=(12, 8))
-        im = ax[0].imshow(diff_img[tce_uid]['cropped_imgs']['diff_imgs'][img_i])
+        f, ax = plt.subplots(1, 3, figsize=(12, 8))
+        im = ax[0].imshow(diff_img[tce_uid]['preprocessed_data']['images']['diff_imgs'][img_i])
         divider = make_axes_locatable(ax[0])
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)
         ax[0].set_ylabel('Row')
         ax[0].set_xlabel('Col')
         ax[0].set_title('Difference image (e-/cadence)')
-        ax[0].scatter(diff_img[tce_uid]['cropped_imgs']['x'][img_i],
-                      diff_img[tce_uid]['cropped_imgs']['y'][img_i],
-                      marker='x',
-                      color='r',
-                      label='Target')
+        # ax[0].scatter(diff_img[tce_uid]['cropped_imgs']['x'][img_i],
+        #               diff_img[tce_uid]['cropped_imgs']['y'][img_i],
+        #               marker='x',
+        #               color='r',
+        #               label='Target')
 
-        im = ax[1].imshow(diff_img[tce_uid]['cropped_imgs']['oot_imgs'][img_i])
+        im = ax[1].imshow(diff_img[tce_uid]['preprocessed_data']['images']['oot_imgs'][img_i])
         divider = make_axes_locatable(ax[1])
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)
         ax[1].set_ylabel('Row')
         ax[1].set_xlabel('Col')
         ax[1].set_title('Out-of-transit image (e-/cadence)')
-        ax[1].scatter(diff_img[tce_uid]['cropped_imgs']['x'][img_i],
-                      diff_img[tce_uid]['cropped_imgs']['y'][img_i],
-                      marker='x',
-                      color='r',
-                      label='Target')
+        # ax[1].scatter(diff_img[tce_uid]['cropped_imgs']['x'][img_i],
+        #               diff_img[tce_uid]['cropped_imgs']['y'][img_i],
+        #               marker='x',
+        #               color='r',
+        #               label='Target')
 
-        f.suptitle(f'TCE {tce_uid}\nQuality Metric = {diff_img[tce_uid]["cropped_imgs"]["quality"][img_i]}\n'
-                   f'Quarter {diff_img[tce_uid]["cropped_imgs"]["imgs_numbers"][img_i]}\n'
-                   f'Subpixel target location: {diff_img[tce_uid]["cropped_imgs"]["sub_x"][img_i]:.4f}, '
-                   f'{diff_img[tce_uid]["cropped_imgs"]["sub_y"][img_i]:.4f}')
+        ax[2].imshow(diff_img[tce_uid]['preprocessed_data']['images']['target_imgs'][img_i])
+        ax[2].set_ylabel('Row')
+        ax[2].set_xlabel('Col')
+        ax[2].set_title('Target pixel image (mask)')
+
+        f.suptitle(f'TCE {tce_uid}\nQuality Metric = {diff_img[tce_uid]["preprocessed_data"]["quality"][img_i]}\n'
+                   f'Quarter {diff_img[tce_uid]["preprocessed_data"]["imgs_numbers"][img_i]}\n'
+                   f'Subpixel target location: {diff_img[tce_uid]["preprocessed_data"]["target_position"]["subpixel_x"][img_i]:.4f}, '
+                   f'{diff_img[tce_uid]["preprocessed_data"]["target_position"]["subpixel_y"][img_i]:.4f}')
         f.tight_layout()
-        f.savefig(plot_dir / f'tce_{tce_uid}_q{diff_img[tce_uid]["cropped_imgs"]["imgs_numbers"][img_i]}_preprocessed.svg')
+        f.savefig(plot_dir / f'tce_{tce_uid}_q{diff_img[tce_uid]["preprocessed_data"]["imgs_numbers"][img_i]}_preprocessed.svg')
         plt.close()
 
     # check extracted difference image data
@@ -232,5 +240,37 @@ for tce_uid in tces_uids:
                    f'Pixel target location: {diff_img_ext[tce_uid]["target_ref_centroid"][img_i]["col"]["value"]:.4f}, '
                    f'{diff_img_ext[tce_uid]["target_ref_centroid"][img_i]["row"]["value"]:.4f}')
         f.tight_layout()
-        f.savefig(plot_dir / f'tce_{tce_uid}_{img_i}_preprocessed.svg')
+        f.savefig(plot_dir / f'tce_{tce_uid}_{img_i}_extracted.svg')
         plt.close()
+
+
+#%% Check preprocessed data
+
+preproc_data_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing_step2/11-17-2023_1205/diffimg_preprocess.npy')
+preproc_data = np.load(preproc_data_fp, allow_pickle=True).item()
+
+#%% Plot data for examples
+
+plot_dir = Path(preproc_data_fp.parent / 'check_examples')
+plot_dir.mkdir(exist_ok=True)
+tces = [
+    ('10383429-1', 7),
+]
+
+for tce, img_n in tces:
+
+    img_n_idx = preproc_data[tce]['images_numbers'].index(img_n)
+
+    plot_diff_img_data(
+        preproc_data[tce]['images']['diff_imgs'][img_n_idx],
+        preproc_data[tce]['images']['oot_imgs'][img_n_idx],
+        preproc_data[tce]['images']['target_imgs'][img_n_idx],
+        {
+            'x': preproc_data[tce]['target_position']['pixel_x'][img_n_idx],
+            'y': preproc_data[tce]['target_position']['pixel_y'][img_n_idx]
+         },
+        preproc_data[tce]['quality'][img_n_idx],
+        f'{img_n}',
+        tce,
+        plot_dir / f'{tce}_{img_n}.png'
+    )

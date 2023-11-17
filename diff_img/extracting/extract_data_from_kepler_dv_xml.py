@@ -14,12 +14,11 @@ from diff_img.extracting.utils_diff_img import get_data_from_kepler_dv_xml_multi
 if __name__ == '__main__':
 
     # DV XML file path
-    dv_xml_fp = Path('/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dv/dv_xml/kplr20160128150956_dv.xml')
+    dv_xml_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/kplr20160128150956_dv.xml')
     # TCE table file path
-    tce_tbl_fp = Path(
-        '/data5/tess_project/Data/Ephemeris_tables/Kepler/Q1-Q17_DR25/11-17-2021_1243/q1_q17_dr25_tce_2020.09.28_10.36.22_stellar_koi_cfp_norobovetterlabels_renamedcols_nomissingval_symsecphase_cpkoiperiod_rba_cnt0n_valpc_modelchisqr_ruwe_magcat_uid.csv')
+    tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
     # run directory
-    run_dir = Path('/data5/tess_project/Data/Kepler-Q1-Q17-DR25/dv/dv_xml/preprocessing/8-17-2022_1205')
+    run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/11-14-2023_1027')
 
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)
@@ -29,10 +28,11 @@ if __name__ == '__main__':
 
     # load TCE table to get examples for which the image data are going to be extracted
     tce_tbl = pd.read_csv(tce_tbl_fp, usecols=['uid', 'label'])
+    # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(['5130369-1'])]
     tce_tbl.set_index('uid', inplace=True)
     tces = tce_tbl
 
-    # creatr plotting directory
+    # create plotting directory
     plot_dir = run_dir / 'plots'
     plot_dir.mkdir(exist_ok=True)
     plot_prob = 0.01
@@ -41,7 +41,11 @@ if __name__ == '__main__':
     log_dir = run_dir / 'logs'
     log_dir.mkdir(exist_ok=True)
 
-    n_processes = 5
+    # # sequential
+    # data = get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, data_dir, plot_dir, plot_prob, log_dir, 0)
+
+    # parallelize
+    n_processes = 10
     pool = multiprocessing.Pool(processes=n_processes)
     n_jobs = 10
     tces_jobs = np.array_split(tces, n_jobs)
@@ -52,7 +56,7 @@ if __name__ == '__main__':
 
     # aggregating difference image data into a single numpy file
     data = {}
-    for data_fp in sorted([fp for fp in data_dir.iterdir() if 'keplerq1q17_dr25_diffimg_' in fp.name and
-                                                              fp.suffix == '.npy']):
+    for data_fp in sorted([fp for fp in data_dir.iterdir()
+                           if 'keplerq1q17_dr25_diffimg_' in fp.name and fp.suffix == '.npy']):
         data.update(np.load(data_fp, allow_pickle=True).item())
     np.save(run_dir / 'keplerq1q17_dr25_diffimg.npy', data)

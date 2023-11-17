@@ -1,4 +1,4 @@
-""" Utility functions for processing difference imaging. """
+""" Utility functions for extracting difference imaging. """
 
 # 3rd party
 import xml.etree.cElementTree as et
@@ -56,7 +56,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     divider = make_axes_locatable(ax[1, 0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
-    ax[1, 0].scatter(target_col, target_col,
+    ax[1, 0].scatter(target_col, target_row,
                      marker='x',
                      color='r', label='Target')
     ax[1, 0].set_ylabel('Row')
@@ -76,7 +76,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     ax[1, 1].legend()
     ax[1, 1].set_title('Difference SNR')
 
-    f.suptitle(f'TCE {uid} {tce_lbl}')
+    f.suptitle(f'TCE {uid} {tce_lbl if not None else ""}')
     f.tight_layout()
     f.savefig(plot_dir / f'{uid}_diff_img.png')
     plt.close()
@@ -92,11 +92,12 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param logger: logger
     :return: dict, each item is the difference image data for a given TCE. The TCE is identified by the string key
-    '{tic_id}-{tce_plnt_num}'. The value is a dictionary that contains two items: 'target_ref_centroid'
+    '{kic_id}-{tce_plnt_num}'. The value is a dictionary that contains the following items: 'target_ref_centroid'
     is a dictionary that contains the value and uncertainty for the reference coordinates of the target star in the
     pixel domain; 'image_data' is a NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit,
     out-of-transit, difference, and SNR flux images in this order (pixel values and uncertainties are addressed by the
-    last dimension of the array, in this order).
+    last dimension of the array, in this order); 'image_number' is a list that contains the integer quarter numbers of
+    the corresponding sequence of difference image data extracted for the TCE.
     """
 
     N_QUARTERS_KEPLER = 17
@@ -137,7 +138,8 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
 
             data[uid] = {
                 'target_ref_centroid': [],
-                'image_data': []
+                'image_data': [],
+                'image_number': [],
             }
 
             # get difference image results
@@ -152,6 +154,9 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
             for quarter_i in range(n_quarters):
 
                 img_res_q = diff_img_res[quarter_i]
+
+                # get quarter information
+                data[uid]['image_number'].append(int(img_res_q.attrib['quarter']))
 
                 img_px_data = img_res_q.findall('differenceImagePixelData')
 
@@ -207,7 +212,6 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
                                            kic_centroid_ref_dict['col']['value'],
                                            kic_centroid_ref_dict['row']['value'],
                                            uid,
-                                           tces.loc[uid]["label"],
                                            plot_dir)
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
@@ -263,7 +267,8 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
     a dictionary that contains the value and uncertainty for the reference coordinates of the target star in the pixel
     domain; 'image_data' is a NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit, out-of-transit,
     difference, and SNR flux images in this order (pixel values and uncertainties are addressed by the last dimension
-    of the array, in this order).
+    of the array, in this order); 'image_number' is a list that contains the integer sector number of the corresponding
+    sequence of difference image data extracted for the TCE.
     """
 
     N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
@@ -293,8 +298,8 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
         # check if there are results for more than one processing run for this TIC and sector run
         tic_id = root.attrib['ticId']
 
-        # get TESS magnitude for TIC
-        tmag = float([el for el in root if 'tessMag' in el.tag][0].attrib['value'])
+        # # get TESS magnitude for TIC
+        # tmag = float([el for el in root if 'tessMag' in el.tag][0].attrib['value'])
 
         tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
         if len(tic_drs) > 1:
@@ -324,7 +329,8 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
             data[uid] = {
                 'target_ref_centroid': [],
                 'image_data': [],
-                'tic_tess_mag': tmag,
+                # 'tic_tess_mag': tmag,
+                'image_number': []
             }
 
             logger.info(f'[{proc_id}] [{sector_run_id}] Getting difference image data for TCE TIC '
@@ -342,6 +348,8 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
             for sector_i in range(n_sectors):
 
                 img_res_s = diff_img_res[sector_i]
+
+                data[uid]['image_number'].append(int(img_res_s.attrib['sector']))
 
                 img_px_data = [el for el in img_res_s if 'differenceImagePixelData' in el.tag]
 

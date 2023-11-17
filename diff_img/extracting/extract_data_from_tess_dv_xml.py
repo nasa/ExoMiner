@@ -12,7 +12,7 @@ from diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multipr
 
 if __name__ == '__main__':
     # DV XML file path
-    dv_xml_root_fp = Path('/data5/tess_project/Data/TESS_dv_fits/dv_xml/sector_runs')
+    dv_xml_root_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/sector_runs')
     single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]
     multi_sector_runs = [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # tce_tbl.set_index('uid', inplace=True)
 
     # run directory
-    run_dir = Path('/data5/tess_project/Data/TESS_dv_fits/dv_xml/preprocessing/8-17-2022_1611')
+    run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/test_11-14-2023_1014')
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)
 
@@ -42,8 +42,7 @@ if __name__ == '__main__':
 
     # set up logger
     logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml_main')
-    logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml_main.log',
-                                         mode='w')
+    logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml_main.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -54,11 +53,9 @@ if __name__ == '__main__':
     for dv_xml_run in dv_xml_runs:
         logger.info(f'Run {str(dv_xml_run)}')
 
-    n_processes = 14
+    n_processes = 1
     logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
-    # n_jobs = len(dv_xml_runs)
-    # dv_xml_runs_jobs = np.array_split(dv_xml_runs, n_jobs)
     jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i)
             for job_i, dv_xml_run in enumerate(dv_xml_runs)]
     logger.info(f'Setting {len(jobs)} jobs.')
