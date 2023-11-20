@@ -31,9 +31,8 @@ import tensorflow as tf
 from astropy.stats import mad_std
 
 # local
-from src_preprocessing import utils_visualization
+from src_preprocessing import utils_visualization, kepler_io
 from src_preprocessing import tess_io
-from src_preprocessing.light_curve import kepler_io
 from src_preprocessing.light_curve import median_filter
 from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util

@@ -34,7 +34,7 @@ import yaml
 from scipy.signal import convolve2d
 
 # local
-from diff_img.preprocessing.utils_diff_img import plot_diff_img_data
+from src_preprocessing.diff_img.preprocessing.utils_diff_img import plot_diff_img_data
 
 
 def check_for_missing_values_in_preproc_diff_data(data):

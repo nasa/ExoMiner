@@ -16,6 +16,8 @@ tess_mag_thr = 7
 tce_tbl['mag_cat'] = 0.0
 tce_tbl.loc[tce_tbl['mag'] > tess_mag_thr, 'mag_cat'] = 1.0
 tce_tbl.loc[tce_tbl['mag'].isna(), 'mag_cat'] = np.nan  # set to nan if magnitude is nan
+# set shifted magnitude
+tce_tbl['mag_shift'] = tce_tbl['mag'] - tess_mag_thr
 
 # create adjusted
 tess_px_scale = 21  # arcsec
@@ -49,6 +51,9 @@ kepler_mag_thr = 12
 tce_tbl['mag_cat'] = 0.0
 tce_tbl.loc[tce_tbl['mag'] > kepler_mag_thr, 'mag_cat'] = 1.0
 tce_tbl.loc[tce_tbl['mag'].isna(), 'mag_cat'] = np.nan  # set to nan if magnitude is nan
+
+# set shifted magnitude
+tce_tbl['mag_shift'] = tce_tbl['mag'] - kepler_mag_thr
 
 # create normalized count for rolling band level 0
 # columns_rba = ['tce_rb_tcount1', 'tce_rb_tcount2', 'tce_rb_tcount3', 'tce_rb_tcount4']

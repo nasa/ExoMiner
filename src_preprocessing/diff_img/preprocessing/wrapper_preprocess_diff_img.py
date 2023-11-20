@@ -7,51 +7,37 @@ from the TESS DV xml files for different sector runs.
 from pathlib import Path
 import subprocess
 from datetime import datetime
+import yaml
 
 # file path to script that preprocesses difference image data for a sector run (i.e, for a DV xml file)
-script_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/diff_img/preprocessing/preprocess_diff_img.py'
+script_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/diff_img/preprocessing/preprocess_diff_img.py'
 
 # path to directory with difference image data for the different sector runs
-diff_img_data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/3-1-2023_1422/data')
+diff_img_data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/11-17-2023_1400/data')
 # list of file paths to DV NumPy files for the sector runs to be preprocessed
 diff_img_data_fps = diff_img_data_dir.iterdir()
 
-# path to directory with quality metric tables for the different sector runs
-# check to see if the quality metric table for each sector run is available
-qual_metrics_tbl_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/diff_img_quality_metric')
-# qual_metrics_tbl_fps = qual_metrics_tbl_dir.iterdir()
-
 # destination root directory for all the preprocessed data
-dest_root_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
-dest_root_dir.mkdir()
+dest_root_dir = Path(
+    f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+dest_root_dir.mkdir(exist_ok=True)
 
-args = {
-    'mission': 'tess',   # either `kepler` or `tess`
-    # destination file path to preprocessed data; set under `dest_root_dir` once the run starts
-    'dest_dir': '',
-    # file path to table with information on saturated stars
-    'sat_tbl_fp': '/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/10-05-2022_1338/tess_tces_dv_s1-s55_10-05-2022_1338_ticstellar_ruwe_tec_tsoebs_ourmatch_preproc.csv',
-    # saturated target threshold
-    'sat_thr': 7,
-    # number of quarters/sectors to get
-    'num_sampled_imgs': 5,
-    # padding original images with this number of pixels
-    'pad_n_pxs': 20,
-    # dimension of final image (final_dim, final_dim)
-    'final_dim': 11,
-    # number of processes used to parallelize work for a given sector run; number of jobs running in simultaneous
-    'n_processes': 4,
-    # number of jobs in total
-    'n_jobs': 4,
-}
+qual_metrics_tbl_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/diff_img_quality_metric')
+
+# set file path for default config file
+default_config_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
 
 for diff_img_data_fp in diff_img_data_fps:
 
-    args['diff_img_tbl_fp'] = str(diff_img_data_fp)
+    # load yaml file with run setup
+    with(open(default_config_fp, 'r')) as file:
+        config = yaml.safe_load(file)
+
+    config['diff_img_data_fp'] = str(diff_img_data_fp)
 
     print(f'Started processing data from {diff_img_data_fp}...')
 
-    # find quality metric for that sector run
+    # set sector run; find quality metric for that sector run
     sector_run = diff_img_data_fp.stem.split('_')[3]
 
     if 'multisector' in diff_img_data_fp.name:  # multi-sector run
@@ -68,7 +54,9 @@ for diff_img_data_fp in diff_img_data_fps:
 
         dest_dir = dest_root_dir / f'sector_{s_sector}'
 
-    args['dest_dir'] = str(dest_dir)
+    # set destination directory for sector run
+    dest_dir.mkdir(exist_ok=True)
+    config['dest_dir'] = str(dest_dir)
 
     # get file path to corresponding quality metric table
     qual_metrics_tbl_fp = qual_metrics_tbl_dir / qual_metrics_tbl_fn
@@ -76,14 +64,22 @@ for diff_img_data_fp in diff_img_data_fps:
         raise FileNotFoundError(f'File not found for quality metric {qual_metrics_tbl_fp} ({qual_metrics_tbl_fn}).')
     print(f'Using quality metrics in table {qual_metrics_tbl_fp}')
 
-    args['qual_metrics_tbl_fp'] = str(qual_metrics_tbl_fp)
+    config['qual_metrics_tbl_fp'] = str(qual_metrics_tbl_fp)
 
+    # save config file for sector run
+    config_fp = dest_dir / 'run_params.yaml'
+    with open(str(config_fp), 'w') as file:
+        yaml.dump(config, file, sort_keys=False)
+
+    args = {
+        'config_fp': str(config_fp),
+    }
     args_list = []
     for arg_name, arg_val in args.items():
         args_list.append(f'--{arg_name}')
         args_list.append(f'{arg_val}')
     python_command = ['python', script_fp] + args_list
-    print(python_command)
+    print(''.join(python_command))
 
     p = subprocess.run(python_command)
     while p.returncode != 0:  # only start new process once this one finishes

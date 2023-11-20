@@ -1,8 +1,8 @@
 # results directory for processed data
-dest_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing_step2/11-17-2023_1205
+dest_dir: null
 # file path to difference image data NumPy file
-diff_img_data_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/11-14-2023_1027/keplerq1q17_dr25_diffimg.npy
-mission: kepler  # either 'kepler' or 'tess'
+diff_img_data_fp: null
+mission: tess  # either 'kepler' or 'tess'
 num_sampled_imgs: 5  # number of sampled quarters/sector runs
 final_size:  # final size for preprocessed images before resizing
   x: 11
@@ -13,9 +13,9 @@ upscale_f:
   y: 3
 # file path to table with quality metrics
 qual_metrics_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv
-sat_thr: 12  # saturation threshold
+sat_thr: 7  # saturation threshold
 # file path to TCE table with saturation values
-sat_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv
+sat_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv
 n_processes: 10  # number of processes to run jobs in parallel
 n_jobs: 10 # total number of jobs
 plot_prob: 0.01  # probability to plot preprocessing results for each example

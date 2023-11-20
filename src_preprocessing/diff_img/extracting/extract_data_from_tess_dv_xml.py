@@ -8,7 +8,7 @@ import multiprocessing
 import logging
 
 # local
-from diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
+from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 
 if __name__ == '__main__':
     # DV XML file path

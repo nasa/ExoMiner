@@ -11,7 +11,7 @@ import ast
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # local
-from diff_img.preprocessing.utils_diff_img import plot_diff_img_data
+from src_preprocessing.diff_img.preprocessing.utils_diff_img import plot_diff_img_data
 
 #%% Load results
 
