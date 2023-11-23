@@ -90,9 +90,10 @@ Research Center (NASA ARC).
 - Active developers
     - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
     - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification, Kepler to TESS 
-  transfer learning)
-    - William Zhong <sup>5</sup> (Difference Image)
+    - Ashley Raigosa<sup></sup> (TESS SPOC FFI)
+    - Saiswaroop Thammineni<sup></sup> (Transit Encoding)
+    - Kunal Malhotra<sup></sup> (Transit Detection)
+
 
 - Past developers 
     - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
@@ -110,6 +111,9 @@ Research Center (NASA ARC).
     - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
     - Stuti Agarwal <sup>6</sup> (Difference image)
     - Joshua Belofsky <sup>2,5</sup> (Difference image)
+    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification, Kepler to TESS 
+    transfer learning)
+    - William Zhong <sup>5</sup> (Difference Image)
 
 - Collaborators
     - Doug Caldwell<sup>1,3</sup>

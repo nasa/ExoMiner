@@ -15,7 +15,13 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess-s1s40-dv_all_features_phases_10-04-2022_1641')
+    data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/cv_kepler_q1q17dr25_obs_11-22-2023_2356')
+    # TFRecord source directory; non-normalized examples
+    src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_mission_adddiffimg_perimgnormdiffimg')
+    # table that maps a TCE to a given TFRecord file in the source TFRecords
+    src_tfrec_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_mission_adddiffimg_perimgnormdiffimg/merged_shards.csv')
+    n_processes = 10
+
     data_dir.mkdir(exist_ok=True)
 
     # set up logger
@@ -27,14 +33,8 @@ if __name__ == '__main__':
     logger.addHandler(logger_handler)
     logger.info(f'Starting run...')
 
-    # TFRecord source directory; non-normalized examples
-    src_tfrec_dir = Path(
-        '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_updtlablesrenamedfeats_ourtoimatch')
     logger.info(f'Source TFRecords: {str(src_tfrec_dir)}')
 
-    # table that maps a TCE to a given TFRecord file in the source TFRecords
-    # src_tfrec_tbl_fp = src_tfrec_dir / 'shards_tce_tbl.csv'
-    src_tfrec_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624_data/tfrecordstesss1s40-dv_g301-l31_5tr_spline_nongapped_all_features_phases_8-1-2022_1624/merged_shards.csv')
     if not src_tfrec_tbl_fp.exists():
         logger.info('Creating shard example table that tracks location of examples in the source TFRecords...')
         create_table_shard_example_location(src_tfrec_dir)
@@ -47,7 +47,6 @@ if __name__ == '__main__':
     dest_tfrec_dir = data_dir / 'tfrecords' / 'eval'
     dest_tfrec_dir.mkdir(exist_ok=True, parents=True)
 
-    n_processes = 10
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, True) for fold_i, shard_tbl_fp in
             enumerate(shard_tbls_fps)]
@@ -55,7 +54,7 @@ if __name__ == '__main__':
     pool.close()
 
     # TCEs present in the fold TCE tables that were not present in the source TFRecords
-    tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['target_id', 'tce_plnt_num'])
+    tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['uid', 'target_id', 'tce_plnt_num'])
                                    for async_result in async_results], ignore_index=True)
     tces_not_found_df.to_csv(data_dir / 'tces_not_found_eval.csv', index=False)
 
@@ -96,7 +95,6 @@ if __name__ == '__main__':
     dest_tfrec_dir = data_dir / 'tfrecords' / 'predict'
     dest_tfrec_dir.mkdir(exist_ok=True, parents=True)
 
-    n_processes = 10
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, True) for fold_i, shard_tbl_fp in
             enumerate(shard_tbls_fps)]
@@ -104,7 +102,7 @@ if __name__ == '__main__':
     pool.close()
 
     # TCEs present in the fold TCE tables that were not present in the source TFRecords
-    tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['target_id', 'tce_plnt_num'])
+    tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['uid', 'target_id', 'tce_plnt_num'])
                                    for async_result in async_results], ignore_index=True)
     tces_not_found_df.to_csv(data_dir / 'tces_not_found_predict.csv', index=False)
 

@@ -527,6 +527,34 @@ def map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row
 def preprocess_single_diff_img_data_for_example(diff_img, oot_img, target_pos_col, target_pos_row, size_h, size_w,
                                                 size_f_h, size_f_w, img_n, tce_uid, prefix, log, center_target=True,
                                                 proc_id=-1):
+    """ Preprocesses the difference image data for a single example.
+
+    Args:
+        diff_img: NumPy array, difference image
+        oot_img: NumPy array, out-of-transit image
+        target_pos_col: float, target location column coordinate
+        target_pos_row: float, target location row coordinate
+        size_h: int, output image height (before scaling by resampling factor `size_f_h`)
+        size_w: int, output image width (before scaling by resampling factor `size_f_w`)
+        size_f_h: int, height resampling factor
+        size_f_w: int, width resampling factor
+        img_n: int, quarter or sector for Kepler or TESS, respectively
+        tce_uid: str, TCE unique id. For Kepler, it should be '{kic_id}-{tce_planet_number}';
+        for TESS, '{tic_id}-{tce_planet_number}-S{sector_run}'
+        prefix: str, 'q' or 's' for Kepler or TESS, respectively
+        log: logger
+        center_target: bool, if True the images are centered in the target pixel by padding through edge extension
+        proc_id: int, process id
+
+    Returns:
+        diff_img, NumPy array for preprocessed difference image
+        oot_img, NumPy array for preprocessed out-of-transit image
+        target_img, NumPy array for target location image
+        target_pos_col, int for target column pixel
+        target_pos_row, int for target row pixel
+        target_col_disc, int in {-1, 0, 1} for target subpixel column value
+        target_row_disc, int in {-1, 0, 1} for target subpixel row value
+    """
     # map subpixel coordinates to discrete range {-1, 0, 1}; zero is target pixel
     target_col_disc, target_row_disc = map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row)
 

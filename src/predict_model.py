@@ -1,6 +1,5 @@
 """
-Train a single or multiple models on the same data set using a given configuration. Then evaluate them and run
-inference.
+Evaluate and run inference for one or more models on the same data sets.
 """
 
 # 3rd party
