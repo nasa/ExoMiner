@@ -11,18 +11,18 @@ from pathlib import Path
 
 #%% Load TCE table
 
-tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe_ticstellar_features_adjusted.csv')
+tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/11-22-2023_1059/tess_2min_tces_dv_s1-39_s1-36_s14-16_11-22-2023_1059_ruwe_ticstellar_features_adjusted.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
-#%% Initialize label field to unknown
-
-print(f'TCE disposition counts before any update:\n{tce_tbl["label"].value_counts()}')
-print(f'TCE label source counts before any update:\n {tce_tbl["label_source"].value_counts()}')
+# #%% Initialize label field to unknown
+#
+# print(f'TCE disposition counts before any update:\n{tce_tbl["label"].value_counts()}')
+# print(f'TCE label source counts before any update:\n {tce_tbl["label_source"].value_counts()}')
 
 #%% Add dispositions from ExoFOP TOI catalog based on ephemeris matching
 
 # load TCE-TOI matching table
-match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/ephemeris_matching_tess_spoc_2min_dv_tces/matching_runs/tces_spoc_dv_2mindata_s1-s68_09-25-2023_2028/matched_signals_thr0.75.csv')
+match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-36_s1-39_s14-26_exofoptois_11-22-2023_1242/matched_signals_thr0.75.csv')
 # define columns that want to be added from the TOI catalog
 toi_cols = [
     'TOI',
@@ -57,14 +57,14 @@ print(f'TCE TESS disposition counts after ExoFOP TOI matching:\n{tce_tbl["TESS D
 #%% Add dispositions from Astronet QLP TCEs based on ephemeris matching
 
 # load TCE-Astronet QLP matching table
-match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s68_astronet_10-02-2023_0926/matched_signals_thr0.75.csv')
+match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-36_s1-39_s14-26_astronetqlptces_11-22-2023_2341/matched_signals_thr0.75.csv')
 # define columns that want to be added to the TCE table
 toi_cols = [
     'uid',
     'label',
 ]
 # load Astronet QLP TCE table used in matching with TCEs
-toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/astronet/astronet_training_preprocessed.csv')
+toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/astronet/astronet_training_processed.csv')
 
 match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_astronet-qlp_tce', 'match_corr_coef': 'match_corr_coef_astronet-qlp_tce'})
 # merge matching results to TCE table
@@ -80,7 +80,7 @@ print(f'TCE disposition counts after Astronet QLP matching:\n{tce_tbl["label_ast
 #%% Add dispositions from Villanova's EB based on ephemeris matching
 
 # load TCE-Villanova's EBs matching table
-match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s68_ebsvillanova_09-28-2023_1531/matched_signals_thr0.75.csv')
+match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-36_s1-39_s14-26_villanovaebs_11-22-2023_1533/matched_signals_thr0.75.csv')
 # define columns that want to be added to the TCE table
 toi_cols = [
     'uid',
