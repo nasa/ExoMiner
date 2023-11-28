@@ -245,12 +245,14 @@ def normalize_centroid(example, normStatsCentroid):
     return norm_centroid_feat
 
 
-def normalize_diff_img(example, normStatsDiff_img):
+def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10, imgs_dims=(5, 33, 33)):
     """ Normalize the difference image features for the example.
 
     Args:
         example: serialized example
         normStatsDiff_img: dict, normalization statistics for the centroid views
+        zero_division_eps: float, term added to denominator to avoid division by zero in normalization processes
+        imgs_dims: tuple with the dimensions of the images features.
 
     Returns: norm_diff_img_feat, dict with normalized difference image features for the example
     """
@@ -260,56 +262,56 @@ def normalize_diff_img(example, normStatsDiff_img):
 
     # read non-normalized difference image features for example
     diff_imgs = tf.reshape(tf.io.parse_tensor(example.features.feature['diff_imgs'].bytes_list.value[0], tf.float32),
-                           normStatsDiff_img['diff_img']['feature_dims']).numpy()
+                           imgs_dims).numpy()
     oot_imgs = tf.reshape(tf.io.parse_tensor(example.features.feature['oot_imgs'].bytes_list.value[0], tf.float32),
-                           normStatsDiff_img['oot_img']['feature_dims']).numpy()
+                          imgs_dims).numpy()
 
-    # OPTION 2: min-max normalization
-    diff_imgs_opt2 = np.array(diff_imgs)
-    oot_imgs_opt2 = np.array(oot_imgs)
+    # min-max normalization
+    diff_imgs_minmaxn = np.array(diff_imgs)
+    oot_imgs_minmaxn = np.array(oot_imgs)
 
-    # set NaNs to zero for diff img
-    diff_imgs_opt2[np.isnan(diff_imgs_opt2)] = 0
-
-    # set NaNs to -1 for oot img
-    oot_imgs_opt2[np.isnan(oot_imgs_opt2)] = -1
+    # # set NaNs to zero for diff img
+    # diff_imgs_opt2[np.isnan(diff_imgs_opt2)] = 0
+    #
+    # # set NaNs to -1 for oot img
+    # oot_imgs_opt2[np.isnan(oot_imgs_opt2)] = -1
 
     # x_n = (x - min(x)) / (max(x) - min(x))
-    diff_imgs_opt2 = ((diff_imgs_opt2 - normStatsDiff_img['diff_img']['min']) /
-                      (normStatsDiff_img['diff_img']['max'] - normStatsDiff_img['diff_img']['min'] +
-                       normStatsDiff_img['zero_division_eps']))
-    oot_imgs_opt2 = ((oot_imgs_opt2 - normStatsDiff_img['oot_img']['min']) /
-                     (normStatsDiff_img['oot_img']['max'] - normStatsDiff_img['oot_img']['min'] +
-                      normStatsDiff_img['zero_division_eps']))
+    diff_imgs_minmaxn = ((diff_imgs_minmaxn - normStatsDiff_img['diff_imgs']['min']) /
+                         (normStatsDiff_img['diff_imgs']['max'] - normStatsDiff_img['diff_imgs']['min'] +
+                          zero_division_eps))
+    oot_imgs_minmaxn = ((oot_imgs_minmaxn - normStatsDiff_img['oot_imgs']['min']) /
+                        (normStatsDiff_img['oot_imgs']['max'] - normStatsDiff_img['oot_imgs']['min'] +
+                         zero_division_eps))
 
-    norm_diff_img_feat.update({'diff_imgs_opt2': diff_imgs_opt2,
-                               'oot_imgs_opt2': oot_imgs_opt2})
+    norm_diff_img_feat.update({'diff_imgs_minmaxnorm_trainset': diff_imgs_minmaxn,
+                               'oot_imgs_minmaxnorm_trainset': oot_imgs_minmaxn})
 
-    # OPTION 4: standardization
-    diff_imgs_opt4 = np.array(diff_imgs)
-    oot_imgs_opt4 = np.array(oot_imgs)
+    # standardization
+    diff_imgs_std = np.array(diff_imgs)
+    oot_imgs_std = np.array(oot_imgs)
 
-    # set NaNs to zero for diff img
-    diff_imgs_opt4[np.isnan(diff_imgs_opt4)] = 0
-
-    # set missing values to 25th quantile for oot images
-    quantile_oot_img = np.nanquantile(oot_imgs_opt4, normStatsDiff_img['oot_img']['quantile_oot'], axis=(1, 2))
-    for img_i, img in enumerate(oot_imgs_opt4):
-        # when all values are missing, quantile chosen will also be NaN
-        if np.isnan(quantile_oot_img[img_i]):
-            img[np.isnan(img)] = -1
-        else:
-            img[np.isnan(img)] = quantile_oot_img[img_i]
+    # # set NaNs to zero for diff img
+    # diff_imgs_opt4[np.isnan(diff_imgs_opt4)] = 0
+    #
+    # # set missing values to 25th quantile for oot images
+    # quantile_oot_img = np.nanquantile(oot_imgs_opt4, normStatsDiff_img['oot_img']['quantile_oot'], axis=(1, 2))
+    # for img_i, img in enumerate(oot_imgs_opt4):
+    #     # when all values are missing, quantile chosen will also be NaN
+    #     if np.isnan(quantile_oot_img[img_i]):
+    #         img[np.isnan(img)] = -1
+    #     else:
+    #         img[np.isnan(img)] = quantile_oot_img[img_i]
 
     # x_n = (x - med(x)) / (std(x) + eps)
-    diff_imgs_opt4 = ((diff_imgs_opt4 - normStatsDiff_img['diff_img']['median']) /
-                      (normStatsDiff_img['diff_img']['std'] + normStatsDiff_img['zero_division_eps']))
+    diff_imgs_std = ((diff_imgs_std - normStatsDiff_img['diff_imgs']['median']) /
+                     (normStatsDiff_img['diff_imgs']['std'] + zero_division_eps))
 
-    oot_imgs_opt4 = ((oot_imgs_opt4 - normStatsDiff_img['oot_img']['median']) /
-                     (normStatsDiff_img['oot_img']['std'] + normStatsDiff_img['zero_division_eps']))
+    oot_imgs_std = ((oot_imgs_std - normStatsDiff_img['oot_imgs']['median']) /
+                    (normStatsDiff_img['oot_imgs']['std'] + zero_division_eps))
 
-    norm_diff_img_feat.update({'diff_imgs_opt4': diff_imgs_opt4,
-                               'oot_imgs_opt4': oot_imgs_opt4})
+    norm_diff_img_feat.update({'diff_imgs_std_trainset': diff_imgs_std,
+                               'oot_imgs_std_trainset': oot_imgs_std})
 
     return norm_diff_img_feat
 
@@ -404,9 +406,10 @@ if __name__ == '__main__':
         'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
     #     # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
         'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item(),
-    #     'diff_img': np.load(normStatsDir / 'train_diff_img_stats.npy', allow_pickle=True).item()
+    #     'diff_img': np.load(normStatsDir / 'train_diffimg_norm_stats.npy', allow_pickle=True).item()
     }
-    # del normStats['scalar_params']['tce_depth']
+    # del normStats['scalar_params']['tce_robstat']
+    # del normStats['scalar_params']['transit_depth']
     # normStats = {
     #     'diff_img': {
     #         'diff_img': {'median': 1, 'std': 1e-1, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},

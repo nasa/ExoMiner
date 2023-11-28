@@ -357,7 +357,7 @@ def compute_normalization_stats(tfrec_fps, config):
         }
             for diffimgs in config['diff_imgList']}
 
-        np.save(config['norm_dir'] / 'train_diff_img_stats.npy', normStatsDiff_img)
+        np.save(config['norm_dir'] / 'train_diffimg_norm_stats.npy', normStatsDiff_img)
 
         # create additional csv file with normalization statistics
         normStatsDiff_imgForDf = {}
@@ -367,7 +367,7 @@ def compute_normalization_stats(tfrec_fps, config):
             normStatsDiff_imgForDf[f'{diffimgs}_min'] = [normStatsDiff_img[diffimgs]['min']]
             normStatsDiff_imgForDf[f'{diffimgs}_max'] = [normStatsDiff_img[diffimgs]['max']]
         normStatsDiff_img = pd.DataFrame(data=normStatsDiff_imgForDf)
-        normStatsDiff_img.to_csv(config['norm_dir'] / 'train_diff_img_stats.csv', index=False)
+        normStatsDiff_img.to_csv(config['norm_dir'] / 'train_diffimg_norm_stats.csv', index=False)
 
 
 if __name__ == '__main__':

@@ -37,7 +37,7 @@ def perimage_normalization_diffimg(example, zero_division_eps, features):
             tf.io.parse_tensor(example.features.feature[feature_name].bytes_list.value[0], tf.float32),
             feature_dims).numpy()
 
-        # OPTION 1: min-max normalization
+        # min-max normalization
         feature_data_example_minmaxn = np.array(feature_data_example)
         feature_min_per_img = np.nanmin(feature_data_example_minmaxn, axis=(1, 2), keepdims=True)
         feature_max_per_img = np.nanmax(feature_data_example_minmaxn, axis=(1, 2), keepdims=True)
@@ -58,7 +58,7 @@ def perimage_normalization_diffimg(example, zero_division_eps, features):
         # add normalized feature to example
         example_util.set_tensor_feature(example, f'{feature_name}_minmaxnorm', feature_data_example_minmaxn)
 
-        # OPTION 3: standardization
+        # standardization
         feature_data_example_std = np.array(feature_data_example)
         feature_median_per_img = np.nanmedian(feature_data_example_std, axis=(1, 2), keepdims=True)
         feature_madstd_per_img = \

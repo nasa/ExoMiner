@@ -1099,6 +1099,7 @@ class ExoMiner_JointLocalFlux(object):
         conv_branch_selected = [
             'global_flux',
             'local_centroid',
+            'momentum_dump',
             # 'global_centroid',
             # 'local_unfolded_flux',
         ]
@@ -1141,16 +1142,9 @@ class ExoMiner_JointLocalFlux(object):
         for branch_i, branch in enumerate(conv_branches):  # create a convolutional branch
 
             branch_view_inputs = [self.inputs[view_name] for view_name in self.config['conv_branches'][branch]['views']]
-            branch_view_inputs = branch_view_inputs if len(branch_view_inputs) > 1 else branch_view_inputs[0]
-
-            # # build unfolded branch separately
-            # if branch == "local_unfolded_flux" and self.config["transformer_branches"] is None:
-            #     loc_unfolded_flux = self.build_conv_unfolded_flux(conv_branches[branch])
-            #     conv_branches[branch] = loc_unfolded_flux
-            #     continue
 
             # add var time series
-            if f'{branch}_var' in self.config['conv_branches'][branch]['views']:
+            if len(branch_view_inputs) > 1:
                 branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name=f'input_{branch}')(branch_view_inputs)
 
             # get init parameters for the given view
@@ -1608,6 +1602,7 @@ class ExoMiner_JointLocalFlux(object):
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
 
             scalar_inputs = [tf.keras.layers.Permute((2, 1), name=f'permute_{feature_name}')(self.inputs[feature_name])
+                             if 'pixel' not in feature_name else self.inputs[feature_name]
                              for feature_name in self.config['diff_img_branch']['imgs_scalars']]
             if len(scalar_inputs) > 1:
                 scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
@@ -1635,7 +1630,7 @@ class ExoMiner_JointLocalFlux(object):
         #                              bias_constraint=None,
         #                              name='convfc_{}'.format('diff_img'),
         #                              )(net)
-        net = tf.keras.layers.Conv1D(filters=4,  # self.config['num_fc_conv_units'],
+        net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
                                      kernel_size=net.shape[1:-1],
                                      strides=1,
                                      padding='valid',

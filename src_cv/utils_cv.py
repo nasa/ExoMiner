@@ -243,6 +243,9 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
         scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
                                    if k in run_params['compute_norm_stats_params']['scalarParams']}
         norm_stats.update({'scalar_params': scalar_params_norm_info})
+    if run_params['compute_norm_stats_params']['diff_imgList'] is not None:
+        norm_stats.update({'diff_img': np.load(run_params['compute_norm_stats_params']['norm_dir'] /
+                                               'train_diffimg_norm_stats.npy', allow_pickle=True).item()})
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:

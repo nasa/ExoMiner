@@ -76,10 +76,12 @@ for src_tfrec_fp in src_tfrec_fps:
                         [diff_img_data[example_uid]['target_position'][f'{pixel_feature_name}_x{suffix_str}'],
                          diff_img_data[example_uid]['target_position'][f'{pixel_feature_name}_y{suffix_str}']])
 
-                    example_util.set_tensor_feature(example, f'{pixel_feature_name}{suffix_str}', pixel_feature_data)
+                    example_util.set_tensor_feature(example, f'{pixel_feature_name}{suffix_str}',
+                                                    pixel_feature_data)
 
             example_util.set_float_feature(example, 'quality', diff_img_data[example_uid]['quality'])
-            example_util.set_float_feature(example, 'images_numbers', diff_img_data[example_uid]['images_numbers'])
+            example_util.set_float_feature(example, 'images_numbers',
+                                           diff_img_data[example_uid]['images_numbers'])
 
             writer.write(example.SerializeToString())
 
