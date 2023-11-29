@@ -2,17 +2,14 @@
 
 # 3rd party
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 from pathlib import Path
 import numpy as np
 import logging
+import tensorflow as tf
 from tensorflow.keras import callbacks
 import copy
 import time
 import argparse
-import sys
-from mpi4py import MPI
-# import multiprocessing
 import yaml
 import pandas as pd
 
@@ -54,6 +51,7 @@ def cv_run(data_shards_fps, run_params):
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
+    # with tf.device('/CPU:0'):
     run_params['datasets_fps'] = processing_data_run(data_shards_fps_eval, run_params,
                                                      run_params['paths']['experiment_dir'])
 
@@ -164,22 +162,19 @@ def cv():
     """ Run CV experiment. """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--job_idx', type=int, help='Job index', default=0)
-    parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
+    parser.add_argument('--rank', type=int, help='Job index', default=0)
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
                         default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml')
+    parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
+
     args = parser.parse_args()
 
-    with(open(args.config_file, 'r')) as file:
+    with(open(args.config_fp, 'r')) as file:
         config = yaml.safe_load(file)
 
     config['rng'] = np.random.default_rng(seed=config['rnd_seed'])
 
-    # uncomment for MPI multiprocessing
-    rank = MPI.COMM_WORLD.rank
-    config['rank'] = config['ngpus_per_node'] * args.job_idx + rank
-    config['size'] = MPI.COMM_WORLD.size
-    print(f'Rank = {config["rank"]}/{config["size"] - 1}')
-    sys.stdout.flush()
+    config['rank'] = args.rank
     if config['rank'] != 0:
         time.sleep(2)
 
@@ -187,6 +182,8 @@ def cv():
     for path_name, path_str in config['paths'].items():
         if path_str is not None:
             config['paths'][path_name] = Path(path_str)
+    if args.output_dir is not None:
+        config['paths']['experiment_root_dir'] = Path(args.output_dir)
     config['paths']['experiment_root_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary
@@ -195,7 +192,7 @@ def cv():
                                   for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
 
     if config["rank"] >= len(config['data_shards_fps']):
-        print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV iterations'
+        print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV of iterations'
               f'({len(config["data_shards_fps"])}). Ending process.')
         return
 
@@ -212,13 +209,10 @@ def cv():
     # setting GPU
     config['logger'].info(f'Number of GPUs selected per node = {config["ngpus_per_node"]}')
     config['gpu_id'] = config["rank"] % config['ngpus_per_node']
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(config['gpu_id'])
+    # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(config['gpu_id'])
     config['logger'].info(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
     config['logger'].info(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
-
-    config['dev_train'] = f'/gpu:{config["gpu_id"]}'
-    config['dev_predict'] = f'/gpu:{config["gpu_id"]}'
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file
     config_hpo_chosen, config['hpo_config_id'] = (

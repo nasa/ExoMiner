@@ -1,18 +1,12 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/test_scrambling_10-26-2023_1232
+output_dir: null
 # TCE table with examples to be preprocessed
-#input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed.csv
-input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed.csv
-#input_tce_csv_file: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/04-11-2023_1623/tess_spoc_ffi_tces_dv_s47-s55_04-11-2023_1623_preproc.csv
+input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-39_s1-36_s14-16_11-22-2023_1059_ruwe_ticstellar_features_adjusted_label.csv
 # light curve FITS file directory
-#lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25_plti/inj1_filtered
-lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/lc
-#lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc
-#lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/lc
-#lc_data_dir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/ffi/lc/
+lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/pdc-lc
 dict_savedir: null
 
-using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
+using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
 # multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
@@ -23,14 +17,14 @@ ffi_data: false  # set to true for TESS SPOC FFI data
 shuffle: false
 shuffle_seed: 24
 
-satellite: kepler  # kepler or tess
+satellite: tess  # kepler or tess
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 1  # 0.1
+plot_prob: 0.01  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -45,12 +39,12 @@ dq_values_filter: null  # set to null
 #  - 2
 #  - 3
 
-get_momentum_dump: false  # get momentum dump dq flag and generate feature data
+get_momentum_dump: true  # get momentum dump dq flag and generate feature data
 
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
-min_n_phases: 0  # minimum number of phases that need to be available for a given example
+min_n_phases: 1  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning
@@ -86,17 +80,10 @@ tess_px_scale: 21  # arcsec
 kepler_px_scale: 3.98  # arcsec
 #tess_to_kepler_px_scale_factor: tess_px_scale / kepler_px_scale
 
-#tess_lower_bound_dicco_msky_err: 0.66667  # (0.2/3)
-#kepler_lower_bound_dicco_msky_err: 2.5
-
 sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
   kepler: 2
   tess: 30
 tess_to_kepler_sampling_ratio: 15
-
-## magnitude threshold for categorical variable
-#kepler_mag_cat_thr: 12
-#tess_mag_cat_thr: 7
 
 # scalar parameters that show up in the plots of the preprocessed views
 scalar_params: [
@@ -155,8 +142,8 @@ light_curve_extension: LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` other
 
 # simulated Kepler data options
 injected_group: null  # set to `inj1`, `inj2`, or `inj3` to read lightcurves files from pixel-level transit injection data groups or null otherwise
-scramble_type: SCR2  # choose between `SCR1`, `SCR2`, and `SCR3` groups or null for no scrambling
+scramble_type: null  # choose between `SCR1`, `SCR2`, and `SCR3` groups or null for no scrambling
 invert: false  # inverted group
 
 # when scrambling, information about the cadence number for the different quarters is required; set to null if not using scrambling data
-cadence_no_quarters_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/quarters_cadence_numbers.csv
+cadence_no_quarters_tbl_fp: null
