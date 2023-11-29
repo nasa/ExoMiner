@@ -29,9 +29,14 @@ multisector_tce_dir = src_tce_tbls_root_dir / 'multi-sector' / 'csv_tables'
 singlesector_tce_dir = src_tce_tbls_root_dir / 'single-sector' / 'csv_tables'
 
 logger.info('Loading DV SPOC TCE tables for the multiple single- and multi-sector runs...')
-sector_tce_tbls = {file.stem[14:16]: pd.read_csv(file) for file in singlesector_tce_dir.iterdir()}
-sector_tce_tbls.update({f'{int(file.stem[14:16])}-{int(file.stem[16:18])}': pd.read_csv(file)
-                        for file in multisector_tce_dir.iterdir()})
+sector_tce_tbls = {}
+# get single sector tce tables
+# single_sector_tce_tbls = {file.stem[14:16]: pd.read_csv(file) for file in singlesector_tce_dir.iterdir()}
+# sector_tce_tbls.update(single_sector_tce_tbls)
+# get multi sector tce tables
+multi_sector_tce_tbls = {f'{int(file.stem[14:16])}-{int(file.stem[16:18])}': pd.read_csv(file) for file in multisector_tce_dir.iterdir() if file.stem in ['dvOutputMatrix0139', 'dvOutputMatrix0136', 'dvOutputMatrix1426']}
+sector_tce_tbls.update(multi_sector_tce_tbls)
+
 logger.info(f'DV SPOC TCE tables loaded:')
 for sector_tce_tbls_name in sector_tce_tbls:
     logger.info(f'{sector_tce_tbls_name}: {len(sector_tce_tbls[sector_tce_tbls_name])} TCEs.')
