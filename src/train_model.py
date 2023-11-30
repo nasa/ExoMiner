@@ -112,8 +112,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Rank index', default=0)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
-    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml')
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
     args = parser.parse_args()
 
     # load yaml file with run setup
@@ -167,7 +166,7 @@ def main():
     # set dictionary of TFRecord file paths for the different data sets
     # TFRECORDS MUST HAVE A PREFIX THAT MATCHES THE NAMING OF THE DATASETS IN CONFIG['DATASETS']
     config['datasets_fps'] = {dataset: [fp for fp in config['paths']['tfrec_dir'].iterdir()
-                                        if fp.name.startswith(dataset)]
+                                        if fp.name.startswith(f'{dataset}-shard')]
                               for dataset in config['datasets']}
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file

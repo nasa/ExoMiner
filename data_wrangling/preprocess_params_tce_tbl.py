@@ -11,6 +11,8 @@ exp_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/e
 tce_tbl_fp = exp_dir / 'tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe_ticstellar.csv'
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
+tce_tbl['mission'] = 0
+
 # create categorical magnitude
 tess_mag_thr = 7
 tce_tbl['mag_cat'] = 0.0
@@ -41,10 +43,10 @@ tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_features_adjusted.csv', i
 
 #%% For Kepler
 
-# exp_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/')
-# tce_tbl_fp = exp_dir / '.csv'
 tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
+
+tce_tbl['mission'] = 1
 
 # create categorical magnitude
 kepler_mag_thr = 12

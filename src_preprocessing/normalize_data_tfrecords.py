@@ -9,6 +9,7 @@ Output: new TFRecord data set with normalized data.
 """
 
 # 3rd party
+import shutil
 from pathlib import Path
 import multiprocessing
 import numpy as np
@@ -394,47 +395,22 @@ if __name__ == '__main__':
     srcTfrecDir = Path(config['srcTfrecDir'])
 
     # destination TFRecord
-    destTfrecDir = srcTfrecDir.parent / f'{srcTfrecDir.name}-{config["destTfrecDirName"]}'
+    destTfrecDir = Path(config['destTfrecDir'])
     destTfrecDir.mkdir(exist_ok=True)
+
+    # save run setup
+    with open(destTfrecDir / 'normalization_run.yaml', 'w') as file:
+        yaml.dump(config, file, sort_keys=False)
 
     # get source TFRecords file paths to be normalized
     srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
 
-    # load normalization statistics; the keys in the 'scalar_params' dictionary define which statistics are normalized
-    normStatsDir = Path(config['normStatsDir'])
-    normStats = {
-        'scalar_params': np.load(normStatsDir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item(),
-    #     # 'fdl_centroid': np.load(normStatsDir / 'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item(),
-        'centroid': np.load(normStatsDir / 'train_centroid_norm_stats.npy', allow_pickle=True).item(),
-    #     'diff_img': np.load(normStatsDir / 'train_diffimg_norm_stats.npy', allow_pickle=True).item()
-    }
-    # del normStats['scalar_params']['tce_robstat']
-    # del normStats['scalar_params']['transit_depth']
-    # normStats = {
-    #     'diff_img': {
-    #         'diff_img': {'median': 1, 'std': 1e-1, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
-    #         'oot_img': {'median': 1, 'std': 1e-1, 'quantile_oot': 0.25, 'min': 1, 'max': 2, 'feature_dims': (5, 11, 11)},
-    #         'zero_division_eps': 1e-10,
-    #     }
-    # }
+    # load normalization statistics; the keys in each sub-dictionary define which statistics are normalized
+    normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
-    # WRITE CODE HERE TO ADJUST NORMALIZATION STATISTICS (E.G., ADD SCALAR FEATURES THAT YOU  WANT TO NORMALIZE AND ARE
-    # NOT IN  THE NORMALIZATION STATS DICTIONARY
-    # for TPS
-    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-    #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
-    #                                          'transit_depth', 'tce_duration', 'tce_period', 'tce_max_mult_ev']}
-    # for TESS
-    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-    #                               if key in ['tce_steff', 'tce_slogg', 'tce_smet', 'tce_sradius', 'tce_smass', 'tce_sdens',
-    #                                          'transit_depth', 'tce_duration', 'tce_period']}
-    # normStats['scalar_params'] = {key: val for key, val in normStats['scalar_params'].items()
-    #                               if key not in ['tce_fwm_stat', 'tce_rb_tcount0n']}
-    # for param in ['global_centr_view', 'local_centr_view']:  # add scaled centroid needed for TESS
-    #     normStats['centroid'][param]['median_adsjcl'] = normStats['centroid'][param]['median']
-    #     normStats['centroid'][param]['std_adsjcl'] = normStats['centroid'][param]['std']
-
-    # normStats['scalar_params']['tce_steff']['info']['dtype'] = 'float'
+    # save normalization statistics
+    for param, stats_fp in config['normStats'].items():
+        shutil.copy(stats_fp, destTfrecDir / Path(stats_fp).name)
 
     pool = multiprocessing.Pool(processes=config['nProcesses'])
     jobs = [(destTfrecDir, file, normStats, config['auxParams']) for file in srcTfrecFiles]

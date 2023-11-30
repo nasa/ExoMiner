@@ -3,7 +3,7 @@
 #PBS -S /bin/bash
 #PBS -N train_exoplnt
 #PBS -l walltime=08:00:00
-#PBS -l select=1:ncpus=18:ngpus=1:mem=90g:model=sky_gpu
+#PBS -l select=1:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
 #PBS -l place=scatter:shared
 #PBS -q dsg_gpu

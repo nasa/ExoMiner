@@ -385,3 +385,5 @@ if __name__ == '__main__':
     config['norm_dir'].mkdir(exist_ok=True)
 
     compute_normalization_stats(tfrecTrainFiles, config)
+
+    print('Normalization statistics computed.')

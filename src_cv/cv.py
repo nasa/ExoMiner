@@ -207,12 +207,12 @@ def cv():
     config['logger'].info(f'Starting run {config["paths"]["experiment_root_dir"].name}...')
 
     # setting GPU
-    config['logger'].info(f'Number of GPUs selected per node = {config["ngpus_per_node"]}')
-    config['gpu_id'] = config["rank"] % config['ngpus_per_node']
+    # config['logger'].info(f'Number of GPUs selected per node = {config["ngpus_per_node"]}')
+    # config['gpu_id'] = config["rank"] % config['ngpus_per_node']
     # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(config['gpu_id'])
-    config['logger'].info(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
-    config['logger'].info(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
+    # config['logger'].info(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
+    # config['logger'].info(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file
     config_hpo_chosen, config['hpo_config_id'] = (

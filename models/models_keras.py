@@ -1463,8 +1463,8 @@ class ExoMiner_JointLocalFlux(object):
 
             # concatenate scalar features with features extracted in the convolutional branch for the time series views
             if self.config['conv_branches'][branch]['scalars'] is not None:
-                scalar_inputs = [
-                    self.inputs[feature_name] for feature_name in self.config['conv_branches'][branch]['scalars']]
+                scalar_inputs = \
+                    [self.inputs[feature_name] for feature_name in self.config['conv_branches'][branch]['scalars']]
                 if len(scalar_inputs) > 1:
                     scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'{branch}_scalar_input')(scalar_inputs)
                 else:

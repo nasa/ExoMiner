@@ -1,7 +1,15 @@
 # source TFRecord directory
-srcTfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_updated_stellar_ruwe_confirmedkois_adddiffimg
+srcTfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+
 # destination TFRecord suffix name
-destTfrecDirName: normalized
+destTfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split_normalized
+
+# normalization stats directory
+normStats:
+  scalar_params: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split/train_scalarparam_norm_stats.npy
+  centroid: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split/train_centroid_norm_stats.npy
+
+nProcesses: 10  # number of processes in parallel
 
 # auxiliary parameters needed for normalization of some features
 auxParams:
@@ -9,8 +17,3 @@ auxParams:
   # 2 * 2.5 + 1,  # 2 * 4 + 1,  # number of transit durations (2*n+1, n on each side of the transit)
   num_bins_loc: 31  # 31, 201
   num_bins_glob: 301  # 301, 2001
-
-nProcesses: 15  # number of processes in parallel
-
-# normalization stats directory
-normStatsDir: /Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-12-2022_1647-dataset_split

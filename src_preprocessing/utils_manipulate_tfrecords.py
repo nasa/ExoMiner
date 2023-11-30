@@ -14,7 +14,7 @@ from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, 
 from src_preprocessing.preprocess import centering_and_normalization
 
 
-def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omitMissing=True):
+def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omitMissing=True, verbose=False):
     """ Create a TFRecord file (shard) based on a set of existing TFRecord files.
 
     :param shardFilename: str, shard filename
@@ -67,7 +67,9 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
 
             else:
                 if omitMissing:  # omit missing TCEs in the source TCE table
-                    print(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged table.')
+                    if verbose:
+                        print(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged '
+                              f'table.')
                     continue
 
                 raise ValueError(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged '
@@ -307,3 +309,77 @@ def create_shards_table(srcTfrecDir):
     srcTfrecTblMerge.to_csv(srcTfrecDir / 'merged_shards.csv', index=False)
 
     return True
+
+
+def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
+    """ Create table with examples from the TFRecords with scalar features/attributes defined in `data_fields`.
+
+    Args:
+        tfrec_fp: Path, TFRecord file path
+        data_fields: dict, 'data_field_name': 'data_type'
+
+    Returns:
+        data_tbl, pandas DataFrame
+    """
+
+    # iterate through the source shard
+    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_fp))
+
+    data_to_tbl = {'example_i_tfrec': [], 'shard': []}
+    if data_fields:
+        data_to_tbl.update({field: [] for field in data_fields})
+    else:
+        data_fields = {}
+
+    for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+
+        example = tf.train.Example()
+        example.ParseFromString(string_record)
+
+        data_to_tbl['example_i_tfrec'].append(string_i)
+        data_to_tbl['shard'].append(tfrec_fp.name)
+
+        for data_field, data_type in data_fields.items():
+            if data_type == 'int':
+                example_feature = example.features.feature[data_field].int64_list.value[0]
+            elif data_type == 'str':
+                example_feature = example.features.feature[data_field].bytes_list.value[0].decode("utf-8")
+            elif data_type == 'float':
+                example_feature = example.features.feature[data_field].float_list.value[0]
+            else:
+                raise ValueError(f'Data type not expected: {data_type}')
+
+            data_to_tbl[data_field].append(example_feature)
+
+    data_tbl = pd.DataFrame(data_to_tbl)
+
+    return data_tbl
+
+
+if __name__ == '__main__':
+
+    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg')
+    tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
+    data_fields = {
+        'uid': 'str',
+        'target_id': 'int',
+        'tce_plnt_num': 'int',
+        'sector_run': 'str',
+        'label': 'str',
+    }
+    tfrec_tbls = []
+    for fp in tfrec_fps:
+        # print(f'Iterating over {fp}...')
+        try:
+            tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
+        except Exception as e:
+            print(f'Failed to read {fp}.')
+            print(f'Deleting {fp}...')
+            fp.unlink()
+            (fp.parent / f'{fp.name}.csv').unlink()
+
+    tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+
+    tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
+
+    _ = create_shards_table(tfrec_dir)

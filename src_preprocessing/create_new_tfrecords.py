@@ -13,8 +13,8 @@ Input:
     - shard TCE table
 
 The shard TCE table should contain the following columns:
-    - 'Unnamed: 0': order of example in the TFRecord file (i.e., shard described in the 'shard' column).
-    - 'uid': Unique identifier for the example (TCE).
+    - (FIRST COLUMN) order of example in the TFRecord file (i.e., shard described in the 'shard' column).
+    - 'uid': Unique identifier for the example.
     - 'shard': shard filename where the example is stored.
 """
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     datasetTbl = {dataset: pd.read_csv(datasetTblDir / f'{dataset}set.csv') for dataset in config['datasets']}
 
     # load merged shards table
-    srcTbl = pd.read_csv(srcTfrecDir / 'merged_shards.csv', index_col=0)
+    srcTbl = pd.read_csv(config['shards_tbl_fp'], index_col=0)
 
     # create destination directory
     destTfrecDir = Path(config['dest_tfrec_dir'])
@@ -95,7 +95,8 @@ if __name__ == '__main__':
     print(checkNumTcesInDatasets)
 
     pool = multiprocessing.Pool(processes=config['nProcesses'])
-    jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omitMissing']) for shardTuple in shardTuples]
+    jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omitMissing'], config['verbose'])
+            for shardTuple in shardTuples]
     async_results = [pool.apply_async(create_shard, job) for job in jobs]
     pool.close()
     for async_result in async_results:
