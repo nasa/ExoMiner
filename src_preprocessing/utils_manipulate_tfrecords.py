@@ -358,7 +358,7 @@ def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
 
 if __name__ == '__main__':
 
-    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg')
+    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_perimgnormdiffimg')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
@@ -374,12 +374,12 @@ if __name__ == '__main__':
             tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
         except Exception as e:
             print(f'Failed to read {fp}.')
-            print(f'Deleting {fp}...')
-            fp.unlink()
-            (fp.parent / f'{fp.name}.csv').unlink()
+            # print(f'Deleting {fp}...')
+            # fp.unlink()
+            # (fp.parent / f'{fp.name}.csv').unlink()
 
     tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
 
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
 
-    _ = create_shards_table(tfrec_dir)
+    # _ = create_shards_table(tfrec_dir)

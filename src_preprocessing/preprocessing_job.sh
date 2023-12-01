@@ -12,9 +12,11 @@ conda activate exoplnt_dl
 
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-echo "Starting job $1..."
+LOG_FP=$2/preprocessing_$1.log
+
+echo "Starting job $1..." >> "$LOG_FP"
 
 # run preprocessing pipeline
 python $3 --rank=$1 --n_runs=$5 --output_dir=$2 --config_fp=$4 &> $2/preprocessing_$1.log
 
-echo "Finished job $1..."
+echo "Finished job $1..." >> "LOG_FP"

@@ -65,10 +65,9 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
                             f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
 
             # look for TCE in the source TFRecords table
-            tce_found = src_tfrec_tbl.loc[src_tfrec_tbl['uid'] == tce['uid'],  ['shard', 'Unnamed: 0']]
+            tce_found = src_tfrec_tbl.loc[src_tfrec_tbl['uid'] == tce['uid'],  ['shard', 'example_i_tfrec']]
 
             if len(tce_found) == 0:
-                # tces_not_found.append([tce['target_id'], tce['tce_plnt_num']])
                 tces_not_found.append([tce['uid']])
                 continue
 
@@ -223,6 +222,7 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
                                       ))
     p.start()
     p.join()
+    p.terminate()
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
@@ -252,13 +252,14 @@ def processing_data_run(data_shards_fps, run_params, cv_run_dir):
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
                                   f'statistics were loaded.')
         raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
-                                  f'statistics were loaded.')
+                         f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
     jobs = [(norm_data_dir, file, norm_stats, run_params['norm_examples_params']['aux_params'])
             for file in np.concatenate(list(data_shards_fps.values()))]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
+    pool.join()
     for async_result in async_results:
         async_result.get()
 

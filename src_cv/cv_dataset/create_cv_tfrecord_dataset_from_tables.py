@@ -15,11 +15,11 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/cv_kepler_q1q17dr25_obs_11-22-2023_2356')
+    data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess_s1-s67_12-01-2023_0004')
     # TFRecord source directory; non-normalized examples
-    src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_mission_adddiffimg_perimgnormdiffimg')
+    src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_perimgnormdiffimg')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_mission_adddiffimg_perimgnormdiffimg/merged_shards.csv')
+    src_tfrec_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
     n_processes = 10
 
     data_dir.mkdir(exist_ok=True)

@@ -1,11 +1,11 @@
 """ Utility functions for training, evaluating and running inference with a Keras model. """
 
 # 3rd party
+import tensorflow as tf
 from tensorflow.keras.utils import plot_model
 from tensorflow import keras
 from tensorflow.keras.models import load_model
 import numpy as np
-import tensorflow as tf
 
 # local
 from src.utils_dataio import InputFnv2 as InputFn

@@ -1,17 +1,16 @@
 """ Run cross-validation experiment. """
 
 # 3rd party
-import os
 from pathlib import Path
 import numpy as np
 import logging
-import tensorflow as tf
 from tensorflow.keras import callbacks
 import copy
 import time
 import argparse
 import yaml
 import pandas as pd
+import multiprocessing
 
 # local
 from models import models_keras
@@ -44,10 +43,6 @@ def cv_run(data_shards_fps, run_params):
         data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
         data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
 
-    # # save fold used
-    # with open(run_params['paths']['experiment_dir'] / 'fold_split.json', 'w') as fold_split_file:
-    #     yaml.dump(data_shards_fps_eval, fold_split_file, sort_keys=False)
-
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
@@ -76,31 +71,18 @@ def cv_run(data_shards_fps, run_params):
         model_dir = models_dir / f'model{model_id}'
         model_dir.mkdir(exist_ok=True)
 
-        # predict_fit_callback = PredictDuringFitCallback(run_params['datasets_fps'],
-        #                                                 model_dir,
-        #                                                 run_params['inference']['batch_size'],
-        #                                                 run_params['label_map'],
-        #                                                 run_params['features_set'],
-        #                                                 run_params['config']['multi_class'],
-        #                                                 run_params['config']['use_transformer'],
-        #                                                 run_params['feature_map'],
-        #                                                 data,
-        #                                                 verbose=True
-        #                                                 )
-        #
-        # if len(run_params['callbacks_list']['train']) == 1:
-        #     run_params['callbacks_list']['train'].append(predict_fit_callback)
-        # else:
-        #     run_params['callbacks_list']['train'][1] = predict_fit_callback
-
         # instantiate child process for training the model; prevent GPU memory issues
-        train_model(
-            run_params['base_model'],
-            run_params,
-            model_dir,
-            model_id,
-            run_params['logger']
-        )
+        p = multiprocessing.Process(target=train_model,
+                                    args=(
+                                        run_params['base_model'],
+                                        run_params,
+                                        model_dir,
+                                        model_id,
+                                        run_params['logger']
+                                    ))
+        p.start()  # start child process
+        p.join()  # wait for child process to terminate
+        p.terminate()
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Evaluating ensemble...')
@@ -118,24 +100,14 @@ def cv_run(data_shards_fps, run_params):
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Running inference using ensemble...')
     scores = predict_model(run_params, run_params['paths']['experiment_dir'], run_params['logger'])
-    # scores_classification = {dataset: np.zeros(scores[dataset].shape, dtype='uint8')
-    #                          for dataset in run_params['datasets']}
-    # for dataset in run_params['datasets']:
-    #     # threshold for classification
-    #     if not run_params['config']['multi_class']:  # binary classification
-    #         scores_classification[dataset][scores[dataset] >= run_params['metrics']['clf_thr']] = 1
-    #     else:  # multiclass
-    #         scores_classification[dataset] = [scores[dataset][i].argmax() for i in range(scores[dataset].shape[0])]
 
     # add predictions to the data dict
     for dataset in run_params['datasets']:
         if not run_params['config']['multi_class']:
             data[dataset]['score'] = scores[dataset].ravel()
-            # data[dataset]['predicted class'] = scores_classification[dataset].ravel()
         else:
             for class_label, label_id in run_params['label_map'].items():
                 data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
-            # data[dataset]['predicted class'] = scores_classification[dataset]
 
     # write results to a txt file
     for dataset in run_params['datasets']:
@@ -260,17 +232,19 @@ def cv():
         )
     else:
         # run each CV iteration sequentially
-        for cv_id, cv_iter in enumerate(config['data_shards_fps']):
+        for cv_id, data_shards_fps_cv_iter in enumerate(config['data_shards_fps']):
             if config['logger'] is not None:
                 config['logger'].info(
                     f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
-                cv_iter,
+                data_shards_fps_cv_iter,
                 config,
             )
 
 
 if __name__ == '__main__':
+
+    multiprocessing.set_start_method('spawn')
 
     cv()
