@@ -14,7 +14,7 @@ CONFIG_FP="$3"
 N_GPUS_PER_NODE="$5"
 GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
-N_MODELS="$7"
+N_MODELS_PER_CV_ITER="$7"
 
 # Paths
 SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/cv_dataset/created_config_yaml_for_cv_iter.py
@@ -64,9 +64,9 @@ CV_ITER_CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
 MODELS_DIR="$CV_ITER_DIR"/models
 mkdir -p "$MODELS_DIR"
 
-echo "Started training $N_MODELS models in CV iteration $CV_ITER." >> "$LOG_FP"
+echo "Started training $N_MODELS_PER_CV_ITER models in CV iteration $CV_ITER." >> "$LOG_FP"
 
-for ((MODEL_I=0; MODEL_I<$N_MODELS; MODEL_I++))
+for ((MODEL_I=0; MODEL_I<$N_MODELS_PER_CV_ITER; MODEL_I++))
 do
     MODEL_DIR="$MODELS_DIR"/model$MODEL_I
     mkdir -p MODEL_DIR
@@ -86,7 +86,7 @@ LOG_FP_CREATE_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/create_ensemble_model.log
 ENSEMBLE_MODEL_FP="$ENSEMBLE_MODEL_DIR"/ensemble_avg_model.keras
 
 # create ensemble model
-python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp=$CV_ITER_CONFIG_FP --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &>> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
+python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &>> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
 
 echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP"
 

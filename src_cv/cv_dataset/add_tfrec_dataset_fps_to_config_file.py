@@ -10,17 +10,14 @@ import logging
 import numpy as np
 
 
-def create_config_yaml(cv_iter, cv_iter_dir, config, logger=None):
+def add_tfrec_dataset_fps_to_config_file(cv_iter, config):
 
     # cv iterations dictionary
     config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
     config['datasets_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
-                                  for dataset in cv_iter} for cv_iter in config['data_shards_fns']][cv_iter]
+                              for dataset in cv_iter} for cv_iter in config['data_shards_fns']][cv_iter]
 
-    if logger:
-        logger.info(f'Data set for CV iteration {cv_iter}:\n {config["datasets_fps"]}')
-    with open(cv_iter_dir / 'config_cv.yaml', 'w') as file:
-        yaml.dump(config, file, sort_keys=False)
+    return config
 
 
 if __name__ == "__main__":
@@ -47,4 +44,4 @@ if __name__ == "__main__":
     cv_iter_config['logger'].addHandler(logger_handler)
     cv_iter_config['logger'].info(f'Creating config YAML file for CV iteration in {output_dir_fp}')
 
-    create_config_yaml(cv_i, output_dir_fp, cv_iter_config, logger=cv_iter_config['logger'])
+    add_tfrec_dataset_fps_to_config_file(cv_i, output_dir_fp, cv_iter_config, logger=cv_iter_config['logger'])

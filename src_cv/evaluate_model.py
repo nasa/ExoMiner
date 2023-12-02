@@ -17,10 +17,12 @@ from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models.models_keras import Time2Vec
-from src.utils_train_eval_predict import write_performance_metrics_to_txt_file
+from src.utils_train_eval_predict import write_performance_metrics_to_txt_file, set_tf_data_type_for_features
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):
+
+    config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
     # load models
     if logger is None:

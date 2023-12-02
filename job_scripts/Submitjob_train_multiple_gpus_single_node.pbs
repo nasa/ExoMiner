@@ -14,14 +14,18 @@
 #PBS -J 0-2
 
 # script file path
-SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.py
+# SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.py
 # config file path
-CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/config_train.yaml
+# CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/config_train.yaml
+CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_train.yaml
 # job script for running the Python application to train the model
-TRAIN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.sh
+# TRAIN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.sh
+CV_ITER_RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_cv_iter_modular.sh
 # output directory
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/train_test_2-11-1013
 mkdir -p $OUTPUT_DIR
+N_CV_ITERS=10
+N_MODELS_PER_CV_ITER=10
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4
@@ -32,5 +36,5 @@ NUM_TOTAL_JOBS=$((1 * 4))
 NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
-
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$CV_ITER_RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"

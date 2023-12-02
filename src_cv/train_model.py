@@ -4,6 +4,7 @@ Train a  model.
 
 # 3rd party
 from tensorflow.keras.utils import plot_model
+from tensorflow.keras import callbacks
 import numpy as np
 import argparse
 import yaml
@@ -15,9 +16,13 @@ from src.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models import models_keras
+from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 
 def train_model(config, model_dir, logger=None):
+
+    # set tensorflow data type for features in the feature set
+    config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
     base_model = getattr(models_keras, config['model_architecture'])
 
@@ -77,6 +82,13 @@ def train_model(config, model_dir, logger=None):
         )
     else:
         val_input_fn = None
+
+    # early stopping callback
+    config['callbacks_list'] = {
+        'train': [
+            callbacks.EarlyStopping(**config['callbacks']['early_stopping']),
+                  ],
+    }
 
     # fit the model to the training data
     if logger is None:

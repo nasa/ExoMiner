@@ -14,9 +14,12 @@ import logging
 # local
 from src.utils_dataio import InputFnv2 as InputFn
 from models.models_keras import Time2Vec
+from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 
 def predict_model(config, model_path, res_dir, logger=None):
+
+    config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
     # load models
     if logger is None:
