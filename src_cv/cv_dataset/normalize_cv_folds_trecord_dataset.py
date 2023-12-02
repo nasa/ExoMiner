@@ -148,13 +148,15 @@ def create_cv_dataset(config):
                 config,
             )
 
+    config['logger'].info(f'Finished creating CV data set in {config["cv_dataset_dir"].name}.')
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/cv_dataset/config_create_cv_dataset.yaml')
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/cv_dataset/config_create_cv_dataset.yaml')
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
 
     args = parser.parse_args()

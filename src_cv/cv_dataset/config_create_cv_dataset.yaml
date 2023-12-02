@@ -350,7 +350,7 @@ compute_norm_stats_params:
       standardize: true
     tce_num_transits:
       clip_factor: 20
-      dtype: int
+      dtype: float
       log_transform: false
       log_transform_eps: .nan
       missing_value: null

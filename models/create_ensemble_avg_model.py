@@ -3,37 +3,51 @@ Create ensemble average model.
 """
 
 # 3rd party
+from tensorflow.keras.utils import custom_object_scope
 from pathlib import Path
 from keras.saving import load_model
 import yaml
-from tensorflow.keras.utils import custom_object_scope
+import argparse
 
 # local
 from models.utils_models import create_ensemble
 from models.models_keras import Time2Vec
 
 
-# get models file paths
-models_root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simdata_11-4-2023_1128/models')
-models_fps = [fp / f'{fp.name}.keras' for fp in models_root_dir.iterdir() if fp.is_dir()]
-# load models into a list
-models = []
-custom_objects = {"Time2Vec": Time2Vec}
-with custom_object_scope(custom_objects):
-    for model_i, model_fp in enumerate(models_fps):
-        model = load_model(filepath=model_fp, compile=False)
-        model._name = f'model{model_i}'
-        models.append(model)
+def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
 
-# get features set
-run_params_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simdata_11-4-2023_1128/run_params.yaml')
-with open(run_params_fp, 'r') as run_params_file:
-    run_params = yaml.unsafe_load(run_params_file)
-features = run_params['features_set']
+    # load models into a list
+    models = []
+    custom_objects = {"Time2Vec": Time2Vec}
+    with custom_object_scope(custom_objects):
+        for model_i, model_fp in enumerate(models_fps):
+            model = load_model(filepath=model_fp, compile=False)
+            model._name = f'model{model_i}'
+            models.append(model)
 
-# create ensemble average model
-ensemble_avg_model_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simdata_11-4-2023_1128/ensemble_avg_model.keras')
-ensemble_avg_model = create_ensemble(features, models)
-ensemble_avg_model.save(ensemble_avg_model_fp)
+    # create ensemble average model
+    ensemble_avg_model = create_ensemble(features_set, models)
+    ensemble_avg_model.save(ensemble_fp)
 
-print('Created ensemble average model.')
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
+    parser.add_argument('--ensemble_fp', type=str, help='File path to saved ensemble model.', default=None)
+    parser.add_argument('--models_dir', type=str, help='Models directory', default=None)
+    args = parser.parse_args()
+
+    models_dir_fp = Path(args.models_dir)
+    ensemble_model_fp = Path(args.ensemble_fp)
+
+    # get models file paths
+    models_fps_lst = [fp / f'model.keras' for fp in models_dir_fp.iterdir() if fp.is_dir()]
+
+    # get features set
+    config_fp = Path(args.config_fp)
+    with open(config_fp, 'r') as file:
+        run_params = yaml.unsafe_load(file)
+    features_set_dict = run_params['features_set']
+
+    create_avg_ensemble_model(models_fps_lst, features_set_dict, ensemble_model_fp)
