@@ -1,12 +1,12 @@
 """
-Run set up for CV iteration.
+Run setup for CV iteration.
 """
 
 # 3rd party
 import yaml
 from pathlib import Path
 import argparse
-import logging
+# import logging
 import numpy as np
 
 # 3rd party
@@ -21,7 +21,7 @@ def run_setup_for_cv_iter(cv_iter, cv_iter_dir, config):
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file
     hpo_dir = Path(config['paths']['hpo_dir'])
-    config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir, logger=config['logger'])
+    config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
     config['config'].update(config_hpo_chosen)
 
     with open(cv_iter_dir / 'config_cv.yaml', 'w') as file:
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cv_i = args.cv_iter
-    output_dir_fp = Path(args.model_dir)
+    output_dir_fp = Path(args.output_dir)
     config_fp = Path(args.config_fp)
 
     with(open(args.config_fp, 'r')) as config_file:

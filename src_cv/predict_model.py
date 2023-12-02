@@ -107,7 +107,7 @@ if __name__ == "__main__":
     output_dir = Path(args.output_dir)
 
     with(open(args.config_fp, 'r')) as file:
-        predict_config = yaml.safe_load(file)
+        predict_config = yaml.unsafe_load(file)
 
     # set up logger
     predict_config['logger'] = logging.getLogger(name=f'predict_model')

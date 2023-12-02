@@ -122,7 +122,7 @@ if __name__ == "__main__":
     output_dir = Path(args.output_dir)
 
     with(open(args.config_fp, 'r')) as file:
-        eval_config = yaml.safe_load(file)
+        eval_config = yaml.unsafe_load(file)
 
     # set up logger
     eval_config['logger'] = logging.getLogger(name=f'evaluate_model')

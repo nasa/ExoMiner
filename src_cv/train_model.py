@@ -138,7 +138,7 @@ if __name__ == "__main__":
     config_fp = Path(args.config_fp)
 
     with(open(args.config_fp, 'r')) as file:
-        train_config = yaml.safe_load(file)
+        train_config = yaml.unsafe_load(file)
 
     # set up logger
     train_config['logger'] = logging.getLogger(name=f'train_model')
