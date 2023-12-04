@@ -271,24 +271,25 @@ class InputFnv2(object):
         # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
         #        set variables for buffer size and shuffle seed?
         if self.mode == 'TRAIN':
-            dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
-
-        # # do not repeat the dataset
-        # dataset = dataset.repeat(1)
+            # dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
+            dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)
 
         # map the example parser across the tfrecords dataset to extract the examples and manipulate them
         # (e.g., real-time data augmentation, shuffling, ...)
         # dataset = dataset.map(_example_parser, num_parallel_calls=4)
         # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
         # process asynchronously
-        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE)
+        # dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False)
 
         # creates batches by combining consecutive elements
-        dataset = dataset.batch(self.batch_size)
+        # dataset = dataset.batch(self.batch_size)
+        dataset = dataset.batch(self.batch_size, deterministic=False, num_parallel_calls=tf.data.AUTOTUNE)
 
         # prefetches batches determined by the buffer size chosen
         # parallelized processing in the CPU with model computations in the GPU
-        dataset = dataset.prefetch(max(1, self.prefetch_buffer_size))
+        # dataset = dataset.prefetch(max(1, self.prefetch_buffer_size))
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         return dataset
 

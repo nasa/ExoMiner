@@ -31,7 +31,7 @@ EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/evaluate_model.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/predict_model.py
 
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
-
+# CV_ITER=$GNU_PARALLEL_INDEX
 #if [ $CV_ITER -ge "$7" ]
 #then
 #  echo "CV iteration $CV_ITER is above total number of iterations ($7). Ending process."

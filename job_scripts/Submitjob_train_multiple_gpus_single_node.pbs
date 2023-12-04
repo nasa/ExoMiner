@@ -2,8 +2,10 @@
 # job array
 #PBS -S /bin/bash
 #PBS -N train_exoplnt
-#PBS -l walltime=08:00:00
-#PBS -l select=1:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
+#PBS -l walltime=24:00:00
+# #PBS -l select=1:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
+#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
+# #PBS -l select=3:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
 #PBS -l place=scatter:shared
 #PBS -q dsg_gpu
@@ -22,8 +24,9 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 # TRAIN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/train_model.sh
 CV_ITER_RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/train_test_2-11-1013
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_kepler_diffimg_stdnorm_12-4-1016
 mkdir -p $OUTPUT_DIR
+# echo "job script file path $1"
 N_CV_ITERS=10
 N_MODELS_PER_CV_ITER=10
 
@@ -32,9 +35,11 @@ N_GPUS_TOTAL=4
 
 # number of total jobs per job in job array
 NUM_TOTAL_JOBS=$((1 * 4))
+# NUM_TOTAL_JOBS=10
 # number of jobs run simultaneously
 NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$TRAIN_SH_SCRIPT {} $PBS_ARRAY_INDEX $SCRIPT_FP $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$CV_ITER_RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$CV_ITER_RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"

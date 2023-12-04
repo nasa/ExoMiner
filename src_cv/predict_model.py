@@ -15,11 +15,17 @@ import logging
 from src.utils_dataio import InputFnv2 as InputFn
 from models.models_keras import Time2Vec
 from src.utils_train_eval_predict import set_tf_data_type_for_features
+from src.utils_dataio import get_data_from_tfrecords_for_predictions_table
 
 
 def predict_model(config, model_path, res_dir, logger=None):
 
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
+
+    # get data from TFRecords files to be displayed in the table with predictions
+    data = get_data_from_tfrecords_for_predictions_table(config['datasets'],
+                                                         config['data_fields'],
+                                                         config['datasets_fps'])
 
     # load models
     if logger is None:
@@ -78,15 +84,15 @@ def predict_model(config, model_path, res_dir, logger=None):
     # add predictions to the data dict
     for dataset in config['datasets']:
         if not config['config']['multi_class']:
-            config[dataset]['score'] = scores[dataset].ravel()
+            data[dataset]['score'] = scores[dataset].ravel()
         else:
             for class_label, label_id in config['label_map'].items():
-                config[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
+                data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
 
     # write results to a txt file
     for dataset in config['datasets']:
 
-        data_df = pd.DataFrame(config[dataset])
+        data_df = pd.DataFrame(data[dataset])
 
         # sort in descending order of output
         if not config['config']['multi_class']:
