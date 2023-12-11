@@ -156,7 +156,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/cv_dataset/config_create_cv_dataset.yaml')
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml')
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
 
     args = parser.parse_args()
@@ -164,28 +164,30 @@ if __name__ == '__main__':
     with(open(args.config_fp, 'r')) as file:
         config = yaml.safe_load(file)
 
+    config['rank'] = args.rank
     config['rng'] = np.random.default_rng(seed=config['rnd_seed'])
 
     # set paths
     if args.output_dir is not None:
         config['cv_dataset_dir'] = Path(args.output_dir)
-    for path_name in ['cv_dataset_dir', 'src_tfrec_dir', 'cv_folds_fp']:
+    for path_name in ['cv_dataset_dir', 'cv_folds_fp']:
         config[path_name] = Path(config[path_name])
     config['cv_dataset_dir'].mkdir(exist_ok=True)
 
     # cv iterations dictionary
-    config['data_shards_fns'] = np.load(config['cv_folds_fp'], allow_pickle=True)
-    config['data_shards_fps'] = [{dataset: [config['src_tfrec_dir'] / fold for fold in cv_iter[dataset]]
-                                  for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
+    # config['data_shards_fns'] = np.load(config['cv_folds_fp'], allow_pickle=True)
+    # config['data_shards_fps'] = [{dataset: [config['src_tfrec_dir'] / fold for fold in cv_iter[dataset]]
+    #                               for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
+    with(open(config['cv_folds_fp'], 'r')) as file:  # read default YAML configuration file
+        config['data_shards_fps'] = yaml.unsafe_load(file)
 
     if config['rank'] == 0:
         # save configuration used
         np.save(config['cv_dataset_dir'] / 'run_params.npy', config)
 
         # save the YAML file with parameters that are YAML serializable
-        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['cv_dataset_dir'] / 'run_params.yaml', 'w') as cv_run_file:
-            yaml.dump(json_dict, cv_run_file, sort_keys=False)
+            yaml.dump(config, cv_run_file, sort_keys=False)
 
     if config["rank"] >= len(config['data_shards_fps']):
         print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV of iterations'

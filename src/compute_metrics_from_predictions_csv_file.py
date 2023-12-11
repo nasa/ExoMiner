@@ -131,58 +131,47 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
 if __name__ == '__main__':
 
     # file path to predictions file
-    # predictions_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_predict_inv_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv')
-    # predictions_tbl = pd.read_csv(predictions_tbl_fp)
-    predictions_tbls_fps = [
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_scr2_10-31-2023_1126/cv_iter_0/ensemble_ranked_predictions_predictset.csv'),
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_scr1_10-31-2023_1218/cv_iter_0/ensemble_ranked_predictions_predictset.csv'),
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_inv_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv'),
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_inj3_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv'),
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_inj2_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv'),
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/exominer_predict_inj1_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv')
-    ]
-    predictions_tbl = pd.concat([pd.read_csv(fp) for fp in predictions_tbls_fps], axis=0)
-    predictions_tbl['uid'] = predictions_tbl.apply(lambda x: f'{x["uid"]}-{x["label"]}', axis=1)
-    # predictions_tbl.to_csv(Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/') / 'ensemble_ranked_predictions_predictset_inj1-3_inv_scr1-2.csv', index=False)
-    filter_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_simdata_11-2-2023_1547/models/model1/ranked_predictions_testset.csv')
-    filter_tbl['uid'] = filter_tbl.apply(lambda x: f'{x["uid"]}-{x["label"]}', axis=1)
-    predictions_tbl = predictions_tbl.loc[predictions_tbl['uid'].isin(filter_tbl['uid'])]
+    predictions_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_predict_inv_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv')
+    predictions_tbl = pd.read_csv(predictions_tbl_fp)
 
     # mapping between category label and class id in predictions file
     cats = {
+        # Kepler
         # 'PC': 1,
         # 'AFP': 0,
         # 'NTP': 0,
-        'INJ1': 1,
-        # 'Not INJ1': 0,
-        'INJ2': 0,
-        'INJ3': 0,
-        'INV': 0,
-        'SCR1': 0,
-        'SCR2': 0,
-        # 'SCR3': 0,
+        # Kepler Sim
+        # 'INJ1': 1,
+        # # 'Not INJ1': 0,
+        # 'INJ2': 0,
+        # 'INJ3': 0,
+        # 'INV': 0,
+        # 'SCR1': 0,
+        # 'SCR2': 0,
+        # # 'SCR3': 0,
+        # TESS
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
+        'B': 0,
+        'FP': 0,
+        'J': 0,
+        'FA': 0,
+        'NTP': 0,
     }
     num_thresholds = 1000
     clf_threshold = 0.5
-    top_k_vals = [50, 100, 150, 200, 500, 1000, 5000, 10000, 20000, 30000]  #  40000, 50000, 100000]
+    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]  #  40000, 50000, 100000]
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
     multiclass = False
     multiclass_target_score = None
 
-    # for predictions_tbl_fp in predictions_tbls_fps:
-    #
-    #     predictions_tbl = pd.read_csv(predictions_tbl_fp)
-    #     # saving csv file with computed performance metrics
-    #     # save_fp = predictions_tbl_fp.parent / 'metrics_inj_inv.csv'
-    #     save_fp = Path(predictions_tbl_fp.parent / f'metrics_{predictions_tbl_fp.stem}.csv')
-    #
-    #     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
-    #                                                   class_name, cat_name)
-    #     metrics_df.to_csv(save_fp, index=False)
+    predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
 
-    save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_realdata_predict_simdata_10-31_1600/metrics_inj1-3_inv_scr1-2_onlytestset.csv')
+
+    save_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_all_12-7-2023_1720/metrics.csv')
 
     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
                                                   class_name, cat_name)

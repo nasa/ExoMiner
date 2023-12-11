@@ -370,7 +370,7 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 if __name__ == '__main__':
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_all_12-1-2023_1041')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-05-2023_1443')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
@@ -382,10 +382,10 @@ if __name__ == '__main__':
     tfrec_tbls = []
     for fp in tfrec_fps:
         # print(f'Iterating over {fp}...')
-        try:
-            tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
-        except Exception as e:
-            print(f'Failed to read {fp}.')
+        # try:
+        tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
+        # except Exception as e:
+        #     print(f'Failed to read {fp}.')
             # print(f'Deleting {fp}...')
             # fp.unlink()
             # (fp.parent / f'{fp.name}.csv').unlink()

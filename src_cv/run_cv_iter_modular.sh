@@ -80,6 +80,17 @@ do
     echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_CV_ITER"
 done
 
+#MODEL_IDS_FP="$CV_DIR"/missing_trained_models_cv_iter_"$CV_ITER".txt
+#while read MODEL_I
+#do
+#    MODEL_DIR="$MODELS_DIR"/model$MODEL_I
+#    mkdir -p $MODEL_DIR
+#    LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model_"$MODEL_I".log
+#    echo "Training model $MODEL_I in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
+#    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_dir="$MODEL_DIR" &>> "$LOG_FP_TRAIN_MODEL"
+#    echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_CV_ITER"
+#done < "$MODEL_IDS_FP"
+
 echo "Trained models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 
 echo "Creating ensemble model in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"

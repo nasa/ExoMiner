@@ -8,7 +8,7 @@ import pandas as pd
 
 # cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_run_dirs = [
-    Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_oddeven_dvtceoedpbinstat_4-10-2023_2330'),
+    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_all_12-7-2023_1720/'),
     # Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_ntl_4-5-2023_0007')
                ]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
 for cv_run_dir in cv_run_dirs:
@@ -19,7 +19,7 @@ for cv_run_dir in cv_run_dirs:
 
     cv_iters_tbls = []
     for cv_iter_dir in cv_iters_dirs:
-        ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_testset.csv')
+        ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / 'ensemble_ranked_predictions_testset.csv')
         ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
         cv_iters_tbls.append(ranking_tbl)
 

@@ -53,14 +53,14 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
         logger.info(f'Destination TFRecord file: {tfrec_new_fp}')
 
     if log:
-        logger.info('Start iterating over the fold TCE table...')
+        logger.info('Iterating over the fold TCE table...')
     n_tces_in_shard = 0
     # write examples in a new TFRecord shard
     with tf.io.TFRecordWriter(str(tfrec_new_fp)) as writer:
 
         for tce_i, tce in fold_tce_tbl.iterrows():
 
-            if tce_i + 1 % 50 == 0 and log:
+            if (tce_i + 1) % 50 == 0 and log:
                 logger.info(f'Iterating over fold table {fold_i} {shard_tbl_fp.name} '
                             f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
 

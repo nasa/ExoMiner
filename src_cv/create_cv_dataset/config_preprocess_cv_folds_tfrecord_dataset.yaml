@@ -2,12 +2,12 @@ process_parallel: true  # set to true to run CV iterations in parallel (one per 
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 rank: 0
 # new data set directory; results are saved here
-cv_dataset_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/cv_kepler_q1q17dr25_obs_11-22-2023_2356/tfrecords/eval_normalized
-# source TFRecord directory with the non-normalized CV folds
-src_tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/cv_kepler_q1q17dr25_obs_11-22-2023_2356/tfrecords/eval
+output_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_12-06-2023_1700
+## source TFRecord directory with the non-normalized CV folds
+#src_tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-03-2023_0034_eval_normalized
 # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
 # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
-cv_folds_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/cv_kepler_q1q17dr25_obs_11-22-2023_2356/cv_folds_runs_withval.npy
+cv_folds_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_12-06-2023_1700/cv_folds_runs_withval_keplermerged.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
@@ -359,7 +359,7 @@ compute_norm_stats_params:
 
 norm_examples_params:
   # SET TO 1 WHEN RUNNING ON THE HECC
-  n_processes_norm_data: 10  # number of processes to parallelize data normalization for each CV iteration
+  n_processes_norm_data: 1  # number of processes to parallelize data normalization for each CV iteration
 
   aux_params: # online data augmentation parameters and needed for normalization of some features
     nr_transit_durations: 5  # number of transit durations in the local view

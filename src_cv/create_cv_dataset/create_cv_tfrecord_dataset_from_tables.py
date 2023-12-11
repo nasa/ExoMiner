@@ -15,11 +15,11 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess_s1-s67_12-01-2023_0004')
+    data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-05-2023_1443')
     # TFRecord source directory; non-normalized examples
-    src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_perimgnormdiffimg')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-1-2023_1041_adddiffimg_perimgnormdiffimg')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-1-2023_1041_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
     n_processes = 10
 
     data_dir.mkdir(exist_ok=True)
@@ -50,8 +50,11 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, True) for fold_i, shard_tbl_fp in
             enumerate(shard_tbls_fps)]
+    logger.info(f'Set {len(jobs)} jobs to create TFRecord shards for: {shard_tbls_fps}')
+    logger.info(f'Started creating shards...')
     async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
     pool.close()
+    logger.info(f'Finished creating shards.')
 
     # TCEs present in the fold TCE tables that were not present in the source TFRecords
     tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['uid', 'target_id', 'tce_plnt_num'])

@@ -5,6 +5,7 @@ Computing metrics for each CV fold and for the whole dataset (aggregates all sep
 # 3rd party
 import pandas as pd
 from pathlib import Path
+import tensorflow as tf
 
 # local
 from src.compute_metrics_from_predictions_csv_file import compute_metrics_from_predictions
@@ -23,43 +24,49 @@ cats = {
     'train': {
         'PC': 1,
         'AFP': 0,
-        'NTP': 0,
+        # 'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 2,
-        # 'T-FP': 2,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
+        'B': 0,
+        'FP': 0,
+        'J': 0,
+        'FA': 0,
+        'NTP': 0,
     },
     'val': {
-        'PC': 1,
-        'AFP': 0,
-        'NTP': 0,
+        # 'PC': 1,
+        # 'AFP': 0,
+        # 'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 2,
-        # 'T-FP': 2,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
+        'B': 0,
+        'FP': 0,
+        'J': 0,
+        'FA': 0,
+        'NTP': 0,
     },
     'test': {
-        'PC': 1,
-        'AFP': 0,
-        'NTP': 0,
+        # 'PC': 1,
+        # 'AFP': 0,
+        # 'NTP': 0,
         # 'UNK': 0,
-        # 'T-KP': 1,
-        # 'T-CP': 1,
-        # 'T-EB': 2,
-        # 'T-FP': 2,
-        # 'T-FA': 0,
-        # 'T-NTP': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
+        'B': 0,
+        'FP': 0,
+        'J': 0,
+        'FA': 0,
+        'NTP': 0,
     },
 }
 # cats = None
 class_ids = [0, 1]  # should match unique label ids in 'cats'
-top_k_vals = [50, 100, 200]
+top_k_vals = [50, 100, 200, 500, 1000, 2000, 3000]
 # top_k_vals = {
 #     'train': [50, 100, 250, 500, 1000, 2000],  # , 2500]
 #     'val': [25, 50, 100, 200],
@@ -75,7 +82,7 @@ datasets = [
 # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
 compute_metrics_all_dataset = False
 # if True, computes mean and std metrics' values across CV iterations
-compute_mean_std_metrics = False
+compute_mean_std_metrics = True
 
 # define list of metrics to be computed
 metrics_lst = ['fold', 'auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced_accuracy',
@@ -86,7 +93,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simulated_data_10-13-2023_1530'),
+    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_all_12-7-2023_1720/'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
@@ -94,25 +101,26 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
     for dataset in datasets:
 
-        # set metrics for data set in cv run
-        metrics_lst_dataset = list(metrics_lst)
-        if cats is not None:
-            metrics_lst += [f'recall_{cat}' for cat in cats[dataset]]
-            metrics_lst += [f'n_{cat}' for cat in cats[dataset]]
-
         print(f'Getting metrics for experiment {cv_run_dir} for data set {dataset}...')
 
         # get directories of cv iterations in cv run
         cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
-        cv_iters_tbls = []
-        for cv_iter_dir in cv_iters_dirs:  # iterate through each cv iteration
-
-            ranking_tbl = pd.read_csv(cv_iter_dir / f'ensemble_ranked_predictions_{dataset}set.csv')
+        metrics_df = []
+        for cv_iter_dir in sorted(cv_iters_dirs):  # iterate through each cv iteration
+            print(f'CV iteration {cv_iter_dir}')
+            ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / f'ensemble_ranked_predictions_{dataset}set.csv')
+            ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
 
             # compute metrics
-            metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
-                                                          top_k_vals, class_name, cat_name)
+            with tf.device('/cpu:0'):
+                metrics_df_cv_iter = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds,
+                                                                      clf_threshold, top_k_vals, class_name, cat_name)
+                metrics_df_cv_iter['fold'] = cv_iter_dir.name
+
+            metrics_df.append(metrics_df_cv_iter)
+
+        metrics_df = pd.concat(metrics_df, axis=0)
 
         # mean and std across all CV folds
         if compute_mean_std_metrics:
@@ -128,9 +136,11 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
             data_to_tbl = {col: [] for col in metrics_lst}
 
             ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
+            ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
 
             # compute metrics
             metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
                                                           top_k_vals, class_name, cat_name)
 
-        metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=False)
+        metrics_df.set_index('fold', inplace=True)
+        metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=True)

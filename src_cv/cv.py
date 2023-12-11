@@ -160,8 +160,8 @@ def cv():
 
     # cv iterations dictionary
     config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
-    config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / fold for fold in cv_iter[dataset]]
-                                  for dataset in cv_iter} for cv_iter in config['data_shards_fns']]
+    config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / f'cv_iter_{cv_iter_i}' / 'norm_data' / fold for fold in cv_iter[dataset]]
+                                  for dataset in cv_iter} for cv_iter_i, cv_iter in enumerate(config['data_shards_fns'])]
 
     if config["rank"] >= len(config['data_shards_fps']):
         print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV of iterations'

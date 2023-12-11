@@ -45,6 +45,8 @@ def solve_matches(tbl_fp, match_thr):
     match_cnt_mask = np.broadcast_to(np.expand_dims(thr_mask.sum(axis=1), -1), corr_coef_mat_df.shape) + \
                      np.broadcast_to(np.expand_dims(thr_mask.sum(axis=0), 0), corr_coef_mat_df.shape)
 
+    # matches signals whose matching score between them is above the threshold and it is the only one above it for both
+    # of them
     match_mask = (match_cnt_mask == 2) & thr_mask
 
     idx_row, idx_col = np.where(match_mask)

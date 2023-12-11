@@ -1,5 +1,7 @@
 """
 Run setup for CV iteration.
+- Add file paths to the TFRecord files for a given CV iteration.
+- Load model's hyperparameters from an HPO run.
 """
 
 # 3rd party
@@ -10,7 +12,7 @@ import argparse
 import numpy as np
 
 # 3rd party
-from src_cv.cv_dataset.add_tfrec_dataset_fps_to_config_file import add_tfrec_dataset_fps_to_config_file
+from src_cv.create_cv_dataset.add_tfrec_dataset_fps_to_config_file import add_tfrec_dataset_fps_to_config_file
 from src_hpo.utils_hpo import load_hpo_config
 
 
