@@ -13,12 +13,12 @@ conda activate exoplnt_dl_tf2_13
 
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-LOG_FP=$2/normalize_cv_dataset.log
+LOG_FP=$2/preprocess_cv_dataset.log
 
 export CUDA_VISIBLE_DEVICES=""
 echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." > "$LOG_FP"
 
-LOG_FP=$2/preprocessing_$1.log
+LOG_FP=$2/preprocessing_cv_dataset_$1.log
 
 echo "Starting job $1..." > "$LOG_FP"
 
