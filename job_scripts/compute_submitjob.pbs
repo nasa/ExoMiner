@@ -1,0 +1,20 @@
+#PBS -S /bin/bash
+#PBS -N data_analysis
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=10:mem=10g:model=sky_gpu
+#PBS -l place=scatter:shared
+#PBS -q dsg_gpu@pbspl4
+# #PBS -l select=1:ncpus=10:model=rom_ait
+# #PBS -q debug
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+# source "$HOME"/.bashrc
+# 
+# conda activate exoplnt_dl_tf2_13
+# 
+# export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+# 
+# python 

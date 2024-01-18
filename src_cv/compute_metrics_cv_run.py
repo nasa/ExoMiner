@@ -66,7 +66,7 @@ cats = {
 }
 # cats = None
 class_ids = [0, 1]  # should match unique label ids in 'cats'
-top_k_vals = [50, 100, 200, 500, 1000, 2000, 3000]
+top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
 # top_k_vals = {
 #     'train': [50, 100, 250, 500, 1000, 2000],  # , 2500]
 #     'val': [25, 50, 100, 200],
