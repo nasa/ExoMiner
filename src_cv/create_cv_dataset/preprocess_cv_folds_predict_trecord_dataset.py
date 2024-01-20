@@ -7,13 +7,11 @@ data.
 import numpy as np
 import yaml
 import logging
-import copy
 import argparse
 import multiprocessing
 from pathlib import Path
 
 # local
-from src_preprocessing.compute_normalization_stats_tfrecords import compute_normalization_stats
 from src_preprocessing.normalize_data_tfrecords import normalize_examples
 
 
@@ -29,63 +27,19 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     run_params['cv_iter_dir'] = (run_params['cv_dataset_dir'] / f'cv_iter_{run_params["cv_id"]}')
     run_params['cv_iter_dir'].mkdir(exist_ok=True)
 
-    run_params['norm_dir'] = run_params['cv_iter_dir'] / 'norm_stats'
-    run_params['norm_dir'].mkdir(exist_ok=True)
-
     run_params['norm_data_dir'] = run_params['cv_iter_dir'] / 'norm_data'  # create folder for normalized data set
     run_params['norm_data_dir'].mkdir(exist_ok=True)
 
-    run_params['compute_norm_stats_params']['norm_dir'] = run_params['norm_dir']
-
-    # split training folds into training and validation sets by randomly selecting one of the folds as the validation
-    # set
-    data_shards_fps_eval = copy.deepcopy(data_shards_fps)
-    if run_params['val_from_train']:
-        data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-        data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
-
-    # process data before feeding it to the model (e.g., normalize data based on training set statistics
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
-    # with tf.device('/CPU:0'):
-
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
-
-    p = multiprocessing.Process(target=compute_normalization_stats,
-                                args=(
-                                    data_shards_fps['train'],
-                                    run_params['compute_norm_stats_params'],
-                                ))
-    p.start()
-    p.join()
+    run_params['norm_stats_root_dir'] = run_params['norm_dir']
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
 
     # load normalization statistics
     if run_params['compute_norm_stats_params']['precomputed']:
-        norm_stats = {feature_grp: np.load(norm_stats_fp, allow_pickle=True).item()
-                      for feature_grp, norm_stats_fp
+        norm_stats = {feature_grp: np.load(run_params['norm_stats_root_dir'] / norm_stats_fn, allow_pickle=True).item()
+                      for feature_grp, norm_stats_fn
                       in run_params['compute_norm_stats_params']['precomputed'].iterdir()}
-
-    else:
-        norm_stats = {}
-        if run_params['compute_norm_stats_params']['timeSeriesFDLList'] is not None:
-            norm_stats.update({'fdl_centroid': np.load(run_params['norm_dir'] /
-                                                       'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item()})
-        if run_params['compute_norm_stats_params']['centroidList'] is not None:
-            norm_stats.update({'centroid': np.load(run_params['norm_dir'] /
-                                                   'train_centroid_norm_stats.npy', allow_pickle=True).item()})
-        if run_params['compute_norm_stats_params']['scalarParams'] is not None:
-            scalar_params_norm_info = np.load(run_params['norm_dir'] /
-                                              'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
-            scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
-                                       if k in run_params['compute_norm_stats_params']['scalarParams']}
-            norm_stats.update({'scalar_params': scalar_params_norm_info})
-        if run_params['compute_norm_stats_params']['diff_imgList'] is not None:
-            norm_stats.update({'diff_img': np.load(run_params['norm_dir'] /
-                                                   'train_diffimg_norm_stats.npy', allow_pickle=True).item()})
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:
@@ -101,10 +55,6 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     pool.close()
     for async_result in async_results:
         async_result.get()
-
-    # # compute sample weights
-    # if run_params['training']['sample_weights']:
-    #     compute_sample_weights(data_shards_fps_norm, run_params)
 
 
 def create_cv_dataset(config):
