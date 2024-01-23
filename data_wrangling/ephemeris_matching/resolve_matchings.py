@@ -14,8 +14,11 @@ e.g.
 | row_transit_signal_1   |     corr_row1_col1   |     corr_row1_col2    |
 | row_transit_signal_2   |     corr_row2_col1   |    corr_row2_col2     |
 
-where corr_rowX_colY refers to the correlation score between transit signal in row X and transit signal in row Y. Match
-is accepted between these two if corr_rowX_colY > matching_threshold AND max(corr_rowX_coli) = corr_rowX_colY
+where corr_rowX_colY refers to the correlation score between transit signal in row X and transit signal in row Y.
+Match is accepted between these two if:
+
+-> corr_rowX_colY > matching_threshold AND max(corr_rowX_coli) = corr_rowX_colY
+### (deprecated) -> corr_rowX_colY > matching_threshold AND all corr_rowX_coli <= matching_threshold, for i != Y
 
 """
 
@@ -40,21 +43,29 @@ def solve_matches(tbl_fp, match_thr):
 
     corr_coef_mat_df = pd.read_csv(tbl_fp, index_col=0)  # load correlation table
 
-    thr_mask = corr_coef_mat_df > match_thr  # matches above matching threshold
-    # only match transit signals that only match between them
-    match_cnt_mask = np.broadcast_to(np.expand_dims(thr_mask.sum(axis=1), -1), corr_coef_mat_df.shape) + \
-                     np.broadcast_to(np.expand_dims(thr_mask.sum(axis=0), 0), corr_coef_mat_df.shape)
+    # thr_mask = corr_coef_mat_df > match_thr  # matches above matching threshold
+    # # only match transit signals that only match between them
+    # match_cnt_mask = np.broadcast_to(np.expand_dims(thr_mask.sum(axis=1), -1), corr_coef_mat_df.shape) + \
+    #                  np.broadcast_to(np.expand_dims(thr_mask.sum(axis=0), 0), corr_coef_mat_df.shape)
+    #
+    # # matches signals whose matching score between them is above the threshold and it is the only one above it for both
+    # # of them
+    # match_mask = (match_cnt_mask == 2) & thr_mask
+    #
+    # idx_row, idx_col = np.where(match_mask)
+    # for match_idxs_i in range(len(idx_row)):
+    #     matched_signals['signal_a'].append(corr_coef_mat_df.index[idx_row[match_idxs_i]])
+    #     matched_signals['signal_b'].append(corr_coef_mat_df.columns[idx_col[match_idxs_i]])
+    #     matched_signals['match_corr_coef'].append(corr_coef_mat_df.loc[corr_coef_mat_df.index[idx_row[match_idxs_i]],
+    #                                                                    corr_coef_mat_df.columns[idx_col[match_idxs_i]]])
 
-    # matches signals whose matching score between them is above the threshold and it is the only one above it for both
-    # of them
-    match_mask = (match_cnt_mask == 2) & thr_mask
-
-    idx_row, idx_col = np.where(match_mask)
-    for match_idxs_i in range(len(idx_row)):
-        matched_signals['signal_a'].append(corr_coef_mat_df.index[idx_row[match_idxs_i]])
-        matched_signals['signal_b'].append(corr_coef_mat_df.columns[idx_col[match_idxs_i]])
-        matched_signals['match_corr_coef'].append(corr_coef_mat_df.loc[corr_coef_mat_df.index[idx_row[match_idxs_i]],
-                                                                       corr_coef_mat_df.columns[idx_col[match_idxs_i]]])
+    idxs_cols_maxcorr = np.argmax(corr_coef_mat_df, axis=1)
+    for row_i, idx_col_maxcorr in enumerate(idxs_cols_maxcorr):
+        if corr_coef_mat_df.loc[corr_coef_mat_df.index[row_i], corr_coef_mat_df.columns[idx_col_maxcorr]] > match_thr:
+            matched_signals['signal_a'].append(corr_coef_mat_df.index[row_i])
+            matched_signals['signal_b'].append(corr_coef_mat_df.columns[idx_col_maxcorr])
+            matched_signals['match_corr_coef'].append(
+                corr_coef_mat_df.loc[corr_coef_mat_df.index[row_i], corr_coef_mat_df.columns[idx_col_maxcorr]])
 
     matched_signals = pd.DataFrame(matched_signals)
 
@@ -65,7 +76,7 @@ if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/01-27-2023_1132')
+    matching_root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s68_01-23-2024_1202')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():  # iterate through sector run match tables.

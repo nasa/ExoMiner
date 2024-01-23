@@ -100,7 +100,7 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
 
 def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval,
                                     save_dir, plot_prob=0, plot_dir=None):
-    """ Compute matching correlation coefficient between TCEs and set of objects for each TIC in each sector run.
+    """ Compute matching correlation coefficient between signals/objects for each TIC in each sector run.
 
     Args:
         targets_arr: pandas Series, transit signal a
