@@ -1,8 +1,8 @@
 # experiment directory for the ephemeris matching run
-exp_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s68
+exp_dir: null
 
 # table with start and end timestamps per TIC for different sectors
-sector_timestamps_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/all_sectors_times_btjd_start_end/all_sectors_times_btjd_start_end_s1-s67_9-25-2023_1538_processed.csv
+sector_timestamps_tbl_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/all_sectors_times_btjd_start_end_s1-s67_9-25-2023_1538_processed.csv
 
 # plot probability of binary pulse time series
 plot_prob: 0.01
@@ -11,9 +11,10 @@ plot_prob: 0.01
 sampling_interval: 0.00139  # ~ 2/60/24
 
 # table of signals of interest (usually TCEs)
-tbl_a_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tess_spoc_tces_processed_1-23-2024.csv
-# table of signals to be matched to those in table A (usually objects with dispositions)
-tbl_b_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tois_catalog/tois_exofop_processed_1-23-2024.csv
+tbl_a_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157.csv
 
-n_procs: 10  # number of parallel processes
-n_jobs: 10  # number of jobs
+# table of signals to be matched to those in table A (usually objects with dispositions)
+tbl_b_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/hlsp_tess-ebs_tess_lcf-ffi_s0001-s0026_tess_v1.0_cat_processed.csv
+
+n_procs: 128  # number of parallel processes
+n_jobs: 128  # number of jobs

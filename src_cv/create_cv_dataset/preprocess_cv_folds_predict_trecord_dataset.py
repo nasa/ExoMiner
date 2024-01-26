@@ -15,31 +15,24 @@ from pathlib import Path
 from src_preprocessing.normalize_data_tfrecords import normalize_examples
 
 
-def create_cv_iteration_dataset(data_shards_fps, run_params):
+def create_cv_iteration_dataset(cv_fold_fp, run_params):
     """ Create a normalized data set for a single CV iteration.
 
-    :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
-     respectively, for this CV iteration
+    :param cv_fold_fp: Path, directory with normalization statistics files used to normalize the data.
     :param run_params: dict, configuration parameters for the CV run
     :return:
     """
 
+    # create directory to store normalized data
     run_params['cv_iter_dir'] = (run_params['cv_dataset_dir'] / f'cv_iter_{run_params["cv_id"]}')
     run_params['cv_iter_dir'].mkdir(exist_ok=True)
-
-    run_params['norm_data_dir'] = run_params['cv_iter_dir'] / 'norm_data'  # create folder for normalized data set
-    run_params['norm_data_dir'].mkdir(exist_ok=True)
-
-    run_params['norm_stats_root_dir'] = run_params['norm_dir']
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
 
     # load normalization statistics
-    if run_params['compute_norm_stats_params']['precomputed']:
-        norm_stats = {feature_grp: np.load(run_params['norm_stats_root_dir'] / norm_stats_fn, allow_pickle=True).item()
-                      for feature_grp, norm_stats_fn
-                      in run_params['compute_norm_stats_params']['precomputed'].iterdir()}
+    norm_stats = {feature_grp: np.load(Path(cv_fold_fp) / norm_stats_fn, allow_pickle=True).item()
+                  for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:
@@ -49,8 +42,8 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
                          f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
-            for file in np.concatenate(list(data_shards_fps.values()))]
+    jobs = [(run_params['cv_iter_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
+            for file in config['src_tfrec_fps']]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
     for async_result in async_results:
@@ -58,10 +51,8 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
 
 
 def create_cv_dataset(config):
-    """ Create a normalized data set for a single CV iteration.
+    """ Create a normalized data sets for CV iterations.
 
-    :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
-     respectively, for this CV iteration
     :param config: dict, configuration parameters for the CV run
     :return:
     """
@@ -79,21 +70,21 @@ def create_cv_dataset(config):
         # create each CV iteration in parallel
         cv_id = config['rank']
         if config['logger'] is not None:
-            config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
+            config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["cv_folds_fps"])})')
         config['cv_id'] = cv_id
         create_cv_iteration_dataset(
-            config['data_shards_fps'][cv_id],
+            config['cv_folds_fps'][cv_id],
             config,
         )
     else:
         # create each CV iteration sequentially
-        for cv_id, data_shards_fps in enumerate(config['data_shards_fps']):
+        for cv_id, cv_fold_fp in enumerate(config['cv_folds_fps']):
             if config['logger'] is not None:
                 config['logger'].info(
-                    f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
+                    f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["cv_folds_fps"])})')
             config['cv_id'] = cv_id
             create_cv_iteration_dataset(
-                data_shards_fps,
+                cv_fold_fp,
                 config,
             )
 
@@ -105,7 +96,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml')
+                        default='/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml')
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
 
     args = parser.parse_args()
@@ -119,13 +110,14 @@ if __name__ == '__main__':
     # set paths
     if args.output_dir is not None:
         config['cv_dataset_dir'] = Path(args.output_dir)
-    for path_name in ['cv_dataset_dir', 'cv_folds_fp']:
+
+    for path_name in ['cv_dataset_dir', 'src_tfrec_dir']:
         config[path_name] = Path(config[path_name])
     config['cv_dataset_dir'].mkdir(exist_ok=True)
 
-    # load cv iterations dictionary
-    with(open(config['cv_folds_fp'], 'r')) as file:  # read default YAML configuration file
-        config['data_shards_fps'] = yaml.unsafe_load(file)
+    # set list of paths to TFRecord files in source TFRec directory to be normalized
+    config['src_tfrec_fps'] = [fp for fp in config['src_tfrec_dir'].iterdir()
+                               if fp.name.startswith('shard') and fp.suffix != '.csv']
 
     if config['rank'] == 0:
         # save configuration used
@@ -135,8 +127,8 @@ if __name__ == '__main__':
         with open(config['cv_dataset_dir'] / 'run_params.yaml', 'w') as cv_run_file:
             yaml.dump(config, cv_run_file, sort_keys=False)
 
-    if config["rank"] >= len(config['data_shards_fps']):
+    if config["rank"] >= len(config['cv_folds_fps']):
         print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV of iterations'
-              f'({len(config["data_shards_fps"])}). Ending process.')
+              f'({len(config["cv_folds_fps"])}). Ending process.')
     else:
         create_cv_dataset(config)

@@ -1,15 +1,15 @@
-ngpus_per_node: 1  # 4  # number of GPUs per node; each GPU is used to run a model iteration
+ngpus_per_node: 4  # 4  # number of GPUs per node; each GPU is used to run a model iteration
 rank: null
 # set to true to run multiple models in parallel (one per GPU); only useful when number of GPUs > 1
-train_parallel: false
+train_parallel: true
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_with_kepler_simulated_data_11-1-2023_1750
+  experiment_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/kepler_q1q17dr25_simdata/experiments/exominer_train_inj1_vs_planet_1-24-2024_1341
   # TFRecord directory with the CV folds
-  tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_simdata_11-1-2023_1019_aggregated/agg_src_data_dataset_split-normalized
+  tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/dataset_split_inj1_plnt_normalized
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
+  hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
@@ -308,8 +308,8 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 1  # number of models in the ensemble
-  n_epochs: 1  # number of epochs used to train each model
+  n_models: 10  # number of models in the ensemble
+  n_epochs: 300 # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
@@ -363,7 +363,7 @@ label_map:  # maps label to a label id
 #  '0': 0
 #  '1': 1
 #  # Kepler
-#  PC: 1
+  PC: 1
 #  AFP: 0  # 2
 ###  AFP2: 0
 #  NTP: 0
@@ -393,11 +393,11 @@ label_map:  # maps label to a label id
 #  T-NTP: 0
   # Kepler Simulated
   INJ1: 1
-  INJ2: 0
-  INJ3: 0
-  INV: 0
-  SCR1: 0
-  SCR2: 0
+#  INJ2: 0
+#  INJ3: 0
+#  INV: 0
+#  SCR1: 0
+#  SCR2: 0
 
 datasets:
   - train

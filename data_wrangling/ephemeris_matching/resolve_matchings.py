@@ -42,6 +42,7 @@ def solve_matches(tbl_fp, match_thr):
     matched_signals = {'signal_a': [], 'signal_b': [], 'match_corr_coef': []}
 
     corr_coef_mat_df = pd.read_csv(tbl_fp, index_col=0)  # load correlation table
+    corr_coef_mat_df = corr_coef_mat_df.fillna(-1)  # set NaNs to -1
 
     # thr_mask = corr_coef_mat_df > match_thr  # matches above matching threshold
     # # only match transit signals that only match between them

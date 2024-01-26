@@ -108,10 +108,8 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
 
 
 def create_cv_dataset(config):
-    """ Create a normalized data set for a single CV iteration.
+    """ Create a normalized data sets for CV iterations.
 
-    :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
-     respectively, for this CV iteration
     :param config: dict, configuration parameters for the CV run
     :return:
     """
