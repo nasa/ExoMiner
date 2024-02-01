@@ -22,7 +22,7 @@ def run_setup_for_train_iter(run_dir, config):
     config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
     config['config'].update(config_hpo_chosen)
 
-    with open(run_dir / 'config_cv.yaml', 'w') as file:
+    with open(run_dir / 'config_run.yaml', 'w') as file:
         yaml.dump(config, file, sort_keys=False)
     # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML
     np.save(run_dir / 'config.npy', config)

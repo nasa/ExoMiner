@@ -31,7 +31,7 @@ MODEL_I=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 MODELS_DIR="$EXP_DIR"/models
 mkdir -p "$MODELS_DIR"
 
-MODEL_DIR="$MODEL_DIR"/model$MODEL_I
+MODEL_DIR="$MODELS_DIR"/model$MODEL_I
 mkdir -p "$MODEL_DIR"
 
 LOG_FP_MODEL_I="$MODEL_DIR"/train_run_model_"$MODEL_I".log
@@ -45,15 +45,15 @@ echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_MODEL_I"
 # setup run
 echo "Setting up train iteration." >> "$LOG_FP_MODEL_I"
 python "$SETUP_RUN_FP" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" &>> "$LOG_FP_MODEL_I"
-CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
+CONFIG_FP=$MODEL_DIR/config_run.yaml
 
 # train model
 echo "Started training model $MODEL_I..." >> "$LOG_FP_MODEL_I"
 
-LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model_"$MODEL_I".log
+LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model.log
 echo "Training model $MODEL_I..." >> "$LOG_FP_MODEL_I"
 python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"
-echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_MODEL_I"
+echo "Finished training model $MODEL_I" >> "$LOG_FP_MODEL_I"
 
 # evaluate model
 echo "Started evaluating model $MODEL_I..." >> "$LOG_FP_MODEL_I"
