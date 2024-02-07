@@ -9,21 +9,21 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tess_s1-s67_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_updated_labels_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 
 rnd_seed = 24
 n_folds_eval = 10  # which is also the number of shards
 n_folds_predict = 10
-tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157.csv')
-dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-1-2023_1041_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv')
+dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-6-2023_1039_adddiffimg_perimgnormdiffimg_updatedlabels_2-2-2024/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler
     # 'UNK',
     # TESS
     'UNK',
-    'PC',
-    'APC',
+    # 'PC',
+    # 'APC',
 ]
 
 #%% prepare the shards for CV by splitting the TCE table into shards (n folds)

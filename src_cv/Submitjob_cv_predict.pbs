@@ -20,7 +20,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_predict_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_predict_tess_ffis47-61_1-25-2024_1434
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_predict_tess_ffis47-61_1-26-2024_1146
 mkdir -p $OUTPUT_DIR
 
 # root directory for model file paths

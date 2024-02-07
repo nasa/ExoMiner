@@ -18,7 +18,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/config_tra
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/run_train_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/kepler_q1q17dr25_simdata/experiments/exominer_train_inj1_vs_planet_1-26-2024_1332
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/kepler_q1q17dr25_simdata/experiments/exominer_train_inj1_vs_planet_2-7-2024_1420
 mkdir -p $OUTPUT_DIR
 
 # number of GPUs to be used by this job array

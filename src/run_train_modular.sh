@@ -34,7 +34,7 @@ mkdir -p "$MODELS_DIR"
 MODEL_DIR="$MODELS_DIR"/model$MODEL_I
 mkdir -p "$MODEL_DIR"
 
-LOG_FP_MODEL_I="$MODEL_DIR"/train_run_model_"$MODEL_I".log
+LOG_FP_MODEL_I="$MODEL_DIR"/run_model_"$MODEL_I".log
 
 echo "Starting job for model $MODEL_I..." > "$LOG_FP_MODEL_I"
 

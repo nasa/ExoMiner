@@ -15,11 +15,11 @@ from src_cv.utils_cv import create_shard_fold, create_table_shard_example_locati
 if __name__ == '__main__':
 
     # CV data directory; contains the TCE tables for each fold
-    data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-05-2023_1443')
+    data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_updated_labels_02-02-2024_1210')
     # TFRecord source directory; non-normalized examples
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-1-2023_1041_adddiffimg_perimgnormdiffimg')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-6-2023_1039_adddiffimg_perimgnormdiffimg_updatedlabels_2-2-2024')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-1-2023_1041_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-6-2023_1039_adddiffimg_perimgnormdiffimg_updatedlabels_2-2-2024/shards_tbl.csv')
     n_processes = 10
 
     data_dir.mkdir(exist_ok=True)
@@ -50,10 +50,11 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, True) for fold_i, shard_tbl_fp in
             enumerate(shard_tbls_fps)]
-    logger.info(f'Set {len(jobs)} jobs to create TFRecord shards for: {shard_tbls_fps}')
+    logger.info(f'Set {len(jobs)} jobs to create TFRecord shards.')
     logger.info(f'Started creating shards...')
     async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
     pool.close()
+    pool.join()
     logger.info(f'Finished creating shards.')
 
     # TCEs present in the fold TCE tables that were not present in the source TFRecords

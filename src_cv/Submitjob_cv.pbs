@@ -20,7 +20,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_localandglobalfluxconvonly_plus_scalarbranches_all_12-27-2023_0900
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_targets_maxsectors_all_2-5-2024_1437
 mkdir -p $OUTPUT_DIR
 
 N_CV_ITERS=10  # number of CV folds/iterations

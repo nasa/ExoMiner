@@ -6,10 +6,10 @@ paths:
   # experiment directory; results are saved here
   experiment_root_dir: null
   # TFRecord directory with the CV folds
-  tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-06-2023_1147/tfrecords/eval_normalized
+  tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_targets_maxsectors_2-5-2023_1250 
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
-  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-06-2023_1147/cv_folds_runs_withval.npy
+  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_2-2-2023_1308/cv_folds_runs_withval_trainkepler.npy
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
@@ -54,13 +54,13 @@ config:
         - unfolded_local_flux_view_fluxnorm
       scalars:   # null
         - tce_num_transits_norm
-#        - mission
+        - mission
     global_flux:
       views:
         - global_flux_view_fluxnorm
         - global_flux_view_fluxnorm_var
-      scalars: null
-#        - mission
+      scalars:  # null
+        - mission
     local_flux:
       views:
         - local_flux_view_fluxnorm
@@ -72,7 +72,7 @@ config:
          - tce_max_sngle_ev_norm
          - tce_robstat_norm
          - tce_model_chisq_norm
-#         - mission
+         - mission
     local_weak_secondary:
       views:
 #         - local_weak_secondary_view_fluxnorm
@@ -85,21 +85,21 @@ config:
         - tce_maxmes_norm
 #        - wst_depth_norm
         - tce_prad_norm
-#        - mission
+        - mission
     local_centroid:
-       views:
-         - local_centr_view_std_noclip
-         - local_centr_view_std_noclip_var
-       scalars:  # null
-#        - tce_fwm_stat_norm  # kepler only
-         - tce_dikco_msky_norm
-         - tce_dikco_msky_err_norm
-#        - tce_dicco_msky_norm
-#        - tce_dicco_msky_err_norm
-         - mag_cat_norm
-         - ruwe_norm
-         - mag_shift_norm
-#        - mission
+      views:
+        - local_centr_view_std_noclip
+        - local_centr_view_std_noclip_var
+      scalars:  # null
+#       - tce_fwm_stat_norm  # kepler only
+        - tce_dikco_msky_norm
+        - tce_dikco_msky_err_norm
+#       - tce_dicco_msky_norm
+#       - tce_dicco_msky_err_norm
+#       - mag_cat_norm
+        - ruwe_norm
+        - mag_shift_norm
+        - mission
 ###    global_centroid:
 ###      views:
 ####        - global_centr_fdl_view_norm
@@ -119,59 +119,59 @@ config:
       views:
         - local_momentum_dump_view
         - local_momentum_dump_view_var
-      scalars: null
-#                      - mission
+      scalars:  # null
+        - mission
   scalar_branches: # null
-   stellar:
-     - tce_sdens_norm
-     - tce_steff_norm
-     - tce_smet_norm
-     - tce_slogg_norm
-     - tce_smass_norm
-     - tce_sradius_norm
-#      - mission
-   dv_tce_fit:
-     - boot_fap_norm
-     - tce_cap_stat_norm
-     - tce_hap_stat_norm
-##      - tce_cap_hap_stat_diff_norm
-##      - tce_rb_tcount0n_norm  # kepler only
-##      - tce_prad_norm
-     - tce_period_norm
-#      - mission
+    stellar:
+      - tce_sdens_norm
+      - tce_steff_norm
+      - tce_smet_norm
+      - tce_slogg_norm
+      - tce_smass_norm
+      - tce_sradius_norm
+      - mission
+    dv_tce_fit:
+      - boot_fap_norm
+      - tce_cap_stat_norm
+      - tce_hap_stat_norm
+      ##      - tce_cap_hap_stat_diff_norm
+      ##      - tce_rb_tcount0n_norm  # kepler only
+      ##      - tce_prad_norm
+      - tce_period_norm
+      - mission
 
-#   centroid_scalars:
-#     - tce_dikco_msky_norm
-#     - tce_dikco_msky_err_norm
-#     - ruwe_norm
-#     - mag_shift_norm
-#   secondary_scalars:
-#     - tce_ptemp_stat_norm
-#     - tce_albedo_stat_norm
-#     - tce_maxmes_norm
-##     - wst_depth_norm
-#     - tce_prad_norm
-#   odd_even_scalars:
-#     - tce_bin_oedp_stat_norm
+  #   centroid_scalars:
+  #     - tce_dikco_msky_norm
+  #     - tce_dikco_msky_err_norm
+  #     - ruwe_norm
+  #     - mag_shift_norm
+  #   secondary_scalars:
+  #     - tce_ptemp_stat_norm
+  #     - tce_albedo_stat_norm
+  #     - tce_maxmes_norm
+  ##     - wst_depth_norm
+  #     - tce_prad_norm
+  #   odd_even_scalars:
+  #     - tce_bin_oedp_stat_norm
 
   transformer_branches: null
     ##      global:
     ##        - unfolded_global_flux_view_fluxnorm
-#    local:
-#      - unfolded_local_flux_view_fluxnorm
-  diff_img_branch:  null
-#     imgs:
-#      - diff_imgs_std_trainset
-#      - oot_imgs_std_trainset
-#       - diff_imgs_stdnorm
-#       - oot_imgs_stdnorm
-#       - target_imgs
-#     imgs_scalars:
-#       - quality
-#     scalars:
-#       - mag_shift_norm
-# #      - mission
-
+    #    local:
+    #      - unfolded_local_flux_view_fluxnorm
+  diff_img_branch: # null
+    imgs:
+      - diff_imgs_std_trainset
+      - oot_imgs_std_trainset
+      #       - diff_imgs_stdnorm
+      #       - oot_imgs_stdnorm
+      - target_imgs
+    imgs_scalars:
+      - quality
+    scalars:
+      - mag_shift_norm
+      - mission
+  #
   # transformer hyperparameters ---------
   #if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
   use_transformer: false  # set to true when using N-d data (N>1)
@@ -302,19 +302,19 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
 #   diff_imgs_stdnorm: { 'dim': [ 33, 33, 5 ], 'dtype': float }
 #   oot_imgs_stdnorm: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#   target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#   quality: { 'dim': [ 5, 1], 'dtype': float }
+  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  quality: { 'dim': [ 5, 1], 'dtype': float }
 
   # momentum dump
   local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
   local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
-#  # mission flag
-#  mission: { 'dim': [ 1, ], 'dtype': float }
+  # mission flag
+  mission: { 'dim': [ 1, ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -383,17 +383,17 @@ callbacks:
 
 label_map:  # maps label to a label id
 #  # Kepler
-#  PC: 1
-#  AFP: 0
+  PC: 1
+  AFP: 0
 #  NTP: 0
   # TESS
   KP: 1
   CP: 1
   FP: 0
-  FA: 0
+#  FA: 0
   EB: 0
-  B: 0
-  J: 0
+#  B: 0
+#  J: 0
   NTP: 0
 
 datasets:

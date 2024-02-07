@@ -22,6 +22,10 @@ def run_setup_for_train_iter(run_dir, config):
     config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
     config['config'].update(config_hpo_chosen)
 
+    # load data sets file paths from yaml file
+    with open(config['paths']['datasets_fps_yaml'], 'r') as file:
+        config['datasets_fps'] = yaml.unsafe_load(file)
+
     with open(run_dir / 'config_run.yaml', 'w') as file:
         yaml.dump(config, file, sort_keys=False)
     # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML

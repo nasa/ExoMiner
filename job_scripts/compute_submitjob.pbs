@@ -1,10 +1,11 @@
 # Used to run interactive jobs
 #PBS -S /bin/bash
 #PBS -N data_analysis
-#PBS -l walltime=08:00:00
-#PBS -l select=1:ncpus=10:mem=10g:model=sky_gpu
+#PBS -l walltime=18:00:00
+#PBS -l select=1:ncpus=36:ngpus=4:mem=180g:model=sky_gpu
 #PBS -l place=scatter:shared
 #PBS -q dsg_gpu@pbspl4
+# PBS -q v100@pbspl4
 # #PBS -l select=1:ncpus=10:model=rom_ait
 # #PBS -q debug
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.out

@@ -13,14 +13,14 @@
 #PBS -m bea
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/spoc_ffi/cv_tfrecords_tess_spoc_ffi_s47-61_excludedtcesnounfoldedlocal_1-26-2024_1115
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_targets_maxsectors_2-5-2023_1250
 mkdir -p $OUTPUT_DIR
 
 # script file path
-SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocess_cv_folds_predict_trecord_dataset.py
+SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocess_cv_folds_trecord_dataset.py
 # SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/cv_dataset/create_cv_tfrecord_dataset_from_tables.py
 # config file path
-CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
+CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml
 # job script for running preprocessing pipeline
 PREPROCESS_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocessing_job.sh
 
