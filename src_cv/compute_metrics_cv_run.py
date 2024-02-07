@@ -29,10 +29,10 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        'B': 0,
+        # 'B': 0,
         'FP': 0,
-        'J': 0,
-        'FA': 0,
+        # 'J': 0,
+        # 'FA': 0,
         'NTP': 0,
     },
     'val': {
@@ -43,10 +43,10 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        'B': 0,
+        # 'B': 0,
         'FP': 0,
-        'J': 0,
-        'FA': 0,
+        # 'J': 0,
+        # 'FA': 0,
         'NTP': 0,
     },
     'test': {
@@ -57,10 +57,10 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        'B': 0,
+        # 'B': 0,
         'FP': 0,
-        'J': 0,
-        'FA': 0,
+        # 'J': 0,
+        # 'FA': 0,
         'NTP': 0,
     },
 }
@@ -80,7 +80,7 @@ datasets = [
 
 # compute metrics for the whole dataset by combining the test set folds from all CV iterations
 # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
-compute_metrics_all_dataset = False
+compute_metrics_all_dataset = True
 # if True, computes mean and std metrics' values across CV iterations
 compute_mean_std_metrics = True
 
@@ -93,7 +93,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_all_12-7-2023_1720/'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_keplertrain_all_2-2-2024_1405'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
@@ -130,17 +130,21 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
             std_df['fold'] = 'std'
             metrics_df = pd.concat([metrics_df, mean_df, std_df])
 
-        if dataset == 'test' and compute_metrics_all_dataset:
-            # compute metrics for the whole dataset by combining the test set folds from all CV iterations
-            # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
-            data_to_tbl = {col: [] for col in metrics_lst}
-
-            ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
-            ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
-
-            # compute metrics
-            metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
-                                                          top_k_vals, class_name, cat_name)
-
         metrics_df.set_index('fold', inplace=True)
         metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=True)
+
+if dataset == 'test' and compute_metrics_all_dataset:
+    # compute metrics for the whole dataset by combining the test set folds from all CV iterations
+    # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
+    data_to_tbl = {col: [] for col in metrics_lst}
+
+    ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
+    ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
+
+    # compute metrics
+    metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
+                                                  top_k_vals, class_name, cat_name)
+    metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}_all.csv', index=False)
+
+
+

@@ -8,6 +8,7 @@ from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy
 from sklearn.metrics import balanced_accuracy_score, average_precision_score
 import numpy as np
 from pathlib import Path
+import tensorflow as tf
 
 
 def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
@@ -130,9 +131,7 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
 
 if __name__ == '__main__':
 
-    # file path to predictions file
-    predictions_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_predict_inv_10-16-2023_1041/cv_iter_0/ensemble_ranked_predictions_predictset.csv')
-    predictions_tbl = pd.read_csv(predictions_tbl_fp)
+    tf.config.set_visible_devices([], 'GPU')
 
     # mapping between category label and class id in predictions file
     cats = {
@@ -153,10 +152,10 @@ if __name__ == '__main__':
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        'B': 0,
+        # 'B': 0,
         'FP': 0,
-        'J': 0,
-        'FA': 0,
+        # 'J': 0,
+        # 'FA': 0,
         'NTP': 0,
     }
     num_thresholds = 1000
@@ -168,11 +167,15 @@ if __name__ == '__main__':
     multiclass = False
     multiclass_target_score = None
 
+    # file path to predictions file
+    predictions_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_keplertrain_targets_maxsectors_all_2-5-2024_1437/ensemble_ranked_predictions_allfolds.csv')
+    # save path
+    save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_keplertrain_targets_maxsectors_all_2-5-2024_1437/metrics_objs_maxsector_maxmes_only.csv')
+
+    predictions_tbl = pd.read_csv(predictions_tbl_fp)
+
     predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
-
-
-    save_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_all_12-7-2023_1720/metrics.csv')
-
     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
                                                   class_name, cat_name)
+
     metrics_df.to_csv(save_fp, index=False)
