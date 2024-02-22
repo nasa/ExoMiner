@@ -23,6 +23,6 @@ echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." > "$LOG_FP"
 echo "Starting job $1..." >> "$LOG_FP"
 
 # run preprocessing pipeline
-python "$3" --rank="$1" --output_dir="$2" --config_fp="$4" &>> "$LOG_FP"
+python "$3" --rank="$1" --output_dir="$2" --log_dir="$LOG_DIR" --config_fp="$4" &>> "$LOG_FP"
 
 echo "Finished job $1..." >> "$LOG_FP"

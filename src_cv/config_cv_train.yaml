@@ -6,7 +6,7 @@ paths:
   # experiment directory; results are saved here
   experiment_root_dir: null
   # TFRecord directory with the CV folds
-  tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_targets_maxsectors_2-5-2023_1250 
+  tfrec_dir: null  # /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/cv_keplerq1q17dr25_obsplanets_siminj1_data_02-22-2024_1155/eval_normalized
   # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
   # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
   cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_2-2-2023_1308/cv_folds_runs_withval_trainkepler.npy

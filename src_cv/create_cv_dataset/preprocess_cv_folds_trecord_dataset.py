@@ -26,7 +26,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     :param run_params: dict, configuration parameters for the CV run
     :return:
     """
-
+    # run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Data shards fps:\n{data_shards_fps}')
     run_params['cv_iter_dir'] = (run_params['cv_dataset_dir'] / f'cv_iter_{run_params["cv_id"]}')
     run_params['cv_iter_dir'].mkdir(exist_ok=True)
 
@@ -93,6 +93,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
                                   f'statistics were loaded.')
         raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
                          f'statistics were loaded.')
+    # run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Data shards fps:\n{list(data_shards_fps_eval.values())}')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
     jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
@@ -116,7 +117,7 @@ def create_cv_dataset(config):
 
     # set up logger
     config['logger'] = logging.getLogger(name=f'cv_run_rank_{config["rank"]}')
-    logger_handler = logging.FileHandler(filename=config['cv_dataset_dir'] / f'cv_iter_{config["rank"]}.log', mode='w')
+    logger_handler = logging.FileHandler(filename=config['cv_log_dir'] / f'cv_iter_{config["rank"]}.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     config['logger'].setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -155,6 +156,7 @@ if __name__ == '__main__':
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
                         default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml')
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
+    parser.add_argument('--log_dir', type=str, help='Log directory', default=None)
 
     args = parser.parse_args()
 
@@ -167,6 +169,10 @@ if __name__ == '__main__':
     # set paths
     if args.output_dir is not None:
         config['cv_dataset_dir'] = Path(args.output_dir)
+    if args.output_dir is not None:
+        config['cv_log_dir'] = Path(args.log_dir)
+    else:
+        config['cv_log_dir'] = Path(args.output_dir)
     for path_name in ['cv_dataset_dir', 'cv_folds_fp']:
         config[path_name] = Path(config[path_name])
     config['cv_dataset_dir'].mkdir(exist_ok=True)

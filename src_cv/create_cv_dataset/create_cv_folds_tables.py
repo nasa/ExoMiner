@@ -9,19 +9,19 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_updated_labels_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/cv_keplerq1q17dr25_obsplanets_siminj1_data_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
 
 rnd_seed = 24
 n_folds_eval = 10  # which is also the number of shards
 n_folds_predict = 10
-tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv')
-dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_s1-s67_all_12-6-2023_1039_adddiffimg_perimgnormdiffimg_updatedlabels_2-2-2024/shards_tbl.csv')
+# tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/Kepler/Q1-Q17_DR25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed_uidswithlabels.csv')
+dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/tfrecords_kepler_q1q17dr25obs_planets_sim_inj1_2-22-2024_1115/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler
     # 'UNK',
     # TESS
-    'UNK',
+    # 'UNK',
     # 'PC',
     # 'APC',
 ]
@@ -30,12 +30,12 @@ unlabeled_cats = [
 
 data_dir.mkdir(exist_ok=True)
 
-shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
-shard_tbls_dir.mkdir(exist_ok=True, parents=True)
+shard_tbls_root_dir = data_dir / 'shard_tables'
+shard_tbls_root_dir.mkdir(exist_ok=True, parents=True)
 
 # set up logger
 logger = logging.getLogger(name='prepare_cv_tables_run')
-logger_handler = logging.FileHandler(filename=data_dir / f'prepare_cv_tables_run.log', mode='w')
+logger_handler = logging.FileHandler(filename=shard_tbls_root_dir / f'prepare_cv_tables_run.log', mode='w')
 logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
 logger.setLevel(logging.INFO)
 logger_handler.setFormatter(logger_formatter)
@@ -50,9 +50,9 @@ logger.info(f'Number of folds used for CV: {n_folds_eval}')
 # n_models = 10
 # logger.info(f'Number of models in the ensemble: {n_models}')
 
-# load the TCE table
-logger.info(f'Reading TCE table {tce_tbl_fp}')
-tce_tbl = pd.read_csv(tce_tbl_fp)
+# # load the TCE table
+# logger.info(f'Reading TCE table {tce_tbl_fp}')
+# tce_tbl = pd.read_csv(tce_tbl_fp)
 
 # load table with TCEs used in the dataset
 dataset_tbl = pd.read_csv(dataset_tbl_fp)
@@ -68,14 +68,14 @@ logger.info(f'Using data set table: {dataset_tbl_fp}')
 logger.info(f'Removing examples not in the data set... (total number of examples in dataset before removing '
             f'examples: {len(dataset_tbl)})')
 
-tces_found_in_src_dataset = tce_tbl['uid'].isin(dataset_tbl['uid'])
-logger.info(f'TCEs found in source data set that are in the TCE table: {tces_found_in_src_dataset.sum()} (out of {len(tce_tbl)})')
-tce_tbl_dataset = tce_tbl.loc[tces_found_in_src_dataset]
-# removing unlabeled examples or examples not used for evaluation
-used_tces = ~tce_tbl_dataset['label'].isin(unlabeled_cats)
-working_tce_tbl = tce_tbl_dataset.loc[used_tces]
+# tces_found_in_src_dataset = tce_tbl['uid'].isin(dataset_tbl['uid'])
+# logger.info(f'TCEs found in source data set that are in the TCE table: {tces_found_in_src_dataset.sum()} (out of {len(tce_tbl)})')
+# tce_tbl_dataset = tce_tbl.loc[tces_found_in_src_dataset]
+# # removing unlabeled examples or examples not used for evaluation
+# used_tces = ~tce_tbl_dataset['label'].isin(unlabeled_cats)
+working_tce_tbl = dataset_tbl  # tce_tbl_dataset.loc[used_tces]
 
-logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
+# logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
 
 logger.info(f'Total number of examples in dataset after removing examples: {len(working_tce_tbl)}')
 
@@ -91,7 +91,7 @@ working_tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
 # logger.info('Shuffling TCE table per TCE...')
 # tce_tbl = tce_tbl.sample(frac=1, random_state=rnd_seed).reset_index(drop=True)
 
-working_tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False)
+working_tce_tbl.to_csv(shard_tbls_root_dir / f'labeled_dataset_tbl_shuffled.csv', index=False)
 
 # # define test set for paper dataset as one of the folds
 # test_set_tbl = pd.read_csv(dataset_tbls_dir / 'testset.csv')
@@ -105,6 +105,9 @@ working_tce_tbl.to_csv(data_dir / f'{tce_tbl_fp.stem}_shuffled.csv', index=False
 # split TCE table into n fold tables (all TCEs from the same target star should be in the same table)
 logger.info(f'Split TCE table into {n_folds_eval} fold TCE tables...')
 
+shard_tbls_eval_dir = data_dir / 'shard_tables' / 'eval'
+shard_tbls_eval_dir.mkdir(exist_ok=True, parents=True)
+
 # split at the target star level
 logger.info('Splitting at target star level...')
 target_star_grps = [df for _, df in working_tce_tbl.groupby('target_id')]
@@ -114,7 +117,7 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
     # shuffle TCEs in each fold
     fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
                                        axis=0).reset_index(drop=True)
-    fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+    fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
 # # split at the TCE level
 # logger.info('Splitting at TCE level...')
@@ -124,26 +127,24 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
 #     # shuffle TCEs in each fold
 #     fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng.integers(10),
 #                                        axis=0).reset_index(drop=True)
-#     fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+#     fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
-# tces not in the eval set
-logger.info('Splitting at TCE level...')
-shard_tbls_dir = data_dir / 'shard_tables' / 'predict'
-shard_tbls_dir.mkdir(exist_ok=True, parents=True)
-unused_tces = ~tce_tbl_dataset['uid'].isin(working_tce_tbl['uid'])
-logger.info(f'Number of TCEs in the predict set: {unused_tces.sum()}')
-tce_tbl_noteval = tce_tbl_dataset.loc[unused_tces]
-tce_tbl_noteval.to_csv(data_dir / f'examples_noteval.csv', index=False)
-tce_splits = np.array_split(range(len(tce_tbl_noteval)), n_folds_predict, axis=0)
-for fold_i, tce_split in enumerate(tce_splits):
-    fold_tce_tbl = tce_tbl_noteval[tce_split[0]:tce_split[-1] + 1]
-    fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold{fold_i}.csv', index=False)
+# # tces not in the eval set
+# logger.info('Splitting at TCE level...')
+# shard_tbls_predict_dir = data_dir / 'shard_tables' / 'predict'
+# shard_tbls_predict_dir.mkdir(exist_ok=True, parents=True)
+# unused_tces = ~tce_tbl_dataset['uid'].isin(working_tce_tbl['uid'])
+# logger.info(f'Number of TCEs in the predict set: {unused_tces.sum()}')
+# tce_tbl_noteval = tce_tbl_dataset.loc[unused_tces]
+# tce_tbl_noteval.to_csv(data_dir / f'examples_noteval.csv', index=False)
+# tce_splits = np.array_split(range(len(tce_tbl_noteval)), n_folds_predict, axis=0)
+# for fold_i, tce_split in enumerate(tce_splits):
+#     fold_tce_tbl = tce_tbl_noteval[tce_split[0]:tce_split[-1] + 1]
+#     fold_tce_tbl.to_csv(shard_tbls_predict_dir / f'unlabeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
 #%% Check distribution of examples per fold
 
-shard_tbls_dir = data_dir / 'shard_tables' / 'eval'
-
-for tbl_fp in shard_tbls_dir.iterdir():
+for tbl_fp in shard_tbls_eval_dir.iterdir():
 
     tbl = pd.read_csv(tbl_fp)
     print(f'Fold {tbl_fp}')

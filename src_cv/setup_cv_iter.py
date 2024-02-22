@@ -54,13 +54,6 @@ if __name__ == "__main__":
     with(open(args.config_fp, 'r')) as config_file:
         cv_iter_config = yaml.safe_load(config_file)
 
-    # # set up logger
-    # cv_iter_config['logger'] = logging.getLogger(name=f'create_config_cv_iter')
-    # logger_handler = logging.FileHandler(filename=output_dir_fp / 'create_config_cv_iter.log', mode='w')
-    # logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
-    # cv_iter_config['logger'].setLevel(logging.INFO)
-    # logger_handler.setFormatter(logger_formatter)
-    # cv_iter_config['logger'].addHandler(logger_handler)
-    # cv_iter_config['logger'].info(f'Creating config YAML file for CV iteration in {output_dir_fp}')
+    print(f'Creating config YAML file for CV iteration in {output_dir_fp}')
 
     run_setup_for_cv_iter(cv_i, output_dir_fp, cv_iter_config)
