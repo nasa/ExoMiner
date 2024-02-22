@@ -5,6 +5,7 @@
 #PBS -l walltime=02:00:00
 #PBS -l select=1:ncpus=10:model=rom_ait
 # #PBS -l select=1:ncpus=10:mem=360g:model=sky_gpu
+# #PBS -l place=scatter:shared
 #PBS -q debug
 # #PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_preprocess_data_cv.out
@@ -13,14 +14,13 @@
 #PBS -m bea
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_targets_maxsectors_2-5-2023_1250
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/tfrecords/eval_normalized_by_obs_with_tce_fwm_stat
 mkdir -p $OUTPUT_DIR
 
 # script file path
-SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocess_cv_folds_trecord_dataset.py
-# SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/cv_dataset/create_cv_tfrecord_dataset_from_tables.py
+SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocess_cv_folds_predict_trecord_dataset.py
 # config file path
-CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml
+CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
 # job script for running preprocessing pipeline
 PREPROCESS_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocessing_job.sh
 

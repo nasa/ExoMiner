@@ -21,7 +21,8 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     """ Create a normalized data set for a single CV iteration.
 
     :param data_shards_fps: dict, 'train' and 'test' keys with TFRecords folds used as training and test sets,
-     respectively, for this CV iteration
+     respectively, for this CV iteration. 'val' is optional (if `run_params['val_from_train']` is set to True, then a
+     random shard is chosen as validation fold from the training set folds).
     :param run_params: dict, configuration parameters for the CV run
     :return:
     """
@@ -47,7 +48,6 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
-    # with tf.device('/CPU:0'):
 
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
@@ -96,7 +96,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
     jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
-            for file in np.concatenate(list(data_shards_fps.values()))]
+            for file in np.concatenate(list(data_shards_fps_eval.values()))]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
     for async_result in async_results:

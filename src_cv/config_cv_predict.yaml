@@ -178,6 +178,13 @@ label_map:  # maps label to a label id
   B: 0
   J: 0
   NTP: 0
+  # Kepler Sim
+  INJ1: 1
+  INJ2: 0
+  INJ3: 0
+  SCR1: 0
+  SCR2: 0
+  INV: 0
 
 datasets:
   - predict
