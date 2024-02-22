@@ -22,46 +22,73 @@ cat_name = 'label'
 cats = {
     # data set (since each data set might contain different populations of examples)
     'train': {
-        'PC': 1,
-        'AFP': 0,
+        # Kepler
+        # 'PC': 1,
+        # 'AFP': 0,
         # 'NTP': 0,
         # 'UNK': 0,
-        'KP': 1,
-        'CP': 1,
-        'EB': 0,
+        # TESS
+        # 'KP': 1,
+        # 'CP': 1,
+        # 'EB': 0,
         # 'B': 0,
-        'FP': 0,
+        # 'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        # 'NTP': 0,
+        # Kepler Simulated
+        'INJ1': 1,
+        'INJ2': 0,
+        'INJ3': 0,
+        'SCR1': 0,
+        'SCR2': 0,
+        'INV': 0,
     },
     'val': {
+        # Kepler
         # 'PC': 1,
         # 'AFP': 0,
         # 'NTP': 0,
         # 'UNK': 0,
-        'KP': 1,
-        'CP': 1,
-        'EB': 0,
+        # TESS
+        # 'KP': 1,
+        # 'CP': 1,
+        # 'EB': 0,
         # 'B': 0,
-        'FP': 0,
+        # 'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        # 'NTP': 0,
+        # Kepler Simulated
+        'INJ1': 1,
+        'INJ2': 0,
+        'INJ3': 0,
+        'SCR1': 0,
+        'SCR2': 0,
+        'INV': 0,
     },
     'test': {
+        # Kepler
         # 'PC': 1,
         # 'AFP': 0,
         # 'NTP': 0,
         # 'UNK': 0,
-        'KP': 1,
-        'CP': 1,
-        'EB': 0,
+        # TESS
+        # 'KP': 1,
+        # 'CP': 1,
+        # 'EB': 0,
         # 'B': 0,
-        'FP': 0,
+        # 'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        # 'NTP': 0,
+        # Kepler Simulated
+        'INJ1': 1,
+        'INJ2': 0,
+        'INJ3': 0,
+        'SCR1': 0,
+        'SCR2': 0,
+        'INV': 0,
     },
 }
 # cats = None
@@ -93,7 +120,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_keplertrain_all_2-2-2024_1405'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_nodiffimg_2-13-2024_1039'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 

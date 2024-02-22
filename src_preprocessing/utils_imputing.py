@@ -34,46 +34,75 @@ def impute_binned_ts(binned_phase, binned_ts, phase, phasefolded_ts, period, dur
 
     # get empty bins indices (nan)
     inds_nan_bins = np.isnan(binned_ts)
+
     # get indices for in-transit bins
     inds_it_binned_ts = (binned_phase >= tmin_it) & (binned_phase <= tmax_it)
-    # get oot missing bin values
-    inds_oot_nan = np.logical_and(inds_nan_bins, ~inds_it_binned_ts)
     # get it missing bin values
     inds_it_nan = np.logical_and(inds_nan_bins, inds_it_binned_ts)
+    inds_it_valid = np.logical_and(~inds_nan_bins, inds_it_binned_ts)
+
+    inds_oot_binned_ts = ~inds_it_binned_ts
+    # get oot missing bin values
+    inds_oot_nan = np.logical_and(inds_nan_bins, inds_oot_binned_ts)
+    # get oot not-missing bin values
+    inds_oot_valid = np.logical_and(inds_oot_binned_ts, ~inds_oot_nan)
+
     inds_nan = {'oot': inds_oot_nan, 'it': inds_it_nan}
 
     # get out-of-transit cadences in the phase folded time series
     inds_oot_phasefolded_ts = ~((phase >= tmin_it) & (phase <= tmax_it))
     # estimate Gaussian noise statistics used to impute oot bins
-    if np.any(inds_oot_phasefolded_ts):
-        # set Gaussian noise based on out-of-transit phase folded time series statistics
-        mu = bin_fn(phasefolded_ts[inds_oot_phasefolded_ts])
-        if bin_var_fn.__name__ == 'mad_std':  # astropy
-            sigma = bin_var_fn(phasefolded_ts[inds_oot_phasefolded_ts], ignore_nan=True)
-        else:
-            sigma = bin_var_fn(phasefolded_ts[inds_oot_phasefolded_ts])
-    else:
-        # set Gaussian noise based on entire phase folded time series statistics
-        mu = bin_fn(phasefolded_ts)
-        if bin_var_fn.__name__ == 'mad_std':  # astropy
-            sigma = bin_var_fn(phasefolded_ts, ignore_nan=True)
-        else:
-            sigma = bin_var_fn(phasefolded_ts)
+    # if np.any(inds_oot_phasefolded_ts):
+    if np.any(inds_oot_nan):  # there are oot indices with missing bin values that need to be imputed
+        if len(inds_oot_valid) > 0:  # there is at least one not missing oot bin value
+            # set Gaussian noise based on out-of-transit phase folded time series statistics
+            # mu = bin_fn(phasefolded_ts[inds_oot_phasefolded_ts])
+            mu = bin_fn(binned_ts[inds_oot_valid])
+            if bin_var_fn.__name__ == 'mad_std':  # astropy
+                # sigma = bin_var_fn(phasefolded_ts[inds_oot_phasefolded_ts], ignore_nan=True)
+                sigma = bin_var_fn(binned_ts[inds_oot_valid], ignore_nan=True)
+            else:
+                # sigma = bin_var_fn(phasefolded_ts[inds_oot_phasefolded_ts])
+                sigma = bin_var_fn(binned_ts[inds_oot_valid])
+        else:  # set Gaussian noise based on entire phase folded time series statistics
+            # mu = bin_fn(phasefolded_ts)
+            mu = bin_fn(binned_ts)
+            if bin_var_fn.__name__ == 'mad_std':  # astropy
+                # sigma = bin_var_fn(phasefolded_ts, ignore_nan=True)
+                sigma = bin_var_fn(binned_ts, ignore_nan=True)
+            else:
+                # sigma = bin_var_fn(phasefolded_ts)
+                sigma = bin_var_fn(binned_ts)
 
-    # fill missing oot bin values with Gaussian noise using statistics computed from the out-of-transit phase folded
-    # time series
-    binned_ts = np.where(inds_oot_nan, rng.normal(mu, sigma, len(inds_oot_nan)), binned_ts)
-    if binned_ts_var is not None:
-        binned_ts_var = np.where(inds_oot_nan, sigma, binned_ts_var)
+        # fill missing oot bin values with Gaussian noise using statistics computed from the out-of-transit phase folded
+        # time series
+        binned_ts = np.where(inds_oot_nan, rng.normal(mu, sigma, len(inds_oot_nan)), binned_ts)
+        # binned_ts = np.where(inds_oot_nan, mu, binned_ts)
+        if binned_ts_var is not None:
+            binned_ts_var = np.where(inds_oot_nan, sigma, binned_ts_var)
 
     # fill missing in-transit bin values by linear interpolation
-    inds_it_valid = np.logical_and(~inds_nan_bins, inds_it_binned_ts)
     if np.any(inds_it_valid):  # there's at least one valid in-transit bin value
+
+        if bin_var_fn.__name__ == 'mad_std':  # astropy
+            # sigma = bin_var_fn(phasefolded_ts, ignore_nan=True)
+            sigma = bin_var_fn(binned_ts, ignore_nan=True)
+        else:
+            # sigma = bin_var_fn(phasefolded_ts)
+            sigma = bin_var_fn(binned_ts)
+
         binned_ts[inds_it_nan] = np.interp(binned_phase[inds_it_nan], binned_phase[inds_it_valid],
                                            binned_ts[inds_it_valid])
         if binned_ts_var is not None:
             binned_ts_var[inds_it_nan] = sigma
     else:  # if there are no valid in-transit bins, use same approach as for out-of-transit bins
+        mu = bin_fn(binned_ts)
+        if bin_var_fn.__name__ == 'mad_std':  # astropy
+            # sigma = bin_var_fn(phasefolded_ts, ignore_nan=True)
+            sigma = bin_var_fn(binned_ts, ignore_nan=True)
+        else:
+            # sigma = bin_var_fn(phasefolded_ts)
+            sigma = bin_var_fn(binned_ts)
         binned_ts = np.where(inds_it_nan, rng.normal(mu, sigma, len(inds_it_nan)), binned_ts)
         if binned_ts_var is not None:
             binned_ts_var = np.where(inds_it_nan, sigma, binned_ts_var)

@@ -1,4 +1,4 @@
-ngpus_per_node: 4  # 4  # number of GPUs per node; each GPU is used to run a CV iteration
+#ngpus_per_node: 4  # 4  # number of GPUs per node; each GPU is used to run a CV iteration
 rank: null
 train_parallel: true  # set to true to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration

@@ -267,9 +267,7 @@ class InputFnv2(object):
         # map a TFRecordDataset object to each tfrecord filepath
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
 
-        # shuffle the dataset if training
-        # FIXME: for perfect sampling, the buffer_size should be larger than the size of the dataset. Can we handle it?
-        #        set variables for buffer size and shuffle seed?
+        # shuffle the examples in the dataset if training
         if self.mode == 'TRAIN':
             # dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
             dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)
