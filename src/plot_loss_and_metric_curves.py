@@ -16,19 +16,21 @@ from pathlib import Path
 from src.utils_train import plot_metric_from_res_file
 
 # file pat to results numpy file
-res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train-test-val_m2_10-5-2023_1158/cv_iter_0/models/model0/res_eval.npy')
+res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_q1q17dr25_simdata/experiments/cv_exominer_obsplanets_inj1_2-22-2024_1312/cv_iter_0/models/model9/res_eval.npy')
 # file path to save image to
-save_fp = Path('/Users/msaragoc/Downloads/plot_loss_curve.png')
+save_fp = Path('/Users/msaragoc/Downloads/plot_prauc_curve.png')
 
 # load results file
 res = np.load(res_fp, allow_pickle=True).item()
 print(f'Metrics/loss available: {res.keys()}')
 
+metric_name_chosen = 'auc_pr'
+
 # set epochs array
-epochs_arr = np.arange(len(res['loss']))
+epochs_arr = np.arange(len(res[metric_name_chosen]))
 
 # choose metrics to be plotted
-chosen_metrics = [metric_name for metric_name in res if 'loss' in metric_name]
+chosen_metrics = [metric_name for metric_name in res if metric_name_chosen in metric_name]
 chosen_res = {metric_name: {'epochs': epochs_arr, 'values': res[metric_name]} for metric_name in chosen_metrics}
 
 plot_metric_from_res_file(chosen_res, save_fp)

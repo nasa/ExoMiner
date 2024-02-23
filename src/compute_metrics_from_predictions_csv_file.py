@@ -173,6 +173,7 @@ if __name__ == '__main__':
     save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_keplertrain_targets_maxsectors_all_2-5-2024_1437/metrics_objs_maxsector_maxmes_only.csv')
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
+    # predictions_tbl['score'] = predictions_tbl['mean_score']
 
     predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,

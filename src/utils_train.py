@@ -11,12 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 # local
-import paths
 from src.utils_dataio import InputFnv2 as InputFn
-
-
-if 'home6' in paths.path_hpoconfigs:
-    plt.switch_backend('agg')
 
 
 class LayerOutputCallback(tf.keras.callbacks.Callback):
