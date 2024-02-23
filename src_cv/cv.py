@@ -158,14 +158,16 @@ def cv():
         config['paths']['experiment_root_dir'] = Path(args.output_dir)
     config['paths']['experiment_root_dir'].mkdir(exist_ok=True)
 
-    # cv iterations dictionary
-    config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
-    config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / f'cv_iter_{cv_iter_i}' / 'norm_data' / fold for fold in cv_iter[dataset]]
-                                  for dataset in cv_iter} for cv_iter_i, cv_iter in enumerate(config['data_shards_fns'])]
+    with(open(config['paths']['cv_folds'], 'r')) as file:
+        config['data_sets_fps'] = yaml.safe_load(file)
+    # # cv iterations dictionary
+    # config['data_shards_fns'] = np.load(config['paths']['cv_folds'], allow_pickle=True)
+    # config['data_shards_fps'] = [{dataset: [config['paths']['tfrec_dir'] / f'cv_iter_{cv_iter_i}' / 'norm_data' / fold for fold in cv_iter[dataset]]
+    #                               for dataset in cv_iter} for cv_iter_i, cv_iter in enumerate(config['data_shards_fns'])]
 
-    if config["rank"] >= len(config['data_shards_fps']):
+    if config["rank"] >= len(config['data_sets_fps']):
         print(f'Number of processes requested to run CV ({config["rank"]}) is higher than the number CV of iterations'
-              f'({len(config["data_shards_fps"])}). Ending process.')
+              f'({len(config["data_sets_fps"])}). Ending process.')
         return
 
     # set up logger
@@ -205,11 +207,10 @@ def cv():
     config['callbacks_list'] = {
         'train': [
             callbacks.EarlyStopping(**config['callbacks']['early_stopping']),
-                  ],
+        ],
     }
 
     if config['rank'] == 0:
-
         # save configuration used
         np.save(config['paths']['experiment_root_dir'] / 'run_params.npy', config)
         # save model's architecture and hyperparameters used
@@ -224,18 +225,18 @@ def cv():
         # run each CV iteration in parallel
         cv_id = config['rank']
         if config['logger'] is not None:
-            config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
+            config['logger'].info(f'Running CV iteration {cv_id + 1} (out of {len(config["data_sets_fps"])})')
         config['cv_id'] = cv_id
         cv_run(
-            config['data_shards_fps'][cv_id],
+            config['data_sets_fps'][cv_id],
             config,
         )
     else:
         # run each CV iteration sequentially
-        for cv_id, data_shards_fps_cv_iter in enumerate(config['data_shards_fps']):
+        for cv_id, data_shards_fps_cv_iter in enumerate(config['data_sets_fps']):
             if config['logger'] is not None:
                 config['logger'].info(
-                    f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_shards_fps"])})')
+                    f'[cv_iter_{cv_id}] Running CV iteration {cv_id + 1} (out of {len(config["data_sets_fps"])})')
             config['cv_id'] = cv_id
             cv_run(
                 data_shards_fps_cv_iter,
@@ -244,7 +245,6 @@ def cv():
 
 
 if __name__ == '__main__':
-
     multiprocessing.set_start_method('spawn')
 
     cv()
