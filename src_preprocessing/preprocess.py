@@ -1376,8 +1376,7 @@ def generate_view(time, flux, num_bins, bin_width, t_min, t_max, tce, centering=
     view, time_bins, view_var, bin_counts = median_filter.median_filter(time, flux, num_bins, bin_width, t_min, t_max)
 
     # impute missing bin values
-    view, view_var, inds_nan = impute_binned_ts(time_bins, view, time, flux, tce['tce_period'], tce['tce_duration'],
-                                                view_var)
+    view, view_var, inds_nan = impute_binned_ts(time_bins, view, tce['tce_period'], tce['tce_duration'], view_var)
 
     if centering:
         view -= np.median(view)

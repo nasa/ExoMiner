@@ -611,8 +611,6 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # fill missing bin values that were not replaced because are missing in both (impute on odd view)
         loc_flux_odd_view, loc_flux_odd_view_var, inds_nan_odd = impute_binned_ts(binned_time_odd,
                                                                                   loc_flux_odd_view,
-                                                                                  odd_time,
-                                                                                  odd_flux,
                                                                                   tce['tce_period'],
                                                                                   tce['tce_duration'],
                                                                                   loc_flux_odd_view_var)
@@ -649,8 +647,6 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # fill missing bin values
         loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
                                                                               loc_flux_odd_view,
-                                                                              odd_time,
-                                                                              odd_flux,
                                                                               tce['tce_period'],
                                                                               tce['tce_duration'],
                                                                               loc_flux_odd_view_var
@@ -685,8 +681,6 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         # create local odd flux view by imputing odd time series
         loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
                                                                               loc_flux_odd_view,
-                                                                              odd_time,
-                                                                              odd_flux,
                                                                               tce['tce_period'],
                                                                               tce['tce_duration'],
                                                                               loc_flux_odd_view_var)
