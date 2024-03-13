@@ -1,9 +1,9 @@
 # Conduct preprocessing run that creates a TFRecord dataset; uses GNU parallel to generate multiple processes, each one
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
-#PBS -N preprocessing_data_exoplnt
+#PBS -N preprocessing_data_exoplanet
 #PBS -l walltime=02:00:00
-#PBS -l select=2:ncpus=128:model=rom_ait
+#PBS -l select=1:ncpus=128:model=rom_ait
 #PBS -q debug
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
@@ -27,4 +27,6 @@ NUM_TOTAL_JOBS=$((1 * 128))
 NUM_JOBS_PARALLEL=128
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
+## multiple node setup
+#seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
