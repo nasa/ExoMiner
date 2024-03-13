@@ -27,7 +27,7 @@ def find_first_epoch_after_this_time(epoch, period, reference_time):
 
 
 def create_binary_time_series(time, epoch, duration, period):
-    """ Creates a binary time series based on the the ephemeris.
+    """ Creates a binary time series based on the ephemeris.
 
     :param time: NumPy array, time in days
     :param epoch: float, epoch in days

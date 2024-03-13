@@ -4,7 +4,6 @@ Main script used to generate TFRecords to be used as input to models.
 
 # 3rd party
 import sys
-import pickle
 from mpi4py import MPI
 import datetime
 import socket
@@ -18,7 +17,7 @@ import yaml
 import argparse
 
 # local
-from src_preprocessing.preprocess import _process_tce
+from src_preprocessing.preprocess import process_tce
 from src_preprocessing.utils_generate_input_records import get_tess_tce_table, get_kepler_tce_table, shuffle_tce
 from utils.utils_dataio import is_yamlble
 from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
@@ -47,8 +46,6 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
     tf_logging.info(f'{config["process_i"]}: Processing {shard_size} items in shard {shard_name}')
 
-    confidence_dict = pickle.load(open(config['dict_savedir'], 'rb')) if config['gap_with_confidence_level'] else {}
-
     start_time = int(datetime.datetime.now().strftime("%s"))
 
     with TFRecordWriter(str(file_name)) as writer:
@@ -63,7 +60,7 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
                 tce['augmentation_idx'] = example_i
 
                 try:
-                    example = _process_tce(tce, eph_table, config, confidence_dict)
+                    example = process_tce(tce, eph_table, config)
                 except Exception as error:
                     report_exclusion(config,
                                      tce,
@@ -133,9 +130,6 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
 
     tf_logging.info(f'{process_name}: Processing {shard_size} items in shard {shard_name}')
 
-    # load confidence dictionary
-    confidence_dict = pickle.load(open(config['dict_savedir'], 'rb')) if config['gap_with_confidence_level'] else {}
-
     with TFRecordWriter(str(file_name)) as writer:
 
         num_processed = 0
@@ -149,7 +143,7 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
                 tce['augmentation_idx'] = example_i
 
                 try:
-                    example = _process_tce(tce, eph_table, config, confidence_dict)
+                    example = process_tce(tce, eph_table, config)
                 except Exception as error:
                     report_exclusion(config,
                                      tce,
@@ -248,6 +242,7 @@ def main():
 
     # make directory to save figures in different steps of the preprocessing pipeline
     if config['plot_figures']:
+        config['plot_dir'] = config['output_dir'] / 'plots'
         (config['output_dir'] / 'plots').mkdir(exist_ok=True)
 
     # get TCE and gapping ephemeris tables

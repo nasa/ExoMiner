@@ -50,7 +50,7 @@ def gap_this_tce(all_time, tce, gap_pad=0):
     return gapped_idxs
 
 
-def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0, keep_overlap=False):
+def gap_other_tces(all_time, add_info, tce, table, config, gap_pad=0, keep_overlap=False):
     """ Remove from the time series the cadences that belong to other TCEs in the light curve. These values are set to
     NaN.
 
@@ -58,8 +58,6 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
     :param tce: row of pandas DataFrame, main TCE ephemeris
     :param table: pandas DataFrame, TCE ephemeris table
     :param config: dict, preprocessing parameters
-    :param conf_dict: dict, keys are a tuple (Kepler ID, TCE planet number) and the values are the confidence level used
-     when gapping (between 0 and 1)
     :param gap_pad: extra pad on both sides of the gapped TCE transit duration
     :param keep_overlap: bool, if True overlapping cadences between TCE of interest and gapped TCEs are preserved
     :return:
@@ -127,8 +125,6 @@ def gap_other_tces(all_time, add_info, tce, table, config, conf_dict, gap_pad=0,
     if config['gap_with_confidence_level'] and config['satellite'] == 'kepler':
         poplist = []
         for index, gapped_tce in gap_ephems.iterrows():
-            if (tce.kepid, gapped_tce['uid']) not in conf_dict or \
-                    conf_dict[(tce.target_id, gapped_tce['uid'])] < config['gap_confidence_level']:
                 poplist += [gapped_tce['uid']]
 
         gap_ephems = gap_ephems.loc[gap_ephems['uid'].isin(poplist)]

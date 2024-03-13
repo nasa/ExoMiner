@@ -1,30 +1,32 @@
 # output directory for TFRecords data set
-output_dir: null
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_new_pipeline_with_sg_tic142276270-1-S14-19_check_spline_parameters_3-14-2024_1041
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-39_s1-36_s14-16_11-22-2023_1059_ruwe_ticstellar_features_adjusted_label.csv
+input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/pdc-lc
+lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc/
 dict_savedir: null
 
-using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
+using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
 # multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
 n_processes: 10  # number of processes created by the Pool
+
+random_seed: 24
 
 ffi_data: false  # set to true for TESS SPOC FFI data
 
 shuffle: false
 shuffle_seed: 24
 
-satellite: tess  # kepler or tess
+satellite: tess  # 'kepler' or 'tess'
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 0.01  # 0.1
+plot_prob: 1  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -40,6 +42,22 @@ dq_values_filter: null  # set to null
 #  - 3
 
 get_momentum_dump: true  # get momentum dump dq flag and generate feature data
+
+# detrending
+detrending_method: 'spline'  # 'savitzky-golay' for Savitzky-Golay or 'spline' for spline detrending
+# Saviztky-Golay parameters
+sg_sigma: 5
+sg_max_poly_order: 12
+sg_penalty_weight: 1
+sg_break_tolerance: 5
+sg_n_durations_win: 5
+# spline parameters
+spline_bkspace_min: 0.5
+spline_bkspace_max: 20
+spline_bkspace_num: 5
+spline_maxiter: 5
+spline_penalty_coeff: 1.0
+spline_outlier_cut: 3
 
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
@@ -138,7 +156,7 @@ tce_min_err:
   tce_duration: 0.000385  # in days
   tce_time0bk: 2.44455e-6
 
-light_curve_extension: LIGHTCURVE  # `INJECTED LIGHTCURVE` or `LIGHTCURVE` otherwise
+light_curve_extension: LIGHTCURVE  # 'INJECTED LIGHTCURVE' or 'LIGHTCURVE' otherwise
 
 # simulated Kepler data options
 injected_group: null  # set to `inj1`, `inj2`, or `inj3` to read lightcurves files from pixel-level transit injection data groups or null otherwise

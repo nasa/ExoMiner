@@ -6,6 +6,11 @@ Auxiliary functions used preprocess the centroid time-series
 import os
 import numpy as np
 
+CCD_SIZE_ROW = 1044  # number of physical pixels
+CCD_SIZE_COL = 1100  # number of physical pixels
+COL_OFFSET = 12
+ROW_HALFWIDTH_GAP = 40
+
 
 def kepler_transform_pxcoordinates_mod13(all_centroids, add_info):
     """ Transform coordinates when target is on module 13 (central module in the Kepler's CCD array).
@@ -15,13 +20,6 @@ def kepler_transform_pxcoordinates_mod13(all_centroids, add_info):
     respective modules
     :return: transformed x and y centroid shift time series
     """
-
-    CCD_SIZE_ROW = 1044  # number of physical pixels
-    CCD_SIZE_COL = 1100  # number of physical pixels
-
-    COL_OFFSET = 12
-
-    ROW_HALFWIDTH_GAP = 40
 
     if add_info['quarter'][0] == 0:
         add_info['quarter'][0] = 1
@@ -36,12 +34,9 @@ def kepler_transform_pxcoordinates_mod13(all_centroids, add_info):
             col_prev = all_centroids['x'][i]
             row_prev = all_centroids['y'][i]
             # col
-
-            all_centroids['x'][i] = COL_OFFSET + CCD_SIZE_COL - \
-                                    (CCD_SIZE_ROW - row_prev + ROW_HALFWIDTH_GAP)
+            all_centroids['x'][i] = (COL_OFFSET + CCD_SIZE_COL - (CCD_SIZE_ROW - row_prev + ROW_HALFWIDTH_GAP))
             # row
-            all_centroids['y'][i] = ROW_HALFWIDTH_GAP + CCD_SIZE_ROW - \
-                                    (CCD_SIZE_COL - (col_prev - COL_OFFSET))
+            all_centroids['y'][i] = ROW_HALFWIDTH_GAP + CCD_SIZE_ROW - (CCD_SIZE_COL - (col_prev - COL_OFFSET))
 
     return all_centroids
 
@@ -247,3 +242,105 @@ def get_denoised_centroids_kepler(keplerid, denoised_centroids_dir):
     denoised_centroids['y'] = [denoised_centroids['y'][idx] for idx in quarters_idxs]
 
     return denoised_centroids, idxs_nan_centroids
+
+
+def correct_centroid_using_transit_depth(centroid_x, centroid_y, transit_depth, avg_centroid_oot):
+    """ Compute transit source location from centroid offset.
+
+    Args:
+        centroid_x: NumPy array, centroid timeseries 'x' (right ascension)
+        centroid_y: NumPy array, centroid timeseries 'y' (declination)
+        transit_depth: transit depth, in ppm
+        avg_centroid_oot: dict, average out-of-transit centroid; keys 'x' and 'y'
+
+    Returns: NumPy array, corrected centroid timeseries
+
+    """
+
+    transitdepth_term = (1e6 - transit_depth) / transit_depth
+
+    # compute the corrected centroid timeseries normalized by the transit depth fraction and centered on the avg oot
+    # centroid position
+
+    # avg_centroid_oot = {coord: avg_centroid_oot[coord] * 1.15 for coord in avg_centroid_oot}
+    # centroid_dict_corr = {coord: [-((centroid_dict[coord][i] - avg_centroid_oot[coord]) * transitdepth_term) /
+    #                               (1, np.cos(target_position[1] * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # only oot centroid
+    # centroid_dict_corr = {coord: [avg_centroid_oot[coord] * np.ones(len(centroid_dict[coord][i])) for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # only it centroid
+    # corrected_centroid = {
+    #     'x': -(centroid_x - avg_centroid_oot['x'] * transit_depth) / np.cos(centroid_y * np.pi / 180) +
+    #          avg_centroid_oot['x'],
+    #     'y': -(centroid_y - avg_centroid_oot['y'] * transit_depth) + avg_centroid_oot['y']
+    # }
+
+    corrected_centroid = {
+        'x': avg_centroid_oot['x'] - transitdepth_term * (centroid_x - avg_centroid_oot['x']) /
+             np.cos(centroid_y * np.pi / 180),
+        'y': avg_centroid_oot['y'] - transitdepth_term * (centroid_y - avg_centroid_oot['y'])
+    }
+
+    # centroid_dict_corr = {coord: [-(centroid_dict[coord][i] - avg_centroid_oot[coord]) * transitdepth_term /
+    #                               (1, np.cos(centroid_dict['y'][i] * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord]
+    #                               for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # centroid_dict_corr = {coord: [centroid_dict[coord][i] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # correction performed using quarter average oot estimates
+    # centroid_dict_corr = {coord: [-((centroid_dict[coord][i] - avg_centroid_oot[coord][i]) * transitdepth_term) /
+    #                               (1, np.cos(centroid_dict['y'][i] * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord][i] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+    # centroid_dict_corr = {coord: [-(centroid_dict[coord][i] * transitdepth_term) /
+    #                               (1, np.cos((centroid_dict['y'][i]) * np.pi / 180))[coord == 'x'] +
+    #                               avg_centroid_oot[coord] for i in range(len(centroid_dict[coord]))]
+    #                       for coord in centroid_dict}
+
+    return corrected_centroid
+
+
+def compute_centroid_distance(centroid_dict, target_position, delta_dec=None):
+    """ Compute distance between transit source and target.
+
+    Args:
+        centroid_dict: dict, centroid timeseries 'x' and 'y'
+        target_position: list, target position 'x' and 'y'
+        delta_dec: float, declination correction
+
+    Returns: NumPy array, distance between the transit source and target
+
+    """
+
+    if delta_dec is None:  # in pixel coordinates
+        all_centroid_dist = np.sqrt(np.square(centroid_dict['x'] - target_position[0])
+                                    + np.square(centroid_dict['y'] - target_position[1]))
+    else:
+        all_centroid_dist = np.sqrt(np.square((centroid_dict['x'] - target_position[0]) * delta_dec)
+                                    + np.square(centroid_dict['y'] - target_position[1]))
+
+    # if px_coordinates:
+    #     # TODO: map target position from celestial coordinates to CCD frame
+    #     # compute the euclidean distance of the corrected centroid time series to the target star position
+    #     all_centroid_dist = np.sqrt(np.square(centroid_dict['x'] - target_position[0])
+    #                                 + np.square(centroid_dict['y'] - target_position[1]))
+    # else:
+    #     # compute the angular distance of the corrected centroid time series to the target star position
+    #     # all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - target_position[0])) +
+    #     #                              np.square(centroid_dict['y'][i] - target_position[1]))
+    #     #                      for i in range(len(centroid_dict['x']))]
+    #     all_centroid_dist = np.sqrt(np.square((centroid_dict['x'] - target_position[0])) + np.square(centroid_dict['y'] - target_position[1]))
+    #
+    # # # get the across quarter average oot estimate using only finite and oot values
+    # # avg_centroid_oot_dist_global = np.median(np.concatenate([all_centroid_dist[i][oot_idxs[i]]
+    # #                                                          for i in range(len(all_centroid_dist))]))
+    # # spline_centroid_dist = kepler_spline.fit_kepler_spline(time_arrs, all_centroid_dist, verbose=False)[0]
+    # # # center the offset centroid distance to the across quarter average oot estimate
+    # # all_centroid_dist = [all_centroid_dist[i] / np.median(all_centroid_dist[i][oot_idxs[i]]) *
+    # #                      avg_centroid_oot_dist_global
+    # #                      for i in range(len(all_centroid_dist))]
+
+    return all_centroid_dist

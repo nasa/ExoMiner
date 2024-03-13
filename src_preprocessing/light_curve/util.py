@@ -88,38 +88,33 @@ def phase_fold_time_aug(time, period, t0):
     return result_sampled, sampled_idxs, num_transits
 
 
-def split(all_time, all_time_series, gap_width=0.75, centroid=False, add_info=None):
+def split(all_time, all_time_series, gap_width=0.75, add_info=None):
     """ Splits a light curve on discontinuities (gaps).
 
         This function accepts a time-series that is either a single segment, or is
-        piecewise defined (e.g. split by quarter breaks or gaps in the in the data).
+        piecewise defined (e.g. split by quarter breaks or gaps in the data).
 
         Args:
-        all_time: Numpy array or sequence of numpy arrays; each is a sequence of
-          time values.
-        all_time_series: Numpy array or sequence of numpy arrays; each is a sequence of
-          flux values of the corresponding time array. Or a dictionary in the case of centroid time-series.
+        all_time: Numpy array or sequence of numpy arrays; each is a sequence of time values.
+        all_time_series: list of timeseries to be split according to time split; each timeseries is a list of NumPy
+        arrays.
         gap_width: Minimum gap size (in time units) for a split.
-        centroid: if True, assumes all_time_series is a dictionary with one key for each coordinate.
         add_info: Dict, additional data extracted from the FITS files such as quarter and module arrays for Kepler data
           and, for both Kepler and TESS, the target position [coord1, coord2]
 
         Returns:
         out_time: List of numpy arrays; the split time arrays.
-        out_time_series: List of numpy arrays; the split flux arrays. Or a dict in the case of centroid time-series.
+        out_time_series: List of lists of numpy arrays; the split timeseries.
     """
 
     # Handle single-segment inputs.
     if isinstance(all_time, np.ndarray) and all_time.ndim == 1:
         all_time = [all_time]
-        if not centroid:
-            all_time_series = [all_time_series]
-        else:
-            all_time_series['x'] = [all_time_series['x']]
-            all_time_series['y'] = [all_time_series['y']]
+    if isinstance(all_time_series, np.ndarray) and all_time_series.ndim == 1:
+        all_time_series = [all_time_series]
 
     out_time = []
-    out_time_series = [] if not centroid else {'x': [], 'y': []}
+    out_time_series = [[] for i in range(len(all_time_series))]
 
     out_add_info = {el: [] if el in ['quarter', 'module'] else add_info[el] for el in add_info} \
         if add_info is not None else None
@@ -132,13 +127,10 @@ def split(all_time, all_time_series, gap_width=0.75, centroid=False, add_info=No
             # Choose the largest endpoint such that time[start:end] has no gaps.
             if end == len(all_time[arr_i]) or all_time[arr_i][end] - all_time[arr_i][end - 1] > gap_width:
 
-                out_time.append(all_time[arr_i][start:end])
+                out_time.append(np.array(all_time[arr_i][start:end]))
 
-                if not centroid:
-                    out_time_series.append(all_time_series[arr_i][start:end])
-                else:
-                    out_time_series['x'].append(all_time_series['x'][arr_i][start:end])
-                    out_time_series['y'].append(all_time_series['y'][arr_i][start:end])
+                for timeseries_i in range(len(all_time_series)):
+                    out_time_series[timeseries_i].append(np.array(all_time_series[timeseries_i][arr_i][start:end]))
 
                 if add_info is not None:
                     if 'quarter' in out_add_info:

@@ -15,7 +15,7 @@ plt.switch_backend('agg')
 DEGREETOARCSEC = 3600
 
 
-def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedir, basename, centroid=False):
+def plot_intransit_binary_timeseries(all_time, all_flux, binary_time_all, tce, savedir, basename, centroid=False):
     """ Creates and saves a 2x1 figure with plots that show the ephemeris pulse train and the flux time-series for
     a given TCE.
 
@@ -23,8 +23,7 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
     :param all_flux: list of numpy arrays, flux time-series
     :param binary_time_all: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
-    :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
+    :param savedir: Path, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
     """
@@ -35,12 +34,11 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
         for i in range(len(all_time)):
             ax[0].plot(all_time[i], binary_time_all[i], 'b')
             ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[0].set_title('Binary time-series')
-        ax[0].set_ylabel('Binary amplitude (it-oot)')
+        ax[0].set_title('Binary timeseries')
+        ax[0].set_ylabel('In-transit Cadences Flag')
         ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
 
         for i in range(len(all_time)):
-            # ax[1].plot(all_time[i], all_flux[i], 'b')
             ax[1].scatter(all_time[i], all_flux[i], c='k', s=4)
             ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[1].set_title('Flux')
@@ -53,12 +51,11 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
         for i in range(len(all_time)):
             ax[0].plot(all_time[i], binary_time_all[i], 'b')
             ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[0].set_title('Binary time-series')
-        ax[0].set_ylabel('Binary amplitude (it-oot)')
+        ax[0].set_title('Binary timeseries')
+        ax[0].set_ylabel('In-transit Cadences Flag')
         ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
 
         for i in range(len(all_time)):
-            # ax[1].plot(all_time[i], all_flux['x'][i], 'b')
             ax[1].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
             ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
         ax[1].set_ylabel('RA [deg]')
@@ -72,191 +69,145 @@ def plot_binseries_flux(all_time, all_flux, binary_time_all, tce, config, savedi
         ax[2].set_xlabel('Time [day]')
         ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
 
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-
+    f.suptitle(f'{tce.uid} {tce.label}')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
     plt.close()
 
 
-def plot_centroids(time, centroids, centroids_spline, tce, config, savedir, basename, add_info=None,
-                   pxcoordinates=False, target_position=None, **kwargs):
-    """ Creates and saves a figure with plots that show the centroid time-series and, if desired, the fitted spline and
-     the respective spline normalized centroid time-series, for a given TCE.
+def plot_centroids(time, centroids, detrended_centroids, tce, config, savedir, basename, pxcoordinates=False,
+                   target_position=None, delta_dec=None):
+    """ Creates and saves a figure with plots that show the centroid, trend, and detrended centroid timeseries for a
+    given TCE.
 
-    :param time: list of numpy arrays, time
-    :param centroids: dict ('x' and 'y' keys, values are lists of numpy arrays), centroid time-series
-    :param centroids_spline: dict ('x' and 'y' keys, values are lists of numpy arrays), spline fitted to the centroid
-    time-series
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
-    :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
+    :param time: numpy array, time
+    :param centroids: dict with 'x' and 'y' keys for the coordinates, and values are numpy arrays. Holds the raw
+    centroid timeseries
+    :param detrended_centroids: dict with 'x' and 'y' keys for the coordinates, and values are dictionaries with the
+    detrended centroid 'detrended', removed trend 'trend', residual time series 'residual', and, optionally, the
+    linearly interpolated raw centroid timeseries used for fitting 'linear_interp'
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters
+    :param savedir: Path, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
-    :param add_info: dict, 'quarter' and 'module' are lists with the quarters and modules in which the target shows up,
-    respectively
+    :param pxcoordinates: bool, whether centroid values are in row/col pixel values or celestial coordinates
+    :param target_position: list, position of the target [row, col] (or [RA, Dec], if centroid is in celestial
+    coordinates)
+    :param delta_dec: float, target declination correction
+
     :return:
     """
 
-    if target_position is not None:
-        centroids = {'x': [(centroids_arr - target_position[0]) *
-                           np.cos(target_position[1] * np.pi / 180) for centroids_arr in centroids['x']],
-                     'y': [(centroids_arr - target_position[1])
-                           for centroids_arr in centroids['y']]}
-        if centroids_spline is not None:
-            centroids_spline = {'x': [(centroids_arr - target_position[0]) * np.cos(target_position[1] * np.pi / 180)
-                                      for centroids_arr in centroids_spline['x']],
-                                'y': [(centroids_arr - target_position[1]) for centroids_arr in centroids_spline['y']]}
+    # copy centroid data to plot it
+    centroids_plot = {coord: np.array(centroid_arr) for coord, centroid_arr in centroids.items()}
+    detrended_centroids_plot = {}
+    target_position_plot = np.array(target_position)
+    target_position_unit = 'deg'
+    for coord in detrended_centroids:
+        detrended_centroids_plot[coord] = {}
+        for timeseries_name, timeseries_arr in detrended_centroids[coord].items():
+            detrended_centroids_plot[coord][timeseries_name] = np.array(timeseries_arr)
 
-        if 'centroid_interp' in kwargs:
-            kwargs['centroid_interp'] = {'x': [(centroids_arr - target_position[0]) *
-                                               np.cos(target_position[1] * np.pi / 180)
-                                               for centroids_arr in kwargs['centroid_interp']['x']],
-                                         'y': [(centroids_arr - target_position[1])
-                                               for centroids_arr in kwargs['centroid_interp']['y']]}
+    if target_position is not None:  # center centroid on target position
+        centroids_plot = {coord: centroid_arr - target_position[coord_i]
+                          for coord_i, (coord, centroid_arr) in enumerate(centroids_plot.items())}
+        centroids_plot['x'] *= delta_dec
 
+        for coord_i, coord in enumerate(detrended_centroids_plot):
+            for timeseries_name, timeseries_arr in detrended_centroids_plot[coord].items():
+                detrended_centroids_plot[coord][timeseries_name] = timeseries_arr - target_position[coord_i]
+                if coord == 'x':
+                    detrended_centroids_plot[coord][timeseries_name] *= delta_dec
+
+    # convert from degrees to arcsec for when centroid is in celestial coordinates
     if not config['px_coordinates'] and not pxcoordinates:
-        centroids = {coord: [DEGREETOARCSEC * centroids_arr for centroids_arr in centroids[coord]]
-                     for coord in centroids}
+        centroids_plot = {coord: DEGREETOARCSEC * centroid_arr for coord, centroid_arr in centroids_plot.items()}
 
-        if centroids_spline is not None:
-            centroids_spline = {coord: [DEGREETOARCSEC * spline_arr for spline_arr in centroids_spline[coord]]
-                                for coord in centroids_spline}
+        for coord_i, coord in enumerate(detrended_centroids_plot):
+            for timeseries_name, timeseries_arr in detrended_centroids_plot[coord].items():
+                detrended_centroids_plot[coord][timeseries_name] *= DEGREETOARCSEC
 
-        if 'centroid_interp' in kwargs:
-            kwargs['centroid_interp'] = {coord: [DEGREETOARCSEC * arr for arr in kwargs['centroid_interp'][coord]]
-                                         for coord in kwargs['centroid_interp']}
+        target_position_plot *= DEGREETOARCSEC
 
-    if centroids_spline is None:
+        target_position_unit = 'arcsec'
 
-        f, ax = plt.subplots(2, 1, figsize=(16, 14))
+    f, ax = plt.subplots(2, 2, figsize=(18, 12))
 
-        for i, centroids_arr in enumerate(zip(centroids['x'], centroids['y'])):
-            ax[0].plot(time[i], centroids_arr[0], 'b')
-            ax[1].plot(time[i], centroids_arr[1], 'b')
+    ax[0, 0].plot(time, centroids_plot['x'], 'b', zorder=0)
+    ax[0, 0].plot(time, detrended_centroids_plot['x']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
+    if 'linear_interp' in detrended_centroids_plot['x']:
+        ax[0, 0].plot(time, detrended_centroids_plot['x']['linear_interp'], 'g', label='Linear Interp.', zorder=0)
+    ax[0, 0].legend()
+    ax[0, 0].set_xlim(time[[0, -1]])
+    ax[0, 1].plot(time, detrended_centroids_plot['x']['detrended'], 'b', zorder=0)
+    ax[0, 1].set_xlim(time[[0, -1]])
 
-        if config['px_coordinates'] or pxcoordinates:
-            ax[0].set_ylabel('Col pixel')
-            ax[1].set_ylabel('Row pixel')
-        else:
-            ax[0].set_ylabel('RA [arcsec]')
-            ax[1].set_ylabel('Dec [arcsec]')
+    ax[1, 0].plot(time, centroids_plot['y'], 'b', zorder=0)
+    ax[1, 0].plot(time, detrended_centroids_plot['y']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
+    if 'linear_interp' in detrended_centroids_plot['x']:
+        ax[1, 0].plot(time, detrended_centroids_plot['y']['linear_interp'], 'g', label='Linear Interp.', zorder=0)
+    ax[1, 0].set_xlim(time[[0, -1]])
+    ax[1, 0].legend()
+    ax[1, 1].plot(time, detrended_centroids_plot['y']['detrended'], 'b', zorder=0)
+    ax[1, 1].set_xlim(time[[0, -1]])
 
-        ax[1].set_xlabel('Time [day]')
-
-        if config['satellite'] == 'kepler':
-
-            if add_info is not None:
-                f.suptitle(f'Quarters: {add_info["quarter"]}\nModules: {add_info["module"]}')
-
-        ax[0].set_title('{} {}'.format(tce.uid, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-        plt.close()
-
+    if config['px_coordinates'] or pxcoordinates:
+        ax[0, 0].set_ylabel('Col pixel')
+        ax[1, 0].set_ylabel('Row pixel')
     else:
+        ax[0, 0].set_ylabel(f'RA [{target_position_unit}] {("", " to target")[target_position is not None]}')
+        ax[1, 0].set_ylabel(f'Dec [{target_position_unit}] {("", " to target")[target_position is not None]}')
 
-        f, ax = plt.subplots(2, 2, figsize=(18, 12))
+    ax[0, 1].set_ylabel('Normalized Value')
+    ax[1, 1].set_ylabel('Normalized Value')
 
-        for i, centroids_arr in enumerate(zip(centroids['x'], centroids['y'])):
-            ax[0, 0].plot(time[i], centroids_arr[0], 'b', zorder=0)
-            if i == 0:
-                ax[0, 0].plot(time[i], centroids_spline['x'][i], 'orange', linestyle='--', label='Fitted spline',
-                              zorder=1)
-                if 'centroid_interp' in kwargs:
-                    ax[0, 0].plot(time[i], kwargs['centroid_interp']['x'][i], 'g', label='Gapped transits', zorder=0)
-            else:
-                ax[0, 0].plot(time[i], centroids_spline['x'][i], 'orange', linestyle='--', zorder=1)
-                if 'centroid_interp' in kwargs:
-                    ax[0, 0].plot(time[i], kwargs['centroid_interp']['x'][i], 'g', zorder=0)
+    ax[1, 0].set_xlabel('Time [day]')
+    ax[1, 1].set_xlabel('Time [day]')
 
-            ax[0, 0].legend()
+    ax[0, 0].set_title('Raw Centroids')
+    ax[0, 1].set_title('Detrended Centroids')
 
-            ax[1, 0].plot(time[i], centroids_arr[1], 'b', zorder=0)
-            if i == 0:
-                ax[1, 0].plot(time[i], centroids_spline['y'][i], 'orange', linestyle='--', label='Fitted spline',
-                              zorder=1)
-                if 'centroid_interp' in kwargs:
-                    ax[1, 0].plot(time[i], kwargs['centroid_interp']['y'][i], 'g', label='Gapped transits', zorder=0)
-            else:
-                ax[1, 0].plot(time[i], centroids_spline['y'][i], 'orange', linestyle='--', zorder=1)
-                if 'centroid_interp' in kwargs:
-                    ax[1, 0].plot(time[i], kwargs['centroid_interp']['y'][i], 'g', zorder=0)
-
-            ax[1, 0].legend()
-
-            ax[0, 1].plot(time[i], centroids_arr[0] / centroids_spline['x'][i], 'b')
-            ax[1, 1].plot(time[i], centroids_arr[1] / centroids_spline['y'][i], 'b')
-
-        if config['px_coordinates'] or pxcoordinates:
-            ax[0, 0].set_ylabel('Col pixel')
-            ax[1, 0].set_ylabel('Row pixel')
-        else:
-            ax[0, 0].set_ylabel('RA [arcsec]')
-            ax[1, 0].set_ylabel('Dec [arcsec]')
-
-        ax[0, 1].set_ylabel('Normalized amplitude')
-        ax[1, 1].set_ylabel('Normalized amplitude')
-
-        ax[1, 0].set_xlabel('Time [day]')
-        ax[1, 1].set_xlabel('Time [day]')
-
-        ax[0, 0].set_title('Non-normalized centroid time-series')
-        ax[0, 1].set_title('Normalized centroid time-series')
-
-        f.suptitle('{} {}'.format(tce.uid, tce.label))
-        plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-
-        plt.close()
+    f.suptitle(f'{tce.uid} {tce.label}\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} '
+               f'({target_position_unit})')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    plt.close()
 
 
-def plot_flux_fit_spline(time, flux, spline_flux, tce, config, savedir, basename, **kwargs):
-    """ Creates and saves a 2x1 figure with plots that show the flux time-series and the fitted spline and
-     the respective spline normalized flux time-series, for a given TCE.
+def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename, flux_interp=None):
+    """ Creates and saves a 2x1 figure with plots that show the flux time series and the fitted trend and
+     the respective detrended flux time series for a given TCE.
 
-    :param time: list of numpy arrays, time
-    :param flux: list of numpy arrays, flux time-series
-    :param flux_spline: list of numpy arrays, spline fitted to the flux time-series
+    :param time: numpy array, time
+    :param flux: numpy array, flux
+    :param trend: numpy array, fitted trend
+    :param detrended_flux: numpy array, detrended flux
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
+    :param flux_interp: numpy array, linearly interpolated flux used for detrending
     :return:
     """
 
     f, ax = plt.subplots(2, 1, figsize=(16, 10))
-    for i in range(len(flux)):
-        ax[0].plot(time[i], flux[i], 'b', zorder=0)
-        if i == 0:
-            ax[0].plot(time[i], spline_flux[i], 'orange', linestyle='--', label='Fitted spline', zorder=1)
-            if 'flux_interp' in kwargs:
-                ax[0].plot(time[i], kwargs['flux_interp'][i], 'g', label='Gapped transits', zorder=0)
-        else:
-            ax[0].plot(time[i], spline_flux[i], 'orange', linestyle='--', zorder=1)
-            if 'flux_interp' in kwargs:
-                ax[0].plot(time[i], kwargs['flux_interp'][i], 'g', zorder=0)
-        ax[0].legend()
-        ax[1].plot(time[i], flux[i] / spline_flux[i], 'b')
-
-    ax[0].set_ylabel('Amplitude')
-    ax[1].set_ylabel('Normalized amplitude')
+    ax[0].plot(time, flux, 'b', zorder=0)
+    ax[0].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=1)
+    if flux_interp is not None:
+        ax[0].plot(time, flux_interp, 'g', label='Flux w/ lin. interpolated across transits', zorder=0)
+    ax[0].legend()
+    ax[0].set_xlim(time[[0, -1]])
+    ax[1].plot(time, detrended_flux, 'b')
+    ax[0].set_ylabel('Amplitude (e-/s)')
+    ax[0].set_title('Raw Flux')
+    ax[1].set_ylabel('Normalized Amplitude')
     ax[1].set_xlabel('Time [day]')
-    ax[1].set_title('Spline normalized flux time-series')
-    ax[0].set_title('Non-normalized flux time-series')
-
-    # if config['satellite'] == 'kepler':
-    #     f.suptitle('TCE {} {} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                tce.label, basename)))
-    # else:
-    #     f.suptitle('TCE {} {} s{} {}'.format(tce.target_id, tce[config["tce_identifier"]], tce.sector_run, tce.label))
-    #     plt.savefig(os.path.join(savedir, '{}_{}_s{}_{}_{}.png'.format(tce.target_id, tce[config["tce_identifier"]],
-    #                                                                    tce.sector_run, tce.label, basename)))
-
-    f.suptitle('TCE {} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    ax[1].set_title('Detrended Flux')
+    ax[1].set_xlim(time[[0, -1]])
+    f.suptitle(f'TCE {tce.uid} {tce.label}')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
     plt.close()
 
 
-def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid_oot, target_coords, tce,
-                          config, savedir, basename, target_center=True):
+def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid_oot, target_coords, tce, config,
+                          savedir, basename, target_center=True):
     """ Creates and saves a 2x3 figure with plots that show the out-of-transit and in-transit centroid time-series and
     their averages, as well as the target position, for a given TCE.
 
@@ -365,143 +316,105 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     plt.close()
 
 
-def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, target_coords, tce, config, savedir,
-                             basename, target_center=True):
-    """ Creates and saves a 2x2 figure with plots that show the corrected centroid time-series and the respective
+def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, tce, config, savedir, basename, pxcoordinates,
+                             target_position=None, delta_dec=None):
+    """ Creates and saves a 2x2 figure with plots that show the corrected centroid timeseries and the respective
     out-of-transit centroid, as well as the target position, for a given TCE.
 
-    :param all_time: list of numpy arrays, time
-    :param all_centroids: dict ('x' and 'y' keys, values are lists of numpy arrays), centroid time-series
+    :param all_time: numpy array, time
+    :param all_centroids: dict ('x' and 'y' keys, values are numpy arrays), centroid timeseries
     :param avg_centroid_oot: dict ('x' and 'y' keys), coordinates of the average out-of-transit centroid
-    :param target_coords: list, RA and Dec coordinates of the target
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
     :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
+    :param savedir: Path, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
+    :param pxcoordinates: bool, whether centroid values are in row/col pixel values or celestial coordinates
+    :param target_position: list, position of the target [row, col] (or [RA, Dec], if centroid is in celestial
+    coordinates)
+    :param delta_dec: float, target declination correction
+
     :return:
     """
 
-    if target_center:
-        all_centroids = {'x': [(centroids_arr - target_coords[0])  # * np.cos(target_coords[1] * np.pi / 180)
-                               for centroids_arr in all_centroids['x']],
-                         'y': [(centroids_arr - target_coords[1]) for centroids_arr in all_centroids['y']]}
-        avg_centroid_oot = {'x': avg_centroid_oot['x'] - target_coords[0],
-                            'y': avg_centroid_oot['y'] - target_coords[1]}
+    # copy centroid data to plot it
+    all_centroids_plot = {coord: np.array(centroid_arr) for coord, centroid_arr in all_centroids.items()}
+    target_position_plot = np.array(target_position)
+    avg_centroid_oot_plot = {coord: coord_val for coord, coord_val in avg_centroid_oot.items()}
+    target_position_unit = 'deg'
 
-    if not config['px_coordinates']:
-        all_centroids = {coord: [3600 * centroids_arr for centroids_arr in all_centroids[coord]]
-                         for coord in all_centroids}
-        avg_centroid_oot = {coord: 3600 * avg_centroid_oot[coord] for coord in avg_centroid_oot}
-        # avg_centroid_oot = {coord: [3600 * avg_centroid_oot[coord][i] for i in range(len(avg_centroid_oot[coord]))]
-        #                     for coord in avg_centroid_oot}
-        target_coords = [coord * 3600 for coord in target_coords]
+    if target_position is not None:  # center centroid on target position
+        all_centroids_plot = {coord: centroid_arr - target_position[coord_i]
+                              for coord_i, (coord, centroid_arr) in enumerate(all_centroids_plot.items())}
+        all_centroids_plot['x'] *= delta_dec
+
+        avg_centroid_oot_plot = {coord: centroid_arr - target_position[coord_i]
+                                 for coord_i, (coord, centroid_arr) in enumerate(avg_centroid_oot_plot.items())}
+        avg_centroid_oot_plot['x'] *= delta_dec
+
+    # convert from degrees to arcsec for when centroid is in celestial coordinates
+    if not config['px_coordinates'] and not pxcoordinates:
+        all_centroids_plot = {coord: DEGREETOARCSEC * centroid_arr
+                              for coord, centroid_arr in all_centroids_plot.items()}
+
+        avg_centroid_oot_plot = {coord: DEGREETOARCSEC * centroid_arr
+                                 for coord, centroid_arr in avg_centroid_oot_plot.items()}
+
+        target_position_plot *= DEGREETOARCSEC
+        target_position_unit = 'arcsec'
 
     f, ax = plt.subplots(2, 1, figsize=(20, 8))
 
-    for i in range(len(all_time)):
-        ax[0].plot(all_time[i], all_centroids['x'][i], 'b', zorder=0)
-    ax[0].plot(np.concatenate(all_time), avg_centroid_oot['x'] * np.ones(len(np.concatenate(all_time))), 'r--',
-             label='avg oot', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_oot['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'r--', label='avg oot', zorder=1)
+    ax[0].plot(all_time, all_centroids_plot['x'], 'b', zorder=0)
+    ax[0].plot(all_time, avg_centroid_oot_plot['x'] * np.ones(len(all_time)), 'r--', label='avg oot', zorder=1)
     ax[0].legend()
     if config['px_coordinates']:
         ax[0].set_ylabel('Col pixel')
     else:
-        ax[0].set_ylabel('RA [arcsec]')
-    ax[0].set_title('Corrected centroid time-series')
+        ax[0].set_ylabel(f'RA [arcsec]{(""," to target")[target_position is not None]}')
+    ax[0].set_title('Corrected Centroids')
+    ax[0].set_xlim(all_time[[0, -1]])
 
-    for i in range(len(all_time)):
-        ax[1].plot(all_time[i], all_centroids['y'][i], 'b', zorder=0)
-    ax[1].plot(np.concatenate(all_time), avg_centroid_oot['y'] * np.ones(len(np.concatenate(all_time))), 'r--',
-             label='avg oot', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_oot['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'r--', label='avg oot', zorder=1)
+    ax[1].plot(all_time, all_centroids_plot['y'], 'b', zorder=0)
+    ax[1].plot(all_time, avg_centroid_oot_plot['y'] * np.ones(len(all_time)), 'r--', label='avg oot', zorder=1)
     ax[1].legend()
     if config['px_coordinates']:
         ax[1].set_ylabel('Row pixel')
     else:
-        ax[1].set_ylabel('Dec [arcsec]')
+        ax[1].set_ylabel(f'Dec [arcsec]{(""," to target")[target_position is not None]}')
     ax[1].set_xlabel('Time [day]')
+    ax[1].set_xlim(all_time[[0, -1]])
 
-    f.suptitle('Centroid time-series\n TCE {} {}\nTarget: {} (arcsec)'.format(tce['uid'],
-                                                                              tce['label'],
-                                                                              target_coords))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    f.suptitle(f'TCE {tce.uid} {tce.label}'
+               f'\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} ({target_position_unit})')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
     plt.close()
 
 
-def plot_dist_centroids(time, centroid_dist, centroid_dist_spline, avg_centroid_dist_oot, tce,
-                        config, savedir, basename, pxcoordinates=False):
+def plot_dist_centroids(time, centroid_dist, tce, config, savedir, basename, pxcoordinates=False):
     """ Creates and saves a figure with plots that show the centroid-to-target distance and, if desired, the fitted
     spline and the respective spline normalized centroid-to-target distance, for a given TCE.
 
-    :param time: list of numpy arrays, time
-    :param centroid_dist: list of numpy arrays, centroid-to-target distance
-    :param centroid_dist_spline: list of numpy arrays, spline fitted to centroid-to-target distance
-    :param avg_centroid_dist_oot: float, average out-of-transit centroid-to-target distance
+    :param time: numpy array, time
+    :param centroid_dist: numpy array, centroid-to-target distance
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters
-    :param savedir: str, filepath to directory in which the figure is saved
+    :param savedir: Path, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
     """
 
-    if centroid_dist_spline is None:
-
-        time, centroid_quadr = [np.concatenate(time)], [np.concatenate(centroid_dist)]
-
-        f, ax = plt.subplots(figsize=(16, 10))
-
-        for i in range(len(centroid_dist)):
-            # ax.plot(time[i], centroid_dist[i], 'b')
-            ax.scatter(time, centroid_quadr, c='k', s=4)
-
-        if config['px_coordinates'] or pxcoordinates:
-            ax.set_ylabel('Euclidean distance [pixel]')
-        else:
-            ax.set_ylabel('Angular distance [arcsec]')
-        ax.set_title('Centroid-to-target distance time-series')
-        ax.set_xlabel('Time [day]')
-        ax.set_xlim([time[0][0], time[-1][-1]])
-
+    f, ax = plt.subplots(figsize=(16, 10))
+    ax.scatter(time, centroid_dist, c='k', s=4)
+    if config['px_coordinates'] or pxcoordinates:
+        ax.set_ylabel('Pixel Distance [pixel]')
     else:
-        time, centroid_quadr, centroid_quadr_spline = [np.concatenate(time)], [np.concatenate(centroid_dist)], \
-                                                      [np.concatenate(centroid_dist_spline)]
+        ax.set_ylabel('Angular Distance [arcsec]')
+    ax.set_title('Transit Source Distance to Target')
+    ax.set_xlabel('Time [day]')
+    ax.set_xlim(time[[0, -1]])
 
-        f, ax = plt.subplots(2, 1, figsize=(16, 10))
-
-        for i in range(len(time)):
-            # ax[0].plot(time[i], centroid_dist[i], 'b', zorder=0)
-            ax[0].scatter(time[i], centroid_dist[i], c='k', s=4, zorder=1)
-            if i == 0:
-                # ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', label='spline', zorder=1)
-                ax[0].scatter(time[i], centroid_dist_spline[i], c='m', s=4, label='spline', zorder=2)
-
-            else:
-                # ax[0].plot(time[i], centroid_dist_spline[i], linestyle='--', zorder=1)
-                ax[0].scatter(time[i], centroid_dist_spline[i], c='m', s=4, zorder=2)
-
-            # ax[1].plot(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, 'b')
-            ax[1].scatter(time[i], centroid_dist[i] / centroid_dist_spline[i] * avg_centroid_dist_oot, c='b', s=4,
-                          zorder=3)
-
-        if config['px_coordinates'] or pxcoordinates:
-            ax[0].set_ylabel('Euclidean distance [pixel]')
-        else:
-            ax[0].set_ylabel('Angular distance [arcsec]')
-        ax[0].set_title('Centroid-to-target distance time-series')
-        ax[0].legend()
-        ax[1].set_ylabel('Centroid-to-target distance')
-        ax[1].set_xlabel('Time [day]')
-        ax[1].set_title('Spline normalized centroid-to-target distance time-series')
-        ax[0].set_xlim([time[0][0], time[-1][-1]])
-        ax[1].set_xlim([time[0][0], time[-1][-1]])
-
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    f.suptitle(f'{tce.uid} {tce.label}')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
     plt.close()
 
 
@@ -771,7 +684,7 @@ def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
 
 
 def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, timeseries_outliers=None):
-    """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
+    """ Creates and saves a figure with plots that show phase folded timeseries for a given TCE.
 
     :param timeseries: dict, views to be plotted
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
@@ -784,7 +697,7 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, t
     :return:
     """
 
-    SIGMA_FACTOR = 6
+    # SIGMA_FACTOR = 6
 
     f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
     k = 0
@@ -799,11 +712,11 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, t
                                          c='r', s=5, zorder=2)
                     ax[i, j].set_title(views_list[k], pad=20)
                     ax[i, j].set_xlim([timeseries[views_list[k]][0][0], timeseries[views_list[k]][0][-1]])
-                    timeseries_madstd, timeseries_med = mad_std(timeseries[views_list[k]][1]), \
-                                                        np.median(timeseries[views_list[k]][1])
-                    std_range = SIGMA_FACTOR * timeseries_madstd
-                    range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
-                    ax[i, j].set_ylim(range_timeseries)
+                    # timeseries_madstd, timeseries_med = mad_std(timeseries[views_list[k]][1], ignore_nan=True), \
+                    #                                     np.nanmedian(timeseries[views_list[k]][1])
+                    # std_range = SIGMA_FACTOR * timeseries_madstd
+                    # range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
+                    # ax[i, j].set_ylim(range_timeseries)
                     if 'FDL' in views_list[k]:
                         ax[i, j].set_ylim(bottom=0)
             if i == scheme[0] - 1:
@@ -881,7 +794,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         ts_len // 2 + ts_len // config['num_durations'])]
     min_val = min(timeseries['Flux'][1][idxs_transit])
     range_timeseries = [min_val, timeseries_med + std_range]
-    ax.set_ylim(range_timeseries)
+    # ax.set_ylim(range_timeseries)
 
     # left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
@@ -903,7 +816,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         ts_len // 2 + ts_len // config['num_durations'])]
     min_val = min(timeseries['Flux'][1][idxs_transit])
     range_timeseries = [min_val, timeseries_med + std_range]
-    ax.set_ylim(range_timeseries)
+    # ax.set_ylim(range_timeseries)
 
     if 'Weak Secondary Flux' in timeseries:
         # left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
@@ -931,7 +844,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
             ts_len // 2 + ts_len // config['num_durations'])]
         min_val = min(timeseries['Weak Secondary Flux'][1][idxs_transit])
         range_timeseries = [min_val, timeseries_med + std_range]
-        ax.set_ylim(range_timeseries)
+        # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 0])
     if len(timeseries['Odd Flux'][0]) > 0:
@@ -955,7 +868,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
             ts_len // 2 + ts_len // config['num_durations'])]
         min_val = min(timeseries['Odd Flux'][1][idxs_transit])
         range_timeseries = [min_val, timeseries_med + std_range]
-        ax.set_ylim(range_timeseries)
+        # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 1])
     if len(timeseries['Even Flux'][0]) > 0:
@@ -979,7 +892,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
             ts_len // 2 + ts_len // config['num_durations'])]
         min_val = min(timeseries['Even Flux'][1][idxs_transit])
         range_timeseries = [min_val, timeseries_med + std_range]
-        ax.set_ylim(range_timeseries)
+        # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[3, 0])
     ax.scatter(timeseries['Centroid Offset Distance'][0], timeseries['Centroid Offset Distance'][1], color='k', s=5)
@@ -1001,7 +914,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
     max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
     range_timeseries = [min_val, max_val]
-    ax.set_ylim(range_timeseries)
+    # ax.set_ylim(range_timeseries)
 
     # left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
@@ -1030,7 +943,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
     max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
     range_timeseries = [min_val, max_val]
-    ax.set_ylim(range_timeseries)
+    # ax.set_ylim(range_timeseries)
 
     plt.subplots_adjust(
         hspace=0.526,
@@ -1128,29 +1041,27 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     plt.close()
 
 
-def plot_residual(time, res_flux, tce, savedir, basename):
-    """ Creates and saves a figure with plot for the residual time series after fitting the spline
-    (res = time_series - spline) a given TCE.
+def plot_residual(time, res_timeseries, tce, savedir, basename):
+    """ Creates and saves a figure with plot for the residual timeseries after detrending
+    (i.e., res = time_series - trend) a given TCE.
 
-    :param time: list, timestamps
-    :param res_flux: list, residual flux
+    :param time: numpy array, timestamps
+    :param res_timeseries: numpy array, residual timeseries
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param basename: Path, added to the figure filename
     :return:
     """
 
     f, ax = plt.subplots(figsize=(16, 6))
-    for arr_i in range(len(time)):
-        # ax.plot(time[arr_i], res_flux[arr_i], 'b')
-        ax.scatter(time[arr_i], res_flux[arr_i], c='k', s=4)
+    ax.scatter(time, res_timeseries, c='k', s=4)
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Time [day]')
-    ax.set_xlim([time[0][0], time[-1][-1]])
+    ax.set_xlim([time[0], time[-1]])
+    ax.set_title('Residual')
     plt.subplots_adjust(left=0.048, right=0.983)
-
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    f.suptitle(f'{tce.uid} {tce.label}')
+    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
     plt.close()
 
 
@@ -1220,12 +1131,15 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
 
     f, ax = plt.subplots(2, 1)
     ax[0].plot(time, momentum_dump)
+    ax[0].set_xlim(time[[0, -1]])
     ax[0].set_ylabel('Flag')
     ax[0].set_xlabel('Phase (day)')
+    ax[0].set_title('Full-orbit View')
     ax[1].plot(binned_time, loc_mom_dump_view)
     ax[1].plot(binned_time, loc_mom_dump_view + loc_mom_dump_view_var, 'r--')
     ax[1].plot(binned_time, loc_mom_dump_view - loc_mom_dump_view_var, 'r--')
-    ax[1].set_ylabel('Flag')
+    ax[1].set_xlim(binned_time[[0, -1]])
+    ax[1].set_ylabel('Momentum Dump Flag')
     ax[1].set_xlabel('Binned Time (day)')
     ax[1].set_title('Transit View')
     f.tight_layout()
@@ -1249,8 +1163,9 @@ def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savedi
 
     f, ax = plt.subplots()
     ax.plot(time_momentum_dump, momentum_dump)
+    ax.set_xlim(time_momentum_dump[[0, -1]])
     ax.set_xlabel('Time (day)')
-    ax.set_ylabel('Flag')
+    ax.set_ylabel('Momentum Dump Flag')
     f.tight_layout()
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
     plt.close()

@@ -108,9 +108,9 @@ def imputing_gaps(time, timeseries, all_gap_time):
           values.
     """
 
-    med = np.median(timeseries)
+    med = np.nanmedian(timeseries)
     # robust std estimator of the time series
-    std_rob_estm = mad_std(timeseries)
+    std_rob_estm = mad_std(timeseries, ignore_nan=True)
 
     for gap_time in all_gap_time:
         imputed_timeseries = med + np.random.normal(0, std_rob_estm, time.shape)

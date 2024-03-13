@@ -2,6 +2,10 @@
 
 # 3rd party
 import numpy as np
+from astropy.stats import mad_std
+
+# local
+from src_preprocessing.utils_preprocessing_io import report_exclusion
 
 
 def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
@@ -173,3 +177,220 @@ def min_max_normalization(arr, max_val, min_val):
     """
 
     return (arr - min_val) / (max_val - min_val)
+
+
+def lininterp_transits(timeseries, transit_pulse_train, centroid=False):
+    """ Linearly interpolate the timeseries across the in-transit cadences. The interpolation is performed between the
+    boundary points using their values.
+
+    :param timeseries: list of numpy arrays, time-series; if centroid is True, then it is a dictionary with a list of
+    numpy arrays for each coordinate ('x' and 'y')
+    :param transit_pulse_train: list of numpy arrays, binary arrays that are 1's for in-transit cadences and 0 otherwise
+    :param centroid: bool, treats time-series as centroid time-series ('x' and 'y') if True
+    :return:
+        timeseries_interp: list of numpy arrays, time-series linearly interpolated at the transits; if centroid is True,
+         then it is a dictionary with a list of numpy arrays for each coordinate ('x' and 'y')
+    """
+
+    # initialize variables
+    if centroid:
+        num_arrs = len(timeseries['x'])
+        timeseries_interp = {'x': [], 'y': []}
+    else:
+        num_arrs = len(timeseries)
+        timeseries_interp = []
+
+    for i in range(num_arrs):
+
+        if centroid:
+            timeseries_interp['x'].append(np.array(timeseries['x'][i]))
+            timeseries_interp['y'].append(np.array(timeseries['y'][i]))
+        else:
+            timeseries_interp.append(np.array(timeseries[i]))
+
+        idxs_it = np.where(transit_pulse_train[i] == 1)[0]
+        if len(idxs_it) == 0:  # no transits in the array
+            continue
+
+        idxs_lim = np.where(np.diff(idxs_it) > 1)[0] + 1
+
+        start_idxs = np.insert(idxs_lim, 0, 0)
+        end_idxs = np.append(idxs_lim, len(idxs_it))
+
+        for start_idx, end_idx in zip(start_idxs, end_idxs):
+
+            # boundary issue - do nothing, since the whole array is a transit; does this happen?
+            if idxs_it[start_idx] == 0 and idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:
+                continue
+
+            if idxs_it[start_idx] == 0:  # boundary issue start - constant value end
+                if centroid:
+                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries['x'][i][idxs_it[end_idx - 1] + 1]
+                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries['y'][i][idxs_it[end_idx - 1] + 1]
+                else:
+                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries[i][idxs_it[end_idx - 1] + 1]
+
+            elif idxs_it[end_idx - 1] == len(transit_pulse_train[i]) - 1:  # boundary issue end - constant value start
+                if centroid:
+                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = timeseries['x'][i][
+                        idxs_it[start_idx] - 1]
+                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = timeseries['y'][i][
+                        idxs_it[start_idx] - 1]
+                else:
+                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        timeseries[i][idxs_it[start_idx] - 1]
+
+            else:  # linear interpolation
+                idxs_interp = np.array([idxs_it[start_idx] - 1, idxs_it[end_idx - 1] + 1])
+                idxs_to_interp = np.arange(idxs_it[start_idx], idxs_it[end_idx - 1] + 1)
+
+                if centroid:
+                    timeseries_interp['x'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        np.interp(idxs_to_interp, idxs_interp, timeseries['x'][i][idxs_interp])
+                    timeseries_interp['y'][i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        np.interp(idxs_to_interp, idxs_interp, timeseries['y'][i][idxs_interp])
+                else:
+                    timeseries_interp[i][idxs_it[start_idx]:idxs_it[end_idx - 1] + 1] = \
+                        np.interp(idxs_to_interp, idxs_interp, timeseries[i][idxs_interp])
+
+    return timeseries_interp
+
+
+def remove_non_finite_values(arrs):
+    """ Remove cadences with non-finite values (NaN or infinite) for timestamps or timeseries in each array. Some these
+    values come from: gapping the timeseries, missing time values from the FITS files.
+
+    :param arrs: list, arrays to be checked for non-finite values.
+    :return:
+        list, arrays without non-finite values.
+    """
+
+    num_arrs = len(arrs)
+    num_sub_arrs = len(arrs[0])
+
+    for sub_arr_i in range(num_sub_arrs):  # assuming same size for all arrays
+        finite_idxs = []
+
+        for arr in arrs:
+            finite_idxs.append(np.isfinite(arr[sub_arr_i]))
+
+        finite_idxs = np.logical_and.reduce(finite_idxs, dtype='bool')
+
+        for arr_i in range(num_arrs):
+            arrs[arr_i][sub_arr_i] = arrs[arr_i][sub_arr_i][finite_idxs]
+
+    return arrs
+
+
+def remove_positive_outliers(time, ts, sigma, fill=False):
+    """ Remove positive outliers in the flux time series using a threshold in the standard deviation. Option to fill
+    outlier cadences using Gaussian noise with global statistics of the time series.
+
+    :param time: NumPy array, time stamps
+    :param ts: NumPy array, time series
+    :param sigma: float, sigma factor
+    :param fill: bool, if True fills outliers
+    :return:
+        time: NumPy array, time stamps for the new time series
+        ts: NumPy array, time series without outliers
+        idxs_out: NumPy array, outlier indices
+    """
+
+    rob_std = mad_std(ts)
+
+    idxs_out = np.where(ts >= 1 + sigma * rob_std)
+
+    if fill:
+        # fill with mean
+        # fill_val = np.median(ts)
+        # ts[idxs_out] = fill_val
+
+        # fill with Gaussian noise with global time series statistics
+        ts[idxs_out] = np.random.normal(np.median(ts), rob_std, idxs_out[0].shape)
+    else:
+        ts[idxs_out] = np.nan
+        idxs_in = ~np.isnan(ts)
+        ts = ts[idxs_in]
+        time = time[idxs_in]
+
+    return time, ts, idxs_out
+
+
+def check_inputs_generate_example(data, tce, config):
+    """ Check inputs to the function that phase folds and bins the preprocessed timeseries to create the input views.
+
+    :param data: dict, containing the preprocessed timeseries.
+    :param tce: pandas Series, TCE ephemeris, parameters and diagnostics from DV.
+    :param config: dict, preprocessing parameters
+    :return:
+        data, dict containing the preprocessed timeseries after checking inputs and adjusting them accordingly.
+    """
+
+    if data['centroid_dist'] is None:  # set it to empty list
+        data['centroid_dist'] = []
+
+    # set centroid distance to zero (meaning on-target)
+    if len(data['centroid_dist']) == 0 or np.isnan(data['centroid_dist']).all():
+        report_exclusion(config, tce, f'No data points available. Setting centroid offset time series to zero '
+                                      f'(target star position).')
+
+        data['time_centroid_dist'] = np.array(data['time'])
+        data['centroid_dist'] = np.zeros(len(data['time']))
+
+        data['time_centroid_distFDL'] = np.array(data['time'])
+        data['centroid_distFDL'] = np.zeros(len(data['time']))
+    # fill with Gaussian noise using time series statistics
+    elif 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
+        report_exclusion(config, tce, f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
+                                      f'offset time series to Gaussian noise using statistics from this time series.')
+
+        rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
+        med = np.nanmedian(data['centroid_dist'])
+        data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
+        data['time_centroid_dist'] = np.array(data['time'])
+
+        rob_std = mad_std(data['centroid_distFDL'])
+        med = np.median(data['centroid_distFDL'])
+        data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
+        data['time_centroid_distFDL'] = np.array(data['time'])
+
+    return data
+
+
+def check_inputs(data):
+    """ Check data coming from the lc FITS files.
+
+    :param data: dict, data read from the lc FITS files
+    :return:
+        err, list with errors for the data read
+    """
+
+    errs = []
+
+    # no centroid data available from the FITS files
+    # assuming that if there is not 'x' component, there is also not 'y' component
+    # assuming there is other data; otherwise, it wouldn't get here
+    # setting centroid to target star position if the number of valid cadences is less than 100
+    # 0.5% observation time in one TESS sector
+    # setting centroid pixel to zero
+    n_valid_cad = np.isfinite(np.concatenate(data['all_centroids']['x'])).sum()
+    n_cad = len(np.concatenate(data['all_centroids']['x']))
+    if n_valid_cad / n_cad < 0.005:
+        errs.append('Less than 0.5% cadences are valid for centroid data.')
+
+        # report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
+        #
+        # data['all_centroids']['x'] = [tce['ra'] * np.ones(len(data['all_time'][arr_i]))
+        #                               for arr_i in range(len(data['all_time']))]
+        # data['all_centroids']['y'] = [tce['dec'] * np.ones(len(data['all_time'][arr_i]))
+        #                               for arr_i in range(len(data['all_time']))]
+        #
+        # data['all_centroids_px']['x'] = [np.zeros(len(data['all_time'][arr_i]))
+        #                                  for arr_i in range(len(data['all_time']))]
+        # data['all_centroids_px']['y'] = [np.zeros(len(data['all_time'][arr_i]))
+        #                                  for arr_i in range(len(data['all_time']))]
+
+    return errs
