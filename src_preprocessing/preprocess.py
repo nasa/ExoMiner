@@ -156,41 +156,17 @@ def read_light_curve(tce, config):
         return fits_data
 
 
-def process_tce(tce, table, config):
-    """ Preprocesses the timeseries and scalar features for the TCE and returns an Example proto.
+def sample_ephemerides(tce, config):
+    """ Sample ephemerides using ephemerides uncertainty.
 
-    :param tce: row of the input TCE table.
-    :param table: pandas DataFrame, ephemeris information on all TCEs (used when gapping)
-    :param config: dict, holds preprocessing parameters
+    Args:
+        tce: pandas Series, TCE data
+        config: dict, preprocessing parameters
 
-    return:
-        a tensorflow.train.Example proto containing TCE features
+    Returns: tce, pandas Series with sampled ephemerides
+
     """
 
-    # setting primary gap duration
-    if 'tce_maxmesd' in tce:
-        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
-                                                np.abs(tce['tce_maxmesd']), tce['tce_period'])
-        # setting secondary gap duration
-        config['duration_gapped_secondary'] = min(max(0, tce['tce_period'] - config['duration_gapped_primary'] -
-                                                      config['primary_buffer_time']),
-                                                  config['gap_padding'] * tce['tce_duration'])
-    else:
-        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
-                                                tce['tce_period'])
-        config['duration_gapped_secondary'] = 0
-
-    # set Savitzky-Golay window
-    config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
-                               config['sampling_rate_h'][f'{config["satellite"]}'])
-    config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
-
-    # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
-    if np.random.random() < config['plot_prob']:
-        plot_preprocessing_tce = config['plot_figures']
-
-    # sample TCE ephemeris using uncertainty interval
     if tce['augmentation_idx'] != 0 and config['augmentation']:  # one of the TCEs does not use uncertainty values
 
         # tce_tbl_ephem = {ephemeris: tce[ephemeris] for ephemeris in ['tce_period', 'tce_duration', 'tce_time0bk']}
@@ -212,6 +188,47 @@ def process_tce(tce, table, config):
             tce[ephemeris] = tce[ephemeris] * (1 - config['aug_noise_factor'],
                                                1 + config['aug_noise_factor'])[tce['augmentation_idx'] == 1]
 
+    return tce
+
+
+def process_tce(tce, table, config):
+    """ Preprocesses the timeseries and scalar features for the TCE and returns an Example proto.
+
+    :param tce: row of the input TCE table.
+    :param table: pandas DataFrame, ephemeris information on all TCEs (used when gapping)
+    :param config: dict, holds preprocessing parameters
+
+    return:
+        a tensorflow.train.Example proto containing TCE features
+    """
+
+    # setting primary gap duration
+    if 'tce_maxmesd' in tce:
+        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
+                                                np.abs(tce['tce_maxmesd']), tce['tce_period'])
+        # setting secondary gap duration
+        config['duration_gapped_secondary'] = min(max(0, tce['tce_period'] - config['duration_gapped_primary'] -
+                                                      config['primary_buffer_time']),
+                                                  1.5 * config['gap_padding'] * tce['tce_duration'])
+    else:
+        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
+                                                tce['tce_period'])
+        config['duration_gapped_secondary'] = 0
+
+    # set Savitzky-Golay window based on transit duration
+    if config['detrending_method'] == 'savitzky-golay':
+        config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
+                                   config['sampling_rate_h'][f'{config["satellite"]}'])
+        config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
+
+    # check if preprocessing pipeline figures are saved for the TCE
+    plot_preprocessing_tce = False  # False
+    if np.random.random() < config['plot_prob']:
+        plot_preprocessing_tce = config['plot_figures']
+
+    # sample TCE ephemeris using uncertainty interval
+    tce = sample_ephemerides(tce, config)
+
     # get cadence, flux and centroid data for the tce
     data = read_light_curve(tce, config)
     if data is None:
@@ -229,40 +246,6 @@ def process_tce(tce, table, config):
         add_info = {'quarter': data['quarter'], 'module': data['module']}
     else:
         add_info = {'sectors': data['sectors']}
-
-    # # TODO: do the same thing for TESS
-    # if config['get_denoised_centroids']:
-    #     all_centroids, idxs_nan_centroids = get_denoised_centroids_kepler(tce.target_id, config['denoised_centroids_dir'])
-
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids(data['all_time'],
-    #                                        data['all_centroids'],
-    #                                        None,
-    #                                        tce,
-    #                                        config,
-    #                                        os.path.join(config['output_dir'], 'plots'),
-    #                                        f'1_raw_aug{tce["augmentation_idx"]}',
-    #                                        add_info=add_info,
-    #                                        target_position=None
-    #                                        )
-    #
-    #     if not config['px_coordinates']:
-    #         utils_visualization.plot_centroids(data['all_time'],
-    #                                            data['all_centroids'],
-    #                                            None,
-    #                                            tce,
-    #                                            config,
-    #                                            os.path.join(config['output_dir'], 'plots'),
-    #                                            f'1_raw_target_aug{tce["augmentation_idx"]}',
-    #                                            add_info=add_info,
-    #                                            target_position=data['target_position']
-    #                                            )
-
-    # utils_visualization.plot_centroids(data['all_time'], data['all_centroids_px'], None, tce, config,
-    #                                    os.path.join(config['output_dir'], 'plots'),
-    #                                    '1_raw_fdl_aug{}'.format(tce['augmentation_idx']),
-    #                                    add_info=add_info,
-    #                                    pxcoordinates=True)
 
     # # gap TCE to get weak secondary test time-series
     # # get gapped indices
@@ -312,16 +295,6 @@ def process_tce(tce, table, config):
                     data[timeseries][arr_i][gapped_idxs[arr_i]] = np.nan
             if config['gap_imputed']:
                 data['gap_time'].append(data['all_time'][arr_i][gapped_idxs[arr_i]])
-
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids(data['all_time_centroids'],
-    #                                        data['all_centroids'],
-    #                                        None,
-    #                                        tce,
-    #                                        config,
-    #                                        os.path.join(config['output_dir'], 'plots'),
-    #                                        '2_rawwithoutnans_aug{}'.format(tce['augmentation_idx']),
-    #                                        add_info=add_info)
 
     # preprocess the flux and centroid time series
     data_processed = process_light_curve(data, config, tce, plot_preprocessing_tce)
@@ -373,7 +346,6 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                              f'2_intransit_flux_binary_timeseries_aug{tce["augmentation_idx"]}')
 
     # gap secondary transits
-    # duration_gapped_secondary = duration_gapped - tce['tce_period'] - 30 / config['sampling_rate_h'][config['satellite']] / 24
     # get epoch of first transit for each time array
     first_transit_time_secondary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                          tce['tce_period'], time[0])
@@ -459,10 +431,6 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
 
     # remove non-finite values
     time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
-
-    # # add gap after and before transit based on transit duration
-    # duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-    #                       tce['tce_period'])
 
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                tce['tce_period'], time[0])
@@ -565,13 +533,6 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     if config['px_coordinates'] and config['satellite'] == 'kepler':
         if add_info['module'][0] == 13:
             centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
-
-    # # add gap after and before transit based on transit duration
-    # if 'tce_maxmesd' in tce:
-    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-    #                           tce['tce_period'])
-    # else:
-    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
 
     # gap primary in-transit cadences
     # get epoch of first transit for each time array
