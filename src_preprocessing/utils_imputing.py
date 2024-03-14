@@ -28,7 +28,7 @@ def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=No
     """
 
     # get time interval for in-transit cadences
-    tmin_it, tmax_it = max(-period / 2, -1.5 * duration / 2), min(period/2, 1.5 * duration / 2)
+    tmin_it, tmax_it = max(-period / 2, -1.5 * duration), min(period/2, 1.5 * duration)
 
     # get empty bins indices (nan)
     inds_nan_bins = np.isnan(binned_ts)
@@ -49,7 +49,7 @@ def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=No
     inds_nan = {'oot': inds_oot_nan, 'it': inds_it_nan}
 
     if np.any(inds_oot_nan):  # there are oot indices with missing bin values that need to be imputed
-        if len(inds_oot_valid) > 0:  # there is at least one not missing oot bin value
+        if inds_oot_valid.sum() > 0:  # there is at least one not missing oot bin value
             # set Gaussian noise based on out-of-transit phase folded time series statistics
             mu = bin_fn(binned_ts[inds_oot_valid])
             if bin_var_fn.__name__ == 'mad_std':  # astropy

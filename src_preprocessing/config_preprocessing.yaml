@@ -1,5 +1,5 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_new_pipeline_with_sg_tic142276270-1-S14-19_check_spline_parameters_3-14-2024_1041
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_new_pipeline_with_sg_3-13-2024_2156
 # TCE table with examples to be preprocessed
 input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv
 # light curve FITS file directory
@@ -43,7 +43,7 @@ dq_values_filter: null  # set to null
 get_momentum_dump: true  # get momentum dump dq flag and generate feature data
 
 # detrending
-detrending_method: 'spline'  # 'savitzky-golay' for Savitzky-Golay or 'spline' for spline detrending
+detrending_method: 'savitzky-golay'  # 'savitzky-golay' for Savitzky-Golay or 'spline' for spline detrending
 # Saviztky-Golay parameters
 sg_sigma: 5
 sg_max_poly_order: 12
@@ -81,6 +81,9 @@ gap_confidence_level: 0.75
 
 # primary gapping
 gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)
+
+# primary buffer when gapping secondary
+primary_buffer_nsamples: 30
 
 # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
 # (world coordinates)

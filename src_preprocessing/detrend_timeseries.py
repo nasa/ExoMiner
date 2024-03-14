@@ -141,6 +141,14 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
         - res_flux, NumPy array with the residual timeseries (i.e., res_flux = flux - trend)
     """
 
+    if mask_in_transit.all():
+        time = lc.time.value
+        trend = np.nanmedian(lc.flux.value)
+        detrended_flux = lc.flux.value / trend
+        res_flux = lc.flux.value - detrended_flux
+
+        return time, detrended_flux, trend, res_flux
+
     n_samples = len(lc.flux.value)
     poly_order_arr = np.arange(0, max_poly_order + 1)
     best_bic, best_model = np.inf, 0

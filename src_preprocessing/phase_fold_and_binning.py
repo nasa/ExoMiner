@@ -82,9 +82,9 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     """
 
     # phase interval for classifying cadences as in-transit cadences
-    tmin_it, tmax_it = max(-period / 2, -1.5 * duration / 2), min(period / 2, 1.5 * duration / 2)
+    tmin_it, tmax_it = max(-period / 2, -1.5 * duration), min(period / 2, 1.5 * duration)
 
-    expected_num_it_cadences = duration * num_cadences_per_h
+    expected_num_it_cadences = int(duration * 24 * num_cadences_per_h)
 
     # find mid-transit points in [time[0], t0] and [t0, time[-1]]
     k_min, k_max = int(np.ceil((t0 - time[0]) / period)), int(np.ceil((time[-1] - t0) / period))

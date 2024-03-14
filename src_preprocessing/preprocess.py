@@ -167,6 +167,20 @@ def process_tce(tce, table, config):
         a tensorflow.train.Example proto containing TCE features
     """
 
+    # setting primary gap duration
+    if 'tce_maxmesd' in tce:
+        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
+                                                np.abs(tce['tce_maxmesd']), tce['tce_period'])
+        # setting secondary gap duration
+        config['duration_gapped_secondary'] = min(max(0, tce['tce_period'] - config['duration_gapped_primary'] -
+                                                      config['primary_buffer_time']),
+                                                  config['gap_padding'] * tce['tce_duration'])
+    else:
+        config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
+                                                tce['tce_period'])
+        config['duration_gapped_secondary'] = 0
+
+    # set Savitzky-Golay window
     config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
                                config['sampling_rate_h'][f'{config["satellite"]}'])
     config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
@@ -337,19 +351,20 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
     # remove non-finite values
     time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
 
-    # add gap after and before transit based on transit duration
-    if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                              tce['tce_period'])
-    else:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
+    # # add gap after and before transit based on transit duration
+    # if 'tce_maxmesd' in tce:
+    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
+    #                           tce['tce_period'])
+    # else:
+    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
 
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
                               for time in time_arrs]
 
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
+    binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
+                                                 tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     if plot_preprocessing_tce:
@@ -358,12 +373,14 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                              f'2_intransit_flux_binary_timeseries_aug{tce["augmentation_idx"]}')
 
     # gap secondary transits
+    # duration_gapped_secondary = duration_gapped - tce['tce_period'] - 30 / config['sampling_rate_h'][config['satellite']] / 24
     # get epoch of first transit for each time array
     first_transit_time_secondary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                          tce['tce_period'], time[0])
                                         for time in time_arrs]
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_secondary_all = [create_binary_time_series(time, first_transit_time_secondary, duration_gapped,
+    binary_time_secondary_all = [create_binary_time_series(time, first_transit_time_secondary,
+                                                           config['duration_gapped_secondary'],
                                                            tce['tce_period'])
                                  for first_transit_time_secondary, time in
                                  zip(first_transit_time_secondary_all, time_arrs)]
@@ -387,8 +404,11 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
         time, flux = np.concatenate(time_arrs), np.concatenate(flux_arrs)
         lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
         # mask in-transit cadences
-        mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'], duration_gapped)
-        time, detrended_flux, trend, res_flux = detrend_flux_using_sg_filter(lc, mask_in_transit, config['sg_win_len'],
+        mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
+                                                 config['duration_gapped_primary'])
+
+        time, detrended_flux, trend, res_flux = detrend_flux_using_sg_filter(lc, mask_in_transit,
+                                                                             config['sg_win_len'],
                                                                              config['sg_sigma'],
                                                                              config['sg_max_poly_order'],
                                                                              config['sg_penalty_weight'],
@@ -440,14 +460,15 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
     # remove non-finite values
     time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
 
-    # add gap after and before transit based on transit duration
-    duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                          tce['tce_period'])
+    # # add gap after and before transit based on transit duration
+    # duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
+    #                       tce['tce_period'])
 
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
                                                                tce['tce_period'], time[0])
                               for time in time_arrs]
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
+    binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
+                                                 tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     if plot_preprocessing_tce:
@@ -459,7 +480,8 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
     first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
                                       for time in time_arrs]
     # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary, duration_gapped,
+    binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary,
+                                                         config['duration_gapped_secondary'],
                                                          tce['tce_period'])
                                for first_transit_time_secondary, time in zip(first_transit_time_primary_all, time_arrs)]
     # set primary in-transit cadences to np.nan
@@ -482,8 +504,10 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
         # mask in-transit cadences for secondary
         mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                 duration_gapped)
-        time, detrended_flux, trend, res_flux = detrend_flux_using_sg_filter(lc, mask_in_transit, config['sg_win_len'],
+                                                 config['duration_gapped_primary'])
+
+        time, detrended_flux, trend, _ = detrend_flux_using_sg_filter(lc, mask_in_transit,
+                                                                             config['sg_win_len'],
                                                                              config['sg_sigma'],
                                                                              config['sg_max_poly_order'],
                                                                              config['sg_penalty_weight'],
@@ -542,19 +566,20 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
         if add_info['module'][0] == 13:
             centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
 
-    # add gap after and before transit based on transit duration
-    if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                              tce['tce_period'])
-    else:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
+    # # add gap after and before transit based on transit duration
+    # if 'tce_maxmesd' in tce:
+    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
+    #                           tce['tce_period'])
+    # else:
+    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
 
     # gap primary in-transit cadences
     # get epoch of first transit for each time array
     first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
                               for time in time_arrs]
     # create in-transit binary time series for each time array
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
+    binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
+                                                 tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     # gap secondary in-transit cadences
@@ -563,7 +588,8 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
                                                                tce['tce_period'], time[0])
                               for time in time_arrs]
     # create in-transit binary time series for each time array
-    binary_time_secondary_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
+    binary_time_secondary_all = [create_binary_time_series(time, first_transit_time,
+                                                           config['duration_gapped_secondary'], tce['tce_period'])
                                  for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
 
     # merge both in-transit binary timeseries for primary and secondary in-transit cadences
@@ -608,7 +634,8 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
             time, centroid_arr = np.concatenate(time_arrs), np.concatenate(centroid_coord_data)
             lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(centroid_arr)})
             # mask in-transit cadences
-            mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'], duration_gapped)
+            mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
+                                                     config['duration_gapped_primary'])
 
             _, detrended_centroid, trend, res_centroid = detrend_flux_using_sg_filter(lc,
                                                                                       mask_in_transit,

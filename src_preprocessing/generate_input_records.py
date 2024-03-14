@@ -221,9 +221,11 @@ def main():
     else:
         config['output_dir'] = Path(config['output_dir'])
 
+    # set up parameters
     config['bin_width_factor_glob'] = 1 / config['num_bins_glob']
     config['tess_to_kepler_px_scale_factor'] = config['tess_px_scale'] / config['kepler_px_scale']
     config['tce_min_err']['tce_duration'] = config['tce_min_err']['tce_duration'] / 24
+    config['primary_buffer_time'] = config['primary_buffer_nsamples'] / config['sampling_rate_h'][config['satellite']] / 24
 
     if config['using_mpi']:  # using some sort of external library for parallelization
         if args.rank != -1:  # using parallel
