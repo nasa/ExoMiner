@@ -207,7 +207,7 @@ def process_tce(tce, table, config):
         config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
                                                 np.abs(tce['tce_maxmesd']), tce['tce_period'])
         # setting secondary gap duration
-        config['duration_gapped_secondary'] = min(max(0, tce['tce_period'] - config['duration_gapped_primary'] -
+        config['duration_gapped_secondary'] = min(max(0, tce['tce_maxmesd'] - config['duration_gapped_primary'] / 2 -
                                                       config['primary_buffer_time']),
                                                   1.5 * config['gap_padding'] * tce['tce_duration'])
     else:
