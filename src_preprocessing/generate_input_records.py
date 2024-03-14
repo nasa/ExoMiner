@@ -268,7 +268,7 @@ def main():
         if config['process_i'] == 0:
 
             # save preprocessing configuration used
-            np.save(config['output_dir'] / 'config.npy', config)
+            np.save(config['output_dir'] / 'preprocessing_params.npy', config)
             # save the YAML file with preprocessing parameters that are YAML serializable
             json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
             with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as cv_run_file:
