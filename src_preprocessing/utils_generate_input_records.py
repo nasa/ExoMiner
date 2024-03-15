@@ -98,7 +98,7 @@ def get_tess_tce_table(config):
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
     # tce_table = tce_table.loc[tce_table['target_id'] == 127530399]
-    # tces_lst = ['142276270-1-S14-19',
+    tces_lst = [#'95190770-1-S1-65',  # '273372402-1-S15'
         # '164173105-1-S16', '166527623-1-S64', '166527623-1-S1-65',
        # '166527623-2-S38', '464646604-1-S27', '267572272-1-S54',
        # '164173105-1-S56', '383390264-1-S13', '267572272-1-S14-41',
@@ -119,8 +119,10 @@ def get_tess_tce_table(config):
         # '388105497-2-S38',
         # '417728778-2-S19',
         # '89522181-1-S14-55',
-    # ]
-    # tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
+        # '425166925-1-S7',
+        '100234005-1-S14'
+    ]
+    tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
     cols_change_data_type = {
         # 'sectors': str,
         'sector_run': str,
