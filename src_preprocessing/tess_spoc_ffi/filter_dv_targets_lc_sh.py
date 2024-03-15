@@ -1,5 +1,9 @@
 """
 Filter TIC lc files that have DV results.
+
+For each sector run, checking if for a given target in the lc sh file there's a corresponding entry in the DV sh file
+for the same sector run. If there isn't, then the target does not have any DV results (hence no TCEs were detected for
+the target in that sector run).
 """
 
 # 3rd party

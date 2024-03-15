@@ -525,6 +525,12 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
     time_arrs, centroid_dict = [np.array(el) for el in all_time], \
         {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()}
 
+    if np.isnan(np.concatenate(centroid_dict['x'])).all():  # when there's no centroid data
+        time_centroid = np.concatenate(time_arrs)
+        centroid_dist = np.zeros(len(time_centroid), dtype='float')
+
+        return time_centroid, centroid_dist
+
     time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
                                                                                   centroid_dict['x'],
                                                                                   centroid_dict['y']])

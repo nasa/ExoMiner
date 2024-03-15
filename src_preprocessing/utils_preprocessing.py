@@ -340,8 +340,8 @@ def check_inputs_generate_example(data, tce, config):
         data['time_centroid_dist'] = np.array(data['time'])
         data['centroid_dist'] = np.zeros(len(data['time']))
 
-        data['time_centroid_distFDL'] = np.array(data['time'])
-        data['centroid_distFDL'] = np.zeros(len(data['time']))
+        # data['time_centroid_distFDL'] = np.array(data['time'])
+        # data['centroid_distFDL'] = np.zeros(len(data['time']))
     # fill with Gaussian noise using time series statistics
     elif 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
         report_exclusion(config, tce, f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
@@ -352,10 +352,10 @@ def check_inputs_generate_example(data, tce, config):
         data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
         data['time_centroid_dist'] = np.array(data['time'])
 
-        rob_std = mad_std(data['centroid_distFDL'])
-        med = np.median(data['centroid_distFDL'])
-        data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
-        data['time_centroid_distFDL'] = np.array(data['time'])
+        # rob_std = mad_std(data['centroid_distFDL'])
+        # med = np.median(data['centroid_distFDL'])
+        # data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
+        # data['time_centroid_distFDL'] = np.array(data['time'])
 
     return data
 
