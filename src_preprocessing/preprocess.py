@@ -529,6 +529,9 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, g
         time_centroid = np.concatenate(time_arrs)
         centroid_dist = np.zeros(len(time_centroid), dtype='float')
 
+        report_exclusion(config, tce, f'No available flux-weighted centroid data for target {tce.target_id}. '
+                                      f'Setting transit offset distance from target to zero.')
+
         return time_centroid, centroid_dist
 
     time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
