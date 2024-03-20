@@ -11,11 +11,11 @@ final_size:  # final size for preprocessed images before resizing
 upscale_f:
   x: 3
   y: 3
-# file path to table with quality metrics
-qual_metrics_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/diff_img_quality_metric.csv
+# file path to table with quality metrics; used for Kepler, since it is a single file for the run (e.g., DR25)
+qual_metrics_tbl_fp: null
 sat_thr: 7  # saturation threshold
 # file path to TCE table with saturation values
-sat_tbl_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv
-n_processes: 10  # number of processes to run jobs in parallel
-n_jobs: 10 # total number of jobs
+sat_tbl_fp: null
+n_processes: 14  # number of processes to run jobs in parallel
+n_jobs: 32 # total number of jobs
 plot_prob: 0.01  # probability to plot preprocessing results for each example

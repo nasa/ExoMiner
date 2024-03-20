@@ -7,28 +7,43 @@ import xml.etree.cElementTree as et
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import re
 
 #%%
 
-dv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/fits_files/tess/dv')
-save_dir = dv_root_dir / 'diff_img_quality_metric'
+dv_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/')
+save_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943/diff_img_quality_metric')
 save_dir.mkdir(exist_ok=True)
-sector_root_dir = dv_root_dir / 'sector_runs'
-single_sector_runs = [fp for fp in (sector_root_dir / 'single-sector').iterdir() if fp.is_dir()]
-multi_sector_runs = [fp for fp in (sector_root_dir / 'multi-sector').iterdir() if fp.is_dir()]
+single_sector_runs = [fp for fp in (dv_root_dir / 'single-sector').iterdir() if fp.is_dir()]
+multi_sector_runs = []  # [fp for fp in (dv_root_dir / 'multi-sector').iterdir() if fp.is_dir()]
 sector_runs = list(single_sector_runs) + list(multi_sector_runs)
 
 for sector_run in sector_runs:
+
     print(f'Iterating on {sector_run.name}...')
     data = {
         'uid': [],
     }
-    if 'multisector' in sector_run.name:
-        s_sector, e_sector = [int(s[1:]) for s in sector_run.name.split('_')[1].split('-')]
+
+    # get filepaths to xml files
+    dv_xml_run_fps = list(sector_run.rglob("*.xml"))
+
+    s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
+    s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
+    if s_sector != e_sector:  # multisector run
         sector_run_id = f'{s_sector}-{e_sector}'
     else:
-        sector_run_id = sector_run.name.split('_')[1]
-        s_sector, e_sector = int(sector_run_id), int(sector_run_id)
+        sector_run_id = f'{s_sector}'
+
+    n_targets = len(dv_xml_run_fps)
+    print(f'[Sector run {sector_run_id}] Found {n_targets} targets DV xml files in {sector_run}.')
+
+    # if 'multisector' in sector_run.name:
+    #     s_sector, e_sector = [int(s[1:]) for s in sector_run.name.split('_')[1].split('-')]
+    #     sector_run_id = f'{s_sector}-{e_sector}'
+    # else:
+    #     sector_run_id = sector_run.name.split('_')[1]
+    #     s_sector, e_sector = int(sector_run_id), int(sector_run_id)
 
     if (save_dir / f'diff_img_quality_metric_tess_{sector_run_id}.csv').exists():
         print(f'Quality metric table for {sector_run_id} already exists.')
@@ -39,20 +54,34 @@ for sector_run in sector_runs:
     for s in s_arr:
         data.update({f's{s}_{field}': [] for field in qual_metric_fields})
 
-    for dv_xml_run_fp in sector_run.iterdir():
+    for target_i, dv_xml_run_fp in enumerate(dv_xml_run_fps):
 
-        tree = et.parse(dv_xml_run_fp)
+        try:
+            tree = et.parse(dv_xml_run_fp)
+        except Exception as e:
+            print(f'Exception found when reading {dv_xml_run_fp}: {e}.')
+            continue
         root = tree.getroot()
 
         # check if there are results for more than one processing run for this TIC and sector run
         tic_id = root.attrib['ticId']
-        tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in sector_run.glob(f'*{tic_id.zfill(16)}*')]
+        # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in sector_run.glob(f'*{tic_id.zfill(16)}*')]
+        # if len(tic_drs) > 1:
+        #     curr_dr = int(dv_xml_run_fp.stem.split('-')[-1][:-4])
+        #     latest_dr = sorted(tic_drs)[-1]
+        #     if curr_dr != latest_dr:
+        #         print(f'[Sector run {sector_run_id}] Skipping {dv_xml_run_fp.name} for TIC {tic_id} since there are '
+        #               f'more recent processed results (current release {curr_dr}, latest release {latest_dr})')
+        #         continue
+        tic_drs = [fp for fp in sector_run.glob(f'*{tic_id.zfill(16)}*')]
         if len(tic_drs) > 1:
             curr_dr = int(dv_xml_run_fp.stem.split('-')[-1][:-4])
-            latest_dr = sorted(tic_drs)[-1]
+            latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
+                                for fp in dv_xml_run_fp.glob(f'*{tic_id.zfill(16)}*')])[-1]
             if curr_dr != latest_dr:
-                print(f'[Sector run {sector_run_id}] Skipping {dv_xml_run_fp.name} for TIC {tic_id} since there are '
-                      f'more recent processed results (current release {curr_dr}, latest release {latest_dr})')
+                print(f'Sector run [{sector_run_id}] Skipping {dv_xml_run_fp.name} for TIC {tic_id} since there is '
+                      f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
+                      f'... ({target_i}/{n_targets} targets)')
                 continue
 
         planet_res_lst = [el for el in root if 'planetResults' in el.tag]

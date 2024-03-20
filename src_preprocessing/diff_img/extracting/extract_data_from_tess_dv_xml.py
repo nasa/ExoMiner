@@ -11,37 +11,32 @@ import logging
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 
 if __name__ == '__main__':
+
     # DV XML file path
-    dv_xml_root_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/sector_runs')
-    single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]
-    multi_sector_runs = [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
+    dv_xml_root_fp = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/')
+    single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]  #  and fp.stem in ['s0062', 's0057', 's0056', 's0055']]  # [dv_xml_root_fp / 'single-sector' / 's0051']
+    multi_sector_runs = []  # [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
 
-    # # # TCE table file path
-    # tce_tbl_fp = Path(
-    #     '/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/11-29-2021/tess_tces_s1-s40_11-23-2021_1409_stellarparams_updated_eb_tso_tec_label_modelchisqr_astronet_ruwe_magcat_uid_corrtsoebs_corraltdetfail.csv')
-    # tce_tbl = pd.read_csv(tce_tbl_fp, usecols=['uid', 'label'])
-    # tce_tbl.set_index('uid', inplace=True)
-
     # run directory
-    run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing/test_11-14-2023_1014')
+    run_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943')
+    plot_prob = 0.01  # plot probability
+    n_processes = 14  # number of processes used to parallelize extraction
+
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)
-
+    # setting up data directory
     data_dir = run_dir / 'data'
     data_dir.mkdir(exist_ok=True)
-
     # create plotting directory
     plot_dir = run_dir / 'plots'
     plot_dir.mkdir(exist_ok=True)
-    plot_prob = 0.01
-
     # create log directory
     log_dir = run_dir / 'logs'
     log_dir.mkdir(exist_ok=True)
 
     # set up logger
-    logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml_main')
+    logger = logging.getLogger(name=f'extract_img_data_tess_dv_xml')
     logger_handler = logging.FileHandler(filename=log_dir / f'extract_img_data_from_tess_dv_xml_main.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
@@ -53,7 +48,11 @@ if __name__ == '__main__':
     for dv_xml_run in dv_xml_runs:
         logger.info(f'Run {str(dv_xml_run)}')
 
-    n_processes = 1
+    # from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml
+    # import numpy as np
+    # data = get_data_from_tess_dv_xml(dv_xml_runs[0], plot_dir, plot_prob, logger)
+    # np.save(data_dir / f'tess_diffimg_{dv_xml_runs[0].name}.npy', data)
+    # aaa
     logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i)
@@ -62,5 +61,6 @@ if __name__ == '__main__':
     logger.info('Started running jobs.')
     async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
     pool.close()
+    pool.join()
 
     logger.info('Finished preprocessing.')

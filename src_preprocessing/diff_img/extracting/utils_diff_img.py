@@ -7,8 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import re
 
 plt.switch_backend('agg')
+
+N_QUARTERS_KEPLER = 17
+N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
 
 
 def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl=None):
@@ -99,9 +103,6 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
     last dimension of the array, in this order); 'image_number' is a list that contains the integer quarter numbers of
     the corresponding sequence of difference image data extracted for the TCE.
     """
-
-    N_QUARTERS_KEPLER = 17
-    N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
 
     proc_id = os.getpid()
 
@@ -271,42 +272,47 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
     sequence of difference image data extracted for the TCE.
     """
 
-    N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
-
     proc_id = os.getpid()
 
     data = {}
-    target_i = 0
-    dv_xml_run_fps = list(dv_xml_run.iterdir())
-    n_targets = len(dv_xml_run_fps)
-    if 'multisector' in dv_xml_run.name:
-        first_sector, last_sector = dv_xml_run.name.split('_')[1].split('-')
-        first_sector, last_sector = int(first_sector[1:]), int(last_sector[1:])
-        sector_run_id = f'{first_sector}-{last_sector}'
+
+    # get filepaths to xml files
+    dv_xml_run_fps = list(dv_xml_run.rglob("*.xml"))
+
+    s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
+    s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
+    if s_sector != e_sector:  # multisector run
+        sector_run_id = f'{s_sector}-{e_sector}'
     else:
-        sector_run_id = f'{dv_xml_run.name.split("_")[1]}'
+        sector_run_id = f'{s_sector}'
 
-    for dv_xml_fp in dv_xml_run_fps:
+    n_targets = len(dv_xml_run_fps)
+    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
 
-        target_i += 1
+    for target_i, dv_xml_fp in enumerate(dv_xml_run_fps):
 
         if target_i % 1000 == 0:
-            print(f'[{proc_id}] Iterating over TIC {target_i}/{n_targets} in {dv_xml_fp.name}', flush=True)
+            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Iterating over TIC {target_i}/{n_targets} in '
+                        f'{dv_xml_fp.name}.')
 
-        tree = et.parse(dv_xml_fp)
+        try:
+            tree = et.parse(dv_xml_fp)
+        except Exception as e:
+            logger.info(f'Exception found when reading {dv_xml_fp}: {e}.')
+            continue
         root = tree.getroot()
+
         # check if there are results for more than one processing run for this TIC and sector run
         tic_id = root.attrib['ticId']
-
-        # # get TESS magnitude for TIC
-        # tmag = float([el for el in root if 'tessMag' in el.tag][0].attrib['value'])
-
-        tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
+        # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
+        tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
         if len(tic_drs) > 1:
             curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
-            latest_dr = sorted(tic_drs)[-1]
+            latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
+                                for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')])[-1]
             if curr_dr != latest_dr:
-                logger.info(f'[{proc_id}] [{sector_run_id}] Skipping {dv_xml_fp.name} for TIC {tic_id} since there is '
+                logger.info(f'[{proc_id}] [Sector run {sector_run_id}] '
+                            f'Skipping {dv_xml_fp.name} for TIC {tic_id} since there is '
                             f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
                             f'... ({target_i}/{n_targets} targets)')
                 continue
@@ -333,7 +339,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
                 'image_number': []
             }
 
-            logger.info(f'[{proc_id}] [{sector_run_id}] Getting difference image data for TCE TIC '
+            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Getting difference image data for TCE TIC '
                         f'{uid} ({tce_i}/{n_tces} TCEs)... ({target_i}/{n_targets} targets)')
 
             # get difference image results
@@ -342,7 +348,9 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
             n_sectors = len(diff_img_res)
 
             if n_sectors < n_sectors_expected:
-                logger.info(f'[{proc_id}] TCE TIC {uid} has less than {n_sectors_expected} sectors ({n_sectors})')
+                logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has less than '
+                            f'{n_sectors_expected} '
+                            f'sectors ({n_sectors})')
 
             # iterate over sectors
             for sector_i in range(n_sectors):
@@ -393,9 +401,9 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
                         'row': {k: float(v) if k == 'value' else float(v)
                                 for k, v in tic_centroid_ref_row.items()}
                     }
-                    logger.info(f'[{proc_id}] [{sector_run_id}] TCE TIC {uid} has missing reference centroid for '
-                                f'target in sector {img_res_s.attrib["sector"]}.')
-                    # continue
+                    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has missing reference '
+                                f'centroid for target in sector {img_res_s.attrib["sector"]}.')
+                    continue
                 else:
                     tic_centroid_ref_dict = {
                         'col': {k: float(v) - min_col if k == 'value' else float(v)
@@ -446,5 +454,7 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_pro
     logger.info(f'[{job_i}] Starting run {dv_xml_run.name}...')
 
     data = get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger)
+
+    logger.info(f'[{job_i}] Finished run {dv_xml_run.name}.')
 
     np.save(save_dir / f'tess_diffimg_{dv_xml_run.name}.npy', data)
