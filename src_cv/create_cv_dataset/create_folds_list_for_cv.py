@@ -129,3 +129,18 @@ for cv_iter_i, cv_folds_iter_i in enumerate(cv_folds_fns):
 
 with open(cv_normalized_run_dir / 'cv_iters_fps.yaml', 'w') as file:
     yaml.dump(cv_iter_fps_lst, file, sort_keys=False)
+
+#%% Create yaml file for normalized CV iterations from the yaml file used to create the normalized data set
+
+src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/cv_folds_runs.yaml')
+dest_normalized_cv_iterations_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/tfrecords/eval_normalized')
+with open(src_cv_iterations_fp, 'r') as src_file:
+    src_cv_iterations = yaml.unsafe_load(src_file)
+
+dest_cv_iterations = []
+for src_cv_iteration_i, src_cv_iteration in enumerate(src_cv_iterations):
+    dest_cv_iteration = {dataset: [dest_normalized_cv_iterations_dir / f'cv_iter_{src_cv_iteration_i}' / 'norm_data' / src_cv_fold.name for src_cv_fold in src_cv_folds] for dataset, src_cv_folds in src_cv_iteration.items()}
+    dest_cv_iterations.append(dest_cv_iteration)
+
+with open(dest_normalized_cv_iterations_dir / 'cv_iters_fps.yaml', 'w') as dest_file:
+    yaml.dump(dest_cv_iterations, dest_file, sort_keys=False)

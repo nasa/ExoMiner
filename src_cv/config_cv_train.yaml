@@ -5,11 +5,12 @@ rnd_seed: 2  # random seed used to select the validation fold in each CV iterati
 paths:
   # experiment directory; results are saved here
   experiment_root_dir: null
-  # TFRecord directory with the CV folds
-  tfrec_dir: null  # /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/cv_keplerq1q17dr25_obsplanets_siminj1_data_02-22-2024_1155/eval_normalized
-  # NumPy file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file names
-  # for each training and test set folds combination (i.e., {'train': ['shard-xxxx', ...], 'test': ['shard-xxxx']}
-  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_2-2-2023_1308/cv_folds_runs_withval_trainkepler.npy
+#  # TFRecord directory with the CV folds
+#  tfrec_dir: null
+  # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
+  # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
+  # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
+  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/tfrecords/eval_normalized/cv_iters_fps.yaml
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
@@ -54,13 +55,13 @@ config:
         - unfolded_local_flux_view_fluxnorm
       scalars:   # null
         - tce_num_transits_norm
-        - mission
+        # - mission
     global_flux:
       views:
         - global_flux_view_fluxnorm
         - global_flux_view_fluxnorm_var
-      scalars:  # null
-        - mission
+      scalars: null
+        # - mission
     local_flux:
       views:
         - local_flux_view_fluxnorm
@@ -72,10 +73,10 @@ config:
          - tce_max_sngle_ev_norm
          - tce_robstat_norm
          - tce_model_chisq_norm
-         - mission
+         # - mission
     local_weak_secondary:
       views:
-#         - local_weak_secondary_view_fluxnorm
+#        - local_weak_secondary_view_fluxnorm
          - local_weak_secondary_view_selfnorm
          - local_weak_secondary_view_selfnorm_var
       #         - local_weak_secondary_view_max_flux-wks_norm
@@ -85,7 +86,7 @@ config:
         - tce_maxmes_norm
 #        - wst_depth_norm
         - tce_prad_norm
-        - mission
+        # - mission
     local_centroid:
       views:
         - local_centr_view_std_noclip
@@ -99,7 +100,7 @@ config:
 #       - mag_cat_norm
         - ruwe_norm
         - mag_shift_norm
-        - mission
+        # - mission
 ###    global_centroid:
 ###      views:
 ####        - global_centr_fdl_view_norm
@@ -111,16 +112,16 @@ config:
         - local_flux_odd_view_fluxnorm_var
         - local_flux_even_view_fluxnorm
         - local_flux_even_view_fluxnorm_var
-      scalars:  # null
-        - mission
+      scalars: null
+        # - mission
 #        - odd_se_oot_norm
 #        - even_se_oot_norm
     momentum_dump:
       views:
         - local_momentum_dump_view
         - local_momentum_dump_view_var
-      scalars:  # null
-        - mission
+      scalars: null
+        # - mission
   scalar_branches: # null
     stellar:
       - tce_sdens_norm
@@ -129,7 +130,7 @@ config:
       - tce_slogg_norm
       - tce_smass_norm
       - tce_sradius_norm
-      - mission
+      # - mission
     dv_tce_fit:
       - boot_fap_norm
       - tce_cap_stat_norm
@@ -138,7 +139,7 @@ config:
       ##      - tce_rb_tcount0n_norm  # kepler only
       ##      - tce_prad_norm
       - tce_period_norm
-      - mission
+      # - mission
 
   #   centroid_scalars:
   #     - tce_dikco_msky_norm
@@ -170,7 +171,7 @@ config:
       - quality
     scalars:
       - mag_shift_norm
-      - mission
+      # - mission
   #
   # transformer hyperparameters ---------
   #if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
@@ -314,15 +315,11 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # mission flag
-  mission: { 'dim': [ 1, ], 'dtype': float }
+  # mission: { 'dim': [ 1, ], 'dtype': float }
 
 # maps features' names to features names expected by the model
 feature_map: null
 #  feature_name: feature_name_model
-#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-#  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
-#  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -383,8 +380,8 @@ callbacks:
 
 label_map:  # maps label to a label id
 #  # Kepler
-  PC: 1
-  AFP: 0
+  # PC: 1
+  # AFP: 0
 #  NTP: 0
   # TESS
   KP: 1
@@ -394,7 +391,7 @@ label_map:  # maps label to a label id
   EB: 0
 #  B: 0
 #  J: 0
-#  NTP: 0
+  NTP: 0
   # Kepler Sim
 #  INJ1: 1
 #  INJ2: 0

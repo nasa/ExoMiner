@@ -54,11 +54,13 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
+            tf_logging.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name}...')
+            
             # preprocess TCE and add it to the TFRecord
             for example_i in range(config['num_examples_per_tce']):
 
                 tce['augmentation_idx'] = example_i
-
+                
                 try:
                     example = process_tce(tce, eph_table, config)
                 except Exception as error:
@@ -135,7 +137,7 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
         num_processed = 0
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
-            tf_logging.info(f'{process_name}: Processing example {tce["uid"]} in shard {shard_name}')
+            tf_logging.info(f'[{process_name}]: Processing TCE {tce["uid"]} in shard {shard_name}...')
 
             # preprocess TCE and add it to the TFRecord
             for example_i in range(config['num_examples_per_tce']):

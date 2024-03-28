@@ -17,6 +17,14 @@ from src_hpo.utils_hpo import load_hpo_config
 
 
 def run_setup_for_cv_iter(cv_iter, cv_iter_dir, config):
+    """ Run setup for a CV iteration. This involves things such as adding the filepaths for this given iteration to the
+    general config yaml file for the CV experiment; loading model hyperparameters from an HPO run
+
+    :param cv_iter: int, CV iteration number
+    :param cv_iter_dir: Path, CV iteration directory
+    :param config: dict, CV run parameters
+    :return:
+    """
 
     # add TFRecord data set file paths for this CV iteration to config yaml file
     config = add_tfrec_dataset_fps_to_config_file(cv_iter, config)
