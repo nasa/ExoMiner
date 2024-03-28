@@ -17,7 +17,7 @@ from src_preprocessing.normalize_data_tfrecords import normalize_examples
 from src_preprocessing.tf_util import example_util
 
 
-def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log=False):
+def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log_fp=None):
     """ Create a TFRecord fold for cross-validation based on source TFRecords and fold TCE table.
 
     :param shard_tbl_fp: Path, shard TCE table file path
@@ -25,16 +25,16 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
     :param fold_i: int, fold id
     :param src_tfrec_dir: Path, source TFRecord directory
     :param src_tfrec_tbl: pandas Dataframe, maps example to a given TFRecord shard
-    :param log: bool, if True creates a logger
+    :param log_fp: Path, log file path; if None, does not create a logger
     :return:
         tces_not_found: list, each sublist contains the target id and tce planet number for TCEs not found in the source
         TFRecords
     """
 
-    if log:
+    if log_fp:
         # set up logger
         logger = logging.getLogger(name=f'log_fold_{fold_i}')
-        logger_handler = logging.FileHandler(filename=dest_tfrec_dir.parent / f'create_tfrecord_fold_{fold_i}.log',
+        logger_handler = logging.FileHandler(filename=log_fp,  # dest_tfrec_dir.parent / f'create_tfrecord_fold_{fold_i}.log',
                                              mode='w')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         logger.setLevel(logging.INFO)
@@ -44,15 +44,15 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
 
     tces_not_found = []
 
-    if log:
+    if log_fp:
         logger.info(f'Reading fold TCE table: {shard_tbl_fp}')
     fold_tce_tbl = pd.read_csv(shard_tbl_fp)
 
     tfrec_new_fp = dest_tfrec_dir / f'shard-{f"{fold_i}".zfill(4)}'
-    if log:
+    if log_fp:
         logger.info(f'Destination TFRecord file: {tfrec_new_fp}')
 
-    if log:
+    if log_fp:
         logger.info('Iterating over the fold TCE table...')
     n_tces_in_shard = 0
     # write examples in a new TFRecord shard
@@ -60,7 +60,7 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
 
         for tce_i, tce in fold_tce_tbl.iterrows():
 
-            if (tce_i + 1) % 50 == 0 and log:
+            if (tce_i + 1) % 50 == 0 and log_fp:
                 logger.info(f'Iterating over fold table {fold_i} {shard_tbl_fp.name} '
                             f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
 
@@ -88,7 +88,7 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
 
         writer.close()
 
-    if log:
+    if log_fp:
         logger.info(f'Finished iterating over fold table {fold_i} {shard_tbl_fp.name}.')
 
     return tces_not_found

@@ -2,8 +2,8 @@
 #PBS -S /bin/bash
 #PBS -N data_analysis
 #PBS -l walltime=18:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=180g:model=sky_gpu
-#PBS -l place=scatter:shared
+#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
+#PBS -l place=scatter:excl
 #PBS -q dsg_gpu@pbspl4
 # PBS -q v100@pbspl4
 # #PBS -l select=1:ncpus=10:model=rom_ait
@@ -12,6 +12,13 @@
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.err
 #PBS -W group_list=a1509
 #PBS -m bea
+
+#module use -a /swbuild/analytix/tools/modulefiles
+#module load miniconda3/v4
+#export CONDA_ENVS_PATH=$CONDA_ENVS_PATH:/home6/msaragoc/work_dir/tools/python_envs/
+# export $CONDA_ENVS_PATH
+#source activate exoplnt_dl
+
 
 # source "$HOME"/.bashrc
 # 

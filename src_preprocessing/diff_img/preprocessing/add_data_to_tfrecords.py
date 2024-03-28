@@ -14,8 +14,8 @@ from src_preprocessing.tf_util import example_util
 
 # %% set file paths
 
-src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission')
-src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-')]
+src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged')
+src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
 print(f'Found {len(src_tfrec_fps)} source TFRecord files.')
 
 # # Kepler - single NumPy file
@@ -25,7 +25,7 @@ print(f'Found {len(src_tfrec_fps)} source TFRecord files.')
 # TESS - one NumPy file per sector run
 # aggregate all dictionaries
 # might be memory intensive as number of sector runs increases...
-diff_img_data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/dv/preprocessing_step2/11-20-2023_1127/')
+diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tess/2min/dv/diff_img/preprocessed/11-20-2023_1127')
 diff_img_data = {}
 # get file paths to directories with difference image data in NumPy files
 sector_dirs = [fp for fp in diff_img_data_dir.iterdir() if fp.is_dir() and 'sector' in fp.name]
@@ -39,9 +39,9 @@ dest_tfrec_dir.mkdir(exist_ok=True)
 # %% keep uids of examples without difference image data
 
 examples_not_found_dict = {'uid': [], 'filename': [], 'example_i': []}
-for src_tfrec_fp in src_tfrec_fps:
+for src_tfrec_fp_i, src_tfrec_fp in enumerate(src_tfrec_fps):
 
-    print(f'Iterating through shard {src_tfrec_fp}...')
+    print(f'Iterating through shard {src_tfrec_fp} ({src_tfrec_fp_i + 1}/{len(src_tfrec_fps)})...')
 
     dest_tfrec_fp = dest_tfrec_dir / src_tfrec_fp.name
 

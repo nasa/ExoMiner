@@ -133,7 +133,9 @@ def preprocess_tfrecs_perimage_normalization_diffimg(src_tfrec_fps, dest_tfrec_d
 
 if __name__ == '__main__':
 
-    src_tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_data/tfrecords_kepler_q1q17dr25_obs_11-18-2023_1240_mission_adddiffimg')
+    tf.config.set_visible_devices([], 'GPU')
+
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged_adddiffimg')
     dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_perimgnormdiffimg'
     zero_division_eps = 1e-10  # term added to denominator to avoid division by zero
     # q_oot = 0.25  # set quantile used to fill missing values in oot images
