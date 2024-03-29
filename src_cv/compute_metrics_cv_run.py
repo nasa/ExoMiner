@@ -28,21 +28,21 @@ cats = {
         # 'NTP': 0,
         # 'UNK': 0,
         # TESS
-        # 'KP': 1,
-        # 'CP': 1,
-        # 'EB': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
         # 'B': 0,
-        # 'FP': 0,
+        'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        # 'NTP': 0,
+        'NTP': 0,
         # Kepler Simulated
-        'INJ1': 1,
-        'INJ2': 0,
-        'INJ3': 0,
-        'SCR1': 0,
-        'SCR2': 0,
-        'INV': 0,
+        # 'INJ1': 1,
+        # 'INJ2': 0,
+        # 'INJ3': 0,
+        # 'SCR1': 0,
+        # 'SCR2': 0,
+        # 'INV': 0,
     },
     'val': {
         # Kepler
@@ -51,21 +51,21 @@ cats = {
         # 'NTP': 0,
         # 'UNK': 0,
         # TESS
-        # 'KP': 1,
-        # 'CP': 1,
-        # 'EB': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
         # 'B': 0,
-        # 'FP': 0,
+        'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        # 'NTP': 0,
+        'NTP': 0,
         # Kepler Simulated
-        'INJ1': 1,
-        'INJ2': 0,
-        'INJ3': 0,
-        'SCR1': 0,
-        'SCR2': 0,
-        'INV': 0,
+        # 'INJ1': 1,
+        # 'INJ2': 0,
+        # 'INJ3': 0,
+        # 'SCR1': 0,
+        # 'SCR2': 0,
+        # 'INV': 0,
     },
     'test': {
         # Kepler
@@ -74,21 +74,21 @@ cats = {
         # 'NTP': 0,
         # 'UNK': 0,
         # TESS
-        # 'KP': 1,
-        # 'CP': 1,
-        # 'EB': 0,
+        'KP': 1,
+        'CP': 1,
+        'EB': 0,
         # 'B': 0,
-        # 'FP': 0,
+        'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        # 'NTP': 0,
+        'NTP': 0,
         # Kepler Simulated
-        'INJ1': 1,
-        'INJ2': 0,
-        'INJ3': 0,
-        'SCR1': 0,
-        'SCR2': 0,
-        'INV': 0,
+        # 'INJ1': 1,
+        # 'INJ2': 0,
+        # 'INJ3': 0,
+        # 'SCR1': 0,
+        # 'SCR2': 0,
+        # 'INV': 0,
     },
 }
 # cats = None
@@ -120,7 +120,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_nodiffimg_2-13-2024_1039'),
+    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess_sgdetrending_all_3-28-2024_1138'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
@@ -160,7 +160,7 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         metrics_df.set_index('fold', inplace=True)
         metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=True)
 
-if dataset == 'test' and compute_metrics_all_dataset:
+if 'test' in datasets and compute_metrics_all_dataset:
     # compute metrics for the whole dataset by combining the test set folds from all CV iterations
     # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
     data_to_tbl = {col: [] for col in metrics_lst}

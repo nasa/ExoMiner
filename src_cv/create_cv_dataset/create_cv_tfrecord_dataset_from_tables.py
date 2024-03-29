@@ -7,28 +7,28 @@ import multiprocessing
 from pathlib import Path
 import pandas as pd
 import logging
+import tensorflow as tf
 
 # local
 from src_cv.utils_cv import create_shard_fold, create_table_shard_example_location
 
 if __name__ == '__main__':
 
-    import tensorflow as tf
     tf.config.set_visible_devices([], 'GPU')
 
     # CV destination data directory
-    dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/')
+    dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_keplerq1q17dr25obs_sgdetrending_3-29-2024_1101/')
     # TFRecord source directory
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged_adddiffimg_perimgnormdiffimg')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_sgdetrending_3-28-2024_1625')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_sgdetrending_3-28-2024_1625/shards_tbl.csv')
     n_processes = 10
     # directory with the TCE tables for each fold in the labeled data set
-    labeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_updated_labels_02-02-2024_1210/shard_tables/eval')  # dest_dir / 'shard_tables' / 'eval'
+    labeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/shard_tables/eval/')  # dest_dir / 'shard_tables' / 'eval'
     # destination directory for the TFRecords for all CV folds in the labeled data set
     labeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'eval'
     # directory with the TCE tables for each fold for the unlabeled data set
-    unlabeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_updated_labels_02-02-2024_1210/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
+    unlabeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
     # destination directory for the TFRecords for all CV folds in the unlabeled data set
     unlabeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'predict'
     log_dir = dest_dir / 'create_cv_folds_logs'
@@ -54,25 +54,26 @@ if __name__ == '__main__':
         logger.info('Creating shard example table that tracks location of examples in the source TFRecords...')
         create_table_shard_example_location(src_tfrec_dir)
     src_tfrec_tbl = pd.read_csv(src_tfrec_tbl_fp)
-    #
-    # labeled_shard_tbls_fps = sorted(list(labeled_shard_tbls_dir.iterdir()))
-    #
-    # n_processes_used = min(n_processes, len(labeled_shard_tbls_fps))
-    # pool = multiprocessing.Pool(processes=n_processes)
-    # jobs = [(shard_tbl_fp, labeled_dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log_dir / f'create_fold_evaluation_{fold_i}.log')
-    #         for fold_i, shard_tbl_fp in enumerate(labeled_shard_tbls_fps)]
-    # logger.info(f'Set {len(jobs)} jobs to create TFRecord shards.')
-    # logger.info(f'Started creating shards for evaluation...')
-    # async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
-    # pool.close()
-    # pool.join()
-    #
-    # # TCEs present in the fold TCE tables that were not present in the source TFRecords
-    # tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['uid'])
-    #                                for async_result in async_results], ignore_index=True)
-    # tces_not_found_df.to_csv(dest_dir / 'tces_not_found_eval.csv', index=False)
-    #
-    # logger.info('Finished creating TFRecords folds for evaluation.')
+
+    labeled_shard_tbls_fps = sorted(list(labeled_shard_tbls_dir.iterdir()))
+
+    n_processes_used = min(n_processes, len(labeled_shard_tbls_fps))
+    pool = multiprocessing.Pool(processes=n_processes)
+    jobs = [(shard_tbl_fp, labeled_dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log_dir /
+             f'create_fold_evaluation_{fold_i}.log')
+            for fold_i, shard_tbl_fp in enumerate(labeled_shard_tbls_fps)]
+    logger.info(f'Set {len(jobs)} jobs to create TFRecord shards.')
+    logger.info(f'Started creating shards for evaluation...')
+    async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
+    pool.close()
+    pool.join()
+
+    # TCEs present in the fold TCE tables that were not present in the source TFRecords
+    tces_not_found_df = pd.concat([pd.DataFrame(async_result.get(), columns=['uid'])
+                                   for async_result in async_results], ignore_index=True)
+    tces_not_found_df.to_csv(dest_dir / 'tces_not_found_eval.csv', index=False)
+
+    logger.info('Finished creating TFRecords folds for evaluation.')
 
     # create TFRecord for examples that are not part of the evaluation set
     if unlabeled_shard_tbls_dir.exists():
