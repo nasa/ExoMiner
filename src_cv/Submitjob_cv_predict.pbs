@@ -3,11 +3,9 @@
 #PBS -S /bin/bash
 #PBS -N cv_predict_exoplnt
 #PBS -l walltime=24:00:00
-# #PBS -l select=1:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
 #PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# #PBS -l select=3:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=scatter:shared
+#PBS -l place=scatter:excl
 #PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_predict_exoplnt_mgpus_singlenode.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_predict_exoplnt_mgpus_singlenode.err
@@ -20,11 +18,11 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_predict_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_predict_tess_ffis47-61_1-26-2024_1146
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_sgdetrending_fluxonly_models_predict_sgdetrendingdata_tic10837041.1_s30_4-8-2024_1316
 mkdir -p $OUTPUT_DIR
 
 # root directory for model file paths
-MODELS_CV_ROOT_DIR=/nobackup/araigosa/exoplanet_dl_remote/exoplanet_dl/training/1-22-train-2min/
+MODELS_CV_ROOT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess_sgdetrending_fluxonly_4-2-2024_1138
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4
@@ -33,7 +31,7 @@ N_GPUS_TOTAL=4
 NUM_TOTAL_JOBS=$((1 * 4))
 # NUM_TOTAL_JOBS=10
 # number of jobs run simultaneously
-NUM_JOBS_PARALLEL=2
+NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
 # run CV sh script

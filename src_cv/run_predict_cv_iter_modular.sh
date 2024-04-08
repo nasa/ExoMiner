@@ -23,7 +23,8 @@ conda activate exoplnt_dl_tf2_13
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # Paths
-SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter_predict.py
+#SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter_predict.py
+SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/predict_model.py
 
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))

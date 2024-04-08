@@ -370,7 +370,7 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 if __name__ == '__main__':
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_12-05-2023_1443')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_splinedetrending_s1-s67_4-5-2024_1513_merged')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
@@ -382,10 +382,10 @@ if __name__ == '__main__':
     tfrec_tbls = []
     for fp in tfrec_fps:
         # print(f'Iterating over {fp}...')
-        # try:
-        tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
-        # except Exception as e:
-        #     print(f'Failed to read {fp}.')
+        try:
+            tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
+        except Exception as e:
+            print(f'Failed to read {fp}.')
             # print(f'Deleting {fp}...')
             # fp.unlink()
             # (fp.parent / f'{fp.name}.csv').unlink()
@@ -393,16 +393,3 @@ if __name__ == '__main__':
     tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
 
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
-
-    # _ = create_shards_table(tfrec_dir)
-
-    # # merge tfrecord data sets
-    # src_tfrecs_dict = {
-    #     'a': [fp for fp in Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-36_s1-39_s14-16_12-1-2023_0048').iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv'],
-    #     'b': [fp for fp in Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-36_s1-39_s14-26_11-27-2023_1240').iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv'],
-    #     'c': [fp for fp in Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission').iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv'],
-    # }
-    # dest_tfrec_dir_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_all_12-1-2023_1041')
-    #
-    # merge_tfrecord_datasets(dest_tfrec_dir_fp, src_tfrecs_dict)
-

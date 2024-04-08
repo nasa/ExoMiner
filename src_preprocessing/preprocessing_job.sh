@@ -6,6 +6,8 @@
 # $4: File path to configuration yaml file for the preprocessing run
 # $5: Total number of jobs
 
+echo "Starting job $1 in node $HOSTNAME..."
+
 source "$HOME"/.bashrc
 
 conda activate exoplnt_dl

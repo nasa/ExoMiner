@@ -1,11 +1,11 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_new_pipeline_with_sg_3-13-2024_2156
+output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv
+input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc/
+lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/pdc-lc
 
-using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
+using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
 # multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
