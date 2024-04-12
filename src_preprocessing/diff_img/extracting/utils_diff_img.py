@@ -403,7 +403,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
                     }
                     logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has missing reference '
                                 f'centroid for target in sector {img_res_s.attrib["sector"]}.')
-                    continue
+                    # continue
                 else:
                     tic_centroid_ref_dict = {
                         'col': {k: float(v) - min_col if k == 'value' else float(v)

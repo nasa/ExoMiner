@@ -77,7 +77,6 @@ gap_keep_overlap: true  # if true, cadences that overlap between TCE of interest
 gap_padding: 1  # transit duration that is gapped is `transit_duration * (1 + 2 * gap_pad)`
 gap_imputed: false  # fill in gapped cadences
 gap_with_confidence_level: false  # not implemented
-gap_confidence_level: 0.75
 
 # primary gapping
 gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)

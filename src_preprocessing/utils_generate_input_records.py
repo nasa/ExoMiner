@@ -3,40 +3,10 @@ Utility functions used for generating input TFRecords.
 """
 
 # 3rd party
-import os
-import pickle
 import pandas as pd
 from tensorflow.compat.v1 import logging as tf_logging
 import numpy as np
 import json
-
-
-def load_whitened_data(config):
-    """ Loads the whitened data from Kepler into global variables. The tbl files were converted to pickle files.
-
-    # FIXME: we have to eventually go back, talk with TESS team and think about how to use and implement the whitening
-            # there are several TCEs whose time series as zero arrays
-
-    :param config: Config object, contains the preprocessing parameters
-    :return:
-    """
-
-    flux_files = [i for i in os.listdir(config['whitened_dir']) if i.startswith('DR25_readout_flux')
-                  and not i.endswith('(copy)')]
-    time_files = [i for i in os.listdir(config['whitened_dir']) if i.startswith('DR25_readout_time')
-                  and not i.endswith('(copy)')]
-
-    # FIXME: I am not a fan of using global variables...
-    global flux_import
-    global time_import
-    flux_import, time_import = {}, {}
-
-    for file in flux_files:  # [:int(len(flux_files)/4)]
-        with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
-            flux_import.update(pickle.load(fp))
-    for file in time_files:  # [:int(len(time_files)/4)]
-        with open(os.path.join(config.whitened_dir, file), 'rb') as fp:
-            time_import.update(pickle.load(fp))
 
 
 def get_kepler_tce_table(config):
@@ -49,25 +19,7 @@ def get_kepler_tce_table(config):
 
     # read the CSV file of Kepler KOIs.
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    # tces_lst = [
-    #     '407347423-1-S25',  # NTPs with momentum dump
-    #     '31313085-1-S4',
-    #     '17660071-1-S7',
-    #     '142086813-1-S3',
-    #     '453101762-1-S3',
-    #     '471015674-1-S3',
-    #     '167305688-1-S4',
-    #     '233684822-1-S14-50',  # EB
-    #     '158561566-1-S14-14',  # planet
-    # ]
-    # tce_table = tce_table.loc[(tce_table['uid'].isin(tces_lst))]
-    # tce_table = tce_table.loc[((tce_table['dataset'] == 'INJ1') & (tce_table['uid'] == '3833819-1'))]
-    # tce_table[['tce_dikco_smsky', 'tce_dikco_msky_err', 'tce_dicco_msky', 'tce_dicco_msky_err', 'tce_fwm_stat']] = float(0)
-    # tce_table['mag_cat'] = 1.0
-    # tce_table = tce_table.sample(n=20)
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['6307062-1', ])]
-    # tce_table = tce_table.loc[tce_table['target_id'].isin([11761169])]
-    # tce_table['tce_depth'] = tce_table['transit_depth']
+
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 
     tf_logging.info(f'Read TCE CSV file with {len(tce_table)} rows.')
@@ -97,8 +49,9 @@ def get_tess_tce_table(config):
 
     # read TCE table
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    tce_table = tce_table.loc[tce_table['target_id'] == 236887394]
     # tces_lst = [
-    #     '10837041-1-S30',
+    #     '236887394-1-S14-55',
     #     ]
     # tce_table = tce_table.loc[tce_table['uid'].isin(tces_lst)]
     cols_change_data_type = {
