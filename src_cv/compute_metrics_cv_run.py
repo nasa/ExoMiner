@@ -172,6 +172,3 @@ if 'test' in datasets and compute_metrics_all_dataset:
     metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
                                                   top_k_vals, class_name, cat_name)
     metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}_all.csv', index=False)
-
-
-

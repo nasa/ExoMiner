@@ -6,14 +6,10 @@ import pandas as pd
 
 # %% Combine predictions from all CV iterations in the used dataset
 
-# cv_run_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/single_branch_experiments')
 cv_run_dirs = [
-    Path('//Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xrp_year1/cv_tess_nodiffimg_2-13-2024_1039'),
-    # Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_fpflags_4-2023/single_branch_experiments/cv_kepler_single_branch_fpflags_ntl_4-5-2023_0007')
-               ]  # [fp for fp in cv_run_root_dir.iterdir() if fp.is_dir()]
+    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess_splinedetrending_fluxonly_4-10-2024_1655'),
+               ]
 for cv_run_dir in cv_run_dirs:
-
-    # cv_run_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler_single_branch_3-2023/cv_kepler_single_branch_full_exominer_3-9-2023_1147')
 
     cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
@@ -28,8 +24,7 @@ for cv_run_dir in cv_run_dirs:
 
 # %% Combine predictions from all CV iterations in the not-used dataset
 
-cv_pred_run_dir = Path(
-    '/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_q1q17dr25_simdata/experiments/cv_exominer_obs_2-15-2024_1114_predict_sim_2-16-1436')
+cv_pred_run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_sgdetrending_fluxonly_models_predict_sgdetrendingdata_tic10837041.1_s30_4-8-2024_1316')
 
 cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
