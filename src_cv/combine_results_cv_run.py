@@ -7,7 +7,7 @@ import pandas as pd
 # %% Combine predictions from all CV iterations in the used dataset
 
 cv_run_dirs = [
-    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess_splinedetrending_fluxonly_4-10-2024_1655'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_sgdetrending_fluxonly_transitvsnottransit_4-15-2024_0108'),
                ]
 for cv_run_dir in cv_run_dirs:
 
