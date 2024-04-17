@@ -1,3 +1,8 @@
+*.uuid
+*.ipynb_checkpoints*
+.DS_Store
+*.pyc
+*/__pycache__/*
 src_deployment/
 side_analysis/
 old/
