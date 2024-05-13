@@ -861,7 +861,8 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                         f'{prefix}_{preprocessing_dict[tce_uid]["images_numbers"][i]}',
                         tce_uid,
                         save_dir / 'plot_examples' /
-                        f'{tce_uid}_diff_img_{preprocessing_dict[tce_uid]["images_numbers"][i]}{suffix_str}.png')
+                        f'{tce_uid}_diff_img_{preprocessing_dict[tce_uid]["images_numbers"][i]}{suffix_str}.png',
+                    True)
 
         # last check for missing values
         missing_value_found = check_for_missing_values_in_preproc_diff_data(preprocessing_dict[tce_uid])

@@ -8,6 +8,7 @@ import numpy as np
 import logging
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
+from matplotlib.colors import LogNorm
 
 plt.switch_backend('agg')
 
@@ -15,7 +16,7 @@ N_QUARTERS_KEPLER = 17
 N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
 
 
-def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl=None):
+def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, logscale=True):
     """ Plot difference image data for TCE in a given quarter/sector.
 
     Args:
@@ -24,7 +25,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
         target_row: float, target row location
         uid: str, TCE ID
         plot_dir: Path, plot directory
-        tce_lbl: str, TCE label
+        logscale: bool, if True images color is set to logscale
 
     Returns:
 
@@ -32,7 +33,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
 
     f, ax = plt.subplots(2, 2, figsize=(12, 8))
     # diff img
-    im = ax[0, 0].imshow(diff_imgs[:, :, 2, 0])
+    im = ax[0, 0].imshow(diff_imgs[:, :, 2, 0], norm=LogNorm() if logscale else None)
     divider = make_axes_locatable(ax[0, 0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
@@ -44,7 +45,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     ax[0, 0].legend()
     ax[0, 0].set_title('Difference Flux (e-/cadence)')
     # oot img
-    im = ax[0, 1].imshow(diff_imgs[:, :, 1, 0])
+    im = ax[0, 1].imshow(diff_imgs[:, :, 1, 0], norm=LogNorm() if logscale else None)
     divider = make_axes_locatable(ax[0, 1])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
@@ -56,7 +57,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     ax[0, 1].legend()
     ax[0, 1].set_title('Out of Transit Flux (e-/cadence)')
     # it img
-    im = ax[1, 0].imshow(diff_imgs[:, :, 0, 0])
+    im = ax[1, 0].imshow(diff_imgs[:, :, 0, 0], norm=LogNorm() if logscale else None)
     divider = make_axes_locatable(ax[1, 0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
@@ -68,7 +69,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     ax[1, 0].legend()
     ax[1, 0].set_title('In Transit Flux (e-/cadence)')
     # snr img
-    im = ax[1, 1].imshow(diff_imgs[:, :, 3, 0])
+    im = ax[1, 1].imshow(diff_imgs[:, :, 3, 0], norm=LogNorm() if logscale else None)
     divider = make_axes_locatable(ax[1, 1])
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
@@ -80,7 +81,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, tce_lbl
     ax[1, 1].legend()
     ax[1, 1].set_title('Difference SNR')
 
-    f.suptitle(f'TCE {uid} {tce_lbl if not None else ""}')
+    # f.suptitle(f'TCE {uid} {tce_lbl if not None else ""}')
     f.tight_layout()
     f.savefig(plot_dir / f'{uid}_diff_img.png')
     plt.close()
@@ -213,7 +214,8 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
                                            kic_centroid_ref_dict['col']['value'],
                                            kic_centroid_ref_dict['row']['value'],
                                            uid,
-                                           plot_dir)
+                                           plot_dir,
+                                           True)
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
                 data[uid]['image_data'].append(diff_imgs)
@@ -419,6 +421,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
                                            tic_centroid_ref_dict['row']['value'],
                                            uid,
                                            plot_dir,
+                                           True
                                            )
 
                 data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)

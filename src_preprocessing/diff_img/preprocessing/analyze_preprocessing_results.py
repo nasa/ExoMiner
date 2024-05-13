@@ -271,6 +271,6 @@ for tce, img_n in tces:
          },
         preproc_data[tce]['quality'][img_n_idx],
         f'{img_n}',
-        tce,
-        plot_dir / f'{tce}_{img_n}.png'
+        plot_dir / f'{tce}_{img_n}.png',
+        True
     )
