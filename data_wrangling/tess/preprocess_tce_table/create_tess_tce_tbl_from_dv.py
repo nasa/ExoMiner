@@ -154,14 +154,15 @@ fields_to_add = {
     'planetCandidate.robustStatistic': 'tce_robstat',
 
 }
-logger.info(f'Fields renamed:')
-for old_field_name, new_field_name in fields_to_add.items():
-    logger.info(f'{old_field_name} -> {new_field_name}')
 
-tce_tbl.rename(columns=fields_to_add, inplace=True)
+tce_tbl.rename(columns=fields_to_add, inplace=True, errors='raise')
 
 tce_tbl = tce_tbl.astype({'target_id': int, 'tce_plnt_num': int})
+
+# set unique identifier for each TCE
 tce_tbl['uid'] = tce_tbl.apply(lambda x: '{}-{}-S{}'.format(x['target_id'], x['tce_plnt_num'], x['sector_run']), axis=1)
 
-tce_tbl.to_csv(res_dir / tce_tbl_name, index=False)
+tce_tbl.set_index('uid', inplace=True)  # set uid as index
+
+tce_tbl.to_csv(res_dir / tce_tbl_name, index=True)
 logger.info(f'Saved TCE table {tce_tbl_name} to {res_dir}.')
