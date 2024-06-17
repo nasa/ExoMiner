@@ -16,15 +16,14 @@ N_QUARTERS_KEPLER = 17
 N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
 
 
-def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, logscale=True):
+def plot_diff_img_data(diff_imgs, target_col, target_row, plot_fp, logscale=True):
     """ Plot difference image data for TCE in a given quarter/sector.
 
     Args:
         diff_imgs: NumPy array, difference image data [cols, rows, it|oot|diff|snr, value| uncertainty]
         target_col: float, target column location
         target_row: float, target row location
-        uid: str, TCE ID
-        plot_dir: Path, plot directory
+        plot_fp: Path, plot file path
         logscale: bool, if True images color is set to logscale
 
     Returns:
@@ -83,7 +82,7 @@ def plot_diff_img_data(diff_imgs, target_col, target_row, uid, plot_dir, logscal
 
     # f.suptitle(f'TCE {uid} {tce_lbl if not None else ""}')
     f.tight_layout()
-    f.savefig(plot_dir / f'{uid}_diff_img.png')
+    f.savefig(plot_fp)
     plt.close()
 
 

@@ -83,12 +83,16 @@ def initialize_data_example_with_missing_values(size_h, size_w, number_of_imgs_t
                           for _ in range(number_of_imgs_to_sample)],
             'oot_imgs': [np.nan * np.ones((size_h, size_w), dtype='float')
                          for _ in range(number_of_imgs_to_sample)],
+            'snr_imgs': [np.nan * np.ones((size_h, size_w), dtype='float')
+                         for _ in range(number_of_imgs_to_sample)],
             'target_imgs': [np.nan * np.ones((size_h, size_w), dtype='float')
                             for _ in range(number_of_imgs_to_sample)],
 
             'diff_imgs_tc': [np.nan * np.ones((size_h, size_w), dtype='float')
                              for _ in range(number_of_imgs_to_sample)],
             'oot_imgs_tc': [np.nan * np.ones((size_h, size_w), dtype='float')
+                            for _ in range(number_of_imgs_to_sample)],
+            'snr_imgs_tc': [np.nan * np.ones((size_h, size_w), dtype='float')
                             for _ in range(number_of_imgs_to_sample)],
             'target_imgs_tc': [np.nan * np.ones((size_h, size_w), dtype='float')
                                for _ in range(number_of_imgs_to_sample)],
@@ -133,12 +137,16 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
                           for _ in range(number_of_imgs_to_sample)],
             'oot_imgs': [np.zeros((size_h, size_w), dtype='float')
                          for _ in range(number_of_imgs_to_sample)],
+            'snr_imgs': [np.zeros((size_h, size_w), dtype='float')
+                         for _ in range(number_of_imgs_to_sample)],
             'target_imgs': [np.zeros((size_h, size_w), dtype='float')
                             for _ in range(number_of_imgs_to_sample)],
 
             'diff_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
                              for _ in range(number_of_imgs_to_sample)],
             'oot_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
+                            for _ in range(number_of_imgs_to_sample)],
+            'snr_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
                             for _ in range(number_of_imgs_to_sample)],
             'target_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
                                for _ in range(number_of_imgs_to_sample)],
@@ -193,17 +201,19 @@ def sample_image_data(n_valid_imgs, valid_images_idxs, number_of_imgs_to_sample)
     return random_sample_imgs_idxs
 
 
-def set_negative_value_oot_pixels(diff_img, oot_img):
+def set_negative_value_oot_pixels(diff_img, oot_img, snr_img):
     """ Find pixels with negative out-of-transit values, and then sets them to NaNs (missing) for both difference and
     out-of-transit images.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
 
     Returns:
         diff_img: NumPy array, updated difference image
         oot_img: NumPy array, updated out-of-transit image
+        snr_img: NumPy array, updated snr image
     """
 
     # find pixels with negative values
@@ -212,23 +222,26 @@ def set_negative_value_oot_pixels(diff_img, oot_img):
     # set to nan
     diff_img[curr_img_neg] = np.nan
     oot_img[curr_img_neg] = np.nan
+    snr_img[curr_img_neg] = np.nan
 
-    return diff_img, oot_img
+    return diff_img, oot_img, snr_img
 
 
-def crop_images_to_valid_size(diff_img, oot_img, target_pos_col, target_pos_row):
+def crop_images_to_valid_size(diff_img, oot_img, snr_img, target_pos_col, target_pos_row):
     """ Crops images to their valid size, i.e., the minimum height and width that include any non-missing pixels.
     Missing pixels need to be represented by NaNs.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
         target_pos_col: float, target position column coordinate
         target_pos_row: float, target position row coordinate
 
     Returns:
         diff_img_crop: NumPy array, updated difference image
         oot_img_crop: NumPy array, updated out-of-transit image
+        snr_img_crop: NumPy array, updated snr image
         target_pos_col_crop: float, updated target position column coordinate
         target_pos_row_crop: float, updated target position row coordinate
     """
@@ -241,12 +254,13 @@ def crop_images_to_valid_size(diff_img, oot_img, target_pos_col, target_pos_row)
     # choose smallest size that includes all valid pixels
     diff_img_crop = diff_img[min_row:max_row + 1, min_col: max_col + 1]
     oot_img_crop = oot_img[min_row:max_row + 1, min_col: max_col + 1]
+    snr_img_crop = snr_img[min_row:max_row + 1, min_col: max_col + 1]
 
     # update target pixel position
     target_pos_col_crop = target_pos_col - min_col
     target_pos_row_crop = target_pos_row - min_row
 
-    return diff_img_crop, oot_img_crop, target_pos_col_crop, target_pos_row_crop
+    return diff_img_crop, oot_img_crop, snr_img_crop, target_pos_col_crop, target_pos_row_crop
 
 
 def fill_missing_values_nearest_neighbors(img, window):
@@ -288,7 +302,7 @@ def fill_missing_values_nearest_neighbors(img, window):
     return img_fill
 
 
-def pad_images_by_extending_edges(diff_img, oot_img, target_pos_col, target_pos_row, add_pad_h, add_pad_w):
+def pad_images_by_extending_edges(diff_img, oot_img, snr_img, target_pos_col, target_pos_row, add_pad_h, add_pad_w):
     """ Pads images by extending edges. The padding is such that 1) makes sure the target pixel will not end up
     outside the cropping area when not centering the images on the target pixel, and 2) both dimensions have the same
     size.
@@ -296,6 +310,7 @@ def pad_images_by_extending_edges(diff_img, oot_img, target_pos_col, target_pos_
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
         target_pos_col: float, target position column coordinate
         target_pos_row: float, target position row coordinate
         add_pad_h: int, additional padding for the height dimension
@@ -304,6 +319,7 @@ def pad_images_by_extending_edges(diff_img, oot_img, target_pos_col, target_pos_
     Returns:
         diff_img_pad: NumPy array, updated difference image
         oot_img_pad: NumPy array, updated out-of-transit image
+        snr_img_pad: NumPy array, updated snr image
         target_pos_col_pad: float, updated target position column coordinate
         target_pos_row_pad: float, updated target position row coordinate
     """
@@ -330,26 +346,29 @@ def pad_images_by_extending_edges(diff_img, oot_img, target_pos_col, target_pos_
 
     diff_img_pad = np.pad(diff_img, (pad_len_row, pad_len_col), mode='edge')
     oot_img_pad = np.pad(oot_img, (pad_len_row, pad_len_col), mode='edge')
+    snr_img_pad = np.pad(snr_img, (pad_len_row, pad_len_col), mode='edge')
 
     # update target pixel position
     target_pos_col_pad = target_pos_col + pad_len_col[0]
     target_pos_row_pad = target_pos_row + pad_len_row[0]
 
-    return diff_img_pad, oot_img_pad, target_pos_col_pad, target_pos_row_pad
+    return diff_img_pad, oot_img_pad, snr_img_pad, target_pos_col_pad, target_pos_row_pad
 
 
-def center_images_to_target_pixel_location(diff_img, oot_img, target_pos_col, target_pos_row):
+def center_images_to_target_pixel_location(diff_img, oot_img, snr_img, target_pos_col, target_pos_row):
     """ Centers images on the target pixel by padding through edge extension.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
         target_pos_col: float, target position column coordinate
         target_pos_row: float, target position row coordinate
 
     Returns:
         diff_img_tcenter: NumPy array, updated difference image
         oot_img_tcenter: NumPy array, updated out-of-transit image
+        snr_img_tcenter: NumPy array, updated snr image
         target_pos_col_tcenter: float, updated target position column coordinate
         target_pos_row_tcenter: float, updated target position row coordinate
     """
@@ -380,17 +399,19 @@ def center_images_to_target_pixel_location(diff_img, oot_img, target_pos_col, ta
     # pad images by extending edges
     diff_img_tcenter = np.pad(diff_img, (pad_len_h, pad_len_w), mode='edge')
     oot_img_tcenter = np.pad(oot_img, (pad_len_h, pad_len_w), mode='edge')
+    snr_img_tcenter = np.pad(snr_img, (pad_len_h, pad_len_w), mode='edge')
 
-    return diff_img_tcenter, oot_img_tcenter, target_pos_col_tcenter, target_pos_row_tcenter
+    return diff_img_tcenter, oot_img_tcenter, snr_img_tcenter, target_pos_col_tcenter, target_pos_row_tcenter
 
 
-def crop_images_to_size(diff_img, oot_img, target_pos_col, target_pos_row, size_h, size_w):
+def crop_images_to_size(diff_img, oot_img, snr_img, target_pos_col, target_pos_row, size_h, size_w):
     """ Crops images to a given size defined by `size_h` and `size_w`. The cropping is done around the center of the
     image.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
         target_pos_col: float, target position column coordinate
         target_pos_row: float, target position row coordinate
         size_h: int, crop to this height
@@ -399,6 +420,7 @@ def crop_images_to_size(diff_img, oot_img, target_pos_col, target_pos_row, size_
     Returns:
         diff_img_crop: NumPy array, updated difference image
         oot_img_crop: NumPy array, updated out-of-transit image
+        snr_img_crop: NumPy array, updated snr image
         target_pos_col_crop: float, updated target position column coordinate
         target_pos_row_crop: float, updated target position row coordinate
     """
@@ -409,6 +431,7 @@ def crop_images_to_size(diff_img, oot_img, target_pos_col, target_pos_row, size_
     # convert to PIL Image object
     diff_img = Image.fromarray(diff_img)
     oot_img = Image.fromarray(oot_img)
+    snr_img = Image.fromarray(snr_img)
 
     center_col, center_row = diff_img.size[0] // 2, diff_img.size[1] // 2
 
@@ -424,6 +447,7 @@ def crop_images_to_size(diff_img, oot_img, target_pos_col, target_pos_row, size_
 
     diff_img_crop = diff_img.crop((left, upper, right, lower))
     oot_img_crop = oot_img.crop((left, upper, right, lower))
+    snr_img_crop = snr_img.crop((left, upper, right, lower))
 
     # update target pixel position
     target_pos_col -= left
@@ -431,17 +455,19 @@ def crop_images_to_size(diff_img, oot_img, target_pos_col, target_pos_row, size_
 
     diff_img_crop = np.array(diff_img_crop)
     oot_img_crop = np.array(oot_img_crop)
+    snr_img_crop = np.array(snr_img_crop)
 
-    return diff_img_crop, oot_img_crop, target_pos_col, target_pos_row
+    return diff_img_crop, oot_img_crop, snr_img_crop, target_pos_col, target_pos_row
 
 
-def resize_images_by_resampling(diff_img, oot_img, target_pos_col, target_pos_row, size_f_h, size_f_w):
+def resize_images_by_resampling(diff_img, oot_img, snr_img, target_pos_col, target_pos_row, size_f_h, size_f_w):
     """ Resizes images using nearest neighbor interpolation and resampling factors `size_f_h` and `size_f_w` for height
     and width, respectively.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        oot_img: NumPy array, snr image
         target_pos_col: float, target position column coordinate
         target_pos_row: float, target position row coordinate
         size_f_h: float, resampling factor for height
@@ -450,6 +476,7 @@ def resize_images_by_resampling(diff_img, oot_img, target_pos_col, target_pos_ro
     Returns:
         diff_img_resize: NumPy array, updated difference image
         oot_img_resize: NumPy array, updated out-of-transit image
+        snr_img_resize: NumPy array, updated snr image
         target_pos_col_resize: float, updated target position column coordinate
         target_pos_row_resize: float, updated target position row coordinate
     """
@@ -459,19 +486,22 @@ def resize_images_by_resampling(diff_img, oot_img, target_pos_col, target_pos_ro
     # convert back to PIL Image object
     diff_img = Image.fromarray(diff_img)
     oot_img = Image.fromarray(oot_img)
+    snr_img = Image.fromarray(snr_img)
 
     diff_img_resize = diff_img.resize(size=(size_h * size_f_h, size_w * size_f_w), resample=Image.Resampling.NEAREST)
     oot_img_resize = oot_img.resize(size=(size_h * size_f_h, size_w * size_f_w), resample=Image.Resampling.NEAREST)
+    snr_img_resize = snr_img.resize(size=(size_h * size_f_h, size_w * size_f_w), resample=Image.Resampling.NEAREST)
 
     # convert back to NumPy array
     diff_img_resize = np.array(diff_img_resize)
     oot_img_resize = np.array(oot_img_resize)
+    snr_img_resize = np.array(snr_img_resize)
 
     # map target position in resized image
     target_pos_col_up = target_pos_col * size_f_w + 1
     target_pos_row_up = target_pos_row * size_f_h + 1
 
-    return diff_img_resize, oot_img_resize, target_pos_col_up, target_pos_row_up
+    return diff_img_resize, oot_img_resize, snr_img_resize, target_pos_col_up, target_pos_row_up
 
 
 def create_target_image(size_h, size_w, target_pos_pixel_col, target_pos_pixel_row):
@@ -524,14 +554,15 @@ def map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row
     return target_col_disc, target_row_disc
 
 
-def preprocess_single_diff_img_data_for_example(diff_img, oot_img, target_pos_col, target_pos_row, size_h, size_w,
-                                                size_f_h, size_f_w, img_n, tce_uid, prefix, log, center_target=True,
-                                                proc_id=-1):
+def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, target_pos_col, target_pos_row, size_h,
+                                                size_w, size_f_h, size_f_w, img_n, tce_uid, prefix, log=None,
+                                                center_target=True, proc_id=-1):
     """ Preprocesses the difference image data for a single example.
 
     Args:
         diff_img: NumPy array, difference image
         oot_img: NumPy array, out-of-transit image
+        snr_img: NumPy array, snr image
         target_pos_col: float, target location column coordinate
         target_pos_row: float, target location row coordinate
         size_h: int, output image height (before scaling by resampling factor `size_f_h`)
@@ -549,6 +580,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, target_pos_co
     Returns:
         diff_img, NumPy array for preprocessed difference image
         oot_img, NumPy array for preprocessed out-of-transit image
+        snr_img, NumPy array for preprocessed snr image
         target_img, NumPy array for target location image
         target_pos_col, int for target column pixel
         target_pos_row, int for target row pixel
@@ -561,57 +593,63 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, target_pos_co
     half_height, half_width = size_h // 2, size_w // 2
 
     # replace pixels that have negative oot values with nan in both images
-    diff_img, oot_img = set_negative_value_oot_pixels(diff_img, oot_img)
+    diff_img, oot_img, snr_img = set_negative_value_oot_pixels(diff_img, oot_img, snr_img)
 
-    if np.isnan(diff_img).all() or np.isnan(oot_img).all():
-        log.info(
-            f'[{proc_id}] All pixels in the difference or out-of-transit image were missing their values '
-            f'after setting pixels with negative out-of-transit values to zero on both images '
-            f'for example {tce_uid} in {prefix} {img_n}.')
+    if np.isnan(diff_img).all() or np.isnan(oot_img).all() or np.isnan(snr_img).all():
+        if log:
+            log.info(
+                f'[{proc_id}] All pixels in the difference, out-of-transit, or SNR image were missing their values '
+                f'after setting pixels with negative out-of-transit values to zero on both images '
+                f'for example {tce_uid} in {prefix} {img_n}.')
 
     # get min and max indices on both dimensions that have at least one non-missing pixel
-    diff_img, oot_img, target_pos_col, target_pos_row = crop_images_to_valid_size(diff_img, oot_img,
-                                                                                  target_pos_col,
-                                                                                  target_pos_row)
+    diff_img, oot_img, snr_img, target_pos_col, target_pos_row = (
+        crop_images_to_valid_size(diff_img, oot_img, snr_img, target_pos_col, target_pos_row))
 
     # fill out missing values by using nearest neighbors with same weight
     diff_img = fill_missing_values_nearest_neighbors(diff_img, np.ones((3, 3)))
     oot_img = fill_missing_values_nearest_neighbors(oot_img, np.ones((3, 3)))
+    snr_img = fill_missing_values_nearest_neighbors(snr_img, np.ones((3, 3)))
 
     # deal with pixels for which the padding window was all missing values
     idxs_nan = np.isnan(diff_img)
     if idxs_nan.sum() != 0:
-        log.info(
-            f'[{proc_id}] {idxs_nan.sum()} pixels were missing a value after nearest neighborhood padding'
-            f' for example {tce_uid} in {prefix} {img_n}.')
+        if log:
+            log.info(
+                f'[{proc_id}] {idxs_nan.sum()} pixels were missing a value after nearest neighborhood padding'
+                f' for example {tce_uid} in {prefix} {img_n}.')
 
         diff_img[idxs_nan] = 0
+        snr_img[idxs_nan] = 0
         oot_img[idxs_nan] = np.nanmin(oot_img)
 
     # pad image by extending edges
-    diff_img, oot_img, target_pos_col, target_pos_row = (
-        pad_images_by_extending_edges(diff_img, oot_img,
+    diff_img, oot_img, snr_img, target_pos_col, target_pos_row = (
+        pad_images_by_extending_edges(diff_img, oot_img, snr_img,
                                       target_pos_col, target_pos_row,
                                       half_height, half_width))
 
     # resize image using nearest neighbor interpolation to three times the target dimension
-    diff_img, oot_img, target_pos_col, target_pos_row = resize_images_by_resampling(
-        diff_img, oot_img, target_pos_col, target_pos_row, size_f_h, size_f_w)
+    diff_img, oot_img, snr_img, target_pos_col, target_pos_row = resize_images_by_resampling(
+        diff_img, oot_img, snr_img, target_pos_col, target_pos_row, size_f_h, size_f_w)
 
     if center_target:
-        diff_img, oot_img, target_pos_col, target_pos_row = (center_images_to_target_pixel_location(
-            diff_img, oot_img, target_pos_col, target_pos_row))
+        diff_img, oot_img, snr_img, target_pos_col, target_pos_row = (center_images_to_target_pixel_location(
+            diff_img, oot_img, snr_img, target_pos_col, target_pos_row))
 
     # crop images to target dimension if they are larger
-    diff_img, oot_img, target_pos_col, target_pos_row = crop_images_to_size(diff_img, oot_img, target_pos_col,
-                                                                            target_pos_row, size_h * size_f_h,
-                                                                            size_w * size_f_w)
+    diff_img, oot_img, snr_img, target_pos_col, target_pos_row = crop_images_to_size(diff_img, oot_img, snr_img,
+                                                                                     target_pos_col,
+                                                                                     target_pos_row,
+                                                                                     size_h * size_f_h,
+                                                                                     size_w * size_f_w)
 
     # check if target pixel location is inside the image
     if (target_pos_col < 0 or target_pos_row < 0 or target_pos_col >= diff_img.shape[0] or
             target_pos_row >= diff_img.shape[1]):
-        log.info(f'[{proc_id}] Target pixel is outside of image after cropping for example '
-                 f'{tce_uid} in {prefix} {img_n}.')
+        if log:
+            log.info(f'[{proc_id}] Target pixel is outside of image after cropping for example '
+                     f'{tce_uid} in {prefix} {img_n}.')
 
         # target_pos_row, target_pos_col = np.unravel_index(np.argmax(diff_img, axis=None), diff_img.shape)
 
@@ -625,7 +663,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, target_pos_co
     target_img = create_target_image(size_h * size_f_h, size_w * size_f_w,
                                      target_pos_pixel_col_up, target_pos_pixel_row_up)
 
-    return diff_img, oot_img, target_img, target_pos_col, target_pos_row, target_col_disc, target_row_disc
+    return diff_img, oot_img, snr_img, target_img, target_pos_col, target_pos_row, target_col_disc, target_row_disc
 
 
 def preprocess_image_data_from_examples_in_saturated_targets(data, final_size, upscale_f, number_of_imgs_to_sample):
@@ -810,10 +848,11 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                 target_pos_col = float(diff_img_data_dict[tce_uid]['target_ref_centroid'][arr_q_i]['col']['value'])
                 target_pos_row = float(diff_img_data_dict[tce_uid]['target_ref_centroid'][arr_q_i]['row']['value'])
 
-                (diff_img_preproc, oot_img_preproc, target_img, target_pos_col, target_pos_row,
+                (diff_img_preproc, oot_img_preproc, snr_img_preproc, target_img, target_pos_col, target_pos_row,
                  target_col_disc, target_row_disc) = (
                     preprocess_single_diff_img_data_for_example(diff_img,
                                                                 oot_img,
+                                                                snr_img,
                                                                 target_pos_col,
                                                                 target_pos_row,
                                                                 final_size['x'],
@@ -833,6 +872,7 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                 # add image data
                 preprocessing_dict[tce_uid]['images'][f'diff_imgs{suffix_str}'][i] = diff_img_preproc
                 preprocessing_dict[tce_uid]['images'][f'oot_imgs{suffix_str}'][i] = oot_img_preproc
+                preprocessing_dict[tce_uid]['images'][f'snr_imgs{suffix_str}'][i] = snr_img_preproc
                 preprocessing_dict[tce_uid]['images'][f'target_imgs{suffix_str}'][i] = target_img
 
                 # add target pixel coordinates
@@ -854,6 +894,7 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                     plot_diff_img_data(
                         preprocessing_dict[tce_uid]['images'][f'diff_imgs{suffix_str}'][i],
                         preprocessing_dict[tce_uid]['images'][f'oot_imgs{suffix_str}'][i],
+                        preprocessing_dict[tce_uid]['images'][f'snr_imgs{suffix_str}'][i],
                         preprocessing_dict[tce_uid]['images'][f'target_imgs{suffix_str}'][i],
                         {'x': preprocessing_dict[tce_uid]['target_position'][f'pixel_x{suffix_str}'][i],
                          'y': preprocessing_dict[tce_uid]['target_position'][f'pixel_y{suffix_str}'][i]},

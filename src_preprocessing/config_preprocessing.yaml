@@ -53,7 +53,7 @@ sg_n_durations_win: 5
 # spline parameters
 spline_bkspace_min: 0.5
 spline_bkspace_max: 20
-spline_bkspace_num: 5
+spline_bkspace_num: 20
 spline_maxiter: 5
 spline_penalty_coeff: 1.0
 spline_outlier_cut: 3

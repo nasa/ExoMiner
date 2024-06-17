@@ -213,12 +213,6 @@ if __name__ == "__main__":
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
-    # TESS
-    # tbl = pd.read_csv('/Users/msaragoc/Downloads/cv_merged_conv_8-4-2023_norm/ensemble_ranked_predictions_allfolds.csv')
-    # objs = tbl.loc[tbl['label'] == 'T-NTP'].sort_values('score', ascending=False)[['uid', 'score']].reset_index(drop=True).iloc[0:39]['uid']
-    # objs = tbl.loc[tbl['label'].isin(['T-FP', 'T-EB'])].sort_values('score', ascending=False)[['uid', 'score']].reset_index(drop=True).iloc[0:240]['uid']
-    # objs = tbl.loc[tbl['label'].isin(['T-CP', 'T-KP'])].sort_values('score', ascending=True)[['uid', 'score']].reset_index(drop=True).iloc[0:186]['uid']
-
     def _correct_sector_field(x):
         target_id, tce_id = x.split('-')[:2]
         sector_id = x.split('-')[2:]
@@ -228,14 +222,14 @@ if __name__ == "__main__":
             sector_id = f'{sector_id[0]}-{sector_id[0][1:]}'
             return f'{target_id}-{tce_id}-{sector_id}'
 
-    objs_list = ['142276270-X-SX-X']  # objs.apply(_correct_sector_field)
+    objs_list = ['336767770-1-S17-17']  # objs.apply(_correct_sector_field)
 
     download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/TESS/')
     data_products_lst = ['TCE summary report', 'Full DV report', 'TCERT report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'tcert', 'dv', 'all'
     download_products = True
     create_csv = False
-    csv_name = 'tic_267574918_tce_num_transits_zero_2-9-2024.csv'
+    csv_name = 'tces_test_extract_and_compute_diff_img_data_5-16-2024_1716.csv'
     verbose = True
     n_procs = 12
     n_jobs = 12

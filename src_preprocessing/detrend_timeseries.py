@@ -11,6 +11,7 @@ from src_preprocessing.third_party.kepler_spline import kepler_spline
 from src_preprocessing.light_curve import util
 
 
+# TODO: make optional for interpolating across transits
 def detrend_flux_using_spline(flux_arrs, time_arrs, binary_time_all, config):
     """ Detrend timeseries by fitting a spline to a version of the timeseries with linear interpolation performed across
     the transits.
