@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels.csv
+input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_3-6-2023_1734.csv
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/pdc-lc
+lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/Kepler/DR25/pdc-tce-time-series-fits
 
 using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
@@ -18,14 +18,14 @@ ffi_data: false  # set to true for TESS SPOC FFI data
 shuffle: false
 shuffle_seed: 24
 
-satellite: tess  # 'kepler' or 'tess'
+satellite: kepler  # 'kepler' or 'tess'
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 1  # 0.1
+plot_prob: 0.01  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -43,7 +43,7 @@ dq_values_filter: null  # set to null
 get_momentum_dump: true  # get momentum dump dq flag and generate feature data
 
 # detrending
-detrending_method: 'savitzky-golay'  # 'savitzky-golay' for Savitzky-Golay or 'spline' for spline detrending
+detrending_method: 'spline'  # 'savitzky-golay' for Savitzky-Golay or 'spline' for spline detrending
 # Saviztky-Golay parameters
 sg_sigma: 5
 sg_max_poly_order: 12

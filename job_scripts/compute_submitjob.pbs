@@ -2,8 +2,8 @@
 #PBS -S /bin/bash
 #PBS -N data_analysis
 #PBS -l walltime=18:00:00
-#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-#PBS -l place=scatter:excl
+#PBS -l select=1:ncpus=36:mem=100g:ngpus=1:model=sky_gpu
+#PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
 # PBS -q v100@pbspl4
 # #PBS -l select=1:ncpus=10:model=rom_ait
