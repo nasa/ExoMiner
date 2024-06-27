@@ -2,20 +2,21 @@
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplanet
-#PBS -l walltime=02:00:00
-# PBS -l select=2:ncpus=20:model=rom_ait
-# PBS -l select=1:ncpus=40:model=cas_ait
+#PBS -l walltime=24:00:00
+# PBS -l select=2:ncpus=128:model=rom_ait
+#PBS -l select=10:ncpus=40:model=cas_ait
 # PBS -q debug
-#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-#PBS -l place=scatter:excl
-#PBS -q dsg_gpu@pbspl4
+#PBS -q long
+# PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
+# PBS -l place=scatter:excl
+# PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
 #PBS -W group_list=a1509
 #PBS -m bea
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_tic10837041.1_s30_nogappingsecondary_4-8-2024_1451
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_splinedetrending_6-18-2024_2305/
 mkdir -p $OUTPUT_DIR
 
 # script file path
@@ -26,11 +27,12 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocess
 PREPROCESS_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/preprocessing_job.sh
 
 # number of total jobs
-NUM_TOTAL_JOBS=10
-# number of jobs run simultaneously
-NUM_JOBS_PARALLEL=10
+NUM_TOTAL_JOBS=400
+# number of jobs run simultaneously in one node
+NUM_JOBS_PARALLEL=40
 
-# run with GNU parallel
+PBS_SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/Submitjob_preprocess_lc_data_gnuparallel.pbs
+cp $PBS_SCRIPT_FP $OUTPUT_DIR/pbs_job.txt
+
+# run with GNU parallel; exclude --sshloginfile argument to use one single core setup
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
-## multiple node setup
-#seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
