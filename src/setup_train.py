@@ -7,11 +7,9 @@ Run setup for training iteration.
 import yaml
 from pathlib import Path
 import argparse
-# import logging
 import numpy as np
 
 # 3rd party
-from src_cv.create_cv_dataset.add_tfrec_dataset_fps_to_config_file import add_tfrec_dataset_fps_to_config_file
 from src_hpo.utils_hpo import load_hpo_config
 
 
