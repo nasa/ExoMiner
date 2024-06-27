@@ -1,38 +1,49 @@
-# Train multiple models in parallel on a single GPU node with multiple GPUs and using a combination of GNU parallel and
-# job array
+# Run train, eval experiment in parallel (multiple models run at the same time) on a single node with multiple GPUs and
+# using a combination of GNU parallel and job array; option for multi-node setup.
 #PBS -S /bin/bash
-#PBS -N train_exoplnt
+#PBS -N train_exoplanet
 #PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
+#PBS -l select=1:ncpus=36:ngpus=4:mem=200g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=scatter:shared
+#PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_jobarr.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_jobarr.err
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplanet_mgpus_singlenode.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplanet_mgpus_singlenode.err
 #PBS -W group_list=a1509
 #PBS -m bea
 #PBS -J 0-2
 
 # config file path
-CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/config_train.yaml
+CONFIG_FP=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml
 # job script for running the Python application
-RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src/run_train_modular.sh
+RUN_SH_SCRIPT=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/run_train_iter.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/kepler_q1q17dr25_simdata/experiments/exominer_train_inj1_vs_planet_2-7-2024_1420
-mkdir -p $OUTPUT_DIR
+OUTPUT_DIR=
+# path to codebase root directory
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+N_MODELS=10  # total number of models to be trained
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4
 
 # number of total jobs per job in job array
 NUM_TOTAL_JOBS=$((1 * 4))
-# NUM_TOTAL_JOBS=10
 # number of jobs run simultaneously
 NUM_JOBS_PARALLEL=2
 
+source "$HOME"/.bashrc
+#source "$HOME"/.zshrc
+
+#conda activate exoplnt_dl
+conda activate exoplnt_dl_tf2_13
+
+mkdir -p $OUTPUT_DIR
+
 # run with GNU parallel
-# run CV sh script
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
 
 # testing multi-node setup...
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
+
+#TODO: copy pbs script
