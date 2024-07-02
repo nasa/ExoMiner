@@ -32,7 +32,7 @@ datasets = [
 
 # build dictionary
 dataset_splits = {dataset: [str(fp) for fp in tfrec_dir.iterdir()
-                            if fp.is_file() and fp.name.startswith('train')] for dataset in datasets}
+                            if fp.is_file() and fp.name.startswith(dataset)] for dataset in datasets}
 
 # save the dictionary into a YAML file
 with open(yaml_fp, 'w') as file:
