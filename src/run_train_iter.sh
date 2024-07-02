@@ -15,12 +15,6 @@ GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
 N_MODELS="$6"
 
-##source "$HOME"/.bashrc
-#source "$HOME"/.zshrc
-#
-#conda activate exoplnt_dl
-##conda activate exoplnt_dl_tf2_13
-
 # Paths
 SETUP_RUN_FP=$PYTHONPATH/src/setup_train.py
 TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train_model.py
@@ -30,12 +24,10 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
 # set model id based on received indexes
 MODEL_I=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 
-#mkdir -p "$MODELS_DIR"
-
 MODEL_DIR="$MODELS_DIR"/model$MODEL_I
 mkdir -p "$MODEL_DIR"
 
-LOG_FP_MAIN="$MODEL_DIR"/model_run_"$MODEL_I"_gnu"$GNU_PARALLEL_INDEX"_jobarray_"$JOB_ARRAY_INDEX".log
+LOG_FP_MAIN="$MODEL_DIR"/model_run_"$MODEL_I".log
 
 echo "Starting job $GNU_PARALLEL_INDEX in job array $JOB_ARRAY_INDEX for model $MODEL_I..." > "$LOG_FP_MAIN"
 

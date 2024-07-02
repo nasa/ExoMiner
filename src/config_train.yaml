@@ -6,7 +6,7 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  datasets_fps_yaml: /Users/msaragoc/Downloads/normalize_data_test/dataset_splits_6-27-2024_0919.yaml
+  datasets_fps_yaml: /Users/msaragoc/Downloads/normalize_data_test/normalized_data/dataset_splits_6-27-2024_0919.yaml
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
@@ -64,7 +64,7 @@ config:
         - local_flux_view_fluxnorm_var
       scalars: # null
 ##        - transit_depth_norm
-##        - tce_depth_norm
+#         - tce_depth_norm
          - tce_max_mult_ev_norm
          - tce_max_sngle_ev_norm
          - tce_robstat_norm
@@ -206,7 +206,7 @@ config:
   optimizer: 'Adam'
   #  'lr': 1.0e-5
   #  'batch_size': 64
-  #  'dropout_rate': 0.0
+#    'dropout_rate': 0.0
   #  'dropout_rate_fc_conv': 0.0
   #  'num_fc_conv_units': 0
   weight_initializer: null
@@ -323,7 +323,7 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: 2  # number of models in the ensemble
+#  n_models: 2  # number of models in the ensemble
   n_epochs: 2  # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets

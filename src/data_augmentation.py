@@ -60,5 +60,6 @@ def phase_shift(timeseries_tensor, bin_shift):
         bin_shift = tf.math.abs(bin_shift)
         return tf.concat([tf.slice(timeseries_tensor,
                                    (timeseries_tensor.get_shape()[0] - bin_shift, 0), (bin_shift, 1)),
-                          tf.slice(timeseries_tensor, (0, 0), (timeseries_tensor.get_shape()[0] - bin_shift, 1))],
+                          tf.slice(timeseries_tensor, (0, 0), (timeseries_tensor.get_shape()[0] -
+                                                               bin_shift, 1))],
                          axis=0, name='neg_shift')

@@ -15,6 +15,16 @@ from models.models_keras import Time2Vec
 
 
 def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
+    """ Create average ensemble of models.
+
+    Args:
+        models_fps: list, filepaths to models to be part of the ensemble
+        features_set: dict, features set
+        ensemble_fp: str, filepath to save the average ensemble model
+
+    Returns:
+
+    """
 
     # load models into a list
     models = []
@@ -42,7 +52,8 @@ if __name__ == "__main__":
     ensemble_model_fp = Path(args.ensemble_fp)
 
     # get models file paths
-    models_fps_lst = [fp / f'model.keras' for fp in models_dir_fp.iterdir() if fp.is_dir()]
+    models_fps_lst = [fp / f'model.keras' for fp in models_dir_fp.iterdir()
+                      if fp.is_dir() and fp.name.startswith('model')]
 
     # get features set
     config_fp = Path(args.config_fp)
