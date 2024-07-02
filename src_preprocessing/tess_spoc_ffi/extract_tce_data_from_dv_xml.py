@@ -450,19 +450,15 @@ def process_xml(dv_xml_fp):
 
 if __name__ == "__main__":
 
-    # file path to DV XML file
-    dv_xml_fp = Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml')
     # output file path to csv with extracted data
-    new_tce_tbl_fp = Path('/Users/msaragoc/Downloads/sample_0.csv')
-
-    # new_tce_tbl = process_xml(dv_xml_fp)
+    new_tce_tbl_fp = Path('/Users/msaragoc/Downloads/tess_spoc_ffi_fits_sh/tess_spoc_ffi_s66_s69_tces.csv')
 
     # parallel extraction of data from multiple DV xml files
     dv_xml_fps = [
-        Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml'),
-        Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml')
+
     ]
     n_processes = 2
+
     n_jobs = len(dv_xml_fps)
     pool = multiprocessing.Pool(processes=n_processes)
     async_results = [pool.apply_async(process_xml, (dv_xml_fp,)) for dv_xml_fp in dv_xml_fps]

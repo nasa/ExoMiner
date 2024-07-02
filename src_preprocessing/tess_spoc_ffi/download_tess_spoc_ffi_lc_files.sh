@@ -16,5 +16,5 @@ do
 done
 
 # set group and permissions for rwx in group
-chgrp -R ar-gg-ti-tess-dsg DEST_DIR
+chgrp -R ar-gg-ti-tess-dsg $DEST_DIR
 chmod -R 770 $DEST_DIR

@@ -124,7 +124,7 @@ def train_model(config, model_dir, logger=None):
 
     res = history.history
 
-    np.save(model_dir / 'res_eval.npy', res)
+    np.save(model_dir / 'res_train.npy', res)
 
 
 if __name__ == "__main__":
