@@ -1,11 +1,11 @@
-# Train one or more models sequentially
+# Run one or more train model iterations sequentially.
 
 # config file path
 CONFIG_FP=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml
 # job script for running the Python application
 RUN_SH_SCRIPT=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/run_train_iter.sh
 # output directory
-OUTPUT_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959
+OUTPUT_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_1540
 # path to codebase root directory
 #export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 export PYTHONPATH=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/
