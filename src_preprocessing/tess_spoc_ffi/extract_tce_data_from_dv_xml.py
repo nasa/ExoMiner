@@ -132,6 +132,7 @@ MAP_DV_XML_FIELDS = {
 
 }
 
+
 def append_attributes(descendants, tce_i, output_csv, keywords):
     """ Appends attributes of a given parameter. Helper to process_xml().
 
@@ -156,14 +157,12 @@ def append_attributes(descendants, tce_i, output_csv, keywords):
         if "modelParameter" not in cur_att:
             keywords.append(cur_att)
 
-        out_col_name = ""
-        for keyword in keywords:
-            out_col_name += keyword + "."
+        out_col_name = '.'.join(keywords)
 
-        # remove the ending period
-        out_col_name = out_col_name[:-1]
-
-        output_csv.at[tce_i, out_col_name] = attributes[cur_att]
+        if cur_att == 'suspectedEclipsingBinary':
+            output_csv.at[tce_i, out_col_name] = int(attributes[cur_att] == 'true')
+        else:
+            output_csv.at[tce_i, out_col_name] = attributes[cur_att]
 
         # we checked the attribute, backtrack from it
         keywords.pop()
@@ -228,73 +227,66 @@ def get_outside_params(root, output_csv):
     """
 
     # decDegrees
-    decDegrees_val = root[0].attrib['value']
-    decDegrees_unc = root[0].attrib['uncertainty']
+    decDegrees_val = root.find(f'{DV_XML_HEADER}decDegrees').attrib['value']
+    decDegrees_unc = root.find(f'{DV_XML_HEADER}decDegrees').attrib['uncertainty']
     output_csv['decDegrees.value'] = decDegrees_val
     output_csv['decDegrees.uncertainty'] = decDegrees_unc
 
     # retrieve effective temp
-    tce_steff = root[1].attrib['value']
-    tce_steff_unc = root[1].attrib['uncertainty']
+    tce_steff = root.find(f'{DV_XML_HEADER}effectiveTemp').attrib['value']
+    tce_steff_unc = root.find(f'{DV_XML_HEADER}effectiveTemp').attrib['uncertainty']
     output_csv['effectiveTemp.value'] = tce_steff
     output_csv['effectiveTemp.uncertainty'] = tce_steff_unc
 
     # limbDarkeningModel
-    limbDark_val = root[2].attrib['modelName']
+    limbDark_val = root.find(f'{DV_XML_HEADER}limbDarkeningModel').attrib['modelName']
     output_csv['limbDarkeningModel.modelName'] = limbDark_val
 
     # obtain log10Metallicity
-    tce_smet_val = root[3].attrib['value']
-    tce_smet_unc = root[3].attrib['uncertainty']
+    tce_smet_val = root.find(f'{DV_XML_HEADER}log10Metallicity').attrib['value']
+    tce_smet_unc = root.find(f'{DV_XML_HEADER}log10Metallicity').attrib['uncertainty']
     output_csv['log10Metallicity.value'] = tce_smet_val
     output_csv['log10Metallicity.uncertainty'] = tce_smet_unc
 
     # obtain log10SurfaceGravity
-    tce_slogg_val = root[4].attrib['value']
-    tce_slogg_unc = root[4].attrib['uncertainty']
+    tce_slogg_val = root.find(f'{DV_XML_HEADER}log10SurfaceGravity').attrib['value']
+    tce_slogg_unc = root.find(f'{DV_XML_HEADER}log10SurfaceGravity').attrib['uncertainty']
     output_csv['log10SurfaceGravity.value'] = tce_slogg_val
     output_csv['log10SurfaceGravity.uncertainty'] = tce_slogg_unc
 
-    # obtain the offset that tessMag is from the planetResults
-    offset_index = 0
-    for x in range(0, len(root)):
-        cur_elem = root[x]
-        if "planetResults" not in cur_elem.tag and x > 5:
-            offset_index = x
-            break
     # tessMag
-    mag_val = root[offset_index + 5].attrib['value']
-    mag_unc = root[offset_index + 5].attrib['uncertainty']
+    mag_val = root.find(f'{DV_XML_HEADER}tessMag').attrib['value']
+    mag_unc = root.find(f'{DV_XML_HEADER}tessMag').attrib['uncertainty']
     output_csv['tessMag.value'] = mag_val
     output_csv['tessMag.uncertainty'] = mag_unc
 
     # stellar density
-    stellar_density_val = root[offset_index + 4].attrib['value']
-    stellar_density_unc = root[offset_index + 4].attrib['uncertainty']
+    stellar_density_val = root.find(f'{DV_XML_HEADER}stellarDensity').attrib['value']
+    stellar_density_unc = root.find(f'{DV_XML_HEADER}stellarDensity').attrib['uncertainty']
     output_csv['stellarDensity.value'] = stellar_density_val
     output_csv['stellarDensity.uncertainty'] = stellar_density_unc
 
     # radius
-    radius_val = root[offset_index + 3].attrib['value']
-    radius_unc = root[offset_index + 3].attrib['uncertainty']
+    radius_val = root.find(f'{DV_XML_HEADER}radius').attrib['value']
+    radius_unc = root.find(f'{DV_XML_HEADER}radius').attrib['uncertainty']
     output_csv['radius.value'] = radius_val
     output_csv['radius.uncertainty'] = radius_unc
 
     # raDegrees
-    raDegrees_val = root[offset_index + 2].attrib['value']
-    raDegrees_unc = root[offset_index + 2].attrib['uncertainty']
+    raDegrees_val = root.find(f'{DV_XML_HEADER}raDegrees').attrib['value']
+    raDegrees_unc = root.find(f'{DV_XML_HEADER}raDegrees').attrib['uncertainty']
     output_csv['raDegrees.value'] = raDegrees_val
     output_csv['raDegrees.uncertainty'] = raDegrees_unc
 
     # pmRa
-    pmRa_val = root[offset_index + 1].attrib['value']
-    pmRa_unc = root[offset_index + 1].attrib['uncertainty']
+    pmRa_val = root.find(f'{DV_XML_HEADER}pmRa').attrib['value']
+    pmRa_unc = root.find(f'{DV_XML_HEADER}pmRa').attrib['uncertainty']
     output_csv['ra.value'] = pmRa_val
     output_csv['ra.uncertainty'] = pmRa_unc
 
     # pmDec
-    pmDec_val = root[offset_index].attrib['value']
-    pmDec_unc = root[offset_index].attrib['uncertainty']
+    pmDec_val = root.find(f'{DV_XML_HEADER}pmDec').attrib['value']
+    pmDec_unc = root.find(f'{DV_XML_HEADER}pmDec').attrib['uncertainty']
     output_csv['pm_dec.value'] = pmDec_val
     output_csv['pm_dec.uncertainty'] = pmDec_unc
 
@@ -386,9 +378,9 @@ def process_xml(dv_xml_fp):
 
         output_csv.at[tce_i, 'planetIndexNumber'] = planet_res.attrib['planetNumber']
 
-        cur_eclipbin = planet_res[8].attrib['suspectedEclipsingBinary']
-        bool_cur_eclipbin = int(cur_eclipbin == 'true')
-        output_csv.at[tce_i, f'planetCandidate.suspectedEclipsingBinary'] = bool_cur_eclipbin
+        # cur_eclipbin = planet_res[8].attrib['suspectedEclipsingBinary']
+        # bool_cur_eclipbin = int(cur_eclipbin == 'true')
+        # output_csv.at[tce_i, f'planetCandidate.suspectedEclipsingBinary'] = bool_cur_eclipbin
 
         # allTransitsFit_numberOfModelParameters
         output_csv.at[tce_i, f'allTransitsFit_numberOfModelParameters'] = len(planet_res[0][1])
@@ -450,19 +442,29 @@ def process_xml(dv_xml_fp):
 
 if __name__ == "__main__":
 
-    # file path to DV XML file
-    dv_xml_fp = Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml')
     # output file path to csv with extracted data
-    new_tce_tbl_fp = Path('/Users/msaragoc/Downloads/sample_0.csv')
+    new_tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-3-2024_1242.csv')
 
-    # new_tce_tbl = process_xml(dv_xml_fp)
+    # dv_xml_fps = [
+    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0066/target/0000/0002/7947/8852/hlsp_tess-spoc_tess_phot_0000000279478852-s0066-s0066_tess_v1_dvr.xml'),
+    # ]
+
+    # get file paths to DV xml files
+    # dv_xml_sector_runs_dirs = [
+    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0066'),
+    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0069'),
+    # ]
+    dv_xml_sector_runs_dirs = list(Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/').iterdir())
+    print(f'Choosing sectors in {dv_xml_sector_runs_dirs}.')
+    dv_xml_fps = []
+    for dv_xml_sector_run in dv_xml_sector_runs_dirs:
+        dv_xml_fps += [fp for fp in dv_xml_sector_run.rglob('*.xml')]
+
+    # dv_xml_fps = dv_xml_fps[:2]
+    print(f'Extracting TCEs from {len(dv_xml_fps)} xml files.')
 
     # parallel extraction of data from multiple DV xml files
-    dv_xml_fps = [
-        Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml'),
-        Path('/Users/msaragoc/Downloads/s0047/target/0000/0009/5071/5112/hlsp_tess-spoc_tess_phot_0000000950715112-s0047-s0047_tess_v1_dvr.xml')
-    ]
-    n_processes = 2
+    n_processes = 12
     n_jobs = len(dv_xml_fps)
     pool = multiprocessing.Pool(processes=n_processes)
     async_results = [pool.apply_async(process_xml, (dv_xml_fp,)) for dv_xml_fp in dv_xml_fps]
@@ -480,3 +482,5 @@ if __name__ == "__main__":
     new_tce_tbl.set_index('uid', inplace=True)  # set uid as index
 
     new_tce_tbl.to_csv(new_tce_tbl_fp, index=True)
+
+    print(f'Saved TCE table to {str(new_tce_tbl_fp)}.')
