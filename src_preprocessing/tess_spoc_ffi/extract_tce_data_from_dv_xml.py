@@ -12,126 +12,6 @@ import multiprocessing
 
 DV_XML_HEADER = '{http://www.nasa.gov/2018/TESS/DV}'
 
-MAP_DV_XML_FIELDS = {
-    'catId': 'target_id',
-    'planetIndexNumber': 'tce_plnt_num',
-
-    'planetCandidate.maxSingleEventSigma': 'tce_max_sngle_ev',
-    'planetCandidate.maxMultipleEventSigma': 'tce_max_mult_ev',
-
-    'allTransitsFit.transitDepthPpm.value': 'tce_depth',
-    'allTransitsFit.transitDepthPpm.uncertainty': 'tce_depth_err',
-    'allTransitsFit.orbitalPeriodDays.value': 'tce_period',
-    'allTransitsFit.orbitalPeriodDays.uncertainty': 'tce_period_err',
-    'allTransitsFit.transitEpochBtjd.value': 'tce_time0bk',
-    'allTransitsFit.transitEpochBtjd.uncertainty': 'tce_time0bk_err',
-    'allTransitsFit.transitDurationHours.value': 'tce_duration',
-    'allTransitsFit.transitDurationHours.uncertainty': 'tce_duration_err',
-    'allTransitsFit.planetRadiusEarthRadii.value': 'tce_prad',
-    'allTransitsFit.planetRadiusEarthRadii.uncertainty': 'tce_prad_err',
-    # 'allTransitsFit_starRadiusSolarRadii_value': 'tce_sradius',
-    # 'allTransitsFit_starRadiusSolarRadii_uncertainty': 'tce_sradius_err',
-    'allTransitsFit.semiMajorAxisAu.value': 'tce_sma',
-    'allTransitsFit.semiMajorAxisAu.uncertainty': 'tce_sma_err',
-    'allTransitsFit.minImpactParameter.value': 'tce_impact',
-    'allTransitsFit.minImpactParameter.uncertainty': 'tce_impact_err',
-    'allTransitsFit.equilibriumTempKelvin.value': 'tce_eqt',
-    'allTransitsFit.equilibriumTempKelvin.uncertainty': 'tce_eqt_err',
-    'allTransitsFit.effectiveStellarFlux.value': 'tce_insol',
-    'allTransitsFit.effectiveStellarFlux.uncertainty': 'tce_insol_err',
-
-    # 'oddTransitsFit.transitDepthPpm.value': 'tce_depth_odd',
-    # 'oddTransitsFit.transitDepthPpm.uncertainty': 'tce_depth_odd_err',
-    # 'oddTransitsFit.orbitalPeriodDays.value': 'tce_period_odd',
-    # 'oddTransitsFit.orbitalPeriodDays.uncertainty': 'tce_period_odd_err',
-    # 'oddTransitsFit.transitEpochBtjd.value': 'tce_time0bk_odd',
-    # 'oddTransitsFit.transitEpochBtjd.uncertainty': 'tce_time0bk_odd_err',
-    # 'oddTransitsFit.transitDurationHours.value': 'tce_duration_odd',
-    # 'oddTransitsFit.transitDurationHours.uncertainty': 'tce_duration_odd_err',
-    # 'evenTransitsFit.transitDepthPpm.value': 'tce_depth_even',
-    # 'evenTransitsFit.transitDepthPpm.uncertainty': 'tce_depth_even_err',
-    # 'evenTransitsFit.orbitalPeriodDays.value': 'tce_period_even',
-    # 'evenTransitsFit.orbitalPeriodDays.uncertainty': 'tce_period_even_err',
-    # 'evenTransitsFit.transitEpochBtjd.value': 'tce_time0bk_even',
-    # 'evenTransitsFit.transitEpochBtjd.uncertainty': 'tce_time0bk_even_err',
-    # 'evenTransitsFit.transitDurationHours.value': 'tce_duration_even',
-    # 'evenTransitsFit.transitDurationHours.uncertainty': 'tce_duration_even_err',
-
-    # 'planetCandidate.epochTjd': 'tce_time0bk',
-    # 'planetCandidate.orbitalPeriod': 'tce_period',
-
-    'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.value': 'tce_dikco_msky',
-    'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.uncertainty': 'tce_dikco_msky_err',
-    'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.value': 'tce_dicco_msky',
-    'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.uncertainty': 'tce_dicco_msky_err',
-
-    'tessMag.value': 'mag',
-    'tessMag.uncertainty': 'mag_err',
-
-    'radius.value': 'tce_sradius',
-    'radius.uncertainty': 'tce_sradius_err',
-    'stellarDensity.value': 'tce_sdens',
-    'stellarDensity.uncertainty': 'tce_sdens_err',
-    'effectiveTemp.value': 'tce_steff',
-    'effectiveTemp.uncertainty': 'tce_steff_err',
-    'log10SurfaceGravity.value': 'tce_slogg',
-    'log10SurfaceGravity.uncertainty': 'tce_slogg_err',
-    'log10Metallicity.value': 'tce_smet',
-    'log10Metallicity.uncertainty': 'tce_smet_err',
-
-    'planetCandidate.weakSecondary.maxMes': 'tce_maxmes',
-    'planetCandidate.weakSecondary.maxMesPhaseInDays': 'tce_maxmesd',
-    'planetCandidate.weakSecondary.depthPpm.value': 'wst_depth',
-    'planetCandidate.weakSecondary.depthPpm.uncertainty': 'wst_depth_err',
-
-    'binaryDiscriminationResults.oddEvenTransitDepthComparisonStatistic.value': 'tce_bin_oedp_stat',
-    'binaryDiscriminationResults.shorterPeriodComparisonStatistic.value': 'tce_shortper_stat',
-    'binaryDiscriminationResults.longerPeriodComparisonStatistic.value': 'tce_longper_stat',
-
-    'bootstrapResults.significance': 'boot_fap',
-
-    'allTransitsFit.ratioPlanetRadiusToStarRadius.value': 'tce_ror',
-    'allTransitsFit.ratioPlanetRadiusToStarRadius.uncertainty': 'tce_ror_err',
-    'allTransitsFit.ratioSemiMajorAxisToStarRadius.value': 'tce_dor',
-    'allTransitsFit.ratioSemiMajorAxisToStarRadius.uncertainty': 'tce_dor_err',
-    'allTransitsFit.modelFitSnr': 'tce_model_snr',
-    'allTransitsFit.transitIngressTimeHours.value': 'tce_ingress',
-    'allTransitsFit.transitIngressTimeHours.uncertainty': 'tce_ingress_err',
-    'allTransitsFit.inclinationDegrees.value': 'tce_incl',
-    'allTransitsFit.inclinationDegrees.uncertainty': 'tce_incl_err',
-    'allTransitsFit.eccentricity.value': 'tce_eccen',
-    'allTransitsFit.eccentricity.uncertainty': 'tce_eccen_err',
-    'allTransitsFit.longitudeOfPeriDegrees.value': 'tce_longp',
-    'allTransitsFit.longitudeOfPeriDegrees.uncertainty': 'tce_longp_err',
-
-    'raDegrees.value': 'ra',
-    'decDegrees.value': 'dec',
-
-    'secondaryEventResults.planetParameters.geometricAlbedo.value': 'tce_albedo',
-    'secondaryEventResults.planetParameters.geometricAlbedo.uncertainty': 'tce_albedo_err',
-    'secondaryEventResults.planetParameters.planetEffectiveTemp.value': 'tce_ptemp',
-    'secondaryEventResults.planetParameters.planetEffectiveTemp.uncertainty': 'tce_ptemp_err',
-    'secondaryEventResults.comparisonTests.albedoComparisonStatistic.value': 'tce_albedo_stat',
-    'secondaryEventResults.comparisonTests.albedoComparisonStatistic.significance': 'tce_albedo_stat_err',
-    'secondaryEventResults.comparisonTests.tempComparisonStatistic.value': 'tce_ptemp_stat',
-    'secondaryEventResults.comparisonTests.tempComparisonStatistic.significance': 'tce_ptemp_stat_err',
-
-    'ghostDiagnosticResults.coreApertureCorrelationStatistic.value': 'tce_cap_stat',
-    'ghostDiagnosticResults.coreApertureCorrelationStatistic.significance': 'tce_cap_stat_err',
-    'ghostDiagnosticResults.haloApertureCorrelationStatistic.value': 'tce_hap_stat',
-    'ghostDiagnosticResults.haloApertureCorrelationStatistic.significance': 'tce_hap_stat_err',
-
-    'planetCandidate.observedTransitCount': 'tce_num_transits_obs',
-    'planetCandidate.expectedTransitCount': 'tce_num_transits',
-
-    # 'allTransitsFit_starDensitySolarDensity_value': 'tce_sdens',
-    # 'allTransitsFit_starDensitySolarDensity_uncertainty': 'tce_sdens_err',
-
-    'allTransitsFit.modelChiSquare': 'tce_model_chisq',
-    'planetCandidate.robustStatistic': 'tce_robstat',
-
-}
-
 
 def append_attributes(descendants, tce_i, output_csv, keywords):
     """ Appends attributes of a given parameter. Helper to process_xml().
@@ -294,12 +174,13 @@ def get_outside_params(root, output_csv):
     pipelineTaskId_val = root.attrib['pipelineTaskId']
     output_csv['taskFieldId'] = pipelineTaskId_val
 
-    s_sector, e_sector = (root.attrib['sectorsObserved'].find('1') + 1, len(root.attrib['sectorsObserved']) -
-                          root.attrib['sectorsObserved'][::-1].find('1') - 1)
-    if s_sector == e_sector:
-        output_csv['sector_run'] = s_sector
-    else:
-        output_csv['sector_run'] = f'{s_sector}-{e_sector}'
+    # get observed sectors
+    obs_sectors_idxs = np.where(np.array([*root.attrib['sectorsObserved']]) == '1')[0]
+    # get start and end sector
+    if len(obs_sectors_idxs) == 1:  # single-sector run
+        output_csv['sector_run'] = str(obs_sectors_idxs[0])
+    else:  # multi-sector run
+        output_csv['sector_run'] = f'{obs_sectors_idxs[0]}-{obs_sectors_idxs[-1]}'
 
 
 def find_descendants(output_csv, descendants, tce_i, keywords):
@@ -440,10 +321,47 @@ def process_xml(dv_xml_fp):
     return output_csv
 
 
+def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
+    """ Extracts TCE data from the set of DV xml files in a sector run directory into a table and returns the table as
+    a pandas DataFrame.
+
+    Args:
+        dv_xml_sector_run_dir: Path, path to the sector run directory
+
+    Returns:
+        dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files in the sector run
+    """
+
+    dv_xml_fps = [fp for fp in dv_xml_sector_run_dir.rglob('*.xml')]
+    n_dv_xmls = len(dv_xml_fps)
+    print(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
+
+    dv_xmls_tbls = []
+    for dv_xml_fp_i, dv_xml_fp in enumerate(dv_xml_fps):
+        if dv_xml_fp_i % 500 == 0:
+            print(f'Target DV XML file {dv_xml_fp.name} ({dv_xml_fp_i + 1}/{n_dv_xmls})')
+
+        try:
+            dv_xml_tbl_target = process_xml(dv_xml_fp)
+            dv_xmls_tbls.append(dv_xml_tbl_target)
+        except Exception as e:
+            print(f'Error when adding TCE table from {dv_xml_fp}. Shape of table: {dv_xml_tbl_target.shape}')
+            print(f'Data type: {type(dv_xml_tbl_target)}')
+            print(f'Table:\n{dv_xml_tbl_target}')
+            print(f'Error: {e}')
+
+    dv_xml_tbl = pd.concat(dv_xmls_tbls, axis=0, ignore_index=True)
+
+    print(f'Finished extracting TCEs from {len(dv_xml_fps)} xml files for {dv_xml_sector_run_dir.name}.')
+
+    return dv_xml_tbl
+
+
 if __name__ == "__main__":
 
     # output file path to csv with extracted data
-    new_tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-3-2024_1242.csv')
+    new_tce_tbls_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/07-08-2024_1516_s36_from_dv_xml/')
+    new_tce_tbls_dir.mkdir(exist_ok=True)
 
     # dv_xml_fps = [
     #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0066/target/0000/0002/7947/8852/hlsp_tess-spoc_tess_phot_0000000279478852-s0066-s0066_tess_v1_dvr.xml'),
@@ -455,32 +373,21 @@ if __name__ == "__main__":
     #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0069'),
     # ]
     dv_xml_sector_runs_dirs = list(Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/').iterdir())
+    dv_xml_sector_runs_dirs = [fp for fp in dv_xml_sector_runs_dirs if fp.name == "s0036"]
     print(f'Choosing sectors in {dv_xml_sector_runs_dirs}.')
-    dv_xml_fps = []
-    for dv_xml_sector_run in dv_xml_sector_runs_dirs:
-        dv_xml_fps += [fp for fp in dv_xml_sector_run.rglob('*.xml')]
-
-    # dv_xml_fps = dv_xml_fps[:2]
-    print(f'Extracting TCEs from {len(dv_xml_fps)} xml files.')
 
     # parallel extraction of data from multiple DV xml files
-    n_processes = 12
-    n_jobs = len(dv_xml_fps)
+    n_processes = 1
+    n_jobs = len(dv_xml_sector_runs_dirs)
+    print(f'Starting {n_processes} processes to deal with {n_jobs} jobs.')
     pool = multiprocessing.Pool(processes=n_processes)
-    async_results = [pool.apply_async(process_xml, (dv_xml_fp,)) for dv_xml_fp in dv_xml_fps]
+    async_results = [pool.apply_async(process_sector_run_of_dv_xmls, (dv_xml_sector_runs_dir,))
+                     for dv_xml_sector_runs_dir in dv_xml_sector_runs_dirs]
     pool.close()
     pool.join()
-    new_tce_tbl = pd.concat([el.get() for el in async_results])
 
-    print(f'Renaming fields...')
-    new_tce_tbl = new_tce_tbl.rename(columns=MAP_DV_XML_FIELDS, inplace=False, errors='raise')
-
-    new_tce_tbl = new_tce_tbl.astype({'target_id': int, 'tce_plnt_num': int})
-    # set unique id for each TCE
-    new_tce_tbl['uid'] = new_tce_tbl.apply(lambda x: '{}-{}-S{}'.format(x['target_id'], x['tce_plnt_num'],
-                                                                        x['sector_run']), axis=1)
-    new_tce_tbl.set_index('uid', inplace=True)  # set uid as index
-
-    new_tce_tbl.to_csv(new_tce_tbl_fp, index=True)
-
-    print(f'Saved TCE table to {str(new_tce_tbl_fp)}.')
+    for proc_output in async_results:
+        tce_tbl_sector = proc_output.get()
+        tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
+        tce_tbl_sector.to_csv(tce_tbl_fp, index=False)
+        print(f'Saved TCE table for sector run {tce_tbl_sector} to {str(tce_tbl_fp)}.')
