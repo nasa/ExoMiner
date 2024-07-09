@@ -1,4 +1,4 @@
-""" Create TESS TCE table from DV SPOC TCE tables. """
+""" Create TESS TCE table from DV SPOC TCE mat tables. """
 
 # 3rd party
 import pandas as pd
@@ -7,12 +7,11 @@ import logging
 from datetime import datetime
 
 # results directory
-root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/dv_spoc_ffi/')
+root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/07-08-2024_1616_s47-s69_from_mat_files')
+tce_tbl_name = 'tess_spoc_ffi_tces_dv_s47-s69.csv'
 
-res_dir = root_dir / f'{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 res_dir.mkdir(exist_ok=True)
-
-tce_tbl_name = f'tess_spoc_ffi_tces_dv_s47-s55_{res_dir.name}.csv'
 
 # set up logger
 logger = logging.getLogger(name='create_tess_tce_tbl_from_dv')
@@ -28,10 +27,10 @@ logger.info(f'Starting run...')
 singlesector_tce_dir = root_dir / 'single_sector_runs' / 'csv_tables'
 
 logger.info('Loading DV SPOC TCE tables for the multiple single- and multi-sector runs...')
-sector_tce_tbls = {file.stem.split('_')[2][1:]: pd.read_csv(file) for file in singlesector_tce_dir.iterdir()}
+sector_tce_tbls = {file.stem.split('_')[2][1:]: pd.read_csv(file) for file in singlesector_tce_dir.iterdir() if file.suffix == '.csv' and not file.match('dvOutputMatrix_FFI_S7*.csv')}
 # sector_tce_tbls.update({f'{int(file.stem[14:16])}-{int(file.stem[16:18])}': pd.read_csv(file)
 #                         for file in multisector_tce_dir.iterdir()})
-logger.info(f'DV SPOC TCE tables loaded:')
+logger.info(f'{len(sector_tce_tbls)} DV SPOC TCE tables loaded:')
 for sector_tce_tbls_name in sector_tce_tbls:
     logger.info(f'{sector_tce_tbls_name}: {len(sector_tce_tbls[sector_tce_tbls_name])} TCEs.')
 
