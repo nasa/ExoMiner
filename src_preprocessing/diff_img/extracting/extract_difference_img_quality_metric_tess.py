@@ -12,11 +12,15 @@ import re
 #%%
 
 dv_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/')
-save_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943/diff_img_quality_metric')
+save_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/quality_metrics/s36-s69_singlesectorsonly_7-9-2024_1244')
+
 save_dir.mkdir(exist_ok=True)
+
 single_sector_runs = [fp for fp in (dv_root_dir / 'single-sector').iterdir() if fp.is_dir()]
 multi_sector_runs = []  # [fp for fp in (dv_root_dir / 'multi-sector').iterdir() if fp.is_dir()]
 sector_runs = list(single_sector_runs) + list(multi_sector_runs)
+
+print(f'Getting quality metrics for {len(sector_runs)} sector runs.')
 
 for sector_run in sector_runs:
 
@@ -27,7 +31,9 @@ for sector_run in sector_runs:
 
     # get filepaths to xml files
     dv_xml_run_fps = list(sector_run.rglob("*.xml"))
+    print(f'Found {len(dv_xml_run_fps)} DV xml files for sector run {sector_run.name}.')
 
+    # get start and end sector for sector id
     s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
     s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
     if s_sector != e_sector:  # multisector run
@@ -65,14 +71,7 @@ for sector_run in sector_runs:
 
         # check if there are results for more than one processing run for this TIC and sector run
         tic_id = root.attrib['ticId']
-        # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in sector_run.glob(f'*{tic_id.zfill(16)}*')]
-        # if len(tic_drs) > 1:
-        #     curr_dr = int(dv_xml_run_fp.stem.split('-')[-1][:-4])
-        #     latest_dr = sorted(tic_drs)[-1]
-        #     if curr_dr != latest_dr:
-        #         print(f'[Sector run {sector_run_id}] Skipping {dv_xml_run_fp.name} for TIC {tic_id} since there are '
-        #               f'more recent processed results (current release {curr_dr}, latest release {latest_dr})')
-        #         continue
+
         tic_drs = [fp for fp in sector_run.glob(f'*{tic_id.zfill(16)}*')]
         if len(tic_drs) > 1:
             curr_dr = int(dv_xml_run_fp.stem.split('-')[-1][:-4])
@@ -112,3 +111,5 @@ for sector_run in sector_runs:
 
     data_df = pd.DataFrame(data)
     data_df.to_csv(save_dir / f'diff_img_quality_metric_tess_{sector_run_id}.csv', index=False)
+
+print('Finished.')
