@@ -16,12 +16,11 @@ Parameters:
 - tce_tbl: uid, duration (hours), period (days), epoch (days), target_id
 - toi_tbl: uid, duration (hours), period (days), epoch (days), target_id
 """
-import shutil
+
 # 3rd party
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from datetime import datetime
 import multiprocessing
 import argparse
 import yaml

@@ -212,8 +212,7 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
                         plot_diff_img_data(diff_imgs,
                                            kic_centroid_ref_dict['col']['value'],
                                            kic_centroid_ref_dict['row']['value'],
-                                           uid,
-                                           plot_dir,
+                                           plot_dir / f'kic_{uid}.png',
                                            True)
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
@@ -418,8 +417,7 @@ def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
                         plot_diff_img_data(diff_imgs,
                                            tic_centroid_ref_dict['col']['value'],
                                            tic_centroid_ref_dict['row']['value'],
-                                           uid,
-                                           plot_dir,
+                                           plot_dir / f'tic_{uid}.png',
                                            True
                                            )
 
