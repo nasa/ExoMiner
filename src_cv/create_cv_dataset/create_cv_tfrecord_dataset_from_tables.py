@@ -17,18 +17,18 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # CV destination data directory
-    dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_keplerq1q17dr25obs_sgdetrending_3-29-2024_1101/')
+    dest_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951')
     # TFRecord source directory
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_sgdetrending_3-28-2024_1625')
+    src_tfrec_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/source_data')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_sgdetrending_3-28-2024_1625/shards_tbl.csv')
+    src_tfrec_tbl_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/source_data/shards_tbl.csv')
     n_processes = 10
     # directory with the TCE tables for each fold in the labeled data set
-    labeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/shard_tables/eval/')  # dest_dir / 'shard_tables' / 'eval'
+    labeled_shard_tbls_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/shard_tables/eval')  # dest_dir / 'shard_tables' / 'eval'
     # destination directory for the TFRecords for all CV folds in the labeled data set
     labeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'eval'
     # directory with the TCE tables for each fold for the unlabeled data set
-    unlabeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
+    unlabeled_shard_tbls_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
     # destination directory for the TFRecords for all CV folds in the unlabeled data set
     unlabeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'predict'
     log_dir = dest_dir / 'create_cv_folds_logs'

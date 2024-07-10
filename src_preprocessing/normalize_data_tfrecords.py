@@ -408,10 +408,6 @@ if __name__ == '__main__':
     # load normalization statistics; the keys in each sub-dictionary define which statistics are normalized
     normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
-    # # save normalization statistics
-    # for param, stats_fp in config['normStats'].items():
-    #     shutil.copy(stats_fp, destTfrecDir / Path(stats_fp).name)
-
     pool = multiprocessing.Pool(processes=config['nProcesses'])
     jobs = [(destTfrecDir, file, normStats, config['auxParams']) for file in srcTfrecFiles]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
