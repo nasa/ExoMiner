@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     model_dir_fp = Path(args.model_dir)
     config_fp = Path(args.config_fp)
-
+    print(model_dir_fp)
     with(open(args.config_fp, 'r')) as file:
         train_config = yaml.unsafe_load(file)
 

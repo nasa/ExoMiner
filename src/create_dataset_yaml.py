@@ -10,7 +10,7 @@ import yaml
 #%%
 
 # path to directory with TFRecord data
-source_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/dataset_split_inj1_plnt_normalized')
+source_tfrec_dir = Path('/Users/agiri1/Desktop/ExoBD_Datasets/tess_kepler_norm_shards_6-27-2024_1217')
 # destination file path to yaml file
 save_yaml_fp = source_tfrec_dir / 'datasets_fps.yaml'
 # list of data sets; assumes that shards have the corresponding prefix (e.g., 'train-shard-...')

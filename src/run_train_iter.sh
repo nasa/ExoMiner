@@ -30,7 +30,7 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
 # set model id based on received indexes
 MODEL_I=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 
-#mkdir -p "$MODELS_DIR"
+mkdir -p "$MODELS_DIR"
 
 MODEL_DIR="$MODELS_DIR"/model$MODEL_I
 mkdir -p "$MODEL_DIR"

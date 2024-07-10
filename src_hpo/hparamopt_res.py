@@ -15,7 +15,7 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result
 # %% load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_kepler-reduced_tess_12-1-2022_2051')
+hpo_dir = Path('/Users/agiri1/Desktop/ExoBD_Datasets/hpo_merged_unfolded_7-5-2023')
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

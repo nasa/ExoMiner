@@ -18,7 +18,7 @@ source "$HOME"/.bashrc
 #conda activate exoplnt_dl
 conda activate exoplnt_dl_tf2_13
 
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=/Users/agiri1/Desktop/ExoPlanet
 
 # Paths
 SETUP_RUN_FP=$PYTHONPATH/src/setup_train.py

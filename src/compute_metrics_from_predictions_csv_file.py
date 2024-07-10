@@ -160,7 +160,7 @@ if __name__ == '__main__':
     }
     num_thresholds = 1000
     clf_threshold = 0.5
-    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]  #  40000, 50000, 100000]
+    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000, 4000, 5000, 10000]
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
