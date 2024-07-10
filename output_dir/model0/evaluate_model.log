@@ -1,0 +1,5 @@
+2024-07-09 13:57:20,619 - Starting evaluating model /users/agiri1/Desktop/ExoPlanet/output_dir/model0/model.keras in /users/agiri1/Desktop/ExoPlanet/output_dir/model0
+2024-07-09 13:57:20,619 - Loading model...
+2024-07-09 13:57:22,430 - Evaluating on dataset train
+2024-07-09 13:57:25,655 - Evaluating on dataset val
+2024-07-09 13:57:26,933 - Evaluating on dataset test

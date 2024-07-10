@@ -1,0 +1,85 @@
+2024-07-09 13:56:20.254558: I metal_plugin/src/device/metal_device.cc:1154] Metal device set to: Apple M3 Pro
+2024-07-09 13:56:20.254620: I metal_plugin/src/device/metal_device.cc:296] systemMemory: 18.00 GB
+2024-07-09 13:56:20.254628: I metal_plugin/src/device/metal_device.cc:313] maxCacheSize: 6.00 GB
+2024-07-09 13:56:20.254730: I tensorflow/core/common_runtime/pluggable_device/pluggable_device_factory.cc:303] Could not identify NUMA node of platform GPU ID 0, defaulting to 0. Your kernel may not have been built with NUMA support.
+2024-07-09 13:56:20.254981: I tensorflow/core/common_runtime/pluggable_device/pluggable_device_factory.cc:269] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 0 MB memory) -> physical PluggableDevice (device: 0, name: METAL, pci bus id: <undefined>)
+WARNING:absl:At this time, the v2.11+ optimizer `tf.keras.optimizers.Adam` runs slowly on M1/M2 Macs, please use the legacy Keras optimizer instead, located at `tf.keras.optimizers.legacy.Adam`.
+WARNING:absl:There is a known slowdown when using v2.11+ Keras optimizers on M1/M2 Macs. Falling back to the legacy Keras optimizer, i.e., `tf.keras.optimizers.legacy.Adam`.
+INFO:train_model:Training model...
+/users/agiri1/Desktop/ExoPlanet/output_dir/model0
+Epoch 1/20
+2024-07-09 13:56:23.186595: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:114] Plugin optimizer for device_type GPU is enabled.
+2024-07-09 13:56:28.296087: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16610924686263935043
+2024-07-09 13:56:28.296842: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15959726481699579077
+2024-07-09 13:56:28.296851: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 8699205463775667643
+2024-07-09 13:56:28.296855: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 9394786895612224981
+2024-07-09 13:56:28.296859: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 7440808094472284163
+2024-07-09 13:56:28.296862: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 58533453173493087
+2024-07-09 13:56:28.296866: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 9653133093039993395
+2024-07-09 13:56:28.296870: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 10028218066010182445
+2024-07-09 13:56:28.296874: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 6430438501457597203
+2024-07-09 13:56:28.296877: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 8526458075218286185
+2024-07-09 13:56:28.296880: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 2700305604626627347
+2024-07-09 13:56:28.296883: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 10623207505678998565
+2024-07-09 13:56:28.296897: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 11580737381244722435
+2024-07-09 13:56:28.297255: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 935007739196683410
+2024-07-09 13:56:28.297266: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5034092920005723432
+2024-07-09 13:56:28.297269: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 14631365542829955030
+2024-07-09 13:56:28.297273: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 12217882296620406812
+2024-07-09 13:56:28.297276: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16034260645201398152
+2024-07-09 13:56:28.297289: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 3264975084301495402
+2024-07-09 13:56:28.297292: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 9351463779987996074
+2024-07-09 13:56:28.297295: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 6904312836225433210
+2024-07-09 13:56:28.297310: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 11876143200206385024
+2024-07-09 13:56:28.766005: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:114] Plugin optimizer for device_type GPU is enabled.
+2024-07-09 13:56:30.036270: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 136392049805967508
+2024-07-09 13:56:30.036301: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 2464307863837120816
+2024-07-09 13:56:30.036308: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 10623207505678998565
+2024-07-09 13:56:30.036321: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15959726481699579077
+2024-07-09 13:56:30.036329: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16668879568987003909
+2024-07-09 13:56:30.036336: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 11243504700214247952
+2024-07-09 13:56:30.036349: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5811476155399034270
+2024-07-09 13:56:30.036355: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 4346545903119908532
+2024-07-09 13:56:30.036364: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 7113293137302609564
+2024-07-09 13:56:30.036368: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15324179156443846285
+2024-07-09 13:56:30.036382: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 4742313929926229833
+13/13 - 8s - loss: 0.0199 - binary_accuracy: 0.4489 - precision: 0.0148 - recall: 0.5625 - prec_thr: 0.0080 - rec_thr: 0.5005 - auc_pr: 0.0133 - auc_roc: 0.4944 - tp: 24.0240 - fp: 1624.3990 - tn: 1622.6010 - fn: 23.9760 - val_loss: 0.6567 - val_binary_accuracy: 0.8308 - val_precision: 0.0207 - val_recall: 0.1923 - val_prec_thr: 0.0090 - val_rec_thr: 0.4978 - val_auc_pr: 0.0273 - val_auc_roc: 0.7128 - val_tp: 12.9430 - val_fp: 719.9150 - val_tn: 779.0850 - val_fn: 13.0570 - 8s/epoch - 626ms/step
+Epoch 2/20
+13/13 - 3s - loss: 0.0192 - binary_accuracy: 0.7794 - precision: 0.0406 - recall: 0.6250 - prec_thr: 0.0119 - rec_thr: 0.5058 - auc_pr: 0.0656 - auc_roc: 0.7972 - tp: 24.2780 - fp: 1553.5811 - tn: 1693.4189 - fn: 23.7220 - val_loss: 0.6349 - val_binary_accuracy: 0.7928 - val_precision: 0.0068 - val_recall: 0.0769 - val_prec_thr: 0.0093 - val_rec_thr: 0.4961 - val_auc_pr: 0.0237 - val_auc_roc: 0.6783 - val_tp: 12.8980 - val_fp: 700.1450 - val_tn: 798.8550 - val_fn: 13.1020 - 3s/epoch - 208ms/step
+Epoch 3/20
+13/13 - 3s - loss: 0.0187 - binary_accuracy: 0.7973 - precision: 0.0468 - recall: 0.6667 - prec_thr: 0.0135 - rec_thr: 0.5094 - auc_pr: 0.0597 - auc_roc: 0.8102 - tp: 24.4530 - fp: 1505.5620 - tn: 1741.4380 - fn: 23.5470 - val_loss: 0.6127 - val_binary_accuracy: 0.7889 - val_precision: 0.0132 - val_recall: 0.1538 - val_prec_thr: 0.0097 - val_rec_thr: 0.4943 - val_auc_pr: 0.0243 - val_auc_roc: 0.6838 - val_tp: 12.8510 - val_fp: 678.4340 - val_tn: 820.5660 - val_fn: 13.1490 - 3s/epoch - 204ms/step
+Epoch 4/20
+13/13 - 2s - loss: 0.0183 - binary_accuracy: 0.7818 - precision: 0.0472 - recall: 0.7292 - prec_thr: 0.0149 - rec_thr: 0.5183 - auc_pr: 0.0539 - auc_roc: 0.8114 - tp: 24.8770 - fp: 1468.1570 - tn: 1778.8430 - fn: 23.1230 - val_loss: 0.5948 - val_binary_accuracy: 0.7849 - val_precision: 0.0160 - val_recall: 0.1923 - val_prec_thr: 0.0102 - val_rec_thr: 0.4934 - val_auc_pr: 0.0249 - val_auc_roc: 0.6919 - val_tp: 12.8280 - val_fp: 659.3100 - val_tn: 839.6900 - val_fn: 13.1720 - 2s/epoch - 186ms/step
+Epoch 5/20
+13/13 - 2s - loss: 0.0178 - binary_accuracy: 0.7684 - precision: 0.0457 - recall: 0.7500 - prec_thr: 0.0179 - rec_thr: 0.5293 - auc_pr: 0.0553 - auc_roc: 0.8128 - tp: 25.4070 - fp: 1431.9460 - tn: 1815.0540 - fn: 22.5930 - val_loss: 0.5768 - val_binary_accuracy: 0.7718 - val_precision: 0.0208 - val_recall: 0.2692 - val_prec_thr: 0.0108 - val_rec_thr: 0.4930 - val_auc_pr: 0.0255 - val_auc_roc: 0.6986 - val_tp: 12.8180 - val_fp: 639.1880 - val_tn: 859.8120 - val_fn: 13.1820 - 2s/epoch - 185ms/step
+Epoch 6/20
+13/13 - 2s - loss: 0.0173 - binary_accuracy: 0.7663 - precision: 0.0442 - recall: 0.7292 - prec_thr: 0.0254 - rec_thr: 0.5409 - auc_pr: 0.0665 - auc_roc: 0.8131 - tp: 25.9650 - fp: 1393.6410 - tn: 1853.3590 - fn: 22.0350 - val_loss: 0.5643 - val_binary_accuracy: 0.7744 - val_precision: 0.0211 - val_recall: 0.2692 - val_prec_thr: 0.0113 - val_rec_thr: 0.4910 - val_auc_pr: 0.0253 - val_auc_roc: 0.6953 - val_tp: 12.7670 - val_fp: 623.4740 - val_tn: 875.5260 - val_fn: 13.2330 - 2s/epoch - 187ms/step
+Epoch 7/20
+13/13 - 2s - loss: 0.0169 - binary_accuracy: 0.7809 - precision: 0.0483 - recall: 0.7500 - prec_thr: 0.0316 - rec_thr: 0.5471 - auc_pr: 0.0709 - auc_roc: 0.8179 - tp: 26.2600 - fp: 1344.5210 - tn: 1902.4790 - fn: 21.7400 - val_loss: 0.5455 - val_binary_accuracy: 0.7777 - val_precision: 0.0214 - val_recall: 0.2692 - val_prec_thr: 0.0119 - val_rec_thr: 0.4888 - val_auc_pr: 0.0254 - val_auc_roc: 0.6979 - val_tp: 12.7100 - val_fp: 601.5890 - val_tn: 897.4110 - val_fn: 13.2900 - 2s/epoch - 180ms/step
+Epoch 8/20
+13/13 - 2s - loss: 0.0163 - binary_accuracy: 0.7690 - precision: 0.0470 - recall: 0.7708 - prec_thr: 0.0468 - rec_thr: 0.5661 - auc_pr: 0.0862 - auc_roc: 0.8214 - tp: 27.1730 - fp: 1316.9830 - tn: 1930.0170 - fn: 20.8270 - val_loss: 0.5400 - val_binary_accuracy: 0.7725 - val_precision: 0.0209 - val_recall: 0.2692 - val_prec_thr: 0.0126 - val_rec_thr: 0.4890 - val_auc_pr: 0.0258 - val_auc_roc: 0.7008 - val_tp: 12.7140 - val_fp: 589.8640 - val_tn: 909.1360 - val_fn: 13.2860 - 2s/epoch - 187ms/step
+Epoch 9/20
+13/13 - 2s - loss: 0.0159 - binary_accuracy: 0.7809 - precision: 0.0507 - recall: 0.7917 - prec_thr: 0.0484 - rec_thr: 0.5745 - auc_pr: 0.0849 - auc_roc: 0.8255 - tp: 27.5740 - fp: 1266.5450 - tn: 1980.4550 - fn: 20.4260 - val_loss: 0.5145 - val_binary_accuracy: 0.7843 - val_precision: 0.0160 - val_recall: 0.1923 - val_prec_thr: 0.0130 - val_rec_thr: 0.4801 - val_auc_pr: 0.0264 - val_auc_roc: 0.7067 - val_tp: 12.4830 - val_fp: 561.4300 - val_tn: 937.5700 - val_fn: 13.5170 - 2s/epoch - 184ms/step
+Epoch 10/20
+13/13 - 2s - loss: 0.0155 - binary_accuracy: 0.7976 - precision: 0.0508 - recall: 0.7292 - prec_thr: 0.0682 - rec_thr: 0.5830 - auc_pr: 0.1015 - auc_roc: 0.8335 - tp: 27.9850 - fp: 1207.7880 - tn: 2039.2120 - fn: 20.0150 - val_loss: 0.4923 - val_binary_accuracy: 0.7974 - val_precision: 0.0104 - val_recall: 0.1154 - val_prec_thr: 0.0133 - val_rec_thr: 0.4692 - val_auc_pr: 0.0267 - val_auc_roc: 0.7104 - val_tp: 12.1990 - val_fp: 535.5460 - val_tn: 963.4540 - val_fn: 13.8010 - 2s/epoch - 186ms/step
+Epoch 11/20
+13/13 - 2s - loss: 0.0151 - binary_accuracy: 0.8030 - precision: 0.0508 - recall: 0.7083 - prec_thr: 0.0705 - rec_thr: 0.5903 - auc_pr: 0.1145 - auc_roc: 0.8374 - tp: 28.3360 - fp: 1168.2371 - tn: 2078.7629 - fn: 19.6640 - val_loss: 0.4835 - val_binary_accuracy: 0.7993 - val_precision: 0.0105 - val_recall: 0.1154 - val_prec_thr: 0.0141 - val_rec_thr: 0.4623 - val_auc_pr: 0.0271 - val_auc_roc: 0.7131 - val_tp: 12.0200 - val_fp: 520.4690 - val_tn: 978.5310 - val_fn: 13.9800 - 2s/epoch - 189ms/step
+Epoch 12/20
+13/13 - 2s - loss: 0.0148 - binary_accuracy: 0.8170 - precision: 0.0531 - recall: 0.6875 - prec_thr: 0.0885 - rec_thr: 0.5904 - auc_pr: 0.1224 - auc_roc: 0.8428 - tp: 28.3370 - fp: 1090.5360 - tn: 2156.4641 - fn: 19.6630 - val_loss: 0.4446 - val_binary_accuracy: 0.8170 - val_precision: 0.0078 - val_recall: 0.0769 - val_prec_thr: 0.0144 - val_rec_thr: 0.4423 - val_auc_pr: 0.0277 - val_auc_roc: 0.7196 - val_tp: 11.4990 - val_fp: 477.8140 - val_tn: 1021.1860 - val_fn: 14.5010 - 2s/epoch - 186ms/step
+Epoch 13/20
+13/13 - 2s - loss: 0.0142 - binary_accuracy: 0.8131 - precision: 0.0549 - recall: 0.7292 - prec_thr: 0.1082 - rec_thr: 0.6109 - auc_pr: 0.1567 - auc_roc: 0.8498 - tp: 29.3240 - fp: 1056.9760 - tn: 2190.0239 - fn: 18.6760 - val_loss: 0.4572 - val_binary_accuracy: 0.8007 - val_precision: 0.0106 - val_recall: 0.1154 - val_prec_thr: 0.0159 - val_rec_thr: 0.4497 - val_auc_pr: 0.0279 - val_auc_roc: 0.7219 - val_tp: 11.6910 - val_fp: 479.3680 - val_tn: 1019.6320 - val_fn: 14.3090 - 2s/epoch - 189ms/step
+Epoch 14/20
+13/13 - 2s - loss: 0.0137 - binary_accuracy: 0.8158 - precision: 0.0571 - recall: 0.7500 - prec_thr: 0.0971 - rec_thr: 0.6219 - auc_pr: 0.1499 - auc_roc: 0.8588 - tp: 29.8530 - fp: 1008.3580 - tn: 2238.6421 - fn: 18.1470 - val_loss: 0.4196 - val_binary_accuracy: 0.8151 - val_precision: 0.0077 - val_recall: 0.0769 - val_prec_thr: 0.0159 - val_rec_thr: 0.4299 - val_auc_pr: 0.0285 - val_auc_roc: 0.7286 - val_tp: 11.1770 - val_fp: 438.6110 - val_tn: 1060.3890 - val_fn: 14.8230 - 2s/epoch - 188ms/step
+Epoch 15/20
+13/13 - 2s - loss: 0.0133 - binary_accuracy: 0.8143 - precision: 0.0566 - recall: 0.7500 - prec_thr: 0.0832 - rec_thr: 0.6378 - auc_pr: 0.1246 - auc_roc: 0.8688 - tp: 30.6120 - fp: 977.4880 - tn: 2269.5120 - fn: 17.3880 - val_loss: 0.4140 - val_binary_accuracy: 0.8085 - val_precision: 0.0181 - val_recall: 0.1923 - val_prec_thr: 0.0168 - val_rec_thr: 0.4291 - val_auc_pr: 0.0287 - val_auc_roc: 0.7301 - val_tp: 11.1570 - val_fp: 426.6860 - val_tn: 1072.3140 - val_fn: 14.8430 - 2s/epoch - 184ms/step
+Epoch 16/20
+13/13 - 2s - loss: 0.0131 - binary_accuracy: 0.8261 - precision: 0.0588 - recall: 0.7292 - prec_thr: 0.1047 - rec_thr: 0.6258 - auc_pr: 0.1554 - auc_roc: 0.8707 - tp: 30.0400 - fp: 894.4800 - tn: 2352.5200 - fn: 17.9600 - val_loss: 0.3889 - val_binary_accuracy: 0.8177 - val_precision: 0.0227 - val_recall: 0.2308 - val_prec_thr: 0.0174 - val_rec_thr: 0.4162 - val_auc_pr: 0.0295 - val_auc_roc: 0.7358 - val_tp: 10.8210 - val_fp: 396.4970 - val_tn: 1102.5031 - val_fn: 15.1790 - 2s/epoch - 186ms/step
+Epoch 17/20
+13/13 - 2s - loss: 0.0126 - binary_accuracy: 0.8279 - precision: 0.0624 - recall: 0.7708 - prec_thr: 0.1019 - rec_thr: 0.6392 - auc_pr: 0.1395 - auc_roc: 0.8824 - tp: 30.6840 - fp: 861.0090 - tn: 2385.9910 - fn: 17.3160 - val_loss: 0.3959 - val_binary_accuracy: 0.8092 - val_precision: 0.0318 - val_recall: 0.3462 - val_prec_thr: 0.0183 - val_rec_thr: 0.4260 - val_auc_pr: 0.0294 - val_auc_roc: 0.7350 - val_tp: 11.0750 - val_fp: 397.3580 - val_tn: 1101.6420 - val_fn: 14.9250 - 2s/epoch - 187ms/step
+Epoch 18/20
+13/13 - 2s - loss: 0.0122 - binary_accuracy: 0.8170 - precision: 0.0602 - recall: 0.7917 - prec_thr: 0.1150 - rec_thr: 0.6563 - auc_pr: 0.1666 - auc_roc: 0.8880 - tp: 31.5020 - fp: 848.8160 - tn: 2398.1841 - fn: 16.4980 - val_loss: 0.3892 - val_binary_accuracy: 0.8026 - val_precision: 0.0339 - val_recall: 0.3846 - val_prec_thr: 0.0194 - val_rec_thr: 0.4281 - val_auc_pr: 0.0299 - val_auc_roc: 0.7367 - val_tp: 11.1310 - val_fp: 385.2290 - val_tn: 1113.7710 - val_fn: 14.8690 - 2s/epoch - 189ms/step
+Epoch 19/20
+13/13 - 2s - loss: 0.0120 - binary_accuracy: 0.8073 - precision: 0.0573 - recall: 0.7917 - prec_thr: 0.1139 - rec_thr: 0.6685 - auc_pr: 0.1929 - auc_roc: 0.8874 - tp: 32.0890 - fp: 848.1910 - tn: 2398.8091 - fn: 15.9110 - val_loss: 0.4117 - val_binary_accuracy: 0.7889 - val_precision: 0.0316 - val_recall: 0.3846 - val_prec_thr: 0.0200 - val_rec_thr: 0.4448 - val_auc_pr: 0.0297 - val_auc_roc: 0.7358 - val_tp: 11.5640 - val_fp: 397.3250 - val_tn: 1101.6750 - val_fn: 14.4360 - 2s/epoch - 188ms/step
+Epoch 20/20
+13/13 - 2s - loss: 0.0117 - binary_accuracy: 0.8073 - precision: 0.0586 - recall: 0.8125 - prec_thr: 0.1112 - rec_thr: 0.6752 - auc_pr: 0.1799 - auc_roc: 0.8966 - tp: 32.4100 - fp: 822.8570 - tn: 2424.1431 - fn: 15.5900 - val_loss: 0.3688 - val_binary_accuracy: 0.8092 - val_precision: 0.0351 - val_recall: 0.3846 - val_prec_thr: 0.0206 - val_rec_thr: 0.4247 - val_auc_pr: 0.0311 - val_auc_roc: 0.7417 - val_tp: 11.0420 - val_fp: 360.5270 - val_tn: 1138.4730 - val_fn: 14.9580 - 2s/epoch - 186ms/step
+INFO:train_model:Saving model...

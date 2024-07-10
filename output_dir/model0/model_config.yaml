@@ -1,0 +1,104 @@
+conv_branches:
+  local_unfolded_flux:
+    views:
+    - unfolded_local_flux_view_fluxnorm
+    scalars:
+    - tce_num_transits_norm
+  global_flux:
+    views:
+    - global_flux_view_fluxnorm
+    - global_flux_view_fluxnorm_var
+    scalars: null
+  local_flux:
+    views:
+    - local_flux_view_fluxnorm
+    - local_flux_view_fluxnorm_var
+    scalars:
+    - tce_max_mult_ev_norm
+    - tce_max_sngle_ev_norm
+    - tce_robstat_norm
+    - tce_model_chisq_norm
+  local_weak_secondary:
+    views:
+    - local_weak_secondary_view_selfnorm
+    - local_weak_secondary_view_selfnorm_var
+    scalars:
+    - tce_ptemp_stat_norm
+    - tce_albedo_stat_norm
+    - tce_maxmes_norm
+    - tce_prad_norm
+  local_odd_even:
+    views:
+    - local_flux_odd_view_fluxnorm
+    - local_flux_odd_view_fluxnorm_var
+    - local_flux_even_view_fluxnorm
+    - local_flux_even_view_fluxnorm_var
+    scalars: null
+scalar_branches:
+  stellar:
+  - tce_sdens_norm
+  - tce_steff_norm
+  - tce_smet_norm
+  - tce_slogg_norm
+  - tce_smass_norm
+  - tce_sradius_norm
+  dv_tce_fit:
+  - boot_fap_norm
+  - tce_cap_stat_norm
+  - tce_hap_stat_norm
+  secondary_scalars:
+  - tce_ptemp_stat_norm
+  - tce_albedo_stat_norm
+  - tce_maxmes_norm
+transformer_branches: null
+diff_img_branch: null
+use_transformer: false
+num_transformer_blocks: 2
+head_size: 256
+num_heads: 4
+ff_dim: 4
+dropout_rate_transformer: 0.03
+transformer_output: flat
+time_encoding: true
+global-num_units_transformer_fc_layers:
+- 4
+local-num_units_transformer_fc_layers:
+- 4
+dropout_rate_trans_fc: 0.03
+non_lin_fn: prelu
+pool_stride: 1
+kernel_stride: 1
+optimizer: Adam
+weight_initializer: null
+force_softmax: false
+decay_rate: null
+batch_norm: false
+multi_class: false
+conv_ls_per_block: 3
+dropout_rate: 0.021491238286347598
+dropout_rate_fc_conv: 0.1211390996398814
+init_conv_filters: 3
+init_fc_neurons: 512
+kernel_size_glob: 5
+kernel_size_loc: 6
+lr: 4.176171931455995e-05
+num_fc_conv_units: 3
+num_fc_layers: 4
+num_glob_conv_blocks: 2
+num_loc_conv_blocks: 2
+pool_size_glob: 8
+pool_size_loc: 4
+kernel_size_unfolded: 6
+kernel_size_centr: 5
+pool_size_unfolded: 4
+pool_size_centr: 4
+num_unfolded_conv_blocks: 2
+num_centr_conv_blocks: 2
+init_loc_conv_filters: 3
+init_glob_conv_filters: 3
+init_unfolded_conv_filters: 3
+init_centr_conv_filters: 3
+loc_conv_ls_per_block: 3
+glob_conv_ls_per_block: 3
+unfolded_conv_ls_per_block: 3
+centr_conv_ls_per_block: 3

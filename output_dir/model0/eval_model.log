@@ -1,0 +1,37 @@
+2024-07-09 13:57:20.708005: I metal_plugin/src/device/metal_device.cc:1154] Metal device set to: Apple M3 Pro
+2024-07-09 13:57:20.708071: I metal_plugin/src/device/metal_device.cc:296] systemMemory: 18.00 GB
+2024-07-09 13:57:20.708080: I metal_plugin/src/device/metal_device.cc:313] maxCacheSize: 6.00 GB
+2024-07-09 13:57:20.708252: I tensorflow/core/common_runtime/pluggable_device/pluggable_device_factory.cc:303] Could not identify NUMA node of platform GPU ID 0, defaulting to 0. Your kernel may not have been built with NUMA support.
+2024-07-09 13:57:20.708267: I tensorflow/core/common_runtime/pluggable_device/pluggable_device_factory.cc:269] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 0 MB memory) -> physical PluggableDevice (device: 0, name: METAL, pci bus id: <undefined>)
+2024-07-09 13:57:22.937486: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:114] Plugin optimizer for device_type GPU is enabled.
+2024-07-09 13:57:25.489314: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 6182560084277399654
+2024-07-09 13:57:25.489341: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 992208625928911065
+2024-07-09 13:57:25.489355: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 11836290477560911948
+2024-07-09 13:57:25.489363: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16575130405574588693
+2024-07-09 13:57:25.489371: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5777098472410051182
+2024-07-09 13:57:25.489378: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5988564307702245655
+2024-07-09 13:57:25.489386: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 18156075369495958608
+2024-07-09 13:57:25.489394: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15188975537737596657
+2024-07-09 13:57:25.489401: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5991107543258527615
+2024-07-09 13:57:25.489407: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 8762993347704120694
+2024-07-09 13:57:25.489626: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 1300723373720351772
+103/103 - 3s - loss: 0.3434 - binary_accuracy: 0.8234 - precision: 0.0637 - recall: 0.8125 - prec_thr: 0.1220 - rec_thr: 0.6810 - auc_pr: 0.1844 - auc_roc: 0.9075 - tp: 32.6860 - fp: 763.7180 - tn: 2483.2820 - fn: 15.3140 - 3s/epoch - 29ms/step
+2024-07-09 13:57:26.914403: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 6182560084277399654
+2024-07-09 13:57:26.914443: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 992208625928911065
+2024-07-09 13:57:26.914461: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16575130405574588693
+2024-07-09 13:57:26.914471: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15188975537737596657
+2024-07-09 13:57:26.914499: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5777098472410051182
+2024-07-09 13:57:26.914518: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 8762993347704120694
+48/48 - 1s - loss: 0.3688 - binary_accuracy: 0.8092 - precision: 0.0351 - recall: 0.3846 - prec_thr: 0.0206 - rec_thr: 0.4247 - auc_pr: 0.0311 - auc_roc: 0.7417 - tp: 11.0420 - fp: 360.5270 - tn: 1138.4730 - fn: 14.9580 - 1s/epoch - 26ms/step
+2024-07-09 13:57:28.092692: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 6182560084277399654
+2024-07-09 13:57:28.092741: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 11836290477560911948
+2024-07-09 13:57:28.092749: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5777098472410051182
+2024-07-09 13:57:28.092756: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 18156075369495958608
+2024-07-09 13:57:28.092762: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 8762993347704120694
+2024-07-09 13:57:28.092768: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 1300723373720351772
+2024-07-09 13:57:28.092777: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 992208625928911065
+2024-07-09 13:57:28.092783: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 16575130405574588693
+2024-07-09 13:57:28.092787: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5988564307702245655
+2024-07-09 13:57:28.092792: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 15188975537737596657
+2024-07-09 13:57:28.092796: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous recv item cancelled. Key hash: 5991107543258527615
+50/50 - 1s - loss: 0.3759 - binary_accuracy: 0.7931 - precision: 0.0302 - recall: 0.6667 - prec_thr: 0.0473 - rec_thr: 0.6081 - auc_pr: 0.0974 - auc_roc: 0.8196 - tp: 9.1210 - fp: 385.7990 - tn: 1175.2010 - fn: 5.8790 - 1s/epoch - 23ms/step
