@@ -87,7 +87,7 @@ def serialize_set_examples_for_tce(data_for_tce):
                 example_util.set_float_feature(example, 'flux',
                                                data_for_sector[example_type]['flux'][example_i])
 
-                for feature_name in ['oot_img', 'snr_img', 'target_img']:
+                for feature_name in ['oot_img', 'diff_img', 'snr_img', 'target_img']:
                     example_util.set_tensor_feature(example, feature_name,
                                                     data_for_sector[example_type][feature_name][example_i])
 

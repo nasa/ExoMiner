@@ -144,3 +144,34 @@ for src_cv_iteration_i, src_cv_iteration in enumerate(src_cv_iterations):
 
 with open(dest_normalized_cv_iterations_dir / 'cv_iters_fps.yaml', 'w') as dest_file:
     yaml.dump(dest_cv_iterations, dest_file, sort_keys=False)
+
+#%%
+
+import yaml
+from pathlib import Path
+
+data_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/tfrecords/eval')
+
+cv_iters = []
+for fp in data_dir.iterdir():
+
+    cv_iter = {dataset: None for dataset in ['train', 'val', 'test']}
+
+    cv_iter['test'] = fp
+
+    no_test_fps = [fp_n for fp_n in data_dir.iterdir() if fp_n != fp]
+
+    cv_iter['train'] = no_test_fps[:-1]
+    cv_iter['val'] = [no_test_fps[-1]]
+
+    cv_iters.append(cv_iter)
+
+
+
+with open('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/cv_folds.yaml', 'w') as file:
+    yaml.dump(cv_iters, file, sort_keys=False)
+
+#%%
+
+with(open('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/cv_folds.yaml', 'r')) as file:
+    cv_folds = yaml.unsafe_load(file)

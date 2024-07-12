@@ -13,6 +13,13 @@
 #PBS -W group_list=a1509
 #PBS -m bea
 
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+source "$HOME"/.bashrc
+
+#conda activate exoplnt_dl
+conda activate exoplnt_dl_tf2_13
+
 # create output directory for preprocessing results
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/cv_kepler_q1q17dr25_obs_11-22-2023_2356/tfrecords/eval_normalized_by_obs_with_tce_fwm_stat
 mkdir -p $OUTPUT_DIR
@@ -24,7 +31,7 @@ CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/c
 # job script for running preprocessing pipeline
 PREPROCESS_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/preprocessing_job.sh
 
-# number of total jobs
+# number of total jobs; CV iterations
 NUM_TOTAL_JOBS=10
 # number of jobs run simultaneously
 NUM_JOBS_PARALLEL=10

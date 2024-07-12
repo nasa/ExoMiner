@@ -7,9 +7,9 @@ OUTPUT_DIR=/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1
 mkdir -p $OUTPUT_DIR
 
 # script file path
-SCRIPT_FP=$PYTHONPATH/src_cv/create_cv_dataset/preprocess_cv_folds_predict_trecord_dataset.py
+SCRIPT_FP=$PYTHONPATH/src_cv/create_cv_dataset/preprocess_cv_folds_trecord_dataset.py
 # config file path
-CONFIG_FP=$PYTHONPATH/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
+CONFIG_FP=$PYTHONPATH/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml
 # job script for running preprocessing pipeline
 PREPROCESS_SH_SCRIPT=$PYTHONPATH/src_cv/create_cv_dataset/preprocessing_job.sh
 
