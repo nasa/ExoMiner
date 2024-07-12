@@ -9,13 +9,12 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/cv_keplerq1q17dr25_obsplanets_siminj1_data_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+data_dir = Path(f'/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951')
 
 rnd_seed = 24
-n_folds_eval = 10  # which is also the number of shards
+n_folds_eval = 5  # which is also the number of shards
 n_folds_predict = 10
-# tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/Kepler/Q1-Q17_DR25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar_preprocessed_uidswithlabels.csv')
-dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_obsplanets_siminj1_2-22-2024_1115/tfrecords_kepler_q1q17dr25obs_planets_sim_inj1_2-22-2024_1115/shards_tbl.csv')
+dataset_tbl_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/source_data/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler
@@ -47,30 +46,15 @@ rng = np.random.default_rng(rnd_seed)
 
 logger.info(f'Number of folds used for CV: {n_folds_eval}')
 
-# n_models = 10
-# logger.info(f'Number of models in the ensemble: {n_models}')
-
-# # load the TCE table
-# logger.info(f'Reading TCE table {tce_tbl_fp}')
-# tce_tbl = pd.read_csv(tce_tbl_fp)
-
 # load table with TCEs used in the dataset
 dataset_tbl = pd.read_csv(dataset_tbl_fp)
 
-# dataset_tbls_dir = Path(
-#     '/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/train-val-test-sets/split_12-03-2021_1106')
-# dataset_tbl = pd.concat([pd.read_csv(set_tbl) for set_tbl in dataset_tbls_dir.iterdir()
-#                          if set_tbl.name.endswith('.csv') and not set_tbl.name.startswith('predict')])
-# logger.info(f'Using dataset tables from {str(dataset_tbls_dir)} to filter examples used.')
 logger.info(f'Using data set table: {dataset_tbl_fp}')
 
 # remove TCEs not used in the dataset
 logger.info(f'Removing examples not in the data set... (total number of examples in dataset before removing '
             f'examples: {len(dataset_tbl)})')
 
-# tces_found_in_src_dataset = tce_tbl['uid'].isin(dataset_tbl['uid'])
-# logger.info(f'TCEs found in source data set that are in the TCE table: {tces_found_in_src_dataset.sum()} (out of {len(tce_tbl)})')
-# tce_tbl_dataset = tce_tbl.loc[tces_found_in_src_dataset]
 # # removing unlabeled examples or examples not used for evaluation
 # used_tces = ~tce_tbl_dataset['label'].isin(unlabeled_cats)
 working_tce_tbl = dataset_tbl  # tce_tbl_dataset.loc[used_tces]
