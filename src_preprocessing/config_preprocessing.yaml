@@ -1,11 +1,11 @@
 # output directory for TFRecords data set
-output_dir: null
+output_dir: /home/msaragoc/Projects/exoplnt_dl/data/tfrecords/tess/test_tess_spoc_ffi_s36-s69_7-12-2024_1624
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/Kepler/Q1-Q17_DR25/q1_q17_dr25_tce_3-6-2023_1734.csv
+input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647_features_adjusted_ruwe_ticstellar_label_npcs_nebs.csv
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/Kepler/DR25/pdc-tce-time-series-fits
+lc_data_dir: /data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files
 
-using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
+using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
 # multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
@@ -13,19 +13,19 @@ n_processes: 10  # number of processes created by the Pool
 
 random_seed: 24
 
-ffi_data: false  # set to true for TESS SPOC FFI data
+ffi_data: true  # set to true for TESS SPOC FFI data
 
 shuffle: false
 shuffle_seed: 24
 
-satellite: kepler  # 'kepler' or 'tess'
+satellite: tess  # 'kepler' or 'tess'
 
 # skips target IDs that are not in the FITS files
 omit_missing: true
 
 # plot figures for different preprocessing steps
 plot_figures: true
-plot_prob: 0.01  # 0.1
+plot_prob: 1  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
 num_bins_loc: 31  # number of bins in local views
@@ -78,11 +78,11 @@ gap_padding: 1  # transit duration that is gapped is `transit_duration * (1 + 2 
 gap_imputed: false  # fill in gapped cadences
 gap_with_confidence_level: false  # not implemented
 
-# primary gapping
-gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)
+## primary gapping
+#gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)
 
 # primary buffer when gapping secondary
-primary_buffer_nsamples: 30
+primary_buffer_nsamples: 6  # 30 2-min, 6 ffi, 2 kepler
 
 # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
 # (world coordinates)
@@ -101,8 +101,8 @@ kepler_px_scale: 3.98  # arcsec
 
 sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
   kepler: 2
-  tess: 30
-tess_to_kepler_sampling_ratio: 15
+  tess: 6  # 2-min: 30; ffi: 6
+tess_to_kepler_sampling_ratio: 3  # 2-min: 15; ffi: 3
 
 # scalar parameters that show up in the plots of the preprocessed views
 scalar_params: [

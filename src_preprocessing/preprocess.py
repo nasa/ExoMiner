@@ -205,10 +205,10 @@ def process_tce(tce, table, config):
     # setting primary gap duration
     if 'tce_maxmesd' in tce:
         config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
-                                                np.abs(tce['tce_maxmesd']), tce['tce_period'])
+                                                2 * np.abs(tce['tce_maxmesd']), tce['tce_period'])
         # setting secondary gap duration
-        config['duration_gapped_secondary'] = min(max(0, tce['tce_maxmesd'] - config['duration_gapped_primary'] / 2 -
-                                                      config['primary_buffer_time']),
+        config['duration_gapped_secondary'] = min(max(0, 2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] -
+                                                      2 * config['primary_buffer_time']),
                                                   1.5 * config['gap_padding'] * tce['tce_duration'])
     else:
         config['duration_gapped_primary'] = min((1 + 2 * config['gap_padding']) * tce['tce_duration'],
@@ -345,20 +345,20 @@ def flux_preprocessing(all_time, all_flux, gap_time, tce, config, plot_preproces
                                                              config['plot_dir'],
                                                              f'2_intransit_flux_binary_timeseries_aug{tce["augmentation_idx"]}')
 
-    # gap secondary transits
-    # get epoch of first transit for each time array
-    first_transit_time_secondary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                                         tce['tce_period'], time[0])
-                                        for time in time_arrs]
-    # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_secondary_all = [create_binary_time_series(time, first_transit_time_secondary,
-                                                           config['duration_gapped_secondary'],
-                                                           tce['tce_period'])
-                                 for first_transit_time_secondary, time in
-                                 zip(first_transit_time_secondary_all, time_arrs)]
-    # set secondary in-transit cadences to np.nan
-    flux_arrs = [np.where(binary_time_secondary, np.nan, flux_arr)
-                 for flux_arr, binary_time_secondary in zip(flux_arrs, binary_time_secondary_all)]
+    # # gap secondary transits
+    # # get epoch of first transit for each time array
+    # first_transit_time_secondary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
+    #                                                                      tce['tce_period'], time[0])
+    #                                     for time in time_arrs]
+    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
+    # binary_time_secondary_all = [create_binary_time_series(time, first_transit_time_secondary,
+    #                                                        config['duration_gapped_secondary'],
+    #                                                        tce['tce_period'])
+    #                              for first_transit_time_secondary, time in
+    #                              zip(first_transit_time_secondary_all, time_arrs)]
+    # # set secondary in-transit cadences to np.nan
+    # flux_arrs = [np.where(binary_time_secondary, np.nan, flux_arr)
+    #              for flux_arr, binary_time_secondary in zip(flux_arrs, binary_time_secondary_all)]
 
     # remove non-finite values
     time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
@@ -443,18 +443,18 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, gap_time, tc
         utils_visualization.plot_intransit_binary_timeseries(time_arrs, flux_arrs, binary_time_all, tce,
                                                              config['plot_dir'],
                                                              '2_intransit_wksflux_binary_timeseries')
-    # gap primary transits
-    # get epoch of first transit for each time array
-    first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                                      for time in time_arrs]
-    # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary,
-                                                         config['duration_gapped_secondary'],
-                                                         tce['tce_period'])
-                               for first_transit_time_secondary, time in zip(first_transit_time_primary_all, time_arrs)]
-    # set primary in-transit cadences to np.nan
-    flux_arrs = [np.where(binary_time_primary, np.nan, flux_arr)
-                 for flux_arr, binary_time_primary in zip(flux_arrs, binary_time_primary_all)]
+    # # gap primary transits
+    # # get epoch of first transit for each time array
+    # first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
+    #                                   for time in time_arrs]
+    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
+    # binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary,
+    #                                                      config['duration_gapped_secondary'],
+    #                                                      tce['tce_period'])
+    #                            for first_transit_time_secondary, time in zip(first_transit_time_primary_all, time_arrs)]
+    # # set primary in-transit cadences to np.nan
+    # flux_arrs = [np.where(binary_time_primary, np.nan, flux_arr)
+    #              for flux_arr, binary_time_primary in zip(flux_arrs, binary_time_primary_all)]
 
     # remove non-finite values
     time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])

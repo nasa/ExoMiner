@@ -121,15 +121,14 @@ def gap_other_tces(all_time, add_info, tce, table, config, gap_pad=0, keep_overl
         #     gapSectors = {gtce_i: add_info['sector'] for gtce_i in range(len(gap_ephems))}
 
     # if gapping with confidence level, remove those gapped TCEs that are not in the confidence dict
-    # TODO: currently only implemented for Kepler
-    if config['gap_with_confidence_level'] and config['satellite'] == 'kepler':
-        poplist = []
-        for index, gapped_tce in gap_ephems.iterrows():
-                poplist += [gapped_tce['uid']]
+    if config['gap_with_confidence_level']:
+        # poplist = []
+        # for index, gapped_tce in gap_ephems.iterrows():
+        #         poplist += [gapped_tce['uid']]
 
-        gap_ephems = gap_ephems.loc[gap_ephems['uid'].isin(poplist)]
-    elif config['gap_with_confidence_level'] and config['satellite'] == 'tess':
-        raise NotImplementedError('Using confidence level for gapping TCEs not implemented for TESS.')
+        # gap_ephems = gap_ephems.loc[gap_ephems['uid'].isin(poplist)]
+
+        raise NotImplementedError('Using confidence level for gapping TCEs not implemented.')
 
     # get transit duration of the TCE of interest
     transit_duration_main = tce['tce_duration'] * (1 + 2 * gap_pad)
