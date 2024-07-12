@@ -15,16 +15,16 @@ import logging
 from astroquery.mast import Catalogs
 
 # local
-from data_wrangling.ruwe.query_gaia import query_gaia
+from src_preprocessing.ruwe.query_gaia import query_gaia
 
 #%% Set run parameters
 
-res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/gaiadr2_tics_ruwe')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647/gaiadr2_tics_ruwe')
 res_dir.mkdir(exist_ok=True)
 
 # set list of TIC IDs to query
 # file path to TCE table
-tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608.csv')
+tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647_features_adjusted.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 tic_ids = tce_tbl['target_id'].unique()
 

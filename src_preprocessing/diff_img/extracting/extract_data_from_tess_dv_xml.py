@@ -48,11 +48,6 @@ if __name__ == '__main__':
     for dv_xml_run in dv_xml_runs:
         logger.info(f'Run {str(dv_xml_run)}')
 
-    # from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml
-    # import numpy as np
-    # data = get_data_from_tess_dv_xml(dv_xml_runs[0], plot_dir, plot_prob, logger)
-    # np.save(data_dir / f'tess_diffimg_{dv_xml_runs[0].name}.npy', data)
-    # aaa
     logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i)
@@ -62,5 +57,9 @@ if __name__ == '__main__':
     async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
     pool.close()
     pool.join()
+
+    # for job in jobs:
+    #     print('Starting job')
+    #     get_data_from_tess_dv_xml_multiproc(*job)
 
     logger.info('Finished preprocessing.')

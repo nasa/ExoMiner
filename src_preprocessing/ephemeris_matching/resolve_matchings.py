@@ -60,13 +60,19 @@ def solve_matches(tbl_fp, match_thr):
     #     matched_signals['match_corr_coef'].append(corr_coef_mat_df.loc[corr_coef_mat_df.index[idx_row[match_idxs_i]],
     #                                                                    corr_coef_mat_df.columns[idx_col[match_idxs_i]]])
 
-    idxs_cols_maxcorr = np.argmax(corr_coef_mat_df, axis=1)
+    idxs_cols_maxcorr = np.argmax(corr_coef_mat_df.to_numpy(), axis=1)
     for row_i, idx_col_maxcorr in enumerate(idxs_cols_maxcorr):
         if corr_coef_mat_df.loc[corr_coef_mat_df.index[row_i], corr_coef_mat_df.columns[idx_col_maxcorr]] > match_thr:
             matched_signals['signal_a'].append(corr_coef_mat_df.index[row_i])
             matched_signals['signal_b'].append(corr_coef_mat_df.columns[idx_col_maxcorr])
             matched_signals['match_corr_coef'].append(
                 corr_coef_mat_df.loc[corr_coef_mat_df.index[row_i], corr_coef_mat_df.columns[idx_col_maxcorr]])
+
+        check_for_multiple_matches = corr_coef_mat_df.loc[corr_coef_mat_df.index[row_i]] > match_thr
+        multiple_matches = check_for_multiple_matches[check_for_multiple_matches].index.to_list()
+        n_multiple_matches = len(multiple_matches)
+        if n_multiple_matches > 1:
+            print(f'Signal {corr_coef_mat_df.index[row_i]} has a correlation score > {match_thr} for {n_multiple_matches} signals: {multiple_matches}.')
 
     matched_signals = pd.DataFrame(matched_signals)
 
@@ -77,7 +83,7 @@ if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s68_01-23-2024_1202')
+    matching_root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_2min_s1-s68_7-9-2024_1704')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():  # iterate through sector run match tables.

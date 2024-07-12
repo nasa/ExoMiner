@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.spatial import distance
 
 # local
-from data_wrangling.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
+from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, find_nearest_epoch_to_this_time
 
 
 def get_bin_ts_toi_tce(toi, tce, sampling_interval):

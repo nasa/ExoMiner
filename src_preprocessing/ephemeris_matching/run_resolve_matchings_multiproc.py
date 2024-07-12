@@ -26,22 +26,23 @@ from pathlib import Path
 import multiprocessing
 
 # local
-from data_wrangling.ephemeris_matching.resolve_matchings import solve_matches
+from src_preprocessing.ephemeris_matching.resolve_matchings import solve_matches
 
 if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
+    print(f'Set matching threshold to {match_thr}.')
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/10-05-2022_1621')
+    matching_root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_exofop_tois_7-11-2024_1101')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
 
-    # sequential processing
-    matched_signals = []
-    for tbl_fp in match_dir.iterdir():
-        matched_signals.append(solve_matches(tbl_fp, match_thr))
+    # # sequential processing
+    # matched_signals = []
+    # for tbl_fp in match_dir.iterdir():
+    #     matched_signals.append(solve_matches(tbl_fp, match_thr))
 
     # parallel processing
-    n_procs = 4  # number of parallel processes
+    n_procs = 12  # number of parallel processes
     pool = multiprocessing.Pool(processes=n_procs)
     # number of jobs; one per match table
     jobs = [(match_tbl_fp, match_thr) for match_tbl_fp in match_dir.iterdir()]
@@ -51,6 +52,8 @@ if __name__ == '__main__':
 
     # aggregate match results into a single file
     matched_signals = pd.concat([async_result.get() for async_result in async_results], axis=0)
+    print(f'Found {len(matched_signals)} signals with a match.')
+
     matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)
 
     print('Finished resolving matchings.')

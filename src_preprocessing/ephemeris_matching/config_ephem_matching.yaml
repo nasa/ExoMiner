@@ -1,0 +1,20 @@
+# experiment directory for the ephemeris matching run
+exp_dir: /home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_exofop_tois_7-11-2024_1101
+
+# table with start and end timestamps per TIC for different sectors
+sector_timestamps_tbl_fp: /home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s69_7-9-2024_1044.csv
+
+# plot probability of binary pulse time series
+plot_prob: 0.0001
+
+# sampling rate used to generate the binary pulse time series
+sampling_interval: 0.00139  # ~ 2/60/24
+
+# table of signals of interest (usually TCEs)
+tbl_a_fp: /data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647/tess_spoc_ffi_s36-s69_tces_7-8-2024_1647_features_adjusted_ruwe_label.csv
+
+# table of signals to be matched to those in table A (usually objects with dispositions)
+tbl_b_fp: /data5/tess_project/Data/Ephemeris_tables/TESS/EXOFOP_TOI_lists/TOI/7-10-2024/exofop_toilists_processed_ephem_matching.csv
+
+n_procs: 10  # number of parallel processes
+n_jobs: 100  # number of jobs

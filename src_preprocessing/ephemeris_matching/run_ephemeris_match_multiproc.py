@@ -26,14 +26,14 @@ import argparse
 import yaml
 
 # local
-from data_wrangling.ephemeris_matching.ephemeris_matching import match_transit_signals_in_target
+from src_preprocessing.ephemeris_matching.ephemeris_matching import match_transit_signals_in_target
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/data_wrangling/ephemeris_matching/config_ephem_matching.yaml')
+                        default='/home/msaragoc/Projects/exoplnt_dl/codebase/src_preprocessing/ephemeris_matching/config_ephem_matching.yaml')
     args = parser.parse_args()
 
     with(open(args.config_fp, 'r')) as file:
@@ -65,11 +65,18 @@ if __name__ == '__main__':
     tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
     tce_tbl = tce_tbl.dropna(subset=['period', 'epoch', 'duration'])
     tce_tbl['sector_run'] = tce_tbl['sector_run'].astype('str')
+    # tce_tbl = tce_tbl.loc[tce_tbl['target_id'] == 288735205]
     print(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
+    print(f'Table with {len(tce_tbl)} signals.')
 
     # load of signals to be matched to those in table of signals of interest (usually objects with dispositions)
     toi_tbl = pd.read_csv(config['tbl_b_fp'])
+    # toi_tbl = toi_tbl.loc[toi_tbl['target_id'] == 288735205]
+    # toi_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
+    # toi_tbl = toi_tbl.dropna(subset=['period', 'epoch']) # , 'duration'])
+    # toi_tbl['sector_run'] = toi_tbl['sector_run'].astype('str')
     print(f'Using objects\' table: {config["tbl_b_fp"]}')
+    print(f'Table with {len(toi_tbl)} signals.')
 
     # load table with start and end timestamps for each sector run for the TICs associated with the tCEs in the TCE
     # table
@@ -82,8 +89,8 @@ if __name__ == '__main__':
     print(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
     pool = multiprocessing.Pool(processes=config["n_procs"])
     targets_arr_jobs = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, config["sampling_interval"],
-                         save_dir, config["plot_prob"], plot_dir)
-                        for targets_arr_job in np.array_split(targets_arr, config["n_jobs"])]
+                         save_dir, config["plot_prob"], plot_dir, job_i)
+                        for job_i, targets_arr_job in enumerate(np.array_split(targets_arr, config["n_jobs"]))]
     async_results = [pool.apply_async(match_transit_signals_in_target, targets_arr_job)
                      for targets_arr_job in targets_arr_jobs]
     pool.close()

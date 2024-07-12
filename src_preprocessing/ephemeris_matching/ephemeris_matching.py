@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import multiprocessing
 
 # local
-from data_wrangling.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
+from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
     find_first_epoch_after_this_time
 
 
@@ -99,7 +99,7 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
 
 
 def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval,
-                                    save_dir, plot_prob=0, plot_dir=None):
+                                    save_dir, plot_prob=0, plot_dir=None, job_i=None):
     """ Compute matching correlation coefficient between signals/objects for each TIC in each sector run.
 
     Args:
@@ -115,8 +115,13 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
     Returns:
 
     """
-
+    print(f'Found target: {(targets_arr == 288735205).sum()}.')
+    # if job_i == 15:
+    #     aaa
+    print(f'JOB {job_i}')
     for target in targets_arr:
+        if target == 288735205:
+            print('FOUND IT')
 
         print(f'Iterating over target {target}...')
 
@@ -168,6 +173,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for toi_i, toi in tois_in_tic.iterrows():
+                    # toi['duration'] = tce['duration']
                     corr_coef_mat[tce_i, toi_i] = \
                         match_transit_signals(tce, toi, sampling_interval, tstart, tend,
                                               plot_signals,
