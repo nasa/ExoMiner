@@ -24,8 +24,9 @@ from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
 from src_preprocessing.utils_preprocessing_io import report_exclusion
 
 
+# TODO: merge _process_file_shard() with _process_file_shard_local()
 def _process_file_shard(tce_table, file_name, eph_table, config):
-    """ Processes a single file shard using an MPI process.
+    """ Processes a single file shard using a process spawned by an external parallelization framework.
 
     Args:
     tce_table: Pandas DataFrame, containing the TCEs in the shard.
@@ -44,13 +45,15 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
     ]
     firstTceInDf = True
 
-    tf_logging.info(f'{config["process_i"]}: Processing {shard_size} items in shard {shard_name}')
+    tf_logging.info(f'{config["process_i"]}: Processing {shard_size} examples in shard {shard_name}.')
 
     start_time = int(datetime.datetime.now().strftime("%s"))
 
     with TFRecordWriter(str(file_name)) as writer:
 
         num_processed = 0
+        tf_logging.info(f'{config["process_i"]}: '
+                        f'Writing to shard {str(shard_name)} ({num_processed}/{len(tce_table)} examples)...')
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
@@ -89,29 +92,24 @@ def _process_file_shard(tce_table, file_name, eph_table, config):
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
                 else:
-                    print(f'Example {tce.uid} was `None`.')
+                    print(f'Example {tce.uid} was `None`. Error caught inside the preprocessing pipeline.')
 
             num_processed += 1
-            if config['process_i'] == 0:
-                if not num_processed % 10:
-                    if config['process_i'] == 0:
-                        cur_time = int(datetime.datetime.now().strftime("%s"))
-                        eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
-                        eta = str(datetime.timedelta(seconds=eta))
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}, time remaining (HH:MM:SS): {eta}'
-                    else:
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}'
+            if num_processed % 100 == 0:
+                cur_time = int(datetime.datetime.now().strftime("%s"))
+                eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
+                eta = str(datetime.timedelta(seconds=eta))
+                printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
+                           f'{shard_name}, time remaining (HH:MM:SS): {eta}'
 
-                    tf_logging.info(printstr)
+                tf_logging.info(printstr)
 
-    if config['n_shards'] < 50:
-        tf_logging.info(f'{config["process_i"]}: Wrote {shard_size} items in shard {shard_name}')
+    tf_logging.info(f'{config["process_i"]}: Finished writing to shard {str(file_name)}.')
+
 
 
 def _process_file_shard_local(tce_table, file_name, eph_table, config):
-    """ Processes a single file shard locally.
+    """ Processes a single file shard locally using multiprocessing.
 
     Args:
     tce_table: Pandas DataFrame, containing the TCEs ephemeris in the shard
@@ -135,6 +133,8 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
     with TFRecordWriter(str(file_name)) as writer:
 
         num_processed = 0
+        tf_logging.info(f'{config["process_i"]}: '
+                        f'Writing to shard {str(shard_name)} ({num_processed}/{len(tce_table)} examples)...')
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
             tf_logging.info(f'[{process_name}]: Processing TCE {tce["uid"]} in shard {shard_name}...')
@@ -171,13 +171,14 @@ def _process_file_shard_local(tce_table, file_name, eph_table, config):
 
                     examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
                 else:
-                    print(f'Example {tce.uid} was `None`.')
+                    print(f'Example {tce.uid} was `None`. Error caught inside the preprocessing pipeline.')
 
             num_processed += 1
-            if not num_processed % 1:
-                tf_logging.info(f'{process_name}: Processed {num_processed}/{shard_size} items in shard {shard_name}')
+            if num_processed % 100 == 0:
+                tf_logging.info(f'{process_name}: Processed {num_processed}/{shard_size} '
+                                f'examples in shard {shard_name}.')
 
-    tf_logging.info(f'{process_name}: Finished processing {shard_size} items in shard {shard_name}')
+    tf_logging.info(f'{process_name}: Finished processing {shard_size} examples in shard {shard_name}.')
 
 
 def create_shards(config, tce_table):
@@ -210,7 +211,7 @@ def main():
     parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
     parser.add_argument('--output_dir', type=str, help='File path output directory for this preprocessing run', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to yaml config file for this preprocessing run',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
+                        default='/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_preprocessing.yaml')
     args = parser.parse_args()
     
     # get the configuration parameters
@@ -282,13 +283,10 @@ def main():
 
         _process_file_shard(tce_table, file_name_i, eph_table, config)
 
-        tf_logging.info(f'Finished processing {len(tce_table)} items in shard {filename}')
-
-        # if config['process_i'] == 0:
-        # concatenates shard tables into a single one
-        create_shards_tbl_flag = create_shards_table(config['output_dir'])
-        if not create_shards_tbl_flag:
-            tf_logging.info('Merged shard table not created.')
+        # # concatenates shard tables into a single one
+        # create_shards_tbl_flag = create_shards_table(config['output_dir'])
+        # if not create_shards_tbl_flag:
+        #     tf_logging.info('Merged shard table not created.')
 
         tf_logging.info(f'END-PI:{config["output_dir"]}')
 
@@ -315,7 +313,7 @@ def main():
         for async_result in async_results:
             async_result.get()
 
-        tf_logging.info(f'Finished processing {config["n_shards"]} total file shards')
+        tf_logging.info(f'Finished processing {config["n_shards"]} total file shards.')
 
         # concatenates shard tables into a single one
         create_shards_tbl_flag = create_shards_table(config['output_dir'])

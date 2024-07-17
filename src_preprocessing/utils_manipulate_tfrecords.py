@@ -385,7 +385,7 @@ if __name__ == '__main__':
         try:
             tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
         except Exception as e:
-            print(f'Failed to read {fp}.')
+            print(f'Failed to read {fp}.\n {e}')
             # print(f'Deleting {fp}...')
             # fp.unlink()
             # (fp.parent / f'{fp.name}.csv').unlink()
