@@ -972,6 +972,7 @@ if __name__ == '__main__':
     logger.info(f'Loading quality metrics data from {config["qual_metrics_tbl_fp"]}')
     quality_metrics = pd.read_csv(config['qual_metrics_tbl_fp'])
 
+    # TODO: remove code and argument for saturated stars since we use mag as input to the model and we do not change the images of TCEs from saturated targets
     # load table with information on saturated target stars
     # logger.info(f'Loading saturated target data from {config["sat_tbl_fp"]}')
     # saturated = pd.read_csv(config['sat_tbl_fp'])

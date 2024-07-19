@@ -13,9 +13,9 @@ upscale_f:
   y: 3
 # file path to table with quality metrics; used for Kepler, since it is a single file for the run (e.g., DR25)
 qual_metrics_tbl_fp: null
-sat_thr: 7  # saturation threshold
+#sat_thr: 7  # saturation threshold
 # file path to TCE table with saturation values
 sat_tbl_fp: null
 n_processes: 14  # number of processes to run jobs in parallel
 n_jobs: 32 # total number of jobs
-plot_prob: 0.01  # probability to plot preprocessing results for each example
+plot_prob: 0.001  # probability to plot preprocessing results for each example
