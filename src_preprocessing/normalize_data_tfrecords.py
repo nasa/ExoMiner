@@ -147,11 +147,7 @@ def normalize_scalar_parameters(example, normStatsScalars, epsilon=1e-32):
 
         # standardization
         if normStatsScalars[scalarParam]['info']['standardize']:
-            # TODO: add value to avoid division by zero?
-            # try:
-            #     assert normStatsScalars[scalarParam]['mad_std'] > 0
-            # except:
-            #     print(f'{scalarParam} has zero MAD std.')
+
             scalarParamVal = (scalarParamVal - normStatsScalars[scalarParam]['median']) / \
                              (normStatsScalars[scalarParam]['mad_std'] + epsilon)
 
