@@ -61,8 +61,6 @@ def main():
             config['process_i'] = MPI.COMM_WORLD.rank
             config['n_shards'] = MPI.COMM_WORLD.size
             config['n_processes'] = MPI.COMM_WORLD.size
-    # else:
-    #     config["process_i"] = multiprocessing.current_process().name
 
     # create logger
     config['preprocessing_logs_dir'] = config['output_dir'] / 'preprocessing_logs'
@@ -72,7 +70,7 @@ def main():
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='w',
+                        filemode='a',
                         )
 
     logger.info(f'Process shard {config["process_i"]} ({config["n_shards"]} total shards)')

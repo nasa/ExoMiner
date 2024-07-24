@@ -147,7 +147,6 @@ def get_tce_table(config):
 
     # read the table with examples
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-    tce_table = tce_table.loc[tce_table['target_id'] == 3558803]
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 
