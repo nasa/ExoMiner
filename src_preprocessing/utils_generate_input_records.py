@@ -58,7 +58,8 @@ def process_file_shard(tce_table, file_name, eph_table, config):
 
         for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
-            logger.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name}...')
+            logger.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name} '
+                        f'({num_processed}/{shard_size})...')
 
             # preprocess TCE and add it to the TFRecord
             for example_i in range(config['num_examples_per_tce']):
