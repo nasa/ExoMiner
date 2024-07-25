@@ -157,7 +157,7 @@ for fp in data_dir.iterdir():
 
     cv_iter = {dataset: None for dataset in ['train', 'val', 'test']}
 
-    cv_iter['test'] = fp
+    cv_iter['test'] = [fp]
 
     no_test_fps = [fp_n for fp_n in data_dir.iterdir() if fp_n != fp]
 
