@@ -34,7 +34,7 @@ from utils.utils_dataio import is_yamlble
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('/Users/agiri1/Desktop/ExoPlanet/src_preprocessing/config_create_new_tfrecords.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -127,7 +127,7 @@ if __name__ == '__main__':
             foundTce = datasetTbl[dataset].loc[datasetTbl[dataset]['uid'] == example_uid]
 
             if len(foundTce) == 0:
-                raise ValueError(f'Example {example_uid} not found in the dataset tables.')
+                print(f'Example {example_uid} not found in the dataset tables.')
 
             countExamplesShard += 1
         countExamples.append(countExamplesShard)

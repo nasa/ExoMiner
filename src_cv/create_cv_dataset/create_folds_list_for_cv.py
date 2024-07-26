@@ -132,8 +132,8 @@ with open(cv_normalized_run_dir / 'cv_iters_fps.yaml', 'w') as file:
 
 #%% Create yaml file for normalized CV iterations from the yaml file used to create the normalized data set
 
-src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/cv_folds_runs.yaml')
-dest_normalized_cv_iterations_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tess_s1-s67_sgdetrending_3-27-2024_1633/tfrecords/eval_normalized')
+src_cv_iterations_fp = Path('/Users/agiri1/Desktop/ExoBD_Datasets/shard_tables/tfrecords/cv_folds_tfrecords.yaml')
+dest_normalized_cv_iterations_dir = Path('/Users/agiri1/Desktop/ExoBD_Datasets/shard_tables/tfrecords/eval_normalized')
 with open(src_cv_iterations_fp, 'r') as src_file:
     src_cv_iterations = yaml.unsafe_load(src_file)
 
@@ -144,3 +144,4 @@ for src_cv_iteration_i, src_cv_iteration in enumerate(src_cv_iterations):
 
 with open(dest_normalized_cv_iterations_dir / 'cv_iters_fps.yaml', 'w') as dest_file:
     yaml.dump(dest_cv_iterations, dest_file, sort_keys=False)
+#%%

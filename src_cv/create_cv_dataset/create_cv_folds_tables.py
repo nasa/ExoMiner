@@ -9,12 +9,12 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951')
+data_dir = Path(f'/Users/agiri1/Desktop/ExoBD_Datasets')
 
-rnd_seed = 24
-n_folds_eval = 5  # which is also the number of shards
-n_folds_predict = 10
-dataset_tbl_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/source_data/shards_tbl.csv')
+rnd_seed = 5
+n_folds_eval = 50  # which is also the number of shards
+#n_folds_predict = 10
+dataset_tbl_fp = Path('/Users/agiri1/Desktop/ExoBD_Datasets/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler
@@ -58,7 +58,6 @@ logger.info(f'Removing examples not in the data set... (total number of examples
 # # removing unlabeled examples or examples not used for evaluation
 # used_tces = ~tce_tbl_dataset['label'].isin(unlabeled_cats)
 working_tce_tbl = dataset_tbl  # tce_tbl_dataset.loc[used_tces]
-
 # logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
 
 logger.info(f'Total number of examples in dataset after removing examples: {len(working_tce_tbl)}')
@@ -69,6 +68,7 @@ target_star_grps = [df for _, df in working_tce_tbl.groupby('target_id')]
 logger.info(f'Number of target stars: {len(target_star_grps)}')
 rng.shuffle(target_star_grps)
 working_tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
+# print(working_tce_tbl["target_id"])
 # tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
 
 # # shuffle per TCE
@@ -93,8 +93,8 @@ shard_tbls_eval_dir = data_dir / 'shard_tables' / 'eval'
 shard_tbls_eval_dir.mkdir(exist_ok=True, parents=True)
 
 # split at the target star level
-logger.info('Splitting at target star level...')
-target_star_grps = [df for _, df in working_tce_tbl.groupby('target_id')]
+# logger.info('Splitting at target star level...')
+# target_star_grps = [df for _, df in working_tce_tbl.groupby('target_id')]
 target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds_eval, axis=0)
 for fold_i, target_stars_split in enumerate(target_stars_splits):
     fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])

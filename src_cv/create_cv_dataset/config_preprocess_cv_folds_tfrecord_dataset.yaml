@@ -6,7 +6,7 @@ output_dir: null
 # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file paths
 # for each training, validation and test set folds combination (i.e., {'train': ['/path/to/TFRec_file_x', ...],
 # 'test': ['/path/to/TFRec_file_y', ...]}
-cv_folds_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Combined/cv_tess_s1-s67_kepler_q1q17dr25_12-06-2023_1700/cv_folds_runs_withval_trainkepler.yaml
+cv_folds_fp: /Users/agiri1/Desktop/ExoBD_Datasets/shard_tables/tfrecords/cv_folds_tfrecords.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 

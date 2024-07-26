@@ -16,9 +16,9 @@ JOB_ARRAY_INDEX="$2"
 N_MODELS="$6"
 
 ##source "$HOME"/.bashrc
-#source "$HOME"/.zshrc
+source "$HOME"/.zshrc
 #
-#conda activate exoplnt_dl
+conda activate exoplanet_env
 ##conda activate exoplnt_dl_tf2_13
 
 # Paths

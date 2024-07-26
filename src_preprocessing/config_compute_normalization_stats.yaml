@@ -1,9 +1,9 @@
 # source TFRecord directory
-tfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+tfrecDir: /Users/agiri1/Desktop/ExoBD_Datasets/shards
 # destination directory for computed statistics
-norm_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+norm_dir: /Users/agiri1/Desktop/ExoBD_Datasets/shards_norm_stats
 
-n_processes_compute_norm_stats: 10  # number of processes used to parallelize reading the values for the dataset
+n_processes_compute_norm_stats: 5  # number of processes used to parallelize reading the values for the dataset
 
 clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 

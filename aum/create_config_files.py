@@ -15,7 +15,7 @@ experiment_dir = Path(
     '/home/msaragoc/Projects/Kepler-TESS_exoplanet/experiments/label_noise_detection_aum/run_02-11-2022_1144')
 
 # file path to default train configuration file
-default_train_config_fp = experiment_dir / 'config_train.yaml'
+default_train_config_fp = experiment_dir / 'config_train_2.yaml'
 
 configs_dir = experiment_dir / 'configs'
 configs_dir.mkdir(exist_ok=True)

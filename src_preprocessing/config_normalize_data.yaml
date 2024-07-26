@@ -1,14 +1,14 @@
 # source TFRecord directory
-srcTfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+srcTfrecDir: /Users/agiri1/Desktop/ExoBD_Datasets/shards
 
 # destination TFRecord suffix name
-destTfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split_normalized
+destTfrecDir: /Users/agiri1/Desktop/ExoBD_Datasets/normed_shards
 
 # normalization stats directory
 normStats:
-  scalar_params: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split/train_scalarparam_norm_stats.npy
-  centroid: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split/train_centroid_norm_stats.npy
-  diff_img: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split/train_diffimg_norm_stats.npy
+  scalar_params: /Users/agiri1/Desktop/ExoBD_Datasets/shards_norm_stats/train_scalarparam_norm_stats.npy
+  centroid: /Users/agiri1/Desktop/ExoBD_Datasets/shards_norm_stats/train_centroid_norm_stats.npy
+  diff_img: /Users/agiri1/Desktop/ExoBD_Datasets/shards_norm_stats/train_diffimg_norm_stats.npy
 
 nProcesses: 10  # number of processes in parallel
 

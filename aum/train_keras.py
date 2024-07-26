@@ -332,7 +332,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.config_file is None:  # use default config file in codebase
-        path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/aum/config_train.yaml')
+        path_to_yaml = Path('/home/msaragoc/Projects/Kepler-TESS_exoplanet/codebase/aum/config_train_2.yaml')
     else:  # use config file given as input
         path_to_yaml = Path(args.config_file)
 

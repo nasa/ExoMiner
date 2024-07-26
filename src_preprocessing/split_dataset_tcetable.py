@@ -15,13 +15,12 @@ import logging
 #%% set parameters
 
 # saving directory
-destTfrecDir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/data/dataset_splits/tess/'
-                    f'split_tess_s1-s67_{datetime.now().strftime("%m-%d-%Y_%H%M")}')
+destTfrecDir = Path(f'/Users/agiri1/Desktop/ExoBD_Datasets/train_test_split')
 # source TCE table
-experimentTceTbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157.csv')
-rnd_seed = 24  # random seed
+experimentTceTbl_fp = Path('/Users/agiri1/Desktop/ExoBD_Datasets/shards_tbl.csv')
+rnd_seed = 26  # random seed
 # split ratio
-dataset_frac = {'train': 0.8, 'val': 0.1, 'test': 0.1}
+dataset_frac = {'train': 0.5, 'val': 0.25, 'test': 0.25}
 
 #%% create data set tables
 
@@ -47,7 +46,7 @@ experimentTceTbl.sort_values(['target_id', 'tce_plnt_num'], ascending=True, inpl
 experimentTceTbl.reset_index(drop=True, inplace=True)
 
 # get TCEs with disposition and without
-cat_unlabeled_tces = ['UNK', 'PC', 'APC']
+cat_unlabeled_tces = []#'UNK', 'PC', 'APC']
 predict_tces = experimentTceTbl.loc[experimentTceTbl['label'].isin(cat_unlabeled_tces)]
 labeled_tces = experimentTceTbl.loc[~experimentTceTbl['label'].isin(cat_unlabeled_tces)]
 

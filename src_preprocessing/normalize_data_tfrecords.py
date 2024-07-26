@@ -365,7 +365,6 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
             if 'diff_img' in normStats:
                 norm_diff_img_feat = normalize_diff_img(example, normStats['diff_img'])
                 normalizedFeatures.update(norm_diff_img_feat)
-
             for normalizedFeature in normalizedFeatures:
 
                 if isinstance(normalizedFeatures[normalizedFeature], list):  # check for 1-D lists
@@ -386,7 +385,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_normalize_data.yaml')
+    path_to_yaml = Path('/Users/agiri1/Desktop/ExoPlanet/src_preprocessing/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)

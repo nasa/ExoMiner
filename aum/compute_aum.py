@@ -106,7 +106,7 @@ def compute_aum_for_run(experiment_dir, run, features, idx_cols, tce_tbl, n_epoc
 
     print(f'Computing AUM for run {run}...')
 
-    train_config_fp = experiment_dir / 'config_train.yaml'
+    train_config_fp = experiment_dir / 'config_train_2.yaml'
     with(open(train_config_fp, 'r')) as file:  # read default YAML configuration file
         train_config = yaml.safe_load(file)
     train_config['label_map_pred']['UNK'] = 0  # assume UNK examples are non-PC
