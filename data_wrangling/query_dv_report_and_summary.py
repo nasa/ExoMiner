@@ -38,7 +38,7 @@ def get_kic_dv_report_and_summary(kic, download_dir, verbose=False):
     return prod
 
 
-def get_dv_dataproducts(example_id, download_dir, download_products, reports='all', verbose=False):
+def get_dv_dataproducts(example_id, download_dir, download_products, reports='all', spoc_ffi=False, verbose=False):
     """ Download DV reports and summaries available in the MAST for a given observation, which can be either a target,
     sector run, or TCE.
 
@@ -52,6 +52,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
         'tcert': downloads only TCERT reports.
         'dv': downloads both TCE DV summary and full DV reports.
         'all': downloads DV and TCERT reports.
+    :param spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
     :param verbose: bool, verbose
     :return:
         prods, list of astropy Tables with path/URL to downloaded products
@@ -71,7 +72,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     }
     reports_to_get = report_type_map[reports]
 
-    tic_id, tce_id, s_sector, e_sector = '.' * 12, '.' * 2, '.' * 4, '.' * 4
+    tic_id, tce_id, s_sector, e_sector = '.' * 12, '[0-9][0-9]' * 2, '.' * 4, '.' * 4
 
     ids = example_id.split('-')
 
@@ -80,22 +81,19 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     s_sector = ids[2][1:] if ids[2][1:] != 'X' else s_sector
     e_sector = ids[3] if ids[3] != 'X' else e_sector
 
-    # sectors = sector_run_id.split('-')
-    #
-    # if len(sectors) == 1:  # single-sector run
-    #     s_sector, e_sector = (sectors[0][1:], ) * 2
-    # if len(sectors) == 2:  # multi-sector run
-    #     s_sector, e_sector = sectors[0][1:], sectors[1]
-
     s_sector, e_sector = s_sector.zfill(4), e_sector.zfill(4)
 
-    product_tce_id = f's{s_sector}-s{e_sector}-{tic_id}-{tce_id}'
-    product_target_id = f's{s_sector}-s{e_sector}-{tic_id}'
+    if not spoc_ffi:
+        product_tce_id = f's{s_sector}-s{e_sector}-{tic_id}-{tce_id}'
+        product_target_id = f's{s_sector}-s{e_sector}-{tic_id}'
+    else:
+        product_tce_id = f'{tic_id}-s{s_sector}-s{e_sector}*{tce_id}'
+        product_target_id = f'{tic_id}-s{s_sector}-s{e_sector}'
 
     #  get table of observations associated with this target
     obs_table = Observations.query_criteria(target_name=int(tic_id),
-                                            obs_collection='TESS',
-                                            obs_id='*',
+                                            obs_collection='TESS' if not spoc_ffi else 'HLSP',
+                                            obs_id='*' if not spoc_ffi else 'hlsp_tess-spoc*',
                                             )
 
     if verbose:
@@ -113,11 +111,11 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
         # filter products based on TCE ID provided, and type of report
         filtered_products_filenames = products_filenames.loc[products_filenames.str.contains(product_tce_id,
-                                                                                         regex=True)].to_list()
+                                                                                             regex=True)].to_list()
 
         obs_products_filter = Observations.filter_products(obs_products,
                                                            extension='pdf',
-                                                           description='TCE summary report',
+                                                           description='TCE summary report' if not spoc_ffi else 'PDF',
                                                            productFilename=filtered_products_filenames)
 
         # download selected products
@@ -133,10 +131,12 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
         filtered_products_filenames = products_filenames.loc[products_filenames.str.contains(product_target_id,
                                                                                              regex=True)].to_list()
+        filtered_products_filenames = [fn for fn in filtered_products_filenames if 'dvr.pdf' in fn]
 
         obs_products_filter = Observations.filter_products(obs_products,
                                                            extension='pdf',
-                                                           description='full data validation report',
+                                                           description='full data validation report'
+                                                           if not spoc_ffi else 'Informational PDF',
                                                            productFilename=filtered_products_filenames)
         try:
             uris['Full DV report'] = obs_products_filter['dataURI'].tolist()[0]
@@ -152,10 +152,13 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
         filtered_products_filenames = products_filenames.loc[products_filenames.str.contains(product_target_id,
                                                                                              regex=True)].to_list()
+        filtered_products_filenames = [fn for fn in filtered_products_filenames if 'dvm.pdf' in fn]
+
 
         obs_products_filter = Observations.filter_products(obs_products,
                                                            extension='pdf',
-                                                           description='Data validation mini report',
+                                                           description='Data validation mini report' if not spoc_ffi
+                                                           else 'PDF',
                                                            productFilename=filtered_products_filenames)
         try:
             uris['TCERT report'] = obs_products_filter['dataURI'].tolist()[0]
@@ -170,7 +173,8 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     return prods, uris
 
 
-def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, verbose=True):
+def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
+                             verbose=True):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -185,6 +189,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
             'tcert': downloads only TCERT reports.
             'dv': downloads both TCE DV summary and full DV reports.
             'all': downloads DV and TCERT reports.
+        spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
         verbose: bool, verbose
 
     Returns: uris_dict, dictionary that contains the URIs for the data products downloaded for each object
@@ -198,7 +203,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
     for obj_i, obj in enumerate(objs_list):
         print(f'[{proc_id}] Getting data products for object {obj} ({obj_i + 1}/{len(objs_list)})...')
         uris_dict['uid'][obj_i] = obj
-        _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, verbose)
+        _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
         for field in data_products_lst:
             uris_dict[field][obj_i] = URL_HEADER + uris[field] if uris[field] != '' else ''
 
@@ -225,6 +230,7 @@ if __name__ == "__main__":
     objs_list = ['336767770-1-S17-17']  # objs.apply(_correct_sector_field)
 
     download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/TESS/')
+    spoc_ffi = True
     data_products_lst = ['TCE summary report', 'Full DV report', 'TCERT report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'tcert', 'dv', 'all'
     download_products = True
@@ -234,7 +240,7 @@ if __name__ == "__main__":
     n_procs = 12
     n_jobs = 12
     pool = multiprocessing.Pool(processes=n_procs)
-    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, verbose)
+    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose)
             for objs_list_job in np.array_split(objs_list, n_jobs)]
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()

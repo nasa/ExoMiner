@@ -15,17 +15,15 @@ GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
 MODELS_CV_ROOT_DIR="$6"
 
-source "$HOME"/.bashrc
+#source "$HOME"/.bashrc
 
 #conda activate exoplnt_dl
-conda activate exoplnt_dl_tf2_13
+#conda activate exoplnt_dl_tf2_13
 
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+#export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # Paths
 #SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter_predict.py
-SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
-PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/predict_model.py
 
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 
@@ -36,13 +34,13 @@ LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_run_"$GNU_PARALLEL_INDEX"_jobarray_"$JOB_ARRAY_
 
 echo "Starting job $GNU_PARALLEL_INDEX in job array $JOB_ARRAY_INDEX for CV iteration $CV_ITER..." > "$LOG_FP_CV_ITER"
 
-GPU_ID=$(("$CV_ITER" % $N_GPUS_PER_NODE))
+GPU_ID=$(($CV_ITER % $N_GPUS_PER_NODE))
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_CV_ITER"
 
 # setup run
 echo "Setting up CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"
+python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &> "$LOG_FP_CV_ITER"
 CV_ITER_CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
 
 # run inference with ensemble model

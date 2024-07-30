@@ -51,3 +51,14 @@ for cv_iter_i, cv_iter in enumerate(cv_iterations):
 
 with open(data_dir / 'cv_iterations.yaml', 'w') as file:
     yaml.dump(cv_iters, file, sort_keys=False)
+
+#%% Create yaml file to be used to run the CV trained models on a predict dataset
+
+data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tess_spoc_ffi/cv_tfrecords_tess_spoc_ffi_s36-s69_7-24-2024_1610_predict/tfrecords_normalized')
+n_cv_iterations = 5
+
+data_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
+cv_iters = [{'predict': data_fps} for cv_i in range(n_cv_iterations)]
+
+with open(data_dir / 'cv_iterations.yaml', 'w') as file:
+    yaml.dump(cv_iters, file, sort_keys=False)

@@ -18,7 +18,6 @@ target_score = 'score_AFP'  # get auc_pr metrics for different class labels
 class_name = 'label_id'
 cat_name = 'label'
 
-# mapping of category/disposition to label id
 cats = {
     # data set (since each data set might contain different populations of examples)
     'train': {
@@ -35,7 +34,9 @@ cats = {
         'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        'NEB': 0,
+        'NPC': 0,
+        # 'NTP': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -58,7 +59,9 @@ cats = {
         'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        'NEB': 0,
+        'NPC': 0,
+        # 'NTP': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -81,7 +84,9 @@ cats = {
         'FP': 0,
         # 'J': 0,
         # 'FA': 0,
-        'NTP': 0,
+        'NEB': 0,
+        'NPC': 0,
+        # 'NTP': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -91,6 +96,7 @@ cats = {
         # 'INV': 0,
     },
 }
+# mapping of category/disposition to label id
 # cats = None
 class_ids = [0, 1]  # should match unique label ids in 'cats'
 top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
@@ -120,7 +126,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess_sgdetrending_all_3-28-2024_1138'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess_spoc_ffi_s36-s69_7-25-2024_0031'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
@@ -136,7 +142,7 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         metrics_df = []
         for cv_iter_dir in sorted(cv_iters_dirs):  # iterate through each cv iteration
             print(f'CV iteration {cv_iter_dir}')
-            ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / f'ensemble_ranked_predictions_{dataset}set.csv')
+            ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / f'ranked_predictions_{dataset}set.csv')
             ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
 
             # compute metrics
@@ -165,7 +171,7 @@ if 'test' in datasets and compute_metrics_all_dataset:
     # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
     data_to_tbl = {col: [] for col in metrics_lst}
 
-    ranking_tbl = pd.read_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv')
+    ranking_tbl = pd.read_csv(cv_run_dir / 'ranked_predictions_allfolds.csv')
     ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
 
     # compute metrics

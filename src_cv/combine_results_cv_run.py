@@ -7,7 +7,7 @@ import pandas as pd
 # %% Combine predictions from all CV iterations in the used dataset
 
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_sgdetrending_fluxonly_transitvsnottransit_4-15-2024_0108'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess_spoc_ffi_s36-s69_7-25-2024_0031'),
                ]
 for cv_run_dir in cv_run_dirs:
 
@@ -15,34 +15,34 @@ for cv_run_dir in cv_run_dirs:
 
     cv_iters_tbls = []
     for cv_iter_dir in cv_iters_dirs:
-        ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / 'ensemble_ranked_predictions_testset.csv')
+        ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / 'ranked_predictions_testset.csv')
         ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
         cv_iters_tbls.append(ranking_tbl)
 
     ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
-    ranking_tbl_cv.to_csv(cv_run_dir / 'ensemble_ranked_predictions_allfolds.csv', index=False)
+    ranking_tbl_cv.to_csv(cv_run_dir / 'ranked_predictions_allfolds.csv', index=False)
 
 # %% Combine predictions from all CV iterations in the not-used dataset
 
-cv_pred_run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_sgdetrending_fluxonly_models_predict_sgdetrendingdata_tic10837041.1_s30_4-8-2024_1316')
+cv_pred_run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess_spoc_ffi_s36-s69_unk_predict_7-26-2024_1009')
 
 cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
 cv_iters_tbls = []
 for cv_iter_dir in cv_iters_dirs:
-    ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_predictset.csv')
+    ranking_tbl = pd.read_csv(cv_iter_dir / 'ranked_predictions_predictset.csv')
     ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
     cv_iters_tbls.append(ranking_tbl)
 
 ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
-ranking_tbl_cv.to_csv(cv_pred_run_dir / 'ensemble_ranked_predictions_allfolds.csv', index=False)
+ranking_tbl_cv.to_csv(cv_pred_run_dir / 'ranked_predictions_allfolds.csv', index=False)
 
 # %% Get mean and std score across all folds for the prediction on the not-used dataset
 
 tbl = None
-n_folds = 10
+n_folds = len(cv_iters_dirs)
 for cv_iter_dir in cv_iters_dirs:
-    ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_ranked_predictions_predictset.csv')
+    ranking_tbl = pd.read_csv(cv_iter_dir / 'ranked_predictions_predictset.csv')
     ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
     ranking_tbl[f'score_fold_{cv_iter_dir.name.split("_")[-1]}'] = ranking_tbl['score']
     if tbl is None:
@@ -54,4 +54,4 @@ for cv_iter_dir in cv_iters_dirs:
 tbl.drop(columns=['fold', 'score'], inplace=True)
 tbl['mean_score'] = tbl[[f'score_fold_{i}' for i in range(n_folds)]].mean(axis=1)
 tbl['std_score'] = tbl[[f'score_fold_{i}' for i in range(n_folds)]].std(axis=1)
-tbl.to_csv(cv_pred_run_dir / 'ensemble_ranked_predictions_allfolds_avg.csv', index=False)
+tbl.to_csv(cv_pred_run_dir / 'ranked_predictions_allfolds_avg.csv', index=False)
