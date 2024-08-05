@@ -12,35 +12,36 @@ from src_preprocessing.light_curve import util
 
 
 # TODO: make optional for interpolating across transits
-def detrend_flux_using_spline(flux_arrs, time_arrs, binary_time_all, config):
+def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     """ Detrend timeseries by fitting a spline to a version of the timeseries with linear interpolation performed across
     the transits.
 
     Args:
         flux_arrs: list of NumPy arrays, timeseries
         time_arrs: list of NumPy arrays, timestamps
-        binary_time_all: list of NumPy arrays, binary arrays with flags for in-transit cadences
+        intransit_cadences: list of NumPy arrays, binary arrays with flags for in-transit cadences
         config: dict, preprocessing parameters
 
     Returns:
         - time, NumPy array with timestamps
         - detrended_flux, NumPy array with detrended timeseries (i.e., detrended_flux = flux / spline_flux)
         - spline_flux, NumPy array with fitted spline (i.e., the trend)
-        - res_flux, NumPy array with the residual timeseries (i.e., res_flux = flux_lininterp - spline_flux)
         - flux_lininterp, NumPy array with the timeseries linearly interpolated across transits (i.e, they are "masked")
     """
 
     # split on gaps
-    time_arrs, (flux_arrs, binary_time_all), _ = util.split(time_arrs, [flux_arrs, binary_time_all],
+    time_arrs, (flux_arrs, intransit_cadences), _ = util.split(time_arrs,
+                                                            [flux_arrs, intransit_cadences],
                                                             gap_width=config['gapWidth'])
 
     time, flux = np.concatenate(time_arrs), np.concatenate(flux_arrs)
 
     # linearly interpolate across TCE transits
     flux_arrs_lininterp = []
-    for time_arr, flux_arr, binary_time_arr in zip(time_arrs, flux_arrs, binary_time_all):
-        if (binary_time_arr == 0).any():
-            flux_lininterp_arr = np.interp(time_arr, time_arr[binary_time_arr == 0], flux_arr[binary_time_arr == 0],
+    for time_arr, flux_arr, intransit_cadences_arr in zip(time_arrs, flux_arrs, intransit_cadences):
+        if intransit_cadences_arr.any():
+            flux_lininterp_arr = np.interp(time_arr, time_arr[~intransit_cadences_arr],
+                                           flux_arr[~intransit_cadences_arr],
                                            left=np.nan, right=np.nan)
         else:
             flux_lininterp_arr = np.nan * np.ones(len(time_arr), dtype='float')
@@ -54,6 +55,7 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, binary_time_all, config):
         mu, std = (np.nanmedian(flux_arrs_lininterp[arr_i][finite_idxs]),
                    mad_std(flux_arrs_lininterp[arr_i][finite_idxs], ignore_nan=True))
         flux_arrs_lininterp[arr_i][~finite_idxs] = rng.normal(mu, std, (~finite_idxs).sum())
+
     # time_arrs, flux_arrs_lininterp = remove_non_finite_values([time_arrs, flux_arrs_lininterp])
 
     # flux_arrs_lininterp = lininterp_transits(flux_arrs, binary_time_all, centroid=False)
@@ -85,14 +87,14 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, binary_time_all, config):
     rng = np.random.default_rng(seed=config['random_seed'])
     spline_flux[~finite_idxs] = rng.normal(mu, std, (~finite_idxs).sum())
 
-    # compute residual; i.e., what was not fitted by the spline and is not present in the transits since they were
-    # gapped through linearly interpolation
-    res_flux = flux_lininterp - spline_flux
+    # # compute residual; i.e., what was not fitted by the spline and is not present in the transits since they were
+    # # gapped through linearly interpolation
+    # res_flux = flux_lininterp - spline_flux
 
     # detrend flux by normalize flux time series with the fitted spline
     detrended_flux = flux / spline_flux
 
-    return time, detrended_flux, spline_flux, res_flux, flux_lininterp
+    return time, detrended_flux, spline_flux, flux_lininterp
 
 
 def compute_bic(k, n, x, x_fit, penalty_weight=1):
@@ -139,7 +141,7 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
         - time, NumPy array with timestamps
         - detrended_flux, NumPy array with detrended timeseries (i.e., detrended_flux = flux / trend)
         - trend, NumPy array with trend
-        - res_flux, NumPy array with the residual timeseries (i.e., res_flux = flux - trend)
+        # - res_flux, NumPy array with the residual timeseries (i.e., res_flux = flux - trend)
     """
 
     if mask_in_transit.all():
@@ -170,7 +172,7 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
 
     time, detrended_flux = lc_detrended[best_model]['flux'].time.value, lc_detrended[best_model]['flux'].flux.value
     trend = lc_detrended[best_model]['trend'].flux.value
-    res_flux = lc.flux.value - trend
-    res_flux[mask_in_transit] = np.nan  # mask in-transit cadences in the residual flux
+    # res_flux = lc.flux.value - trend
+    # res_flux[mask_in_transit] = np.nan  # mask in-transit cadences in the residual flux
 
-    return time, detrended_flux, trend, res_flux
+    return time, detrended_flux, trend # , res_flux

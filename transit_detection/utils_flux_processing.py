@@ -11,7 +11,7 @@ import warnings
 
 # local
 from src_preprocessing.third_party.kepler_spline import kepler_spline
-from src_preprocessing.utils_ephemeris import find_first_epoch_after_this_time
+from src_preprocessing.lc_preprocessing.utils_ephemeris import find_first_epoch_after_this_time
 
 
 def split_timeseries_on_time_gap(time, flux, gap_width):

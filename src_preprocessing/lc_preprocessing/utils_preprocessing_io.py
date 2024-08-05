@@ -2,8 +2,9 @@
 
 # 3rd party
 import os
-import socket
+# import socket
 import pandas as pd
+import traceback
 
 
 def is_pfe():
@@ -24,44 +25,24 @@ def is_pfe():
     return False
 
 
-def report_exclusion(config, tce, id_str, stderr=None):
+def report_exclusion(id_str, save_fp, error_tb=None):
     """ Error log is saved into a txt file with the reasons why a given TCE was not preprocessed.
 
-    :param config: dict with parameters for the preprocessing. Check the Config class
-    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
+    # :param config: dict with parameters for the preprocessing. Check the Config class
+    # :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
     :param id_str: str, contains info on the cause of exclusion
-    :param stderr: str, error output
+    :param save_fp: str, file path to save the error log
+    :param error_tb: Exception object
     :return:
     """
 
-    # create path to exclusion logs directory
-    savedir = os.path.join(config['output_dir'], 'exclusion_logs')
-
-    # create exclusion logs directory if it does not exist
-    os.makedirs(savedir, exist_ok=True)
-
-    uid_str = f'Example {tce.uid}\n'
-
-    if is_pfe():
-
-        # get node id
-        node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
-
-        fp = os.path.join(savedir, f'exclusions_{tce.uid}_node_{node_id}_proc_{config["process_i"]}.txt')
-    else:
-        fp = os.path.join(savedir, f'exclusions-{tce.uid}.txt')
-
-    # write to exclusion log pertaining to this process and node
-    if not os.path.exists(fp):
-        first_exclusion = True
-    else:
-        first_exclusion = False
-    with open(fp, "a") as excl_file:
-        if first_exclusion:
-            excl_file.write(uid_str)
-        excl_file.write(f'Exclusion: {id_str}\n')
-        if stderr:
-            excl_file.write(f'Error: {stderr}\n')
+    with open(save_fp, "a") as excl_file:
+        # if first_exclusion:
+        #     excl_file.write(uid_str)
+        excl_file.write(f'Info: {id_str}\n')
+        if error_tb:
+            excl_file.write(f'Traceback for the exception:\n')
+            traceback.print_exception(error_tb, file=excl_file)
 
         excl_file.write('##############\n')
 

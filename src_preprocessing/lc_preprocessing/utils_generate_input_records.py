@@ -12,8 +12,8 @@ import datetime
 from tensorflow.io import TFRecordWriter
 
 # local
-from src_preprocessing.preprocess import process_tce
-from src_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.lc_preprocessing.preprocess import process_tce
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +69,10 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                 try:
                     example = process_tce(tce, eph_table, config)
                 except Exception as error:
-                    report_exclusion(config,
-                                     tce,
-                                     'Error was not caught inside the preprocessing pipeline.',
-                                     stderr=error)
+                    report_exclusion(
+                        'Error caught inside the preprocessing pipeline.',
+                        config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
+                        error)
                     continue
 
                 if example is not None:
@@ -148,6 +148,11 @@ def get_tce_table(config):
 
     # read the table with examples
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+
+    # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
+    # tce_table = tce_table.loc[tce_table['uid'].isin(filt_tbl['uid'])]
+    # tce_table = tce_table.loc[tce_table['uid'].isin(['158657354-1-S14-55'])]
+    tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 

@@ -28,7 +28,7 @@ import numpy as np
 import yaml
 
 # local
-from src_preprocessing.utils_manipulate_tfrecords import create_shard
+from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shard
 from utils.utils_dataio import is_yamlble
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ import numpy as np
 from astropy.stats import mad_std
 
 # local
-from src_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 
 
 def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
@@ -287,7 +287,8 @@ def remove_non_finite_values(arrs):
 
 def remove_positive_outliers(time, ts, sigma, fill=False):
     """ Remove positive outliers in the flux time series using a threshold in the standard deviation. Option to fill
-    outlier cadences using Gaussian noise with global statistics of the time series.
+    outlier cadences using Gaussian noise with global statistics of the time series. If not, those will be filled out
+    with NaNs.
 
     :param time: NumPy array, time stamps
     :param ts: NumPy array, time series
@@ -312,9 +313,9 @@ def remove_positive_outliers(time, ts, sigma, fill=False):
         ts[idxs_out] = np.random.normal(np.median(ts), rob_std, idxs_out[0].shape)
     else:
         ts[idxs_out] = np.nan
-        idxs_in = ~np.isnan(ts)
-        ts = ts[idxs_in]
-        time = time[idxs_in]
+        # idxs_in = ~np.isnan(ts)
+        # ts = ts[idxs_in]
+        # time = time[idxs_in]
 
     return time, ts, idxs_out
 
@@ -334,23 +335,26 @@ def check_inputs_generate_example(data, tce, config):
 
     # set centroid distance to zero (meaning on-target)
     if len(data['centroid_dist']) == 0 or np.isnan(data['centroid_dist']).all():
-        report_exclusion(config, tce, f'No data points available. Setting centroid offset time series to zero '
-                                      f'(target star position).')
+        report_exclusion(
+            f'No data points available. Setting centroid offset time series to zero (target star position).',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt'
+        )
 
-        data['time_centroid_dist'] = np.array(data['time'])
-        data['centroid_dist'] = np.zeros(len(data['time']))
+        data['centroid_dist_time'] = np.array(data['flux_time'])
+        data['centroid_dist'] = np.zeros(len(data['flux_time']))
 
-        # data['time_centroid_distFDL'] = np.array(data['time'])
-        # data['centroid_distFDL'] = np.zeros(len(data['time']))
     # fill with Gaussian noise using time series statistics
     elif 'Less than 0.5% cadences are valid for centroid data.' in data['errors']:
-        report_exclusion(config, tce, f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
-                                      f'offset time series to Gaussian noise using statistics from this time series.')
+        report_exclusion(
+            f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
+            f'offset time series to Gaussian noise using statistics from this time series.',
+            config['exclusions_logs_dir'] / f'exclusions-{tce["uid"]}',
+                         )
 
         rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
         med = np.nanmedian(data['centroid_dist'])
         data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
-        data['time_centroid_dist'] = np.array(data['time'])
+        data['centroid_dist_time'] = np.array(data['time'])
 
         # rob_std = mad_std(data['centroid_distFDL'])
         # med = np.median(data['centroid_distFDL'])

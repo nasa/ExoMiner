@@ -13,23 +13,23 @@ import argparse
 import logging
 
 # local
-from src_preprocessing.utils_generate_input_records import get_tce_table, shuffle_tce
+from src_preprocessing.lc_preprocessing.utils_generate_input_records import get_tce_table, shuffle_tce
 from utils.utils_dataio import is_yamlble
-from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
-from utils_generate_input_records import process_file_shard, create_shards
+from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shards_table
+from src_preprocessing.lc_preprocessing.utils_generate_input_records import process_file_shard, create_shards
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import is_pfe
 
 logger = logging.getLogger(__name__)
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Rank', default=-1)
     parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
     parser.add_argument('--output_dir', type=str, help='File path output directory for this preprocessing run',
                         default=None)
     parser.add_argument('--config_fp', type=str, help='File path to yaml config file for this preprocessing run',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_preprocessing.yaml')
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/lc_preprocessing/config_preprocessing.yaml')
     args = parser.parse_args()
 
     # get the configuration parameters
@@ -62,11 +62,15 @@ def main():
             config['n_shards'] = MPI.COMM_WORLD.size
             config['n_processes'] = MPI.COMM_WORLD.size
 
+    if is_pfe():
+        # get node id
+        config['node_id'] = socket.gethostbyname(socket.gethostname()).split('.')[-1]
+
     # create logger
     config['preprocessing_logs_dir'] = config['output_dir'] / 'preprocessing_logs'
     config['preprocessing_logs_dir'].mkdir(exist_ok=True)
     logging.basicConfig(filename=config['output_dir'] / 'preprocessing_logs' /
-                                f'preprocessing_{config["process_i"]}.log',
+                                 f'preprocessing_{config["process_i"]}.log',
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
@@ -74,6 +78,10 @@ def main():
                         )
 
     logger.info(f'Process shard {config["process_i"]} ({config["n_shards"]} total shards)')
+
+    # make directory for exclusion logs
+    config['exclusion_logs_dir'] = config['output_dir'] / 'exclusion_logs'
+    config['exclusion_logs_dir'].mkdir(exist_ok=True)
 
     # make directory to save figures in different steps of the preprocessing pipeline
     if config['plot_figures']:
@@ -154,5 +162,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

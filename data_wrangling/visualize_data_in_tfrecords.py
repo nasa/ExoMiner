@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 # local
-from src_preprocessing.utils_manipulate_tfrecords import plot_features_example
+from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import plot_features_example
 
 # list of examples to plot figures of preprocessed data (views + scalar parameters)
 # examples_ids = ['6500206-2']  # Kepler (target_id, tce_plnt_num)

@@ -5,9 +5,9 @@ import numpy as np
 from astropy import stats
 
 # local
-from src_preprocessing.utils_preprocessing import _count_num_bins
+from src_preprocessing.lc_preprocessing.utils_preprocessing import _count_num_bins
 from src_preprocessing.light_curve import util
-from src_preprocessing.utils_imputing import impute_binned_ts
+from src_preprocessing.lc_preprocessing.utils_imputing import impute_binned_ts
 
 
 def phase_fold_and_sort_light_curve_odd_even(time, timeseries, period, t0, augmentation=False):
@@ -22,8 +22,8 @@ def phase_fold_and_sort_light_curve_odd_even(time, timeseries, period, t0, augme
         time: 1D NumPy array of phase folded time values in [-period / 2, period / 2), where 0 corresponds to t0
             in the original time array. Values are sorted in ascending order.
         folded_timeseries: 1D NumPy array. Values are the same as the original input array, but sorted by folded_time.
-        num_transits_even: int, number of even transits in the time series.
-        num_transits_odd: int, number of odd transits in the time series.
+        num_transits_even: int, number of even transits (partial transits included) in the time series.
+        num_transits_odd: int, number of odd transits (partial transits included) in the time series.
     """
 
     half_period = period / 2

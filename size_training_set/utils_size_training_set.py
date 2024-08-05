@@ -18,9 +18,9 @@ from src.utils_dataio import InputFnCV as InputFn
 from src.utils_dataio import get_data_from_tfrecord
 from src.utils_metrics import get_metrics
 from src.utils_visualization import plot_class_distribution, plot_precision_at_k
-from src_preprocessing.preprocess import centering_and_normalization
+from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 
 def check_normalized_features(norm_features, norm_data_dir, tceid):

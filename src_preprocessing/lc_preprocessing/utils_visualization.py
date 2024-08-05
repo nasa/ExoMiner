@@ -15,59 +15,65 @@ plt.switch_backend('agg')
 DEGREETOARCSEC = 3600
 
 
-def plot_intransit_binary_timeseries(all_time, all_flux, binary_time_all, tce, savedir, basename, centroid=False):
+def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_target, intransit_cadences_tce, tce,
+                                     savedir, basename):
     """ Creates and saves a 2x1 figure with plots that show the ephemeris pulse train and the flux time-series for
     a given TCE.
 
     :param all_time: list of numpy arrays, time
     :param all_flux: list of numpy arrays, flux time-series
-    :param binary_time_all: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
+    :param intransit_cadences_target: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
+    for all detected TCEs in the target star
+    :param intransit_cadences_target: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
+    for the TCE of interest
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
     :param savedir: Path, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
     """
 
-    if not centroid:
-        f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
+    # if not centroid:
+    f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
 
-        for i in range(len(all_time)):
-            ax[0].plot(all_time[i], binary_time_all[i], 'b')
-            ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[0].set_title('Binary timeseries')
-        ax[0].set_ylabel('In-transit Cadences Flag')
-        ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
+    for i in range(len(all_time)):
+        ax[0].plot(all_time[i], intransit_cadences_target[i], 'b', zorder=1, label='Detected target TCEs')
+        ax[0].plot(all_time[i], intransit_cadences_tce[i], 'k--', zorder=2, label='TCE', linewidth=2)
+        ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+    ax[0].legend()
+    ax[0].set_title('Binary timeseries')
+    ax[0].set_ylabel('In-transit Cadences Flag')
+    ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
 
-        for i in range(len(all_time)):
-            ax[1].scatter(all_time[i], all_flux[i], c='k', s=4)
-            ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[1].set_title('Flux')
-        ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
-        ax[1].set_ylabel('Amplitude')
-        ax[1].set_xlabel('Time [day]')
-    else:
-        f, ax = plt.subplots(3, 1, sharex=True, figsize=(14, 8))
-
-        for i in range(len(all_time)):
-            ax[0].plot(all_time[i], binary_time_all[i], 'b')
-            ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[0].set_title('Binary timeseries')
-        ax[0].set_ylabel('In-transit Cadences Flag')
-        ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
-
-        for i in range(len(all_time)):
-            ax[1].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
-            ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[1].set_ylabel('RA [deg]')
-        ax[1].set_title('Centroid')
-        ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
-        for i in range(len(all_time)):
-            # ax[2].plot(all_time[i], all_flux['y'][i], 'b')
-            ax[2].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
-            ax[2].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-        ax[2].set_ylabel('Dec [deg]')
-        ax[2].set_xlabel('Time [day]')
-        ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
+    for i in range(len(all_time)):
+        ax[1].scatter(all_time[i], all_flux[i], c='k', s=4)
+        ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+    ax[1].set_title('Flux')
+    ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
+    ax[1].set_ylabel('Amplitude')
+    ax[1].set_xlabel('Time [day]')
+    # else:
+    #     f, ax = plt.subplots(3, 1, sharex=True, figsize=(14, 8))
+    #
+    #     for i in range(len(all_time)):
+    #         ax[0].plot(all_time[i], binary_time_all[i], 'b')
+    #         ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+    #     ax[0].set_title('Binary timeseries')
+    #     ax[0].set_ylabel('In-transit Cadences Flag')
+    #     ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
+    #
+    #     for i in range(len(all_time)):
+    #         ax[1].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
+    #         ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+    #     ax[1].set_ylabel('RA [deg]')
+    #     ax[1].set_title('Centroid')
+    #     ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
+    #     for i in range(len(all_time)):
+    #         # ax[2].plot(all_time[i], all_flux['y'][i], 'b')
+    #         ax[2].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
+    #         ax[2].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
+    #     ax[2].set_ylabel('Dec [deg]')
+    #     ax[2].set_xlabel('Time [day]')
+    #     ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
 
     f.suptitle(f'{tce.uid} {tce.label}')
     plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
@@ -309,7 +315,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     ax[1, 1].legend()
     ax[1, 1].set_xlabel('Time [day]')
 
-    f.suptitle('Centroid time-series\n TCE {} {}\nTarget: {} (arcsec)'.format(tce['uid'],
+    f.suptitle('Centroid time-series\n TCE {} {}\nTarget: {} [arcsec]'.format(tce['uid'],
                                                                               tce['label'],
                                                                               target_coords))
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
@@ -477,7 +483,7 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     plt.close()
 
 
-def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
+def plot_all_views(views, tce, config, scheme, savefp, plot_var):
     """ Creates and saves a figure with plots that show views for a given TCE.
 
     :param views: dict, views to be plotted
@@ -485,9 +491,8 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
-    :param num_transits: dict, number of transits for each view
+    :param savefp: Path, filepath to saved figure
+    :param plot_var: bool, if True then dispersion-like time series (+- central tendency) are also plotted
     :return:
     """
 
@@ -523,41 +528,35 @@ def plot_all_views(views, tce, config, scheme, savedir, basename, num_transits):
     for i in range(scheme[0]):
         for j in range(scheme[1]):
             if k < len(views_list):
-                ax[i, j].plot(views[views_list[k]])
-                ax[i, j].scatter(np.arange(len(views[views_list[k]])), views[views_list[k]], s=10, color='k', alpha=0.2)
-                # ax2 = ax[i, j].twiny()
-                # if 'global' in views_list[k]:
-                #     ax2.plot(global_phase, views[views_list[k]])
-                #     ax2.set_xlim([global_phase[0], global_phase[-1]])
-                # else:
-                #     ax2.plot(local_phase, views[views_list[k]])
-                #     ax2.set_xlim([local_phase[0], local_phase[-11]])
-                # ax2.grid(True)
-                if views_list[k] == 'global_flux_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux']), pad=20)
-                elif views_list[k] == 'local_flux_odd_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux_odd']), pad=20)
-                elif views_list[k] == 'local_flux_even_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux_even']), pad=20)
-                elif views_list[k] == 'local_weak_secondary_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['wks']), pad=20)
-                elif views_list[k] == 'global_centr_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid']), pad=20)
-                elif views_list[k] == 'global_centr_fdl_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid_fdl']), pad=20)
-                else:
-                    ax[i, j].set_title('{}'.format(views_list[k]), pad=20)
-                ax[i, j].set_xlim([0, len(views[views_list[k]])])
+                # ax[i, j].plot(views[views_list[k]][1], zorder=2, color='k')
+                # ax[i, j].scatter(np.arange(len(views[views_list[k]][1])), views[views_list[k]][1], s=10, color='k',
+                #                  zorder=2)
+
+                ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1], zorder=2, color='k')
+                ax[i, j].scatter(views[views_list[k]][0], views[views_list[k]][1], s=10, color='k',
+                                 zorder=2)
+                if plot_var:
+                    # ax[i, j].plot(views[views_list[k]][1] + views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
+                    # ax[i, j].plot(views[views_list[k]][1] - views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
+
+                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] + views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
+                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] - views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
+
+                ax[i, j].set_title(f'{views_list[k]} num transits={views[views_list[k]][3]}', pad=20)
+
+                # ax[i, j].set_xlim([0, len(views[views_list[k]])])
+                ax[i, j].set_xlim(views[views_list[k]][0][[0, -1]])
             if i == scheme[0] - 1:
-                ax[i, j].set_xlabel('Bin number')
+                # ax[i, j].set_xlabel('Bin Number')
+                ax[i, j].set_xlabel('Phase [day]')
             if j == 0:
                 ax[i, j].set_ylabel('Amplitude')
 
             k += 1
 
-    f.suptitle('{} {} | {}\n{}'.format(tce.uid, tce.label, ephemerisStr, scalarParamsStr))
+    f.suptitle(f'{tce["uid"]} {tce["label"]} | {ephemerisStr}\n{scalarParamsStr}')
     plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.savefig(savefp)
     plt.close()
 
 
@@ -661,37 +660,14 @@ def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename
     plt.close()
 
 
-def plot_phasefolded(time, timeseries, tce, config, savedir, basename):
-    """ Creates and saves a figure with plots of the phase folded time series for a given TCE.
-
-    :param time: Numpy array, timestamps
-    :param timeseries: NumPy array, timeseries
-    :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
-    :return:
-    """
-
-    f, ax = plt.subplots()
-    ax.plot(time, timeseries)
-    ax.set_xlim([time[0], time[-1]])
-    ax.set_ylabel('Amplitude')
-    ax.set_xlabel('Phase')
-    ax.set_title('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-    plt.close()
-
-
-def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, timeseries_outliers=None):
+def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savefp, timeseries_outliers=None):
     """ Creates and saves a figure with plots that show phase folded timeseries for a given TCE.
 
     :param timeseries: dict, views to be plotted
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
     number of plots per column])
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath to figure
     :param timeseries_outliers: dict, outliers of the time series. If it is not None, these outliers are plotted on top
      of the time series
     :return:
@@ -699,7 +675,7 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, t
 
     # SIGMA_FACTOR = 6
 
-    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(18, 10))
     k = 0
     views_list = list(timeseries.keys())
     for i in range(scheme[0]):
@@ -720,23 +696,23 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savedir, basename, t
                     if 'FDL' in views_list[k]:
                         ax[i, j].set_ylim(bottom=0)
             if i == scheme[0] - 1:
-                ax[i, j].set_xlabel('Phase')
+                ax[i, j].set_xlabel('Phase [day]')
             if j == 0:
                 ax[i, j].set_ylabel('Amplitude')
             k += 1
 
-    f.subplots_adjust(left=0.055, right=0.979, bottom=0.071, top=0.917, wspace=0.2, hspace=0.383)
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    # f.subplots_adjust(left=0.055, right=0.979, bottom=0.071, top=0.917, wspace=0.2, hspace=0.383)
+    f.suptitle(f'{tce["uid"]} {tce["label"]}')
+    f.tight_layout()
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
+def plot_diff_oddeven(timeseries, tce, savedir, basename):
     """ Creates and saves a figure with plots that show the absolute difference between odd and even views.
 
     :param timeseries: dict, views to be plotted
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -756,180 +732,188 @@ def plot_diff_oddeven(timeseries, tce, config, savedir, basename):
     plt.close()
 
 
-def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, savedir, basename):
+def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, savefp):
     """ Creates and saves a figure with plots that show phase folded and binned time series for a given TCE.
 
     :param timeseries: dict, phase folded time series
     :param binned_timeseries: dict, binned views
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath for saved figure
     :return:
     """
 
-    SIGMA_FACTOR = 6
+    # SIGMA_FACTOR = 6
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
 
-    gs = gridspec.GridSpec(4, 2)
+    gs = gridspec.GridSpec(6, 2)
 
     f = plt.figure(figsize=(20, 14))
 
     ax = plt.subplot(gs[0, :])
-    ax.scatter(timeseries['Flux'][0], timeseries['Flux'][1], color='k', s=5)
-    ax.scatter(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], color='b')
-    ax.plot(binned_timeseries['Global Flux'][0], binned_timeseries['Global Flux'][1], 'b')
-    # ax.plot(binned_timeseries['Global Flux'][0],
-    #         binned_timeseries['Global Flux'][1] + binned_timeseries['Global Flux'][2], 'b--')
-    # ax.plot(binned_timeseries['Global Flux'][0],
-    #         binned_timeseries['Global Flux'][1] - binned_timeseries['Global Flux'][2], 'b--')
+    ax.scatter(timeseries['flux'][0], timeseries['flux'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['flux_global'][0], binned_timeseries['flux_global'][1], color='b')
+    ax.plot(binned_timeseries['flux_global'][0], binned_timeseries['flux_global'][1], 'b')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (day)')
     # ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
-    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
-    std_range = SIGMA_FACTOR * timeseries_madstd
-    ts_len = len(timeseries['Flux'][1])
-    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-        ts_len // 2 + ts_len // config['num_durations'])]
-    min_val = min(timeseries['Flux'][1][idxs_transit])
-    range_timeseries = [min_val, timeseries_med + std_range]
+    # timeseries_madstd, timeseries_med = mad_std(timeseries['flux'][1]), np.median(timeseries['Flux'][1])
+    # std_range = SIGMA_FACTOR * timeseries_madstd
+    # ts_len = len(timeseries['flux'][1])
+    # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+    #     ts_len // 2 + ts_len // config['num_durations'])]
+    # min_val = min(timeseries['flux'][1][idxs_transit])
+    # range_timeseries = [min_val, timeseries_med + std_range]
     # ax.set_ylim(range_timeseries)
+    ax.set_title('Flux')
 
     # left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Flux'][0] < local_view_time_interval)[0][-1]
     ax = plt.subplot(gs[1, 0])
     # ax.scatter(timeseries['Flux'][0][left_idx:right_idx] * 24, timeseries['Flux'][1][left_idx:right_idx],
     #            color='k', s=5)
-    ax.scatter(timeseries['Flux'][0] * 24, timeseries['Flux'][1],
-               color='k', s=5)
-    ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='b')
-    ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'b')
+    ax.scatter(timeseries['flux'][0] * 24, timeseries['flux'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['flux_local'][0] * 24, binned_timeseries['flux_local'][1], color='b')
+    ax.plot(binned_timeseries['flux_local'][0] * 24, binned_timeseries['flux_local'][1], 'b')
     ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase (hour)')
+    ax.set_xlabel('Phase [hour]')
     # ax.set_xlim([timeseries['Flux'][0][left_idx] * 24, timeseries['Flux'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    timeseries_madstd, timeseries_med = mad_std(timeseries['Flux'][1]), np.median(timeseries['Flux'][1])
-    std_range = SIGMA_FACTOR * timeseries_madstd
-    ts_len = len(timeseries['Flux'][1])
-    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-        ts_len // 2 + ts_len // config['num_durations'])]
-    min_val = min(timeseries['Flux'][1][idxs_transit])
-    range_timeseries = [min_val, timeseries_med + std_range]
+    # timeseries_madstd, timeseries_med = mad_std(timeseries['flux'][1]), np.median(timeseries['Flux'][1])
+    # std_range = SIGMA_FACTOR * timeseries_madstd
+    # ts_len = len(timeseries['flux'][1])
+    # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+    #     ts_len // 2 + ts_len // config['num_durations'])]
+    # min_val = min(timeseries['flux'][1][idxs_transit])
+    # range_timeseries = [min_val, timeseries_med + std_range]
     # ax.set_ylim(range_timeseries)
 
-    if 'Weak Secondary Flux' in timeseries:
+    if 'flux_weak_secondary' in timeseries:
         # left_idx = np.where(timeseries['Weak Secondary Flux'][0] > -local_view_time_interval)[0][0]
         # right_idx = np.where(timeseries['Weak Secondary Flux'][0] < local_view_time_interval)[0][-1]
         ax = plt.subplot(gs[1, 1])
         # ax.scatter(timeseries['Weak Secondary Flux'][0][left_idx:right_idx] * 24,
         #            timeseries['Weak Secondary Flux'][1][left_idx:right_idx], color='k', s=5)
-        ax.scatter(timeseries['Weak Secondary Flux'][0] * 24,
-                   timeseries['Weak Secondary Flux'][1], color='k', s=5)
-        ax.scatter(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
-                   binned_timeseries['Local Weak Secondary Flux'][1], color='b')
-        ax.plot(binned_timeseries['Local Weak Secondary Flux'][0] * 24,
-                binned_timeseries['Local Weak Secondary Flux'][1], 'b')
+        ax.scatter(timeseries['flux_weak_secondary'][0] * 24,
+                   timeseries['flux_weak_secondary'][1], color='k', s=5)
+        ax.scatter(binned_timeseries['flux_weak_secondary_local'][0] * 24,
+                   binned_timeseries['flux_weak_secondary_local'][1], color='b')
+        ax.plot(binned_timeseries['flux_weak_secondary_local'][0] * 24,
+                binned_timeseries['flux_weak_secondary_local'][1], 'b')
         ax.set_ylabel('Relative Flux')
-        ax.set_xlabel('Phase (hour)')
+        ax.set_xlabel('Phase [hour]')
         # ax.set_xlim([timeseries['Weak Secondary Flux'][0][left_idx] * 24,
         #              timeseries['Weak Secondary Flux'][0][right_idx] * 24])
         ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
         ax.set_title('Weak Secondary Phase : {:.4f} Days'.format(tce['tce_maxmesd']))
-        timeseries_madstd, timeseries_med = mad_std(timeseries['Weak Secondary Flux'][1]), \
-                                            np.median(timeseries['Weak Secondary Flux'][1])
-        std_range = SIGMA_FACTOR * timeseries_madstd
-        ts_len = len(timeseries['Weak Secondary Flux'][1])
-        idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-            ts_len // 2 + ts_len // config['num_durations'])]
-        min_val = min(timeseries['Weak Secondary Flux'][1][idxs_transit])
-        range_timeseries = [min_val, timeseries_med + std_range]
+        # timeseries_madstd, timeseries_med = mad_std(timeseries['weak_secondary_flux'][1]), \
+        #                                     np.median(timeseries['weak_secondary_flux'][1])
+        # std_range = SIGMA_FACTOR * timeseries_madstd
+        # ts_len = len(timeseries['weak_secondary_flux'][1])
+        # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        #     ts_len // 2 + ts_len // config['num_durations'])]
+        # min_val = min(timeseries['weak_secondary_flux'][1][idxs_transit])
+        # range_timeseries = [min_val, timeseries_med + std_range]
         # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 0])
-    if len(timeseries['Odd Flux'][0]) > 0:
+    if len(timeseries['flux_odd'][0]) > 0:
         # left_idx = np.where(timeseries['Odd Flux'][0] > -local_view_time_interval)[0][0]
         # right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
         # ax.scatter(timeseries['Odd Flux'][0][left_idx:right_idx] * 24, timeseries['Odd Flux'][1][left_idx:right_idx],
         #            color='k', s=5)
-        ax.scatter(timeseries['Odd Flux'][0] * 24, timeseries['Odd Flux'][1], color='k', s=5)
-        ax.scatter(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='b')
-        ax.plot(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'b')
+        ax.scatter(timeseries['flux_odd'][0] * 24, timeseries['flux_odd'][1], color='k', s=5)
+        ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='b')
+        ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'b')
         ax.set_ylabel('Relative Flux')
-        ax.set_xlabel('Phase (hour)')
+        ax.set_xlabel('Phase [hour]')
         # ax.set_xlim([timeseries['Odd Flux'][0][left_idx] * 24, timeseries['Odd Flux'][0][right_idx] * 24])
         ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
         ax.set_title('Odd')
-        timeseries_madstd, timeseries_med = mad_std(timeseries['Odd Flux'][1]), \
-                                            np.median(timeseries['Odd Flux'][1])
-        std_range = SIGMA_FACTOR * timeseries_madstd
-        ts_len = len(timeseries['Odd Flux'][1])
-        idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-            ts_len // 2 + ts_len // config['num_durations'])]
-        min_val = min(timeseries['Odd Flux'][1][idxs_transit])
-        range_timeseries = [min_val, timeseries_med + std_range]
+        timeseries_madstd, timeseries_med = mad_std(timeseries['flux_odd'][1]), \
+                                            np.median(timeseries['flux_odd'][1])
+        # std_range = SIGMA_FACTOR * timeseries_madstd
+        # ts_len = len(timeseries['odd_flux'][1])
+        # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        #     ts_len // 2 + ts_len // config['num_durations'])]
+        # min_val = min(timeseries['odd_flux'][1][idxs_transit])
+        # range_timeseries = [min_val, timeseries_med + std_range]
         # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[2, 1])
-    if len(timeseries['Even Flux'][0]) > 0:
+    if len(timeseries['flux_even'][0]) > 0:
         # left_idx = np.where(timeseries['Even Flux'][0] > -local_view_time_interval)[0][0]
         # right_idx = np.where(timeseries['Even Flux'][0] < local_view_time_interval)[0][-1]
         # ax.scatter(timeseries['Even Flux'][0][left_idx:right_idx] * 24, timeseries['Even Flux'][1][left_idx:right_idx],
         #            color='k', s=5)
-        ax.scatter(timeseries['Even Flux'][0] * 24, timeseries['Even Flux'][1], color='k', s=5)
-        ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='b')
-        ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'b')
+        ax.scatter(timeseries['flux_even'][0] * 24, timeseries['flux_even'][1], color='k', s=5)
+        ax.scatter(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='b')
+        ax.plot(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'b')
         ax.set_ylabel('Relative Flux')
-        ax.set_xlabel('Phase (hour)')
+        ax.set_xlabel('Phase [hour]')
         # ax.set_xlim([timeseries['Even Flux'][0][left_idx] * 24, timeseries['Even Flux'][0][right_idx] * 24])
         ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
         ax.set_title('Even')
-        timeseries_madstd, timeseries_med = mad_std(timeseries['Even Flux'][1]), \
-                                            np.median(timeseries['Even Flux'][1])
-        std_range = SIGMA_FACTOR * timeseries_madstd
-        ts_len = len(timeseries['Even Flux'][1])
-        idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-            ts_len // 2 + ts_len // config['num_durations'])]
-        min_val = min(timeseries['Even Flux'][1][idxs_transit])
-        range_timeseries = [min_val, timeseries_med + std_range]
+        # timeseries_madstd, timeseries_med = mad_std(timeseries['even_flux'][1]), \
+        #                                     np.median(timeseries['even_flux'][1])
+        # std_range = SIGMA_FACTOR * timeseries_madstd
+        # ts_len = len(timeseries['even_flux'][1])
+        # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+        #     ts_len // 2 + ts_len // config['num_durations'])]
+        # min_val = min(timeseries['Even Flux'][1][idxs_transit])
+        # range_timeseries = [min_val, timeseries_med + std_range]
         # ax.set_ylim(range_timeseries)
 
-    ax = plt.subplot(gs[3, 0])
-    ax.scatter(timeseries['Centroid Offset Distance'][0], timeseries['Centroid Offset Distance'][1], color='k', s=5)
-    ax.scatter(binned_timeseries['Global Centroid Offset Distance'][0],
-               binned_timeseries['Global Centroid Offset Distance'][1], color='b')
-    ax.plot(binned_timeseries['Global Centroid Offset Distance'][0],
-            binned_timeseries['Global Centroid Offset Distance'][1], 'b')
-    ax.set_ylabel('Offset distance (arcsec)')
-    ax.set_xlabel('Phase (day)')
+    ax = plt.subplot(gs[3, :])
+    ax.scatter(timeseries['flux_trend'][0], timeseries['flux_trend'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['flux_trend_global'][0], binned_timeseries['flux_trend_global'][1], color='b')
+    ax.plot(binned_timeseries['flux_trend_global'][0], binned_timeseries['flux_trend_global'][1], 'b')
+    ax.set_ylabel('Relative Flux')
+    ax.set_xlabel('Phase [day]')
+    # ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    ax.set_title('Flux Trend')
+
+    ax = plt.subplot(gs[4, :])
+    ax.scatter(timeseries['centroid_offset_distance_to_target'][0],
+               timeseries['centroid_offset_distance_to_target'][1], color='k', s=5)
+    ax.scatter(binned_timeseries['centroid_offset_distance_to_target_global'][0],
+               binned_timeseries['centroid_offset_distance_to_target_global'][1], color='b')
+    ax.plot(binned_timeseries['centroid_offset_distance_to_target_global'][0],
+            binned_timeseries['centroid_offset_distance_to_target_global'][1], 'b')
+    ax.set_ylabel('Offset distance [arcsec]')
+    ax.set_xlabel('Phase [day]')
     # ax.set_xlim([timeseries['Centroid Offset Distance'][0][0],
     #              timeseries['Centroid Offset Distance'][0][-1]])
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     # timeseries_madstd, timeseries_med = mad_std(timeseries['Centroid Offset Distance'][1]), \
     #                                     np.median(timeseries['Centroid Offset Distance'][1])
     # std_range = SIGMA_FACTOR * timeseries_madstd
-    ts_len = len(timeseries['Centroid Offset Distance'][1])
-    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-        ts_len // 2 + ts_len // config['num_durations'])]
-    min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
-    max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
-    range_timeseries = [min_val, max_val]
+    # ts_len = len(timeseries['Centroid Offset Distance'][1])
+    # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+    #     ts_len // 2 + ts_len // config['num_durations'])]
+    # min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    # max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    # range_timeseries = [min_val, max_val]
     # ax.set_ylim(range_timeseries)
+    ax.set_title('Flux-weighted Centroid Motion')
 
     # left_idx = np.where(timeseries['Centroid Offset Distance'][0] > -local_view_time_interval)[0][0]
     # right_idx = np.where(timeseries['Centroid Offset Distance'][0] < local_view_time_interval)[0][-1]
-    ax = plt.subplot(gs[3, 1])
+    ax = plt.subplot(gs[5, 0])
     # ax.scatter(timeseries['Centroid Offset Distance'][0][left_idx:right_idx] * 24,
     #         timeseries['Centroid Offset Distance'][1][left_idx:right_idx],
     #            color='k', s=5)
-    ax.scatter(timeseries['Centroid Offset Distance'][0] * 24, timeseries['Centroid Offset Distance'][1],
+    ax.scatter(timeseries['centroid_offset_distance_to_target'][0] * 24,
+               timeseries['centroid_offset_distance_to_target'][1],
                color='k', s=5)
-    ax.scatter(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
-               binned_timeseries['Local Centroid Offset Distance'][1], color='b')
-    ax.plot(binned_timeseries['Local Centroid Offset Distance'][0] * 24,
-            binned_timeseries['Local Centroid Offset Distance'][1], 'b')
-    ax.set_ylabel('Offset distance (arcsec)')
-    ax.set_xlabel('Phase (hour)')
+    ax.scatter(binned_timeseries['centroid_offset_distance_to_target_local'][0] * 24,
+               binned_timeseries['centroid_offset_distance_to_target_local'][1], color='b')
+    ax.plot(binned_timeseries['centroid_offset_distance_to_target_local'][0] * 24,
+            binned_timeseries['centroid_offset_distance_to_target_local'][1], 'b')
+    ax.set_ylabel('Offset distance [arcsec]')
+    ax.set_xlabel('Phase [hour]')
     # ax.set_xlim([timeseries['Centroid Offset Distance'][0][left_idx] * 24,
     #              timeseries['Centroid Offset Distance'][0][right_idx] * 24])
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
@@ -937,37 +921,37 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     #                                     np.median(timeseries['Centroid Offset Distance'][1])
     # std_range = SIGMA_FACTOR * timeseries_madstd
     # range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
-    ts_len = len(timeseries['Centroid Offset Distance'][1])
-    idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-        ts_len // 2 + ts_len // config['num_durations'])]
-    min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
-    max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
-    range_timeseries = [min_val, max_val]
+    # ts_len = len(timeseries['Centroid Offset Distance'][1])
+    # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
+    #     ts_len // 2 + ts_len // config['num_durations'])]
+    # min_val = min(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    # max_val = max(timeseries['Centroid Offset Distance'][1][idxs_transit])
+    # range_timeseries = [min_val, max_val]
     # ax.set_ylim(range_timeseries)
 
-    plt.subplots_adjust(
-        hspace=0.526,
-        wspace=0.202,
-        top=0.943,
-        bottom=0.06,
-        left=0.057,
-        right=0.98
-    )
-
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    # plt.subplots_adjust(
+    #     hspace=0.526,
+    #     wspace=0.202,
+    #     top=0.943,
+    #     bottom=0.06,
+    #     left=0.057,
+    #     right=0.98
+    # )
+    f.suptitle(f'{tce["uid"]} {tce["label"]}')
+    f.tight_layout()
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename, sigma_factor=6, delta_factor=0.998):
+def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp, sigma_factor=6,
+                  delta_factor=0.998):
     """ Creates and saves a figure with plots for odd-even transit depth test for a given TCE.
 
-    :param timeseries: dict, phase folded time series
     :param binned_timeseries: dict, binned views
+    :param phasefolded_timeseries: dict, phase-folded time series
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters.
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath
     :param sigma_factor: float, used for defining the maximum amplitude range in the plots
     (med(phase_folded_flux) + sigma_factor * mad_std(phase_folded flux))
     :param delta_factor: float, used for defining the minimum amplitude in the plots
@@ -975,69 +959,79 @@ def plot_odd_even(timeseries, binned_timeseries, tce, config, savedir, basename,
     :return:
     """
 
-    timeseries_madstd, timeseries_med = (mad_std(timeseries['Flux'][1], ignore_nan=True),
-                                         np.nanmedian(timeseries['Flux'][1]))
-    std_range = sigma_factor * timeseries_madstd
-    min_range = delta_factor * np.nanmin(np.concatenate([binned_timeseries['Local Flux'][1],
-                                                         binned_timeseries['Local Odd Flux'][1],
-                                                         binned_timeseries['Local Even Flux'][1]]))
-    range_timeseries = [min_range, timeseries_med + std_range]
+    # timeseries_madstd, timeseries_med = (mad_std(timeseries['Flux'][1], ignore_nan=True),
+    #                                      np.nanmedian(timeseries['Flux'][1]))
+    # std_range = sigma_factor * timeseries_madstd
+    # min_range = delta_factor * np.nanmin(np.concatenate([phasefolded_timeseries['odd_flux'][1],
+    #                                                      phasefolded_timeseries['even_flux'][1],
+    #                                                      binned_timeseries['odd_flux_local'][1],
+    #                                                      binned_timeseries['even_flux_local'][1]]))
+    # range_timeseries = [min_range, timeseries_med + std_range]
 
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
 
     gs = gridspec.GridSpec(2, 2)
     f = plt.figure(figsize=(20, 14))
 
-    # local odd flux (phase-folded + binned ts)
+    # odd_flux_local (phase-folded + binned ts)
     ax = plt.subplot(gs[0, 0])
-    if len(timeseries['Odd Flux'][0]) > 0:
-        ax.scatter(timeseries['Odd Flux'][0] * 24, timeseries['Odd Flux'][1], color='k', s=5, alpha=0.8)
-    ax.scatter(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='r')
-    ax.plot(binned_timeseries['Local Odd Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'c')
+    # if len(timeseries['Odd Flux'][0]) > 0:
+    ax.scatter(phasefolded_timeseries['flux_odd'][0] * 24, phasefolded_timeseries['flux_odd'][1], color='k', s=5,
+               alpha=0.8)
+    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='r')
+    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'c')
     ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase (hour)')
+    ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Odd')
-    if not np.isnan(range_timeseries).any():
-        ax.set_ylim(range_timeseries)
+    # if not np.isnan(range_timeseries).any():
+    #     ax.set_ylim(range_timeseries)
 
-    # local even flux (phase-folded + binned ts)
+    # even_flux_local (phase-folded + binned ts)
     ax = plt.subplot(gs[0, 1])
-    if len(timeseries['Even Flux'][0]) > 0:
-        ax.scatter(timeseries['Even Flux'][0] * 24, timeseries['Even Flux'][1], color='k', s=5, alpha=0.8)
-    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='r')
-    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'c')
+    # if len(timeseries['Even Flux'][0]) > 0:
+    ax.scatter(phasefolded_timeseries['flux_even'][0] * 24, phasefolded_timeseries['flux_even'][1], color='k', s=5,
+               alpha=0.8)
+    ax.scatter(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='r')
+    ax.plot(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'c')
     ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase (hour)')
+    ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
     ax.set_title('Even')
-    if not np.isnan(range_timeseries).any():
-        ax.set_ylim(range_timeseries)
+    # if not np.isnan(range_timeseries).any():
+    #     ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[1, :])
-    # local flux
-    ax.scatter(timeseries['Flux'][0] * 24, timeseries['Flux'][1], color='k', s=5, alpha=0.1, zorder=1)
-    ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='c', zorder=2)
-    ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'c', zorder=2)
-    # local even flux (binned)
-    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], color='r',
+
+    ax.scatter(phasefolded_timeseries['flux_odd'][0] * 24, phasefolded_timeseries['flux_odd'][1], color='k', s=5,
+               alpha=0.1, zorder=1)
+    ax.scatter(phasefolded_timeseries['flux_even'][0] * 24, phasefolded_timeseries['flux_even'][1], color='k', s=5,
+               alpha=0.1, zorder=1)
+
+    # ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='c', zorder=2)
+    # ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'c', zorder=2)
+
+    # even_flux_local (binned)
+    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='r',
                zorder=2)
-    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Even Flux'][1], 'r', label='Even',
+    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'r', label='Even',
             zorder=2)
-    # local odd flux (binned)
-    ax.scatter(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], color='g',
+
+    # odd_flux_local (binned)
+    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='g',
                zorder=2)
-    ax.plot(binned_timeseries['Local Even Flux'][0] * 24, binned_timeseries['Local Odd Flux'][1], 'g', label='Odd',
+    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'g', label='Odd',
             zorder=2)
+
     ax.legend()
     ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase (hour)')
+    ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    if not np.isnan(range_timeseries).any():
-        ax.set_ylim(range_timeseries)
+    # if not np.isnan(range_timeseries).any():
+    #     ax.set_ylim(range_timeseries)
 
     f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.savefig(savefp)
     plt.close()
 
 
@@ -1065,14 +1059,13 @@ def plot_residual(time, res_timeseries, tce, savedir, basename):
     plt.close()
 
 
-def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
+def plot_riverplot(binned_fluxes, n_bins, tce, savefp):
     """ Plot riverplot from a set of binned flux phases.
 
     :param binned_fluxes: list, each element is a NumPy array for a phase of flux
     :param n_bins: int, number of bins
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath
     :return:
     """
 
@@ -1100,19 +1093,18 @@ def plot_riverplot(binned_fluxes, n_bins, tce, savedir, basename):
     ax.set_yticks(bins_idxs_ticks)
     ax.set_yticklabels(FormatStrFormatter('%.2f').format_ticks(bins_idxs_lbls))
     ax.set_ylim(bottom=bins_idxs_ticks[-1])
-    ax.set_ylabel('Phase (day)')
+    ax.set_ylabel('Phase [day]')
     ax.set_xlabel('Phase Number')
     ax.grid(axis='x')
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
     f.tight_layout()
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, momentum_dump, time, tce, savedir,
-                       basename):
+def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, momentum_dump, time, tce, savefp):
     """ Plot phase-folded and binned momentum dump timeseries.
 
     Args:
@@ -1122,8 +1114,7 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
         momentum_dump: NumPy array, phase-folded momentum dump time series
         time: NumPy array, phase-folded time
         tce: Pandas Series, TCE information
-        savedir: str, save directory
-        basename: str, added to the figure filename
+        savefp: str, save directory
 
     Returns:
 
@@ -1133,29 +1124,28 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
     ax[0].plot(time, momentum_dump)
     ax[0].set_xlim(time[[0, -1]])
     ax[0].set_ylabel('Flag')
-    ax[0].set_xlabel('Phase (day)')
+    ax[0].set_xlabel('Phase [day]')
     ax[0].set_title('Full-orbit View')
     ax[1].plot(binned_time, loc_mom_dump_view)
     ax[1].plot(binned_time, loc_mom_dump_view + loc_mom_dump_view_var, 'r--')
     ax[1].plot(binned_time, loc_mom_dump_view - loc_mom_dump_view_var, 'r--')
     ax[1].set_xlim(binned_time[[0, -1]])
     ax[1].set_ylabel('Momentum Dump Flag')
-    ax[1].set_xlabel('Binned Time (day)')
+    ax[1].set_xlabel('Binned Time [day]')
     ax[1].set_title('Transit View')
     f.tight_layout()
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savedir, basename):
+def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savefp):
     """ Plot momentum dump timeseries.
 
     Args:
         time_momentum_dump: NumPy array, time array
         momentum_dump: NumPy array, momentum dump
         tce: Pandas Series, TCE information
-        savedir: str, save directory
-        basename: str, added to the figure filename
+        savefp: Path, save filepath
 
     Returns:
 
@@ -1164,8 +1154,8 @@ def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savedi
     f, ax = plt.subplots()
     ax.plot(time_momentum_dump, momentum_dump)
     ax.set_xlim(time_momentum_dump[[0, -1]])
-    ax.set_xlabel('Time (day)')
+    ax.set_xlabel('Time [day]')
     ax.set_ylabel('Momentum Dump Flag')
     f.tight_layout()
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.savefig(savefp)
     plt.close()

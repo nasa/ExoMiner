@@ -4,7 +4,7 @@
 import numpy as np
 
 # local
-from src_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
+from src_preprocessing.lc_preprocessing.utils_ephemeris import create_binary_time_series, find_first_epoch_after_this_time
 
 
 def gap_this_tce(all_time, tce, gap_pad=0):
@@ -50,7 +50,7 @@ def gap_this_tce(all_time, tce, gap_pad=0):
     return gapped_idxs
 
 
-def gap_other_tces(all_time, add_info, tce, table, config, gap_pad=0, keep_overlap=False):
+def gap_other_tces(all_time, tce, table, config, gap_pad=0, keep_overlap=False):
     """ Remove from the time series the cadences that belong to other TCEs in the light curve. These values are set to
     NaN.
 
@@ -66,7 +66,7 @@ def gap_other_tces(all_time, add_info, tce, table, config, gap_pad=0, keep_overl
 
     gapped_idxs = []
 
-    # get gapped TCEs ephemeris
+    # get gapped TCEs ephemerides
     if config['satellite'] == 'kepler':  # Kepler
         # get the ephemeris for TCEs in the same target star
         gap_ephems = table.loc[(table['target_id'] == tce.target_id) &

@@ -9,7 +9,7 @@ import pandas as pd
 from astropy.io import fits
 
 # local
-from src_preprocessing.kepler_io import kepler_filenames
+from src_preprocessing.lc_preprocessing.kepler_io import kepler_filenames
 
 # %% Add Kepler Stellar parameters in the TCE table in the NASA Exoplanet Archive
 # last time updated? Provenance all except star radius: KIC, J-K, Pinsonneault, Spectroscopy, Photometry,

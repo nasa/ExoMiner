@@ -14,7 +14,7 @@ import multiprocessing
 import yaml
 
 # local
-from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
 
 
 def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, diff_imgList=None, **kwargs):

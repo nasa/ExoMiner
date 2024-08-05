@@ -8,8 +8,8 @@ from astropy.stats import mad_std
 
 # local
 from src_preprocessing.light_curve import median_filter, util
-from src_preprocessing.utils_imputing import impute_binned_ts
-from src_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.lc_preprocessing.utils_imputing import impute_binned_ts
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 
 
 def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=False):
@@ -28,7 +28,7 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
           time array. Values are sorted in ascending order.
       timeseries: 1D NumPy array. Values are the same as the original input
           array, but sorted by folded_time.
-      num_transits: int, number of transits in the time series.
+      num_transits: int, number of transits (partial transits included) in the time series.
     """
 
     # Phase fold time.
@@ -218,7 +218,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
                     odd_even_obs = odd_even_obs * n_full_group_phases + odd_even_obs[:n_partial_group_phases]
 
                 else:
-                    raise ValueError(f'Extend method for phases `{extend_method}` not implemented.')
+                    raise NotImplementedError(f'Extend method for phases `{extend_method}` not implemented.')
 
     else:
         # assign each phase to a season
@@ -424,9 +424,11 @@ def normalize_view(view, val=None, centroid=False, **kwargs):
         val = np.abs(np.max(view)) if centroid else np.abs(np.min(view))
 
     if val == 0:
-        print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
-        report_exclusion(kwargs['report']['config'], kwargs['report']['tce'],
-                         f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
+        # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
+        report_exclusion(
+            f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+                         )
 
         return view
 
@@ -445,9 +447,11 @@ def centering_and_normalization(view, val_centr, val_norm, **kwargs):
     """
 
     if val_norm == 0:
-        print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
-        report_exclusion(kwargs['report']['config'], kwargs['report']['tce'],
-                         f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
+        # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
+        report_exclusion(
+            f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+                         )
 
         return view - val_centr
 
@@ -544,9 +548,11 @@ def local_view(time,
     t_max = min(period / 2, duration * num_durations)
 
     if t_min > time[-1] or t_max < time[0]:
-        report_exclusion(kwargs['report']['config'],
-                         tce,
-                         f'No in-transit cadences in view {kwargs["report"]["view"]}.')
+        report_exclusion(
+            f'No in-transit cadences in view {kwargs["report"]["view"]}. Setting local view to '
+            f'random Gaussian noise using med/mad_std statistics from the phase folded time series.',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
+                         )
         time_bins = np.linspace(t_min, t_max, num_bins, endpoint=True)
         med = np.median(flux)
         std_rob_estm = mad_std(flux)  # robust std estimator of the time series

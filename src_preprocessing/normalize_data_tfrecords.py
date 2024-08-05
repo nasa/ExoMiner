@@ -9,7 +9,6 @@ Output: new TFRecord data set with normalized data.
 """
 
 # 3rd party
-import shutil
 from pathlib import Path
 import multiprocessing
 import numpy as np
@@ -18,8 +17,8 @@ import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
-from src_preprocessing.preprocess import centering_and_normalization
+from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 
 
 def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):

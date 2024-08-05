@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import warnings
 
 # local
-from src_preprocessing.utils_ephemeris import find_first_epoch_after_this_time
-from src_preprocessing.utils_ephemeris import create_binary_time_series
+from src_preprocessing.lc_preprocessing.utils_ephemeris import find_first_epoch_after_this_time
+from src_preprocessing.lc_preprocessing.utils_ephemeris import create_binary_time_series
 from src_preprocessing.diff_img.extracting.utils_diff_img import plot_diff_img_data as plot_diff_img_data_extracted
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import (preprocess_single_diff_img_data_for_example,
                                                                           plot_diff_img_data)
