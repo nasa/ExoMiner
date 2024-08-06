@@ -146,11 +146,11 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
 
     if mask_in_transit.all():
         time = lc.time.value
-        trend = np.nanmedian(lc.flux.value)
+        trend = np.nanmedian(lc.flux.value) * np.ones_like(lc.flux.value)
         detrended_flux = lc.flux.value / trend
-        res_flux = lc.flux.value - detrended_flux
+        # res_flux = lc.flux.value - detrended_flux
 
-        return time, detrended_flux, trend, res_flux
+        return time, detrended_flux, trend
 
     n_samples = len(lc.flux.value)
     poly_order_arr = np.arange(0, max_poly_order + 1)
@@ -175,4 +175,4 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
     # res_flux = lc.flux.value - trend
     # res_flux[mask_in_transit] = np.nan  # mask in-transit cadences in the residual flux
 
-    return time, detrended_flux, trend # , res_flux
+    return time, detrended_flux, trend  # , res_flux

@@ -25,14 +25,14 @@ def is_pfe():
     return False
 
 
-def report_exclusion(id_str, save_fp, error_tb=None):
+def report_exclusion(id_str, save_fp, error_log=None):
     """ Error log is saved into a txt file with the reasons why a given TCE was not preprocessed.
 
     # :param config: dict with parameters for the preprocessing. Check the Config class
     # :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
     :param id_str: str, contains info on the cause of exclusion
     :param save_fp: str, file path to save the error log
-    :param error_tb: Exception object
+    :param error_log: dict, exception type, value, and traceback
     :return:
     """
 
@@ -40,9 +40,9 @@ def report_exclusion(id_str, save_fp, error_tb=None):
         # if first_exclusion:
         #     excl_file.write(uid_str)
         excl_file.write(f'Info: {id_str}\n')
-        if error_tb:
+        if error_log:
             excl_file.write(f'Traceback for the exception:\n')
-            traceback.print_exception(error_tb, file=excl_file)
+            traceback.print_exception(**error_log, file=excl_file)
 
         excl_file.write('##############\n')
 

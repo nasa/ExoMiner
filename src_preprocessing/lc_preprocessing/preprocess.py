@@ -96,6 +96,8 @@ BINNED_TIMESERIES_JOINT_PLOT = [
 
     'flux_trend_global',
     'flux_trend_local',
+    'flux_trend_global_norm',
+    # 'flux_trend_local_norm',
 
     # flux_trend_global_unfolded
     # flux_trend_global_unfolded_norm
@@ -158,7 +160,7 @@ def read_light_curve(tce, config):
             raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
                                     f'KIC {tce.target_id}')
 
-        data, fits_files_not_read = kepler_io.read_kepler_light_curve(
+        fits_data, fits_files_not_read = kepler_io.read_kepler_light_curve(
             file_names,
             centroid_radec=not config['px_coordinates'],
             prefer_psfcentr=config['prefer_psfcentr'],
@@ -170,11 +172,6 @@ def read_light_curve(tce, config):
             get_momentum_dump=config['get_momentum_dump'],
         )
 
-        if len(fits_files_not_read) > 0:
-            raise IOError(f'FITS files not read correctly for KIC {tce.target_id}: {fits_files_not_read}')
-
-        return data
-
     else:  # TESS
 
         # get sectors for the run
@@ -183,7 +180,6 @@ def read_light_curve(tce, config):
         else:
             s_sector, e_sector = [int(tce['sector_run'])] * 2
         sectors = range(s_sector, e_sector + 1)
-        # sectors = [int(sect) for sect in tce['sectors'].split(' ')]
 
         # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
         if config['ffi_data']:
@@ -192,12 +188,7 @@ def read_light_curve(tce, config):
             file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
 
         if not file_names:
-            # if not config['omit_missing']:
-            #     raise IOError(f'Failed to find .fits files in {config["lc_data_dir"]} for TESS ID {tce.target_id}')
-            # else:
-            #     report_exclusion(config, tce, f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
-            #                                   f'TIC {tce.target_id}')
-            #     return None
+
             raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
                                     f'TIC {tce.target_id}')
 
@@ -210,18 +201,10 @@ def read_light_curve(tce, config):
                                                                        dq_values_filter=config['dq_values_filter'],
                                                                        )
 
-        # if len(fits_files_not_read) > 0:
-        #     err_str = ''
-        #     for el in fits_files_not_read:
-        #         err_str += f'FITS file was not read correctly: {el}'
-        #         report_exclusion(config, tce, err_str)
-        #     if len(fits_files_not_read) == len(file_names):
-        #         report_exclusion(config, tce, f'No FITS files were read in {config["lc_data_dir"]}.')
-        #         return None
-        if len(fits_files_not_read) > 0:
-            raise IOError(f'FITS files not read correctly for TIC {tce.target_id}: {fits_files_not_read}')
+    if len(fits_files_not_read) > 0:
+        raise IOError(f'FITS files not read correctly for target {tce.target_id}: {fits_files_not_read}')
 
-        return fits_data
+    return fits_data
 
 
 def sample_ephemerides(tce, config):
@@ -327,6 +310,20 @@ def find_intransit_cadences(tce, table, data, config):
 
 
 def gap_intransit_cadences_other_tces(tce, table, data, config):
+    """ Find in-transit cadences (primary and secondary transits) for other detected TCEs in the light curve time series
+    and gaps them (i.e., sets cadences to NaN).
+
+        Args:
+            tce: pandas Series, TCE of interest
+            table: pandas Dataframe, TCE dataset
+            data: dict, lightcurve raw data from the FITS files (e.g., timestamps, flux, centroid motion time series)
+            config: dict, preprocessing parameters
+
+        Returns:
+            data, dict with light curve raw data from the FITS files, but now with cadences for the transits of other
+            detected TCEs set to NaN. If data['gap_imputed'] is True, gapped timestamps are stored in data['gap_time']
+    """
+
     # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
     timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']  # timeseries to be gapped
     data['gap_time'] = None
@@ -516,7 +513,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            PHASEFOLD_GRID_PLOTS,
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
-                                                           f'4_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
                                                            phasefolded_timeseries_posout
                                                            )
 
@@ -580,11 +577,11 @@ def process_tce(tce, table, config):
 
     data['errors'] = check_inputs(data)
 
-    # TODO: use this?
-    if config['satellite'] == 'kepler':
-        add_info = {'quarter': data['quarter'], 'module': data['module']}
-    else:
-        add_info = {'sectors': data['sectors']}
+    # # TODO: use this?
+    # if config['satellite'] == 'kepler':
+    #     add_info = {'quarter': data['quarter'], 'module': data['module']}
+    # else:
+    #     add_info = {'sectors': data['sectors']}
 
     # find transits for all detected TCEs in the target
     target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table, data, config)
@@ -610,8 +607,9 @@ def process_tce(tce, table, config):
                                                              config['intransit_cadences_target'],
                                                              config['intransit_cadences_tce'],
                                                              tce,
-                                                             config['plot_dir'],
-                                                             f'1_intransit_cadences_aug{tce["augmentation_idx"]}')
+                                                             config['plot_dir'] /
+                                                             f'{tce["uid"]}_{tce["label"]}_'
+                                                             f'1_intransit_cadences_aug{tce["augmentation_idx"]}.png')
 
     # gap cadences belonging to the transits of other TCEs in the same target star
     if config['gapped']:
@@ -644,6 +642,7 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
         trend: NumPy array, trend obtained when fitting detrending method to the flux timeseries
     """
 
+    # copy arrays
     time_arrs, flux_arrs, intransit_cadences_target, intransit_cadences_tce = \
         ([np.array(el) for el in all_time],
          [np.array(el) for el in all_flux],
@@ -658,45 +657,6 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
             intransit_cadences_target,
             intransit_cadences_tce
         ]))
-
-    # # add gap after and before transit based on transit duration
-    # if 'tce_maxmesd' in tce:
-    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-    #                           tce['tce_period'])
-    # else:
-    #     duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
-
-    # # get epoch of first transit for each time array
-    # first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-    #                           for time in time_arrs]
-    #
-    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    # binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
-    #                                              tce['tce_period'])
-    #                    for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_intransit_binary_timeseries(time_arrs, flux_arrs, binary_time_all, tce,
-    #                                                          config['plot_dir'],
-    #                                                          f'2_intransit_flux_binary_timeseries_aug{tce["augmentation_idx"]}')
-
-    # # gap secondary transits
-    # # get epoch of first transit for each time array
-    # first_transit_time_secondary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
-    #                                                                      tce['tce_period'], time[0])
-    #                                     for time in time_arrs]
-    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    # binary_time_secondary_all = [create_binary_time_series(time, first_transit_time_secondary,
-    #                                                        config['duration_gapped_secondary'],
-    #                                                        tce['tce_period'])
-    #                              for first_transit_time_secondary, time in
-    #                              zip(first_transit_time_secondary_all, time_arrs)]
-    # # set secondary in-transit cadences to np.nan
-    # flux_arrs = [np.where(binary_time_secondary, np.nan, flux_arr)
-    #              for flux_arr, binary_time_secondary in zip(flux_arrs, binary_time_secondary_all)]
-    #
-    # # remove non-finite values
-    # time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
 
     flux = np.concatenate(flux_arrs)
 
@@ -774,8 +734,8 @@ def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, tce, config,
 
     if plot_preprocessing_tce:
         utils_visualization.plot_intransit_binary_timeseries(time_arrs, flux_arrs, binary_time_all, tce,
-                                                             config['plot_dir'],
-                                                             '2_intransit_wksflux_binary_timeseries')
+                                                             config['plot_dir'] /
+                                                             '2_intransit_wksflux_binary_timeseries.png')
     # # gap primary transits
     # # get epoch of first transit for each time array
     # first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
@@ -849,6 +809,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
         transit to the target
     """
 
+    # copy arrays
     time_arrs, centroid_dict, intransit_cadences_target, intransit_cadences_tce = (
         [np.array(el) for el in all_time],
         {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()},
@@ -866,6 +827,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
 
         return time_centroid, centroid_dist
 
+    # remove missing NaN values from the time series
     time_arrs, centroid_dict['x'], centroid_dict['y'], intransit_cadences_target, intransit_cadences_tce = (
         remove_non_finite_values([
             time_arrs,
@@ -881,30 +843,6 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
         if add_info['module'][0] == 13:
             centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
 
-    # # gap primary in-transit cadences
-    # # get epoch of first transit for each time array
-    # first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-    #                           for time in time_arrs]
-    # # create in-transit binary time series for each time array
-    # binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
-    #                                              tce['tce_period'])
-    #                    for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-    #
-    # # gap secondary in-transit cadences
-    # # get epoch of first transit for each time array
-    # first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
-    #                                                            tce['tce_period'], time[0])
-    #                           for time in time_arrs]
-    # # create in-transit binary time series for each time array
-    # binary_time_secondary_all = [create_binary_time_series(time, first_transit_time,
-    #                                                        config['duration_gapped_secondary'], tce['tce_period'])
-    #                              for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-    #
-    # # merge both in-transit binary timeseries for primary and secondary in-transit cadences
-    # binary_time_all = [np.logical_or(binary_time_arr_primary, binary_time_arr_secondary)
-    #                    for binary_time_arr_primary, binary_time_arr_secondary
-    #                    in zip(binary_time_all, binary_time_secondary_all)]
-
     # get out-of-transit indices for the centroid time series
     centroid_oot = {coord: [centroids[~intransit_cadences_target_arr] for intransit_cadences_target_arr, centroids
                             in zip(intransit_cadences_target, centroid_dict[coord])] for coord in centroid_dict}
@@ -914,24 +852,11 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     avg_centroid_oot = {coord: np.nanmedian(np.concatenate(centroid_dict[coord])) if np.isnan(avg_centroid_oot_coord)
     else avg_centroid_oot_coord for coord, avg_centroid_oot_coord in avg_centroid_oot.items()}
 
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_intransit_binary_timeseries(time_arrs,
-    #                                                          centroid_dict,
-    #                                                          binary_time_all,
-    #                                                          tce,
-    #                                                          config['plot_dir'],
-    #                                                          f'2_intransit_centroids_binary_timeseries_aug{tce["augmentation_idx"]}',
-    #                                                          centroid=True)
-
-    time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
-                                                                                  centroid_dict['x'],
-                                                                                  centroid_dict['y']])
-
+    # detrend centroid motion time series
     detrended_centroid_dict = {centroid_coord: {'detrended': None, 'trend': None}
                                for centroid_coord in centroid_dict.keys()}
     for centroid_coord, centroid_coord_data in centroid_dict.items():
 
-        # detrend centroid
         if config['detrending_method'] == 'spline':
             time, detrended_centroid, trend, centroid_lininterp = (
                 detrend_flux_using_spline(centroid_coord_data, time_arrs, intransit_cadences_target, config))
@@ -977,8 +902,9 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                            detrended_centroid_dict,
                                            tce,
                                            config,
-                                           config['plot_dir'],
-                                           f'3_1_detrendedcentroids_aug{tce["augmentation_idx"]}',
+                                           config['plot_dir'] /
+                                           f'{tce["uid"]}_{tce["label"]}_'
+                                           f'3_1_detrendedcentroids_aug{tce["augmentation_idx"]}.png',
                                            config['px_coordinates'],
                                            target_position,
                                            config['delta_dec'],
@@ -1035,8 +961,9 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                      avg_centroid_oot,
                                                      tce,
                                                      config,
-                                                     config['plot_dir'],
-                                                     f'3_2_correctedcentroids_aug{tce["augmentation_idx"]}',
+                                                     config['plot_dir'] /
+                                                     f'{tce["uid"]}_{tce["label"]}_'
+                                                     f'3_2_correctedcentroids_aug{tce["augmentation_idx"]}.png',
                                                      config['px_coordinates'],
                                                      target_position=target_position,
                                                      delta_dec=config['delta_dec']
@@ -1054,8 +981,9 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                 centroid_dist,
                                                 tce,
                                                 config,
-                                                config['plot_dir'],
-                                                f'3_3_distcentr_aug{tce["augmentation_idx"]}')
+                                                config['plot_dir'] /
+                                                f'{tce["uid"]}_{tce["label"]}_'
+                                                f'3_3_distcentr_aug{tce["augmentation_idx"]}.png')
 
     return time_centroid, centroid_dist
 
@@ -1170,19 +1098,12 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     else:
         add_info_centr = None
 
-    # detrend flux time series
-    # try:
     flux_time, flux, flux_trend = flux_preprocessing(data['all_time'],
                                                      data['all_flux'],
                                                      tce,
                                                      config,
                                                      plot_preprocessing_tce)
-    # except Exception as e:
-    #     report_exclusion(config, tce, 'Error when preprocessing flux.', stderr=e)
-    #     time, flux, flux_trend = None, None, None
 
-    # detrend centroid time series
-    # try:
     centroid_dist_time, centroid_dist = centroid_preprocessing(data['all_time'],
                                                                data['all_centroids'],
                                                                data['target_position'],
@@ -1190,9 +1111,6 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
                                                                tce,
                                                                config,
                                                                plot_preprocessing_tce)
-    # except Exception as e:
-    #     report_exclusion(config, tce, 'Error when preprocessing centroids.', stderr=e)
-    #     centroid_dist_time, centroid_dist = None, None
 
     if config['get_momentum_dump']:
         momentum_dump_time, momentum_dump = remove_non_finite_values([data['time_momentum_dump'],
@@ -1205,7 +1123,7 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
                                                               tce,
                                                               config['plot_dir'] /
                                                               f'{tce["uid"]}_{tce["label"]}_'
-                                                              f'2_momentum_dump_timeseries.png')
+                                                              f'4_momentum_dump_timeseries.png')
 
     # dictionary with detrended time series
     detrended_data = {
@@ -1235,7 +1153,7 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
         # odd_data: dict, odd data
         # even_data: dict, even data
         odd_even_flag: str, odd and even flag
-        num_transits: dict, number of transits per timeseries
+        # num_transits: dict, number of transits per timeseries
         # inds_bin_nan: dict, indices of bins with missing values per views
         t_min_transit: float, left edge in-transit phase time
         t_max_transit: float, right edge in-transit phase time
@@ -1256,13 +1174,18 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
                           (binned_timeseries['centroid_offset_distance_to_target_global'][0] > t_max_transit)
     loc_centr_it_bins = (binned_timeseries['centroid_offset_distance_to_target_local'][0] >= t_min_transit) & \
                         (binned_timeseries['centroid_offset_distance_to_target_local'][0] <= t_max_transit)
-    example_stats['avg_oot_centroid_offset'] = np.median(binned_timeseries['centroid_offset_distance_to_target_global'][1][glob_centr_oot_bins])
-    example_stats['std_oot_centroid_offset'] = mad_std(binned_timeseries['centroid_offset_distance_to_target_global'][1][glob_centr_oot_bins])
-    example_stats['peak_centroid_offset'] = np.max(binned_timeseries['centroid_offset_distance_to_target_local'][1][loc_centr_it_bins]) - \
+    example_stats['avg_oot_centroid_offset'] = np.median(
+        binned_timeseries['centroid_offset_distance_to_target_global'][1][glob_centr_oot_bins])
+    example_stats['std_oot_centroid_offset'] = mad_std(
+        binned_timeseries['centroid_offset_distance_to_target_global'][1][glob_centr_oot_bins])
+    example_stats['peak_centroid_offset'] = np.max(
+        binned_timeseries['centroid_offset_distance_to_target_local'][1][loc_centr_it_bins]) - \
                                             example_stats['avg_oot_centroid_offset']
 
-    example_stats['mid_local_flux_shift'] = np.argmin(binned_timeseries['centroid_offset_distance_to_target_local'][1]) - int(config['num_bins_loc'] / 2)
-    example_stats['mid_global_flux_shift'] = np.argmin(binned_timeseries['centroid_offset_distance_to_target_global'][1]) - int(config['num_bins_glob'] / 2)
+    example_stats['mid_local_flux_shift'] = np.argmin(
+        binned_timeseries['centroid_offset_distance_to_target_local'][1]) - int(config['num_bins_loc'] / 2)
+    example_stats['mid_global_flux_shift'] = np.argmin(
+        binned_timeseries['centroid_offset_distance_to_target_global'][1]) - int(config['num_bins_glob'] / 2)
 
     # flux
     loc_flux_it_bins = (binned_timeseries['flux_local'][0] >= t_min_transit) & \
@@ -1281,22 +1204,27 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
     loc_flux_odd_it_bins = (binned_timeseries['flux_odd_local'][0] >= t_min_transit) & \
                            (binned_timeseries['flux_odd_local'][0] <= t_max_transit)
     ind = np.argmin(binned_timeseries['flux_odd_local'][1][loc_flux_odd_it_bins])
-    example_stats['transit_depth_odd_hat'] = (1 - binned_timeseries['flux_odd_local'][1][loc_flux_odd_it_bins][ind]) * 1e6
+    example_stats['transit_depth_odd_hat'] = (1 - binned_timeseries['flux_odd_local'][1][loc_flux_odd_it_bins][
+        ind]) * 1e6
     example_stats['transit_depth_odd_hat_se'] = binned_timeseries['flux_odd_local'][2][loc_flux_odd_it_bins][ind] * 1e6
 
     loc_flux_even_it_bins = (binned_timeseries['flux_even_local'][0] >= t_min_transit) & \
                             (binned_timeseries['flux_even_local'][0] <= t_max_transit)
     ind = np.argmin(binned_timeseries['flux_even_local'][1][loc_flux_even_it_bins])
-    example_stats['transit_depth_even_hat'] = (1 - binned_timeseries['flux_even_local'][1][loc_flux_even_it_bins][ind]) * 1e6
-    example_stats['transit_depth_even_hat_se'] = binned_timeseries['flux_even_local'][2][loc_flux_even_it_bins][ind] * 1e6
+    example_stats['transit_depth_even_hat'] = (1 - binned_timeseries['flux_even_local'][1][loc_flux_even_it_bins][
+        ind]) * 1e6
+    example_stats['transit_depth_even_hat_se'] = binned_timeseries['flux_even_local'][2][loc_flux_even_it_bins][
+                                                     ind] * 1e6
 
     # weak secondary flux
     loc_flux_wks_it_bins = (binned_timeseries['flux_weak_secondary_local'][0] >= t_min_transit) & \
                            (binned_timeseries['flux_weak_secondary_local'][0] <= t_max_transit)
     ind = np.argmin(binned_timeseries['flux_weak_secondary_local'][1][loc_flux_wks_it_bins])
-    example_stats['wks_transit_depth_hat'] = (1 - binned_timeseries['flux_weak_secondary_local'][1][loc_flux_wks_it_bins][
-        ind]) * 1e6
-    example_stats['wks_transit_depth_hat_se'] = binned_timeseries['flux_weak_secondary_local'][2][loc_flux_wks_it_bins][ind] * 1e6
+    example_stats['wks_transit_depth_hat'] = (1 -
+                                              binned_timeseries['flux_weak_secondary_local'][1][loc_flux_wks_it_bins][
+                                                  ind]) * 1e6
+    example_stats['wks_transit_depth_hat_se'] = binned_timeseries['flux_weak_secondary_local'][2][loc_flux_wks_it_bins][
+                                                    ind] * 1e6
 
     # # add number of missing bins for each view (excluding odd and even local views)
     # for key in inds_bin_nan:
@@ -1307,7 +1235,22 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
 
 
 def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preprocessing_tce):
+    """ Generates odd and even flux local binned time series from phase folded data.
 
+         Args:
+           data: dictionary, containing preprocessed (detrended and phase-folded) time series
+           tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
+           example output.
+           config: dict; preprocessing parameters.
+           norm_stats: dict, normalization statistics
+           plot_preprocessing_tce: bool, if True, generates figure plots
+
+         Returns:
+           A dict with keys 'flux_odd_local' and 'flux_even_local' plus their normalization versions ({}_norm). Each key
+           maps to a tuple of the binned time, binned time series, the companion variability binned time series, and the
+           number of phase folded cycles used when binning.
+           A str flag describing the preprocessing of the odd and even phase folded data into binned time series
+     """
     odd_data, even_data, odd_even_flag = create_odd_even_views(data['flux_odd'][0],
                                                                data['flux_odd'][1],
                                                                data['flux_even'][0],
@@ -1346,7 +1289,7 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
                                           tce,
                                           config,
                                           config['plot_dir'] /
-                                          f'{tce["uid"]}_{tce["label"]}_8_oddeven_transitdepth_phasefoldedbinned_'
+                                          f'{tce["uid"]}_{tce["label"]}_8_1_oddeven_transitdepth_phasefoldedbinned_'
                                           f'timeseries_aug{tce["augmentation_idx"]}.png'
                                           )
 
@@ -1354,6 +1297,21 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
 
 
 def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
+    """ Generates flux binned time series from phase folded data.
+
+         Args:
+           data: dictionary, containing preprocessed (detrended and phase-folded) time series
+           tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
+           example output.
+           config: dict; preprocessing parameters.
+           plot_preprocessing_tce: bool, if True, generates figure plots
+
+         Returns:
+           A dict with keys 'flux_global' and 'flux_local', their corresponding unfolded versions
+           'flux_{global_local}_unfolded', plus their normalization versions ({}_norm). Each key maps to a tuple of the
+           binned time, binned time series, the companion variability binned time series, and the number of phase
+           folded cycles used when binning.
+     """
 
     # create global flux view
     glob_flux_view, glob_binned_time, glob_flux_view_var, _, bin_counts = \
@@ -1402,7 +1360,8 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
                                            config['num_bins_glob'],
                                            tce,
                                            config['plot_dir'] /
-                                           f'{tce["uid"]}_{tce["label"]}_8_riverplot_aug{tce["augmentation_idx"]}.png')
+                                           f'{tce["uid"]}_{tce["label"]}_'
+                                           f'6_riverplot_flux_aug{tce["augmentation_idx"]}.png')
 
     # create local flux view
     loc_flux_view, loc_binned_time, loc_flux_view_var, _, bin_counts = \
@@ -1493,6 +1452,21 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
 
 
 def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
+    """ Generates flux trend binned time series from phase folded data.
+
+            Args:
+              data: dictionary, containing preprocessed (detrended and phase-folded) time series
+              tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features
+              in the example output.
+              config: dict; preprocessing parameters.
+              plot_preprocessing_tce: bool, if True, generates figure plots
+
+            Returns:
+              A dict with keys 'flux_trend_global' and 'flux_trend_local', their corresponding unfolded versions
+              'flux_trend_{global_local}_unfolded', plus their normalization versions ({}_norm). Each key maps to a
+              tuple of the binned time, binned time series, the companion variability binned time series, and the number
+               of phase folded cycles used when binning.
+    """
 
     # create global flux view
     glob_flux_view, glob_binned_time, glob_flux_view_var, _, bin_counts = \
@@ -1542,7 +1516,7 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                                            tce,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'8_riverplot_trend_aug{tce["augmentation_idx"]}')
+                                           f'7_riverplot_flux_trend_aug{tce["augmentation_idx"]}.png')
 
     # create local flux view
     loc_flux_view, loc_binned_time, loc_flux_view_var, _, bin_counts = \
@@ -1614,6 +1588,20 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
 
 
 def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
+    """ Generates weak secondary flux local binned time series from phase folded data.
+
+        Args:
+          data: dictionary, containing preprocessed (detrended and phase-folded) time series
+          tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
+          example output.
+          config: dict; preprocessing parameters.
+          norm_stats: dict, containing normalization statistics
+
+        Returns:
+          A dict with keys 'flux_weak_secondary_local' and 'flux_weak_secondary_local_norm'
+          (before/after normalization), each containing a tuple of the local binned time, local binned time series, the
+          companion variability binned time series, and the number of phase folded cycles used when binning
+    """
 
     # create local view for the weak secondary flux
     loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, _, bin_counts = \
@@ -1634,9 +1622,9 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
     # to create the local view
     if np.all(np.isnan(loc_weak_secondary_view)):
         report_exclusion(
-                         f'No data available for local weak secondary view. Setting it to Gaussian noise using '
-                         f'statistics from the global wks view.',
-                         config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+            f'No data available for local weak secondary view. Setting it to Gaussian noise using '
+            f'statistics from the global wks view.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
         mu, sigma = np.nanmedian(data['flux_weak_secondary'][1]), mad_std(data['flux_weak_secondary'][1],
                                                                           ignore_nan=True)
         rng = np.random.default_rng()
@@ -1707,8 +1695,20 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
 
 
 def generate_centroid_binned_views(data, tce, config):
+    """ Generates centroid binned time series from phase folded data.
 
-    # get centroid views
+    Args:
+      data: dictionary, containing preprocessed (detrended and phase-folded) time series
+      tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
+      example output.
+      config: dict; preprocessing parameters.
+
+    Returns:
+      A dict with keys 'centroid_offset_distance_to_target_global' and 'centroid_offset_distance_to_target_global', each
+      containing a tuple of the global/local binned time, global/local binned time series, the companion variability
+      binned time series, and the number of phase folded cycles used when binning
+    """
+
     glob_centr_view, glob_binned_time, glob_centr_view_var, _, bin_counts = \
         global_view(data['centroid_offset_distance_to_target'][0],
                     data['centroid_offset_distance_to_target'][1],
@@ -1872,6 +1872,27 @@ def generate_centroid_binned_views(data, tce, config):
     #                                              os.path.join(config['output_dir'], 'plots'),
     #                                              '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
 
+    # centr_views = {'global_centr_view': glob_centr_view,
+    #                'local_centr_view': loc_centr_view,
+    #                # 'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
+    #                # 'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
+    #                # 'global_centr_view_medn': glob_centr_view_mn,
+    #                # 'local_centr_view_medn': loc_centr_view_mn,
+    #                # 'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
+    #                # 'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
+    #                # 'global_centr_fdl_view': glob_centr_fdl_view,
+    #                # 'local_centr_fdl_view': loc_centr_fdl_view
+    #                }
+    #
+    # # # adjust TESS centroids to Kepler by dividing by pixel scale factor
+    # # if config['satellite'] == 'tess':
+    # #     centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
+    # #     centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
+    #
+    # centr_views_var = {'global_centr_view': glob_centr_view_var,
+    #                    'local_centr_view': loc_centr_view_var,
+    #                    }
+
     binned_timeseries = {
         'centroid_offset_distance_to_target_global': (glob_binned_time, glob_centr_view, glob_centr_view_var,
                                                       data['centroid_offset_distance_to_target'][2]),
@@ -1883,6 +1904,20 @@ def generate_centroid_binned_views(data, tce, config):
 
 
 def generate_momentum_dump_views(data, tce, config, plot_preprocessing_tce):
+    """ Generates momentum dump binned time series from phase folded data.
+
+    Args:
+      data: dictionary, containing preprocessed (detrended and phase-folded) time series
+      tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
+      example output.
+      config: dict; preprocessing parameters.
+      plot_preprocessing_tce: bool, if True plots figures for some steps while generating the inputs.
+
+    Returns:
+      A dict with key 'momentum_dump_local' containing a tuple of the local binned time, local binned time
+      series, the companion variability binned time series, and the number of phase folded cycles used when binning
+      (set to -1 means unused)
+    """
 
     loc_mom_dump_view, loc_mom_dump_view_var, binned_time = generate_view_momentum_dump(
         data['momentum_dump'][0],
@@ -1900,7 +1935,7 @@ def generate_momentum_dump_views(data, tce, config, plot_preprocessing_tce):
                                                data['momentum_dump'][0],
                                                tce,
                                                config['plot_dir'] /
-                                               f'{tce["uid"]}_{tce["label"]}_9_momentum_dump_phase_and_binned.png')
+                                               f'{tce["uid"]}_{tce["label"]}_8_2_momentum_dump_phase_and_binned.png')
 
     binned_timeseries = {
         'momentum_dump_local': (binned_time, loc_mom_dump_view, loc_mom_dump_view_var, -1)
@@ -1937,13 +1972,16 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     binned_timeseries = {}
     # inds_bin_nan = {}
 
+    # create binned time series for flux
     binned_timeseries_flux, binned_flux_global_norm_stats, binned_flux_local_norm_stats = (
         generate_flux_binned_views(data, tce, config, plot_preprocessing_tce))
     binned_timeseries.update(binned_timeseries_flux)
 
+    # create binned time series for flux trend
     binned_timeseries_flux_trend = generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce)
     binned_timeseries.update(binned_timeseries_flux_trend)
 
+    # create binned time series for odd/even flux
     binned_timeseries_odd_even_flux, odd_even_flag = generate_odd_even_binned_views(data,
                                                                                     tce,
                                                                                     config,
@@ -1951,195 +1989,18 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                                                     plot_preprocessing_tce)
     binned_timeseries.update(binned_timeseries_odd_even_flux)
 
+    # create binned time series for weak secondary flux
     binned_timeseries_wksecondary = generate_weak_secondary_binned_views(data,
                                                                          tce,
                                                                          config,
                                                                          norm_stats=binned_flux_local_norm_stats)
     binned_timeseries.update(binned_timeseries_wksecondary)
 
+    # create binned time series for centroid motion
     binned_timeseries_centroid = generate_centroid_binned_views(data, tce, config)
     binned_timeseries.update(binned_timeseries_centroid)
 
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_wks(glob_view, glob_view_weak_secondary, tce, config,
-    #                                  os.path.join(config['output_dir'], 'plots'), '8_wks_test')
-
-    # flux_views = {'global_flux_view': glob_flux_view,
-    #               'local_flux_view': loc_flux_view,
-    #               'local_flux_odd_view': odd_data['local_flux_view'],
-    #               'local_flux_even_view': even_data['local_flux_view'],
-    #               'unfolded_global_flux_view': unfolded_glob_flux_view,
-    #               'unfolded_local_flux_view': unfolded_loc_flux_view,
-    #               }
-    #
-    # flux_views_var = {'global_flux_view': glob_flux_view_var,
-    #                   'local_flux_view': loc_flux_view_var,
-    #                   'local_flux_odd_view': odd_data['local_flux_view_se'],
-    #                   'local_flux_even_view': even_data['local_flux_view_se'],
-    #                   'unfolded_global_flux_view': unfolded_glob_flux_view_var,
-    #                   'unfolded_local_flux_view': unfolded_loc_flux_view_var,
-    #                   }
-
-    # get normalization statistics for global and local flux views
-    # flux_views_stats = {'median': {'global': np.median(binned_timeseries['flux_global'][1]),
-    #                                'local': np.median(binned_timeseries['flux_global'][1])}}
-    # flux_views_stats['min'] = {'global': np.abs(np.min(binned_timeseries['flux_global'][1] -
-    #                                                    flux_views_stats['median']['global'])),
-    #                            'local': np.abs(np.min(binned_timeseries['flux_local'][1] -
-    #                                                   flux_views_stats['median']['local']))}
-    #
-    # # center by the flux view median and normalize by the flux view absolute minimum
-    # binned_timeseries_norm = {timeseries_name: 4 * (None,) for timeseries_name in binned_timeseries}
-    # for timeseries_name, (binned_time, binned_values, binned_values_var, n_transits) in binned_timeseries.items():
-    #     if 'unfolded' in timeseries_name:
-    #         binned_values_norm = np.nan * np.zeros_like(binned_values)
-    #         for binned_phase_i, binned_phase in enumerate(binned_values):
-    #             binned_values_norm[binned_phase_i] = (
-    #                 centering_and_normalization(binned_phase,
-    #                                             flux_views_stats['median'][
-    #                                                 ('local', 'global')['global' in timeseries_name]],
-    #                                             flux_views_stats['min'][
-    #                                                 ('local', 'global')['global' in timeseries_name]],
-    #                                             report={'config': config, 'tce': tce, 'view': timeseries_name}
-    #                                             ))
-    #         binned_timeseries_norm[timeseries_name][1] = binned_values_norm
-    # views_aux = {}
-    # for flux_view in flux_views:
-    #
-    #     if 'unfolded' in flux_view:
-    #         views_aux[f'{flux_view}_fluxnorm'] = []
-    #         for phase in flux_views[flux_view]:
-    #             new_phase = \
-    #                 centering_and_normalization(phase,
-    #                                             flux_views_stats['median'][
-    #                                                 ('local', 'global')['global' in flux_view]],
-    #                                             flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-    #                                             report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                             )
-    #             views_aux[f'{flux_view}_fluxnorm'].append(new_phase)
-    #         views_aux[f'{flux_view}_fluxnorm'] = np.array(views_aux[f'{flux_view}_fluxnorm'])
-    #
-    #     views_aux[f'{flux_view}_fluxnorm'] = \
-    #         centering_and_normalization(flux_views[flux_view],
-    #                                     flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-    #                                     flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    # flux_views.update(views_aux)
-    # views_aux = {}
-    # for flux_view in flux_views_var:
-    #     if 'unfolded' in flux_view:
-    #         views_aux[f'{flux_view}_fluxnorm'] = []
-    #         for phase in flux_views_var[flux_view]:
-    #             new_phase = \
-    #                 centering_and_normalization(phase,
-    #                                             0,
-    #                                             flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-    #                                             report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                             )
-    #             views_aux[f'{flux_view}_fluxnorm'].append(new_phase)
-    #         views_aux[f'{flux_view}_fluxnorm'] = np.array(views_aux[f'{flux_view}_fluxnorm'])
-    #
-    #     views_aux[f'{flux_view}_fluxnorm'] = \
-    #         centering_and_normalization(flux_views_var[flux_view],
-    #                                     0,
-    #                                     flux_views_stats['min'][('local', 'global')['global' in flux_view]],
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    # flux_views_var.update(views_aux)
-
-    # normalize odd-even uncertainty by transit depth
-
-    # # center by the weak secondary flux view median and normalize by the weak secondary flux view absolute minimum
-    # weak_secondary_flux_views = {
-    #     'local_weak_secondary_view': loc_weak_secondary_view
-    # }
-    # weak_secondary_flux_views_var = {
-    #     'local_weak_secondary_view': loc_weak_secondary_view_var
-    # }
-    # views_aux = {}
-    # for flux_view in weak_secondary_flux_views:
-    #     weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
-    #     norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] - weak_secondary_view_median))
-    #
-    #     # normalize by self absolute minimum
-    #     views_aux[f'{flux_view}_selfnorm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views[flux_view],
-    #                                     weak_secondary_view_median,
-    #                                     norm_wks_factor_selfnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    #     # normalize by flux absolute minimum
-    #     norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
-    #     views_aux[f'{flux_view}_fluxnorm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views[flux_view],
-    #                                     flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-    #                                     norm_wks_factor_fluxnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    #     # normalize by max between flux absolute minimum and wks flux absolute minimum
-    #     norm_wks_factor_fluxselfnorm = max(norm_wks_factor_fluxnorm, norm_wks_factor_selfnorm),
-    #     views_aux[f'{flux_view}_max_flux-wks_norm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views[flux_view],
-    #                                     flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-    #                                     norm_wks_factor_fluxselfnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    # weak_secondary_flux_views.update(views_aux)
-    #
-    # views_aux = {}
-    # for flux_view in weak_secondary_flux_views_var:
-    #     weak_secondary_view_median = np.median(weak_secondary_flux_views[flux_view])
-    #     norm_wks_factor_selfnorm = np.abs(np.min(weak_secondary_flux_views[flux_view] -
-    #                                              weak_secondary_view_median))
-    #
-    #     # normalize by self absolute minimum
-    #     views_aux[f'{flux_view}_selfnorm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-    #                                     0,
-    #                                     norm_wks_factor_selfnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    #     # normalize by flux absolute minimum
-    #     norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
-    #     views_aux[f'{flux_view}_fluxnorm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-    #                                     0,
-    #                                     norm_wks_factor_fluxnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    #     # normalize by max between flux absolute minimum and wks flux absolute minimum
-    #     norm_wks_factor_fluxselfnorm = max(norm_wks_factor_selfnorm, norm_wks_factor_fluxnorm)
-    #     views_aux[f'{flux_view}_max_flux-wks_norm'] = \
-    #         centering_and_normalization(weak_secondary_flux_views_var[flux_view],
-    #                                     0,
-    #                                     norm_wks_factor_fluxselfnorm,
-    #                                     report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                     )
-    # weak_secondary_flux_views_var.update(views_aux)
-    #
-    # centr_views = {'global_centr_view': glob_centr_view,
-    #                'local_centr_view': loc_centr_view,
-    #                # 'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
-    #                # 'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
-    #                # 'global_centr_view_medn': glob_centr_view_mn,
-    #                # 'local_centr_view_medn': loc_centr_view_mn,
-    #                # 'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
-    #                # 'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
-    #                # 'global_centr_fdl_view': glob_centr_fdl_view,
-    #                # 'local_centr_fdl_view': loc_centr_fdl_view
-    #                }
-    #
-    # # # adjust TESS centroids to Kepler by dividing by pixel scale factor
-    # # if config['satellite'] == 'tess':
-    # #     centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
-    # #     centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
-    #
-    # centr_views_var = {'global_centr_view': glob_centr_view_var,
-    #                    'local_centr_view': loc_centr_view_var,
-    #                    }
-
-    # create local view for momentum dump
+    # create binned time series for momentum dump
     if config['get_momentum_dump']:
         binned_timeseries_momentum_dump = generate_momentum_dump_views(data, tce, config, plot_preprocessing_tce)
         binned_timeseries.update(binned_timeseries_momentum_dump)
@@ -2151,7 +2012,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                                         config,
                                                         config['plot_dir'] /
                                                         f'{tce["uid"]}_{tce["label"]}_'
-                                                        f'8_phasefoldedbinned_timeseries_'
+                                                        f'9_1_phasefoldedbinned_timeseries_'
                                                         f'aug{tce["augmentation_idx"]}.png'
                                                         )
 
@@ -2163,85 +2024,33 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
                                            BINNED_TIMESERIES_JOINT_PLOT_GRID,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'8_binned_timeseries_aug{tce["augmentation_idx"]}.png',
+                                           f'9_2_binned_timeseries_aug{tce["augmentation_idx"]}.png',
                                            plot_var=True
                                            )
 
-    # initialize dictionary with the views that will be stored in the TFRecords example for this TCE
+    # initialize dictionary with the binned time series that will be stored in the TFRecords example for this TCE
     for binned_ts_name, binned_ts_data in binned_timeseries.items():
 
         # check if time series have NaN values
         if np.any(~np.isfinite(binned_ts_data[1])):  # at least one point is non-finite (infinite or NaN)
             raise ValueError(f'Binned time series {binned_ts_name} has at least one non-finite data point.')
-            # report_exclusion(config, tce, f'View has at least one non-finite data point in binned time series '
-            #                               f'{binned_ts_name}.')
-            # return None
 
         if np.any(~np.isfinite(binned_ts_data[2])):  # at least one point is non-finite (infinite or NaN)
             raise ValueError(f'Binned var time series {binned_ts_name} has at least one non-finite data point.')
-            # report_exclusion(config, tce,
-            #                  f'View has at least one non-finite data point in binned time series var '
-            #                  f'{binned_ts_name}.')
-            # return None
 
         # add binned time series to the example
-        if 'unfolded' in binned_ts_name:
+        if 'unfolded' in binned_ts_name:  # unfolded phase binned time series
             example_util.set_tensor_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
             example_util.set_tensor_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
                                             binned_ts_data[2])
-        else:
+        else:  # phase folded time series
             example_util.set_float_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
             example_util.set_float_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
                                            binned_ts_data[2])
 
-        # add number of transits per view
+        # add number of transits per binned time series
         example_util.set_int64_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_num_transits',
                                        [binned_ts_data[3]])
-
-        # views[MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]] = binned_ts_data[1]
-        # views_var[f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var'] = binned_ts_data[2]
-        # view_n_transits[] = binned_ts_data[3]
-
-    # views = {}
-    # views.update(flux_views)
-    # views.update(weak_secondary_flux_views)
-    # views.update(centr_views)
-    # if config['get_momentum_dump']:
-    #     views['local_momentum_dump_view'] = loc_mom_dump_view
-    #
-    # views_var = {}
-    # views_var.update(flux_views_var)
-    # views_var.update(weak_secondary_flux_views_var)
-    # views_var.update(centr_views_var)
-    # if config['get_momentum_dump']:
-    #     views_var['local_momentum_dump_view'] = loc_mom_dump_view_var
-
-    # except Exception as e:
-    #     report_exclusion(config, tce, 'Error when creating views', stderr=e)
-    #     return None
-
-    # check if time series have NaN values
-    # for view in views:
-    #     if np.any(~np.isfinite(views[view])):  # at least one point is non-finite (infinite or NaN)
-    #         report_exclusion(config, tce, f'View has at least one non-finite data point in view {view}.')
-    #         return None
-    #
-    # for view in views_var:
-    #     if np.any(~np.isfinite(views_var[view])):  # at least one point is non-finite (infinite or NaN)
-    #         report_exclusion(config, tce, f'View has at least one non-finite data point in view {view}_var.')
-    #         return None
-    #
-    # # set time series features in the example to be written to a TFRecord
-    # for view in views:
-    #     if 'unfolded' in view:
-    #         example_util.set_tensor_feature(ex, view, views[view])
-    #     else:
-    #         example_util.set_float_feature(ex, view, views[view])
-    # for view in views_var:
-    #     if 'unfolded' in view:
-    #         example_util.set_tensor_feature(ex, f'{view}_var', views[view])
-    #     else:
-    #         example_util.set_float_feature(ex, f'{view}_var', views[view])
 
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():
@@ -2257,7 +2066,7 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
             report_exclusion(f'Could not set up this TCE table parameter: {name}.',
                              config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                              e
-                            )
+                             )
 
     # # add number of transits per view
     # for view in num_transits:
@@ -2277,11 +2086,11 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
     example_stats = create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_transit, config)
 
-    try:
-        a = []
-        a[0]
-    except Exception as e:
-        raise ValueError('aaaa', e.__traceback__).with_traceback(e.__traceback__) from None
-        # raise ValueError('aa')
+    # try:
+    #     a = []
+    #     a[0]
+    # except Exception as e:
+    #     raise ValueError('aaaa', e.__traceback__).with_traceback(e.__traceback__) from None
+    #     # raise ValueError('aa')
 
     return ex, example_stats

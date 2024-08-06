@@ -23,17 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Rank', default=-1)
     parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
-    parser.add_argument('--output_dir', type=str, help='File path output directory for this preprocessing run',
+    parser.add_argument('--output_dir', type=str,
+                        help='File path output directory for this preprocessing run',
                         default=None)
-    parser.add_argument('--config_fp', type=str, help='File path to yaml config file for this preprocessing run',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/lc_preprocessing/config_preprocessing.yaml')
+    parser.add_argument('--config_fp', type=str,
+                        help='File path to yaml config file for this preprocessing run',
+                        default='./config_preprocessing.yaml')
     args = parser.parse_args()
 
     # get the configuration parameters
-    path_to_yaml = Path(args.config_fp)
+    path_to_yaml = Path(args.config_fp).resolve()
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
@@ -162,4 +165,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()

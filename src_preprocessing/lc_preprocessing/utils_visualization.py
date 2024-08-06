@@ -1,4 +1,4 @@
-"""cccAuxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
+""" Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
 
 # 3rd party
 import os
@@ -16,7 +16,7 @@ DEGREETOARCSEC = 3600
 
 
 def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_target, intransit_cadences_tce, tce,
-                                     savedir, basename):
+                                     savefp):
     """ Creates and saves a 2x1 figure with plots that show the ephemeris pulse train and the flux time-series for
     a given TCE.
 
@@ -24,20 +24,22 @@ def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_targ
     :param all_flux: list of numpy arrays, flux time-series
     :param intransit_cadences_target: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
     for all detected TCEs in the target star
-    :param intransit_cadences_target: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
+    :param intransit_cadences_tce: list of numpy arrays, binary arrays with 1 for in-transit cadences and 0 otherwise
     for the TCE of interest
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
-    :param savedir: Path, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath used to save figure
     :return:
     """
 
     # if not centroid:
     f, ax = plt.subplots(2, 1, sharex=True, figsize=(14, 8))
 
-    for i in range(len(all_time)):
-        ax[0].plot(all_time[i], intransit_cadences_target[i], 'b', zorder=1, label='Detected target TCEs')
-        ax[0].plot(all_time[i], intransit_cadences_tce[i], 'k--', zorder=2, label='TCE', linewidth=2)
+    n_arrs = len(all_time)
+    for i in range(n_arrs):
+        ax[0].plot(all_time[i], intransit_cadences_target[i], 'b', zorder=1,
+                   label=None if i < n_arrs - 1 else 'Detected target TCEs')
+        ax[0].plot(all_time[i], intransit_cadences_tce[i], 'k--', zorder=2,
+                   label=None if i < n_arrs - 1 else 'TCE of interest', linewidth=2)
         ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
     ax[0].legend()
     ax[0].set_title('Binary timeseries')
@@ -76,11 +78,11 @@ def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_targ
     #     ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
 
     f.suptitle(f'{tce.uid} {tce.label}')
-    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_centroids(time, centroids, detrended_centroids, tce, config, savedir, basename, pxcoordinates=False,
+def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, pxcoordinates=False,
                    target_position=None, delta_dec=None):
     """ Creates and saves a figure with plots that show the centroid, trend, and detrended centroid timeseries for a
     given TCE.
@@ -93,8 +95,7 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savedir, b
     linearly interpolated raw centroid timeseries used for fitting 'linear_interp'
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters
-    :param savedir: Path, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath to saved figure
     :param pxcoordinates: bool, whether centroid values are in row/col pixel values or celestial coordinates
     :param target_position: list, position of the target [row, col] (or [RA, Dec], if centroid is in celestial
     coordinates)
@@ -174,7 +175,7 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savedir, b
 
     f.suptitle(f'{tce.uid} {tce.label}\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} '
                f'({target_position_unit})')
-    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    plt.savefig(savefp)
     plt.close()
 
 
@@ -322,7 +323,7 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     plt.close()
 
 
-def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, tce, config, savedir, basename, pxcoordinates,
+def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, tce, config, savefp, pxcoordinates,
                              target_position=None, delta_dec=None):
     """ Creates and saves a 2x2 figure with plots that show the corrected centroid timeseries and the respective
     out-of-transit centroid, as well as the target position, for a given TCE.
@@ -332,8 +333,7 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, tce, con
     :param avg_centroid_oot: dict ('x' and 'y' keys), coordinates of the average out-of-transit centroid
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame.
     :param config: dict, preprocessing parameters.
-    :param savedir: Path, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savedir: Path, filepath to save figure
     :param pxcoordinates: bool, whether centroid values are in row/col pixel values or celestial coordinates
     :param target_position: list, position of the target [row, col] (or [RA, Dec], if centroid is in celestial
     coordinates)
@@ -390,13 +390,13 @@ def plot_corrected_centroids(all_time, all_centroids, avg_centroid_oot, tce, con
     ax[1].set_xlabel('Time [day]')
     ax[1].set_xlim(all_time[[0, -1]])
 
-    f.suptitle(f'TCE {tce.uid} {tce.label}'
+    f.suptitle(f'{tce.uid} {tce.label}'
                f'\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} ({target_position_unit})')
-    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    plt.savefig(savefp)
     plt.close()
 
 
-def plot_dist_centroids(time, centroid_dist, tce, config, savedir, basename, pxcoordinates=False):
+def plot_dist_centroids(time, centroid_dist, tce, config, savefp, pxcoordinates=False):
     """ Creates and saves a figure with plots that show the centroid-to-target distance and, if desired, the fitted
     spline and the respective spline normalized centroid-to-target distance, for a given TCE.
 
@@ -404,8 +404,8 @@ def plot_dist_centroids(time, centroid_dist, tce, config, savedir, basename, pxc
     :param centroid_dist: numpy array, centroid-to-target distance
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters
-    :param savedir: Path, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
+    :param savefp: Path, filepath to save figure
+    :param pxcoordinates: bool, if True sets label to pixel instead of arcsec
     :return:
     """
 
@@ -420,7 +420,7 @@ def plot_dist_centroids(time, centroid_dist, tce, config, savedir, basename, pxc
     ax.set_xlim(time[[0, -1]])
 
     f.suptitle(f'{tce.uid} {tce.label}')
-    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    plt.savefig(savefp)
     plt.close()
 
 

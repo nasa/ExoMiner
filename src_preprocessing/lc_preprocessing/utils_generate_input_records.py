@@ -69,10 +69,14 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                 try:
                     example = process_tce(tce, eph_table, config)
                 except Exception as error:
+                    if len(error.args) == 1:
+                        error_log = {'etype': None, 'value': error, 'tb': error.__traceback__}
+                    if len(error.args) == 2:
+                        error_log = {'etype': None, 'value': error.args[0], 'tb': error.args[1]}
                     report_exclusion(
-                        'Error caught inside the preprocessing pipeline.',
+                        '',
                         config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-                        error)
+                        error_log)
                     continue
 
                 if example is not None:
