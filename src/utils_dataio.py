@@ -278,11 +278,13 @@ class InputFnv2(object):
         # number of parallel calls is set dynamically based on available CPU; it defines number of parallel calls to
         # process asynchronously
         # dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False)
+        dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True
+        if self.mode == 'PREDICT' else False)
 
         # creates batches by combining consecutive elements
         # dataset = dataset.batch(self.batch_size)
-        dataset = dataset.batch(self.batch_size, deterministic=False, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset = dataset.batch(self.batch_size, deterministic=True if self.mode == 'PREDICT' else False,
+                                num_parallel_calls=tf.data.AUTOTUNE)
 
         # prefetches batches determined by the buffer size chosen
         # parallelized processing in the CPU with model computations in the GPU
