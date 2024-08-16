@@ -69,14 +69,23 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                 try:
                     example = process_tce(tce, eph_table, config)
                 except Exception as error:
-                    if len(error.args) == 1:
-                        error_log = {'etype': None, 'value': error, 'tb': error.__traceback__}
-                    if len(error.args) == 2:
-                        error_log = {'etype': None, 'value': error.args[0], 'tb': error.args[1]}
+
+                    # for python 3.11
                     report_exclusion(
                         '',
                         config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-                        error_log)
+                        error)
+
+                    # Python
+                    # if len(error.args) == 1:
+                    #     error_log = {'etype': None, 'value': error, 'tb': error.__traceback__}
+                    # if len(error.args) == 2:
+                    #     error_log = {'etype': None, 'value': error.args[0], 'tb': error.args[1]}
+                    # report_exclusion(
+                    #     '',
+                    #     config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
+                    #     error_log)
+
                     continue
 
                 if example is not None:
@@ -156,7 +165,8 @@ def get_tce_table(config):
     # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
     # tce_table = tce_table.loc[tce_table['uid'].isin(filt_tbl['uid'])]
     # tce_table = tce_table.loc[tce_table['uid'].isin(['158657354-1-S14-55'])]
-    tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
+    tce_table = tce_table.loc[tce_table['target_id'] == 179123560]
+    # tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 

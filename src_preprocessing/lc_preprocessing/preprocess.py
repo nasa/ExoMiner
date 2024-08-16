@@ -36,6 +36,8 @@ from src_preprocessing.lc_preprocessing.phase_fold_and_binning import (global_vi
                                                                        phase_split_light_curve,
                                                                        centering_and_normalization,
                                                                        generate_view_momentum_dump)
+from src_preprocessing.lc_preprocessing.lc_periodogram import lc_periodogram_pipeline
+
 
 DEGREETOARCSEC = 3600
 NORM_SIGMA_EPS = 1e-12
@@ -242,15 +244,17 @@ def sample_ephemerides(tce, config):
     return tce
 
 
-def find_intransit_cadences(tce, table, data, config):
+def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_secondary=None):
     """ Find in-transit cadences (primary and secondary transits) for TCE of interest and also other detected TCEs for
     the target star found in `table`.
 
     Args:
         tce: pandas Series, TCE of interest
         table: pandas Dataframe, TCE dataset
-        data: dict, lightcurve raw data from the FITS files (e.g., timestamps, flux, centroid motion time series)
-        config: dict, preprocessing parameters
+        time_arrs: list of NumPy arrays, timestamp values
+        duration_primary: float, primary transit duration
+        duration_secondary: float, secondary transit duration; if `None`, then secondary transits are not considered.
+        To account for secondary transits, the TCEs in `table` must contain the secondary phase 'tce_maxmesd'
 
     Returns:
         target_intransit_cadences_arr, list of boolean NumPy arrays (n_tces_in_target, n_cadences); each row is for a
@@ -266,36 +270,36 @@ def find_intransit_cadences(tce, table, data, config):
     logger.info(f'[{tce["uid"]}] Found {n_tces_in_target} TCEs in target {tce["target_id"]}.')
 
     target_intransit_cadences_arr = [np.zeros((n_tces_in_target, len(time_arr)), dtype='bool')
-                                     for time_arr in data['all_time']]
+                                     for time_arr in time_arrs]
     for tce_in_target_i, tce_in_target in tces_in_target.iterrows():  # iterate on target's TCEs
 
         # get epoch of first transit for each time array
         first_transit_time = [find_first_epoch_after_this_time(tce_in_target['tce_time0bk'],
                                                                tce_in_target['tce_period'],
                                                                time[0])
-                              for time in data["all_time"]]
+                              for time in time_arrs]
 
         # create binary time series for each time array in which in-transit points are labeled as True, otherwise False
         tce_intransit_cadences_arr = [create_binary_time_series(time,
                                                                 first_transit_time,
-                                                                config['duration_gapped_primary'],
+                                                                duration_primary,
                                                                 tce_in_target['tce_period'])
-                                      for first_transit_time, time in zip(first_transit_time, data["all_time"])]
+                                      for first_transit_time, time in zip(first_transit_time, time_arrs)]
 
-        if 'tce_maxmesd' in tce_in_target:  # do the same for the detected secondary transits
+        if 'tce_maxmesd' in tce_in_target and duration_secondary:  # do the same for the detected secondary transits
 
             first_transit_time_secondary = [find_first_epoch_after_this_time(tce_in_target['tce_time0bk'] +
                                                                              tce_in_target['tce_maxmesd'],
                                                                              tce_in_target['tce_period'],
                                                                              time[0])
-                                            for time in data["all_time"]]
+                                            for time in time_arrs]
 
             tce_intransit_cadences_arr_secondary = [create_binary_time_series(time,
                                                                               first_transit_time,
-                                                                              config['duration_gapped_secondary'],
+                                                                              duration_secondary,
                                                                               tce_in_target['tce_period'])
                                                     for first_transit_time, time in
-                                                    zip(first_transit_time_secondary, data["all_time"])]
+                                                    zip(first_transit_time_secondary, time_arrs)]
 
             # update TCE array for primary with secondary transits
             tce_intransit_cadences_arr = [np.logical_or(primary_arr, secondary_arr)
@@ -584,7 +588,10 @@ def process_tce(tce, table, config):
     #     add_info = {'sectors': data['sectors']}
 
     # find transits for all detected TCEs in the target
-    target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table, data, config)
+    target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table,
+                                                                     data['all_time'],
+                                                                     config['duration_gapped_primary'],
+                                                                     config['duration_gapped_secondary'])
 
     # build boolean array with in-transit cadences based on all detected TCEs in the target
     target_intransit_cadences_bool_arr = [np.sum(target_intransit_cadences, axis=0) != 0
@@ -597,6 +604,7 @@ def process_tce(tce, table, config):
     config['outoftransit_cadences_target'] = target_outoftransit_cadences_bool_arr
 
     # get boolean array with in-transit cadences for the TCE of interest
+    # FIXME: arent these arrays already boolean?
     tce_intransit_cadences_arr = [target_intransit_cadences[idx_tce].astype('bool') for target_intransit_cadences
                                   in target_intransit_cadences_arr]
     config['intransit_cadences_tce'] = tce_intransit_cadences_arr
@@ -616,14 +624,23 @@ def process_tce(tce, table, config):
         # TODO: fix code for gapping transits
         data = gap_intransit_cadences_other_tces(tce, table, data, config)
 
+    # compute lc periodogram
+    pgram_data = lc_periodogram_pipeline(
+        config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
+        config['smooth_filter_type'], config['smooth_filter_w_f'],
+        config['gap_padding'],
+        tce, data['all_time'], data['all_flux'], data['all_flux_err'],
+        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png',
+        plot_preprocessing_tce=plot_preprocessing_tce)
+
     # detrend the flux and centroid time series
-    data_detrended = process_light_curve(data, config, tce, plot_preprocessing_tce)
+    detrended_data = process_light_curve(data, config, tce, plot_preprocessing_tce)
 
     # phase fold detrended data using detected orbital period
-    phase_folded_data = phase_fold_timeseries(data_detrended, config, tce, plot_preprocessing_tce)
+    phase_folded_data = phase_fold_timeseries(detrended_data, config, tce, plot_preprocessing_tce)
 
     # bin phase folded data and generate TCE example based on the preprocessed data
-    example_tce = generate_example_for_tce(phase_folded_data, tce, config, plot_preprocessing_tce)
+    example_tce = generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_preprocessing_tce)
 
     return example_tce
 
@@ -1944,11 +1961,14 @@ def generate_momentum_dump_views(data, tce, config, plot_preprocessing_tce):
     return binned_timeseries
 
 
-def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
+def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_preprocessing_tce=False):
     """ Generates a tf.train.Example representing an input TCE.
 
     Args:
-      data: dictionary, containing preprocessed (detrended and phase-folded) time series used to generate the views
+      phase_folded_data: dictionary, containing preprocessed (detrended and phase-folded) time series used to generate
+      the binned time series (aka views)
+      pgram_data: dict that maps to different computed periodograms (e.g., whether for the lc or transit pulse model
+      data, whether smoothed, and whether normalized)
       tce: pandas Series, contains TCE parameters and DV statistics. Additional items are included as features in the
       example output.
       config: dict; preprocessing parameters.
@@ -1974,15 +1994,16 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
 
     # create binned time series for flux
     binned_timeseries_flux, binned_flux_global_norm_stats, binned_flux_local_norm_stats = (
-        generate_flux_binned_views(data, tce, config, plot_preprocessing_tce))
+        generate_flux_binned_views(phase_folded_data, tce, config, plot_preprocessing_tce))
     binned_timeseries.update(binned_timeseries_flux)
 
     # create binned time series for flux trend
-    binned_timeseries_flux_trend = generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce)
+    binned_timeseries_flux_trend = generate_flux_trend_binned_views(phase_folded_data,
+                                                                    tce, config, plot_preprocessing_tce)
     binned_timeseries.update(binned_timeseries_flux_trend)
 
     # create binned time series for odd/even flux
-    binned_timeseries_odd_even_flux, odd_even_flag = generate_odd_even_binned_views(data,
+    binned_timeseries_odd_even_flux, odd_even_flag = generate_odd_even_binned_views(phase_folded_data,
                                                                                     tce,
                                                                                     config,
                                                                                     binned_flux_local_norm_stats,
@@ -1990,23 +2011,24 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
     binned_timeseries.update(binned_timeseries_odd_even_flux)
 
     # create binned time series for weak secondary flux
-    binned_timeseries_wksecondary = generate_weak_secondary_binned_views(data,
+    binned_timeseries_wksecondary = generate_weak_secondary_binned_views(phase_folded_data,
                                                                          tce,
                                                                          config,
                                                                          norm_stats=binned_flux_local_norm_stats)
     binned_timeseries.update(binned_timeseries_wksecondary)
 
     # create binned time series for centroid motion
-    binned_timeseries_centroid = generate_centroid_binned_views(data, tce, config)
+    binned_timeseries_centroid = generate_centroid_binned_views(phase_folded_data, tce, config)
     binned_timeseries.update(binned_timeseries_centroid)
 
     # create binned time series for momentum dump
     if config['get_momentum_dump']:
-        binned_timeseries_momentum_dump = generate_momentum_dump_views(data, tce, config, plot_preprocessing_tce)
+        binned_timeseries_momentum_dump = generate_momentum_dump_views(phase_folded_data,
+                                                                       tce, config, plot_preprocessing_tce)
         binned_timeseries.update(binned_timeseries_momentum_dump)
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_phasefolded_and_binned(data,
+        utils_visualization.plot_phasefolded_and_binned(phase_folded_data,
                                                         binned_timeseries,
                                                         tce,
                                                         config,
@@ -2051,6 +2073,16 @@ def generate_example_for_tce(data, tce, config, plot_preprocessing_tce=False):
         # add number of transits per binned time series
         example_util.set_int64_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_num_transits',
                                        [binned_ts_data[3]])
+
+    # add periodogram data
+    for pgram_name, pgram in pgram_data.items():
+
+        pgram_arr = pgram.power.value
+        # check if periodogram have NaN values
+        if np.any(~np.isfinite(pgram_arr)):  # at least one point is non-finite (infinite or NaN)
+            raise ValueError(f'Periodogram {pgram_name} has at least one non-finite data point.')
+
+        example_util.set_float_feature(ex, pgram_name, pgram_arr)
 
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():

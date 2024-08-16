@@ -32,7 +32,8 @@ def report_exclusion(id_str, save_fp, error_log=None):
     # :param tce: Pandas Series, row of the input TCE table Pandas DataFrame.
     :param id_str: str, contains info on the cause of exclusion
     :param save_fp: str, file path to save the error log
-    :param error_log: dict, exception type, value, and traceback
+    :param error_log: Error, exception error
+    # :param error_log: dict, exception type, value, and traceback
     :return:
     """
 
@@ -42,7 +43,8 @@ def report_exclusion(id_str, save_fp, error_log=None):
         excl_file.write(f'Info: {id_str}\n')
         if error_log:
             excl_file.write(f'Traceback for the exception:\n')
-            traceback.print_exception(**error_log, file=excl_file)
+            # traceback.print_exception(**error_log, file=excl_file)
+            traceback.print_exception(error_log, file=excl_file)
 
         excl_file.write('##############\n')
 
@@ -52,6 +54,7 @@ def create_tbl_from_exclusion_logs(excl_fps, max_n_errors_logged):
 
     Args:
         excl_fps: list, file paths to exclusion logs.
+        max_n_errors_logged: int, maximum number of logged exclusion logs.
 
     Returns: exclusion_tbl, pandas DataFrame, table with examples and corresponding exclusion events that occurred when
     preprocessing.
