@@ -56,10 +56,10 @@ logger.info(f'Removing examples not in the data set... (total number of examples
             f'examples: {len(dataset_tbl)})')
 
 # # removing unlabeled examples or examples not used for evaluation
-# used_tces = ~tce_tbl_dataset['label'].isin(unlabeled_cats)
-working_tce_tbl = dataset_tbl  # tce_tbl_dataset.loc[used_tces]
+used_tces = ~dataset_tbl['label'].isin(unlabeled_cats)
+working_tce_tbl = dataset_tbl.loc[used_tces]
 
-# logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
+logger.info(f'Removing unlabeled examples or examples not used for evaluation: {used_tces.sum()} examples left.')
 
 logger.info(f'Total number of examples in dataset after removing examples: {len(working_tce_tbl)}')
 
@@ -113,18 +113,17 @@ for fold_i, target_stars_split in enumerate(target_stars_splits):
 #                                        axis=0).reset_index(drop=True)
 #     fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
-# # tces not in the eval set
-# logger.info('Splitting at TCE level...')
-# shard_tbls_predict_dir = data_dir / 'shard_tables' / 'predict'
-# shard_tbls_predict_dir.mkdir(exist_ok=True, parents=True)
-# unused_tces = ~tce_tbl_dataset['uid'].isin(working_tce_tbl['uid'])
-# logger.info(f'Number of TCEs in the predict set: {unused_tces.sum()}')
-# tce_tbl_noteval = tce_tbl_dataset.loc[unused_tces]
-# tce_tbl_noteval.to_csv(data_dir / f'examples_noteval.csv', index=False)
-# tce_splits = np.array_split(range(len(tce_tbl_noteval)), n_folds_predict, axis=0)
-# for fold_i, tce_split in enumerate(tce_splits):
-#     fold_tce_tbl = tce_tbl_noteval[tce_split[0]:tce_split[-1] + 1]
-#     fold_tce_tbl.to_csv(shard_tbls_predict_dir / f'unlabeled_dataset_tbl_fold{fold_i}.csv', index=False)
+# tces not in the eval set
+unused_tces = ~dataset_tbl['uid'].isin(working_tce_tbl['uid'])
+logger.info(f'Working with unlabeled subset: {unused_tces.sum()} examples.')
+shard_tbls_predict_dir = data_dir / 'shard_tables' / 'predict'
+shard_tbls_predict_dir.mkdir(exist_ok=True, parents=True)
+dataset_noteval = dataset_tbl.loc[unused_tces]
+dataset_noteval.to_csv(data_dir / f'unlabeled_dataset.csv', index=False)
+tce_splits = np.array_split(range(len(dataset_noteval)), n_folds_predict, axis=0)
+for fold_i, tce_split in enumerate(tce_splits):
+    fold_tce_tbl = dataset_noteval[tce_split[0]:tce_split[-1] + 1]
+    fold_tce_tbl.to_csv(shard_tbls_predict_dir / f'unlabeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
 #%% Check distribution of examples per fold
 

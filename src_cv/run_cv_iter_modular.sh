@@ -25,10 +25,10 @@ export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # Paths
 SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
-TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/train_model.py
+TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train_model.py
 CREATE_ENSEMBLE_MODEL_SCRIPT_FP=$PYTHONPATH/models/create_ensemble_avg_model.py
-EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/evaluate_model.py
-PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src_cv/predict_model.py
+EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate_model.py
+PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
 
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 # CV_ITER=$GNU_PARALLEL_INDEX
