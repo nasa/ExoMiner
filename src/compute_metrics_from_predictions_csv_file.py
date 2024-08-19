@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # mapping between category label and class id in predictions file
     cats = {
         # Kepler
-         'PC': 1,
+        #  'PC': 1,
         # 'AFP': 0,
         # 'NTP': 0,
         # Kepler Sim
@@ -157,15 +157,15 @@ if __name__ == '__main__':
         # TESS
         'KP': 1,
         'CP': 1,
-        'BD': 0,
-        # 'EB': 0,
+        # 'BD': 0,
+        'EB': 0,
         # 'B': 0,
         'FP': 0,
-        'NEB': 0,
-        'NPC': 0,
+        # 'NEB': 0,
+        # 'NPC': 0,
         # 'J': 0,
         # 'FA': 0,
-        # 'NTP': 0,
+        'NTP': 0,
     }
     num_thresholds = 1000
     clf_threshold = 0.5
@@ -176,19 +176,16 @@ if __name__ == '__main__':
     multiclass = False
     multiclass_target_score = None
 
-    # file path to predictions file
-    model = 'model_without_flux_5Fold_CV'
-    set = ['train', 'val', 'test']
-    for i in set:
-        predictions_tbl_fp = Path(f"/Users/agiri1/Library/CloudStorage/OneDrive-NASA/brown_dwarf_model_test_results/{model}/ensemble_ranked_predictions_{i}set.csv")
-        # save path
-        save_fp = Path(f"/Users/agiri1/Library/CloudStorage/OneDrive-NASA/brown_dwarf_model_test_results/{model}/ensemble_ranked_predictions_metrics2{i}set.csv")
+    # predictions table filepath
+    predictions_tbl_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_spline_all_3-29-2024_1046/ensemble_ranked_predictions_allfolds_higher_tce_num_transits_obs.csv")
+    # save path
+    save_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_spline_all_3-29-2024_1046/metrics_high_tce_num_transits_obs_onlymatchedobjects.csv")
 
-        predictions_tbl = pd.read_csv(predictions_tbl_fp)
-        # predictions_tbl['score'] = predictions_tbl['mean_score']
+    predictions_tbl = pd.read_csv(predictions_tbl_fp)
+    predictions_tbl = predictions_tbl[~predictions_tbl['matched_object'].isna()]
 
-        predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
-        metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
-                                                      class_name, cat_name)
+    predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
+    metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
+                                                  class_name, cat_name)
 
-        metrics_df.to_csv(save_fp, index=False)
+    metrics_df.to_csv(save_fp, index=False)

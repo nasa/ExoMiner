@@ -12,6 +12,9 @@ from src_preprocessing.lc_preprocessing.utils_imputing import impute_binned_ts
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 
 
+NORM_SIGMA_EPS = 1e-12
+
+
 def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=False):
     """ Phase folds a light curve and sorts by ascending time.
 
@@ -430,9 +433,7 @@ def normalize_view(view, val=None, centroid=False, **kwargs):
             kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
                          )
 
-        return view
-
-    return view / val
+    return view / (val + NORM_SIGMA_EPS)
 
 
 def centering_and_normalization(view, val_centr, val_norm, **kwargs):
@@ -453,9 +454,7 @@ def centering_and_normalization(view, val_centr, val_norm, **kwargs):
             kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
                          )
 
-        return view - val_centr
-
-    return (view - val_centr) / val_norm
+    return (view - val_centr) / (val_norm + NORM_SIGMA_EPS)
 
 
 def global_view(time, flux, period, tce, num_bins=2001, bin_width_factor=1/2001, centroid=False, normalize=True,

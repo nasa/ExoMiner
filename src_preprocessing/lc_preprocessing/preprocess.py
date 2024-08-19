@@ -2094,11 +2094,12 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                 example_util.set_bytes_feature(ex, name, [value])
             else:
                 example_util.set_feature(ex, name, [value])
-        except Exception as e:
-            report_exclusion(f'Could not set up this TCE table parameter: {name}.',
-                             config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-                             e
-                             )
+        except Exception:
+            raise TypeError(f'Could not set up this TCE table parameter: {name}.')
+            # report_exclusion(f'Could not set up this TCE table parameter: {name}.',
+            #                  config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
+            #                  e
+            #                  )
 
     # # add number of transits per view
     # for view in num_transits:

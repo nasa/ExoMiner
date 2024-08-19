@@ -1,7 +1,7 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_tfrecords_tess_spoc_2min_rnd100tces_sgdetrending_1.2hwin_8-5-2024_1400
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_tfrecords_tess_spoc_2min_8-19-2024_1356
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs.csv
+input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv
 # light curve FITS file directory
 lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc
 
@@ -103,6 +103,14 @@ sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS lc (30
   kepler: 2
   tess: 30  # 2-min: 30; ffi: 6
 tess_to_kepler_sampling_ratio: 15  # 2-min: 15; ffi: 3
+
+# lc periodogram
+p_min_tce : 0.2  # in days, shortest period to measure
+k_harmonics: 5  # shortest period is multiplied by `k_harmonics` to give max freq 1 / p_min_tce * k_harmonics
+p_max_obs: 54  # in days, longest period to measure (min freq is 1 / p_max_obs)
+downsampling_f: 2  # downsampling factor when computing frequency range
+smooth_filter_type: boxkernel  # choose between 'boxkernel' and 'logmedian'
+smooth_filter_w_f: 2  # width of smoothing filter
 
 # scalar parameters that show up in the plots of the preprocessed views
 scalar_params: [
