@@ -5,7 +5,7 @@ Utility functions used for generating input TFRecords.
 # 3rd party
 import pandas as pd
 import numpy as np
-import json
+# import json
 import logging
 import multiprocessing
 import datetime
@@ -36,6 +36,7 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                             format='%(asctime)s - %(message)s',
                             datefmt='%Y-%m-%d %H:%M:%S',
                             filemode='w',
+                            force=True
                             )
 
     # get shard name and size
@@ -165,7 +166,7 @@ def get_tce_table(config):
     # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
     # tce_table = tce_table.loc[tce_table['uid'].isin(filt_tbl['uid'])]
     # tce_table = tce_table.loc[tce_table['uid'].isin(['158657354-1-S14-55'])]
-    tce_table = tce_table.loc[tce_table['target_id'] == 179123560]
+    # tce_table = tce_table.loc[tce_table['target_id'] == 179123560]
     # tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
@@ -216,17 +217,17 @@ def shuffle_tce(tce_table, seed=123):
     return tce_table
 
 
-def is_jsonable(x):
-    """ Test if object is JSON serializable.
-
-    :param x: object
-    :return:
-    """
-
-    try:
-        json.dumps(x)
-        return True
-
-    except Exception as error:
-        print(f'Error: {error}')
-        return False
+# def is_jsonable(x):
+#     """ Test if object is JSON serializable.
+#
+#     :param x: object
+#     :return:
+#     """
+#
+#     try:
+#         json.dumps(x)
+#         return True
+#
+#     except Exception as error:
+#         print(f'Error: {error}')
+#         return False

@@ -604,9 +604,8 @@ def process_tce(tce, table, config):
     config['outoftransit_cadences_target'] = target_outoftransit_cadences_bool_arr
 
     # get boolean array with in-transit cadences for the TCE of interest
-    # FIXME: arent these arrays already boolean?
-    tce_intransit_cadences_arr = [target_intransit_cadences[idx_tce].astype('bool') for target_intransit_cadences
-                                  in target_intransit_cadences_arr]
+    tce_intransit_cadences_arr = [target_intransit_cadences[idx_tce]
+                                  for target_intransit_cadences in target_intransit_cadences_arr]
     config['intransit_cadences_tce'] = tce_intransit_cadences_arr
 
     if plot_preprocessing_tce:

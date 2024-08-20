@@ -102,20 +102,13 @@ def main():
         logger.info('Shuffled TCE Table.')
 
     if config['process_i'] in [0, -1]:
+        np.save(config['output_dir'] / 'preprocessing_params.npy', config)
         # save the YAML file with preprocessing parameters that are YAML serializable
         json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
         with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as preproc_run_file:
             yaml.dump(json_dict, preproc_run_file)
 
     if config['using_mpi']:  # using some sort of external library for parallelization
-
-        if config['process_i'] == 0:
-            # save preprocessing configuration used
-            np.save(config['output_dir'] / 'preprocessing_params.npy', config)
-            # save the YAML file with preprocessing parameters that are YAML serializable
-            json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-            with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as cv_run_file:
-                yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
         filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
@@ -133,13 +126,6 @@ def main():
         logger.info(f'END-PI:{config["output_dir"]}')
 
     else:  # use multiprocessing.Pool
-
-        # save preprocessing configuration used
-        np.save(config['output_dir'] / 'preprocessing_params.npy', config)
-        # save the YAML file with preprocessing parameters that are YAML serializable
-        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
-        with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as cv_run_file:
-            yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
         file_shards = create_shards(config, tce_table)
 

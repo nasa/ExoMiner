@@ -1159,3 +1159,97 @@ def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savefp
     f.tight_layout()
     plt.savefig(savefp)
     plt.close()
+
+
+def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmonics=5):
+    """ Creates figure with plots of 1) the raw flux time series and transit pulse model, 2) the periodograms for both
+    time series (not-smoothed and smoothed versions), and 3) the corresponding normalized periodograms.
+
+    Args:
+        tce_data: pandas Series, TCE parameters
+        save_fp: Path, save filepath
+        lc_data: lightkurve LightCurve object with raw light curve data
+        lc_tpm_data: lightkurve LightCurve object with transit pulse model data
+        pgram_res: dict that maps to different computed periodograms (e.g., whether for the lc or transit pulse model
+        data, whether smoothed, and whether normalized)
+        n_harmonics: int, number of harmonics to display
+
+    Returns:
+    """
+
+    f0_tce = 1 / (tce_data['tce_period'] * 24 * 3600)  # in 1/s
+
+    f, ax = plt.subplots(3, 1, figsize=(14, 10))
+
+    ax[0].scatter(lc_data.time.value, lc_data.flux.value, s=6, color='b')
+
+    ax[0].plot(lc_tpm_data.time.value, lc_tpm_data.flux.value, linestyle='--', label='Transit Pulse Model (TPM)',
+               color='tab:orange')
+
+    ax[0].legend()
+    ax[0].set_xlabel('Time [day]')
+    ax[0].set_ylabel(r'PDCSAP Flux [$e^-s^{-1}$]')
+    ax[0].set_xlim(lc_tpm_data.time.value[[0, -1]])
+
+    # plot periodogram of the data
+    ax[1].plot(pgram_res['pgram'].frequency.to(1 / u.s), pgram_res['pgram'].power, zorder=3, color='b', label='Data')
+    ax[1].plot(pgram_res['pgram_smooth'].frequency.to(1 / u.s), pgram_res['pgram_smooth'].power, zorder=3,
+               linestyle='--', color='c', alpha=0.5, label='Data Smoothed')
+    # add vertical line for frequency at maximum power
+    # ax[1].axvline(x=pgram_res['pgram'].frequency_at_max_power.to(1 / u.s).value, c='m', linestyle='-',
+    #               label=None, zorder=2)
+
+    # add vertical lines for f0 and harmonics of the TCE
+    # ax[1].axvline(x=f0_tce, c='k', linestyle='-.',
+    #               label=fr'$f_0={f0_tce:.3e} /s$', zorder=2, linewidth=2)
+    for harmonic_i in range(1, n_harmonics + 1):
+        ax[1].axvline(x=f0_tce * harmonic_i, c='r', linestyle='--',
+                      label='Harmonics' if harmonic_i == n_harmonics + 1 else None, zorder=2, linewidth=2, alpha=0.5)
+
+    # plot periodograms of TPM model
+    ax[1].plot(pgram_res['pgram_tpm'].frequency.to(1 / u.s), pgram_res['pgram_tpm'].power, linestyle='-',
+               zorder=3, alpha=1, label='TPM', color='tab:orange')
+    ax[1].plot(pgram_res['pgram_tpm_smooth'].frequency.to(1 / u.s), pgram_res['pgram_tpm_smooth'].power, linestyle='--',
+               zorder=3, alpha=0.5, label='TPM Smoothed', color='k')
+    # # add vertical line for frequency at maximum power for TPM model
+    # ax[1].axvline(x=pgram_res['pgram_tpm_smooth'].frequency_at_max_power.to(1 / u.s).value, c='k', linestyle='-',
+    #               label=None,
+    #               zorder=2)
+
+    ax[1].legend()
+    ax[1].set_ylabel('Amplitude')
+    ax[1].set_xlabel('Frequency [Hz]')
+    ax[1].set_xlim(pgram_res['pgram'].frequency.to(1 / u.s).value[[0, -1]])
+    ax[1].set_yscale('log')
+    ax[1].set_xscale('log')
+
+    ax[1].set_title(fr'Peak Amplitude @ '  
+                    fr'$f_{{Data, max}}={pgram_res["pgram"].frequency_at_max_power.to(1 / u.s):.3e}$:' 
+                    fr'$={pgram_res["pgram"].max_power:.3e}$ | TPM Peak Amplitude @ ' 
+                    fr'$f_{{TPM, max}}={pgram_res["pgram_tpm"].frequency_at_max_power.to(1 / u.s):.3e}$:' 
+                    fr'${pgram_res["pgram_tpm"].max_power:.3e}$')
+
+    ax[2].plot(pgram_res['pgram_norm'].frequency.to(1 / u.s), pgram_res['pgram_norm'].power, zorder=2, linestyle='-',
+               color='b', label='Data')
+    ax[2].plot(pgram_res['pgram_smooth_norm'].frequency.to(1 / u.s), pgram_res['pgram_smooth_norm'].power, zorder=3,
+               linestyle='--', color='c',
+               alpha=0.5, label='Data Smoothed')
+
+    ax[2].plot(pgram_res['pgram_tpm_norm'].frequency.to(1 / u.s), pgram_res['pgram_tpm_norm'].power, 'tab:orange',
+               label='TPM', alpha=0.5,
+               linestyle='-', zorder=2)
+    ax[2].plot(pgram_res['pgram_tpm_smooth_norm'].frequency.to(1 / u.s), pgram_res['pgram_tpm_smooth_norm'].power,
+               'k', label='TPM Smoothed', alpha=0.5, linestyle='dashed', zorder=3)
+
+    ax[2].legend()
+    ax[2].set_ylabel('Normalized Amplitude')
+    ax[2].set_xlabel('Frequency [Hz]')
+    ax[2].set_xlim(pgram_res['pgram_norm'].frequency.to(1 / u.s).value[[0, -1]])
+    ax[2].set_yscale('log')
+    ax[2].set_xscale('log')
+
+    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]}' 
+               fr'Period: {tce_data["tce_period"]:.3f} day | $f_0={f0_tce:.3e} /s$')
+    f.tight_layout()
+    f.savefig(save_fp)
+    plt.close()
