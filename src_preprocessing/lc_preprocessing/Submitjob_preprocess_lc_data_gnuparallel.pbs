@@ -34,10 +34,7 @@ PREPROCESS_SH_SCRIPT=$LC_PREPROCESSING_DIR/preprocessing_job.sh
 # number of total jobs
 NUM_TOTAL_JOBS=400
 # number of jobs run simultaneously in one node
-NUM_JOBS_PARALLEL=40
-
-PBS_SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/Submitjob_preprocess_lc_data_gnuparallel.pbs
-cp $PBS_SCRIPT_FP $OUTPUT_DIR/pbs_job.txt
+NUM_JOBS_PARALLEL=36
 
 # run with GNU parallel; exclude --sshloginfile argument to use one single core setup
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
