@@ -110,22 +110,17 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                     logger.info(f'Example {tce.uid} was `None`.')
 
             num_processed += 1
-            if config['process_i'] == 0:
-                if not num_processed % 10:
-                    if config['process_i'] == 0:
-                        cur_time = int(datetime.datetime.now().strftime("%s"))
-                        eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
-                        eta = str(datetime.timedelta(seconds=eta))
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}, time remaining (HH:MM:SS): {eta}.'
-                    else:
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}.'
+            if not num_processed % 10:
+                cur_time = int(datetime.datetime.now().strftime("%s"))
+                eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
+                eta = str(datetime.timedelta(seconds=eta))
+                printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
+                           f'{shard_name}, time remaining (HH:MM:SS): {eta}.'
 
-                    logger.info(printstr)
+                logger.info(printstr)
 
-    if config['n_shards'] < 50:
-        logger.info(f'{config["process_i"]}: Wrote {shard_size} items in shard {shard_name}.')
+    logger.info(f'{config["process_i"]}: Wrote {num_processed} items (out of {shard_size} total) in shard '
+                f'{shard_name}.')
 
 
 def create_shards(config, tce_table):
