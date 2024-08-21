@@ -9,13 +9,15 @@
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 source "$HOME"/.bashrc
-conda activate exoplnt_dl
+conda activate exoplnt_dl_tf2_13
 
 LOG_DIR=$2/preprocessing_logs
 mkdir -p "$LOG_DIR"
 LOG_FP="$LOG_DIR"/preprocessing_$1.log
 
 echo "Starting job $1 in node $HOSTNAME..." > "$LOG_FP"
+
+export CUDA_VISIBLE_DEVICES=''
 
 # run preprocessing pipeline
 python "$3" --rank="$1" --n_runs="$5" --output_dir="$2" --config_fp="$4" &>> "$LOG_FP"

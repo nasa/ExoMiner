@@ -5,7 +5,6 @@ Utility functions used for generating input TFRecords.
 # 3rd party
 import pandas as pd
 import numpy as np
-# import json
 import logging
 import multiprocessing
 import datetime
@@ -157,6 +156,7 @@ def get_tce_table(config):
 
     :param config: dict, preprocessing parameters
     :return:
+        shard_tce_table: pandas DataFrame, TCE table for a specific shard
         tce_table: pandas DataFrame, TCE table
     """
 
@@ -192,13 +192,10 @@ def get_tce_table(config):
         indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config['process_i']]
 
         shard_tce_table = tce_table[indices[0]:indices[1]]
+    else:
+        shard_tce_table = tce_table.copy(deep=True)
 
-        if not config['gapped']:
-            tce_table = None
-
-        return shard_tce_table, tce_table
-
-    return tce_table, None
+    return shard_tce_table, tce_table
 
 
 def shuffle_tce(tce_table, seed=123):
@@ -215,19 +212,3 @@ def shuffle_tce(tce_table, seed=123):
     tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
 
     return tce_table
-
-
-# def is_jsonable(x):
-#     """ Test if object is JSON serializable.
-#
-#     :param x: object
-#     :return:
-#     """
-#
-#     try:
-#         json.dumps(x)
-#         return True
-#
-#     except Exception as error:
-#         print(f'Error: {error}')
-#         return False

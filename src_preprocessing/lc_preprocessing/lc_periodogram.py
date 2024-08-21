@@ -6,8 +6,6 @@ Set of functions designed to compute and manipulate periodograms built from ligh
 import numpy as np
 import lightkurve as lk
 from lightkurve import periodogram as lk_periodogram
-import matplotlib.pyplot as plt
-from astropy import units as u
 import logging
 
 # local
@@ -105,7 +103,7 @@ def compute_lc_transit_pulse_model(lc_data, tce_data, n_durations):
 
     # estimate transit depth from folded and binned time series when value is not available from DV
     if tce_data['tce_depth'] == 0 or tce_data['tce_depth_err'] == -1:
-        logger.info(f'Setting transit depth based on data for TCE TIC {tce_data["tce_uid"]}')
+        logger.info(f'Setting transit depth based on data for TCE TIC {tce_data["uid"]}')
 
         lcf_folded = lc_data.fold(period=tce_data['tce_period'], epoch_time=tce_data['tce_time0bk'])
 
@@ -134,7 +132,7 @@ def compute_lc_transit_pulse_model(lc_data, tce_data, n_durations):
 
     # do the same for the secondary
     if tce_data['wst_depth'] == 0 or tce_data['wst_depth_err'] == -1:
-        logger.info(f'Setting secondary transit depth based on data for TCE TIC {tce_data["tce_uid"]}')
+        logger.info(f'Setting secondary transit depth based on data for TCE TIC {tce_data["uid"]}')
 
         lcf_folded = lc_data.fold(period=tce_data['tce_period'],
                                   epoch_time=tce_data['tce_time0bk'] + tce_data['tce_maxmesd'])

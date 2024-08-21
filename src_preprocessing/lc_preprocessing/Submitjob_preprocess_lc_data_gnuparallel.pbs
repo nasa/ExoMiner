@@ -2,29 +2,34 @@
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplanet
-#PBS -l walltime=24:00:00
+#PBS -l walltime=72:00:00
 # PBS -l select=2:ncpus=128:model=rom_ait
-#PBS -l select=10:ncpus=40:model=cas_ait
+# PBS -l select=10:ncpus=40:model=cas_ait
 # PBS -q debug
-#PBS -q long
-# PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-# PBS -l place=scatter:excl
-# PBS -q dsg_gpu@pbspl4
+# PBS -q long
+#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
+#PBS -l place=free:excl
+#PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
 #PBS -W group_list=a1509
 #PBS -m bea
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_keplerq1q17dr25_splinedetrending_6-18-2024_2305/
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038/
 mkdir -p $OUTPUT_DIR
 
+PBS_SCRIPT_FP=$(realpath $0)
+LC_PREPROCESSING_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/lc_preprocessing
+
+cp $PBS_SCRIPT_FP $OUTPUT_DIR/pbs_job.txt
+
 # script file path
-SCRIPT_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/generate_input_records.py
+SCRIPT_FP=$LC_PREPROCESSING_DIR/generate_input_records.py
 # config file path
-CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/config_preprocessing.yaml
+CONFIG_FP=$LC_PREPROCESSING_DIR/config_preprocessing.yaml
 # job script for running preprocessing pipeline
-PREPROCESS_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/preprocessing_job.sh
+PREPROCESS_SH_SCRIPT=$LC_PREPROCESSING_DIR/preprocessing_job.sh
 
 # number of total jobs
 NUM_TOTAL_JOBS=400
