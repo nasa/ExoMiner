@@ -111,12 +111,12 @@ def main():
     if config['using_mpi']:  # using some sort of external library for parallelization
 
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
-        filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
-        file_name_i = config['output_dir'] / filename
+        shard_filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
+        shard_fp = config['output_dir'] / shard_filename
 
-        process_file_shard(tce_table, file_name_i, eph_table, config)
+        process_file_shard(tce_table, shard_fp, eph_table, config)
 
-        logger.info(f'Finished processing {len(tce_table)} items in shard {filename}')
+        logger.info(f'Finished processing {len(tce_table)} items in shard {shard_filename}')
 
         # concatenates shard tables into a single one
         # create_shards_tbl_flag = create_shards_table(config['output_dir'])

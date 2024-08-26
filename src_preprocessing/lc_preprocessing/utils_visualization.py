@@ -8,7 +8,6 @@ import matplotlib.gridspec as gridspec
 from astropy.stats import mad_std
 from matplotlib.ticker import FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib.pyplot as plt
 from astropy import units as u
 
 plt.switch_backend('agg')

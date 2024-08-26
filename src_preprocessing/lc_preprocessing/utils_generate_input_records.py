@@ -5,7 +5,6 @@ Utility functions used for generating input TFRecords.
 # 3rd party
 import pandas as pd
 import numpy as np
-# import json
 import logging
 import multiprocessing
 import datetime
@@ -111,22 +110,17 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                     logger.info(f'Example {tce.uid} was `None`.')
 
             num_processed += 1
-            if config['process_i'] == 0:
-                if not num_processed % 10:
-                    if config['process_i'] == 0:
-                        cur_time = int(datetime.datetime.now().strftime("%s"))
-                        eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
-                        eta = str(datetime.timedelta(seconds=eta))
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}, time remaining (HH:MM:SS): {eta}.'
-                    else:
-                        printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-                                   f'{shard_name}.'
+            if not num_processed % 10:
+                cur_time = int(datetime.datetime.now().strftime("%s"))
+                eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
+                eta = str(datetime.timedelta(seconds=eta))
+                printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
+                           f'{shard_name}, time remaining (HH:MM:SS): {eta}.'
 
-                    logger.info(printstr)
+                logger.info(printstr)
 
-    if config['n_shards'] < 50:
-        logger.info(f'{config["process_i"]}: Wrote {shard_size} items in shard {shard_name}.')
+    logger.info(f'{config["process_i"]}: Wrote {num_processed} items (out of {shard_size} total) in shard '
+                f'{shard_name}.')
 
 
 def create_shards(config, tce_table):
@@ -157,6 +151,7 @@ def get_tce_table(config):
 
     :param config: dict, preprocessing parameters
     :return:
+        shard_tce_table: pandas DataFrame, TCE table for a specific shard
         tce_table: pandas DataFrame, TCE table
     """
 
@@ -192,13 +187,10 @@ def get_tce_table(config):
         indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config['process_i']]
 
         shard_tce_table = tce_table[indices[0]:indices[1]]
+    else:
+        shard_tce_table = tce_table.copy(deep=True)
 
-        if not config['gapped']:
-            tce_table = None
-
-        return shard_tce_table, tce_table
-
-    return tce_table, None
+    return shard_tce_table, tce_table
 
 
 def shuffle_tce(tce_table, seed=123):
@@ -215,19 +207,3 @@ def shuffle_tce(tce_table, seed=123):
     tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
 
     return tce_table
-
-
-# def is_jsonable(x):
-#     """ Test if object is JSON serializable.
-#
-#     :param x: object
-#     :return:
-#     """
-#
-#     try:
-#         json.dumps(x)
-#         return True
-#
-#     except Exception as error:
-#         print(f'Error: {error}')
-#         return False
