@@ -354,7 +354,7 @@ def check_inputs_generate_example(data, tce, config):
         rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
         med = np.nanmedian(data['centroid_dist'])
         data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
-        data['centroid_dist_time'] = np.array(data['time'])
+        data['centroid_dist_time'] = np.array(data['flux_time'])
 
         # rob_std = mad_std(data['centroid_distFDL'])
         # med = np.median(data['centroid_distFDL'])
