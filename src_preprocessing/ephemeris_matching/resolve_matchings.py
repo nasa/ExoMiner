@@ -72,7 +72,8 @@ def solve_matches(tbl_fp, match_thr):
         multiple_matches = check_for_multiple_matches[check_for_multiple_matches].index.to_list()
         n_multiple_matches = len(multiple_matches)
         if n_multiple_matches > 1:
-            print(f'Signal {corr_coef_mat_df.index[row_i]} has a correlation score > {match_thr} for {n_multiple_matches} signals: {multiple_matches}.')
+            print(f'Signal {corr_coef_mat_df.index[row_i]} has a correlation score > {match_thr} '
+                  f'for {n_multiple_matches} signals: {multiple_matches}.')
 
     matched_signals = pd.DataFrame(matched_signals)
 

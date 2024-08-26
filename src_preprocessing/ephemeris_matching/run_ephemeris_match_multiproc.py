@@ -33,10 +33,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/home/msaragoc/Projects/exoplnt_dl/codebase/src_preprocessing/ephemeris_matching/config_ephem_matching.yaml')
+                        default='./src_preprocessing/ephemeris_matching/config_ephem_matching.yaml')
     args = parser.parse_args()
 
-    with(open(args.config_fp, 'r')) as file:
+    with(open(Path(args.config_fp).resolve(), 'r')) as file:
         config = yaml.safe_load(file)
 
     # results directory
@@ -65,16 +65,11 @@ if __name__ == '__main__':
     tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
     tce_tbl = tce_tbl.dropna(subset=['period', 'epoch', 'duration'])
     tce_tbl['sector_run'] = tce_tbl['sector_run'].astype('str')
-    # tce_tbl = tce_tbl.loc[tce_tbl['target_id'] == 288735205]
     print(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
     print(f'Table with {len(tce_tbl)} signals.')
 
     # load of signals to be matched to those in table of signals of interest (usually objects with dispositions)
     toi_tbl = pd.read_csv(config['tbl_b_fp'])
-    # toi_tbl = toi_tbl.loc[toi_tbl['target_id'] == 288735205]
-    # toi_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
-    # toi_tbl = toi_tbl.dropna(subset=['period', 'epoch']) # , 'duration'])
-    # toi_tbl['sector_run'] = toi_tbl['sector_run'].astype('str')
     print(f'Using objects\' table: {config["tbl_b_fp"]}')
     print(f'Table with {len(toi_tbl)} signals.')
 
@@ -83,13 +78,13 @@ if __name__ == '__main__':
     sector_timestamps_tbl = pd.read_csv(config["sector_timestamps_tbl_fp"]).sort_values('sector')
     print(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
 
-    targets_arr = tce_tbl['target_id'].unique()
+    targets_arr = toi_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     print(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
     pool = multiprocessing.Pool(processes=config["n_procs"])
     targets_arr_jobs = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, config["sampling_interval"],
-                         save_dir, config["plot_prob"], plot_dir, job_i)
+                         save_dir, config["plot_prob"], plot_dir)
                         for job_i, targets_arr_job in enumerate(np.array_split(targets_arr, config["n_jobs"]))]
     async_results = [pool.apply_async(match_transit_signals_in_target, targets_arr_job)
                      for targets_arr_job in targets_arr_jobs]

@@ -8,14 +8,14 @@ from pathlib import Path
 
 #%% ExoFOP TOI catalog
 
-tbl_fp = Path('')
+tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/8-20-2024/exofop_toilists-2.csv')
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns
 tbl.rename(
-    columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid',
-             'TIC': 'target_id'},
-    inplace=True)
+    columns={'Epoch (BJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid',
+             'TIC ID': 'target_id'},
+    inplace=True, errors='raise')
 
 # set uid as string
 tbl['uid'] = tbl['uid'].astype('str')

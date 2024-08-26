@@ -11,9 +11,9 @@ duration (in hours), and epoch (in days and same frame, e.g., TBJD), respectivel
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from datetime import datetime
 import matplotlib.pyplot as plt
-import multiprocessing
+import yaml
+import argparse
 
 # local
 from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
@@ -98,14 +98,14 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
     return corr_coeff
 
 
-def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval,
-                                    save_dir, plot_prob=0, plot_dir=None, job_i=None):
+def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_timestamps_tbl, sampling_interval,
+                                    save_dir, plot_prob=0, plot_dir=None):
     """ Compute matching correlation coefficient between signals/objects for each TIC in each sector run.
 
     Args:
-        targets_arr: pandas Series, transit signal a
+        targets_arr: NumPy arrau, list of target stars for whose transit signals ephemerides matching is going to be run
         tce_tbl: pandas DataFrame, TCE table
-        toi_tbl: pandas DataFrame, TOI catalog
+        objects_tbl: pandas DataFrame, objects' catalog
         sector_timestamps_tbl: pandas DataFrame, table with start and end timestamps for each sector run
         sampling_interval: float, sampling interval used to create the binary time series
         save_dir: Path, directory used to save the matching tables
@@ -115,15 +115,10 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
     Returns:
 
     """
-    print(f'Found target: {(targets_arr == 288735205).sum()}.')
-    # if job_i == 15:
-    #     aaa
-    print(f'JOB {job_i}')
-    for target in targets_arr:
-        if target == 288735205:
-            print('FOUND IT')
 
-        print(f'Iterating over target {target}...')
+    for target_i, target in enumerate(targets_arr):
+
+        print(f'Iterating over target {target} ({target_i + 1}/{len(targets_arr)} targets)...')
 
         # get start and end timestamps for this TIC
         tic_timestamps_sector = sector_timestamps_tbl.loc[sector_timestamps_tbl['target'] == target]
@@ -133,13 +128,17 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
             continue
 
         # get objects in this TIC
-        tois_in_tic = toi_tbl.loc[toi_tbl['target_id'] == target].reset_index()
-        if len(tois_in_tic) == 0:
+        objects_in_tic = objects_tbl.loc[objects_tbl['target_id'] == target].reset_index()
+        if len(objects_in_tic) == 0:
             print(f'No objects in target {target} to be matched to.')
             continue
 
-        for sector_run in tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique():
-            print(f'Iterating over sector run {sector_run} for target {target}')
+        # iterate over sector runs
+        sector_runs_target = tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique()
+        print(f'Found {len(sector_runs_target)} sector runs for target {target}.')
+        for sector_run_i, sector_run in enumerate(sector_runs_target):
+            print(f'Iterating over sector run {sector_run} for target {target} '
+                  f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
 
             # get TCEs in this TIC and sector run
             tces_in_tic_sectorun = tce_tbl.loc[(tce_tbl['target_id'] == target) &
@@ -168,72 +167,79 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timest
                 tend = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'end'].values[0]
 
             # initialize correlation coefficient matrix to test matching between TCEs and TOIs
-            corr_coef_mat = np.nan * np.ones((len(tces_in_tic_sectorun), len(tois_in_tic)))
+            corr_coef_mat = np.nan * np.ones((len(tces_in_tic_sectorun), len(objects_in_tic)))
             plot_signals = True if np.random.uniform() < plot_prob else False
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
-                for toi_i, toi in tois_in_tic.iterrows():
+                for obj_i, obj in objects_in_tic.iterrows():
                     # toi['duration'] = tce['duration']
-                    corr_coef_mat[tce_i, toi_i] = \
-                        match_transit_signals(tce, toi, sampling_interval, tstart, tend,
+                    corr_coef_mat[tce_i, obj_i] = \
+                        match_transit_signals(tce, obj, sampling_interval, tstart, tend,
                                               plot_signals,
                                               plot_dir)
 
-            tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'], columns=tois_in_tic['uid'])
+            tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'],
+                                         columns=objects_in_tic['uid'])
 
             tic_match_tbl.to_csv(save_dir / f'match_tbl_s{sector_run}_tic_{target}.csv')
 
 
 if __name__ == '__main__':
 
-    # root directory for the ephemeris matching experiment
-    root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
+                        default='./config_ephem_matching.yaml')
+    args = parser.parse_args()
 
-    # load table with start and end timestamps for each sector run
-    # sector_timestamps_tbl = pd.read_csv(root_dir / 'sector_times_btjd.csv')
-    sector_timestamps_tbl_fp = root_dir / 'all_sectors_times_btjd_start_end.csv'
-    sector_timestamps_tbl = pd.read_csv(sector_timestamps_tbl_fp)
-    print(f'Using sector timestamps table {sector_timestamps_tbl_fp}')
+    with(open(Path(args.config_fp).resolve(), 'r')) as file:
+        config = yaml.safe_load(file)
 
-    # load TOI catalog
-    toi_tbl_fp = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/ephemeris_matching_dv/tois_catalog/exofop_toilists_1-26-2023.csv')
-    toi_tbl = pd.read_csv(toi_tbl_fp)
-    toi_tbl['Epoch (BTJD)'] = toi_tbl['Epoch (BJD)'] - 2457000
-    toi_tbl.rename(columns={'Epoch (BTJD)': 'epoch', 'Period (days)': 'period', 'Duration (hours)': 'duration', 'TOI': 'uid'}, inplace=True)
-    # toi_tbl = toi_tbl.loc[toi_tbl['period'] != 0]
-    # load TCE table
-    tce_tbl = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/cv_kepler-tess_weightedcats_1-24-2023_1544_predict_10-25-2022_1425/ensemble_ranked_predictions_allfolds_avg.csv')
-    # tce_tbl['sector_run'] = tce_tbl['uid'].apply(lambda x: '-'.join(x.split('-')[2:])[1:])
-    tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
-    # tce_tbl['duration'] *= 24
+    # results directory
+    if args.output_dir is not None:
+        config['exp_dir'] = args.output_dir
+
+    exp_dir = Path(config["exp_dir"])
 
     # create experiment directory
-    exp_dir = root_dir / f'{datetime.now().strftime("%m-%d-%Y_%H%M")}'
     exp_dir.mkdir(exist_ok=True)
-    print(f'Run {exp_dir}')
+    print(f'Starting run {exp_dir}...')
     save_dir = exp_dir / 'sector_run_tic_tbls'
     save_dir.mkdir(exist_ok=True)
     plot_dir = exp_dir / 'bin_ts_plots'
     plot_dir.mkdir(exist_ok=True)
+
+    # save yaml config file
+    with open(exp_dir / 'config_run.yaml', 'w') as run_file:
+        yaml.dump(config, run_file, sort_keys=False)
+
+    print(f'Plot probability: {config["plot_prob"]}')
+    print(f'Sampling interval for binary time series: {config["sampling_interval"]}')
+
+    # load TCE table
+    tce_tbl = pd.read_csv(config['tbl_a_fp'])
+    # tce_tbl['sector_run'] = tce_tbl['uid'].apply(lambda x: '-'.join(x.split('-')[2:])[1:])
+    tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
+    # tce_tbl['duration'] *= 24
+    print(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
+    print(f'Table with {len(tce_tbl)} signals.')
+
+    # load TOI catalog
+    toi_tbl = pd.read_csv(config['tbl_b_fp'])
+
+    # load table with start and end timestamps for each sector run for the TICs associated with the TCEs in the TCE
+    # table
+    sector_timestamps_tbl = pd.read_csv(config["sector_timestamps_tbl_fp"]).sort_values('sector')
+    print(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
 
     plot_prob = 0.01  # 0.01
     print(f'Plot probability: {plot_prob}')
     sampling_interval = 2 / 60 / 24  # sampling rate for binary time series
     print(f'Sampling interval for binary time series: {sampling_interval}')
 
-    # targets_arr = sector_timestamps_tbl['target']  # tce_tbl.loc[~tce_tbl['TOI'].isna(), 'target_id'][:5]  # tce_tbl.loc[(tce_tbl['target_id'].isin(sector_timestamps_tbl['target'])), 'target_id'].unique()  # & (tce_tbl['sector_run'].isin(sector_timestamps_tbl['sector'])
     targets_arr = tce_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     # sequential option
-    # match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
-    #                                 plot_prob=plot_prob, plot_dir=plot_dir)
-    # multiprocessing option
-    nprocesses, njobs = 4, 4
-    pool = multiprocessing.Pool(processes=nprocesses)
-    jobs_targets = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
-                     plot_prob, plot_dir) for targets_arr_job in np.array_split(targets_arr, njobs)]
-    async_results = [pool.apply_async(match_transit_signals_in_target, job) for job in jobs_targets]
-    pool.close()
-    for async_result in async_results:
-        async_result.get()
+    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
+                                    plot_prob=plot_prob, plot_dir=plot_dir)
