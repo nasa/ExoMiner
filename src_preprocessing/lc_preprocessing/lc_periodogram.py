@@ -220,15 +220,19 @@ def compute_lc_periodogram(f_arr, smooth_filter_type, smooth_filter_w_f, lc_data
 
     pgram_res = {
         'pgram': pgram,
+        'pgram_max_power': pgram.max_power.value,
         'pgram_norm': pgram_norm,
 
         'pgram_smooth': pgram_smooth,
+        'pgram_smooth_max_power': pgram_smooth.max_power.value,
         'pgram_smooth_norm': pgram_smooth_norm,
 
         'pgram_tpm': pgram_tpm,
+        'pgram_tpm_max_power': pgram_tpm.max_power.value,
         'pgram_tpm_norm': pgram_tpm_norm,
 
         'pgram_tpm_smooth': pgram_tpm_smooth,
+        'pgram_tpm_smooth_max_power': pgram_tpm_smooth.max_power.value,
         'pgram_tpm_smooth_norm': pgram_tpm_smooth_norm,
 
     }
