@@ -16,18 +16,20 @@ from src_cv.create_cv_dataset.add_tfrec_dataset_fps_to_config_file import add_tf
 from src_hpo.utils_hpo import load_hpo_config
 
 
-def run_setup_for_cv_iter(cv_iter, cv_iter_dir, config):
+def run_setup_for_cv_iter(cv_iter, cv_iter_dir, config, model_i=0):
     """ Run setup for a CV iteration. This involves things such as adding the filepaths for this given iteration to the
     general config yaml file for the CV experiment; loading model hyperparameters from an HPO run
 
     :param cv_iter: int, CV iteration number
     :param cv_iter_dir: Path, CV iteration directory
     :param config: dict, CV run parameters
+    :param model_i: int, model ID
+
     :return:
     """
 
     # add TFRecord data set file paths for this CV iteration to config yaml file
-    config = add_tfrec_dataset_fps_to_config_file(cv_iter, config)
+    config = add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i)
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file
     if 'hpo_dir' in config['paths']:
@@ -55,6 +57,8 @@ if __name__ == "__main__":
     parser.add_argument('--cv_iter', type=int, help='CV Iteration index/rank.', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
+    parser.add_argument('--model_i', type=int, help='Model ID', default=0)
+
     args = parser.parse_args()
 
     cv_i = args.cv_iter
@@ -66,4 +70,4 @@ if __name__ == "__main__":
 
     print(f'Creating config YAML file for CV iteration in {output_dir_fp}')
 
-    run_setup_for_cv_iter(cv_i, output_dir_fp, cv_iter_config)
+    run_setup_for_cv_iter(cv_i, output_dir_fp, cv_iter_config, model_i=args.model_i)

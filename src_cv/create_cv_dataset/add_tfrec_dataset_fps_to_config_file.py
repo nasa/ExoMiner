@@ -6,19 +6,29 @@ Create config yaml file for a CV iteration based on a template config file for t
 import yaml
 from pathlib import Path
 import argparse
-# import logging
-# import numpy as np
+import numpy as np
 
 
-def add_tfrec_dataset_fps_to_config_file(cv_iter, config):
+def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i):
+    """ Add the dictionary with a list of the filepaths to the TFRecord shards to be used for training, validation, and
+        test.
+
+    :param cv_iter: int, CV iteration number
+    :param config: dict, CV run parameters
+    :param model_i: int, model ID
+    :return: config, dict with CV run parameters updated with the filepaths for the TFRecord shards to be used for
+        training, validation, and test
+    """
 
     with(open(config['paths']['cv_folds'], 'r')) as file:
         config['datasets_fps'] = yaml.unsafe_load(file)[cv_iter]
 
-    # # cv iterations dictionary
-    # data_shards_fns = np.load(config['paths']['cv_folds'], allow_pickle=True)
-    # config['datasets_fps'] = [{dataset: [str(Path(config['paths']['tfrec_dir']) / f'cv_iter_{cv_iter_i}' / 'norm_data' / fold) for fold in cv_iter[dataset]]
-    #                           for dataset in cv_iter} for cv_iter_i, cv_iter in enumerate(data_shards_fns)][cv_iter]
+    # randomly pick cv fold as validation set from the training set
+    if config['val_from_train']:
+        rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)  # set different validation set based on model id
+        val_fold_idx = rng.choice(len(config['datasets_fps']['train']))
+        config['datasets_fps']['val'] = [config['datasets_fps']['train'][val_fold_idx]]
+        del config['datasets_fps']['train'][val_fold_idx]
 
     return config
 
@@ -29,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--cv_iter', type=int, help='CV Iteration index/rank.', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
+    parser.add_argument('--model_i', type=int, help='Model ID', default=0)
     args = parser.parse_args()
 
     cv_i = args.cv_iter
@@ -40,4 +51,4 @@ if __name__ == "__main__":
 
     print(f'Creating config YAML file for CV iteration in {output_dir_fp}...')
 
-    add_tfrec_dataset_fps_to_config_file(cv_i, cv_iter_config)
+    add_tfrec_dataset_fps_to_config_file(cv_i, cv_iter_config, model_i=args.model_i)

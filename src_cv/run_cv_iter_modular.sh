@@ -48,10 +48,10 @@ GPU_ID=$(("$CV_ITER" % $N_GPUS_PER_NODE))
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_CV_ITER"
 
-# setup run
-echo "Setting up CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"
-CV_ITER_CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
+## setup run
+#echo "Setting up CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+#python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"
+#CV_ITER_CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
 
 ## process data
 #echo "Started preprocessing the data for CV iteration $CV_ITER..." >> "$LOG_FP"
@@ -73,8 +73,14 @@ echo "Started training $N_MODELS_PER_CV_ITER models in CV iteration $CV_ITER." >
 for ((MODEL_I=0; MODEL_I<$N_MODELS_PER_CV_ITER; MODEL_I++))
 do
     MODEL_DIR="$MODELS_DIR"/model$MODEL_I
-    mkdir -p $MODEL_DIR
+    mkdir -p "$MODEL_DIR"
     LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model_"$MODEL_I".log
+
+    # setup run
+    echo "Setting up configuration for model $MODEL_I in CV iteration $CV_ITER." >> "$LOG_FP_TRAIN_MODEL"
+    python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" --model_i="$MODEL_I" &>> "$LOG_FP_TRAIN_MODEL"
+    CV_ITER_CONFIG_FP=$MODEL_DIR/config_cv.yaml
+
     echo "Training model $MODEL_I in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
     python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"
     echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_CV_ITER"
@@ -108,7 +114,6 @@ echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 # evaluate ensemble model
 echo "Started evaluating ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 
-# evaluate and predict with ensemble model
 LOG_FP_EVAL_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/eval_ensemble_model.log
 python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &>> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
 
@@ -117,7 +122,6 @@ echo "Evaluated ensemble of models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITE
 # run inference with ensemble model
 echo "Started running inference with ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 
-# evaluate and predict with ensemble model
 LOG_FP_PREDICT_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/predict_ensemble_model.log
 python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &>> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
 

@@ -14,7 +14,7 @@ from src_preprocessing.tf_util import example_util
 
 # %% set file paths
 
-src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged')
+src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_merged_8-27-2024_1123_pgram_maxpower')
 src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
 print(f'Found {len(src_tfrec_fps)} source TFRecord files.')
 
@@ -38,7 +38,7 @@ dest_tfrec_dir.mkdir(exist_ok=True)
 
 # %% keep uids of examples without difference image data
 
-examples_not_found_dict = {'uid': [], 'filename': [], 'example_i': []}
+examples_not_found_dict = {'uid': [], 'filename': [], 'example_i': [], 'label': []}
 for src_tfrec_fp_i, src_tfrec_fp in enumerate(src_tfrec_fps):
 
     print(f'Iterating through shard {src_tfrec_fp} ({src_tfrec_fp_i + 1}/{len(src_tfrec_fps)})...')
@@ -56,6 +56,7 @@ for src_tfrec_fp_i, src_tfrec_fp in enumerate(src_tfrec_fps):
             example.ParseFromString(string_record)
 
             example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+            example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
             if example_uid not in diff_img_data:
                 if len(examples_not_found_dict['uid']) % 50 == 0:
@@ -63,6 +64,8 @@ for src_tfrec_fp_i, src_tfrec_fp in enumerate(src_tfrec_fps):
                 examples_not_found_dict['uid'].append(example_uid)
                 examples_not_found_dict['filename'].append(src_tfrec_fp.name)
                 examples_not_found_dict['example_i'].append(example_i)
+                examples_not_found_dict['label'].append(example_label)
+
                 continue
 
             # add difference features
@@ -89,4 +92,7 @@ examples_not_found_df = pd.DataFrame(examples_not_found_dict)
 examples_not_found_df.to_csv(dest_tfrec_dir / 'examples_without_diffimg_data.csv', index=False)
 
 print(f'Number of examples without difference image data: {len(examples_not_found_df)}.')
+
+print(f'{examples_not_found_df["label"].value_counts()}')
+
 print('Finished adding difference image data to TFRecords.')

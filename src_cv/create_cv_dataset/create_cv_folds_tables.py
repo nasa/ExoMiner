@@ -119,7 +119,7 @@ logger.info(f'Working with unlabeled subset: {unused_tces.sum()} examples.')
 shard_tbls_predict_dir = data_dir / 'shard_tables' / 'predict'
 shard_tbls_predict_dir.mkdir(exist_ok=True, parents=True)
 dataset_noteval = dataset_tbl.loc[unused_tces]
-dataset_noteval.to_csv(data_dir / f'unlabeled_dataset.csv', index=False)
+dataset_noteval.to_csv(shard_tbls_root_dir / f'unlabeled_dataset.csv', index=False)
 tce_splits = np.array_split(range(len(dataset_noteval)), n_folds_predict, axis=0)
 for fold_i, tce_split in enumerate(tce_splits):
     fold_tce_tbl = dataset_noteval[tce_split[0]:tce_split[-1] + 1]
@@ -127,15 +127,16 @@ for fold_i, tce_split in enumerate(tce_splits):
 
 #%% Check distribution of examples per fold
 
+logger.info(f'Checking distribution of dispositions per fold in the labeled dataset...')
 for tbl_fp in shard_tbls_eval_dir.iterdir():
 
     tbl = pd.read_csv(tbl_fp)
-    print(f'Fold {tbl_fp}')
-    print(f'Disposition distribution:\n{tbl["label"].value_counts()}')
+    logger.info(f'Fold {tbl_fp}')
+    logger.info(f'Disposition distribution:\n{tbl["label"].value_counts()}')
 
     cnt_tces_target = \
         tbl['target_id'].value_counts().to_frame(name='num_tces_target').reset_index().rename(
             columns={'index': 'target_id'})
 
-    print(f'Number of TCEs per target:\n{cnt_tces_target["num_tces_target"].value_counts()}')
-    print(f'{"#" * 100}')
+    logger.info(f'Number of TCEs per target:\n{cnt_tces_target["num_tces_target"].value_counts()}')
+    logger.info(f'{"#" * 100}')
