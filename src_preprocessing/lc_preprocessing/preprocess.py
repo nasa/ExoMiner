@@ -2076,7 +2076,11 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
     # add periodogram data
     for pgram_name, pgram in pgram_data.items():
 
-        pgram_arr = pgram.power.value
+        if 'power' in pgram_name:
+            pgram_arr = pgram
+        else:
+            pgram_arr = pgram.power.value
+
         # check if periodogram have NaN values
         if np.any(~np.isfinite(pgram_arr)):  # at least one point is non-finite (infinite or NaN)
             raise ValueError(f'Periodogram {pgram_name} has at least one non-finite data point.')
