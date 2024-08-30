@@ -278,7 +278,7 @@ def lc_periodogram_pipeline(p_min_tce, k_harmonics, p_max_obs, downsampling_f, s
         plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmonics=5)
 
     # compute periodogram with a downsampled frequency range
-    f_arr = compute_frequency_range(p_min_tce, k_harmonics, p_max_obs, downsampling_f / 2)
+    f_arr = compute_frequency_range(p_min_tce, k_harmonics, p_max_obs, downsampling_f * 2)
     pgram_res_downsampled = compute_lc_periodogram(f_arr, smooth_filter_type, smooth_filter_w_f, lc_data, lc_tpm_data)
     pgram_res.update({f'{pgram_name}_downsampled': pgram_data
                       for pgram_name, pgram_data in pgram_res_downsampled.items()})

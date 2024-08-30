@@ -373,17 +373,21 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/OneDrive - NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_compute_normalization_stats.yaml')
+    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
-        config = yaml.safe_load(file)
+        config = yaml.unsafe_load(file)
 
     # get only training set TFRecords
-    tfrecTrainFiles = [file for file in Path(config['tfrecDir']).iterdir() if 'train-' in file.stem]
+    with(open(config['cv_folds_fp'], 'r')) as file:
+        cv_iters_fps = yaml.unsafe_load(file)
+    tfrecTrainFiles = [fp for fp in cv_iters_fps[0]['train']]
+    # tfrecTrainFiles = [file for file in Path(config['tfrecDir']).iterdir() if file.name.startswith('shard')]  #  if 'train-' in file.stem]
 
-    config['norm_dir'] = Path(config['norm_dir'])
+    # config['norm_dir'] = Path(config['norm_dir'])
+    config['norm_dir'] = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval_normalized')
     config['norm_dir'].mkdir(exist_ok=True)
 
-    compute_normalization_stats(tfrecTrainFiles, config)
+    compute_normalization_stats(tfrecTrainFiles, config['compute_norm_stats_params'])
 
     print('Normalization statistics computed.')

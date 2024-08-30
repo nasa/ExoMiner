@@ -35,9 +35,9 @@ with open(data_dir / 'cv_iterations.yaml', 'w') as file:
 
 #%% Create yaml file to be used to run the CV experiment with the normalized labeled dataset
 
-data_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/tfrecords/eval_normalized')
+data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval_normalized')
 # use yaml file for CV iterations created when normalizing the data
-cv_iterations_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/cv_folds.yaml')
+cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval/cv_iterations.yaml')
 
 with open(cv_iterations_fp, 'r') as file:
     cv_iterations = yaml.unsafe_load(file)

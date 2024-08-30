@@ -48,6 +48,16 @@ GPU_ID=$(("$CV_ITER" % $N_GPUS_PER_NODE))
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_CV_ITER"
 
+PROC_IN_GPU=$(nvidia-smi -i $GPU_ID --query-compute-apps=pid --format=csv,noheader)
+until [ "$PROC_IN_GPU" == "" ]
+do
+    PROC_IN_GPU=$(nvidia-smi -i $GPU_ID --query-compute-apps=pid --format=csv,noheader)
+    echo "Current process in GPU $GPU_ID: $PROC_IN_GPU"
+    sleep 60
+done
+
+echo "GPU $GPU_ID is available. Resuming CV iteration." >> "$LOG_FP_CV_ITER"
+
 ## setup run
 #echo "Setting up CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 #python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"

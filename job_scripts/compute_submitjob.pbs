@@ -1,11 +1,11 @@
 # Used to run interactive jobs
 #PBS -S /bin/bash
 #PBS -N data_analysis
-#PBS -l walltime=12:00:00
-#PBS -l select=1:ncpus=36:mem=290g:ngpus=1:model=sky_gpu
+#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=36:mem=360g:ngpus=1:model=sky_gpu
 #PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
-# PBS -l select=1:ncpus=10:model=rom_ait
+# PBS -l select=1:ncpus=1:model=rom_ait
 # PBS -q debug
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.err

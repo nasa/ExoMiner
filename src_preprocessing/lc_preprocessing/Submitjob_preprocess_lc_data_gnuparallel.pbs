@@ -2,14 +2,14 @@
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplanet
-#PBS -l walltime=72:00:00
-# PBS -l select=2:ncpus=128:model=rom_ait
+#PBS -l walltime=48:00:00
+#PBS -l select=6:ncpus=128:model=rom_ait
 # PBS -l select=10:ncpus=40:model=cas_ait
 # PBS -q debug
-# PBS -q long
-#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
+#PBS -q long
+# PBS -l select=2:ncpus=36:mem=360g:model=sky_gpu
+# PBS -l place=free:excl
+# PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
 #PBS -W group_list=a1509
@@ -17,7 +17,7 @@
 #PBS -m bea
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038/
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-26-2024_0905/
 mkdir -p $OUTPUT_DIR
 
 PBS_SCRIPT_FP=$(realpath $0)
@@ -33,9 +33,9 @@ CONFIG_FP=$LC_PREPROCESSING_DIR/config_preprocessing.yaml
 PREPROCESS_SH_SCRIPT=$LC_PREPROCESSING_DIR/preprocessing_job.sh
 
 # number of total jobs
-NUM_TOTAL_JOBS=400
+NUM_TOTAL_JOBS=768
 # number of jobs run simultaneously in one node
-NUM_JOBS_PARALLEL=36
+NUM_JOBS_PARALLEL=128
 
 # run with GNU parallel; exclude --sshloginfile argument to use one single core setup
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"

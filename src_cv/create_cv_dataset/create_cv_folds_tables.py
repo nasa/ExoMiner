@@ -9,18 +9,18 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951')
+data_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300')
 
 rnd_seed = 24
-n_folds_eval = 5  # which is also the number of shards
+n_folds_eval = 10  # which is also the number of shards
 n_folds_predict = 10
-dataset_tbl_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/source_data/shards_tbl.csv')
+dataset_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/tfrecords_tess_spoc_2min_s1-s67_merged_8-27-2024_1123_pgram_maxpower_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler
     # 'UNK',
     # TESS
-    # 'UNK',
+    'UNK',
     # 'PC',
     # 'APC',
 ]

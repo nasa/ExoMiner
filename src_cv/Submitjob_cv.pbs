@@ -2,12 +2,10 @@
 # using a combination of GNU parallel and job array
 #PBS -S /bin/bash
 #PBS -N cv_exoplnt
-#PBS -l walltime=24:00:00
-# #PBS -l select=1:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
+#PBS -l walltime=48:00:00
 #PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# #PBS -l select=3:ncpus=16:ngpus=4:mem=90g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=scatter:shared
+#PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.err
@@ -15,25 +13,27 @@
 #PBS -m bea
 #PBS -J 0-2
 
+# PBS_ARRAY_INDEX=0
+
 # config file path
 CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_train.yaml
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess_keplertrain_targets_maxsectors_all_2-5-2024_1437
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_test_addedtrendbranch_8-28-2024_1848
 mkdir -p $OUTPUT_DIR
 
 N_CV_ITERS=10  # number of CV folds/iterations
-N_MODELS_PER_CV_ITER=10  # number of models to train per CV iteration
+N_MODELS_PER_CV_ITER=2  # number of models to train per CV iteration
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4
 
 # number of total jobs per job in job array
-NUM_TOTAL_JOBS=$((1 * 4))
-# NUM_TOTAL_JOBS=10
+# NUM_TOTAL_JOBS=$((1 * 4))
+NUM_TOTAL_JOBS=4
 # number of jobs run simultaneously
-NUM_JOBS_PARALLEL=2
+NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
 # run CV sh script

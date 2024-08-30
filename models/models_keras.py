@@ -1101,7 +1101,8 @@ class ExoMiner_JointLocalFlux(object):
             'local_centroid',
             'momentum_dump',
             # 'global_centroid',
-            # 'local_unfolded_flux',
+            'flux_trend',
+            'flux_periodogram',
         ]
         odd_even_branch_name = 'local_odd_even'  # specific to odd and even branch
         config_mapper = {'blocks': {
