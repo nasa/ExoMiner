@@ -13,6 +13,7 @@
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
 #PBS -W group_list=a1509
+# PBS -W group_list=s2857
 #PBS -m bea
 
 # create output directory for preprocessing results

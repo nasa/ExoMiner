@@ -17,6 +17,7 @@ LOG_FP="$LOG_DIR"/preprocessing_$1.log
 
 echo "Starting job $1 in node $HOSTNAME..." > "$LOG_FP"
 
+# needed to be set after conda activate since that resets the environment variable
 export CUDA_VISIBLE_DEVICES=''
 
 # run preprocessing pipeline

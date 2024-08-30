@@ -10,5 +10,6 @@
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.err
 #PBS -W group_list=a1509
+# PBS -W group_list=s2857
 #PBS -m bea
 
