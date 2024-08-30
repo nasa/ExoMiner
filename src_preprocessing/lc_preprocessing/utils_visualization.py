@@ -1254,3 +1254,100 @@ def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmo
     f.tight_layout()
     f.savefig(save_fp)
     plt.close()
+
+
+def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_fp):
+    """ Plot phase folded and binned trend time series (before and after normalization).
+
+    Args:
+        phasefolded_data: tuple, phase folded time series
+        binned_data: tuple, binned time series
+        tce: pandas Series, TCE data
+        save_fp: Path, figure filepath
+
+    Returns:
+
+    """
+
+    gs = gridspec.GridSpec(3, 2)
+
+    f = plt.figure(figsize=(20, 14))
+
+    ax = plt.subplot(gs[0, :])
+    ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1)
+    ax.scatter(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], s=8, c='b', zorder=2)
+    ax.set_ylabel(fr'Amplitude [$e^-/s$]')
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    ax.set_xlabel('Phase [day]')
+    ax = plt.subplot(gs[1, :])
+    ax.scatter(binned_data['flux_trend_global_norm'][0], binned_data['flux_trend_global_norm'][1], s=8,
+               c='b')
+    ax.set_ylabel('Normalized Amplitude')
+    ax.set_xlabel('Phase [day]')
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    ax = plt.subplot(gs[2, 0])
+    ax.scatter(phasefolded_data['flux_trend'][0] * 24, phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1)
+    ax.scatter(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], s=8,
+               c='b', zorder=2)
+    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+    ax.set_ylabel('Amplitude')
+    ax.set_xlabel('Phase [hour]')
+    ax = plt.subplot(gs[2, 1])
+    ax.scatter(binned_data['flux_trend_local_norm'][0] * 24, binned_data['flux_trend_local_norm'][1], s=8,
+               c='b')
+    ax.set_ylabel('Normalized Amplitude')
+    ax.set_xlabel('Phase [hour]')
+    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+
+    f.suptitle(f'{tce["uid"]} {tce["label"]}')
+    f.tight_layout()
+    plt.savefig(save_fp)
+    plt.close()
+
+
+def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_data, tce, save_fp):
+    """ Plot phase folded and binned weak secondary flux time series (before and after normalization).
+
+    Args:
+        phasefolded_data: tuple, phase folded time series
+        binned_data: tuple, binned time series
+        tce: pandas Series, TCE data
+        save_fp: Path, figure filepath
+
+    Returns:
+
+    """
+
+    gs = gridspec.GridSpec(2, 2)
+
+    f = plt.figure(figsize=(20, 14))
+
+    ax = plt.subplot(gs[0, :])
+    ax.scatter(phasefolded_data['flux_weak_secondary'][0], phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
+               zorder=1)
+    ax.axvline(x=-tce['tce_maxmesd'], c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
+    ax.set_ylabel('Amplitude')
+    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    ax.set_xlabel('Phase [day]')
+    ax.legend()
+
+    ax = plt.subplot(gs[1, 0])
+    ax.scatter(phasefolded_data['flux_weak_secondary'][0] * 24, phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
+               zorder=1)
+    ax.scatter(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], s=8,
+               c='b')
+    ax.set_ylabel('Amplitude')
+    ax.set_xlabel('Phase [hour]')
+    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+
+    ax = plt.subplot(gs[1, 1])
+    ax.scatter(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
+               s=8, c='b', zorder=2)
+    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+    ax.set_ylabel('Normalized Amplitude')
+    ax.set_xlabel('Phase [hour]')
+
+    f.suptitle(f'{tce["uid"]} {tce["label"]}')
+    f.tight_layout()
+    plt.savefig(save_fp)
+    plt.close()

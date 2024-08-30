@@ -24,9 +24,9 @@ from src_preprocessing.lc_preprocessing.utils_gapping import gap_other_tces
 from src_preprocessing.lc_preprocessing.utils_imputing import imputing_gaps
 from src_preprocessing.lc_preprocessing.utils_odd_even import create_odd_even_views, \
     phase_fold_and_sort_light_curve_odd_even
-from src_preprocessing.lc_preprocessing.utils_preprocessing import (count_transits, remove_non_finite_values,
+from src_preprocessing.lc_preprocessing.utils_preprocessing import (remove_non_finite_values,
                                                                     check_inputs_generate_example,
-                                                                    remove_positive_outliers,
+                                                                    remove_outliers,
                                                                     lininterp_transits, check_inputs)
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_spline, \
@@ -487,26 +487,42 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         raise ValueError(f'Only found {n_phases_split} phase for flux trend, need at least {config["min_n_phases"]} to '
                          f'create example.')
 
-    # remove positive outliers from the phase folded flux time series
-    if config['pos_outlier_removal']:
-        phasefolded_timeseries_posout = {ts_name: (np.array(ts_arr[0]), np.array(ts_arr[1]))
-                                         for ts_name, ts_arr in phasefolded_timeseries.items()
-                                         if 'flux' in ts_name and
-                                         ('trend' not in ts_name and 'unfolded' not in ts_name)}
-        for ts_name, (ts_time, ts_values, n_transits_ts) in phasefolded_timeseries.items():
-            if 'flux' in ts_name and ('trend' not in ts_name and 'unfolded' not in ts_name):
-                ts_time, ts_arr, idxs_out = remove_positive_outliers(
-                    ts_time,
-                    ts_values,
-                    sigma=config['pos_outlier_removal_sigma'],
-                    fill=config['pos_outlier_removal_fill']
-                )
-                phasefolded_timeseries[ts_name] = (ts_time, ts_arr, n_transits_ts)
-                phasefolded_timeseries_posout[ts_name] = (ts_time[idxs_out],
-                                                          phasefolded_timeseries_posout[ts_name][1][idxs_out])
+    # remove outliers from the phase folded flux time series
+    if config['outlier_removal']:
 
-    else:
-        phasefolded_timeseries_posout = None
+        # phasefolded_timeseries_posout = {ts_name: (np.array(ts_arr[0]), np.array(ts_arr[1]))
+        #                                  for ts_name, ts_arr in phasefolded_timeseries.items()
+        #                                  if 'flux' in ts_name and
+        #                                  ('trend' not in ts_name and 'unfolded' not in ts_name)}
+
+        for ts_name, (ts_time, ts_values, n_transits_ts) in phasefolded_timeseries.items():
+
+            if ts_name in ['momentum_dump', 'centroid_offset_distance_to_target']:
+                continue
+
+            if 'trend' in ts_name:
+
+                ts_values, _ = remove_outliers(
+                    ts_values,
+                    sigma=config['outlier_removal_sigma'],
+                    fill=config['outlier_removal_fill'],
+                    outlier_type='both',
+                )
+
+            else:  # any flux time series
+                ts_values, _ = remove_outliers(
+                    ts_values,
+                    sigma=config['outlier_removal_sigma'],
+                    fill=config['outlier_removal_fill'],
+                    outlier_type='upper',
+                )
+
+                # phasefolded_timeseries[ts_name] = (ts_time, ts_arr, n_transits_ts)
+                # phasefolded_timeseries_posout[ts_name] = (ts_time[idxs_out],
+                #                                           phasefolded_timeseries_posout[ts_name][1][idxs_out])
+
+    # else:
+    #     phasefolded_timeseries_posout = None
 
     if plot_preprocessing_tce:
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
@@ -518,7 +534,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
                                                            f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
-                                                           phasefolded_timeseries_posout
+                                                           None
                                                            )
 
     return phasefolded_timeseries
@@ -1183,7 +1199,10 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
     example_stats = {}
 
     # number of transits
-    example_stats.update({f'num_transits_{ts_name}': ts_data[3] for ts_name, ts_data in binned_timeseries.items()})
+    example_stats.update({f'num_transits_{ts_name}': ts_data[3] for ts_name, ts_data in binned_timeseries.items()
+                          if 'stat' not in ts_name})
+    example_stats.update({stat_name: stat_val for stat_name, stat_val in binned_timeseries.items()
+                          if 'stat' in stat_name})
 
     # centroid
     glob_centr_oot_bins = (binned_timeseries['centroid_offset_distance_to_target_global'][0] < t_min_transit) | \
@@ -1242,11 +1261,6 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
     example_stats['wks_transit_depth_hat_se'] = binned_timeseries['flux_weak_secondary_local'][2][loc_flux_wks_it_bins][
                                                     ind] * 1e6
 
-    # # add number of missing bins for each view (excluding odd and even local views)
-    # for key in inds_bin_nan:
-    #     example_stats[f'{key}_num_bins_it_nan'] = inds_bin_nan[key]['it'].sum()
-    #     example_stats[f'{key}_num_bins_oot_nan'] = inds_bin_nan[key]['oot'].sum()
-
     return example_stats
 
 
@@ -1264,7 +1278,9 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
          Returns:
            A dict with keys 'flux_odd_local' and 'flux_even_local' plus their normalization versions ({}_norm). Each key
            maps to a tuple of the binned time, binned time series, the companion variability binned time series, and the
-           number of phase folded cycles used when binning.
+           number of phase folded cycles used when binning. Additionally, there are two keys that map to the absolute
+           minimum of the odd and even local fluxes, plus some statistics that include the standard deviation and
+           standard error of the out-of-transit flux values in the phase folded time series.
            A str flag describing the preprocessing of the odd and even phase folded data into binned time series
      """
     odd_data, even_data, odd_even_flag = create_odd_even_views(data['flux_odd'][0],
@@ -1282,9 +1298,11 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
     even_data['se_oot'] = even_data['se_oot'] / norm_stats['sigma']
     even_data['std_oot_bin'] = even_data['std_oot_bin'] / norm_stats['sigma']
 
+    odd_local_abs_min = np.abs(np.min(odd_data['local_flux_view'] - np.nanmedian(odd_data['local_flux_view'])))
     flux_odd_local_norm = (odd_data['local_flux_view'] - norm_stats['mu']) / norm_stats['sigma']
     flux_odd_local_var_norm = odd_data['local_flux_view_se'] / norm_stats['sigma']
 
+    even_local_abs_min = np.abs(np.min(even_data['local_flux_view'] - np.nanmedian(even_data['local_flux_view'])))
     flux_even_local_norm = (even_data['local_flux_view'] - norm_stats['mu']) / norm_stats['sigma']
     flux_even_local_var_norm = even_data['local_flux_view_se'] / norm_stats['sigma']
 
@@ -1309,6 +1327,19 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
                                           f'timeseries_aug{tce["augmentation_idx"]}.png'
                                           )
 
+    # add statistics
+    binned_timeseries.update(
+        {
+            'flux_odd_local_stat_se_oot': odd_data['se_oot'],
+            'flux_odd_local_stat_std_oot_bin': odd_data['std_oot_bin'],
+            'flux_even_local_stat_se_oot': even_data['se_oot'],
+            'flux_even_local_stat_std_oot_bin': even_data['std_oot_bin'],
+
+            'flux_odd_local_stat_abs_min': odd_local_abs_min,
+            'flux_even_local_stat_abs_min': even_local_abs_min,
+        }
+    )
+
     return binned_timeseries, odd_even_flag
 
 
@@ -1326,7 +1357,11 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
            A dict with keys 'flux_global' and 'flux_local', their corresponding unfolded versions
            'flux_{global_local}_unfolded', plus their normalization versions ({}_norm). Each key maps to a tuple of the
            binned time, binned time series, the companion variability binned time series, and the number of phase
-           folded cycles used when binning.
+           folded cycles used when binning. Additionally, there are two keys that map to the absolute minimum of the
+           global and local flux, respectively.
+           A dict with two keys map to the mu and sigma normalization statistics of the global flux.
+           A dict with two keys map to the mu and sigma normalization statistics of the local flux.
+
      """
 
     # create global flux view
@@ -1464,6 +1499,14 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
 
     binned_timeseries.update(binned_timeseries_norm)
 
+    # add absolute minimum statistics for global and local fluxes
+    binned_timeseries.update(
+        {
+            'flux_global_stat_abs_min': norm_flux_global_stats['sigma'],
+            'flux_local_stat_abs_min': norm_flux_local_stats['sigma'],
+        }
+    )
+
     return binned_timeseries, norm_flux_global_stats, norm_flux_local_stats
 
 
@@ -1481,7 +1524,8 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
               A dict with keys 'flux_trend_global' and 'flux_trend_local', their corresponding unfolded versions
               'flux_trend_{global_local}_unfolded', plus their normalization versions ({}_norm). Each key maps to a
               tuple of the binned time, binned time series, the companion variability binned time series, and the number
-               of phase folded cycles used when binning.
+               of phase folded cycles used when binning. Additionally, there are two keys that map to the max and min
+               statistics of the global trend flux.
     """
 
     # create global flux view
@@ -1532,7 +1576,7 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                                            tce,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'7_riverplot_flux_trend_aug{tce["augmentation_idx"]}.png')
+                                           f'7_1_riverplot_flux_trend_aug{tce["augmentation_idx"]}.png')
 
     # create local flux view
     loc_flux_view, loc_binned_time, loc_flux_view_var, _, bin_counts = \
@@ -1579,8 +1623,11 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
     unfolded_loc_flux_view_var = np.array(unfolded_loc_flux_view_var)
 
     # normalize data
-    norm_flux_median = np.median(glob_flux_view)
-    norm_flux_factor = np.abs(np.min(glob_flux_view - norm_flux_median)) + NORM_SIGMA_EPS
+    # norm_flux_median = np.median(glob_flux_view)
+    # norm_flux_factor = np.abs(np.min(glob_flux_view - norm_flux_median)) + NORM_SIGMA_EPS
+    norm_flux_max = np.max(glob_flux_view)
+    norm_flux_min = np.min(glob_flux_view)
+    delta_flux_max_min = norm_flux_max - norm_flux_min + NORM_SIGMA_EPS
 
     binned_timeseries = {
         'flux_trend_global': (glob_binned_time, glob_flux_view, glob_flux_view_var, data['flux'][2]),
@@ -1588,22 +1635,38 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
         'flux_trend_global_unfolded': (None, unfolded_glob_flux_view, unfolded_glob_flux_view_var,
                                        data['flux_unfolded'][2]),
         'flux_trend_local_unfolded': (None, unfolded_loc_flux_view, unfolded_loc_flux_view_var,
-                                      data['flux_unfolded'][2])
+                                      data['flux_unfolded'][2]),
     }
 
     binned_timeseries_norm = {f'{ts_name}_norm': (binned_time,
-                                                  (binned_values - norm_flux_median) / norm_flux_factor,
-                                                  binned_values_var / norm_flux_factor,
+                                                  (binned_values - norm_flux_min) / delta_flux_max_min,
+                                                  binned_values_var / delta_flux_max_min,
                                                   n_transits)
                               for ts_name, (binned_time, binned_values, binned_values_var, n_transits) in
                               binned_timeseries.items()}
 
     binned_timeseries.update(binned_timeseries_norm)
 
+    # add max and min statistics
+    binned_timeseries.update(
+        {
+            'flux_trend_global_stat_max': norm_flux_max,
+            'flux_trend_global_stat_min': norm_flux_min
+        }
+    )
+
+    if plot_preprocessing_tce:
+        utils_visualization.plot_phasefolded_and_binned_trend(
+            data, binned_timeseries,
+            tce,
+            config['plot_dir'] /
+            f'{tce["uid"]}_{tce["label"]}_'
+            f'7_2_phasefoldedbinned_trend_aug{tce["augmentation_idx"]}.png')
+
     return binned_timeseries
 
 
-def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
+def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plot_preprocessing_tce=False):
     """ Generates weak secondary flux local binned time series from phase folded data.
 
         Args:
@@ -1612,11 +1675,13 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
           example output.
           config: dict; preprocessing parameters.
           norm_stats: dict, containing normalization statistics
+          plot_preprocessing_tce: boolean, if True plots figure
 
         Returns:
           A dict with keys 'flux_weak_secondary_local' and 'flux_weak_secondary_local_norm'
           (before/after normalization), each containing a tuple of the local binned time, local binned time series, the
-          companion variability binned time series, and the number of phase folded cycles used when binning
+          companion variability binned time series, and the number of phase folded cycles used when binning.
+          Additionally, there is one key that maps to the absolute minimum of the local weak secondary flux.
     """
 
     # create local view for the weak secondary flux
@@ -1669,6 +1734,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
     # normalize binned time series
     if norm_stats is None:  # normalize by self absolute minimum
         norm_stats = {'mu': np.median(loc_weak_secondary_view)}
+
         norm_stats['sigma'] = np.abs(np.min(loc_weak_secondary_view - norm_stats['mu']))
 
     loc_weak_secondary_view_norm = \
@@ -1705,7 +1771,17 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None):
                                            loc_weak_secondary_view_norm,
                                            loc_weak_secondary_view_var_norm,
                                            data['flux_weak_secondary'][2]),
+
+        'flux_weak_secondary_local_stat_abs_min': norm_stats['sigma'],
     }
+
+    if plot_preprocessing_tce:
+        utils_visualization.plot_phasefolded_and_binned_weak_secondary_flux(
+            data, binned_timeseries,
+            tce,
+            config['plot_dir'] /
+            f'{tce["uid"]}_{tce["label"]}_'
+            f'8_3_flux_weak_secondary_aug{tce["augmentation_idx"]}.png')
 
     return binned_timeseries
 
@@ -1722,7 +1798,8 @@ def generate_centroid_binned_views(data, tce, config):
     Returns:
       A dict with keys 'centroid_offset_distance_to_target_global' and 'centroid_offset_distance_to_target_global', each
       containing a tuple of the global/local binned time, global/local binned time series, the companion variability
-      binned time series, and the number of phase folded cycles used when binning
+      binned time series, and the number of phase folded cycles used when binning. Additionally, there are two keys that
+      map to the maximum local and global centroid phase folded and binned time series.
     """
 
     glob_centr_view, glob_binned_time, glob_centr_view_var, _, bin_counts = \
@@ -1914,6 +1991,10 @@ def generate_centroid_binned_views(data, tce, config):
                                                       data['centroid_offset_distance_to_target'][2]),
         'centroid_offset_distance_to_target_local': (loc_binned_time, loc_centr_view, loc_centr_view_var,
                                                      data['centroid_offset_distance_to_target'][2]),
+
+        'centroid_offset_distance_to_target_global_stat_abs_max': np.nanmax(glob_centr_view),
+        'centroid_offset_distance_to_target_local_stat_abs_max': np.nanmax(loc_centr_view),
+
     }
 
     return binned_timeseries
@@ -2013,7 +2094,8 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
     binned_timeseries_wksecondary = generate_weak_secondary_binned_views(phase_folded_data,
                                                                          tce,
                                                                          config,
-                                                                         norm_stats=binned_flux_local_norm_stats)
+                                                                         norm_stats=None,
+                                                                         plot_preprocessing_tce=plot_preprocessing_tce)
     binned_timeseries.update(binned_timeseries_wksecondary)
 
     # create binned time series for centroid motion
@@ -2049,29 +2131,38 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                                            plot_var=True
                                            )
 
-    # initialize dictionary with the binned time series that will be stored in the TFRecords example for this TCE
+    # initialize dictionary with the binned time series and statistics that will be stored in the TFRecords example for
+    # this TCE
     for binned_ts_name, binned_ts_data in binned_timeseries.items():
 
-        # check if time series have NaN values
-        if np.any(~np.isfinite(binned_ts_data[1])):  # at least one point is non-finite (infinite or NaN)
-            raise ValueError(f'Binned time series {binned_ts_name} has at least one non-finite data point.')
+        if 'stat' in binned_ts_name:  # for statistics
+            if not np.isfinite(binned_ts_data):  # check if statistic value is non-finite
+                raise ValueError(f'Statistics {binned_ts_name} is non-finite.')
 
-        if np.any(~np.isfinite(binned_ts_data[2])):  # at least one point is non-finite (infinite or NaN)
-            raise ValueError(f'Binned var time series {binned_ts_name} has at least one non-finite data point.')
+            example_util.set_float_feature(ex, binned_ts_name, [binned_ts_data])
 
-        # add binned time series to the example
-        if 'unfolded' in binned_ts_name:  # unfolded phase binned time series
-            example_util.set_tensor_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
-            example_util.set_tensor_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
-                                            binned_ts_data[2])
-        else:  # phase folded time series
-            example_util.set_float_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
-            example_util.set_float_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
-                                           binned_ts_data[2])
+        else:
 
-        # add number of transits per binned time series
-        example_util.set_int64_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_num_transits',
-                                       [binned_ts_data[3]])
+            # check if time series have NaN values
+            if np.any(~np.isfinite(binned_ts_data[1])):  # at least one point is non-finite (infinite or NaN)
+                raise ValueError(f'Binned time series {binned_ts_name} has at least one non-finite data point.')
+
+            if np.any(~np.isfinite(binned_ts_data[2])):  # at least one point is non-finite (infinite or NaN)
+                raise ValueError(f'Binned var time series {binned_ts_name} has at least one non-finite data point.')
+
+            # add binned time series to the example
+            if 'unfolded' in binned_ts_name:  # unfolded phase binned time series
+                example_util.set_tensor_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
+                example_util.set_tensor_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
+                                                binned_ts_data[2])
+            else:  # phase folded time series
+                example_util.set_float_feature(ex, MAP_VIEWS_TO_OLD_NAMES[binned_ts_name], binned_ts_data[1])
+                example_util.set_float_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_var',
+                                               binned_ts_data[2])
+
+            # add number of transits per binned time series
+            example_util.set_int64_feature(ex, f'{MAP_VIEWS_TO_OLD_NAMES[binned_ts_name]}_num_transits',
+                                           [binned_ts_data[3]])
 
     # add periodogram data
     for pgram_name, pgram in pgram_data.items():
@@ -2099,34 +2190,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                 example_util.set_feature(ex, name, [value])
         except Exception:
             raise TypeError(f'Could not set up this TCE table parameter: {name}.')
-            # report_exclusion(f'Could not set up this TCE table parameter: {name}.',
-            #                  config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-            #                  e
-            #                  )
-
-    # # add number of transits per view
-    # for view in num_transits:
-    #     example_util.set_int64_feature(ex, f'{view}_num_transits', [num_transits[view]])
-
-    # # add odd and even scalar features
-    # for field in ['se_oot', 'std_oot_bin']:
-    #     example_util.set_float_feature(ex, f'odd_{field}', [odd_data[field]])
-    #     example_util.set_float_feature(ex, f'even_{field}', [even_data[field]])
-
-    #     # provide adjusted odd-even SE due to TESS having higher sampling rate
-    #     if config['satellite'] == 'tess' and field == 'se_oot':
-    #         example_util.set_float_feature(ex, f'odd_{field}_adjsampl',
-    #                                        [odd_data[field] * config['tess_to_kepler_sampling_ratio']])
-    #         example_util.set_float_feature(ex, f'even_{field}_adjsampl',
-    #                                        [even_data[field] * config['tess_to_kepler_sampling_ratio']])
 
     example_stats = create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_transit, config)
-
-    # try:
-    #     a = []
-    #     a[0]
-    # except Exception as e:
-    #     raise ValueError('aaaa', e.__traceback__).with_traceback(e.__traceback__) from None
-    #     # raise ValueError('aa')
 
     return ex, example_stats

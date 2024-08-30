@@ -305,11 +305,12 @@ def plot_loss_metric(res, epochs, save_path, ep_idx=-1, opt_metric=None):
     plt.close()
 
 
-def plot_metric_from_res_file(res, save_path):
+def plot_metric_from_res_file(res, save_path, logscale=False):
     """ Plot loss/metric from results NumPy file.
 
     :param res: dict, keys are loss and metrics on the training, validation and test set
     :param save_path: str, filepath used to save the plots figure
+    :param logscale: bool, whether to log scale or not the y-axis
     :return:
     """
 
@@ -319,6 +320,8 @@ def plot_metric_from_res_file(res, save_path):
     ax.legend()
     ax.set_ylabel('Value')
     ax.set_xlabel('Epoch Number')
+    if logscale:
+        ax.set_yscale('log')
     f.tight_layout()
     f.savefig(save_path)
     plt.close()

@@ -16,15 +16,17 @@ from pathlib import Path
 from src.utils_train import plot_metric_from_res_file
 
 # file pat to results numpy file
-res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_q1q17dr25_simdata/experiments/cv_exominer_obsplanets_inj1_2-22-2024_1312/cv_iter_0/models/model9/res_eval.npy')
+res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/res_train.npy')
 # file path to save image to
-save_fp = Path('/Users/msaragoc/Downloads/plot_prauc_curve.png')
+# save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/plot_prauc_curve.png')
 
 # load results file
 res = np.load(res_fp, allow_pickle=True).item()
 print(f'Metrics/loss available: {res.keys()}')
 
-metric_name_chosen = 'auc_pr'
+metric_name_chosen = 'loss'
+
+save_fp = res_fp.parent / f'plot_{metric_name_chosen}.png'
 
 # set epochs array
 epochs_arr = np.arange(len(res[metric_name_chosen]))
@@ -33,4 +35,4 @@ epochs_arr = np.arange(len(res[metric_name_chosen]))
 chosen_metrics = [metric_name for metric_name in res if metric_name_chosen in metric_name]
 chosen_res = {metric_name: {'epochs': epochs_arr, 'values': res[metric_name]} for metric_name in chosen_metrics}
 
-plot_metric_from_res_file(chosen_res, save_fp)
+plot_metric_from_res_file(chosen_res, save_fp, logscale=True)

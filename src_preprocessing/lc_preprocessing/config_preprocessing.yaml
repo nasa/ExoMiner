@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_tfrecords_tess_spoc_2min_8-19-2024_1356
+output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_tfrecords_tess_spoc_2min_tic232608943_meanbinning_8-29-2024_1446
 # TCE table with examples to be preprocessed
 input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/tess/2min_cadence_data/lc
+lc_data_dir: /Users/msaragoc/Downloads/tess_spoc_2min_lc/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files
 
 using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
@@ -91,9 +91,9 @@ px_coordinates: false
 prefer_psfcentr: false
 
 # positive outlier removal
-pos_outlier_removal: false
-pos_outlier_removal_sigma: 3
-pos_outlier_removal_fill: true
+outlier_removal: true
+outlier_removal_sigma: 20
+outlier_removal_fill: false
 
 tess_px_scale: 21  # arcsec
 kepler_px_scale: 3.98  # arcsec

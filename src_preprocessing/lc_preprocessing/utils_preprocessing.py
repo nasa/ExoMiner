@@ -285,39 +285,61 @@ def remove_non_finite_values(arrs):
     return arrs
 
 
-def remove_positive_outliers(time, ts, sigma, fill=False):
-    """ Remove positive outliers in the flux time series using a threshold in the standard deviation. Option to fill
-    outlier cadences using Gaussian noise with global statistics of the time series. If not, those will be filled out
-    with NaNs.
+def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
+    """ Remove outliers (option for positive, negative or both types of outliers) in the flux time series using a
+    threshold in the standard deviation. Option to fill outlier cadences using Gaussian noise with global statistics
+    of the time series. If not, those will be filled out with NaNs.
 
-    :param time: NumPy array, time stamps
-    :param ts: NumPy array, time series
+    :param ts: NumPy array or list of NumPy arrays, time series
     :param sigma: float, sigma factor
     :param fill: bool, if True fills outliers
+    :param outlier_type: str, type of outlier to be removed. `upper` for positive outliers, `lower` for negative
+    outliers, `both` for both types
     :return:
         time: NumPy array, time stamps for the new time series
-        ts: NumPy array, time series without outliers
-        idxs_out: NumPy array, outlier indices
+        ts: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, time series without outliers
+        idxs_out: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, outlier indices
     """
 
-    rob_std = mad_std(ts)
+    if outlier_type not in ['upper', 'lower', 'both']:
+        raise TypeError(f'Outlier type {outlier_type} not recognized. Choose between `upper`, `lower`, or `both`.')
 
-    idxs_out = np.where(ts >= 1 + sigma * rob_std)
+    ts_arr_list = False
+    if isinstance(ts, list):  # time series is a list of NumPy arrays with different dimensions
+        flattened_arr = [x for xs in ts for x in xs]
+        rob_std = mad_std(flattened_arr, ignore_nan=True)
+        mu_val = np.nanmedian(flattened_arr)
+        ts_arr_list = True
 
-    if fill:
-        # fill with mean
-        # fill_val = np.median(ts)
-        # ts[idxs_out] = fill_val
+    else:  # time series is a NumPy array
+        rob_std = mad_std(ts)
+        mu_val = np.nanmedian(ts)
 
-        # fill with Gaussian noise with global time series statistics
-        ts[idxs_out] = np.random.normal(np.median(ts), rob_std, idxs_out[0].shape)
-    else:
-        ts[idxs_out] = np.nan
-        # idxs_in = ~np.isnan(ts)
-        # ts = ts[idxs_in]
-        # time = time[idxs_in]
+        ts = [ts]
 
-    return time, ts, idxs_out
+    idxs_out = []
+    for np_ts_arr in ts:
+
+        if outlier_type == 'upper':
+            idxs_out_arr = np.where(np_ts_arr >= mu_val + sigma * rob_std)
+        elif outlier_type == 'lower':
+            idxs_out_arr = np.where(np_ts_arr <= mu_val - sigma * rob_std)
+        elif outlier_type == 'both':
+            idxs_out_arr = np.where(np.abs(np_ts_arr) >= mu_val + sigma * rob_std)
+
+        if fill:
+            # fill with Gaussian noise with global time series statistics
+            np_ts_arr[idxs_out_arr] = np.random.normal(mu_val, rob_std, idxs_out_arr[0].shape)
+        else:  # set to NaN
+            np_ts_arr[idxs_out_arr] = np.nan
+
+        idxs_out.append(idxs_out_arr)
+
+    if not ts_arr_list:
+        ts = ts[0]
+        idxs_out = idxs_out[0]
+
+    return ts, idxs_out
 
 
 def check_inputs_generate_example(data, tce, config):
