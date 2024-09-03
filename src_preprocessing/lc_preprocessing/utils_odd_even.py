@@ -708,9 +708,10 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         'local_flux_view': loc_flux_odd_view,
         'local_flux_view_se': loc_flux_odd_view_var / np.sqrt(bin_counts_odd),
         'binned_time': binned_time_odd,
-        'se_oot': stats.mad_std(np.concatenate([bin_values_odd[i] for i, ind in enumerate(inds_oot_odd) if ind])) /
+        'se_oot': stats.mad_std(np.concatenate([bin_values_odd[i]
+                                                for i, ind in enumerate(inds_oot_odd) if ind]), ignore_nan=True) /
                   np.sqrt(n_cadences_oot_odd),
-        'std_oot_bin': stats.mad_std(loc_flux_odd_view[inds_oot_odd]),
+        'std_oot_bin': stats.mad_std(loc_flux_odd_view[inds_oot_odd], ignore_nan=True),
         'num_cadences_oot': n_cadences_oot_odd,
         'num_bins_it_nan': inds_nan_odd_init['it'].sum(),
         'num_bins_oot_nan': inds_nan_odd_init['oot'].sum()
@@ -720,9 +721,10 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         'local_flux_view': loc_flux_even_view,
         'local_flux_view_se': loc_flux_even_view_var / np.sqrt(bin_counts_even),
         'binned_time': binned_time_even,
-        'se_oot': stats.mad_std(np.concatenate([bin_values_even[i] for i, ind in enumerate(inds_oot_even) if ind])) /
+        'se_oot': stats.mad_std(np.concatenate([bin_values_even[i]
+                                                for i, ind in enumerate(inds_oot_even) if ind]), ignore_nan=True) /
                   np.sqrt(n_cadences_oot_even),
-        'std_oot_bin': stats.mad_std(loc_flux_even_view[inds_oot_even]),
+        'std_oot_bin': stats.mad_std(loc_flux_even_view[inds_oot_even], ignore_nan=True),
         'num_cadences_oot': n_cadences_oot_even,
         'num_bins_it_nan': inds_nan_even_init['it'].sum(),
         'num_bins_oot_nan': inds_nan_even_init['oot'].sum()
