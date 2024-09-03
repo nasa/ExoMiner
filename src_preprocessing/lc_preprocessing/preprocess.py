@@ -2137,7 +2137,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
 
         if 'stat' in binned_ts_name:  # for statistics
             if not np.isfinite(binned_ts_data):  # check if statistic value is non-finite
-                raise ValueError(f'Statistics {binned_ts_name} is non-finite.')
+                raise ValueError(f'Statistic {binned_ts_name} is non-finite.')
 
             example_util.set_float_feature(ex, binned_ts_name, [binned_ts_data])
 
