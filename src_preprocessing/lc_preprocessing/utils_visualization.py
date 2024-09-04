@@ -141,21 +141,25 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, px
     f, ax = plt.subplots(2, 2, figsize=(18, 12))
 
     ax[0, 0].plot(time, centroids_plot['x'], 'b', zorder=0)
-    ax[0, 0].plot(time, detrended_centroids_plot['x']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
+    # ax[0, 0].plot(time, detrended_centroids_plot['x']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
     if 'linear_interp' in detrended_centroids_plot['x']:
         ax[0, 0].plot(time, detrended_centroids_plot['x']['linear_interp'], 'g', label='Linear Interp.', zorder=0)
-    ax[0, 0].legend()
+    # ax[0, 0].legend()
     ax[0, 0].set_xlim(time[[0, -1]])
     ax[0, 1].plot(time, detrended_centroids_plot['x']['detrended'], 'b', zorder=0)
+    ax[0, 1].plot(time, detrended_centroids_plot['x']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
     ax[0, 1].set_xlim(time[[0, -1]])
+    ax[0, 1].legend()
 
     ax[1, 0].plot(time, centroids_plot['y'], 'b', zorder=0)
-    ax[1, 0].plot(time, detrended_centroids_plot['y']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
+    # ax[1, 0].plot(time, detrended_centroids_plot['y']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
     if 'linear_interp' in detrended_centroids_plot['x']:
         ax[1, 0].plot(time, detrended_centroids_plot['y']['linear_interp'], 'g', label='Linear Interp.', zorder=0)
     ax[1, 0].set_xlim(time[[0, -1]])
-    ax[1, 0].legend()
+    # ax[1, 0].legend()
     ax[1, 1].plot(time, detrended_centroids_plot['y']['detrended'], 'b', zorder=0)
+    ax[1, 1].plot(time, detrended_centroids_plot['y']['trend'], 'orange', linestyle='--', label='Trend', zorder=1)
+    ax[1, 1].legend()
     ax[1, 1].set_xlim(time[[0, -1]])
 
     if config['px_coordinates'] or pxcoordinates:
@@ -197,13 +201,15 @@ def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename,
 
     f, ax = plt.subplots(2, 1, figsize=(16, 10))
     ax[0].plot(time, flux, 'b', zorder=0)
-    ax[0].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=1)
+    # ax[0].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=1)
     if flux_interp is not None:
         ax[0].plot(time, flux_interp, 'g', label='Flux w/ lin. interpolated across transits', zorder=0)
-    ax[0].legend()
+    # ax[0].legend()
     ax[0].set_xlim(time[[0, -1]])
     ax[1].plot(time, detrended_flux, 'b')
-    ax[0].set_ylabel('Amplitude (e-/s)')
+    ax[1].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=1)
+    ax[1].legend()
+    ax[0].set_ylabel(fr'Amplitude [$e^-s^-1$]')
     ax[0].set_title('Raw Flux')
     ax[1].set_ylabel('Normalized Amplitude')
     ax[1].set_xlabel('Time [day]')
@@ -1276,7 +1282,7 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     ax = plt.subplot(gs[0, :])
     ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1)
     ax.scatter(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], s=8, c='b', zorder=2)
-    ax.set_ylabel(fr'Amplitude [$e^-/s$]')
+    ax.set_ylabel(fr'Amplitude [$e^-s^-1$]')
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax.set_xlabel('Phase [day]')
     ax = plt.subplot(gs[1, :])
@@ -1290,7 +1296,7 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     ax.scatter(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], s=8,
                c='b', zorder=2)
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
-    ax.set_ylabel('Amplitude')
+    ax.set_ylabel(fr'Amplitude [$e^-s^-1$]')
     ax.set_xlabel('Phase [hour]')
     ax = plt.subplot(gs[2, 1])
     ax.scatter(binned_data['flux_trend_local_norm'][0] * 24, binned_data['flux_trend_local_norm'][1], s=8,
