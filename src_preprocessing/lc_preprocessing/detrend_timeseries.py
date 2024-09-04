@@ -87,12 +87,16 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     rng = np.random.default_rng(seed=config['random_seed'])
     spline_flux[~finite_idxs] = rng.normal(mu, std, (~finite_idxs).sum())
 
-    # # compute residual; i.e., what was not fitted by the spline and is not present in the transits since they were
-    # # gapped through linearly interpolation
-    # res_flux = flux_lininterp - spline_flux
-
     # detrend flux by normalize flux time series with the fitted spline
     detrended_flux = flux / spline_flux
+
+    # remove median from trend (by time splits)
+    dt = np.diff(time)
+    cut = np.where(dt > 5 * np.nanmedian(dt))[0] + 1
+    low = np.append([0], cut)
+    high = np.append(cut, len(time))
+    for low_i, high_i in zip(low, high):
+        spline_flux[low_i: high_i] /= np.nanmedian(spline_flux[low_i: high_i])
 
     return time, detrended_flux, spline_flux, flux_lininterp
 
@@ -141,14 +145,13 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
         - time, NumPy array with timestamps
         - detrended_flux, NumPy array with detrended timeseries (i.e., detrended_flux = flux / trend)
         - trend, NumPy array with trend
-        # - res_flux, NumPy array with the residual timeseries (i.e., res_flux = flux - trend)
     """
 
     if mask_in_transit.all():
         time = lc.time.value
         trend = np.nanmedian(lc.flux.value) * np.ones_like(lc.flux.value)
         detrended_flux = lc.flux.value / trend
-        # res_flux = lc.flux.value - detrended_flux
+        trend = np.ones_like(lc.flux.value)
 
         return time, detrended_flux, trend
 
@@ -172,7 +175,13 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
 
     time, detrended_flux = lc_detrended[best_model]['flux'].time.value, lc_detrended[best_model]['flux'].flux.value
     trend = lc_detrended[best_model]['trend'].flux.value
-    # res_flux = lc.flux.value - trend
-    # res_flux[mask_in_transit] = np.nan  # mask in-transit cadences in the residual flux
 
-    return time, detrended_flux, trend  # , res_flux
+    # remove median from trend (by time splits)
+    dt = np.diff(time)
+    cut = np.where(dt > 5 * np.nanmedian(dt))[0] + 1
+    low = np.append([0], cut)
+    high = np.append(cut, len(time))
+    for low_i, high_i in zip(low, high):
+        trend[low_i: high_i] /= np.nanmedian(trend[low_i: high_i])
+
+    return time, detrended_flux, trend

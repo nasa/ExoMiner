@@ -1434,10 +1434,10 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
     # create unfolded local flux views
     unfolded_loc_flux_view = []
     unfolded_loc_flux_view_var = []
-    for phase_i in range(data['flux_trend_unfolded'][2]):
+    for phase_i in range(data['flux_unfolded'][2]):
         unfolded_loc_flux_view_phase, binned_time, unfolded_loc_flux_view_var_phase, _, bin_counts = \
-            local_view(data['flux_trend_unfolded'][0][phase_i],
-                       data['flux_trend_unfolded'][1][phase_i],
+            local_view(data['flux_unfolded'][0][phase_i],
+                       data['flux_unfolded'][1][phase_i],
                        tce['tce_period'],
                        tce['tce_duration'],
                        tce=tce,
