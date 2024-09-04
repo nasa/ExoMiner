@@ -38,7 +38,7 @@ def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_targ
     n_arrs = len(all_time)
     for i in range(n_arrs):
         ax[0].plot(all_time[i], intransit_cadences_target[i], 'b', zorder=1,
-                   label=None if i < n_arrs - 1 else 'Detected target TCEs')
+                   label=None if i < n_arrs - 1 else 'Detected target TCEs', alpha=0.2)
         ax[0].plot(all_time[i], intransit_cadences_tce[i], 'k--', zorder=2,
                    label=None if i < n_arrs - 1 else 'TCE of interest', linewidth=2)
         ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
@@ -206,8 +206,8 @@ def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename,
         ax[0].plot(time, flux_interp, 'g', label='Flux w/ lin. interpolated across transits', zorder=0)
     # ax[0].legend()
     ax[0].set_xlim(time[[0, -1]])
-    ax[1].plot(time, detrended_flux, 'b')
-    ax[1].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=1)
+    ax[1].plot(time, detrended_flux, 'b', zorder=1)
+    ax[1].plot(time, trend, 'orange', linestyle='--', label='Trend', zorder=2)
     ax[1].legend()
     ax[0].set_ylabel(fr'Amplitude [$e^-s^-1$]')
     ax[0].set_title('Raw Flux')
@@ -273,7 +273,8 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     for i in range(len(all_time_oot)):
         ax[0, 0].plot(all_time_oot[i], centroid_oot['x'][i], 'b', zorder=0)
     # plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['x']))
-    ax[0, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['x'] * np.ones(len(np.concatenate(all_time_oot))), 'r--',
+    ax[0, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['x'] * np.ones(len(np.concatenate(all_time_oot))),
+                  'r--',
              label='avg oot', zorder=1)
     # plt.plot(np.concatenate(all_time),
     #          np.concatenate([avg_centroid_oot['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
@@ -299,7 +300,8 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     for i in range(len(all_time_oot)):
         ax[1, 0].plot(all_time_oot[i], centroid_oot['y'][i], 'b', zorder=0)
     # plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['y']))
-    ax[1, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['y'] * np.ones(len(np.concatenate(all_time_oot))), 'r--',
+    ax[1, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['y'] * np.ones(len(np.concatenate(all_time_oot))),
+                  'r--',
              label='avg oot', zorder=1)
     # plt.plot(np.concatenate(all_time),
     #          np.concatenate([avg_centroid_oot['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
@@ -546,8 +548,10 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
                     # ax[i, j].plot(views[views_list[k]][1] + views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
                     # ax[i, j].plot(views[views_list[k]][1] - views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
 
-                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] + views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
-                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] - views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
+                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] + views[views_list[k]][2], 'r--',
+                                  alpha=0.3, zorder=1)
+                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] - views[views_list[k]][2], 'r--',
+                                  alpha=0.3, zorder=1)
 
                 ax[i, j].set_title(f'{views_list[k]} num transits={views[views_list[k]][3]}', pad=20)
 
@@ -620,13 +624,16 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
                 elif views_list[k] == 'local_flux_odd_view':
                     ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux_odd']), pad=20)
                 elif views_list[k] == 'local_flux_even_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux_even']), pad=20)
+                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['flux_even']),
+                                       pad=20)
                 elif views_list[k] == 'local_weak_secondary_view':
                     ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['wks']), pad=20)
                 elif views_list[k] == 'global_centr_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid']), pad=20)
+                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid']),
+                                       pad=20)
                 elif views_list[k] == 'global_centr_fdl_view':
-                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid_fdl']), pad=20)
+                    ax[i, j].set_title('{} N_transits={}'.format(views_list[k], num_transits['centroid_fdl']),
+                                       pad=20)
                 else:
                     ax[i, j].set_title('{}'.format(views_list[k]), pad=20)
                 ax[i, j].set_xlim([0, len(views[views_list[k]])])
@@ -758,7 +765,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     f = plt.figure(figsize=(20, 14))
 
     ax = plt.subplot(gs[0, :])
-    ax.scatter(timeseries['flux'][0], timeseries['flux'][1], color='k', s=5)
+    ax.scatter(timeseries['flux'][0], timeseries['flux'][1], color='k', s=5, alpha=0.1)
     ax.scatter(binned_timeseries['flux_global'][0], binned_timeseries['flux_global'][1], color='b')
     ax.plot(binned_timeseries['flux_global'][0], binned_timeseries['flux_global'][1], 'b')
     ax.set_ylabel('Relative Flux')
@@ -780,7 +787,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     ax = plt.subplot(gs[1, 0])
     # ax.scatter(timeseries['Flux'][0][left_idx:right_idx] * 24, timeseries['Flux'][1][left_idx:right_idx],
     #            color='k', s=5)
-    ax.scatter(timeseries['flux'][0] * 24, timeseries['flux'][1], color='k', s=5)
+    ax.scatter(timeseries['flux'][0] * 24, timeseries['flux'][1], color='k', s=5, alpha=0.1)
     ax.scatter(binned_timeseries['flux_local'][0] * 24, binned_timeseries['flux_local'][1], color='b')
     ax.plot(binned_timeseries['flux_local'][0] * 24, binned_timeseries['flux_local'][1], 'b')
     ax.set_ylabel('Relative Flux')
@@ -803,7 +810,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         # ax.scatter(timeseries['Weak Secondary Flux'][0][left_idx:right_idx] * 24,
         #            timeseries['Weak Secondary Flux'][1][left_idx:right_idx], color='k', s=5)
         ax.scatter(timeseries['flux_weak_secondary'][0] * 24,
-                   timeseries['flux_weak_secondary'][1], color='k', s=5)
+                   timeseries['flux_weak_secondary'][1], color='k', s=5, alpha=0.1)
         ax.scatter(binned_timeseries['flux_weak_secondary_local'][0] * 24,
                    binned_timeseries['flux_weak_secondary_local'][1], color='b')
         ax.plot(binned_timeseries['flux_weak_secondary_local'][0] * 24,
@@ -830,7 +837,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         # right_idx = np.where(timeseries['Odd Flux'][0] < local_view_time_interval)[0][-1]
         # ax.scatter(timeseries['Odd Flux'][0][left_idx:right_idx] * 24, timeseries['Odd Flux'][1][left_idx:right_idx],
         #            color='k', s=5)
-        ax.scatter(timeseries['flux_odd'][0] * 24, timeseries['flux_odd'][1], color='k', s=5)
+        ax.scatter(timeseries['flux_odd'][0] * 24, timeseries['flux_odd'][1], color='k', s=5, alpha=0.1)
         ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='b')
         ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'b')
         ax.set_ylabel('Relative Flux')
@@ -854,7 +861,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         # right_idx = np.where(timeseries['Even Flux'][0] < local_view_time_interval)[0][-1]
         # ax.scatter(timeseries['Even Flux'][0][left_idx:right_idx] * 24, timeseries['Even Flux'][1][left_idx:right_idx],
         #            color='k', s=5)
-        ax.scatter(timeseries['flux_even'][0] * 24, timeseries['flux_even'][1], color='k', s=5)
+        ax.scatter(timeseries['flux_even'][0] * 24, timeseries['flux_even'][1], color='k', s=5, alpha=0.1)
         ax.scatter(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='b')
         ax.plot(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'b')
         ax.set_ylabel('Relative Flux')
@@ -873,7 +880,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
         # ax.set_ylim(range_timeseries)
 
     ax = plt.subplot(gs[3, :])
-    ax.scatter(timeseries['flux_trend'][0], timeseries['flux_trend'][1], color='k', s=5)
+    ax.scatter(timeseries['flux_trend'][0], timeseries['flux_trend'][1], color='k', s=5, alpha=0.1)
     ax.scatter(binned_timeseries['flux_trend_global'][0], binned_timeseries['flux_trend_global'][1], color='b')
     ax.plot(binned_timeseries['flux_trend_global'][0], binned_timeseries['flux_trend_global'][1], 'b')
     ax.set_ylabel('Relative Flux')
@@ -884,7 +891,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
 
     ax = plt.subplot(gs[4, :])
     ax.scatter(timeseries['centroid_offset_distance_to_target'][0],
-               timeseries['centroid_offset_distance_to_target'][1], color='k', s=5)
+               timeseries['centroid_offset_distance_to_target'][1], color='k', s=5, alpha=0.1)
     ax.scatter(binned_timeseries['centroid_offset_distance_to_target_global'][0],
                binned_timeseries['centroid_offset_distance_to_target_global'][1], color='b')
     ax.plot(binned_timeseries['centroid_offset_distance_to_target_global'][0],
@@ -914,7 +921,7 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     #            color='k', s=5)
     ax.scatter(timeseries['centroid_offset_distance_to_target'][0] * 24,
                timeseries['centroid_offset_distance_to_target'][1],
-               color='k', s=5)
+               color='k', s=5, alpha=0.1)
     ax.scatter(binned_timeseries['centroid_offset_distance_to_target_local'][0] * 24,
                binned_timeseries['centroid_offset_distance_to_target_local'][1], color='b')
     ax.plot(binned_timeseries['centroid_offset_distance_to_target_local'][0] * 24,
@@ -984,7 +991,7 @@ def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp
     ax = plt.subplot(gs[0, 0])
     # if len(timeseries['Odd Flux'][0]) > 0:
     ax.scatter(phasefolded_timeseries['flux_odd'][0] * 24, phasefolded_timeseries['flux_odd'][1], color='k', s=5,
-               alpha=0.8)
+               alpha=0.1)
     ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='r')
     ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'c')
     ax.set_ylabel('Relative Flux')
@@ -998,7 +1005,7 @@ def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp
     ax = plt.subplot(gs[0, 1])
     # if len(timeseries['Even Flux'][0]) > 0:
     ax.scatter(phasefolded_timeseries['flux_even'][0] * 24, phasefolded_timeseries['flux_even'][1], color='k', s=5,
-               alpha=0.8)
+               alpha=0.1)
     ax.scatter(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='r')
     ax.plot(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'c')
     ax.set_ylabel('Relative Flux')
@@ -1280,7 +1287,7 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     f = plt.figure(figsize=(20, 14))
 
     ax = plt.subplot(gs[0, :])
-    ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1, alpha=0.5)
+    ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=5, c='k', zorder=1, alpha=0.1)
     ax.scatter(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], s=8, c='r', zorder=3)
     ax.plot(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], 'c', zorder=2)
     ax.set_ylabel(fr'Amplitude')
@@ -1294,8 +1301,8 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     ax.set_xlabel('Phase [day]')
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax = plt.subplot(gs[2, 0])
-    ax.scatter(phasefolded_data['flux_trend'][0] * 24, phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1,
-               alpha=0.5)
+    ax.scatter(phasefolded_data['flux_trend'][0] * 24, phasefolded_data['flux_trend'][1], s=5, c='k', zorder=1,
+               alpha=0.1)
     ax.scatter(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], s=10,
                c='r', zorder=3, alpha=1)
     ax.plot(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], 'c', zorder=2)
@@ -1335,7 +1342,7 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
 
     ax = plt.subplot(gs[0, :])
     ax.scatter(phasefolded_data['flux_weak_secondary'][0], phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
-               zorder=1)
+               zorder=1, alpha=1)
     ax.axvline(x=-tce['tce_maxmesd'], c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
     ax.set_ylabel('Amplitude')
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
@@ -1343,8 +1350,8 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
     ax.legend()
 
     ax = plt.subplot(gs[1, 0])
-    ax.scatter(phasefolded_data['flux_weak_secondary'][0] * 24, phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
-               zorder=1, alpha=0.5)
+    ax.scatter(phasefolded_data['flux_weak_secondary'][0] * 24, phasefolded_data['flux_weak_secondary'][1], s=5, c='k',
+               zorder=1, alpha=0.1)
     ax.scatter(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], s=8,
                c='r', zorder=3)
     ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
