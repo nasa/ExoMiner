@@ -169,8 +169,8 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, px
         ax[0, 0].set_ylabel(f'RA [{target_position_unit}] {("", " to target")[target_position is not None]}')
         ax[1, 0].set_ylabel(f'Dec [{target_position_unit}] {("", " to target")[target_position is not None]}')
 
-    ax[0, 1].set_ylabel('Normalized Value')
-    ax[1, 1].set_ylabel('Normalized Value')
+    # ax[0, 1].set_ylabel('Normalized Value')
+    # ax[1, 1].set_ylabel('Normalized Value')
 
     ax[1, 0].set_xlabel('Time [day]')
     ax[1, 1].set_xlabel('Time [day]')
@@ -1280,27 +1280,32 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     f = plt.figure(figsize=(20, 14))
 
     ax = plt.subplot(gs[0, :])
-    ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1)
-    ax.scatter(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], s=8, c='b', zorder=2)
-    ax.set_ylabel(fr'Amplitude [$e^-s^-1$]')
+    ax.scatter(phasefolded_data['flux_trend'][0], phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1, alpha=0.5)
+    ax.scatter(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], s=8, c='r', zorder=3)
+    ax.plot(binned_data['flux_trend_global'][0], binned_data['flux_trend_global'][1], 'c', zorder=2)
+    ax.set_ylabel(fr'Amplitude')
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax.set_xlabel('Phase [day]')
     ax = plt.subplot(gs[1, :])
     ax.scatter(binned_data['flux_trend_global_norm'][0], binned_data['flux_trend_global_norm'][1], s=8,
-               c='b')
+               c='r', zorder=3)
+    ax.plot(binned_data['flux_trend_global_norm'][0], binned_data['flux_trend_global_norm'][1], 'c', zorder=2)
     ax.set_ylabel('Normalized Amplitude')
     ax.set_xlabel('Phase [day]')
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax = plt.subplot(gs[2, 0])
-    ax.scatter(phasefolded_data['flux_trend'][0] * 24, phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1)
-    ax.scatter(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], s=8,
-               c='b', zorder=2)
+    ax.scatter(phasefolded_data['flux_trend'][0] * 24, phasefolded_data['flux_trend'][1], s=8, c='k', zorder=1,
+               alpha=0.5)
+    ax.scatter(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], s=10,
+               c='r', zorder=3, alpha=1)
+    ax.plot(binned_data['flux_trend_local'][0] * 24, binned_data['flux_trend_local'][1], 'c', zorder=2)
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
-    ax.set_ylabel(fr'Amplitude [$e^-s^-1$]')
+    ax.set_ylabel(fr'Amplitude')
     ax.set_xlabel('Phase [hour]')
     ax = plt.subplot(gs[2, 1])
     ax.scatter(binned_data['flux_trend_local_norm'][0] * 24, binned_data['flux_trend_local_norm'][1], s=8,
-               c='b')
+               c='r', zorder=3)
+    ax.plot(binned_data['flux_trend_local_norm'][0] * 24, binned_data['flux_trend_local_norm'][1], 'c', zorder=2)
     ax.set_ylabel('Normalized Amplitude')
     ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
@@ -1339,16 +1344,20 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
 
     ax = plt.subplot(gs[1, 0])
     ax.scatter(phasefolded_data['flux_weak_secondary'][0] * 24, phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
-               zorder=1)
+               zorder=1, alpha=0.5)
     ax.scatter(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], s=8,
-               c='b')
+               c='r', zorder=3)
+    ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
+            zorder=2)
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
 
     ax = plt.subplot(gs[1, 1])
     ax.scatter(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
-               s=8, c='b', zorder=2)
+               s=8, c='r', zorder=3)
+    ax.plot(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
+            'c', zorder=2)
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
     ax.set_ylabel('Normalized Amplitude')
     ax.set_xlabel('Phase [hour]')
