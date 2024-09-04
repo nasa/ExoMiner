@@ -321,11 +321,11 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
     for np_ts_arr in ts:
 
         if outlier_type == 'upper':
-            idxs_out_arr = np.where(np_ts_arr >= mu_val + sigma * rob_std)
+            idxs_out_arr = np.where(np_ts_arr > mu_val + sigma * rob_std)
         elif outlier_type == 'lower':
-            idxs_out_arr = np.where(np_ts_arr <= mu_val - sigma * rob_std)
+            idxs_out_arr = np.where(np_ts_arr < mu_val - sigma * rob_std)
         elif outlier_type == 'both':
-            idxs_out_arr = np.where(np.abs(np_ts_arr) >= mu_val + sigma * rob_std)
+            idxs_out_arr = np.where(np.abs(np_ts_arr) > mu_val + sigma * rob_std)
 
         if fill:
             # fill with Gaussian noise with global time series statistics

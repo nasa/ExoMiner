@@ -729,13 +729,6 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                               f'2_detrendedflux_aug{tce["augmentation_idx"]}',
                                               flux_interp=flux_lininterp)
 
-        # utils_visualization.plot_residual(time,
-        #                                   res_flux,
-        #                                   tce,
-        #                                   config['plot_dir'],
-        #                                   f'3_residual_flux_aug{tce["augmentation_idx"]}',
-        #                                   )
-
     return time, detrended_flux, trend
 
 
