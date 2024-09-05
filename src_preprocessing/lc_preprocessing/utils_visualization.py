@@ -169,8 +169,8 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, px
         ax[0, 0].set_ylabel(f'RA [{target_position_unit}] {("", " to target")[target_position is not None]}')
         ax[1, 0].set_ylabel(f'Dec [{target_position_unit}] {("", " to target")[target_position is not None]}')
 
-    ax[0, 1].set_ylabel('Normalized Value')
-    ax[1, 1].set_ylabel('Normalized Value')
+    # ax[0, 1].set_ylabel('Normalized Value')
+    # ax[1, 1].set_ylabel('Normalized Value')
 
     ax[1, 0].set_xlabel('Time [day]')
     ax[1, 1].set_xlabel('Time [day]')

@@ -920,6 +920,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     # centroid
     for centroid_coord in detrended_centroid_dict:
         detrended_centroid_dict[centroid_coord]['detrended'] *= avg_centroid_oot[centroid_coord]
+        detrended_centroid_dict[centroid_coord]['trend'] *= avg_centroid_oot[centroid_coord]
 
     if plot_preprocessing_tce:
         utils_visualization.plot_centroids(time_centroid,
