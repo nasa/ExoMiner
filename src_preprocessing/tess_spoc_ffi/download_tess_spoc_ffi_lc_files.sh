@@ -13,6 +13,7 @@ do
     bash *.sh  # download files for sector run; sh script creates directory for sector run
     rm hlsp_tess-spoc*  # remove copied sh file
     cd ../
+    mv "$sector_shfile" "$TARGET_SH_DIR"/completed
 done
 
 # set group and permissions for rwx in group

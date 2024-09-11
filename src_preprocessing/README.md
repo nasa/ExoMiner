@@ -1,4 +1,4 @@
-# Preprocessing data pipeline
+# Preprocessing data pipeline *[deprecated]*
 
 ### Goals
 
