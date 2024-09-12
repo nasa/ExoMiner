@@ -8,16 +8,20 @@ duration (in hours), and epoch (in days and same frame, e.g., TBJD), respectivel
 """
 
 # 3rd party
+import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import yaml
 import argparse
+import logging
 
 # local
 from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
     find_first_epoch_after_this_time
+
+logger = logging.getLogger(__name__)
 
 
 def compute_correlation_coeff(bin_ts_a, bin_ts_b):
@@ -86,8 +90,10 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
         ax.plot(time_arr, transit_signal_a_bin_ts, 'b', label='Signal A', zorder=1)
         ax.plot(time_arr, transit_signal_b_bin_ts, 'r--', label='Signal B', zorder=2, alpha=0.8)
         ax.legend()
-        ax.set_title(f'Signal A: {transit_signal_a["uid"]} p={transit_signal_a["period"]:.4f},e={transit_signal_a["epoch"]:.4f}, d={transit_signal_a["duration"]:.4f}'
-                     f'\nSignal B: {transit_signal_b["uid"]} p={transit_signal_b["period"]:.4f},e={transit_signal_b["epoch"]:.4f}, d={transit_signal_b["duration"]:.4f}, e_shift={epoch_new}'
+        ax.set_title(f'Signal A: {transit_signal_a["uid"]} p={transit_signal_a["period"]:.4f},' 
+                     f'e={transit_signal_a["epoch"]:.4f}, d={transit_signal_a["duration"]:.4f}'
+                     f'\nSignal B: {transit_signal_b["uid"]} p={transit_signal_b["period"]:.4f},' 
+                     f'e={transit_signal_b["epoch"]:.4f}, d={transit_signal_b["duration"]:.4f}, e_shift={epoch_new}'
                      f'\nCorrelation Coefficient: {corr_coeff:.4f}')
         ax.set_xlabel('Timestamps [BTJD]')
         ax.set_ylabel('In-transit Flag')
@@ -116,35 +122,44 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
 
     """
 
+    pid = os.getpid()
+    logging.basicConfig(filename=save_dir.parent / 'logs' / f'ephem_matching_{pid}.log',
+                        level=logging.INFO,
+                        format='%(asctime)s - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        filemode='w',
+                        force=True
+                        )
+
     for target_i, target in enumerate(targets_arr):
 
-        print(f'Iterating over target {target} ({target_i + 1}/{len(targets_arr)} targets)...')
+        logger.info(f'Iterating over target {target} ({target_i + 1}/{len(targets_arr)} targets)...')
 
         # get start and end timestamps for this TIC
         tic_timestamps_sector = sector_timestamps_tbl.loc[sector_timestamps_tbl['target'] == target]
         tic_timestamps_sector = tic_timestamps_sector.sort_values('sector')
         if len(tic_timestamps_sector) == 0:
-            print(f'Target {target} not found in the timestamps table.')
+            logger.info(f'Target {target} not found in the timestamps table.')
             continue
 
         # get objects in this TIC
         objects_in_tic = objects_tbl.loc[objects_tbl['target_id'] == target].reset_index()
         if len(objects_in_tic) == 0:
-            print(f'No objects in target {target} to be matched to.')
+            logger.info(f'No objects in target {target} to be matched to.')
             continue
 
         # iterate over sector runs
         sector_runs_target = tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique()
-        print(f'Found {len(sector_runs_target)} sector runs for target {target}.')
+        logger.info(f'Found {len(sector_runs_target)} sector runs for target {target}.')
         for sector_run_i, sector_run in enumerate(sector_runs_target):
-            print(f'Iterating over sector run {sector_run} for target {target} '
+            logger.info(f'Iterating over sector run {sector_run} for target {target} '
                   f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
 
             # get TCEs in this TIC and sector run
             tces_in_tic_sectorun = tce_tbl.loc[(tce_tbl['target_id'] == target) &
                                                (tce_tbl['sector_run'] == sector_run)].reset_index()
             if len(tces_in_tic_sectorun) == 0:
-                print(f'No TCEs in target {target} for sector run {sector_run}.')
+                logger.info(f'No TCEs in target {target} for sector run {sector_run}.')
                 continue
 
             # get start and end timestamps for the sector run
@@ -153,7 +168,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
                 sector_flag = (tic_timestamps_sector['sector'] >= s_sector) & \
                               (tic_timestamps_sector['sector'] <= e_sector)
                 if sector_flag.sum() == 0:
-                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
+                    logger.info(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
 
                 tstart = tic_timestamps_sector.loc[sector_flag, 'start'].values[0]
@@ -161,7 +176,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             else:
                 sector = int(sector_run)
                 if (tic_timestamps_sector['sector'] == sector).sum() == 0:
-                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
+                    logger.info(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
                 tstart = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'start'].values[0]
                 tend = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'end'].values[0]
