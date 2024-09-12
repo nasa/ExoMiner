@@ -7,8 +7,11 @@ LC_DIR=/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files
 
 for sector_shfile in "$SH_DIR"/*lc.sh
 do
-    LC_SECTOR_DIR=$LC_DIR/${sector_shfile:9:-6}
-    echo "Downloading data for sector $LC_SECTOR_DIR ..."
+    FILENAME_INDEX=$(echo "$sector_shfile" | grep -bo "sector*" | grep -oe "[0-9]*")
+    SECTOR_RUN=${sector_shfile:$FILENAME_INDEX:-6}
+
+    LC_SECTOR_DIR=$LC_DIR/$SECTOR_RUN
+    echo "Downloading data for sector $SECTOR_RUN ..."
     mkdir -p "$LC_SECTOR_DIR"
     cp "$sector_shfile" "$LC_SECTOR_DIR"
     cd $LC_SECTOR_DIR
