@@ -148,14 +148,3 @@ for src_tbl_fp in src_tbls_fps:
 
     src_tbl.set_index('uid', inplace=True)  # set uid as index
     src_tbl.to_csv(dest_dir / f'{src_tbl_fp.name}', index=True)
-
-#%%
-
-# sector_runs_lst = []
-# for src_tbl_fp in src_tbls_fps:
-#     sector_runs_lst.append(int(src_tbl_fp.stem[-2:]))
-#
-# import numpy as np
-#
-# a = np.setdiff1d(np.arange(36, 70), sector_runs_lst)
-# print(a)

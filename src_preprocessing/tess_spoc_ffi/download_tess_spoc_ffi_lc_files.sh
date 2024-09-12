@@ -6,7 +6,9 @@ TARGET_SH_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/lc/dv_target_list_sh/
 DEST_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files
 
 for sector_shfile in "$TARGET_SH_DIR"/*lc.sh
-do 
+do
+    # !!! HARDCODED EXPRESSION! WATCH OUT FOR CHANGES IN THE PATH!!!
+    #TODO: automate this process
     echo Sector run "${sector_shfile:46:-17}"
     cp "$sector_shfile" $DEST_DIR
     cd $DEST_DIR

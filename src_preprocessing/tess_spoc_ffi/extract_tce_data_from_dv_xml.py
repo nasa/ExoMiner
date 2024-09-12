@@ -352,7 +352,8 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
 
     dv_xml_tbl = pd.concat(dv_xmls_tbls, axis=0, ignore_index=True)
 
-    print(f'Finished extracting TCEs from {len(dv_xml_fps)} xml files for {dv_xml_sector_run_dir.name}.')
+    print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for '
+          f'{dv_xml_sector_run_dir.name}.')
 
     return dv_xml_tbl
 
@@ -360,7 +361,7 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
 if __name__ == "__main__":
 
     # output file path to csv with extracted data
-    new_tce_tbls_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/07-08-2024_1516_s36_from_dv_xml/')
+    new_tce_tbls_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/09-12-2024_0943_s70_from_dv_xml/')
     new_tce_tbls_dir.mkdir(exist_ok=True)
 
     # dv_xml_fps = [
@@ -373,8 +374,8 @@ if __name__ == "__main__":
     #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0069'),
     # ]
     dv_xml_sector_runs_dirs = list(Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/').iterdir())
-    dv_xml_sector_runs_dirs = [fp for fp in dv_xml_sector_runs_dirs if fp.name == "s0036"]
-    print(f'Choosing sectors in {dv_xml_sector_runs_dirs}.')
+    dv_xml_sector_runs_dirs = [fp for fp in dv_xml_sector_runs_dirs if fp.name == "s0070"]
+    print(f'Choosing sectors {dv_xml_sector_runs_dirs}.')
 
     # parallel extraction of data from multiple DV xml files
     n_processes = 1

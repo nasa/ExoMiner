@@ -14,15 +14,16 @@ from src_preprocessing.ephemeris_matching.get_start_end_timestamps_sector_runs i
 if __name__ == '__main__':
 
     # directory used to save start/end timestamps target tables for each sector run
-    res_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s69_7-9-2024_1044')
+    res_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_2min_start_end_timestamps_tics_lc_s1-s80_9-12-2024_1128')
+    res_dir.mkdir(exist_ok=True)
     # lightcurve root directory for the target data of interest from where to get the timestamps
-    lc_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files/')
-    n_procs = 10  # number of parallel processes to spawn
+    lc_root_dir = Path('/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files')
+    n_procs = 12  # number of parallel processes to spawn
 
     # 2min data
-    # sector_dirs = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]
+    sector_dirs_fps = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]
     # ffi data
-    sector_dirs_fps = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('s')]
+    # sector_dirs_fps = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('s')]
 
     print(f'Extracting start/end timestamps for targets in {len(sector_dirs_fps)} sector runs.')
 

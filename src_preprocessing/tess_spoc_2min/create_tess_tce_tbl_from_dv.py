@@ -6,13 +6,13 @@ from pathlib import Path
 import logging
 from datetime import datetime
 
-# results directory
-root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files')
+root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/')
 
-res_dir = root_dir / f'{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+# results directory
+res_dir = root_dir / 'preprocessing_tce_tables' / f's69-s80_s1s72_s1s69_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 res_dir.mkdir(exist_ok=True)
 
-tce_tbl_name = f'tess_tces_dv_s1-s55_{res_dir.name}.csv'
+tce_tbl_name = f'tess_tces_dv_s69-s80_s1s72_s1s69_{res_dir.name.split("_")[-1]}.csv'
 
 # set up logger
 logger = logging.getLogger(name='create_tess_tce_tbl_from_dv')
@@ -24,13 +24,20 @@ logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
 # get TCE tables
-multisector_tce_dir = root_dir / 'multi-sector' / 'csv_tables'
-singlesector_tce_dir = root_dir / 'single-sector' / 'csv_tables'
+multisector_tce_dir = root_dir / 'source_tce_tables' / 'multi-sector' / 'csv_tables'
+singlesector_tce_dir = root_dir / 'source_tce_tables' / 'single-sector' / 'csv_tables'
 
 logger.info('Loading DV SPOC TCE tables for the multiple single- and multi-sector runs...')
-sector_tce_tbls = {str(int(file.stem[14:16])): pd.read_csv(file) for file in singlesector_tce_dir.iterdir()}
+# ssector_tbl_fps = singlesector_tce_dir.iterdir()
+ssector_tbl_fps = (list(singlesector_tce_dir.glob('dvOutputMatrix[7-9][0-9].csv')) +
+                   list(singlesector_tce_dir.glob('dvOutputMatrix69.csv')))
+sector_tce_tbls = {str(int(file.stem[14:16])): pd.read_csv(file) for file in ssector_tbl_fps}
+
+# msector_tbl_fps = multisector_tce_dir.iterdir()
+msector_tbl_fps = (list(multisector_tce_dir.glob('dvOutputMatrix0169.csv')) +
+                   list(multisector_tce_dir.glob('dvOutputMatrix0172.csv')))
 sector_tce_tbls.update({f'{int(file.stem[14:16])}-{int(file.stem[16:18])}': pd.read_csv(file)
-                        for file in multisector_tce_dir.iterdir()})
+                        for file in msector_tbl_fps})
 logger.info(f'DV SPOC TCE tables loaded:')
 for sector_tce_tbls_name in sector_tce_tbls:
     logger.info(f'{sector_tce_tbls_name}: {len(sector_tce_tbls[sector_tce_tbls_name])} TCEs.')
@@ -154,7 +161,10 @@ for old_field_name, new_field_name in fields_to_add.items():
 tce_tbl.rename(columns=fields_to_add, inplace=True)
 
 tce_tbl = tce_tbl.astype({'target_id': int, 'tce_plnt_num': int})
-tce_tbl['uid'] = tce_tbl.apply(lambda x: '{}-{}-S{}'.format(x['target_id'], x['tce_plnt_num'], x['sector_run']), axis=1)
+tce_tbl['uid'] = tce_tbl.apply(lambda x: '{}-{}-S{}'.format(x['target_id'], x['tce_plnt_num'], x['sector_run']),
+                               axis=1)
 
 tce_tbl.to_csv(res_dir / tce_tbl_name, index=False)
 logger.info(f'Saved TCE table {tce_tbl_name} to {res_dir}.')
+
+print('Finished.')

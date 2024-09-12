@@ -9,7 +9,7 @@ import logging
 
 # %%
 
-res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tic_stellar')
+res_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/preprocessing_tce_tables/s69-s80_s1s72_s1s69_09-12-2024_1019/tic_stellar')
 res_dir.mkdir(exist_ok=True)
 
 # set up logger
@@ -21,7 +21,7 @@ logger_handler.setFormatter(logger_formatter)
 logger.addHandler(logger_handler)
 logger.info(f'Starting run...')
 
-tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_09-25-2023_1608_ruwe.csv')
+tce_tbl_fp = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/preprocessing_tce_tables/s69-s80_s1s72_s1s69_09-12-2024_1019/tess_tces_dv_s69-s80_s1s72_s1s69_1019_ruwe.csv')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 logger.info(f'Loading TCE table {tce_tbl_fp}...')
 
@@ -146,3 +146,5 @@ for stellar_col in stellar_params_cols:
 
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_ticstellar.csv', index=False)
 logger.info('Saved TCE table with updated stellar parameters from TIC')
+
+print('Finished.')

@@ -6,18 +6,18 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
-dv_root_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/')
+dv_root_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/source_tce_tables/')
 
-ssector_runs_dir = dv_root_dir / 'single-sector'
-msector_runs_dir = dv_root_dir / 'multi-sector'
+ssector_runs_dir = dv_root_dir / 'single-sector' / 'dvOutput_mat_files'
+msector_runs_dir = dv_root_dir / 'multi-sector' / 'dvOutput_mat_files'
 
 ssector_runs_fps = sorted(list(ssector_runs_dir.iterdir()))
 # FILTERING SINGLE-SECTOR RUNS
-ssector_runs_fps = [fp for fp in ssector_runs_fps if fp.name.startswith('dvOutput') and int(fp.stem[14:]) in range(41, 52+1)]  # ssector_runs_fps[-6:]
+# ssector_runs_fps = [fp for fp in ssector_runs_fps if fp.name.startswith('dvOutput') and int(fp.stem[14:]) in range(41, 52+1)]  # ssector_runs_fps[-6:]
 
 msector_runs_fps = list(msector_runs_dir.iterdir())
 # FILTERING MULTI-SECTOR RUNS
-msector_runs_fps = [fp for fp in msector_runs_fps if fp.name.startswith('dvOutput') and fp.stem[14:] in ['0146', '1441', '1450', '4243', '4246']]  # [fp for fp in msector_runs_fps if fp.stem[13:] in ['0136', '0139']]
+# msector_runs_fps = [fp for fp in msector_runs_fps if fp.name.startswith('dvOutput') and fp.stem[14:] in ['0146', '1441', '1450', '4243', '4246']]  # [fp for fp in msector_runs_fps if fp.stem[13:] in ['0136', '0139']]
 
 mat_runs_fps = ssector_runs_fps + msector_runs_fps
 
@@ -28,7 +28,7 @@ for mat_run_fp in mat_runs_fps:  # iterate over the sector run mat files
 
     print(f'Creating csv table for mat file {mat_run_fp.name}')
 
-    csv_save_dir = mat_run_fp.parent / 'csv_tables'
+    csv_save_dir = mat_run_fp.parent.parent / 'csv_tables'
     csv_save_dir.mkdir(exist_ok=True)
 
     mat_struct = loadmat(mat_run_fp)
