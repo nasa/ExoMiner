@@ -159,9 +159,9 @@ def get_tce_table(config):
     tce_table = pd.read_csv(config['input_tce_csv_file'])
 
     # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
-    # tce_table = tce_table.loc[tce_table['uid'].isin(filt_tbl['uid'])]
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['158657354-1-S14-55'])]
-    # tce_table = tce_table.loc[tce_table['target_id'] == 179123560]
+    # tce_table = tce_table.loc[tce_table['uid'].isin(['35977125-2-S1-36'])]
+    # tce_table = tce_table.loc[tce_table['target_id'] == 337094559]
+    tce_table = tce_table.loc[tce_table['sector_run'] != '68']
     # tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
