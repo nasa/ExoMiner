@@ -31,7 +31,7 @@ def split_timeseries_on_time_gap(time, flux, gap_width):
     """
 
     time_diff = np.diff(time)
-    idxs_split = np.where(time_diff >= gap_width)[0]
+    idxs_split = np.where(time_diff >= gap_width)[0] + 1
     time_arr, flux_arr = np.split(time, idxs_split), np.split(flux, idxs_split)
 
     return time_arr, flux_arr
