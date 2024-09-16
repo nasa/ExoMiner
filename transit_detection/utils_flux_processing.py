@@ -321,7 +321,8 @@ def build_transit_mask_for_lightcurve(time, tce_list):
 
     Args:
         time: NumPy array, timestamps
-        tce_list: List containing ephemerides data for all tces used
+        tce_list: List containing dict of ephemerides data for all tces used.
+                            **Epoch should be the midpoint time for a transit
 
     Returns:
         in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
@@ -332,6 +333,6 @@ def build_transit_mask_for_lightcurve(time, tce_list):
         period = tce['tce_period']
         duration = tce['tce_duration']
 
-        in_transit_mask |= np.abs((time - epoch + (period/2.)) % period - (period/2.)) < 0.5 * duration
+        in_transit_mask |= np.abs((time - epoch) % period ) < 0.5 * duration
 
     return in_transit_mask
