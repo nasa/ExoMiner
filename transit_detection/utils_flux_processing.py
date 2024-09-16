@@ -154,39 +154,6 @@ def extract_flux_windows_for_tce(time, flux, tce_time0bk, period_days, tce_durat
     time_arrs, flux_arrs = split_timeseries_on_time_gap(time, flux, gap_width)
     print(f'Time series split into {len(time_arrs)} arrays due to gap(s) in time.')
 
-    # detrend the time series
-    detrend_time_arrs, detrend_flux_arrs, spline_arrs, res_flux_arrs = [], [], [], []
-    for time_arr, flux_arr in zip(time_arrs, flux_arrs):
-        detrend_time_arr, detrend_flux_arr, spline_arr, res_flux_arr = (
-            detrend_flux_using_spline(time_arr, flux_arr, rng))
-        detrend_time_arrs.append(detrend_time_arr)
-        detrend_flux_arrs.append(detrend_flux_arr)
-        spline_arrs.append(spline_arr)
-        res_flux_arrs.append(res_flux_arr)
-
-    detrend_time = np.concatenate(detrend_time_arrs)
-    detrend_flux = np.concatenate(detrend_flux_arrs)
-    spline = np.concatenate(spline_arrs)
-    res_flux = np.concatenate(res_flux_arrs)
-
-    # plot raw, spline, residual and detrended flux time series
-    if plot_dir:
-        f, ax = plt.subplots(3, 1, figsize=(12, 8))
-        ax[0].scatter(time, flux, s=8, label='PDCSAP Flux')
-        ax[0].scatter(detrend_time, spline, linestyle='dashed', label='Spline', s=8)
-        ax[0].set_ylabel('Flux [e-/cadence]')
-        ax[0].legend()
-        ax[1].scatter(detrend_time, res_flux, s=8)
-        ax[1].set_ylabel('Residual Flux [e-/cadence]')
-        ax[2].scatter(detrend_time, detrend_flux, s=8)
-        ax[2].set_ylabel('Detrended Normalized Flux')
-        ax[2].set_xlabel('Time - 2457000 [BTJD days]')
-        f.savefig(plot_dir / f'{tce_uid}_detrended_flux.png')
-        plt.close()
-
-    time = detrend_time
-    flux = detrend_flux
-
     # find first midtransit point in the time array
     first_transit_time = find_first_epoch_after_this_time(tce_time0bk, period_days, time[0])
     # compute all midtransit points in the time array
@@ -345,3 +312,26 @@ def extract_flux_windows_for_tce(time, flux, tce_time0bk, period_days, tce_durat
 
     return (resampled_flux_it_windows_arr, resampled_flux_oot_windows_arr, midtransit_points_windows_arr,
             midoot_points_windows_arr)
+
+def build_transit_mask_for_lightcurve(time, tce_list):
+    """
+    Generates in transit mask for a given light curve time array based on a given list of TCEs. A mask the same size of the 
+    time value array is created for which given elements are set to 'True' for in-transit timestamps and 'False' for out of 
+    transit ones, based on the orbital period, epoch, and transit duration of the TCEs provided.
+
+    Args:
+        time: NumPy array, timestamps
+        tce_list: List containing ephemerides data for all tces used
+
+    Returns:
+        in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
+    """
+    in_transit_mask = np.zeros(len(time), dtype=bool)
+    for tce in tce_list:
+        epoch = tce['tce_time0bk']
+        period = tce['tce_period']
+        duration = tce['tce_duration']
+
+        in_transit_mask |= np.abs((time - epoch + (period/2.)) % period - (period/2.)) < 0.5 * duration
+
+    return in_transit_mask
