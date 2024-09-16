@@ -109,19 +109,19 @@ def resample_timeseries(time, flux, num_resampled_points):
     return resampled_time, resampled_flux
 
 
-def extract_flux_windows_for_tce(time, flux, tce_time0bk, period_days, tce_duration, n_durations_window, gap_width,
-                                 buffer_time, frac_valid_cadences_in_window_thr, frac_valid_cadences_it_thr,
+def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_days, tce_duration, n_durations_window, 
+                                 gap_width, buffer_time, frac_valid_cadences_in_window_thr, frac_valid_cadences_it_thr,
                                  resampled_num_points, tce_uid, rng, plot_dir=None):
     """ Extract flux windows for a TCE based on its orbital period, epoch, and transit duration. These windows are set
-    to `n_durations_window` * `tce_duration` and are resampled to `resampled_num_points`. The flux is first detrended
-    using a spline fit, and then transit windows are built centered around the midtransit points available in the `time`
-    timestamps array. Out-of-transit windows are chosen in equal number to the transit windows by randomly choosing a
-    set of out-of-transit cadences that do not overlap with in-transit regions (which are defined as
-     midtransit +- tce_duration).
+    to `n_durations_window` * `tce_duration` and are resampled to `resampled_num_points`. Transit windows are first 
+    built centered around the midtransit points available in the `time` timestamps array. Out-of-transit windows are 
+    chosen in equal number to the transit windows by randomly choosing a set of out-of-transit cadences that do not 
+    overlap with in-transit regions (which are defined as midtransit +- tce_duration).
 
     Args:
         time: NumPy array, timestamps
         flux: NumPy array, flux values
+        transit_mask: NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
         tce_time0bk: float,
         period_days: float, orbital period in days
         tce_duration: float, transit duration in hours
@@ -169,6 +169,7 @@ def extract_flux_windows_for_tce(time, flux, tce_time0bk, period_days, tce_durat
     # choose only those midtransit points whose windows fit completely inside the time array
     valid_midtransit_points_arr = midtransit_points_arr[np.logical_or(start_time_windows >= time[0],
                                                                       end_time_windows <= time[-1])]
+    # should this be logical_and? 
 
     print(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
           f'array.')
@@ -216,10 +217,11 @@ def extract_flux_windows_for_tce(time, flux, tce_time0bk, period_days, tce_durat
                                             buffer_time,
                                             midtransit_points_arr + (n_durations_window + 1) * tce_duration / 2 +
                                             buffer_time)
-    # get oot candidates for oot windows
-    oot_points_arr = time[~np.sum([np.logical_and(time >= start_time_window, time <= end_time_window)
+    # get oot candidates for oot windows, that do not fall on other transit events
+    oot_points_arr = time[np.logical_and((~np.sum([np.logical_and(time >= start_time_window, time <= end_time_window)
                                    for start_time_window, end_time_window in zip(start_time_windows, end_time_windows)],
-                                  axis=0).astype('bool')]
+                                  axis=0).astype('bool')), ~transit_mask)]
+    
 
     print(f'Found {len(oot_points_arr)} out-of-transit points.')
 
@@ -336,3 +338,29 @@ def build_transit_mask_for_lightcurve(time, tce_list):
         in_transit_mask |= np.abs((time - epoch) % period ) < 0.5 * duration
 
     return in_transit_mask
+
+
+def is_transit_occuring_at_time(time, tce):
+    """
+    Determine if tce event is occuring at a given timestamp.
+
+    Args:
+        time: Numpy.int64 timestamp
+        tce_list: Dict containing ephemerides data for a given tce.
+
+    Returns:
+        is_transit_at_time, boolean value (True) if transit occurs for tce at given time, (False) otherwise
+    """
+    if not type(time) == np.int64:
+        print(f'Time: {time} of type {type(time)}, expected to be {type(np.int64)}')
+        time = np.int64(time)
+
+    is_transit_occuring_at_time = False
+
+    epoch = tce['tce_time0bk']
+    period = tce['tce_period']
+    duration = tce['tce_duration']
+
+    is_transit_occuring_at_time |= np.abs((time - epoch) % period ) < 0.5 * duration
+
+    return is_transit_occuring_at_time
