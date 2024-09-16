@@ -285,7 +285,7 @@ def remove_non_finite_values(arrs):
     return arrs
 
 
-def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
+def remove_outliers(ts, sigma, fill=False, outlier_type='upper', seed=None):
     """ Remove outliers (option for positive, negative or both types of outliers) in the flux time series using a
     threshold in the standard deviation. Option to fill outlier cadences using Gaussian noise with global statistics
     of the time series. If not, those will be filled out with NaNs.
@@ -295,6 +295,7 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
     :param fill: bool, if True fills outliers
     :param outlier_type: str, type of outlier to be removed. `upper` for positive outliers, `lower` for negative
     outliers, `both` for both types
+    :param seed: rng seed
     :return:
         time: NumPy array, time stamps for the new time series
         ts: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, time series without outliers
@@ -312,7 +313,7 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
         ts_arr_list = True
 
     else:  # time series is a NumPy array
-        rob_std = mad_std(ts)
+        rob_std = mad_std(ts, ignore_nan=True)
         mu_val = np.nanmedian(ts)
 
         ts = [ts]
@@ -329,7 +330,8 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper'):
 
         if fill:
             # fill with Gaussian noise with global time series statistics
-            np_ts_arr[idxs_out_arr] = np.random.normal(mu_val, rob_std, idxs_out_arr[0].shape)
+            rng = np.random.default_rng(seed)
+            np_ts_arr[idxs_out_arr] = rng.normal(mu_val, rob_std, idxs_out_arr[0].shape)
         else:  # set to NaN
             np_ts_arr[idxs_out_arr] = np.nan
 
@@ -375,13 +377,9 @@ def check_inputs_generate_example(data, tce, config):
 
         rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
         med = np.nanmedian(data['centroid_dist'])
-        data['centroid_dist'] = np.random.normal(med, rob_std, data['flux'].shape)
+        rng = np.random.default_rng(seed=config['random_seed'])
+        data['centroid_dist'] = rng.normal(med, rob_std, data['flux'].shape)
         data['centroid_dist_time'] = np.array(data['flux_time'])
-
-        # rob_std = mad_std(data['centroid_distFDL'])
-        # med = np.median(data['centroid_distFDL'])
-        # data['centroid_distFDL'] = np.random.normal(med, rob_std, data['flux'].shape)
-        # data['time_centroid_distFDL'] = np.array(data['time'])
 
     return data
 
@@ -406,17 +404,5 @@ def check_inputs(data):
     n_cad = len(np.concatenate(data['all_centroids']['x']))
     if n_valid_cad / n_cad < 0.005:
         errs.append('Less than 0.5% cadences are valid for centroid data.')
-
-        # report_exclusion(config, tce, 'No centroid data. Setting centroid to target star position.')
-        #
-        # data['all_centroids']['x'] = [tce['ra'] * np.ones(len(data['all_time'][arr_i]))
-        #                               for arr_i in range(len(data['all_time']))]
-        # data['all_centroids']['y'] = [tce['dec'] * np.ones(len(data['all_time'][arr_i]))
-        #                               for arr_i in range(len(data['all_time']))]
-        #
-        # data['all_centroids_px']['x'] = [np.zeros(len(data['all_time'][arr_i]))
-        #                                  for arr_i in range(len(data['all_time']))]
-        # data['all_centroids_px']['y'] = [np.zeros(len(data['all_time'][arr_i]))
-        #                                  for arr_i in range(len(data['all_time']))]
 
     return errs

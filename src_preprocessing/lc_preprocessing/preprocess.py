@@ -377,8 +377,6 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
     for key, val in data.items():
         if val is None:
             raise KeyError(f'No detrended data for {key} time series before creating the phase folded time series.')
-            # report_exclusion(config, tce, f'No data for {key} before creating the views.')
-            # return None
 
     phasefolded_timeseries = {field: 3 * (None,)
                               for field in ['flux', 'flux_unfolded', 'flux_trend', 'flux_trend_unfolded', 'flux_odd',
@@ -490,11 +488,6 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
     # remove outliers from the phase folded flux time series
     if config['outlier_removal']:
 
-        # phasefolded_timeseries_posout = {ts_name: (np.array(ts_arr[0]), np.array(ts_arr[1]))
-        #                                  for ts_name, ts_arr in phasefolded_timeseries.items()
-        #                                  if 'flux' in ts_name and
-        #                                  ('trend' not in ts_name and 'unfolded' not in ts_name)}
-
         for ts_name, (ts_time, ts_values, n_transits_ts) in phasefolded_timeseries.items():
 
             if ts_name in ['momentum_dump', 'centroid_offset_distance_to_target']:
@@ -516,13 +509,6 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                     fill=config['outlier_removal_fill'],
                     outlier_type='upper',
                 )
-
-                # phasefolded_timeseries[ts_name] = (ts_time, ts_arr, n_transits_ts)
-                # phasefolded_timeseries_posout[ts_name] = (ts_time[idxs_out],
-                #                                           phasefolded_timeseries_posout[ts_name][1][idxs_out])
-
-    # else:
-    #     phasefolded_timeseries_posout = None
 
     if plot_preprocessing_tce:
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
@@ -1589,7 +1575,6 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_flux_view_var /= np.sqrt(bin_counts)
 
-    # create unfolded local flux views
     unfolded_loc_flux_view = []
     unfolded_loc_flux_view_var = []
     for phase_i in range(data['flux_trend_unfolded'][2]):
@@ -1606,6 +1591,11 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                        bin_width_factor=config['bin_width_factor_loc'],
                        report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                        )
+
+        if np.all(~np.isfinite(unfolded_loc_flux_view_phase)):
+            unfolded_loc_flux_view_phase = np.median(glob_flux_view) * np.ones(config['num_bins_loc'])
+            unfolded_loc_flux_view_var_phase = (
+                    mad_std(glob_flux_view, ignore_nan=False) * np.ones(config['num_bins_loc']))
 
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
         unfolded_loc_flux_view_var_phase /= np.sqrt(bin_counts)
@@ -1697,13 +1687,14 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
     # to create the local view
     if np.all(np.isnan(loc_weak_secondary_view)):
         report_exclusion(
-            f'No data available for local weak secondary view. Setting it to Gaussian noise using '
-            f'statistics from the global wks view.',
+            f'No data available for local weak secondary view. Setting it to median and var view to mad std using '
+            f'statistics from the global weak secondary view.',
             config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
         mu, sigma = np.nanmedian(data['flux_weak_secondary'][1]), mad_std(data['flux_weak_secondary'][1],
                                                                           ignore_nan=True)
-        rng = np.random.default_rng()
-        loc_weak_secondary_view = rng.normal(mu, sigma, config['num_bins_loc'])
+        # rng = np.random.default_rng()
+        loc_weak_secondary_view = mu * np.ones(config['num_bins_loc'])
+        # rng.normal(mu, sigma, config['num_bins_loc'], seed=?)
         loc_weak_secondary_view_var = sigma * np.ones(config['num_bins_loc'])
 
         _, _, _, _, bin_counts = \
@@ -1719,8 +1710,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
                         tce_duration=tce['tce_duration']
                         )
         mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
-        bin_counts = rng.normal(mu, sigma, len(loc_weak_secondary_view))
-        bin_counts[bin_counts < 0] = 1
+        bin_counts = mu * np.ones(config['num_bins_loc'])  # rng.normal(mu, sigma, len(loc_weak_secondary_view))
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_weak_secondary_view_var /= np.sqrt(bin_counts)

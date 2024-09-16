@@ -29,7 +29,6 @@ def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=No
 
     # get time interval for in-transit cadences
     tmin_it, tmax_it = max(-period / 2, -1.5 * duration), min(period/2, 1.5 * duration)
-
     # get empty bins indices (nan)
     inds_nan_bins = np.isnan(binned_ts)
 
@@ -48,58 +47,62 @@ def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=No
 
     inds_nan = {'oot': inds_oot_nan, 'it': inds_it_nan}
 
+    # oot bins
     if np.any(inds_oot_nan):  # there are oot indices with missing bin values that need to be imputed
-        if inds_oot_valid.sum() > 0:  # there is at least one not missing oot bin value
-            # set Gaussian noise based on out-of-transit phase folded time series statistics
+        if np.any(inds_oot_valid):  # there is at least one not missing oot bin value
+            # set missing bins to mu and var to sigma computed from the oot bins in the binned time series
             mu = bin_fn(binned_ts[inds_oot_valid])
             if bin_var_fn.__name__ == 'mad_std':  # astropy
                 sigma = bin_var_fn(binned_ts[inds_oot_valid], ignore_nan=True)
             else:
                 sigma = bin_var_fn(binned_ts[inds_oot_valid])
-        else:  # set Gaussian noise based on entire phase folded time series statistics
+        else:  # set missing bins to mu and var to sigma computed from all bins in the binned time series
             mu = bin_fn(binned_ts)
             if bin_var_fn.__name__ == 'mad_std':  # astropy
                 sigma = bin_var_fn(binned_ts, ignore_nan=True)
             else:
                 sigma = bin_var_fn(binned_ts)
 
-        # fill missing oot bin values with central tendency and variability measures
         binned_ts = np.where(inds_oot_nan, mu, binned_ts)
         if binned_ts_var is not None:
             binned_ts_var = np.where(inds_oot_nan, sigma, binned_ts_var)
 
-    # fill missing in-transit bin values by linear interpolation
-    if np.any(inds_it_valid):  # there's at least one valid in-transit bin value
+    # it bins
+    if np.any(inds_it_nan):  # there are oot indices with missing bin values that need to be imputed
+        # there's at least one valid in-transit bin value; fill missing in-transit bin values by linear interpolation
+        if np.any(inds_it_valid):
 
-        if bin_var_fn.__name__ == 'mad_std':  # astropy
-            sigma = bin_var_fn(binned_ts, ignore_nan=True)
-        else:
-            sigma = bin_var_fn(binned_ts)
+            if bin_var_fn.__name__ == 'mad_std':  # astropy
+                sigma = bin_var_fn(binned_ts, ignore_nan=True)
+            else:
+                sigma = bin_var_fn(binned_ts)
 
-        binned_ts[inds_it_nan] = np.interp(binned_phase[inds_it_nan], binned_phase[inds_it_valid],
-                                           binned_ts[inds_it_valid])
-        if binned_ts_var is not None:
-            binned_ts_var[inds_it_nan] = sigma
-    else:  # if there are no valid in-transit bins, use same approach as for out-of-transit bins
-        mu = bin_fn(binned_ts)
-        if bin_var_fn.__name__ == 'mad_std':  # astropy
-            sigma = bin_var_fn(binned_ts, ignore_nan=True)
-        else:
-            sigma = bin_var_fn(binned_ts)
+            inds_valid_interp = ~np.isnan(binned_ts)
+            binned_ts[inds_it_nan] = np.interp(binned_phase[inds_it_nan], binned_phase[inds_valid_interp],
+                                               binned_ts[inds_valid_interp])
+            if binned_ts_var is not None:
+                binned_ts_var[inds_it_nan] = sigma
+        else:  # if there are no valid in-transit bins, use same approach as for out-of-transit bins
+            mu = bin_fn(binned_ts)
+            if bin_var_fn.__name__ == 'mad_std':  # astropy
+                sigma = bin_var_fn(binned_ts, ignore_nan=True)
+            else:
+                sigma = bin_var_fn(binned_ts)
 
-        binned_ts = np.where(inds_it_nan, mu, binned_ts)
-        if binned_ts_var is not None:
-            binned_ts_var = np.where(inds_it_nan, sigma, binned_ts_var)
+            binned_ts = np.where(inds_it_nan, mu, binned_ts)
+            if binned_ts_var is not None:
+                binned_ts_var = np.where(inds_it_nan, sigma, binned_ts_var)
 
     return binned_ts, binned_ts_var, inds_nan
 
 
-def imputing_gaps(time, timeseries, all_gap_time):
+def imputing_gaps(time, timeseries, all_gap_time, seed):
     """ Imputing missing time with Gaussian noise computed taking into account global statistics of the data.
 
     :param time: list of Numpy arrays, contains the non-gapped timestamps
     :param timeseries: list of Numpy arrays, 1D time-series
     :param all_gap_time: list of Numpy arrays, gapped timestamps
+    :param seed: rng seed
     :return:
         time: list of Numpy arrays, now with added gapped timestamps
         timeseries: list of Numpy arrays, now with imputed data
@@ -108,12 +111,14 @@ def imputing_gaps(time, timeseries, all_gap_time):
           values.
     """
 
+    rng = np.random.default_rng(seed=seed)
+
     med = np.nanmedian(timeseries)
     # robust std estimator of the time series
     std_rob_estm = mad_std(timeseries, ignore_nan=True)
 
     for gap_time in all_gap_time:
-        imputed_timeseries = med + np.random.normal(0, std_rob_estm, time.shape)
+        imputed_timeseries = rng.normal(med, std_rob_estm, time.shape)
         timeseries.append(imputed_timeseries.astype(timeseries[0].dtype))
         time.append(gap_time, time.astype(time[0].dtype))
 

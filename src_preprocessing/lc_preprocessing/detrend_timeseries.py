@@ -39,12 +39,12 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     # linearly interpolate across TCE transits
     flux_arrs_lininterp = []
     for time_arr, flux_arr, intransit_cadences_arr in zip(time_arrs, flux_arrs, intransit_cadences):
-        if intransit_cadences_arr.any():
-            flux_lininterp_arr = np.interp(time_arr, time_arr[~intransit_cadences_arr],
-                                           flux_arr[~intransit_cadences_arr],
-                                           left=np.nan, right=np.nan)
-        else:
-            flux_lininterp_arr = np.nan * np.ones(len(time_arr), dtype='float')
+        # if intransit_cadences_arr.any():
+        flux_lininterp_arr = np.interp(time_arr, time_arr[~intransit_cadences_arr],
+                                       flux_arr[~intransit_cadences_arr],
+                                       left=np.nan, right=np.nan)
+        # else:
+        #     flux_lininterp_arr = np.nan * np.ones(len(time_arr), dtype='float')
 
         flux_arrs_lininterp.append(flux_lininterp_arr)
 
@@ -80,12 +80,12 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     else:
         spline_flux = np.nanmedian(flux) * np.ones(len(flux))  # spline is set to median flux
 
-    # check for non-finite indices that were not interpolated/extrapolated
-    finite_idxs = np.isfinite(spline_flux)
-    # fill non-finite points in the spline using median and mad std Gaussian statistics
-    mu, std = np.nanmedian(spline_flux), mad_std(spline_flux, ignore_nan=True)
-    rng = np.random.default_rng(seed=config['random_seed'])
-    spline_flux[~finite_idxs] = rng.normal(mu, std, (~finite_idxs).sum())
+    # # check for non-finite indices that were not interpolated/extrapolated
+    # finite_idxs = np.isfinite(spline_flux)
+    # # fill non-finite points in the spline using median and mad std Gaussian statistics
+    # mu, std = np.nanmedian(spline_flux), mad_std(spline_flux, ignore_nan=True)
+    # rng = np.random.default_rng(seed=config['random_seed'])
+    # spline_flux[~finite_idxs] = rng.normal(mu, std, (~finite_idxs).sum())
 
     # detrend flux by normalize flux time series with the fitted spline
     detrended_flux = flux / spline_flux

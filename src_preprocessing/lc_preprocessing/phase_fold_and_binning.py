@@ -53,7 +53,7 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
 
 
 def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases, keep_odd_even_order,
-                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None):
+                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None, seed=None):
     """ Splits a 1D time series phases using the detected orbital period and epoch. Extracts `n_max_phases` from the
     time series.
 
@@ -73,6 +73,7 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       quarter_timestamps: dict, each value is a list. The key is the quarter id and the value is a list with the
       start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
       sampling takes into account transits from different quarters.
+      seed: integer, rng seed
 
     Returns:
       phase_split: 2D NumPy array (n_phases x n_points) of phase folded time values in
@@ -181,7 +182,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     if quarter_timestamps is None:
             if n_obs_phases > n_max_phases:
 
-                chosen_phases_st = np.random.randint(n_obs_phases - n_max_phases)
+                rng = np.random.default_rng(seed=seed)
+                chosen_phases_st = rng.integers(0, n_obs_phases - n_max_phases, size=None)
                 chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
 
                 time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
@@ -246,7 +248,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             # more phases available than the requested number of phases per season
             if n_phases_in_season >= n_phases_per_season:
                 # choose set of consecutive phases with random starting point
-                chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season + 1)
+                rng = np.random.default_rng(seed=seed)
+                chosen_phases_st = rng.integers(0, n_phases_in_season - n_phases_per_season + 1, size=None)
                 chosen_idx_phases_season = \
                     idxs_phases_in_season[chosen_phases_st: chosen_phases_st + n_phases_per_season]
                 # bookkeeping for phases not chosen
@@ -549,14 +552,14 @@ def local_view(time,
     if t_min > time[-1] or t_max < time[0]:
         report_exclusion(
             f'No in-transit cadences in view {kwargs["report"]["view"]}. Setting local view to '
-            f'random Gaussian noise using med/mad_std statistics from the phase folded time series.',
+            f'median and var view to mad std using med/mad_std statistics from the phase folded time series.',
             kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                          )
         time_bins = np.linspace(t_min, t_max, num_bins, endpoint=True)
         med = np.median(flux)
         std_rob_estm = mad_std(flux)  # robust std estimator of the time series
         view_var = std_rob_estm * np.ones(num_bins, dtype='float')
-        view = med + np.random.normal(0, std_rob_estm, num_bins)
+        view = med  # + np.random.normal(0, std_rob_estm, num_bins, seed=?)
         inds_nan = {'oot': False * np.ones(num_bins, dtype='bool'), 'it': False * np.ones(num_bins, dtype='bool')}
         bin_counts = np.ones(num_bins, dtype='float')
     else:

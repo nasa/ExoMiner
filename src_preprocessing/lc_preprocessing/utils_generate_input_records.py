@@ -202,6 +202,7 @@ def shuffle_tce(tce_table, seed=123):
         tce_table, with rows shuffled
     """
 
+    # deprecated; use rng
     np.random.seed(seed)
 
     tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
