@@ -167,8 +167,9 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
                                             midtransit_points_arr + n_durations_window * tce_duration / 2)
 
     # choose only those midtransit points whose windows fit completely inside the time array
-    valid_midtransit_points_arr = midtransit_points_arr[np.logical_or(start_time_windows >= time[0],
+    valid_midtransit_points_arr = midtransit_points_arr[np.logical_and(start_time_windows >= time[0],
                                                                       end_time_windows <= time[-1])]
+
     # should this be logical_and? 
 
     print(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
