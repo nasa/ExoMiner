@@ -1262,7 +1262,7 @@ def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmo
     ax[2].set_yscale('log')
     ax[2].set_xscale('log')
 
-    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]}' 
+    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]} ' 
                fr'Period: {tce_data["tce_period"]:.3f} day | $f_0={f0_tce:.3e} /s$')
     f.tight_layout()
     plt.savefig(save_fp)
