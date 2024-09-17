@@ -1356,9 +1356,11 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
                c='r', zorder=3)
     ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
             zorder=2)
+    ax.axvline(x=-tce['tce_maxmesd'] * 24, c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+    ax.legend()
 
     ax = plt.subplot(gs[1, 1])
     ax.scatter(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],

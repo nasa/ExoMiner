@@ -299,7 +299,7 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper', seed=None):
     :return:
         time: NumPy array, time stamps for the new time series
         ts: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, time series without outliers
-        idxs_out: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, outlier indices
+        idxs_out: NumPy array or list of NumPy array is `ts` is a list of NumPy arrays, outlier indices are set to True
     """
 
     if outlier_type not in ['upper', 'lower', 'both']:
@@ -322,16 +322,16 @@ def remove_outliers(ts, sigma, fill=False, outlier_type='upper', seed=None):
     for np_ts_arr in ts:
 
         if outlier_type == 'upper':
-            idxs_out_arr = np.where(np_ts_arr > mu_val + sigma * rob_std)
+            idxs_out_arr = np_ts_arr > mu_val + sigma * rob_std
         elif outlier_type == 'lower':
-            idxs_out_arr = np.where(np_ts_arr < mu_val - sigma * rob_std)
+            idxs_out_arr = np_ts_arr < mu_val - sigma * rob_std
         elif outlier_type == 'both':
-            idxs_out_arr = np.where(np.abs(np_ts_arr) > mu_val + sigma * rob_std)
+            idxs_out_arr = np.abs(np_ts_arr) > mu_val + sigma * rob_std
 
         if fill:
             # fill with Gaussian noise with global time series statistics
             rng = np.random.default_rng(seed)
-            np_ts_arr[idxs_out_arr] = rng.normal(mu_val, rob_std, idxs_out_arr[0].shape)
+            np_ts_arr[idxs_out_arr] = rng.normal(mu_val, rob_std, idxs_out_arr.sum())
         else:  # set to NaN
             np_ts_arr[idxs_out_arr] = np.nan
 

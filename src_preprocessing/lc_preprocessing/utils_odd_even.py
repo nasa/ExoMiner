@@ -541,8 +541,10 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
     # check to see if there is at least one cadence in the time interval for the local view
     tmin_local = max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations'])
     tmax_local = min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations'])
-    num_pts_local_odd = len(odd_time[(odd_time >= tmin_local) & (odd_time <= tmax_local)])
-    num_pts_local_even = len(even_time[(even_time >= tmin_local) & (even_time <= tmax_local)])
+    # num_pts_local_odd = len(odd_time[(odd_time >= tmin_local) & (odd_time <= tmax_local)])
+    # num_pts_local_even = len(even_time[(even_time >= tmin_local) & (even_time <= tmax_local)])
+    num_pts_local_odd = np.isfinite(odd_flux[(odd_time >= tmin_local) & (odd_time <= tmax_local)]).sum()
+    num_pts_local_even = np.isfinite(even_flux[(even_time >= tmin_local) & (even_time <= tmax_local)]).sum()
 
     if num_pts_local_odd == 0 and num_pts_local_even > 0:  # copy even data to odd
         odd_time, odd_flux, num_tr_odd = np.array(even_time), np.array(even_flux), num_tr_even

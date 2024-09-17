@@ -32,7 +32,7 @@ def main():
                         default=None)
     parser.add_argument('--config_fp', type=str,
                         help='File path to yaml config file for this preprocessing run',
-                        default='./lc_preprocessing/config_preprocessing.yaml')
+                        default='./config_preprocessing.yaml')
     args = parser.parse_args()
 
     # get the configuration parameters

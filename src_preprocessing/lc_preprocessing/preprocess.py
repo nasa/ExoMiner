@@ -456,7 +456,11 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config[
             'quarter_sampling']
-        else None
+        else None,
+        remove_outliers_params={'sigma': config['outlier_removal_sigma'],
+                                'fill': config['outlier_removal_fill'],
+                                'outlier_type': 'upper',
+                                } if config['outlier_removal'] else None
     )
     phasefolded_timeseries['flux_unfolded'] = (time_split, flux_split, n_phases_split)
 
@@ -477,7 +481,11 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['sampling_rate_h'][config['satellite']],
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config['quarter_sampling']
-        else None
+        else None,
+        remove_outliers_params={'sigma': config['outlier_removal_sigma'],
+                                'fill': config['outlier_removal_fill'],
+                                'outlier_type': 'upper',
+                                } if config['outlier_removal'] else None
     )
     phasefolded_timeseries['flux_trend_unfolded'] = (time_trend_split, flux_trend_split, n_phases_trend_split)
 
@@ -485,12 +493,28 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         raise ValueError(f'Only found {n_phases_split} phase for flux trend, need at least {config["min_n_phases"]} to '
                          f'create example.')
 
+    if plot_preprocessing_tce:
+        # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
+        utils_visualization.plot_all_phasefoldedtimeseries({ts_name: ts_data
+                                                            for ts_name, ts_data in phasefolded_timeseries.items()
+                                                            if 'unfolded' not in ts_name},
+                                                           tce,
+                                                           PHASEFOLD_GRID_PLOTS,
+                                                           config['plot_dir'] /
+                                                           f'{tce["uid"]}_{tce["label"]}_'
+                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           None
+                                                           )
+
     # remove outliers from the phase folded flux time series
     if config['outlier_removal']:
 
         for ts_name, (ts_time, ts_values, n_transits_ts) in phasefolded_timeseries.items():
 
             if ts_name in ['momentum_dump', 'centroid_offset_distance_to_target']:
+                continue
+
+            if 'unfolded' in ts_name:  # outlier removal was already performed
                 continue
 
             if 'trend' in ts_name:
@@ -519,7 +543,8 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            PHASEFOLD_GRID_PLOTS,
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
-                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           f'5_phasefolded_timeseries_outlierrem_' 
+                                                           f'aug{tce["augmentation_idx"]}.png',
                                                            None
                                                            )
 
@@ -551,7 +576,7 @@ def process_tce(tce, table, config):
         #         config['gap_padding'] * tce['tce_duration']))
     else:
         config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'], tce['tce_period'])
-        config['duration_gapped_secondary'] = 0
+        config['dguration_gapped_secondary'] = 0
 
     # set Savitzky-Golay window
     if config['detrending_method'] == 'savitzky-golay':
