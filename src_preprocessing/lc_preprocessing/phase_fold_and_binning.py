@@ -457,7 +457,7 @@ def normalize_view(view, val=None, centroid=False, **kwargs):
         # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
         report_exclusion(
             f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
-            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]["uid"]}.txt',
                          )
 
     return view / (val + NORM_SIGMA_EPS)
@@ -478,7 +478,7 @@ def centering_and_normalization(view, val_centr, val_norm, **kwargs):
         # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
         report_exclusion(
             f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
-            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]["uid"]}.txt',
                          )
 
     return (view - val_centr) / (val_norm + NORM_SIGMA_EPS)
