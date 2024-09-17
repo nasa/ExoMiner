@@ -329,38 +329,13 @@ def build_transit_mask_for_lightcurve(time, tce_list):
     Returns:
         in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
     """
+    
     in_transit_mask = np.zeros(len(time), dtype=bool)
     for tce in tce_list:
         epoch = tce['tce_time0bk']
         period = tce['tce_period']
         duration = tce['tce_duration']
 
-        in_transit_mask |= np.abs((time - epoch) % period ) < 0.5 * duration
+        in_transit_mask |= np.abs((time - epoch) % period ) < duration #one transit duration to left and right
 
     return in_transit_mask
-
-
-def is_transit_occuring_at_time(time, tce):
-    """
-    Determine if tce event is occuring at a given timestamp.
-
-    Args:
-        time: Numpy.int64 timestamp
-        tce_list: Dict containing ephemerides data for a given tce.
-
-    Returns:
-        is_transit_at_time, boolean value (True) if transit occurs for tce at given time, (False) otherwise
-    """
-    if not type(time) == np.int64:
-        print(f'Time: {time} of type {type(time)}, expected to be {type(np.int64)}')
-        time = np.int64(time)
-
-    is_transit_occuring_at_time = False
-
-    epoch = tce['tce_time0bk']
-    period = tce['tce_period']
-    duration = tce['tce_duration']
-
-    is_transit_occuring_at_time |= np.abs((time - epoch) % period ) < 0.5 * duration
-
-    return is_transit_occuring_at_time
