@@ -92,14 +92,7 @@ def main():
         config['plot_dir'].mkdir(exist_ok=True)
 
     # get TCE and gapping ephemeris tables
-    tce_table, eph_table = get_tce_table(config)
-    logger.info(f'Got TCE table with {len(tce_table)} examples.')
-
-    # TODO: does this ensure that all processes shuffle the same way? it does call np.random.seed inside the function
-    # shuffle tce table
-    if config['shuffle']:
-        tce_table = shuffle_tce(tce_table, seed=config['shuffle_seed'])
-        logger.info('Shuffled TCE Table.')
+    shards_tce_tables, tce_table = get_tce_table(config)
 
     if config['process_i'] in [0, -1]:
         np.save(config['output_dir'] / 'preprocessing_params.npy', config)
@@ -114,13 +107,16 @@ def main():
         shard_filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
         shard_fp = config['output_dir'] / shard_filename
 
-        process_file_shard(tce_table, shard_fp, eph_table, config)
+        logger.info(f'Started processing {len(shards_tce_tables[config["process_i"]])} items in shard {shard_filename}')
 
-        logger.info(f'Finished processing {len(tce_table)} items in shard {shard_filename}')
+        process_file_shard(shards_tce_tables[config['process_i']], shard_fp, tce_table, config)
+
+        logger.info(f'Finished processing {len(shards_tce_tables[config["process_i"]])} items in shard '
+                    f'{shard_filename}')
 
     else:  # use multiprocessing.Pool
 
-        file_shards = create_shards(config, tce_table)
+        file_shards = create_shards(config, shards_tce_tables, tce_table)
 
         # launch subprocesses for the file shards
         logger.info(f'Launching {config["n_processes"]} processes for {config["n_shards"]} total file shards.')

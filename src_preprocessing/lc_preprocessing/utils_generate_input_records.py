@@ -113,25 +113,22 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                 f'{shard_name}.')
 
 
-def create_shards(config, tce_table):
+def create_shards(config, shards_tce_tables, tce_table):
     """ Distributes examples across shards for preprocessing.
 
     :param config: dict, preprocessing parameters
+    :param shards_tce_tables: NumPy array of pandas DataFrame, TCE tables for the set of shards/processes
     :param tce_table: Pandas DataFrame, TCE table
     :return:
-       list, subset of the TCE table for each shard
+       list, each element is a tuple for each shard with a subset of the TCE table, the shard filename, the complete
+       TCE table, and the config dict parameters of the preprocessing run
     """
 
     file_shards = []
 
-    logger.info(f'Partitioned {len(tce_table)} TCEs into {config["n_shards"]} shards')
-    boundaries = np.linspace(0, len(tce_table), config['n_shards'] + 1).astype(int)
-
-    for i in range(config['n_shards']):
-        start = boundaries[i]
-        end = boundaries[i + 1]
-        filename = config['output_dir'] / f'shard-{i:05d}-of-{config["n_shards"]:05d}'
-        file_shards.append((tce_table[start:end], filename, tce_table, config))
+    for shard_i in range(config['n_shards']):
+        filename = config['output_dir'] / f'shard-{shard_i:05d}-of-{config["n_shards"]:05d}'
+        file_shards.append((shards_tce_tables[shard_i], filename, tce_table, config))
 
     return file_shards
 
@@ -141,21 +138,12 @@ def get_tce_table(config):
 
     :param config: dict, preprocessing parameters
     :return:
-        shard_tce_table: pandas DataFrame, TCE table for a specific shard
-        tce_table: pandas DataFrame, TCE table
+        shards_tce_tables: NumPy array of pandas DataFrame, TCE tables for the set of shards/processes
+        tce_table: pandas DataFrame, full TCE table
     """
 
     # read the table with examples
     tce_table = pd.read_csv(config['input_tce_csv_file'])
-
-    # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['305633328-1-S14-60'])]
-    # tce_table = tce_table.loc[tce_table['target_id'] == 337094559]
-    tce_table = tce_table.loc[tce_table['sector_run'] != '68']
-    # tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
-
-    tce_table["tce_duration"] /= 24  # Convert hours to days.
-
     logger.info(f'Read TCE table with {len(tce_table)} examples.')
 
     cols_change_data_type = {
@@ -170,14 +158,21 @@ def get_tce_table(config):
     }
     tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
 
+    tce_table["tce_duration"] /= 24  # Convert hours to days.
+    tce_table = tce_table.loc[tce_table['sector_run'] != '68']
+
+    # table with TCEs to be preprocessed
+    preprocess_tce_table = tce_table.copy(deep=True)
+    preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['305633328-1-S14-60'])]
+    # preprocess_tce_table = preprocess_tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
+
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
     if config['using_mpi']:
-        shard_tce_table = np.array_split(tce_table, config['n_processes'])[config['process_i']]
-
+        shards_tce_tables = np.array_split(preprocess_tce_table, config['n_processes'])
     else:
-        shard_tce_table = tce_table.copy(deep=True)
+        shards_tce_tables = np.array_split(preprocess_tce_table, config['n_shards'])[config['process_i']]
 
-    return shard_tce_table, tce_table
+    return shards_tce_tables, tce_table
 
 
 def shuffle_tce(tce_table, seed=123):
