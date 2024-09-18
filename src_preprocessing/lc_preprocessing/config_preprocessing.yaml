@@ -57,6 +57,10 @@ spline_bkspace_num: 20
 spline_maxiter: 5
 spline_penalty_coeff: 1.0
 spline_outlier_cut: 3
+# split arrays if consecutive cadences are more than gapWidth days apart (only used for spline detrending)
+# 0.75; 0.007 corresponds to 10 minutes (to make it consistent with sg detrending that uses a factor of
+# `sg_break_tolerance` * median(dt)), where median(dt) ~ 2 min
+gapWidth: 0.007
 
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
@@ -67,9 +71,6 @@ frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a ph
 # the beginning
 phase_extend_method: copy_phases
 quarter_sampling: false  # sample transits from different seasons for Kepler
-
-# split arrays if consecutive cadences are more than gapWidth days apart
-gapWidth: 0.75
 
 # gapping other TCEs from the data
 gapped: false

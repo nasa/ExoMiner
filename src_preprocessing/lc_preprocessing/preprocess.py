@@ -576,7 +576,7 @@ def process_tce(tce, table, config):
         #         config['gap_padding'] * tce['tce_duration']))
     else:
         config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'], tce['tce_period'])
-        config['dguration_gapped_secondary'] = 0
+        config['duration_gapped_secondary'] = 0
 
     # set Savitzky-Golay window
     if config['detrending_method'] == 'savitzky-golay':
@@ -598,8 +598,6 @@ def process_tce(tce, table, config):
     data = read_light_curve(tce, config)
     if data is None:
         raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
-        # report_exclusion(config, tce, 'Issue when reading data from the FITS file(s).')
-        # return None
 
     # update target position in FITS file with that from the TCE table
     if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
@@ -718,14 +716,17 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
         # mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
         #                                          config['duration_gapped_primary'])
 
-        time, detrended_flux, trend = detrend_flux_using_sg_filter(lc,
-                                                                   intransit_cadences_target,
-                                                                   config['sg_win_len'],
-                                                                   config['sg_sigma'],
-                                                                   config['sg_max_poly_order'],
-                                                                   config['sg_penalty_weight'],
-                                                                   config['sg_break_tolerance']
+        time, detrended_flux, trend, models_info_df = detrend_flux_using_sg_filter(lc,
+                                                                                   intransit_cadences_target,
+                                                                                   config['sg_win_len'],
+                                                                                   config['sg_sigma'],
+                                                                                   config['sg_max_poly_order'],
+                                                                                   config['sg_penalty_weight'],
+                                                                                   config['sg_break_tolerance']
                                                                    )
+
+        logger.info(f'[{tce["uid"]}] SG detrending model flux data info\n{models_info_df}')
+
         flux_lininterp = None
     else:
         raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
@@ -741,89 +742,6 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                               flux_interp=flux_lininterp)
 
     return time, detrended_flux, trend
-
-
-def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, tce, config, plot_preprocessing_tce):
-    """ Preprocess the weak secondary flux timeseries.
-
-    :param all_time: list of NumPy arrays, timestamps
-    :param all_flux_noprimary: list of NumPy arrays, weak secondary flux time series
-    :param tce: Pandas Series, TCE parameters
-    :param config: dict, preprocessing parameters
-    :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
-    :return:
-        time: NumPy array, timestamps for preprocessed flux time series
-        detrended_flux: NumPy array, preprocessed weak secondary flux timeseries
-    """
-
-    time_arrs, flux_arrs = [np.array(el) for el in all_time], [np.array(el) for el in all_flux_noprimary]
-
-    # remove non-finite values
-    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
-
-    first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                               tce['tce_period'], time[0])
-                              for time in time_arrs]
-    binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
-                                                 tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_intransit_binary_timeseries(time_arrs, flux_arrs, binary_time_all, tce,
-                                                             config['plot_dir'] /
-                                                             '2_intransit_wksflux_binary_timeseries.png')
-    # # gap primary transits
-    # # get epoch of first transit for each time array
-    # first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-    #                                   for time in time_arrs]
-    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    # binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary,
-    #                                                      config['duration_gapped_secondary'],
-    #                                                      tce['tce_period'])
-    #                            for first_transit_time_secondary, time in zip(first_transit_time_primary_all, time_arrs)]
-    # # set primary in-transit cadences to np.nan
-    # flux_arrs = [np.where(binary_time_primary, np.nan, flux_arr)
-    #              for flux_arr, binary_time_primary in zip(flux_arrs, binary_time_primary_all)]
-
-    # remove non-finite values
-    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
-
-    flux = np.concatenate(flux_arrs)
-
-    # detrend flux
-    if config['detrending_method'] == 'spline':
-        time, detrended_flux, trend, res_flux, flux_lininterp = detrend_flux_using_spline(flux_arrs, time_arrs,
-                                                                                          binary_time_all, config)
-
-    elif config['detrending_method'] == 'savitzky-golay':
-        # convert data to lightcurve object
-        time, flux = np.concatenate(time_arrs), np.concatenate(flux_arrs)
-        lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
-        # mask in-transit cadences for secondary
-        mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                 config['duration_gapped_primary'])
-
-        time, detrended_flux, trend, _ = detrend_flux_using_sg_filter(lc, mask_in_transit,
-                                                                      config['sg_win_len'],
-                                                                      config['sg_sigma'],
-                                                                      config['sg_max_poly_order'],
-                                                                      config['sg_penalty_weight'],
-                                                                      config['sg_break_tolerance'])
-        flux_lininterp = None
-    else:
-        raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_flux_detrend(time,
-                                              flux,
-                                              trend,
-                                              detrended_flux,
-                                              tce,
-                                              config['plot_dir'],
-                                              f'3_detrendedwksflux_aug{tce["augmentation_idx"]}',
-                                              flux_interp=flux_lininterp)
-
-    return time, detrended_flux
 
 
 def centroid_preprocessing(all_time, all_centroids, target_position, add_info, tce, config, plot_preprocessing_tce):
@@ -909,14 +827,17 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
             # mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
             #                                          config['duration_gapped_primary'])
 
-            _, detrended_centroid, trend = detrend_flux_using_sg_filter(lc,
-                                                                        intransit_cadences_target,
-                                                                        config['sg_win_len'],
-                                                                        config['sg_sigma'],
-                                                                        config['sg_max_poly_order'],
-                                                                        config['sg_penalty_weight'],
-                                                                        config['sg_break_tolerance'],
-                                                                        )
+            _, detrended_centroid, trend, models_info_df = detrend_flux_using_sg_filter(lc,
+                                                                                        intransit_cadences_target,
+                                                                                        config['sg_win_len'],
+                                                                                        config['sg_sigma'],
+                                                                                        config['sg_max_poly_order'],
+                                                                                        config['sg_penalty_weight'],
+                                                                                        config['sg_break_tolerance'],
+                                                                                        )
+
+            logger.info(f'[{tce["uid"]}] SG detrending model centroid data info\n{models_info_df}')
+
         else:
             raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
 
@@ -1717,10 +1638,13 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
             config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
         mu, sigma = np.nanmedian(data['flux_weak_secondary'][1]), mad_std(data['flux_weak_secondary'][1],
                                                                           ignore_nan=True)
-        # rng = np.random.default_rng()
-        loc_weak_secondary_view = mu * np.ones(config['num_bins_loc'])
-        # rng.normal(mu, sigma, config['num_bins_loc'], seed=?)
-        loc_weak_secondary_view_var = sigma * np.ones(config['num_bins_loc'])
+
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_weak_secondary_view = mu * np.ones(config['num_bins_loc'])
+            loc_weak_secondary_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_weak_secondary_view = np.zeros(config['num_bins_loc'])
+            loc_weak_secondary_view_var = np.zeros(config['num_bins_loc'])
 
         _, _, _, _, bin_counts = \
             global_view(data['flux_weak_secondary'][0],
@@ -1735,7 +1659,10 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
                         tce_duration=tce['tce_duration']
                         )
         mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
-        bin_counts = mu * np.ones(config['num_bins_loc'])  # rng.normal(mu, sigma, len(loc_weak_secondary_view))
+        bin_counts = mu * np.ones(config['num_bins_loc'])
+
+        if np.isnan(loc_weak_secondary_view).sum() > 0 or np.isnan(loc_weak_secondary_view_var).sum() > 0:
+            raise ValueError(f'Secondary view has at missing values after setting it to median and mad std')
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_weak_secondary_view_var /= np.sqrt(bin_counts)

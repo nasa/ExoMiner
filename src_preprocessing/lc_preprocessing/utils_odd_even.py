@@ -316,7 +316,8 @@ def impute_odd_even_views(loc_flux_odd_view, loc_flux_odd_view_var, bin_counts_o
         bins_repl
 
 
-def odd_even_binning(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
+def odd_even_binning(x, y, num_bins, bin_width=None, x_min=None, x_max=None, bin_fn=np.nanmedian,
+                     bin_var_fn=stats.mad_std):
     """ Binning for odd and even phase folded time series.
 
   The interval [x_min, x_max) is divided into num_bins uniformly spaced
@@ -337,11 +338,13 @@ def odd_even_binning(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
       than or equal to the largest value of x. Defaults to min(x).
     x_max: The exclusive rightmost value to consider on the x-axis. Must be
       greater than x_min. Defaults to max(x).
+    bin_fn: function used to aggregate bin values
+    bin_var_fn: function used to estimate uncertainty per bin value
 
   Returns:
     1D NumPy array of size num_bins containing the median y-values of uniformly
     spaced bins on the x-axis.
-    1D Numpy array of size num_bins containing the the timestamp of the bin.
+    1D Numpy array of size num_bins containing the timestamp of the bin.
     1D NumPy array of size num_bins containing the MAD std y-values of uniformly
     spaced bins on the x-axis.
     1D NumPy array of size num_bins containing the number of y-values in each one of the uniformly
@@ -418,10 +421,11 @@ def odd_even_binning(x, y, num_bins, bin_width=None, x_min=None, x_max=None):
 
         if j_end > j_start:
             # Compute and insert the median bin value.
-            result[i] = np.median(y[j_start:j_end])
-            # result_var[i] = np.std(y[j_start:j_end], ddof=1)
-            result_var[i] = stats.mad_std(y[j_start:j_end])
-            # _, result[i], result_var[i] = stats.sigma_clipped_stats(y[j_start:j_end], sigma=2, maxiters=10)
+            result[i] = bin_fn(y[j_start:j_end])
+            if bin_var_fn.__name__ == 'mad_std':  # astropy
+                result_var[i] = bin_var_fn(y[j_start:j_end], ignore_nan=True)
+            else:  # mean, median, max, ... functions from NumPy
+                result_var[i] = bin_var_fn(y[j_start:j_end])
 
         bin_counts[i] = j_end - j_start
         bin_values[i] = y[j_start:j_end]
@@ -528,6 +532,8 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
     :param odd_flux: NumPy array, odd phase-folded time series
     :param even_time: NumPy array, even phase
     :param even_flux: NumPy array, even phase-folded time series
+    :param num_tr_odd: int, number of odd phases
+    :param num_tr_even: int, number of even phases
     :param tce: pandas Series, TCE parameters
     :param config: dict, preprocessing parameters
     :return:
@@ -541,8 +547,8 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
     # check to see if there is at least one cadence in the time interval for the local view
     tmin_local = max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations'])
     tmax_local = min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations'])
-    # num_pts_local_odd = len(odd_time[(odd_time >= tmin_local) & (odd_time <= tmax_local)])
-    # num_pts_local_even = len(even_time[(even_time >= tmin_local) & (even_time <= tmax_local)])
+
+    # check how many in-transit cadences there are in the odd and even phase folded time series
     num_pts_local_odd = np.isfinite(odd_flux[(odd_time >= tmin_local) & (odd_time <= tmax_local)]).sum()
     num_pts_local_even = np.isfinite(even_flux[(even_time >= tmin_local) & (even_time <= tmax_local)]).sum()
 
@@ -672,26 +678,36 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
     # filling odd and even views with Gaussian noise based on available flux values
     elif odd_even_flag == 'no local time series (even and odd)':
 
-        med = np.median(odd_flux)
-        std_rob_estm = stats.mad_std(odd_flux)  # robust std estimator of the time series
-        loc_flux_odd_view_var = std_rob_estm * np.ones(config['num_bins_loc'], dtype='float')
-        loc_flux_odd_view = med + loc_flux_odd_view_var
+        # compute statistics
+        mu = np.nanmedian(odd_flux)
+        if np.isnan(mu):
+            mu = 0
+        sigma = stats.mad_std(odd_flux, ignore_nan=True)  # robust std estimator of the time series
+        if np.isnan(sigma):
+            sigma = 0
+
+        loc_flux_odd_view = mu * np.ones(config['num_bins_loc'], dtype='float')
+        loc_flux_odd_view_var = sigma * np.ones(config['num_bins_loc'], dtype='float')
+
         binned_time_odd = np.linspace(tmin_local, tmax_local, config['num_bins_loc'], endpoint=True)
         bin_counts_odd = np.ones(config['num_bins_loc'], dtype='float')
         bin_values_odd = [np.array([loc_flux_odd_view[i]]) for i in range(config['num_bins_loc'])]
 
-        # create local odd flux view by imputing odd time series
-        loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
-                                                                              loc_flux_odd_view,
-                                                                              tce['tce_period'],
-                                                                              tce['tce_duration'],
-                                                                              loc_flux_odd_view_var)
+        # # create local odd flux view by imputing odd time series
+        # loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
+        #                                                                       loc_flux_odd_view,
+        #                                                                       tce['tce_period'],
+        #                                                                       tce['tce_duration'],
+        #                                                                       loc_flux_odd_view_var)
 
-        inds_nan_even_init = inds_nan
-        inds_nan_odd_init = {key: True * np.ones(len(val), dtype='bool') for key, val in inds_nan.items()}
-
-        # add median count to missing bins to avoid division by zero
-        bin_counts_odd[bin_counts_odd == 0] = max(1, np.median(bin_counts_odd))
+        # set nan indices for it and oot
+        inds_nan_bins = np.isnan(binned_time_odd)
+        inds_it_binned_ts = (binned_time_odd >= tmin_local) & (binned_time_odd <= tmax_local)
+        inds_it_nan = np.logical_and(inds_nan_bins, inds_it_binned_ts)
+        inds_oot_binned_ts = ~inds_it_binned_ts
+        inds_oot_nan = np.logical_and(inds_nan_bins, inds_oot_binned_ts)
+        inds_nan_odd_init = {'it': inds_it_nan, 'oot': inds_oot_nan}
+        inds_nan_even_init = {key: np.array(val) for key, val in inds_nan_odd_init.items()}
 
         # given that odd and even are the same
         loc_flux_even_view, loc_flux_even_view_var, binned_time_even, bin_counts_even, bin_values_even = \

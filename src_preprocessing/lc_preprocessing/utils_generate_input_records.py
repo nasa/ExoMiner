@@ -56,7 +56,7 @@ def process_file_shard(tce_table, file_name, eph_table, config):
 
         num_processed = 0
 
-        for index, tce in tce_table.iterrows():  # iterate over DataFrame rows
+        for _, tce in tce_table.iterrows():  # iterate over DataFrame rows
 
             logger.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name} '
                         f'({num_processed}/{shard_size})...')
@@ -75,16 +75,6 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                         '',
                         config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                         error)
-
-                    # Python
-                    # if len(error.args) == 1:
-                    #     error_log = {'etype': None, 'value': error, 'tb': error.__traceback__}
-                    # if len(error.args) == 2:
-                    #     error_log = {'etype': None, 'value': error.args[0], 'tb': error.args[1]}
-                    # report_exclusion(
-                    #     '',
-                    #     config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-                    #     error_log)
 
                     continue
 
@@ -159,7 +149,7 @@ def get_tce_table(config):
     tce_table = pd.read_csv(config['input_tce_csv_file'])
 
     # filt_tbl = pd.read_csv('/Users/msaragoc/Downloads/ranking_planets_in_variable_stars_comparison.csv')
-    # tce_table = tce_table.loc[tce_table['uid'].isin(['35977125-2-S1-36'])]
+    # tce_table = tce_table.loc[tce_table['uid'].isin(['305633328-1-S14-60'])]
     # tce_table = tce_table.loc[tce_table['target_id'] == 337094559]
     tce_table = tce_table.loc[tce_table['sector_run'] != '68']
     # tce_table = tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
@@ -182,11 +172,8 @@ def get_tce_table(config):
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
     if config['using_mpi']:
+        shard_tce_table = np.array_split(tce_table, config['n_processes'])[config['process_i']]
 
-        boundaries = [int(i) for i in np.linspace(0, len(tce_table), config['n_processes'] + 1)]
-        indices = [(boundaries[i], boundaries[i + 1]) for i in range(config['n_processes'])][config['process_i']]
-
-        shard_tce_table = tce_table[indices[0]:indices[1]]
     else:
         shard_tce_table = tce_table.copy(deep=True)
 
