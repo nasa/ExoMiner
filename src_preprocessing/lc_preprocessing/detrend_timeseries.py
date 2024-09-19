@@ -93,6 +93,7 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
 
     # remove median from trend (by time splits)
     dt = np.diff(time)
+    # FIXME set factor to a parameter
     cut = np.where(dt > 5 * np.nanmedian(dt))[0] + 1
     low = np.append([0], cut)
     high = np.append(cut, len(time))
@@ -186,7 +187,7 @@ def detrend_flux_using_sg_filter(lc, mask_in_transit, win_len, sigma, max_poly_o
 
     # remove median from trend (by time splits)
     dt = np.diff(time)
-    cut = np.where(dt > 5 * np.nanmedian(dt))[0] + 1
+    cut = np.where(dt > break_tolerance * np.nanmedian(dt))[0] + 1
     low = np.append([0], cut)
     high = np.append(cut, len(time))
     for low_i, high_i in zip(low, high):

@@ -13,7 +13,7 @@ import argparse
 import logging
 
 # local
-from src_preprocessing.lc_preprocessing.utils_generate_input_records import get_tce_table, shuffle_tce
+from src_preprocessing.lc_preprocessing.utils_generate_input_records import get_tce_table
 from utils.utils_dataio import is_yamlble
 from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shards_table
 from src_preprocessing.lc_preprocessing.utils_generate_input_records import process_file_shard, create_shards

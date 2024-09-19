@@ -20,7 +20,6 @@ from src_preprocessing.lc_preprocessing.utils_centroid_preprocessing import (kep
                                                                              correct_centroid_using_transit_depth)
 from src_preprocessing.lc_preprocessing.utils_ephemeris import create_binary_time_series, \
     find_first_epoch_after_this_time
-from src_preprocessing.lc_preprocessing.utils_gapping import gap_other_tces
 from src_preprocessing.lc_preprocessing.utils_imputing import imputing_gaps
 from src_preprocessing.lc_preprocessing.utils_odd_even import create_odd_even_views, \
     phase_fold_and_sort_light_curve_odd_even
@@ -136,7 +135,7 @@ def read_light_curve(tce, config):
         tce: row of DataFrame, information on the TCE (ID, ephemeris, ...).
         config: Config object, preprocessing parameters
 
-    Returns:
+    Returns: dictionary with data extracted from the FITS files
         all_time: A list of numpy arrays; the time values of the raw light curve
         all_flux: A list of numpy arrays corresponding to the PDC flux time series
         all_centroid: A list of numpy arrays corresponding to the raw centroid time series
@@ -313,46 +312,56 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
     return target_intransit_cadences_arr, idx_tce
 
 
-def gap_intransit_cadences_other_tces(tce, table, data, config):
+def gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data, gap_keep_overlap=True,
+                                      impute_gaps=False, seed=None, tce=None, config=None):
     """ Find in-transit cadences (primary and secondary transits) for other detected TCEs in the light curve time series
-    and gaps them (i.e., sets cadences to NaN).
+    and gaps them (i.e., sets cadences to NaN) or imputes them if `impute_gaps` is set to True.
 
         Args:
-            tce: pandas Series, TCE of interest
-            table: pandas Dataframe, TCE dataset
-            data: dict, lightcurve raw data from the FITS files (e.g., timestamps, flux, centroid motion time series)
+            target_intransit_cadences_arr: list of boolean NumPy arrays (n_tces_in_target, n_cadences); each row is for
+                a given TCE in the target star; True for in-transit cadences, False otherwise
+            idx_tce: index of TCE of interest in `target_intransit_cadences_arr`
+            data: dict, lightcurve raw data from the FITS files (e.g., flux, centroid motion time series)
+            gap_keep_overlap: bool, if True it does not gap cadences belonging to the TCE of interest that overlap with
+                other TCEs
+            impute_gaps: bool, if True it imputes data in the gapped transits instead of setting them to NaN.
+            seed: rng seed
+            tce: pandas Series, TCE parameters
             config: dict, preprocessing parameters
-
         Returns:
             data, dict with light curve raw data from the FITS files, but now with cadences for the transits of other
-            detected TCEs set to NaN. If data['gap_imputed'] is True, gapped timestamps are stored in data['gap_time']
+            detected TCEs set to NaN or imputed
     """
 
-    # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
-    timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']  # timeseries to be gapped
-    data['gap_time'] = None
+    other_tces_idxs = np.ones(len(target_intransit_cadences_arr[0]), dtype='bool')
+    other_tces_idxs[idx_tce] = False
 
-    # get cadence indices to be gapped/imputed
-    gapped_idxs = gap_other_tces(data['all_time'],
-                                 tce,
-                                 table,
-                                 config,
-                                 gap_pad=config['gap_padding'],
-                                 keep_overlap=config['gap_keep_overlap'])
-    if config['gap_imputed']:
-        data['gap_time'] = []
-    # set to NaN gapped cadences in the time series
-    for arr_i in range(len(gapped_idxs)):
-        if len(gapped_idxs[arr_i]) == 0:
-            continue
-        for timeseries in timeseries_gapped:
-            if 'centroids' in timeseries:
-                data[timeseries]['x'][arr_i][gapped_idxs[arr_i]] = np.nan
-                data[timeseries]['y'][arr_i][gapped_idxs[arr_i]] = np.nan
-            else:
-                data[timeseries][arr_i][gapped_idxs[arr_i]] = np.nan
-        if config['gap_imputed']:
-            data['gap_time'].append(data['all_time'][arr_i][gapped_idxs[arr_i]])
+    it_cadences_other_tces = [np.sum(target_intransit_cadences[other_tces_idxs, :], axis=0) != 0
+                              for target_intransit_cadences in target_intransit_cadences_arr]
+    if gap_keep_overlap:
+        for arr_i, it_cadences_other_tces_arr in enumerate(it_cadences_other_tces):
+            it_cadences_other_tces_arr[target_intransit_cadences_arr[arr_i][idx_tce]] = False
+
+    for arr_i, it_cadences_other_tces_arr in enumerate(it_cadences_other_tces):
+        for timeseries in data:
+            if impute_gaps:  # impute gapped transit cadences
+                if 'centroids' in timeseries:
+                    data[timeseries]['x'][arr_i] = (
+                        imputing_gaps(data[timeseries]['x'][arr_i], it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                      config=config))
+                    data[timeseries]['y'][arr_i] = imputing_gaps(data[timeseries]['y'][arr_i],
+                                                                 it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                                                 config=config)
+                else:
+                    data[timeseries][arr_i] = (
+                        imputing_gaps(data[timeseries][arr_i], it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                      config=config))
+            else:  # set gapped transit cadences to NaN
+                if 'centroids' in timeseries:
+                    data[timeseries]['x'][arr_i][it_cadences_other_tces_arr] = np.nan
+                    data[timeseries]['y'][arr_i][it_cadences_other_tces_arr] = np.nan
+                else:
+                    data[timeseries][arr_i][it_cadences_other_tces_arr] = np.nan
 
     return data
 
@@ -563,7 +572,7 @@ def process_tce(tce, table, config):
 
     # setting primary and secondary transit gap duration
     if 'tce_maxmesd' in tce:
-        config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'],
+        config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'],
                                                 2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
                                                 tce['tce_period'])
         # setting secondary gap duration
@@ -575,7 +584,7 @@ def process_tce(tce, table, config):
         #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
         #         config['gap_padding'] * tce['tce_duration']))
     else:
-        config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'], tce['tce_period'])
+        config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'], tce['tce_period'])
         config['duration_gapped_secondary'] = 0
 
     # set Savitzky-Golay window
@@ -645,14 +654,21 @@ def process_tce(tce, table, config):
 
     # gap cadences belonging to the transits of other TCEs in the same target star
     if config['gapped']:
-        # TODO: fix code for gapping transits
-        data = gap_intransit_cadences_other_tces(tce, table, data, config)
+        data_to_be_gapped = {ts_name: ts_data for ts_name, ts_data in data.items()
+                             if ts_name in ['all_flux', 'all_centroids']}
+        # if config['get_momentum_dump']:
+        #     data_to_be_gapped['momentum_dump'] = data['momentum_dump']
+
+        data_gapped = gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data_to_be_gapped,
+                                                        config['gap_keep_overlap'], config['gap_imputed'],
+                                                        seed=config['random_seed'], tce=tce, config=config)
+        data.update(data_gapped)
 
     # compute lc periodogram
     pgram_data = lc_periodogram_pipeline(
         config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
         config['smooth_filter_type'], config['smooth_filter_w_f'],
-        config['gap_padding'],
+        config['tr_dur_f'],
         tce, data['all_time'], data['all_flux'], data['all_flux_err'],
         save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png',
         plot_preprocessing_tce=plot_preprocessing_tce)
@@ -712,9 +728,6 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
         time, flux, intransit_cadences_target = (np.concatenate(time_arrs), np.concatenate(flux_arrs),
                                                  np.concatenate(intransit_cadences_target))
         lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
-        # # mask in-transit cadences
-        # mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
-        #                                          config['duration_gapped_primary'])
 
         time, detrended_flux, trend, models_info_df = detrend_flux_using_sg_filter(lc,
                                                                                    intransit_cadences_target,
@@ -984,10 +997,10 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
                               for time in time_arrs]
 
     if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
+        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
                               tce['tce_period'])
     else:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
+        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], tce['tce_period'])
 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, time_arrs)]

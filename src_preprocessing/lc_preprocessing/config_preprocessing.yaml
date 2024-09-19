@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
-output_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/test_tfrecords_tess_spoc_2min_tic232608943_meanbinning_8-29-2024_1446
+output_dir: /home/msaragoc/Projects/exoplnt_dl/data/tfrecords/tess/test_gapping_imputing_keepoverlap_tfrecords_tess_spoc_2min_s1-s67_9-19-2024_1126
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv
+input_tce_csv_file: /data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv
 # light curve FITS file directory
-lc_data_dir: /Users/msaragoc/Downloads/tess_spoc_2min_lc/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files
+lc_data_dir: /data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files/
 
 using_mpi: false  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
@@ -67,7 +67,7 @@ n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
 min_n_phases: 1  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
-# ff 'zero_padding', baseline phases (i.e., full with ones) are added; if 'copy_phases', phases are copied starting from
+# if 'zero_padding', baseline phases (i.e., full of ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning
 phase_extend_method: copy_phases
 quarter_sampling: false  # sample transits from different seasons for Kepler
@@ -75,15 +75,12 @@ quarter_sampling: false  # sample transits from different seasons for Kepler
 # gapping other TCEs from the data
 gapped: false
 gap_keep_overlap: true  # if true, cadences that overlap between TCE of interest and other TCE are kept
-gap_padding: 3  # number transit durations that is gapped
-gap_imputed: false  # fill in gapped cadences
-gap_with_confidence_level: false  # not implemented
+gap_imputed: false  # fill in gapped cadences with Gaussian noise; other set them to NaNs
 
-## primary gapping
-#gap_padding_primary: 3  # padding for when preprocessing secondary TCE (primary_transit_duration * (1 + 2 * gap_pad)`)
-
+# transit duration factor -> transit_duration * f
+tr_dur_f: 2
 # primary buffer when gapping secondary
-primary_buffer_nsamples: 0  # 30 2-min, 6 ffi, 2 kepler
+primary_buffer_nsamples: 0  # 30 2-min, 6 ffi, 2 kepler (NOT BEING USED CURRENTLY)
 
 # if True, CCD module pixel coordinates are used. If False, pixel coordinates are transformed into RA and Dec
 # (world coordinates)
@@ -91,16 +88,15 @@ px_coordinates: false
 # use PSF centroid instead of FW centroid
 prefer_psfcentr: false
 
-# positive outlier removal
+# outlier removal in phase fold time series
 outlier_removal: true
 outlier_removal_sigma: 20
 outlier_removal_fill: false
 
 tess_px_scale: 21  # arcsec
 kepler_px_scale: 3.98  # arcsec
-#tess_to_kepler_px_scale_factor: tess_px_scale / kepler_px_scale
 
-sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS lc (30)
+sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS 2-min (30); TESS FFI (varied!)
   kepler: 2
   tess: 30  # 2-min: 30; ffi: 6
 tess_to_kepler_sampling_ratio: 15  # 2-min: 15; ffi: 3

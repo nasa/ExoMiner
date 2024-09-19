@@ -86,7 +86,7 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                     tceData['shard'] = [shard_name]
                     tceData['augmentation_idx'] = [example_i]
                     tceData.update({key: [val] for key, val in example_stats.items()})
-                    exampleDf = pd.DataFrame(data=tceData)  # , columns=columnsDf)
+                    exampleDf = pd.DataFrame(data=tceData)
 
                     if firstTceInDf:
                         examplesDf = exampleDf
@@ -163,30 +163,13 @@ def get_tce_table(config):
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)
-    preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['305633328-1-S14-60'])]
+    # preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['305633328-1-S14-60'])]
     # preprocess_tce_table = preprocess_tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
     if config['using_mpi']:
         shards_tce_tables = np.array_split(preprocess_tce_table, config['n_processes'])
     else:
-        shards_tce_tables = np.array_split(preprocess_tce_table, config['n_shards'])[config['process_i']]
+        shards_tce_tables = np.array_split(preprocess_tce_table, config['n_shards'])
 
     return shards_tce_tables, tce_table
-
-
-def shuffle_tce(tce_table, seed=123):
-    """ Helper function used to shuffle the tce_table if config.shuffle == True
-
-    :param tce_table:   The non-shuffled TCE table
-    :param seed:        Seed used for randomization
-    :return:
-        tce_table, with rows shuffled
-    """
-
-    # deprecated; use rng
-    np.random.seed(seed)
-
-    tce_table = tce_table.iloc[np.random.permutation(len(tce_table))]
-
-    return tce_table

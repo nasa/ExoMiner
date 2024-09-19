@@ -4,6 +4,9 @@
 import numpy as np
 from astropy.stats import mad_std
 
+# local
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
+
 
 def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=None, bin_fn=np.nanmedian,
                      bin_var_fn=mad_std):
@@ -96,33 +99,32 @@ def impute_binned_ts(binned_phase, binned_ts, period, duration, binned_ts_var=No
     return binned_ts, binned_ts_var, inds_nan
 
 
-def imputing_gaps(time, timeseries, all_gap_time, seed):
-    """ Imputing missing time with Gaussian noise computed taking into account global statistics of the data.
+def imputing_gaps(timeseries, idxs_to_impute, seed, tce=None, config=None):
+    """ Imputing gaps with Gaussian noise.
 
-    :param time: list of Numpy arrays, contains the non-gapped timestamps
-    :param timeseries: list of Numpy arrays, 1D time-series
-    :param all_gap_time: list of Numpy arrays, gapped timestamps
+    :param timeseries: Numpy array, time series values
+    :param idxs_to_impute: Numpy array, boolean array with True for cadences to be imputed
     :param seed: rng seed
+    :param tce: pandas Series, TCE parameters
+    :param config: dict, preprocessing parameters
     :return:
-        time: list of Numpy arrays, now with added gapped timestamps
-        timeseries: list of Numpy arrays, now with imputed data
-
-    TODO: compute statistics using only datapoints from cadences close to the gapped time intervals and also in o.o.t
-          values.
+        timeseries: Numpy array, now with imputed data
     """
 
     rng = np.random.default_rng(seed=seed)
 
-    med = np.nanmedian(timeseries)
-    # robust std estimator of the time series
-    std_rob_estm = mad_std(timeseries, ignore_nan=True)
+    mu = np.nanmedian(timeseries)
+    sigma = mad_std(timeseries, ignore_nan=True) # robust std estimator of the time series
 
-    for gap_time in all_gap_time:
-        imputed_timeseries = rng.normal(med, std_rob_estm, time.shape)
-        timeseries.append(imputed_timeseries.astype(timeseries[0].dtype))
-        time.append(gap_time, time.astype(time[0].dtype))
+    if np.isnan(mu) or np.isnan(sigma):
+        report_exclusion(f'Gaussian statistics are NaN when imputing gapped data for TCE '
+                         f'{tce["uid"]}. Skipping imputing.',
+                         config['exclusion_logs_dir'] / f'exclusions_{tce["uid"]}.txt')
+        return timeseries
 
-    return time, timeseries
+    timeseries[idxs_to_impute] = rng.normal(mu, sigma, idxs_to_impute.sum())
+
+    return timeseries
 
 
 def impute_transits(timeseries, transit_pulse_train, centroid=False):
