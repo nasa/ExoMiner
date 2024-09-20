@@ -587,9 +587,12 @@ def process_tce(tce, table, config):
 
     # setting primary and secondary transit gap duration
     if 'tce_maxmesd' in tce:
-        config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'],
-                                                2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
-                                                tce['tce_period'])
+        config['duration_gapped_primary'] = max(
+            min(config['tr_dur_f'] * tce['tce_duration'],
+                2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
+                tce['tce_period']),
+            tce['tce_duration']
+        )
         # setting secondary gap duration
         config['duration_gapped_secondary'] = config['duration_gapped_primary']
         # config['duration_gapped_secondary'] = (
@@ -606,6 +609,7 @@ def process_tce(tce, table, config):
     if config['detrending_method'] == 'savitzky-golay':
         # config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
         #                            config['sampling_rate_h'][f'{config["satellite"]}'])
+        # win_dur_h = config['sg_n_durations_win'] * tce['tce_duration'] * 24
         win_dur_h = 1.2 * 24
         config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'][f'{config["satellite"]}'])
         config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1

@@ -372,7 +372,7 @@ def check_inputs_generate_example(data, tce, config):
         report_exclusion(
             f'Less than 0.5% cadences are valid for centroid data. Setting centroid '
             f'offset time series to Gaussian noise using statistics from this time series.',
-            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                          )
 
         rob_std = mad_std(data['centroid_dist'], ignore_nan=True)
