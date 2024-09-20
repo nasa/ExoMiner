@@ -262,7 +262,22 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
     """
 
     # get all TCEs detected for the target stars' TCE of interest
+    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
+    # tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
+    #                            (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
+    # get all TCEs detected for the target star's TCE of interest that share at least one sector observation
+    tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
+    valid_tces = []
     tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    for _, tce_cand in tces_in_target.iterrows():
+        tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
+        overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
+        if overlaping_sectors_check:
+            valid_tces.append(tce_cand['uid'])
+
+    tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
+
     # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
     idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
     n_tces_in_target = len(tces_in_target)
@@ -1684,7 +1699,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
     if norm_stats is None:  # normalize by self absolute minimum
         norm_stats = {'mu': np.median(loc_weak_secondary_view)}
 
-        norm_stats['sigma'] = np.abs(np.min(loc_weak_secondary_view - norm_stats['mu']))
+        norm_stats['sigma'] = np.abs(np.min(loc_weak_secondary_view - norm_stats['mu'])) + NORM_SIGMA_EPS
 
     loc_weak_secondary_view_norm = \
         centering_and_normalization(loc_weak_secondary_view,

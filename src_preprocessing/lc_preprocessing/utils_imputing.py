@@ -114,7 +114,7 @@ def imputing_gaps(timeseries, idxs_to_impute, seed, tce=None, config=None):
     rng = np.random.default_rng(seed=seed)
 
     mu = np.nanmedian(timeseries)
-    sigma = mad_std(timeseries, ignore_nan=True) # robust std estimator of the time series
+    sigma = mad_std(timeseries, ignore_nan=True)  # robust std estimator of the time series
 
     if np.isnan(mu) or np.isnan(sigma):
         report_exclusion(f'Gaussian statistics are NaN when imputing gapped data for TCE '
