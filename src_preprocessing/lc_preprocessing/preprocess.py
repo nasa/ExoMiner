@@ -1386,6 +1386,23 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
                    bin_width_factor=config['bin_width_factor_loc'],
                    report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                    )
+
+    # set local flux view to Gaussian noise using statistics from flux phase folded time series when there are no data
+    # to create the local view
+    if np.all(np.isnan(loc_flux_view)):
+        report_exclusion(
+            f'No data available for local flux view. Setting it to median and var view to mad std using '
+            f'statistics from the flux phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        mu, sigma = np.nanmedian(data['flux'][1]), mad_std(data['flux'][1], ignore_nan=True)
+
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_flux_view = mu * np.ones(config['num_bins_loc'])
+            loc_flux_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_flux_view = np.zeros(config['num_bins_loc'])
+            loc_flux_view_var = np.zeros(config['num_bins_loc'])
+
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_flux_view_var /= np.sqrt(bin_counts)
 
@@ -1550,6 +1567,23 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                    bin_width_factor=config['bin_width_factor_loc'],
                    report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                    )
+
+    # set local flux view to Gaussian noise using statistics from flux phase folded time series when there are no data
+    # to create the local view
+    if np.all(np.isnan(loc_flux_view)):
+        report_exclusion(
+            f'No data available for local flux trend view. Setting it to median and var view to mad std using '
+            f'statistics from the flux trend phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        mu, sigma = np.nanmedian(data['flux_trend'][1]), mad_std(data['flux_trend'][1], ignore_nan=True)
+
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_flux_view = mu * np.ones(config['num_bins_loc'])
+            loc_flux_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_flux_view = np.zeros(config['num_bins_loc'])
+            loc_flux_view_var = np.zeros(config['num_bins_loc'])
+
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_flux_view_var /= np.sqrt(bin_counts)
 
@@ -1661,12 +1695,12 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
                    report={'config': config, 'tce': tce, 'view': 'local_wks_view'}
                    )
 
-    # set local wks view to Gaussian noise using statistics from global weak secondary view when there are no data
-    # to create the local view
+    # set local weak secondary flux view to Gaussian noise using statistics from the weak secondary flux phase folded
+    # time series when there are no data to create the local view
     if np.all(np.isnan(loc_weak_secondary_view)):
         report_exclusion(
             f'No data available for local weak secondary view. Setting it to median and var view to mad std using '
-            f'statistics from the global weak secondary view.',
+            f'statistics from the weak secondary phase folded time series.',
             config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
         mu, sigma = np.nanmedian(data['flux_weak_secondary'][1]), mad_std(data['flux_weak_secondary'][1],
                                                                           ignore_nan=True)
@@ -1678,23 +1712,20 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
             loc_weak_secondary_view = np.zeros(config['num_bins_loc'])
             loc_weak_secondary_view_var = np.zeros(config['num_bins_loc'])
 
-        _, _, _, _, bin_counts = \
-            global_view(data['flux_weak_secondary'][0],
-                        data['flux_weak_secondary'][1],
-                        tce['tce_period'],
-                        tce=tce,
-                        normalize=False,
-                        centering=False,
-                        num_bins=config['num_bins_glob'],
-                        bin_width_factor=config['bin_width_factor_glob'],
-                        report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
-                        tce_duration=tce['tce_duration']
-                        )
-        mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
-        bin_counts = mu * np.ones(config['num_bins_loc'])
-
-        if np.isnan(loc_weak_secondary_view).sum() > 0 or np.isnan(loc_weak_secondary_view_var).sum() > 0:
-            raise ValueError(f'Secondary view has at missing values after setting it to median and mad std')
+        # _, _, _, _, bin_counts = \
+        #     global_view(data['flux_weak_secondary'][0],
+        #                 data['flux_weak_secondary'][1],
+        #                 tce['tce_period'],
+        #                 tce=tce,
+        #                 normalize=False,
+        #                 centering=False,
+        #                 num_bins=config['num_bins_glob'],
+        #                 bin_width_factor=config['bin_width_factor_glob'],
+        #                 report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
+        #                 tce_duration=tce['tce_duration']
+        #                 )
+        # mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
+        # bin_counts = mu * np.ones(config['num_bins_loc'])
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_weak_secondary_view_var /= np.sqrt(bin_counts)
@@ -1803,6 +1834,23 @@ def generate_centroid_binned_views(data, tce, config):
                    report={'config': config, 'tce': tce,
                            'view': 'local_centr_view'}
                    )
+
+    if np.isnan(loc_centr_view).all():
+        report_exclusion(
+            f'No data available for local centroid view. Setting it to median and var view to mad std using '
+            f'statistics from the phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        t_min = max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations'])
+        t_max = min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations'])
+        loc_binned_time = np.linspace(t_min, t_max, config['num_bins_loc'], endpoint=True)
+        mu = np.nanmedian(data['centroid_offset_distance_to_target'][1])
+        sigma = mad_std(data['centroid_offset_distance_to_target'][1], ignore_nan=True)
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_centr_view = mu * np.ones(config['num_bins_loc'], dtype='float')
+            loc_centr_view_var = sigma * np.ones(config['num_bins_loc'], dtype='float')
+        else:
+            loc_centr_view = np.zeros(config['num_bins_loc'])
+            loc_centr_view_var = np.zeros(config['num_bins_loc'])
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_centr_view_var /= np.sqrt(bin_counts)
