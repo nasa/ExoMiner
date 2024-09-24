@@ -264,19 +264,22 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
     # get all TCEs detected for the target stars' TCE of interest
     # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
     # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
-    # tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
-    #                            (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
+    if 'sector_run' in tce:  # all TCEs in same target and sector run (TESS)
+        tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
+                                   (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
+    else:  # all TCEs in the same target (Kepler)
+        tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
     # get all TCEs detected for the target star's TCE of interest that share at least one sector observation
-    tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
-    valid_tces = []
-    tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-    for _, tce_cand in tces_in_target.iterrows():
-        tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
-        overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
-        if overlaping_sectors_check:
-            valid_tces.append(tce_cand['uid'])
-
-    tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
+    # tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
+    # valid_tces = []
+    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # for _, tce_cand in tces_in_target.iterrows():
+    #     tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
+    #     overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
+    #     if overlaping_sectors_check:
+    #         valid_tces.append(tce_cand['uid'])
+    #
+    # tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
 
     # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
     idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
@@ -1679,6 +1682,21 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
           companion variability binned time series, and the number of phase folded cycles used when binning.
           Additionally, there is one key that maps to the absolute minimum of the local weak secondary flux.
     """
+
+    # gap primary in-transit cadences in the phase folded secondary time series by imputing them with Gaussian noise
+    # estimated from the full phase folded time series
+    midpoint_primary_transit_time = -tce['tce_maxmesd']
+    tr_dur_f_primary_gap = 1
+
+    primary_gap_indices = np.logical_and(data['flux_weak_secondary'][0] > midpoint_primary_transit_time -
+                                         tr_dur_f_primary_gap * tce['tce_duration'],
+                                         data['flux_weak_secondary'][0] < midpoint_primary_transit_time +
+                                         tr_dur_f_primary_gap * tce['tce_duration'],
+                                         )
+    mu = np.nanmedian(data['flux_weak_secondary'][1])
+    sigma = mad_std(data['flux_weak_secondary'][1], ignore_nan=True)
+    rng = np.random.default_rng(seed=config['random_seed'])
+    data['flux_weak_secondary'][1][primary_gap_indices] = rng.normal(mu, sigma, primary_gap_indices.sum())
 
     # create local view for the weak secondary flux
     loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, _, bin_counts = \
