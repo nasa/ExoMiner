@@ -40,24 +40,3 @@ NUM_JOBS_PARALLEL=36
 # run with GNU parallel; exclude --sshloginfile argument to use one single core setup
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
-
-# $PREPROCESS_SH_SCRIPT 0 $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS
-
-# LOG_DIR=$OUTPUT_DIR/preprocessing_logs
-# mkdir -p "$LOG_DIR"
-# LOG_FP="$LOG_DIR"/preprocessing_main.log
-
-# echo "Starting preprocessing run in node $HOSTNAME..." > "$LOG_FP"
-
-# export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
-
-# source "$HOME"/.bashrc
-# conda activate exoplnt_dl_tf2_13
-
-# needed to be set after conda activate since that resets the environment variable
-# export CUDA_VISIBLE_DEVICES=''
-
-# run preprocessing pipeline
-# python "$SCRIPT_FP" --output_dir="$OUTPUT_DIR" --config_fp="$CONFIG_FP" &>> "$LOG_FP"
-
-# echo "Finished preprocessing run..." >> "$LOG_FP"

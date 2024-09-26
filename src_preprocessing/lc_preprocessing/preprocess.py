@@ -492,7 +492,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
     phasefolded_timeseries['flux_unfolded'] = (time_split, flux_split, n_phases_split)
 
     if n_phases_split < config['min_n_phases']:
-        raise ValueError(f'Only found {n_phases_split} phase for flux, need at least {config["min_n_phases"]} to '
+        raise ValueError(f'Only found {n_phases_split} phase(s) for flux, need at least {config["min_n_phases"]} to '
                          f'create example.')
 
     # phase folding for flux trend time series to generate phases separately
@@ -517,8 +517,8 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
     phasefolded_timeseries['flux_trend_unfolded'] = (time_trend_split, flux_trend_split, n_phases_trend_split)
 
     if n_phases_trend_split < config['min_n_phases']:
-        raise ValueError(f'Only found {n_phases_split} phase for flux trend, need at least {config["min_n_phases"]} to '
-                         f'create example.')
+        raise ValueError(f'Only found {n_phases_trend_split} phase(s) for flux trend, need at least '
+                         f'{config["min_n_phases"]} to create example.')
 
     if plot_preprocessing_tce:
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED

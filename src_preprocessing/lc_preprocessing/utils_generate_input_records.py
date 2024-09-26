@@ -159,6 +159,7 @@ def get_tce_table(config):
     tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
+    # FIXME: this is temporary!!
     tce_table = tce_table.loc[tce_table['sector_run'] != '68']
 
     # table with TCEs to be preprocessed
