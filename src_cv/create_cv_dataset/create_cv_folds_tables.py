@@ -9,12 +9,12 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300')
+data_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159')
 
 rnd_seed = 24
 n_folds_eval = 10  # which is also the number of shards
-n_folds_predict = 10
-dataset_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/tfrecords_tess_spoc_2min_s1-s67_merged_8-27-2024_1123_pgram_maxpower_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+n_folds_predict = 300
+dataset_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler

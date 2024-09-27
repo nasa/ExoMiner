@@ -7,7 +7,7 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  cv_folds: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval_normalized/cv_iterations.yaml
+  cv_folds: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized/cv_iterations.yaml
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
@@ -57,8 +57,8 @@ config:
       views:
         - global_flux_view_fluxnorm
         - global_flux_view_fluxnorm_var
-      scalars: null
-        # - mission
+      scalars:
+         - flux_global_stat_abs_min_norm
     local_flux:
       views:
         - local_flux_view_fluxnorm
@@ -66,10 +66,7 @@ config:
       scalars: # null
 #        - transit_depth_norm
 #        - tce_depth_norm
-        - tce_max_mult_ev_norm
-        - tce_max_sngle_ev_norm
-        - tce_robstat_norm
-        - tce_model_chisq_norm
+        - flux_local_stat_abs_min
          # - mission
     local_weak_secondary:
       views:
@@ -81,8 +78,9 @@ config:
         - tce_ptemp_stat_norm
         - tce_albedo_stat_norm
         - tce_maxmes_norm
+        - flux_weak_secondary_local_stat_abs_min_norm
 #        - wst_depth_norm
-        - tce_prad_norm
+#        - tce_prad_norm
         # - mission
     local_centroid:
       views:
@@ -109,7 +107,9 @@ config:
         - local_flux_odd_view_fluxnorm_var
         - local_flux_even_view_fluxnorm
         - local_flux_even_view_fluxnorm_var
-      scalars: null
+      scalars:
+        - flux_odd_local_stat_abs_min_norm
+        - flux_even_local_stat_abs_min_norm
 #        # - mission
 ##        - odd_se_oot_norm
 ##        - even_se_oot_norm
@@ -123,15 +123,17 @@ config:
       views:
         - flux_trend_global_norm
         - flux_trend_global_norm_var
-      scalars: null
+      scalars:
+        - flux_trend_global_stat_max_norm
+        - flux_trend_global_stat_min_norm
 
-#    flux_periodogram:
-#      views:
-#        - pgram_smooth_norm
-#        - pgram_tpm_smooth_norm
-#      scalars:
-#        - pgram_smooth_max_power_norm
-#        - pgram_tpm_smooth_max_power_norm
+    flux_periodogram:
+      views:
+        - pgram_smooth_norm
+        - pgram_tpm_smooth_norm
+      scalars:
+        - pgram_smooth_max_power_norm
+        - pgram_tpm_smooth_max_power_norm
 
 #        # - mission
   scalar_branches: # null
@@ -151,6 +153,11 @@ config:
       ##      - tce_rb_tcount0n_norm  # kepler only
       ##      - tce_prad_norm
       - tce_period_norm
+      - tce_max_mult_ev_norm
+      - tce_max_sngle_ev_norm
+      - tce_robstat_norm
+      - tce_model_chisq_norm
+      - tce_prad_norm
 #      # - mission
 
   #   centroid_scalars:
@@ -243,21 +250,21 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # flux
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
   global_flux_view_fluxnorm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+  flux_global_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
 
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  flux_local_stat_abs_min: { 'dim': [ 1, ], 'dtype': float }
 #  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
 
 #  # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  flux_even_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
+  flux_odd_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
 #  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
 ###    odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
 ###    even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
@@ -288,8 +295,13 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 ##  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
 #
   # other diagnostic parameters
+  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
 
  # bootstrap fa prob
   boot_fap_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -327,19 +339,21 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
   local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
-#  # flux trend unfolded
+#   flux trend unfolded
 #  flux_trend_global_unfolded_norm: { 'dim': [ 301, 1 ], 'dtype': float }
 #  flux_trend_global_unfolded_norm_var: { 'dim': [ 301, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
   flux_trend_global_norm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+  flux_trend_global_stat_min_norm: { 'dim': [ 1, ], 'dtype': float }
+  flux_trend_global_stat_max_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # flux periodogram
-#  pgram_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
-#  pgram_tpm_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
-#  pgram_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
-#  pgram_tpm_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
+  pgram_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
+  pgram_tpm_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
+  pgram_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
+  pgram_tpm_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # mission flag
   # mission: { 'dim': [ 1, ], 'dtype': float }
@@ -355,7 +369,7 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
   n_models: null  # number of models in the ensemble
-  n_epochs: 10  # number of epochs used to train each model
+  n_epochs: 300  # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32

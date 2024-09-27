@@ -6,7 +6,7 @@ output_dir: null
 # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file paths
 # for each training, validation and test set folds combination (i.e., {'train': ['/path/to/TFRec_file_x', ...],
 # 'test': ['/path/to/TFRec_file_y', ...]}
-cv_folds_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval/cv_iterations.yaml
+cv_folds_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 
@@ -53,39 +53,7 @@ compute_norm_stats_params:
       replace_value: null  # value used to replace missing value; if null, missing values are replaced by median of the training set
       standardize: true
 
-    # odd-even
-#    odd_se_oot:
-#      clip_factor: 20
-#      dtype: float
-#      log_transform: false
-#      log_transform_eps: .nan
-#      missing_value: null
-#      replace_value: null
-#      standardize: true
-#    odd_std_oot_bin:
-#      clip_factor: 20
-#      dtype: float
-#      log_transform: false
-#      log_transform_eps: .nan
-#      missing_value: null
-#      replace_value: null
-#      standardize: true
-#    even_se_oot:
-#      clip_factor: 20
-#      dtype: float
-#      log_transform: false
-#      log_transform_eps: .nan
-#      missing_value: null
-#      replace_value: null
-#      standardize: true
-#    even_std_oot_bin:
-#      clip_factor: 20
-#      dtype: float
-#      log_transform: false
-#      log_transform_eps: .nan
-#      missing_value: null
-#      replace_value: null
-#      standardize: true
+    # odd/even
     tce_bin_oedp_stat:
       clip_factor: 400
       dtype: float
@@ -422,6 +390,117 @@ compute_norm_stats_params:
       replace_value: null
       standardize: true
     pgram_tpm_smooth_max_power_downsampled:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+
+    # scalars created from the data by the preprocessing pipeline
+    # centroid
+    centroid_offset_distance_to_target_global_stat_abs_max:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    centroid_offset_distance_to_target_local_stat_abs_max:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    # weak secondary flux
+    flux_weak_secondary_local_stat_abs_min:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    # flux trend
+    flux_trend_global_stat_max:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_trend_global_stat_min:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    # flux
+    flux_global_stat_abs_min:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_local_stat_abs_min:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    # odd/even flux
+    flux_odd_local_stat_se_oot:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_odd_local_stat_std_oot_bin:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_even_local_stat_se_oot:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_even_local_stat_std_oot_bin:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_odd_local_stat_abs_min:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    flux_even_local_stat_abs_min:
       clip_factor: 20
       dtype: float
       log_transform: false

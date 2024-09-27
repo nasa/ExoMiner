@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_sgdetrending_s1-s67_3-27-2024_1127_merged_adddiffimg')
+    src_tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_adddiffimg')
     dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_perimgnormdiffimg'
     zero_division_eps = 1e-10  # term added to denominator to avoid division by zero
     # q_oot = 0.25  # set quantile used to fill missing values in oot images
@@ -143,8 +143,8 @@ if __name__ == '__main__':
         'diff_imgs': (5, 33, 33),  # feature dimension
         'oot_imgs': (5, 33, 33),
     }
-    n_procs = 10
-    n_jobs = 10
+    n_procs = 30
+    n_jobs = 90
 
     # get file paths for source TFRecord files under the source directory
     src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-')]
