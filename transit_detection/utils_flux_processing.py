@@ -148,7 +148,7 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
     # TODO: deal with NaNs; need to interpolate time?; impute cadences with missing values using what strategy?
     # remove NaNs
     valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
-    time, flux = time[valid_idxs_data], flux[valid_idxs_data]
+    time, flux, transit_mask = time[valid_idxs_data], flux[valid_idxs_data], transit_mask[valid_idxs_data]
 
     # split time series on gaps
     time_arrs, flux_arrs = split_timeseries_on_time_gap(time, flux, gap_width)
@@ -169,8 +169,6 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
     # choose only those midtransit points whose windows fit completely inside the time array
     valid_midtransit_points_arr = midtransit_points_arr[np.logical_and(start_time_windows >= time[0],
                                                                       end_time_windows <= time[-1])]
-
-    # should this be logical_and? 
 
     print(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
           f'array.')
@@ -218,6 +216,7 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
                                             buffer_time,
                                             midtransit_points_arr + (n_durations_window + 1) * tce_duration / 2 +
                                             buffer_time)
+
     # get oot candidates for oot windows, that do not fall on other transit events
     oot_points_arr = time[np.logical_and((~np.sum([np.logical_and(time >= start_time_window, time <= end_time_window)
                                    for start_time_window, end_time_window in zip(start_time_windows, end_time_windows)],
@@ -340,3 +339,36 @@ def build_transit_mask_for_lightcurve(time, tce_list):
         in_transit_mask |= np.abs((time - epoch) % period ) < duration #one transit duration to left and right
 
     return in_transit_mask
+
+def plot_detrended_flux_time_series_sg(time, flux, detrend_time, detrend_flux, trend, sector, plot_dir):
+    """
+    Builds plot for a given time series that was detrended using savitzky golay. Builds three plots over time:
+    1. Raw Flux
+    2. Detrended Normalized Flux
+    3. Trend against Detrended Normalized Flux
+
+    Args:
+        time: NumPy array, timestamps
+        flux: NumPy array, flux time series
+        detrend_time: NumPy array, timestamps associated with detrended flux
+        detrend_flux: NumPy array, flux time series detrended with savitzky golay
+        trend: NumPy array, trend returned by savitzky golay detrending.
+        sector: String, of an integer, for the sector corresponding to the time series
+        plot_dir: Path, directory to create plot
+
+    Returns:
+        None
+    """
+
+    if plot_dir:
+        f, ax = plt.subplots(3, 1, figsize=(12, 8))
+        ax[0].scatter(time, flux, s=8, label='PDCSAP Flux')
+        ax[0].set_ylabel('PDCSAP Flux [e-/cadence]')
+        ax[1].scatter(detrend_time, detrend_flux, s=8)
+        ax[1].set_ylabel('Detrended Normalized Flux')
+        ax[2].scatter(detrend_time, detrend_flux, s=8, label= 'Detrended')
+        ax[2].scatter(detrend_time, trend, s=8)
+        ax[2].set_ylabel('Flux Trend [e-/cadence]')
+        ax[2].set_xlabel('Time - 2457000 [BTJD days]')
+        f.savefig(plot_dir / f'sector_{sector}_detrended_flux.png')
+        plt.close()
