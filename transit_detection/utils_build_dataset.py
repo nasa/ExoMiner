@@ -34,6 +34,8 @@ FEATURES_TO_TBL = ['target_id', 'tce_plnt_num', 'numberOfPlanets', 'tce_num_tran
                    'tce_cap_stat', 'tce_hap_stat', 'wst_depth', 'ruwe', 'mag_shift', 'disposition',
                    'disposition_source', 'matched_object']
 
+POSITIVE_LABELS = ['KP','CP','EB']
+
 
 def serialize_set_examples_for_tce(data_for_tce):
     """ Serializes data of a set of examples for a TCE into an example that can be added to a TFRecord dataset.
@@ -67,8 +69,8 @@ def serialize_set_examples_for_tce(data_for_tce):
 
                 # set label
                 example_util.set_float_feature(example, 'label',
-                                               [0 if example_type == 'not_transit_examples' else 1])
-
+                                               [1 if data_for_tce['disposition'] in POSITIVE_LABELS and
+                                                example_type == 'transit_examples' else 0])
                 # set auxiliary data
                 example_util.set_bytes_feature(example, 'sector', [data_for_sector['sector']])
                 for feature_name in INT64_FEATURES:
