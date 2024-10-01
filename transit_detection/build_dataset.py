@@ -10,101 +10,44 @@ import numpy as np
 import lightkurve as lk
 import warnings
 import tensorflow as tf
-from astropy.utils.masked import Masked
+import multiprocessing
+from functools import partial
+from copy import deepcopy
 
 # local
-from transit_detection.utils_flux_processing import extract_flux_windows_for_tce, build_transit_mask_for_lightcurve, detrend_flux_using_spline
+from transit_detection.utils_flux_processing import extract_flux_windows_for_tce, build_transit_mask_for_lightcurve, plot_detrended_flux_time_series_sg
 from transit_detection.utils_difference_img_processing import extract_diff_img_data_from_window
 from transit_detection.utils_build_dataset import serialize_set_examples_for_tce, write_data_to_auxiliary_tbl
 
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_sg_filter
 #%%
+def process_target_sector_run(target, sector_run, sector_run_data,
+                                data_dir,
+                                lc_dir,
+                                tpf_dir,
+                                n_durations_window,
+                                frac_valid_cadences_in_window_thr,
+                                frac_valid_cadences_it_thr,
+                                buffer_time,
+                                gap_width,
+                                resampled_num_points,
+                                rnd_seed,
+                                size_img,
+                                f_size,
+                                center_target,
+                                plot_dir
+                               ):
+                               
+    sector_data_to_tfrec = []
 
-# set dataset directory
-data_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/test_create_dataset_09-16-2024_1017')
-# set light curve data directory
-lc_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/lc_data/')
-# set target pixel file data directory
-tpf_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/tpf_data/')
-# TCE table
-tce_tbl = pd.read_csv('/Users/jochoa4/Projects/exoplanet_transit_classification/ephemeris_tables/preprocessing_tce_tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
-tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
-tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
-n_durations_window = 5  # number of transit durations in each extracted window
-frac_valid_cadences_in_window_thr = 0.85
-frac_valid_cadences_it_thr = 0.85
-# sampling_rate = 2  # min/cadence
-buffer_time = 30  # in minutes, between in-transit cadences and out-of-transit cadences
-# oot_buffer_ncadences = int(buffer_time / sampling_rate)
-# days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
-gap_width = 0.75
-resampled_num_points = 100  # number of points in the window after resampling
-rnd_seed = 42
-# difference image data parameters
-size_img = [11, 11]  # resize images to this size
-f_size = [3, 3]  # enlarge `size_img` by these factors; final dimensions are f_size * size_img
-center_target = False  # center target in images
+    rng = np.random.default_rng(seed=rnd_seed)
 
-# create dataset directory
-data_dir.mkdir(exist_ok=True, parents=True)
+    print(f'Extracting and processing data for target: {type(target)}, sector_run: {sector_run}')
 
-# create plot dir
-plot_dir = data_dir / 'plots'
-plot_dir.mkdir(exist_ok=True, parents=True)
+    plot_dir_target_sector_run = plot_dir / f'target_{target}_sector_run_{sector_run}'
+    plot_dir_target_sector_run.mkdir(exist_ok=True, parents=True)
 
-# tce_tbl.set_index('uid', inplace=True)
-tces_lst = [
-    '68577662-1-S43',  # KP
-    '394112898-1-S40',  # UNK, EB?
-    '261136679-1-S13',  # CP
-    '336767770-1-S17',  # NTP
-    '352289014-1-S13',  # NTP
-    '260041957-1-S1-36',  # multisector example
-]
-
-tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
-
-print(tce_tbl[['uid', 'disposition']])
-
-rng = np.random.default_rng(seed=rnd_seed)
-
-data_to_tfrec = []
-
-# for target in tce_tbl['target_id'].unique(): # for each target in tce_tbl
-#     print(f'Processing target: {target}')
-
-#     target_tces = []
-#     for tce_i, tce_data in tce_tbl[tce_tbl['target_id'] == target].iterrows(): # for all tces in target
-#         tce_uid = tce_data['uid']
-
-#         target_tces.append({
-#             "tce_time0bk" : tce_data['tce_time0bk'],
-#             "tce_period" : tce_data['tce_period'],
-#             "tce_duration" : tce_data['tce_duration']
-#         })
-#     print(target_tces)
-
-#     for sector_run, sector_run_df in tce_tbl[tce_tbl['target_id'] == target].groupby('sector_run'): # for each target, sector pair
-    
-#         for tce_i, tce_data in sector_run_df.iterrows(): # for each tce in target, sector pair
-#             #regular pipeline
-            
-
-for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run']):
-    print(f'Extracting and processing data for target: {target}, sector_run: {sector_run}')
-
-    plot_dir_target = plot_dir / f'target_{target}'
-    plot_dir_target.mkdir(exist_ok=True, parents=True)
-
-    target_tce_data = []
-    
-    for tce_i, tce_data in tce_tbl[tce_tbl['target_id'] == target].iterrows(): # for all tces associated with target
-        target_tce_data.append({
-            "tce_time0bk" : tce_data['tce_time0bk'],
-            "tce_period" : tce_data['tce_period'],
-            "tce_duration" : tce_data['tce_duration']
-        })
-
+    target_sector_run_tce_data = []
 
     # get individual sector runs (needed for multisector runs)
     if '-' in sector_run:
@@ -120,7 +63,21 @@ for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','secto
     found_sectors = [int(el.split(' ')[-1]) for el in search_lc_res.mission]
     print(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target},{sector_run}.')
 
+    for tce_i, tce_data in sector_run_data.iterrows(): # get all tces in target, sector_run pair
+        target_sector_run_tce_data.append({
+        "tce_time0bk" : tce_data['tce_time0bk'],
+        "tce_period" : tce_data['tce_period'],
+        "tce_duration" : tce_data['tce_duration']
+        })
+
+        print(f"TCE DATA: {tce_data[['uid','tce_time0bk','tce_period','tce_duration']]}")
+
+    print(f"Final tce data: {target_sector_run_tce_data}")
+
     for sector_i, sector in enumerate(found_sectors):  # for given sector_run
+        print(f"FOR: sector: {sector} in found_sectors: {found_sectors}")
+        print(f"WITH target: {target} and {type(target)} using sector_run: {sector} and {type(sector)}")
+    
         in_transit_mask = []
 
         data_for_tce_sector = {
@@ -131,13 +88,12 @@ for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','secto
                                     'target_img': [], 'target_pos': []},
         }
 
-        # if len(search_lc_res) == 0:
-        #     print(f'No light curve data for sector {sector_run} and TIC {tic_id}. Skipping this sector.')
-        #     continue
-
+        if len(search_lc_res) == 0:
+            print(f'No light curve data for sector {sector_run} and TIC {tic_id}. Skipping this sector.')
+            continue
         
-        plot_dir_target_sector = plot_dir_target / f'sector_{sector}'
-        plot_dir_target_sector.mkdir(exist_ok=True, parents=True)
+        plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}' #individual sectors for multi sector runs
+        plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
 
         # download light curve fits file(s)
         lcf = search_lc_res[sector_i].download(download_dir=str(lc_dir), quality_bitmask='default',
@@ -145,34 +101,33 @@ for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','secto
 
         lcf = lk.LightCurve({'time': lcf.time.value, 'flux': np.array(lcf.flux.value)})
 
-        # 1)get all in transit cadence for all TCEs in target, sector pair
-        # 2)create mask of intransit cadences
-        # 3)detrend flux using mask
-        time,flux = lcf.time.value, lcf.flux.value
-        in_transit_mask = build_transit_mask_for_lightcurve(time=lcf.time.value, tce_list=target_tce_data)
+        time, flux = lcf.time.value, lcf.flux.value
+        in_transit_mask = build_transit_mask_for_lightcurve(time=lcf.time.value, tce_list=target_sector_run_tce_data)
 
-        print(f"LEN: {len(in_transit_mask)}  SUM: {np.sum(in_transit_mask)}")
+        time, flux, trend = detrend_flux_using_sg_filter(lc=lcf, mask_in_transit=in_transit_mask,
+                                                                        win_len=int(1.2*24*30), sigma=5,
+                                                                        max_poly_order=6, penalty_weight=1, 
+                                                                        break_tolerance=5)
 
+
+        plot_detrended_flux_time_series_sg(time=lcf.time.value, flux=np.array(lcf.flux.value), detrend_time=time,
+                                        detrend_flux=flux, trend=trend, sector=sector, 
+                                        plot_dir=plot_dir_target_sector_run_sector)
         
-        
-        # print(f"TYPE FLUX: {type(flux)}")
-
-        time, flux = detrend_flux_using_sg_filter(lc=lcf, mask_in_transit=in_transit_mask, win_len=1.2, sigma=5,
-                                                    max_poly_order=6, penalty_weight=1, break_tolerance=5)
-
-
-        for tce_i, tce_data in sector_run_data.iterrows(): # iterate over each TCE in target, sector_run pair
-            #extract flux time series for each tce in tce_target_sector_run
+        for tce_i, tce_data in sector_run_data.iterrows():
 
             data_for_tce = {
-            'tce_uid': sector_run_data['uid'],
+            'tce_uid': tce_data['uid'],
             'tce_info': tce_data,
             'sectors': [],
+            'disposition': tce_data['disposition']
             }
 
+            print(f"disposition of {tce_data['uid']} if {tce_data['disposition']}")
+
             # create directory for TCE plots
-            plot_dir_target_sector_tce = plot_dir / f'tce_{tce_data["uid"]}'
-            plot_dir_target_sector_tce.mkdir(exist_ok=True, parents=True)
+            plot_dir_target_sector_run_sector_tce = plot_dir_target_sector_run_sector / f'tce_{tce_data["uid"]}'
+            plot_dir_target_sector_run_sector_tce.mkdir(exist_ok=True, parents=True)
 
             # get TCE unique id
             tic_id = tce_data['target_id']
@@ -191,12 +146,15 @@ for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','secto
                                                                     buffer_time, frac_valid_cadences_in_window_thr,
                                                                     frac_valid_cadences_it_thr,
                                                                     resampled_num_points, tce_data['uid'], rng,
-                                                                    plot_dir_target_sector_tce)
-
-            plot_dir_tce_diff_img_data = plot_dir_target_sector_tce / 'diff_img_data'
+                                                                    plot_dir_target_sector_run_sector_tce)
+            print(f'Resampled: it {len(resampled_flux_it_windows_arr)} and oot {len(resampled_flux_oot_windows_arr)}')
+            print(f'Mid: {midtransit_points_windows_arr} and {midoot_points_windows_arr}')
+            plot_dir_tce_diff_img_data = plot_dir_target_sector_run_sector_tce / 'diff_img_data'
             plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
 
             # find target pixel data for target
+            print(f'Search result: {tic_id};{sector}')
+
             search_result = lk.search_targetpixelfile(target=f"tic{tic_id}", mission='TESS', author=('TESS-SPOC', 'SPOC'),
                                                     exptime=120, cadence="long", sector=sector)
             # download target pixel file
@@ -273,27 +231,103 @@ for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','secto
 
             data_for_tce['sectors'].append(data_for_tce_sector)
 
-        data_to_tfrec.append(data_for_tce)
+        sector_data_to_tfrec.append(data_for_tce)
+    return sector_data_to_tfrec
+    
+if __name__ == "__main__":
+    data_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/test_create_dataset_09-29-2024_1026')
+    # set light curve data directory
+    lc_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/lc_data/')
+    # set target pixel file data directory
+    tpf_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/tpf_data/')
+    # TCE table
+    tce_tbl = pd.read_csv('/Users/jochoa4/Projects/exoplanet_transit_classification/ephemeris_tables/preprocessing_tce_tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
+    tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
+    tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
 
-#%% write data to TFRecord dataset
+    n_durations_window = 5  # number of transit durations in each extracted window
+    frac_valid_cadences_in_window_thr = 0.85
+    frac_valid_cadences_it_thr = 0.85
+    # sampling_rate = 2  # min/cadence
+    buffer_time = 30  # in minutes, between in-transit cadences and out-of-transit cadences
+    # oot_buffer_ncadences = int(buffer_time / sampling_rate)
+    # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
+    gap_width = 0.75
+    resampled_num_points = 100  # number of points in the window after resampling
+    rnd_seed = 42
+    # difference image data parameters
+    size_img = [11, 11]  # resize images to this size
+    f_size = [3, 3]  # enlarge `size_img` by these factors; final dimensions are f_size * size_img
+    center_target = False  # center target in images
 
-print(f'Write data to TFRecords.')
+    # create dataset directory
+    data_dir.mkdir(exist_ok=True, parents=True)
 
-tfrec_dir = data_dir / 'tfrecords'
-tfrec_dir.mkdir(exist_ok=True, parents=True)
-tfrec_fp = tfrec_dir / 'test_shard_0001-0001'
+    # create plot dir
+    plot_dir = data_dir / 'plots'
+    plot_dir.mkdir(exist_ok=True, parents=True)
 
-with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
+    tces_lst = [
+        '68577662-1-S43',  # KP
+        '394112898-1-S40',  # UNK, EB?
+        '261136679-1-S13',  # CP
+        '336767770-1-S17',  # NTP
+        '352289014-1-S13',  # NTP
+        '298734307-1-S14-60',  # multisector example
+    ]
 
-    for data_for_tce in data_to_tfrec:
-        print(f'Adding data for TCE {data_for_tce["tce_uid"]} to the TFRecord file {tfrec_fp}...')
+    tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
 
-        examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
+    print(f"TCE_TBL: {tce_tbl[['uid', 'disposition']]}")
 
-        for example_for_tce in examples_for_tce:
-            writer.write(example_for_tce)
+    # rng = np.random.default_rng(seed=rnd_seed)
 
-# create auxiliary table
-print('Creating auxiliary table to TFRecord dataset.')
-data_tbl = write_data_to_auxiliary_tbl(data_to_tfrec, tfrec_fp)
-data_tbl.to_csv(tfrec_dir / 'data_tbl.csv', index=False)
+    partial_func = partial(process_target_sector_run,
+                                    data_dir=data_dir,
+                                    lc_dir=lc_dir,
+                                    tpf_dir=tpf_dir,
+                                    n_durations_window=n_durations_window,
+                                    frac_valid_cadences_in_window_thr=frac_valid_cadences_in_window_thr,
+                                    frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
+                                    buffer_time=buffer_time,
+                                    gap_width=gap_width,
+                                    resampled_num_points=resampled_num_points,
+                                    rnd_seed=rnd_seed,
+                                    size_img=deepcopy(size_img),
+                                    f_size=deepcopy(f_size),
+                                    center_target=center_target,
+                                    plot_dir=plot_dir,
+                                    )
+
+    pool = multiprocessing.Pool(processes=None, maxtasksperchild=15) # None processes defaults to number of cpu cores
+    # grouped sector_run_data from tce_tbl is uniqu, so we can use sector_run_data views for parallel ops
+    jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])]
+    async_results = [pool.apply_async(partial_func, job) for job in jobs]
+    pool.close()
+
+    data_to_tfrec = []
+    for async_result in async_results:
+        print(f"ASYNC RESULT: {async_result}")
+        for data in async_result.get():
+            data_to_tfrec.append(data)
+    #%% write data to TFRecord dataset
+    print(f'Write data to TFRecords.')
+
+    tfrec_dir = data_dir / 'tfrecords'
+    tfrec_dir.mkdir(exist_ok=True, parents=True)
+    tfrec_fp = tfrec_dir / 'test_shard_0001-0001'
+
+    with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
+
+        for data_for_tce in data_to_tfrec:
+            print(f'Adding data for TCE {data_for_tce["tce_uid"]} to the TFRecord file {tfrec_fp}...')
+
+            examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
+
+            for example_for_tce in examples_for_tce:
+                writer.write(example_for_tce)
+
+    # create auxiliary table
+    print('Creating auxiliary table to TFRecord dataset.')
+    data_tbl = write_data_to_auxiliary_tbl(data_to_tfrec, tfrec_fp)
+    data_tbl.to_csv(tfrec_dir / 'data_tbl.csv', index=False)
