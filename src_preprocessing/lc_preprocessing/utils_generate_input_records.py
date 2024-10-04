@@ -160,7 +160,13 @@ def get_tce_table(config):
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
     # FIXME: this is temporary!!
-    tce_table = tce_table.loc[tce_table['sector_run'] != '68']
+    if 'sector_run' in tce_table:
+        logger.info('Excluding TCEs from sector run S68')
+        tce_table = tce_table.loc[tce_table['sector_run'] != '68']
+    # FIXME: add wst_depth_err to the Kepler Q1-Q17 DR25 TCE table
+    if 'wst_depth_err' not in tce_table:
+        logger.info('Adding `wst_depth_err` to the TCE table. Setting value to all TCEs as -1')
+        tce_table['wst_depth_err'] = -1
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)

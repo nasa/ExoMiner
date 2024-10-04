@@ -16,19 +16,26 @@ GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
 N_MODELS_PER_CV_ITER="$7"
 
+# set TF GPU memory to grow as needed
+export TF_FORCE_GPU_ALLOW_GROWTH=true
+
+# initialize conda
 source "$HOME"/.bashrc
 
+# activate conda environment
 conda activate exoplnt_dl_tf2_13
 
+# set path to codebase root directory
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-# Paths
+# define paths to python scripts in the codebase
 SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
 TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train_model.py
 CREATE_ENSEMBLE_MODEL_SCRIPT_FP=$PYTHONPATH/models/create_ensemble_avg_model.py
 EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate_model.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
 
+# set CV iteration ID
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 # CV_ITER=$GNU_PARALLEL_INDEX
 #if [ $CV_ITER -ge "$7" ]
@@ -91,22 +98,21 @@ do
     CV_ITER_CONFIG_FP=$MODEL_DIR/config_cv.yaml
 
     echo "Training model $MODEL_I in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
-    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"
+    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"  # &
     echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_CV_ITER"
 done
 
-#MODEL_IDS_FP="$CV_DIR"/missing_trained_models_cv_iter_"$CV_ITER".txt
-#while read MODEL_I
+#PROC_IN_GPU=$(nvidia-smi -i $GPU_ID --query-compute-apps=pid --format=csv,noheader)
+#until [ "$PROC_IN_GPU" == "" ]
 #do
-#    MODEL_DIR="$MODELS_DIR"/model$MODEL_I
-#    mkdir -p $MODEL_DIR
-#    LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model_"$MODEL_I".log
-#    echo "Training model $MODEL_I in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
-#    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_dir="$MODEL_DIR" &>> "$LOG_FP_TRAIN_MODEL"
-#    echo "Finished training model $MODEL_I in CV iteration $CV_ITER" >> "$LOG_FP_CV_ITER"
-#done < "$MODEL_IDS_FP"
+#    PROC_IN_GPU=$(nvidia-smi -i $GPU_ID --query-compute-apps=pid --format=csv,noheader)
+#    echo "Current process in GPU $GPU_ID: $PROC_IN_GPU"
+#    sleep 60
+#done
+#
+#echo "GPU $GPU_ID is available. Resuming CV iteration." >> "$LOG_FP_CV_ITER"
 
-echo "Trained models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+echo "Finished training all models for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 
 echo "Creating ensemble model in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 

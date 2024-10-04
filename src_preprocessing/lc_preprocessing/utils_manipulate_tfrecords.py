@@ -370,13 +370,13 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 if __name__ == '__main__':
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_splinedetrending_s1-s67_4-5-2024_1513_merged')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/tfrecords_kepler_q1q17dr25_9-30-2024_1730_adddiffimg_perimgnormdiffimg')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
         'target_id': 'int',
         'tce_plnt_num': 'int',
-        'sector_run': 'str',
+        # 'sector_run': 'str',  # COMMENT FOR KEPLER!!1
         'label': 'str',
     }
     tfrec_tbls = []
