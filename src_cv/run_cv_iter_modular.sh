@@ -17,7 +17,7 @@ JOB_ARRAY_INDEX="$2"
 N_MODELS_PER_CV_ITER="$7"
 
 # set TF GPU memory to grow as needed
-export TF_FORCE_GPU_ALLOW_GROWTH=true
+#export TF_FORCE_GPU_ALLOW_GROWTH=true
 
 # initialize conda
 source "$HOME"/.bashrc

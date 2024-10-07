@@ -9,10 +9,10 @@ from datetime import datetime
 # results directory
 root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables')
 
-res_dir = root_dir / f'{datetime.now().strftime("%m-%d-%Y_%H%M")}'
+res_dir = root_dir / f'tess_spocffi_tces_dv_s56-s69_{datetime.now().strftime("%m-%d-%Y_%H%M")}'
 res_dir.mkdir(exist_ok=True)
 
-tce_tbl_name = f'tess_2min_tces_dv_s1-s68_{res_dir.name}.csv'
+tce_tbl_name = f'{res_dir.name}.csv'
 
 # set up logger
 logger = logging.getLogger(name='create_tess_tce_tbl_from_dv')

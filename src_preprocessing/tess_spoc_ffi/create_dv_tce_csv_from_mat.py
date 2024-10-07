@@ -29,7 +29,7 @@ for mat_run_fp in mat_runs_fps:  # iterate over the sector run mat files
 
     print(f'Creating csv table for mat file {mat_run_fp.name}')
 
-    csv_save_dir = mat_run_fp.parent / 'csv_tables'
+    csv_save_dir = dv_root_dir / 'csv_tables'  # mat_run_fp.parent / 'csv_tables'
     csv_save_dir.mkdir(exist_ok=True)
 
     try:
