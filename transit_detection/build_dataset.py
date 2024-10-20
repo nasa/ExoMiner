@@ -52,7 +52,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
 
         rng = np.random.default_rng(seed=rnd_seed)
 
-        print(f'Extracting and processing data for target: {type(target)}, sector_run: {sector_run}')
+        logger.info(f'Extracting and processing data for target: {type(target)}, sector_run: {sector_run}')
 
         plot_dir_target_sector_run = plot_dir / f'target_{target}_sector_run_{sector_run}'
         plot_dir_target_sector_run.mkdir(exist_ok=True, parents=True)
@@ -75,7 +75,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             print(f'No light curve data for sector run {sector_run} and TIC {tic_id}. Skipping this sector run.')
             return
 
-        print(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
+        logger.info(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
 
         for tce_i, tce_data in sector_run_data.iterrows(): # get all tces in target, sector_run pair
             target_sector_run_tce_data.append({
@@ -84,14 +84,8 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             "tce_duration" : tce_data['tce_duration']
             })
 
-            print(f"TCE DATA: {tce_data[['uid','tce_time0bk','tce_period','tce_duration']]}")
-
-        print(f"Final tce data: {target_sector_run_tce_data}")
-
         # for sector_i, sector in enumerate(found_sectors):  # for given sector_run
         for sector, lcf in zip(found_sectors, lcfs):
-            print(f"WITH target: {target} and sector_run: {sector_run}")
-            print(f"FOR: sector: {sector} in found_sectors: {found_sectors}")
         
             in_transit_mask = []
 
@@ -135,8 +129,6 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 'disposition': tce_data['disposition']
                 }
 
-                print(f"disposition of {tce_data['uid']} if {tce_data['disposition']}")
-
                 # create directory for TCE plots
                 plot_dir_target_sector_run_sector_tce = plot_dir_target_sector_run_sector / f'tce_{tce_data["uid"]}'
                 plot_dir_target_sector_run_sector_tce.mkdir(exist_ok=True, parents=True)
@@ -159,20 +151,16 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                                                         frac_valid_cadences_it_thr,
                                                                         resampled_num_points, tce_data['uid'], rng,
                                                                         plot_dir_target_sector_run_sector_tce)
-                print(f'Resampled: it {len(resampled_flux_it_windows_arr)} and oot {len(resampled_flux_oot_windows_arr)}')
-                print(f'Mid: {midtransit_points_windows_arr} and {midoot_points_windows_arr}')
                 plot_dir_tce_diff_img_data = plot_dir_target_sector_run_sector_tce / 'diff_img_data'
                 plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
 
                 # find target pixel data for target
-                print(f'Search result: {tic_id};{sector}')
-
                 found_sector, tpf = search_and_read_tess_targetpixelfile(target=target, 
                                                         sectors=sector, 
                                                         data_dir=tpf_dir)
                 # if no target pixel
                 if len(found_sector) == 0:
-                    print(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
+                    logger.info(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                     continue
 
                 # compute difference image data for each window for target pixel file data
@@ -285,7 +273,6 @@ if __name__ == "__main__":
     listener = multiprocessing.Process(target=listener_process, args=(log_queue,log_dir))
     listener.start()
 
-
     data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_10-19-2024_v1')
     # set light curve data directory
     lc_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
@@ -328,8 +315,6 @@ if __name__ == "__main__":
     ]
 
     tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
-
-    print(f"TCE_TBL: {tce_tbl[['uid', 'disposition']]}")
 
     # rng = np.random.default_rng(seed=rnd_seed)
 
