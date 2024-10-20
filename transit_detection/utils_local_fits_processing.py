@@ -3,8 +3,14 @@ import lightkurve as lk
 
 def search_and_read_tess_lightcurve(target, sectors, data_dir):
     """
+    Searches data_dir in the format of: data_dir/
+                                                sector_1/
+                                                        *tic_id*_lc.fits
+                                                sector_2/
+                                             ...sector_n/
+    for a given target tic_id fits file and reads it for 
         Arguments:
-            target: int, specifying target star
+            target: int, specifying target star tic_id
             sectors: int or List of ints, of sectors to download
             data_dir: str, of directory with tess lightcurve data (.fits)
         Returns:
@@ -29,7 +35,7 @@ def search_and_read_tess_lightcurve(target, sectors, data_dir):
 def search_and_read_tess_targetpixelfile(target, sectors, data_dir):
     """
         Arguments:
-            target: int, specifying target star
+            target: int, specifying target star tic_id
             sectors: int or List of ints, of sectors to download
             data_dir: str, of directory with tess target pixel data (.fits)
         Returns:
