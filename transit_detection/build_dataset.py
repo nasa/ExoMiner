@@ -265,7 +265,8 @@ def listener_process(log_queue, log_dir):
 
 if __name__ == "__main__":
     #initialize logger
-    log_queue = multiprocessing.Queue()
+    manager = multiprocessing.Manager()
+    log_queue = manager.Queue()
 
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
