@@ -23,7 +23,7 @@ for sector_number in {1..67}; do
 
     echo "#!/bin/bash" > "$OUTPUT_SCRIPT" #prepend shebang
 
-    while IFS=read -r file; do
+    while IFS= read -r file; do
         echo "curl -C - -L -o $file $BASE_URL/$file" >> "$OUTPUT_SCRIPT"
     done < "$FAILED_FILES"
 
