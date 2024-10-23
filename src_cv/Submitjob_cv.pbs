@@ -1,8 +1,8 @@
 # Run CV experiment in parallel (multiple iterations at the same time) on a single GPU node with multiple GPUs and
 # using a combination of GNU parallel and job array
 #PBS -S /bin/bash
-#PBS -N cv_exoplnt
-#PBS -l walltime=48:00:00
+#PBS -N cv_exoplanet
+#PBS -l walltime=72:00:00
 #PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
 #PBS -l place=free:excl
@@ -20,11 +20,11 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_test_addedtrendbranch_8-28-2024_1848
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess-spoc-2min_s1-s67_periodogram_10-15-2024_1119
 mkdir -p $OUTPUT_DIR
 
 N_CV_ITERS=10  # number of CV folds/iterations
-N_MODELS_PER_CV_ITER=2  # number of models to train per CV iteration
+N_MODELS_PER_CV_ITER=10  # number of models to train per CV iteration
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4

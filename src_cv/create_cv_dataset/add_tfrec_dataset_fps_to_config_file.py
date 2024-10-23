@@ -26,11 +26,18 @@ def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i):
     # randomly pick cv fold as validation set from the training set
     if 'val_from_train' in config:
         if config['val_from_train']:
-            rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)  # set different validation set based on model id
+
+            # set different validation set based on model id
+            rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)
             config['datasets_fps']['val'] = [rng.choice(config['datasets_fps']['train'])]
+            # choose 1 TESS train CV fold to be the validation set
             # config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)])]
+            # choose all TESS train CV folds to be the validation set
+            # config['datasets_fps']['val'] = [fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)]
+
             config['datasets_fps']['train'] = [fp for fp in config['datasets_fps']['train'] if
                                                fp not in config['datasets_fps']['val']]
+
             # val_fold_idx = rng.choice(len(config['datasets_fps']['train']))
             # config['datasets_fps']['val'] = [config['datasets_fps']['train'][val_fold_idx]]
             # del config['datasets_fps']['train'][val_fold_idx]

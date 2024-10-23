@@ -376,7 +376,7 @@ if __name__ == '__main__':
         'uid': 'str',
         'target_id': 'int',
         'tce_plnt_num': 'int',
-        # 'sector_run': 'str',  # COMMENT FOR KEPLER!!1
+        # 'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
     }
     tfrec_tbls = []

@@ -11,7 +11,9 @@
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_predict_exoplnt_mgpus_singlenode.err
 #PBS -W group_list=a1509
 #PBS -m bea
-#PBS -J 1-2
+#PBS -J 0-2
+
+# PBS_ARRAY_INDEX=0
 
 # script for running inference for a single CV iteration
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_predict_cv_iter_modular.sh
@@ -23,7 +25,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_
 CONFIG_PREPROCESS_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
 
 # output directory
-OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_9-26-2024_1623_predict_unks/
+OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_9-26-2024_1623_predict_spoc-ffi-s56-s69_unks_missingticsfits/
 mkdir -p $OUTPUT_DIR
 
 # root directory for model file paths

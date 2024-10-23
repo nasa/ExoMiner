@@ -11,7 +11,7 @@ from pathlib import Path
 
 #%% Create yaml file to be used to create the normalized labeled dataset for the CV experiment from the nonnormalized dataset
 
-data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval')
+data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
 datasets = ['train', 'test']
 
 cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard')]
@@ -35,9 +35,9 @@ with open(data_dir / 'cv_iterations.yaml', 'w') as file:
 
 #%% Create yaml file to be used to run the CV experiment with the normalized labeled dataset
 
-data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval_normalized')
+data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval_normalized')
 # use yaml file for CV iterations created when normalizing the data
-cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval/cv_iterations.yaml')
+cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval/cv_iterations.yaml')
 
 with open(cv_iterations_fp, 'r') as file:
     cv_iterations = yaml.unsafe_load(file)
@@ -81,6 +81,30 @@ new_cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 
 for cv_iter_i, cv_iter in enumerate(cv_iterations):
 
     cv_iter['train'] += kepler_src_fps
+
+    new_cv_iters.append(cv_iter)
+
+with open(dest_dir / 'src_cv_iterations.yaml', 'w') as file:
+    yaml.dump(new_cv_iters, file, sort_keys=False)
+
+#%% Create new yaml file from another one by adding only Kepler data to the training set
+
+src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml')
+kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
+dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_with_kepler_trainset_only')
+
+dest_dir.mkdir(exist_ok=True)
+
+kepler_src_fps = [fp for fp in kepler_src_dir.iterdir() if fp.name.startswith('shard-')]
+
+with open(src_cv_iterations_fp, 'r') as file:
+    cv_iterations = yaml.unsafe_load(file)
+
+new_cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
+for cv_iter_i, cv_iter in enumerate(cv_iterations):
+
+    cv_iter['val'] = cv_iter['train']
+    cv_iter['train'] = kepler_src_fps
 
     new_cv_iters.append(cv_iter)
 
