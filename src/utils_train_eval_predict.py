@@ -392,5 +392,7 @@ def set_tf_data_type_for_features(features_set):
             features_set[feature_name]['dtype'] = tf.float32
         if feature['dtype'] == 'int':
             features_set[feature_name]['dtype'] = tf.int64
+        if feature['dtype'] == 'str':
+            features_set[feature_name]['dtype'] = tf.string
 
     return features_set

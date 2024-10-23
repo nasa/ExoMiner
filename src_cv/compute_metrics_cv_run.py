@@ -166,15 +166,15 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         metrics_df.set_index('fold', inplace=True)
         metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}.csv', index=True)
 
-if 'test' in datasets and compute_metrics_all_dataset:
-    # compute metrics for the whole dataset by combining the test set folds from all CV iterations
-    # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
-    data_to_tbl = {col: [] for col in metrics_lst}
+    if 'test' in datasets and compute_metrics_all_dataset:
+        # compute metrics for the whole dataset by combining the test set folds from all CV iterations
+        # ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
+        data_to_tbl = {col: [] for col in metrics_lst}
 
-    ranking_tbl = pd.read_csv(cv_run_dir / 'ranked_predictions_allfolds.csv')
-    ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
+        ranking_tbl = pd.read_csv(cv_run_dir / 'ranked_predictions_allfolds.csv')
+        ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
 
-    # compute metrics
-    metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
-                                                  top_k_vals, class_name, cat_name)
-    metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}_all.csv', index=False)
+        # compute metrics
+        metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
+                                                      top_k_vals, class_name, cat_name)
+        metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}_all.csv', index=False)
