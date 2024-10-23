@@ -101,7 +101,9 @@ Research Center (NASA ARC).
     - Stephen Bryson<sup>1</sup>
   
 - Active Developers
-    
+    - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification; Structured and Adversarial Training for Transit 
+  Classification Robustness)
+    - Josue Ochoa<sup>7</sup> (Transit Detection)
 
 - Past developers 
     - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
@@ -127,7 +129,6 @@ Research Center (NASA ARC).
     - Kunal Malhotra<sup>7</sup> (Transit Detection)
     - Eric Liang<sup>7</sup> (Transit Encoding)
     - Ujjawal Prasad<sup>8</sup> (Transit Detection)
-    - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification)
 
 1 - NASA Ames Research Center (NASA ARC)\
 2 - Universities Space Research Association (USRA)\
