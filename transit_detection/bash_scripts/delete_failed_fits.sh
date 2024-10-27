@@ -4,11 +4,13 @@
 
 ROOT_DIR="/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp"
 
+# deletes failed fits files from sectors 1-67:
+
 for sector_number in {1..67}; do
     SECTOR_DIR="$ROOT_DIR/sector_$sector_number"
-    FAILED_FILES="$SECTOR_DIR/sector_${sector_number}_failed_files.txt"
+    FAILED_FILES="$SECTOR_DIR/sector_${sector_number}_failed_files_run_2.txt"
 
-    if [[ ! -d "$SECTOR_DIR" ]]; then # if directory exists
+    if [[ ! -d "$SECTOR_DIR" ]]; then # if directory does not exist
         echo "Sector directory $SECTOR_DIR not found!"
         continue
     fi
@@ -27,7 +29,7 @@ for sector_number in {1..67}; do
         else
             echo "File not found: $file_path"
         fi
-    done < "$FAILED_FILES"
+    done < "$FAILED_FILES" #read from failed files for sector
 
     echo "Done processing failed files for $SECTOR_DIR."
 done
