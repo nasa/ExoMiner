@@ -29,7 +29,7 @@ def validate_fits_file(file_path):
     
 def process_sector_files(sector_dir):
     sector_name = os.path.basename(sector_dir)
-    failed_files_log = os.path.join(sector_dir, f"{sector_name}_failed_files.txt")
+    failed_files_log = os.path.join(sector_dir, f"{sector_name}_failed_files_1.txt")
 
     with open(failed_files_log, 'w') as log_file:
         for file_name in os.listdir(sector_dir):
