@@ -8,8 +8,8 @@ BASE_URL="https://mast.stsci.edu/api/v0.1/Download/file/?uri=mast:TESS/product/"
 
 for sector_number in {1..67}; do
     SECTOR_DIR="$ROOT_DIR/sector_$sector_number"
-    FAILED_FILES="$SECTOR_DIR/sector_${sector_number}_failed_files.txt"
-    OUTPUT_SCRIPT="$SECTOR_DIR/download_failed_files_sector_$sector_number.sh"
+    FAILED_FILES="$SECTOR_DIR/sector_${sector_number}_failed_files_run_2.txt"
+    OUTPUT_SCRIPT="$SECTOR_DIR/download_failed_files_run_2_sector_$sector_number.sh"
 
     if [[ ! -d "$SECTOR_DIR" ]]; then # if directory does not exist
         echo "Sector directory $SECTOR_DIR not found!"

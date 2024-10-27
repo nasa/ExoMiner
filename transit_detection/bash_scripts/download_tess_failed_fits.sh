@@ -6,7 +6,7 @@ ROOT_DIR="/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp"
 
 for sector_number in {1..67}; do
     SECTOR_DIR="$ROOT_DIR/sector_$sector_number"
-    DOWNLOAD_SCRIPT="$SECTOR_DIR/download_failed_files_sector_$sector_number.sh"
+    DOWNLOAD_SCRIPT="$SECTOR_DIR/download_failed_files_run_2_sector_$sector_number.sh"
 
     if [[ -f "$DOWNLOAD_SCRIPT" ]]; then # if directory does not exist
         echo "Running download script for sector $sector_number..."
