@@ -9,3 +9,4 @@ old/
 .idea/
 conda_vulnerabilities_jake.txt
 /job_scripts/old/
+*fits
