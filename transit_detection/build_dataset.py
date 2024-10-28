@@ -256,16 +256,16 @@ def process_target_sector_run(target, sector_run, sector_run_data,
 
 if __name__ == "__main__":
 
-    log_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/logging')
+    log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    data_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/test_create_dataset_10-20-2024')
+    data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_10-28-2024_v2')
     # set light curve data directory
-    lc_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/lc_data/')
+    lc_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
     # set target pixel file data directory
-    tpf_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/tpf_data/')
+    tpf_dir = Path('/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/')
     # TCE table
-    tce_tbl = pd.read_csv('/Users/jochoa4/Projects/exoplanet_transit_classification/ephemeris_tables/preprocessing_tce_tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
+    tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
 
