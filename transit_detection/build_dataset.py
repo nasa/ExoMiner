@@ -41,11 +41,21 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                 f_size,
                                 center_target,
                                 plot_dir,
-                                log_queue
+                                log_dir
                                ):
-    logger = logging.getLogger(f"worker-{target}-{sector_run}")
-    logger.addHandler(logging.handlers.QueueHandler(log_queue)) #log through queue
+    logger = logging.getLogger(f"worker_{target}-{sector_run}")
+
+    # logger.addHandler(logging.handlers.QueueHandler(log_queue)) #log through queue
     logger.setLevel(logging.INFO)
+    log_path = Path(log_dir) / f"process_log_target_{target}_sector_run_{sector_run}.log"
+    file_handler = logging.FileHandler(log_path)
+    logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
+    file_handler.setFormatter(logger_formatter)
+
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    logger.addHandler(file_handler)
 
     try:
         sector_data_to_tfrec = []
@@ -72,7 +82,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                                                         data_dir=lc_dir) #update to local data dir
         
         if len(found_sectors) == 0:
-            print(f'No light curve data for sector run {sector_run} and TIC {tic_id}. Skipping this sector run.')
+            logger.error(f'No light curve data for sector run {sector_run} and TIC {tic_id}. Skipping this sector run.')
             return
 
         logger.info(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
@@ -99,10 +109,6 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             
             plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}' #individual sectors for multi sector runs
             plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
-
-            # # download light curve fits file(s)
-            # lcf = search_lc_res[sector_i].download(download_dir=str(lc_dir), quality_bitmask='default',
-            #                                         flux_column='pdcsap_flux')
 
             lcf = lk.LightCurve({'time': lcf.time.value, 'flux': np.array(lcf.flux.value)})
 
@@ -158,9 +164,11 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 found_sector, tpf = search_and_read_tess_targetpixelfile(target=target, 
                                                         sectors=sector, 
                                                         data_dir=tpf_dir)
+                tpf = tpf[0] # get tpf for sector
+
                 # if no target pixel
-                if len(found_sector) == 0:
-                    logger.info(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
+                if not found_sector:
+                    logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                     continue
 
                 # compute difference image data for each window for target pixel file data
@@ -235,52 +243,29 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 data_for_tce['sectors'].append(data_for_tce_sector)
 
             sector_data_to_tfrec.append(data_for_tce)
+        logger.info(f"Processing for sector_run {sector_run} complete.")
+        print(f"Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
     except Exception as e:
-        logger.error(f"Error processing target: {target}, sector run: {sector_run}: {e}")
+        print(f"Error processing target: {target}, sector run: {sector_run} - {e}")
+        logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
         return None
-    
-def listener_configurer(log_dir):
-    """Configure the listener to write logs to file or the console"""
-    log_file = log_dir / 'multiprocessing_log.log'
-    root = logging.getLogger()
-    handler = logging.FileHandler(log_file)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
-
-def listener_process(log_queue, log_dir):
-    """Listen for logs in the log queue and write them using the listener config"""
-    listener_configurer(log_dir=log_dir)
-    while True:
-        try:
-            record = log_queue.get()
-            if record is None:
-                break
-            logger = logging.getLogger(record.name)
-            logger.handle(record)
-        except Exception as e:
-            print(f"Error in listener process: {e}")
+    finally:
+        logger.removeHandler(file_handler)
+        file_handler.close()
 
 if __name__ == "__main__":
-    #initialize logger
-    manager = multiprocessing.Manager()
-    log_queue = manager.Queue()
 
-    log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
+    log_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    listener = multiprocessing.Process(target=listener_process, args=(log_queue,log_dir))
-    listener.start()
-
-    data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_10-19-2024_v1')
+    data_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/test_create_dataset_10-20-2024')
     # set light curve data directory
-    lc_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
+    lc_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/lc_data/')
     # set target pixel file data directory
-    tpf_dir = Path('/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp')
+    tpf_dir = Path('/Users/jochoa4/Downloads/transit_detection/data/tpf_data/')
     # TCE table
-    tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
+    tce_tbl = pd.read_csv('/Users/jochoa4/Projects/exoplanet_transit_classification/ephemeris_tables/preprocessing_tce_tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
 
@@ -293,6 +278,7 @@ if __name__ == "__main__":
     # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
     gap_width = 0.75
     resampled_num_points = 100  # number of points in the window after resampling
+    
     rnd_seed = 42
     # difference image data parameters
     size_img = [11, 11]  # resize images to this size
@@ -306,16 +292,16 @@ if __name__ == "__main__":
     plot_dir = data_dir / 'plots'
     plot_dir.mkdir(exist_ok=True, parents=True)
 
-    tces_lst = [
-        '68577662-1-S43',  # KP
-        '394112898-1-S40',  # UNK, EB?
-        '261136679-1-S13',  # CP
-        '336767770-1-S17',  # NTP
-        '352289014-1-S13',  # NTP
-        '298734307-1-S14-60',  # multisector example
-    ]
+    # tces_lst = [
+    #     '68577662-1-S43',  # KP
+    #     '394112898-1-S40',  # UNK, EB?
+    #     '261136679-1-S13',  # CP
+    #     '336767770-1-S17',  # NTP
+    #     '352289014-1-S13',  # NTP
+    #     '298734307-1-S14-60',  # multisector example
+    # ]
 
-    tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
+    # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
 
     # rng = np.random.default_rng(seed=rnd_seed)
 
@@ -334,7 +320,7 @@ if __name__ == "__main__":
                                     f_size=deepcopy(f_size),
                                     center_target=center_target,
                                     plot_dir=plot_dir,
-                                    log_queue=log_queue
+                                    log_dir=log_dir
                                     )
 
     pool = multiprocessing.Pool(processes=None) # None processes defaults to number of cpu cores
@@ -343,16 +329,26 @@ if __name__ == "__main__":
 
     async_results = [pool.apply_async(partial_func, job) for job in jobs]
     pool.close()
-
+    pool.join()
+    
     data_to_tfrec = []
     for async_result in async_results:
-        for data in async_result.get():
-            data_to_tfrec.append(data)
+        if async_result.get():
+            for data in async_result.get():
+                data_to_tfrec.append(data)
     
-    log_queue.put(None) #stop listener
-    listener.join() #wait for listener to finish
+
     #%% write data to TFRecord dataset
-    print(f'Write data to TFRecords.')
+    dataset_logger = logging.getLogger("DatasetLogger")
+    dataset_logger.setLevel(logging.INFO)
+    log_path = Path(log_dir) / "dataset_build.log"
+    file_handler = logging.FileHandler(log_path)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
+    file_handler.setFormatter(formatter)
+    dataset_logger.addHandler(file_handler)
+
+    dataset_logger.info(f'Write data to TFRecords.')
+
 
     tfrec_dir = data_dir / 'tfrecords'
     tfrec_dir.mkdir(exist_ok=True, parents=True)
@@ -361,7 +357,7 @@ if __name__ == "__main__":
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
 
         for data_for_tce in data_to_tfrec:
-            print(f'Adding data for TCE {data_for_tce["tce_uid"]} to the TFRecord file {tfrec_fp}...')
+            dataset_logger.info(f'Adding data for TCE {data_for_tce["tce_uid"]} to the TFRecord file {tfrec_fp}...')
 
             examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
 
@@ -369,6 +365,7 @@ if __name__ == "__main__":
                 writer.write(example_for_tce)
 
     # create auxiliary table
-    print('Creating auxiliary table to TFRecord dataset.')
+    dataset_logger.info('Creating auxiliary table to TFRecord dataset.')
     data_tbl = write_data_to_auxiliary_tbl(data_to_tfrec, tfrec_fp)
     data_tbl.to_csv(tfrec_dir / 'data_tbl.csv', index=False)
+    dataset_logger.info("Dataset build completed!")
