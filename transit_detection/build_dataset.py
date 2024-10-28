@@ -72,7 +72,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
         # get individual sector runs (needed for multisector runs)
         if '-' in sector_run:
             start_sector, end_sector = [int(sector) for sector in sector_run.split('-')]
-            sector_run_arr = np.arange(start_sector, end_sector + 1)
+            sector_run_arr = [sector for sector in range(start_sector, end_sector + 1)]
         else:
             sector_run_arr = [int(sector_run)]
 
@@ -82,7 +82,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                                                         data_dir=lc_dir) #update to local data dir
         
         if len(found_sectors) == 0:
-            logger.error(f'No light curve data for sector run {sector_run} and TIC {tic_id}. Skipping this sector run.')
+            logger.error(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
             return
 
         logger.info(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
@@ -167,9 +167,9 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 tpf = tpf[0] # get tpf for sector
 
                 # if no target pixel
-                if not found_sector:
+                if len(found_sector) == 0:
                     logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
-                    continue
+                    return
 
                 # compute difference image data for each window for target pixel file data
                 # compute transit difference image data
