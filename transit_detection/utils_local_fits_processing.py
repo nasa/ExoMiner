@@ -1,5 +1,6 @@
 from pathlib import Path
 import lightkurve as lk
+from astropy.io import fits
 
 def search_and_read_tess_lightcurve(target, sectors, data_dir):
     """
@@ -53,6 +54,8 @@ def search_and_read_tess_targetpixelfile(target, sectors, data_dir):
             tpf = lk.read(fits_file_path)
             target_pixel_files.append(tpf)
             found_sectors.append(sector)
-        except:
-            print(f"Error finding file {sector_path}.")
+        except fits.VerifyError as e:
+            print(f"Corrupted fits file: {e}")
+        except Exception as e:
+            print(f"Error loading file {sector_path}: {e}.")
     return found_sectors, target_pixel_files
