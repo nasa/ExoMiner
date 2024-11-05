@@ -335,12 +335,14 @@ def build_transit_mask_for_lightcurve(time, tce_list):
         epoch = tce['tce_time0bk']
         period = tce['tce_period']
         duration = tce['tce_duration']
-
+    
+        duration /= 24 #convert hours to days
+        
         in_transit_mask |= np.abs((time - epoch) % period ) < duration #one transit duration to left and right
 
     return in_transit_mask
 
-def plot_detrended_flux_time_series_sg(time, flux, detrend_time, detrend_flux, trend, sector, plot_dir):
+def plot_detrended_flux_time_series_sg(time, flux, detrend_time, detrend_flux, trend, sector, plot_dir=None):
     """
     Builds plot for a given time series that was detrended using savitzky golay. Builds three plots over time:
     1. Raw Flux
