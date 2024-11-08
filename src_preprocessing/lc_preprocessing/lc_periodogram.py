@@ -171,6 +171,13 @@ def compute_lc_transit_pulse_model(lc_data, tce_data, n_durations):
                                  'flux': tce_transit_pulse,
                                  'flux_err': tce_transit_pulse_err})
 
+    # f, ax = plt.subplots()
+    # ax.scatter(lc_data.time.value, lc_data.flux.value, s=8)
+    # ax.plot(lc_tpm.time.value, lc_tpm.flux.value, linestyle='--', color='r')
+    # ax.set_xlabel('Time [day]')
+    # ax.set_ylabel(r'Flux [$e^-/cadence$]')
+    # plt.show()
+
     return lc_tpm
 
 

@@ -760,7 +760,8 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                                                                    config['sg_break_tolerance']
                                                                    )
 
-        logger.info(f'[{tce["uid"]}] SG detrending model flux data info\n{models_info_df}')
+        logger.info(f'[{tce["uid"]}] SG detrending model flux data info\n{models_info_df}. Chosen polynomial order: '
+                    f'{models_info_df.index[0]}')
 
         flux_lininterp = None
     else:
@@ -871,7 +872,8 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                                                         config['sg_break_tolerance'],
                                                                                         )
 
-            logger.info(f'[{tce["uid"]}] SG detrending model centroid data info\n{models_info_df}')
+            logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info\n{models_info_df}. '
+                        f'Chosen polynomial order: {models_info_df.index[0]}')
 
         else:
             raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
