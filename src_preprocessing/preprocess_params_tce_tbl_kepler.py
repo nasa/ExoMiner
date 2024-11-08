@@ -30,4 +30,14 @@ tce_tbl['mag_shift'] = tce_tbl['mag'] - kepler_mag_thr
 tce_tbl['tce_rb_tcount0n'] = tce_tbl['tce_rb_tcount0']
 tce_tbl.loc[tce_tbl['tce_rb_tcount0n'] == -1, 'tce_rb_tcount0n'] = np.nan
 
+# create transit source offset ratios
+tce_tbl['tce_dikco_msky_rat'] = (
+    tce_tbl.apply(lambda x: np.nan if x['tce_dikco_msky_err'] == -1 else x['tce_dikco_msky'] /
+                                                                         x['tce_dikco_msky'],
+                  axis=1))
+tce_tbl['tce_dicco_msky_rat'] = (
+    tce_tbl.apply(lambda x: np.nan if x['tce_dicco_msky_err'] == -1 else x['tce_dicco_msky'] /
+                                                                         x['tce_dicco_msky'],
+                  axis=1))
+
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_preprocessed.csv', index=False)

@@ -43,4 +43,14 @@ for diff_img_centr_feat in ['tce_dikco_msky', 'tce_dikco_msky_err', 'tce_dicco_m
 tce_tbl.loc[tce_tbl['tce_dikco_msky_err_original'] == -1, ['tce_dikco_msky', 'tce_dikco_msky_err']] = [0, -1]
 tce_tbl.loc[tce_tbl['tce_dicco_msky_err_original'] == -1, ['tce_dicco_msky', 'tce_dicco_msky_err']] = [0, -1]
 
+# create transit source offset ratios
+tce_tbl['tce_dikco_msky_rat'] = (
+    tce_tbl.apply(lambda x: np.nan if x['tce_dikco_msky_err_original'] == -1 else x['tce_dikco_msky_original'] /
+                                                                                  x['tce_dikco_msky_err_original'],
+                  axis=1))
+tce_tbl['tce_dicco_msky_rat'] = (
+    tce_tbl.apply(lambda x: np.nan if x['tce_dicco_msky_err_original'] == -1 else x['tce_dicco_msky_original'] /
+                                                                                  x['tce_dicco_msky_err_original'],
+                  axis=1))
+
 tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_features_adjusted.csv', index=False)

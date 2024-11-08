@@ -98,7 +98,7 @@ kepler_px_scale: 3.98  # arcsec
 
 sampling_rate_h:  # number of cadences sampled per hour; Kepler (2); TESS 2-min (30); TESS FFI (varied!)
   kepler: 2
-  tess: 18  # 2-min: 30; ffi-200s: 18, ... varied!
+  tess: 30  # 2-min: 30; ffi-200s: 18, ... varied!
 tess_to_kepler_sampling_ratio: 9  # 2-min: 15; ffi-200s: 9, ... varied!
 
 # lc periodogram

@@ -104,6 +104,22 @@ compute_norm_stats_params:
 #      missing_value: 0
 #      replace_value: null
 #      standardize: true
+    tce_dikco_msky_rat:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
+    tce_dicco_msky_rat:
+      clip_factor: 20
+      dtype: float
+      log_transform: false
+      log_transform_eps: .nan
+      missing_value: null
+      replace_value: null
+      standardize: true
 
     # ghost diagnostics
     tce_hap_stat:

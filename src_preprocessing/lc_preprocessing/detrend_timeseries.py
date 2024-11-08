@@ -48,7 +48,7 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
                                            left=np.nan, right=np.nan)
 
         flux_arrs_lininterp.append(flux_lininterp_arr)
-
+ 
     # fill in missing values in linearly interpolated array
     rng = np.random.default_rng(seed=config['random_seed'])
     for arr_i in range(len(flux_arrs_lininterp)):

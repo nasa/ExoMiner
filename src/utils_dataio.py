@@ -1,4 +1,4 @@
-""" Utilty functions for data I/O for TFRecords and model ingestion. """
+""" Utility functions for data I/O for TFRecords and model ingestion. """
 
 # 3rd party
 import os

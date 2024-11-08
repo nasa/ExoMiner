@@ -7,7 +7,7 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  cv_folds: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized/cv_iterations.yaml
+  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_10-31-2024_1014/tfrecords/eval_normalized_with_kepler_trainset/cv_iterations.yaml
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
   hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
 
@@ -30,10 +30,13 @@ data_fields: # scalar data from TFRecords to add to ranking table
   tce_duration: 'float_scalar'
   tce_time0bk: 'float_scalar'
 #  'transit_depth': 'float_scalar'
-#  tce_depth: 'float_scalar'
+  tce_depth: 'float_scalar'
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
+  tce_model_snr: 'float_scalar'
+  tce_dikco_msky_rat: 'float_scalar'
+  tce_dicco_msky_rat: 'float_scalar'
 #  'sigma_oot_odd': 'float_scalar'
 #  'sigma_it_odd': 'float_scalar'
 #  'sigma_oot_even': 'float_scalar'
@@ -52,7 +55,8 @@ config:
       views:
         - unfolded_local_flux_view_fluxnorm
       scalars:   # null
-        - tce_num_transits_obs_norm
+#        - tce_num_transits_obs_norm
+        - tce_num_transits_norm
         # - mission
 
     global_flux:
@@ -93,8 +97,16 @@ config:
         - local_centr_view_std_noclip_var
       scalars:  # null
 #       - tce_fwm_stat_norm  # kepler only
+<<<<<<< HEAD
+=======
+#        - tce_dikco_msky_norm
+#        - tce_dikco_msky_err_norm
+#       - tce_dicco_msky_norm
+#       - tce_dicco_msky_err_norm
+>>>>>>> f247db2 (- CV: added features `tce_dikco_mksy_rat` and `tce_dicco_msky_rat` to list of scalar features to be normalized.)
 #       - mag_cat_norm
         - mag_shift_norm
+        - tce_dikco_msky_rat_norm
         # - mission
 
     local_odd_even:
@@ -353,6 +365,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # momentum dump
   local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -420,8 +433,8 @@ callbacks:
 
 label_map:  # maps label to a label id
 #  # Kepler
-  # PC: 1
-  # AFP: 0
+  PC: 1
+  AFP: 0
 #  NTP: 0
   # TESS
   KP: 1
