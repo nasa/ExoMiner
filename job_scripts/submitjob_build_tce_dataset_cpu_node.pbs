@@ -1,0 +1,9 @@
+# Used to run interactive jobs
+#PBS -S /bin/bash
+#PBS -N transit_detection_dataset
+#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=128:mpiprocs=128:model=rom_ait
+#PBS -q long
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset.err
+#PBS -W group_list=s2857
