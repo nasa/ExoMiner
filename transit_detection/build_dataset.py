@@ -21,13 +21,10 @@ from transit_detection.utils_flux_processing import extract_flux_windows_for_tce
 from transit_detection.utils_difference_img_processing import extract_diff_img_data_from_window
 from transit_detection.utils_build_dataset import serialize_set_examples_for_tce, write_data_to_auxiliary_tbl
 from transit_detection.utils_local_fits_processing import search_and_read_tess_lightcurve, search_and_read_tess_targetpixelfile
-
-
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_sg_filter
 
 #%%
 def process_target_sector_run(target, sector_run, sector_run_data,
-                                data_dir,
                                 lc_dir,
                                 tpf_dir,
                                 n_durations_window,
@@ -43,7 +40,8 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                 plot_dir,
                                 log_dir,
                                ):
-    logger = logging.getLogger(f"worker_{target}-{sector_run}") # set logger for each process
+    # set logger for each process
+    logger = logging.getLogger(f"worker_{target}-{sector_run}")
     logger.setLevel(logging.INFO)
 
     log_path = Path(log_dir) / f"process_log_target_{target}_sector_run_{sector_run}.log"
@@ -51,11 +49,14 @@ def process_target_sector_run(target, sector_run, sector_run_data,
     logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
     file_handler.setFormatter(logger_formatter)
 
+    # handle lingering handlers
     if logger.hasHandlers():
         logger.handlers.clear()
     
     logger.addHandler(file_handler)
 
+
+    # process target, sector_run pair
     try:
         sector_data_to_tfrec = []
 
@@ -80,9 +81,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             sector_run_arr = [int(sector_run)]
 
         # find light curve data for target, sector_run pair
-        found_sectors, lcfs = search_and_read_tess_lightcurve(target=target,
-                                                                        sectors=sector_run_arr,
-                                                                        data_dir=lc_dir) #update to local data dir
+        found_sectors, lcfs = search_and_read_tess_lightcurve(target=target, sectors=sector_run_arr, lc_dir=lc_dir)
         
         if len(found_sectors) == 0:
             logger.error(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
@@ -97,7 +96,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             "tce_duration" : tce_data['tce_duration']
             })
 
-        # for sector_i, sector in enumerate(found_sectors):  # for given sector_run
+        # for given sector in sector_run
         for sector, lcf in zip(found_sectors, lcfs):
         
             in_transit_mask = []
@@ -110,12 +109,12 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                         'target_img': [], 'target_pos': []},
             }
             if plot_dir_target_sector_run:
-                plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}' #individual sectors for multi sector runs
+                plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}'
                 plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
             else:
                 plot_dir_target_sector_run_sector = None
 
-            lcf = lk.LightCurve({'time': lcf.time.value, 'flux': np.array(lcf.flux.value)})
+            lcf = lk.LightCurve({'time': lcf.time.value, 'flux': np.array(lcf.flux.value)}) # np array accounts for masked flux
 
             raw_time, raw_flux = lcf.time.value, lcf.flux.value
 
@@ -150,7 +149,6 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 # get TCE unique id
                 tic_id = tce_data['target_id']
                 sector_run = tce_data['sector_run']
-                tce_plnt_num = tce_data['tce_plnt_num']
 
                 # ephemerides for TCE
                 tce_time0bk = tce_data['tce_time0bk']
@@ -172,18 +170,16 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                     plot_dir_tce_diff_img_data = None
 
                 # find target pixel data for target
-                found_sector, tpf = search_and_read_tess_targetpixelfile(target=target, 
-                                                        sectors=sector, 
-                                                        data_dir=tpf_dir)
+                found_sector, tpf = search_and_read_tess_targetpixelfile(target=target, sectors=sector, tpf_dir=tpf_dir)
                 
                 # if no target pixel
                 if len(found_sector) == 0:
                     logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                     return
                 
-                tpf = tpf[0] # get tpf for sector
+                # get tpf for sector
+                tpf = tpf[0] 
 
-                # compute difference image data for each window for target pixel file data
                 # compute transit difference image data
                 it_diff_img_data = {feature_name: []
                                     for feature_name in ['diff_img', 'oot_img', 'snr_img', 'target_img', 'target_pos']}
@@ -195,7 +191,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                     plot_dir_tce_transit_diff_img_data
 
                 excl_idxs_it_ts = []
-                for window_i, midtransit_point_window in enumerate(midtransit_points_windows_arr):  # iterate on midtransit points
+                for window_i, midtransit_point_window in enumerate(midtransit_points_windows_arr):  # iterate on midtransit points in window
 
                     try:
                         diff_img_processed, oot_img_processed, snr_img_processed, target_img, target_pos_col, target_pos_row = (
@@ -227,7 +223,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                     plot_dir_tce_oottransit_diff_img_data = None
 
                 excl_idxs_oot_ts = []
-                for window_i, midoot_point_window in enumerate(midoot_points_windows_arr):  # iterate on oot points
+                for window_i, midoot_point_window in enumerate(midoot_points_windows_arr):  # iterate on oot points in window
 
                     try:
                         diff_img_processed, oot_img_processed, snr_img_processed, target_img, target_pos_col, target_pos_row = (
@@ -263,14 +259,12 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 data_for_tce_sector['not_transit_examples'].update(oot_diff_img_data)
 
                 data_for_tce['sectors'].append(data_for_tce_sector)
-                
+
             sector_data_to_tfrec.append(data_for_tce)
 
         logger.info(f"Processing for sector_run {sector_run} complete.")
-        print(f"Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
     except Exception as e:
-        print(f"Error processing target: {target}, sector run: {sector_run} - {e}")
         logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
         return None
     finally:
@@ -317,6 +311,7 @@ if __name__ == "__main__":
     # plot_dir.mkdir(exist_ok=True, parents=True)
     plot_dir = None
 
+    # # Used for testing on tce subset
     # tces_lst = [
     #     '68577662-1-S43',  # KP
     #     '394112898-1-S40',  # UNK, EB?
@@ -328,10 +323,7 @@ if __name__ == "__main__":
 
     # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
 
-    # rng = np.random.default_rng(seed=rnd_seed)
-
     partial_func = partial(process_target_sector_run,
-                                    data_dir=data_dir,
                                     lc_dir=lc_dir,
                                     tpf_dir=tpf_dir,
                                     n_durations_window=n_durations_window,
@@ -348,8 +340,10 @@ if __name__ == "__main__":
                                     log_dir=log_dir,
                                     )
 
-    pool = multiprocessing.Pool(processes=None) # None processes defaults to number of cpu cores
-    # grouped sector_run_data from tce_tbl is unique, so we can use sector_run_data views for parallel ops
+    # None processes defaults to number of available cpu cores
+    pool = multiprocessing.Pool(processes=None) 
+
+    # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])]
 
     async_results = [pool.apply_async(partial_func, job) for job in jobs]
@@ -362,7 +356,7 @@ if __name__ == "__main__":
             for data in async_result.get():
                 data_to_tfrec.append(data)
 
-    #%% write data to TFRecord dataset
+    # write data to TFRecord dataset
     dataset_logger = logging.getLogger("DatasetLogger")
     dataset_logger.setLevel(logging.INFO)
     log_path = Path(log_dir) / "dataset_build.log"
