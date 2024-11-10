@@ -41,12 +41,11 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                 f_size,
                                 center_target,
                                 plot_dir,
-                                log_dir
+                                log_dir,
                                ):
-    logger = logging.getLogger(f"worker_{target}-{sector_run}")
-
-    # logger.addHandler(logging.handlers.QueueHandler(log_queue)) #log through queue
+    logger = logging.getLogger(f"worker_{target}-{sector_run}") # set logger for each process
     logger.setLevel(logging.INFO)
+
     log_path = Path(log_dir) / f"process_log_target_{target}_sector_run_{sector_run}.log"
     file_handler = logging.FileHandler(log_path)
     logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
@@ -64,8 +63,12 @@ def process_target_sector_run(target, sector_run, sector_run_data,
 
         logger.info(f'Extracting and processing data for target: {type(target)}, sector_run: {sector_run}')
 
-        plot_dir_target_sector_run = plot_dir / f'target_{target}_sector_run_{sector_run}'
-        plot_dir_target_sector_run.mkdir(exist_ok=True, parents=True)
+        if plot_dir:
+            plot_dir_target_sector_run = plot_dir / f'target_{target}_sector_run_{sector_run}'
+            plot_dir_target_sector_run.mkdir(exist_ok=True, parents=True)
+        else:
+            plot_dir_target_sector_run = None
+
 
         target_sector_run_tce_data = []
 
@@ -106,9 +109,11 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 'not_transit_examples': {'flux': [], 't': [], 'it_img': [], 'oot_img': [], 'diff_img': [], 'snr_img': [],
                                         'target_img': [], 'target_pos': []},
             }
-            
-            plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}' #individual sectors for multi sector runs
-            plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
+            if plot_dir_target_sector_run:
+                plot_dir_target_sector_run_sector = plot_dir_target_sector_run/ f'sector_{sector}' #individual sectors for multi sector runs
+                plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
+            else:
+                plot_dir_target_sector_run_sector = None
 
             lcf = lk.LightCurve({'time': lcf.time.value, 'flux': np.array(lcf.flux.value)})
 
@@ -121,10 +126,10 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                                                             max_poly_order=6, penalty_weight=1, 
                                                                             break_tolerance=5)
 
-
-            plot_detrended_flux_time_series_sg(time=raw_time, flux=raw_flux, detrend_time=time,
-                                            detrend_flux=flux, trend=trend, sector=sector, 
-                                            plot_dir=plot_dir_target_sector_run_sector)
+            if plot_dir_target_sector_run_sector:
+                plot_detrended_flux_time_series_sg(time=raw_time, flux=raw_flux, detrend_time=time,
+                                                detrend_flux=flux, trend=trend, sector=sector, 
+                                                plot_dir=plot_dir_target_sector_run_sector)
             
             for tce_i, tce_data in sector_run_data.iterrows():
 
@@ -136,8 +141,11 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 }
 
                 # create directory for TCE plots
-                plot_dir_target_sector_run_sector_tce = plot_dir_target_sector_run_sector / f'tce_{tce_data["uid"]}'
-                plot_dir_target_sector_run_sector_tce.mkdir(exist_ok=True, parents=True)
+                if plot_dir_target_sector_run_sector:
+                    plot_dir_target_sector_run_sector_tce = plot_dir_target_sector_run_sector / f'tce_{tce_data["uid"]}'
+                    plot_dir_target_sector_run_sector_tce.mkdir(exist_ok=True, parents=True)
+                else:
+                    plot_dir_target_sector_run_sector_tce = None
 
                 # get TCE unique id
                 tic_id = tce_data['target_id']
@@ -157,26 +165,35 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                                                                         frac_valid_cadences_it_thr,
                                                                         resampled_num_points, tce_data['uid'], rng,
                                                                         plot_dir_target_sector_run_sector_tce)
-                plot_dir_tce_diff_img_data = plot_dir_target_sector_run_sector_tce / 'diff_img_data'
-                plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
+                if plot_dir_target_sector_run_sector_tce:
+                    plot_dir_tce_diff_img_data = plot_dir_target_sector_run_sector_tce / 'diff_img_data'
+                    plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
+                else:
+                    plot_dir_tce_diff_img_data = None
 
                 # find target pixel data for target
                 found_sector, tpf = search_and_read_tess_targetpixelfile(target=target, 
                                                         sectors=sector, 
                                                         data_dir=tpf_dir)
-                tpf = tpf[0] # get tpf for sector
-
+                
                 # if no target pixel
                 if len(found_sector) == 0:
                     logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                     return
+                
+                tpf = tpf[0] # get tpf for sector
 
                 # compute difference image data for each window for target pixel file data
                 # compute transit difference image data
                 it_diff_img_data = {feature_name: []
                                     for feature_name in ['diff_img', 'oot_img', 'snr_img', 'target_img', 'target_pos']}
-                plot_dir_tce_transit_diff_img_data = plot_dir_tce_diff_img_data / 'transit_imgs'
-                plot_dir_tce_transit_diff_img_data.mkdir(exist_ok=True, parents=True)
+                
+                if plot_dir_tce_diff_img_data:
+                    plot_dir_tce_transit_diff_img_data = plot_dir_tce_diff_img_data / 'transit_imgs'
+                    plot_dir_tce_transit_diff_img_data.mkdir(exist_ok=True, parents=True)
+                else:
+                    plot_dir_tce_transit_diff_img_data
+
                 excl_idxs_it_ts = []
                 for window_i, midtransit_point_window in enumerate(midtransit_points_windows_arr):  # iterate on midtransit points
 
@@ -202,8 +219,13 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 # compute oot transit difference image data
                 oot_diff_img_data = {feature_name: []
                                     for feature_name in ['diff_img', 'oot_img', 'snr_img', 'target_img', 'target_pos']}
-                plot_dir_tce_oottransit_diff_img_data = plot_dir_tce_diff_img_data / 'oot_transit_imgs'
-                plot_dir_tce_oottransit_diff_img_data.mkdir(exist_ok=True, parents=True)
+                
+                if plot_dir_tce_diff_img_data:      
+                    plot_dir_tce_oottransit_diff_img_data = plot_dir_tce_diff_img_data / 'oot_transit_imgs'
+                    plot_dir_tce_oottransit_diff_img_data.mkdir(exist_ok=True, parents=True)
+                else:
+                    plot_dir_tce_oottransit_diff_img_data = None
+
                 excl_idxs_oot_ts = []
                 for window_i, midoot_point_window in enumerate(midoot_points_windows_arr):  # iterate on oot points
 
@@ -241,8 +263,9 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 data_for_tce_sector['not_transit_examples'].update(oot_diff_img_data)
 
                 data_for_tce['sectors'].append(data_for_tce_sector)
-
+                
             sector_data_to_tfrec.append(data_for_tce)
+
         logger.info(f"Processing for sector_run {sector_run} complete.")
         print(f"Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
@@ -267,6 +290,7 @@ if __name__ == "__main__":
     # TCE table
     tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
+
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
 
     n_durations_window = 5  # number of transit durations in each extracted window
@@ -289,8 +313,9 @@ if __name__ == "__main__":
     data_dir.mkdir(exist_ok=True, parents=True)
 
     # create plot dir
-    plot_dir = data_dir / 'plots'
-    plot_dir.mkdir(exist_ok=True, parents=True)
+    # plot_dir = data_dir / 'plots'
+    # plot_dir.mkdir(exist_ok=True, parents=True)
+    plot_dir = None
 
     # tces_lst = [
     #     '68577662-1-S43',  # KP
@@ -320,7 +345,7 @@ if __name__ == "__main__":
                                     f_size=deepcopy(f_size),
                                     center_target=center_target,
                                     plot_dir=plot_dir,
-                                    log_dir=log_dir
+                                    log_dir=log_dir,
                                     )
 
     pool = multiprocessing.Pool(processes=None) # None processes defaults to number of cpu cores
@@ -336,7 +361,6 @@ if __name__ == "__main__":
         if async_result.get():
             for data in async_result.get():
                 data_to_tfrec.append(data)
-    
 
     #%% write data to TFRecord dataset
     dataset_logger = logging.getLogger("DatasetLogger")
@@ -349,23 +373,37 @@ if __name__ == "__main__":
 
     dataset_logger.info(f'Write data to TFRecords.')
 
+    # spread examples over 100 shards
+    num_test_shard_splits = 100
+    shard_size = int(np.ceil(len(data_to_tfrec) / num_test_shard_splits))
 
     tfrec_dir = data_dir / 'tfrecords'
     tfrec_dir.mkdir(exist_ok=True, parents=True)
-    tfrec_fp = tfrec_dir / 'test_shard_0001-0001'
 
-    with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
+    all_shard_data_tbls = []
 
-        for data_for_tce in data_to_tfrec:
-            dataset_logger.info(f'Adding data for TCE {data_for_tce["tce_uid"]} to the TFRecord file {tfrec_fp}...')
+    for i in range(num_test_shard_splits):
+        tfrec_fp = tfrec_dir / f'test_shard_0001-{str(i + 1).zfill(4)}'
+        
+        start_idx = i * shard_size
+        end_idx = min(start_idx + shard_size, len(data_to_tfrec)) # accounts for last shard
+        shard_data = data_to_tfrec[start_idx:end_idx]
+        
+        with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
 
-            examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
+            for data_for_tce in shard_data:
+                dataset_logger.info(f'Adding data for TCE {shard_data["tce_uid"]} to the TFRecord file {tfrec_fp}...')
 
-            for example_for_tce in examples_for_tce:
-                writer.write(example_for_tce)
+                examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
+
+                for example_for_tce in examples_for_tce:
+                    writer.write(example_for_tce)
+
+        shard_data_tbl = write_data_to_auxiliary_tbl(shard_data, tfrec_fp)
+        all_shard_data_tbls.append(shard_data_tbl)
 
     # create auxiliary table
+    data_tbl = pd.concat(all_shard_data_tbls, ignore_index=True)
     dataset_logger.info('Creating auxiliary table to TFRecord dataset.')
-    data_tbl = write_data_to_auxiliary_tbl(data_to_tfrec, tfrec_fp)
     data_tbl.to_csv(tfrec_dir / 'data_tbl.csv', index=False)
     dataset_logger.info("Dataset build completed!")
