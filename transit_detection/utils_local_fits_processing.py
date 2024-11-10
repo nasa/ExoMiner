@@ -2,9 +2,9 @@ from pathlib import Path
 import lightkurve as lk
 from astropy.io import fits
 
-def search_and_read_tess_lightcurve(target, sectors, data_dir):
+def search_and_read_tess_lightcurve(target, sectors, lc_dir):
     """
-    Searches data_dir in the format of: data_dir/
+    Searches lc_dir in the format of: lc_dir/
                                                 sector_1/
                                                         *tic_id*_lc.fits
                                                 sector_2/
@@ -13,14 +13,15 @@ def search_and_read_tess_lightcurve(target, sectors, data_dir):
         Arguments:
             target: int, specifying target star tic_id
             sectors: int or List of ints, of sectors to download
-            data_dir: str, of directory with tess lightcurve data (.fits)
+            lc_dir: str, of directory with tess lightcurve data (.fits)
         Returns:
-            None
+            found_sectors: List of found sectors
+            light_curve_files: List of valid light curve files correponding to found_sectors
     """
     if isinstance(sectors, int):
         sectors = [sectors]
 
-    sector_paths = [Path(f"{data_dir}/sector_{sector}") for sector in sectors] if sectors else []
+    sector_paths = [Path(f"{lc_dir}/sector_{sector}") for sector in sectors] if sectors else []
     found_sectors = []
     light_curve_files = []
     for sector, sector_path in zip(sectors, sector_paths):
@@ -33,19 +34,25 @@ def search_and_read_tess_lightcurve(target, sectors, data_dir):
             print(f"Error finding file {sector_path}.")
     return found_sectors, light_curve_files
 
-def search_and_read_tess_targetpixelfile(target, sectors, data_dir):
+def search_and_read_tess_targetpixelfile(target, sectors, tpf_dir):
     """
+        Searches tpf_dir in the format of: tpf_dir/
+                                                sector_1/
+                                                        *tic_id*_tpf.fits
+                                                sector_2/
+                                             ...sector_n/
         Arguments:
             target: int, specifying target star tic_id
             sectors: int or List of ints, of sectors to download
-            data_dir: str, of directory with tess target pixel data (.fits)
+            tpf_dir: str, of directory with tess target pixel data (.fits)
         Returns:
-            None
+            found_sectors: List of found sectors
+            target_pixel_files: List of valid target pixel files correponding to found_sectors
     """
     if isinstance(sectors, int):
         sectors = [sectors]
 
-    sector_paths = [Path(f"{data_dir}/sector_{sector}") for sector in sectors] if sectors else []
+    sector_paths = [Path(f"{tpf_dir}/sector_{sector}") for sector in sectors] if sectors else []
     found_sectors = []
     target_pixel_files = []
     for sector, sector_path in zip(sectors, sector_paths):
