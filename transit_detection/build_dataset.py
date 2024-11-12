@@ -263,9 +263,11 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             sector_data_to_tfrec.append(data_for_tce)
 
         logger.info(f"Processing for sector_run {sector_run} complete.")
+        print("Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
     except Exception as e:
         logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
+        print(f"Error processing target: {target}, sector run: {sector_run} - {e}")
         return None
     finally:
         logger.removeHandler(file_handler)
