@@ -31,7 +31,8 @@ def search_and_read_tess_lightcurve(target, sectors, lc_dir):
             light_curve_files.append(lcf)
             found_sectors.append(sector)
         except:
-            print(f"Error finding file {sector_path}.")
+            # target not found in sector 
+            pass
     return found_sectors, light_curve_files
 
 def search_and_read_tess_targetpixelfile(target, sectors, tpf_dir):
@@ -64,5 +65,6 @@ def search_and_read_tess_targetpixelfile(target, sectors, tpf_dir):
         except fits.VerifyError as e:
             print(f"Corrupted fits file: {e}")
         except Exception as e:
-            print(f"Error loading file {sector_path}: {e}.")
+            # target not found in sector 
+            pass
     return found_sectors, target_pixel_files
