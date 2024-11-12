@@ -188,7 +188,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                     plot_dir_tce_transit_diff_img_data = plot_dir_tce_diff_img_data / 'transit_imgs'
                     plot_dir_tce_transit_diff_img_data.mkdir(exist_ok=True, parents=True)
                 else:
-                    plot_dir_tce_transit_diff_img_data
+                    plot_dir_tce_transit_diff_img_data = None
 
                 excl_idxs_it_ts = []
                 for window_i, midtransit_point_window in enumerate(midtransit_points_windows_arr):  # iterate on midtransit points in window
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_10-28-2024_v2')
+    data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024')
     # set light curve data directory
     lc_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
     # set target pixel file data directory
