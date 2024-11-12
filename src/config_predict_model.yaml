@@ -129,8 +129,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 #  tce_num_transits_obs: {'dim': [1, ], 'dtype': float}
 
   # difference image
-#  diff_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
-#  oot_img: { 'dim': [ 11, 11, 5 ], 'dtype': float }
+#  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#   diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #  target_subpx_pos: { 'dim': [ 2, 5 ], 'dtype': float }
 
 # maps features' names to features names expected by the model

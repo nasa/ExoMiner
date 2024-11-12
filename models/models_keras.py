@@ -1527,6 +1527,7 @@ class ExoMiner_JointLocalFlux(object):
         branch_view_inputs = [tf.expand_dims(l, axis=-1, name='expanding_diff_img') for l in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
+        branch_view_inputs = tf.keras.layers.Permute((2, 3, 1, 4), name='permute_inputs')(branch_view_inputs)
 
         # self.config.update(
         #     {

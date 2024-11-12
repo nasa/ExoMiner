@@ -40,12 +40,12 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     # linearly interpolate across TCE transits
     flux_arrs_lininterp = []
     for time_arr, flux_arr, intransit_cadences_arr in zip(time_arrs, flux_arrs, intransit_cadences):
-        # if intransit_cadences_arr.any():
-        flux_lininterp_arr = np.interp(time_arr, time_arr[~intransit_cadences_arr],
-                                       flux_arr[~intransit_cadences_arr],
-                                       left=np.nan, right=np.nan)
-        # else:
-        #     flux_lininterp_arr = np.nan * np.ones(len(time_arr), dtype='float')
+        if intransit_cadences_arr.all():
+            flux_lininterp_arr = np.nanmedian(flux_arr) * np.ones(len(time_arr), dtype='float')
+        else:
+            flux_lininterp_arr = np.interp(time_arr, time_arr[~intransit_cadences_arr],
+                                           flux_arr[~intransit_cadences_arr],
+                                           left=np.nan, right=np.nan)
 
         flux_arrs_lininterp.append(flux_lininterp_arr)
 
