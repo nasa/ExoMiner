@@ -26,7 +26,7 @@ from astropy.stats import mad_std
 def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None, bin_fn=np.nanmedian, bin_var_fn=mad_std):
     """Computes the median y-value in uniform intervals (bins) along the x-axis.
 
-  The interval [x_min, x_max) is divided into num_bins uniformly spaced
+  The interval [x_min, x_max] is divided into num_bins uniformly spaced
   intervals of width bin_width. The value computed for each bin is the median
   of all y-values whose corresponding x-value is in the interval.
 
