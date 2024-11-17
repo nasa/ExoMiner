@@ -55,14 +55,13 @@ def process_target_sector_run(target, sector_run, sector_run_data,
     
     logger.addHandler(file_handler)
 
-
     # process target, sector_run pair
     try:
         sector_data_to_tfrec = []
 
         rng = np.random.default_rng(seed=rnd_seed)
 
-        logger.info(f'Extracting and processing data for target: {type(target)}, sector_run: {sector_run}')
+        logger.info(f'Extracting and processing data for target: {target}, sector_run: {sector_run}')
 
         if plot_dir:
             plot_dir_target_sector_run = plot_dir / f'target_{target}_sector_run_{sector_run}'
@@ -133,7 +132,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             for tce_i, tce_data in sector_run_data.iterrows():
 
                 data_for_tce = {
-                'tce_uid': tce_data['uid'],
+                'uid': tce_data['uid'],
                 'tce_info': tce_data,
                 'sectors': [],
                 'disposition': tce_data['disposition']
@@ -176,7 +175,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
                 if len(found_sector) == 0:
                     logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                     return
-                
+
                 # get tpf for sector
                 tpf = tpf[0] 
 
@@ -263,7 +262,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             sector_data_to_tfrec.append(data_for_tce)
 
         logger.info(f"Processing for sector_run {sector_run} complete.")
-        print("Processing for sector_run {sector_run} complete.")
+        print(f"Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
     except Exception as e:
         logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
@@ -325,6 +324,9 @@ if __name__ == "__main__":
 
     # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
 
+    job_log_dir = log_dir / 'job_logs'
+    job_log_dir.mkdir(parents=True, exist_ok=True)
+
     partial_func = partial(process_target_sector_run,
                                     lc_dir=lc_dir,
                                     tpf_dir=tpf_dir,
@@ -339,7 +341,7 @@ if __name__ == "__main__":
                                     f_size=deepcopy(f_size),
                                     center_target=center_target,
                                     plot_dir=plot_dir,
-                                    log_dir=log_dir,
+                                    log_dir=job_log_dir,
                                     )
 
     # None processes defaults to number of available cpu cores
@@ -356,7 +358,8 @@ if __name__ == "__main__":
     for async_result in async_results:
         if async_result.get():
             for data in async_result.get():
-                data_to_tfrec.append(data)
+                if data:
+                    data_to_tfrec.append(data)
 
     # write data to TFRecord dataset
     dataset_logger = logging.getLogger("DatasetLogger")
@@ -388,7 +391,7 @@ if __name__ == "__main__":
         with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
 
             for data_for_tce in shard_data:
-                dataset_logger.info(f'Adding data for TCE {shard_data["tce_uid"]} to the TFRecord file {tfrec_fp}...')
+                dataset_logger.info(f'Adding data for TCE {shard_data["uid"]} to the TFRecord file {tfrec_fp.name}...')
 
                 examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
 
