@@ -217,11 +217,14 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
                                             midtransit_points_arr + (n_durations_window + 1) * tce_duration / 2 +
                                             buffer_time)
 
+
+
     # get oot candidates for oot windows, that do not fall on other transit events
-    oot_points_arr = time[np.logical_and((~np.sum([np.logical_and(time >= start_time_window, time <= end_time_window)
-                                   for start_time_window, end_time_window in zip(start_time_windows, end_time_windows)],
-                                  axis=0).astype('bool')), ~transit_mask)]
+    it_window_mask = np.zeros(len(time), dtype=bool)
+    for start_time, end_time in zip(start_time_windows, end_time_windows):
+        it_window_mask |= np.logical_and(time >= start_time, time <= end_time)
     
+    oot_points_arr = time[np.logical_and(~it_window_mask, ~transit_mask)]
 
     print(f'Found {len(oot_points_arr)} out-of-transit points.')
 
