@@ -47,18 +47,21 @@ config:
   # branches with scalars have the option not to add scalars by setting `scalars` field to null
   # comment a branch to not use it
   conv_branches:  # null
+
     local_unfolded_flux:
       views:
         - unfolded_local_flux_view_fluxnorm
       scalars:   # null
         - tce_num_transits_obs_norm
         # - mission
+
     global_flux:
       views:
         - global_flux_view_fluxnorm
         - global_flux_view_fluxnorm_var
       scalars:
          - flux_global_stat_abs_min_norm
+
     local_flux:
       views:
         - local_flux_view_fluxnorm
@@ -68,6 +71,7 @@ config:
 #        - tce_depth_norm
         - flux_local_stat_abs_min
          # - mission
+
     local_weak_secondary:
       views:
 #        - local_weak_secondary_view_fluxnorm
@@ -82,25 +86,17 @@ config:
 #        - wst_depth_norm
 #        - tce_prad_norm
         # - mission
+
     local_centroid:
       views:
         - local_centr_view_std_noclip
         - local_centr_view_std_noclip_var
       scalars:  # null
 #       - tce_fwm_stat_norm  # kepler only
-        - tce_dikco_msky_norm
-        - tce_dikco_msky_err_norm
-#       - tce_dicco_msky_norm
-#       - tce_dicco_msky_err_norm
 #       - mag_cat_norm
-        - ruwe_norm
         - mag_shift_norm
         # - mission
-####    global_centroid:
-####      views:
-#####        - global_centr_fdl_view_norm
-####        - global_centr_view_std_noclip
-####      scalars: null
+
     local_odd_even:
       views:
         - local_flux_odd_view_fluxnorm
@@ -113,6 +109,7 @@ config:
 #        # - mission
 ##        - odd_se_oot_norm
 ##        - even_se_oot_norm
+
     momentum_dump:
       views:
         - local_momentum_dump_view
@@ -144,7 +141,9 @@ config:
       - tce_slogg_norm
       - tce_smass_norm
       - tce_sradius_norm
+      - ruwe_norm
 #      # - mission
+
     dv_tce_fit:
       - boot_fap_norm
       - tce_cap_stat_norm
@@ -160,25 +159,6 @@ config:
       - tce_prad_norm
 #      # - mission
 
-  #   centroid_scalars:
-  #     - tce_dikco_msky_norm
-  #     - tce_dikco_msky_err_norm
-  #     - ruwe_norm
-  #     - mag_shift_norm
-  #   secondary_scalars:
-  #     - tce_ptemp_stat_norm
-  #     - tce_albedo_stat_norm
-  #     - tce_maxmes_norm
-  ##     - wst_depth_norm
-  #     - tce_prad_norm
-  #   odd_even_scalars:
-  #     - tce_bin_oedp_stat_norm
-
-  transformer_branches: null
-    ##      global:
-    ##        - unfolded_global_flux_view_fluxnorm
-    #    local:
-    #      - unfolded_local_flux_view_fluxnorm
   diff_img_branch: # null
     imgs:
       - diff_imgs_std_trainset
@@ -190,54 +170,94 @@ config:
       - quality
     scalars:
       - mag_shift_norm
+      - tce_dikco_msky_norm
+      - tce_dikco_msky_err_norm
+      #       - tce_dicco_msky_norm
+      #       - tce_dicco_msky_err_norm
       # - mission
-  #
+
+  transformer_branches: null
+    ##      global:
+    ##        - unfolded_global_flux_view_fluxnorm
+    #    local:
+    #      - unfolded_local_flux_view_fluxnorm
+
+  # global branch hyperparameters ----
+  num_glob_conv_blocks: 3
+  glob_conv_ls_per_block: 5
+  init_glob_conv_filters: 3
+  kernel_size_glob: 5
+  pool_size_glob: 8
+
+  # local branch hyperparameters ------
+  num_loc_conv_blocks: 2
+  loc_conv_ls_per_block: 1
+  init_loc_conv_filters: 2
+  kernel_size_loc: 6
+  pool_size_loc: 4
+
+  # periodogram branch hyperparameters -----
+  num_pgram_conv_blocks: 1
+  pgram_conv_ls_per_block: 6
+  init_pgram_conv_filters: 5
+  kernel_size_pgram: 6
+  pool_size_pgram: 4
+
+  # difference image hyperparameters ---------
+  num_diffimg_conv_blocks: 4
+  diffimg_conv_ls_per_block: 4
+  init_diffimg_conv_filters: 1
+  kernel_size_diffimg: [ 3, 3, 1 ]
+  pool_size_diffimg: [ 2, 2, 1 ]
+  num_fc_diff_units: 12
+
+  # shared conv hyperparameters ----
+  num_fc_conv_units: 6
+  dropout_rate_fc_conv: 0.1211390996398814
+
+  # fc block hyperparameters
+  init_fc_neurons: 32
+  dropout_rate: 0.021491238286347598
+  num_fc_layers: 1
+  decay_rate: null  # for l2-regularization
+
+  # shared hyperparameters --------
+  non_lin_fn: prelu
+  weight_initializer: null
+  kernel_stride: 1
+  pool_stride: 1
+
+  # optimization hyperparameters ------
+  optimizer: 'Adam'
+  #  'lr': 1.0e-5
+  #  'batch_size': 64
+  force_softmax: false
+  #  use_kepler_ce: false
+
+  # loss hyperparameters
+  multi_class: false  # switch to multiclass classification
+
+  # other hyperparameters -----
+  batch_norm: false  # apply batch norm before FC block to all concatenated output features extracted from the branches
+
   # transformer hyperparameters ---------
-  #if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
+  # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
   use_transformer: false  # set to true when using N-d data (N>1)
   num_transformer_blocks: 2
   head_size: 256
   num_heads: 4
   ff_dim: 4
   dropout_rate_transformer: 0.03
-  #can either be bin_average_pooling, phase_average_pooling, or flat, or time distributed
+  # can either be bin_average_pooling, phase_average_pooling, or flat, or time distributed
   # output will be [301/31], [20], and [20 * 301/31] respectively
   # if time_encoding = true, shape of bin_average_pooling and flat increase by a factor of 3
   transformer_output: 'flat'
-  #  concat_stats_to: folded-local #none #folded-local, unfolded-local, none
   time_encoding: true
-  #  trans_pooling: none #max, avg, none
-  #  trans_pool_size: 8
-  #  trans_stride_size: 1
-  #transformer head
-  #num_units_fc_layers: [16, 8]
-  global-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 256, 64, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8] #[128, 32, 8]
-  local-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 64, 32, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8]
+  # transformer head
+  global-num_units_transformer_fc_layers: [ 4 ]
+  local-num_units_transformer_fc_layers: [ 4 ]
   dropout_rate_trans_fc: 0.03
-  non_lin_fn: prelu
-  #  num_loc_conv_blocks: 2
-  #  'num_glob_conv_blocks': 5
-  #  'init_fc_neurons': 512
-  #  'num_fc_layers': 4
-  #  'pool_size_loc': 7
-  #  'pool_size_glob': 5
-  pool_stride: 1
-  #  'conv_ls_per_block': 2
-  #  'init_conv_filters': 4
-  #  'kernel_size': 5
-  kernel_stride: 1
-  optimizer: 'Adam'
-  #  'lr': 1.0e-5
-  #  'batch_size': 64
-  #  'dropout_rate': 0.0
-  #  'dropout_rate_fc_conv': 0.0
-  #  'num_fc_conv_units': 0
-  weight_initializer: null
-  force_softmax: false
-  #  use_kepler_ce: false
-  decay_rate: null
-  batch_norm: false
-  multi_class: false  # switch to multiclass classification
+
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -276,15 +296,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   local_centr_view_std_noclip_var: { 'dim': [ 31, 1 ], 'dtype': float }
 #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-##  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-#  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # secondary related features
 ##  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
@@ -296,7 +307,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
-#
+
   # other diagnostic parameters
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -313,7 +324,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # rolling band
 #  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
 
  # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -322,6 +332,11 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  # mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
  # tce parameters
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -334,14 +349,14 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 #   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   quality: { 'dim': [ 5, 1], 'dtype': float }
+  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # momentum dump
   local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
   local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
-
-#   flux trend unfolded
-#  flux_trend_global_unfolded_norm: { 'dim': [ 301, 1 ], 'dtype': float }
-#  flux_trend_global_unfolded_norm_var: { 'dim': [ 301, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -368,29 +383,13 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-  n_models: null  # number of models in the ensemble
   n_epochs: 300  # number of epochs used to train each model
-  #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
-  #  ce_weights: null
-  filter_data: null  # deprecated; useless
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-#    '0': 68.5
-#    '1': 0.5
   #    PC: 1.0
   #    AFP: 0.5
   #    NTP: 1.0
-  # charles was using these weights
-#  PC: 0.0002921
-#  AFP: 0.0002229
-#  NTP: 2.967e-05
-#  T-NTP: 2.967e-05
-#  T-EB: 0.0002229
-#  T-KP: 0.0002921
-#  T-FP: 0.0002229
-#  T-CP: 0.0002921
-#  T-FA: 0.0002229
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
 

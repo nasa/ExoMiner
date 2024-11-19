@@ -36,7 +36,8 @@ cats = {
         # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
-        # 'NTP': 0,
+        'NTP': 0,
+        'BD': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -61,7 +62,8 @@ cats = {
         # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
-        # 'NTP': 0,
+        'NTP': 0,
+        'BD': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -86,7 +88,8 @@ cats = {
         # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
-        # 'NTP': 0,
+        'NTP': 0,
+        'BD': 0,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -126,7 +129,7 @@ metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess_spoc_ffi_s36-s69_7-25-2024_0031'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess-spoc-2min_s1-s67_tce_dikco_msky_rat_fixdiffimg_changefeaturesbranches_11-14-2024_1716'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 

@@ -94,7 +94,8 @@ class Astronet(object):
                                                  activity_regularizer=None,
                                                  kernel_constraint=None,
                                                  bias_constraint=None,
-                                                 name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                                 name='conv{}_{}_{}'.format(branch, conv_block_i,
+                                                                            seq_conv_block_i),
                                                  **kwargs)(input_branch if conv_block_i == 0 and
                                                                            seq_conv_block_i == 0
                                                            else net)
@@ -291,7 +292,8 @@ class Exonet(object):
                                                  activity_regularizer=None,
                                                  kernel_constraint=None,
                                                  bias_constraint=None,
-                                                 name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                                 name='conv{}_{}_{}'.format(branch, conv_block_i,
+                                                                            seq_conv_block_i),
                                                  **kwargs)(input_branch if conv_block_i == 0 and
                                                                            seq_conv_block_i == 0
                                                            else net)
@@ -498,7 +500,8 @@ class Exonet_XS(object):
                                                  activity_regularizer=None,
                                                  kernel_constraint=None,
                                                  bias_constraint=None,
-                                                 name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                                 name='conv{}_{}_{}'.format(branch, conv_block_i,
+                                                                            seq_conv_block_i),
                                                  **kwargs)(input_branch if conv_block_i == 0 and
                                                                            seq_conv_block_i == 0
                                                            else net)
@@ -809,33 +812,26 @@ class ExoMiner_JointLocalFlux(object):
 
         """
 
-        config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-                         'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
-                         'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
-                         }
+        # initialize branch
+        branch = "local_unfolded_flux"
+        view_inputs = self.inputs["unfolded_local_flux_view_fluxnorm"]
 
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
             else 'glorot_uniform'
 
-        # initialize branch
-        view_inputs = self.inputs["unfolded_local_flux_view_fluxnorm"]
-
         # expand dims to prevent last dimension being "lost"
         view_inputs = tf.expand_dims(view_inputs, axis=-1, name='expanding_unfolded_flux')
-        branch = "local_unfolded_flux"
 
         # get number of conv blocks for the given view
-        n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
-
+        n_blocks = self.config['num_loc_conv_blocks']
         # get pool size for the given view
-        kernel_size = self.config[config_mapper['kernel_size']['local_view']]
-
+        kernel_size = self.config['kernel_size_loc']
         # get pool size for the given view
-        pool_size = self.config[config_mapper['pool_size']['local_view']]
+        pool_size = self.config['pool_size_loc']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
 
-            num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+            num_filters = 2 ** (self.config['init_loc_conv_filters'] + conv_block_i)
 
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
@@ -918,11 +914,13 @@ class ExoMiner_JointLocalFlux(object):
 
         """
 
-        config_mapper = {'blocks': 'num_unfolded_conv_blocks',
-                         'pool_size': 'pool_size_unfolded',
-                         'kernel_size': 'kernel_size_unfolded',
-                         'init_conv_filters': 'init_unfolded_conv_filters',
-                         'conv_ls_per_block': 'unfolded_conv_ls_per_block'
+        branch = "local_unfolded_flux"
+        config_mapper = {
+                     'blocks': 'num_loc_conv_blocks',
+                     'pool_size': 'pool_size_loc',
+                     'kernel_size': 'kernel_size_loc',
+                     'init_conv_filters': 'init_loc_conv_filters',
+                     'conv_ls_per_block': 'loc_conv_ls_per_block'
                          }
 
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
@@ -933,7 +931,7 @@ class ExoMiner_JointLocalFlux(object):
 
         # expand dims to prevent last dimension being "lost"
         view_inputs = tf.expand_dims(view_inputs, axis=-1, name='expanding_unfolded_flux')
-        branch = "local_unfolded_flux"
+
         unfolded_conv_branches = {branch: None}
 
         # get init parameters for given view
@@ -1000,29 +998,6 @@ class ExoMiner_JointLocalFlux(object):
         net = tf.keras.layers.Concatenate(axis=1, name='input_merges')([
             merge_layer_min, merge_layer_max, merge_layer_avg])
 
-        # set the 3 layers to be the channels
-        net = tf.keras.layers.Permute((2, 3, 1), name='permute_merge')(net)
-
-        # convolve output with conv1d to produce final output
-        kernel_size = 1
-        num_filters = 4
-        conv_kwargs = {'filters': num_filters,
-                       'kernel_initializer': weight_initializer,
-                       'kernel_size': kernel_size,
-                       }
-
-        net = tf.keras.layers.Conv1D(dilation_rate=1,
-                                     activation=None,
-                                     use_bias=True,
-                                     bias_initializer='zeros',
-                                     kernel_regularizer=None,
-                                     bias_regularizer=None,
-                                     activity_regularizer=None,
-                                     kernel_constraint=None,
-                                     bias_constraint=None,
-                                     name='conv{}_{}'.format(branch, 1),
-                                     **conv_kwargs)(net)
-
         # flatten output of the convolutional branch
         net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
 
@@ -1053,24 +1028,6 @@ class ExoMiner_JointLocalFlux(object):
                                         bias_constraint=None,
                                         name='fc_{}'.format(branch))(net)
 
-            # net = tf.expand_dims(net, axis=-1)
-            # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
-            #                              kernel_size=net.shape[1],
-            #                              strides=1,
-            #                              padding='valid',
-            #                              kernel_initializer=weight_initializer,
-            #                              dilation_rate=1,
-            #                              activation=None,
-            #                              use_bias=True,
-            #                              bias_initializer='zeros',
-            #                              kernel_regularizer=None,
-            #                              bias_regularizer=None,
-            #                              activity_regularizer=None,
-            #                              kernel_constraint=None,
-            #                              bias_constraint=None,
-            #                              name='conv_{}'.format(branch),
-            #                              )(net)
-
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
             elif self.config['non_lin_fn'] == 'relu':
@@ -1081,7 +1038,6 @@ class ExoMiner_JointLocalFlux(object):
                                             alpha_constraint=None,
                                             shared_axes=[1],
                                             name='fc_prelu_{}'.format(branch))(net)
-            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
             net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_conv_{branch}')(net)
 
@@ -1097,38 +1053,52 @@ class ExoMiner_JointLocalFlux(object):
         """
 
         conv_branch_selected = [
+            # global branches
             'global_flux',
+            'flux_trend',
+
+            # local branches
             'local_centroid',
             'momentum_dump',
-            # 'global_centroid',
-            'flux_trend',
+
+            # periodogram branch
             'flux_periodogram',
         ]
-        odd_even_branch_name = 'local_odd_even'  # specific to odd and even branch
+
         config_mapper = {'blocks': {
-            'global_view': 'num_glob_conv_blocks',
-            'local_view': 'num_loc_conv_blocks',
-            'centr_view': 'num_centr_conv_blocks'
+            'global_flux': 'num_glob_conv_blocks',
+            'flux_trend': 'num_glob_conv_blocks',
+            'local_centroid': 'num_loc_conv_blocks',
+            'momentum_dump': 'num_loc_conv_blocks',
+            'flux_periodogram': 'num_pgram_conv_blocks',
         },
             'pool_size': {
-                'global_view': 'pool_size_glob',
-                'local_view': 'pool_size_loc',
-                'centr_view': 'pool_size_centr'
+                'global_flux': 'pool_size_glob',
+                'flux_trend': 'pool_size_glob',
+                'local_centroid': 'pool_size_loc',
+                'momentum_dump': 'pool_size_loc',
+                'flux_periodogram': 'pool_size_pgram',
             },
             'kernel_size': {
-                'global_view': 'kernel_size_glob',
-                'local_view': 'kernel_size_loc',
-                'centr_view': 'kernel_size_centr'
+                'global_flux': 'kernel_size_glob',
+                'flux_trend': 'kernel_size_glob',
+                'local_centroid': 'kernel_size_loc',
+                'momentum_dump': 'kernel_size_loc',
+                'flux_periodogram': 'kernel_size_pgram',
             },
             'conv_ls_per_block': {
-                'global_view': 'glob_conv_ls_per_block',
-                'local_view': 'loc_conv_ls_per_block',
-                'centr_view': 'centr_conv_ls_per_block'
+                'global_flux': 'glob_conv_ls_per_block',
+                'flux_trend': 'glob_conv_ls_per_block',
+                'local_centroid': 'loc_conv_ls_per_block',
+                'momentum_dump': 'loc_conv_ls_per_block',
+                'flux_periodogram': 'pgram_conv_ls_per_block',
             },
             'init_conv_filters': {
-                'global_view': 'init_glob_conv_filters',
-                'local_view': 'init_loc_conv_filters',
-                'centr_view': 'init_centr_conv_filters'
+                'global_flux': 'init_glob_conv_filters',
+                'flux_trend': 'init_glob_conv_filters',
+                'local_centroid': 'init_loc_conv_filters',
+                'momentum_dump': 'init_loc_conv_filters',
+                'flux_periodogram': 'init_pgram_conv_filters',
             }
         }
 
@@ -1149,13 +1119,11 @@ class ExoMiner_JointLocalFlux(object):
                 branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name=f'input_{branch}')(branch_view_inputs)
 
             # get init parameters for the given view
-            n_blocks = self.config[config_mapper['blocks'][('centr_view', 'global_view')['global' in branch]]]
-            kernel_size = self.config[config_mapper['kernel_size'][('centr_view', 'global_view')['global' in branch]]]
-            pool_size = self.config[config_mapper['pool_size'][('centr_view', 'global_view')['global' in branch]]]
-            conv_ls_per_block = self.config[
-                config_mapper['conv_ls_per_block'][('centr_view', 'global_view')['global' in branch]]]
-            init_conv_filters = self.config[
-                config_mapper['init_conv_filters'][('centr_view', 'global_view')['global' in branch]]]
+            n_blocks = self.config[config_mapper['blocks'][branch]]
+            kernel_size = self.config[config_mapper['kernel_size'][branch]]
+            pool_size = self.config[config_mapper['pool_size'][branch]]
+            conv_ls_per_block = self.config[config_mapper['conv_ls_per_block'][branch]]
+            init_conv_filters = self.config[config_mapper['init_conv_filters'][branch]]
 
             # create convolutional branches
             for conv_block_i in range(n_blocks):  # create convolutional blocks
@@ -1165,43 +1133,26 @@ class ExoMiner_JointLocalFlux(object):
                 # set convolution layer parameters from config
                 conv_kwargs = {'filters': num_filters,
                                'kernel_initializer': weight_initializer,
-                               'kernel_size': (1, kernel_size)
-                               if branch == odd_even_branch_name else kernel_size,  # self.config['kernel_size'],
-                               'strides': (1, self.config['kernel_stride'])
-                               if branch == odd_even_branch_name else self.config['kernel_stride'],
+                               'kernel_size': kernel_size,
+                               'strides': self.config['kernel_stride'],
                                'padding': 'same'
                                }
 
                 for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
-
-                    if branch == odd_even_branch_name:
-                        net = tf.keras.layers.Conv2D(dilation_rate=1,
-                                                     activation=None,
-                                                     use_bias=True,
-                                                     bias_initializer='zeros',
-                                                     kernel_regularizer=None,
-                                                     bias_regularizer=None,
-                                                     activity_regularizer=None,
-                                                     kernel_constraint=None,
-                                                     bias_constraint=None,
-                                                     name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
-                                                     **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
-                                                                                          seq_conv_block_i == 0
-                                                                    else net)
-                    else:
-                        net = tf.keras.layers.Conv1D(dilation_rate=1,
-                                                     activation=None,
-                                                     use_bias=True,
-                                                     bias_initializer='zeros',
-                                                     kernel_regularizer=None,
-                                                     bias_regularizer=None,
-                                                     activity_regularizer=None,
-                                                     kernel_constraint=None,
-                                                     bias_constraint=None,
-                                                     name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
-                                                     **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
-                                                                                          seq_conv_block_i == 0
-                                                                    else net)
+                    net = tf.keras.layers.Conv1D(dilation_rate=1,
+                                                 activation=None,
+                                                 use_bias=True,
+                                                 bias_initializer='zeros',
+                                                 kernel_regularizer=None,
+                                                 bias_regularizer=None,
+                                                 activity_regularizer=None,
+                                                 kernel_constraint=None,
+                                                 bias_constraint=None,
+                                                 name='conv{}_{}_{}'.format(branch, conv_block_i,
+                                                                            seq_conv_block_i),
+                                                 **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
+                                                                                      seq_conv_block_i == 0
+                                                                else net)
 
                     if self.config['non_lin_fn'] == 'lrelu':
                         net = tf.keras.layers.LeakyReLU(alpha=0.01,
@@ -1218,19 +1169,9 @@ class ExoMiner_JointLocalFlux(object):
                                                     name='prelu{}_{}_{}'.format(branch, conv_block_i,
                                                                                 seq_conv_block_i))(net)
 
-                if branch == odd_even_branch_name:
-                    net = tf.keras.layers.MaxPooling2D(pool_size=(1, pool_size),
-                                                       strides=(1, self.config['pool_stride']),
-                                                       name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
-                else:
-                    net = tf.keras.layers.MaxPooling1D(pool_size=pool_size,
-                                                       strides=self.config['pool_stride'],
-                                                       name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
-
-            if branch == odd_even_branch_name:  # subtract extracted features for odd and even views branch
-                net = tf.split(conv_branches[branch], 2, axis=1, name='split_oe')
-                net = tf.keras.layers.Subtract(name='subtract_oe')(net)
-                # net = tf.keras.layers.Permute((2, 3, 1), name='permute2_oe')(net)  # needed for Conv2D
+                net = tf.keras.layers.MaxPooling1D(pool_size=pool_size,
+                                                   strides=self.config['pool_stride'],
+                                                   name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
 
             # flatten output of the convolutional branch
             net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
@@ -1266,24 +1207,6 @@ class ExoMiner_JointLocalFlux(object):
                                             bias_constraint=None,
                                             name='fc_{}'.format(branch))(net)
 
-                # net = tf.expand_dims(net, axis=-1)
-                # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
-                #                              kernel_size=net.shape[1],
-                #                              strides=1,
-                #                              padding='valid',
-                #                              kernel_initializer=weight_initializer,
-                #                              dilation_rate=1,
-                #                              activation=None,
-                #                              use_bias=True,
-                #                              bias_initializer='zeros',
-                #                              kernel_regularizer=None,
-                #                              bias_regularizer=None,
-                #                              activity_regularizer=None,
-                #                              kernel_constraint=None,
-                #                              bias_constraint=None,
-                #                              name='conv_{}'.format(branch),
-                #                              )(net)
-
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'relu':
@@ -1294,7 +1217,6 @@ class ExoMiner_JointLocalFlux(object):
                                                 alpha_constraint=None,
                                                 shared_axes=[1],
                                                 name='fc_prelu_{}'.format(branch))(net)
-                # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
                 net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'],
                                               name=f'dropout_fc_conv_{branch}')(net)
@@ -1316,32 +1238,22 @@ class ExoMiner_JointLocalFlux(object):
         # list of branches to be combined + their sizes
         local_transit_branches = ['local_odd_even', 'local_flux', 'local_weak_secondary']
         local_transit_sz = {'local_odd_even': 2, 'local_flux': 1, 'local_weak_secondary': 1}
-
         odd_even_branch_name = 'local_odd_even'  # specific to odd and even branch
         config_mapper = {'blocks': {
-            'global_view': 'num_glob_conv_blocks',
             'local_view': 'num_loc_conv_blocks',
-            'centr_view': 'num_centr_conv_blocks'
         },
             'pool_size': {
                 'global_view': 'pool_size_glob',
                 'local_view': 'pool_size_loc',
-                'centr_view': 'pool_size_centr'
             },
             'kernel_size': {
-                'global_view': 'kernel_size_glob',
                 'local_view': 'kernel_size_loc',
-                'centr_view': 'kernel_size_centr'
             },
             'conv_ls_per_block': {
-                'global_view': 'glob_conv_ls_per_block',
                 'local_view': 'loc_conv_ls_per_block',
-                'centr_view': 'centr_conv_ls_per_block'
             },
             'init_conv_filters': {
-                'global_view': 'init_glob_conv_filters',
                 'local_view': 'init_loc_conv_filters',
-                'centr_view': 'init_centr_conv_filters'
             }
         }
 
@@ -1368,17 +1280,17 @@ class ExoMiner_JointLocalFlux(object):
 
         local_transit_views_inputs = []
         for local_transit_feature in local_transit_features:
-            # view_input =
             view_inputs = [tf.expand_dims(self.inputs[view_name], axis=1, name=f'expanding_{view_name}')
                            for view_name in local_transit_feature]
-            # view_inputs = [self.inputs[view_name] for view_name in local_transit_feature]
-            view_inputs = tf.keras.layers.Concatenate(axis=-1, name=f'concat_{local_transit_feature[0]}_with_var')(view_inputs)
+            view_inputs = tf.keras.layers.Concatenate(axis=-1,
+                                                      name=f'concat_{local_transit_feature[0]}_with_var')(view_inputs)
 
             local_transit_views_inputs.append(view_inputs)
 
         # combine the local transits to put through conv block (dim = [view, bins, avg/var view])
         if len(local_transit_views_inputs) > 1:
-            branch_view_inputs = tf.keras.layers.Concatenate(axis=1, name='concat_local_views')(local_transit_views_inputs)
+            branch_view_inputs = tf.keras.layers.Concatenate(axis=1,
+                                                             name='concat_local_views')(local_transit_views_inputs)
         else:
             branch_view_inputs = local_transit_views_inputs[0]
 
@@ -1397,13 +1309,13 @@ class ExoMiner_JointLocalFlux(object):
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,
-                           'strides': self.config['kernel_stride'],
+                           'kernel_size': (1, kernel_size),
+                           'strides': (1, self.config['kernel_stride']),
                            'padding': 'same'
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
-                net = tf.keras.layers.Conv1D(dilation_rate=1,
+                net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
                                              bias_initializer='zeros',
@@ -1515,51 +1427,35 @@ class ExoMiner_JointLocalFlux(object):
         :return: dict with the difference image branch
         """
 
-        # config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-        #                  'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
-        #                  'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
-        #                  }
-
         weight_initializer = tf.keras.initializers.he_normal() \
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
 
         branch_view_inputs = [self.inputs[view_name] for view_name in self.config['diff_img_branch']['imgs']]
-        branch_view_inputs = [tf.expand_dims(l, axis=-1, name='expanding_diff_img') for l in branch_view_inputs]
+        branch_view_inputs = [tf.expand_dims(branch_view_input, axis=-1, name='expanding_diff_img')
+                              for branch_view_input in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
         branch_view_inputs = tf.keras.layers.Permute((2, 3, 1, 4), name='permute_inputs')(branch_view_inputs)
 
-        # self.config.update(
-        #     {
-        #         'blocks_diff_img': 3,
-        #         'kernel_size_diff_img': 3,
-        #         'pool_size_diff_img'
-        #         # 'kernel_size_fc':
-        #     }
-        # )
-
-        # get number of conv blocks for the given view
-        n_blocks = 3  # self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
-
-        kernel_size = (3, 3, 1)  # self.config[config_mapper['kernel_size'][('local_view', 'global_view')['global' in branch]]]
-
-        # get pool size for the given view
-        pool_size = (2, 2, 1)  # self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+        # get number of conv blocks, layers per block, and kernel and pool sizes for the branch
+        n_blocks = self.config['num_diffimg_conv_blocks']
+        kernel_size = self.config['kernel_size_diffimg']
+        pool_size = self.config['pool_size_diffimg']
+        n_layers_per_block = self.config['diffimg_conv_ls_per_block']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
 
-            num_filters = 2 ** (2 + conv_block_i)
-            # num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+            num_filters = 2 ** (self.config['init_diffimg_conv_filters'] + conv_block_i)
 
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,  # self.config['kernel_size'],
-                           'strides': 1,  # (1, self.config['kernel_stride'])
+                           'kernel_size': kernel_size,
+                           # 'strides': (1, 1, 1),
                            'padding': 'same'
                            }
 
-            for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
+            for seq_conv_block_i in range(n_layers_per_block):  # create convolutional block
 
                 net = tf.keras.layers.Conv3D(dilation_rate=1,
                                              activation=None,
@@ -1590,10 +1486,10 @@ class ExoMiner_JointLocalFlux(object):
                                                 name='preludiff_img_{}_{}'.format(conv_block_i,
                                                                                   seq_conv_block_i))(net)
 
-                net = tf.keras.layers.MaxPooling3D(pool_size=pool_size,
-                                                   strides=self.config['pool_stride'],
-                                                   name='maxpooling_diff_img_{}_{}'.format(conv_block_i,
-                                                                                           seq_conv_block_i))(net)
+            net = tf.keras.layers.MaxPooling3D(pool_size=pool_size,
+                                               strides=self.config['pool_stride'],
+                                               name='maxpooling_diff_img_{}_{}'.format(conv_block_i,
+                                                                                       seq_conv_block_i))(net)
 
         # flatten output of the convolutional branch
         net = tf.keras.layers.Permute((1, 2, 4, 3), name='permute_diff_imgs')(net)
@@ -1603,7 +1499,8 @@ class ExoMiner_JointLocalFlux(object):
         # add per-image scalar features
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
 
-            scalar_inputs = [tf.keras.layers.Permute((2, 1), name=f'permute_{feature_name}')(self.inputs[feature_name])
+            scalar_inputs = [tf.keras.layers.Permute((2, 1),
+                                                     name=f'permute_{feature_name}')(self.inputs[feature_name])
                              if 'pixel' not in feature_name else self.inputs[feature_name]
                              for feature_name in self.config['diff_img_branch']['imgs_scalars']]
             if len(scalar_inputs) > 1:
@@ -1614,25 +1511,8 @@ class ExoMiner_JointLocalFlux(object):
             # concatenate per-image scalar features with extracted features from the difference images
             net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
 
-        # 2D convolution with kernel size equal to feature map size
-        # net = tf.expand_dims(net, axis=-1, name='expanding_input_convfc')
-        # net = tf.keras.layers.Conv2D(filters=4,  # self.config['num_fc_conv_units'],
-        #                              kernel_size=net.shape[1:-1],
-        #                              strides=1,
-        #                              padding='valid',
-        #                              kernel_initializer=weight_initializer,
-        #                              dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='convfc_{}'.format('diff_img'),
-        #                              )(net)
-        net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
+        # compress features from image and scalar sector data into a set of features
+        net = tf.keras.layers.Conv1D(filters=self.config['num_fc_diff_units'],
                                      kernel_size=net.shape[1:-1],
                                      strides=1,
                                      padding='valid',
@@ -1799,8 +1679,6 @@ class ExoMiner_JointLocalFlux(object):
         :return:
             net: model with added FC block
         """
-
-        # with tf.variable_scope('FcNet'):
 
         for fc_layer_i in range(self.config['num_fc_layers']):
 
