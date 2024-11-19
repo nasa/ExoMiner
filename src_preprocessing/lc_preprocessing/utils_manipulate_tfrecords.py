@@ -1,5 +1,4 @@
 """ Utility functions used to manipulate TFRecords. """
-import shutil
 
 # 3rd party
 import tensorflow as tf
@@ -8,10 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
+import shutil
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
+                                                                    get_out_of_transit_idxs_loc)
 from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 
 
@@ -370,13 +371,13 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 if __name__ == '__main__':
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/tfrecords_kepler_q1q17dr25_9-30-2024_1730_adddiffimg_perimgnormdiffimg')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_splinedetrending_11-4-2024_1121_data/tfrecords_tess_spoc_2min_s1-s67_splinedetrending_11-4-2024_1121')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
         'target_id': 'int',
         'tce_plnt_num': 'int',
-        # 'sector_run': 'str',  # COMMENT FOR KEPLER!!
+        'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
     }
     tfrec_tbls = []

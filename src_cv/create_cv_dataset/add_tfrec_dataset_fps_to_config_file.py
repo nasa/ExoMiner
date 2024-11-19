@@ -29,9 +29,9 @@ def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i):
 
             # set different validation set based on model id
             rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)
-            config['datasets_fps']['val'] = [rng.choice(config['datasets_fps']['train'])]
+            # config['datasets_fps']['val'] = [rng.choice(config['datasets_fps']['train'])]
             # choose 1 TESS train CV fold to be the validation set
-            # config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)])]
+            config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train'] if '_kepler' not in fp.stem])]
             # choose all TESS train CV folds to be the validation set
             # config['datasets_fps']['val'] = [fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)]
 
