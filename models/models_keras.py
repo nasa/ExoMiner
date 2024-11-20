@@ -938,8 +938,8 @@ class ExoMiner_JointLocalFlux(object):
         n_blocks = self.config[config_mapper['blocks']]
         kernel_size = (1, self.config[config_mapper['kernel_size']])
         pool_size = (1, self.config[config_mapper['pool_size']])
-        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'])
-        pool_stride = (self.config['pool_stride'], self.config['pool_stride'])
+        kernel_stride = (1, self.config['kernel_stride'])
+        pool_stride = (1, self.config['pool_stride'])
         init_conv_filters = self.config[config_mapper['init_conv_filters']]
         conv_ls_per_block = self.config[config_mapper['conv_ls_per_block']]
 
@@ -1449,14 +1449,14 @@ class ExoMiner_JointLocalFlux(object):
                               for branch_view_input in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
-        branch_view_inputs = tf.keras.layers.Permute((2, 3, 1, 4), name='permute_inputs')(branch_view_inputs)
+        # branch_view_inputs = tf.keras.layers.Permute((2, 3, 1, 4), name='permute_inputs')(branch_view_inputs)
 
         # get number of conv blocks, layers per block, and kernel and pool sizes for the branch
         n_blocks = self.config['num_diffimg_conv_blocks']
-        kernel_size = (self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'], 1)
-        pool_size = (self.config['pool_size_diffimg'], self.config['pool_size_diffimg'], 1)
-        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'], 1)
-        pool_stride = (self.config['pool_stride'], self.config['pool_stride'], 1)
+        kernel_size = (1, self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'])
+        pool_size = (1, self.config['pool_size_diffimg'], self.config['pool_size_diffimg'])
+        kernel_stride = (1, self.config['kernel_stride'], self.config['kernel_stride'])
+        pool_stride = (1, self.config['pool_stride'], self.config['pool_stride'])
         n_layers_per_block = self.config['diffimg_conv_ls_per_block']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
@@ -1511,30 +1511,37 @@ class ExoMiner_JointLocalFlux(object):
                                                                                        seq_conv_block_i))(net)
 
         # flatten output of the convolutional branch
-        net = tf.keras.layers.Permute((1, 2, 4, 3), name='permute_diff_imgs')(net)
-        net = tf.keras.layers.Reshape((np.prod(net.shape[1:-1].as_list()), net.shape[-1]),
+        # net = tf.keras.layers.Permute((2, 3, 4, 1), name='permute_diff_imgs')(net)
+        net = tf.keras.layers.Reshape((net.shape[1], np.prod(net.shape[2:].as_list())),
                                       name='flatten_diff_imgs')(net)
 
         # add per-image scalar features
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
 
-            scalar_inputs = [tf.keras.layers.Permute((2, 1),
-                                                     name=f'permute_{feature_name}')(self.inputs[feature_name])
+            # scalar_inputs = [tf.keras.layers.Permute((2, 1),
+            #                                          name=f'permute_{feature_name}')(self.inputs[feature_name])
+            #                  if 'pixel' not in feature_name else self.inputs[feature_name]
+            #                  for feature_name in self.config['diff_img_branch']['imgs_scalars']]
+            scalar_inputs = [self.inputs[feature_name]
                              if 'pixel' not in feature_name else self.inputs[feature_name]
                              for feature_name in self.config['diff_img_branch']['imgs_scalars']]
             if len(scalar_inputs) > 1:
-                scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
+                # scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
+                scalar_inputs = tf.keras.layers.Concatenate(axis=0, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
             else:
                 scalar_inputs = scalar_inputs[0]
 
             # concatenate per-image scalar features with extracted features from the difference images
-            net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
+            # net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
+            net = tf.keras.layers.Concatenate(axis=2, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
+
+        net = tf.expand_dims(net, axis=-1, name=f'expanding_flattend_diff_img')
 
         # compress features from image and scalar sector data into a set of features
-        net = tf.keras.layers.Conv1D(filters=self.config['num_fc_diff_units'],
-                                     kernel_size=net.shape[1:-1],
-                                     strides=1,
-                                     padding='same',
+        net = tf.keras.layers.Conv2D(filters=self.config['num_fc_diff_units'],
+                                     kernel_size=(1, net.shape[2]),
+                                     strides=(1, 1),
+                                     padding='valid',
                                      kernel_initializer=weight_initializer,
                                      dilation_rate=1,
                                      activation=None,
