@@ -10,7 +10,7 @@ optimizer: bohb  # types of hyperparameter optimizers available: 'random_search'
 # Hyperband parameters ----
 # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
 min_budget: 2  # 6  # budget in this case is number of epochs a given configuration is evaluated on
-max_budget: 10  # 50
+max_budget: 4  # 50
 n_iterations: 20
 eta: 2  # downsampling rate, must be greater or equal to 2
 # BOHB and BO parameters ----
@@ -427,7 +427,7 @@ metrics:
 
 datasets:  # datasets - same name convention as used for the TFRecords
   - train
-  - val
+#  - val
   - test
 
 plot_model: true

@@ -39,7 +39,7 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
     :param worker_id_custom: int, worker id
     :param config_id: int, configuration id
     :param config: dict, configuration parameters
-    :param verbose:
+    :param verbose: bool, verbose if set to True
     :return:
         res_eval: dict, results for the ensemble during evaluation in 'train', 'val', and 'test' datasets
     """
@@ -51,16 +51,15 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
         model_dir.mkdir(exist_ok=True)
 
         if verbose:
-            printstr = f'[worker_{worker_id_custom},config{config_id}] Started training model ' \
-                       f'{model_i + 1}({config["ensemble_n"]} models): using {config["training"]["n_epochs"]} epochs.'
-            print(printstr)
-            # sys.stdout.flush()
+            print(f'[worker_{worker_id_custom},config{config_id}] Started training model '
+                  f'{model_i + 1} (out of {config["ensemble_n"]} models): using {config["training"]["n_epochs"]} '
+                  f'epochs.')
 
-        # choose random fold from the training set to use as validation set for this model
         model_i_config = copy.deepcopy(config)
-        rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)
-        model_i_config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train']])]
-        model_i_config['datasets_fps']['train'].remove(model_i_config['datasets_fps']['val'][0])
+        # choose random fold from the training set to use as validation set for this model
+        # rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)
+        # model_i_config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train']])]
+        # model_i_config['datasets_fps']['train'].remove(model_i_config['datasets_fps']['val'][0])
         # train single model for this configuration
         train_model(model_i_config, model_dir, logger=None)
 
@@ -69,9 +68,8 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
                   and fp.is_dir()]
     if config['ensemble_n'] > 1:  # create ensemble model
         if verbose:
-            printstr = (f'[worker_{worker_id_custom},config{config_id}] Creating ensemble with {config["ensemble_n"]} '
-                        f'trained models.')
-            print(printstr)
+            print(f'[worker_{worker_id_custom},config{config_id}] Creating ensemble with {config["ensemble_n"]} '
+                  f'trained models.')
 
         ensemble_fp = config['paths']['config_models_dir'] / 'ensemble_avg_model.keras'
         create_avg_ensemble_model(models_fps, config['features_set'], ensemble_fp)
@@ -81,11 +79,10 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
 
     # evaluate model
     if verbose:
-        printstr = f'[worker_{worker_id_custom},config{config_id}] Started evaluating ensemble.'
-        print(printstr)
+        print(f'[worker_{worker_id_custom},config{config_id}] Started evaluating ensemble.')
     ensemble_model_config = copy.deepcopy(config)
-    # no evaluation on the validation set since each model in the ensemble gets a random training fold as validation set
-    ensemble_model_config['datasets'].remove('val')
+    # # no evaluation on the validation set since each model in the ensemble gets a random training fold as validation set
+    # ensemble_model_config['datasets'].remove('val')
     evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=None)
     res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
 
@@ -169,26 +166,21 @@ class TransitClassifier(Worker):
             # plots
             if run_config['draw_plots']:
                 # get results for all trained models
-                res_lst_models = {model_i_dir.name: np.load(model_i_dir / 'res_train.npy', allow_pickle=True).item()
-                                  for model_i_dir in run_config['paths']['config_models_dir'].iterdir()
-                                  if model_i_dir.is_dir() and model_i_dir.name.startswith('model_')}
-
-                res_models = {}
-                for metric_name in res_models['model_0']:
-                    res_models[metric_name] = [res_model_i[metric_name]
-                                               for model_i, res_model_i in res_lst_models.items()]
+                res_models = {model_i_dir.name: np.load(model_i_dir / 'res_train.npy', allow_pickle=True).item()
+                              for model_i_dir in run_config['paths']['config_models_dir'].iterdir()
+                              if model_i_dir.is_dir() and model_i_dir.name.startswith('model_')}
 
                 plot_fp = (run_config['paths']['config_dir'] /
-                           f'config{config_id}_budget{budget}epochs_loss_metric_curves.png')
+                           f'config{config_id}_budget_{budget}epochs_loss_metric_curves.png')
                 self.draw_plots_ensemble(res_ensemble, res_models, config_id, budget, plot_fp)
 
             # report HPO loss and additional metrics and loss
-            hpo_loss_val = res_ensemble[f'val_{run_config["hpo_loss"]}']
+            hpo_loss = res_ensemble[f'test_{self.hpo_loss}']
             # add metrics and loss
             info_dict = {metric: res_ensemble[metric] for metric in res_ensemble if
                          isinstance(res_ensemble[metric], float)}
 
-            res_hpo = {'loss': 1 - hpo_loss_val,  # HPO loss to be minimized
+            res_hpo = {'loss': 1 - hpo_loss,  # HPO loss to be minimized
                        'info': info_dict
                        }
 
@@ -196,11 +188,6 @@ class TransitClassifier(Worker):
             # with open(run_config['paths']['config_dir'] / 'run_config_exception.txt', "w") as excl_file:
             #     traceback.print_exception(error, file=excl_file)
             res_hpo = {'loss': np.inf, 'info': str(error)}
-
-        # sys.stdout.flush()
-
-        # delete single and ensemble models used to evaluate this configuration
-        delete_model_files(run_config['paths']['config_models_dir'])
 
         return res_hpo
 
@@ -225,42 +212,39 @@ class TransitClassifier(Worker):
 
         # plot loss and optimization metric as function of the epochs
         f, ax = plt.subplots(1, 2)
-        for training_loss_i in res_models['loss']:
-            ax[0].plot(epochs, training_loss_i, color='b', alpha=alpha)
-        ax[0].scatter(epochs[-1], res_ensemble['train_loss'], label='Training', color='b')
-        # for validation_loss_i in res_models['val_loss']['all scores']:
-        #     ax[0].plot(epochs, validation_loss_i, color='r', alpha=alpha)
-        ax[0].scatter(epochs[-1], res_ensemble['val_loss'], label='Validation', color='r')
-        # for test_loss_i in res_models['test_loss']['all scores']:
-        #     ax[0].scatter(epochs[-1], test_loss_i, c='k', alpha=alpha)
-        ax[0].scatter(epochs[-1], res_ensemble['test_loss'], c='k', label='Test')
+        for model_i, res_model_i in res_models.items():
+            ax[0].plot(epochs, res_model_i['loss'], color='b', alpha=alpha,
+                       label=None if model_i != 0 else 'Train Single Model')
+            # ax[0].plot(epochs, res_model_i['test_loss'], color='m', linestyle='dashed', alpha=alpha,
+            #            label=None if model_i != 0 else 'Test Single Model')
+        ax[0].scatter(epochs[-1], res_ensemble['train_loss'], label='Train Ensemble', color='r')
+        ax[0].scatter(epochs[-1], res_ensemble['test_loss'], c='k', label='Test Ensemble')
         ax[0].set_xlim([0, epochs[-1] + 1])
         # ax[0].set_ylim(bottom=0)
-        ax[0].set_xlabel('Epochs')
+        ax[0].set_xlabel('Epoch Number')
         ax[0].set_ylabel('Loss')
-        ax[0].set_title(f'Val/Test {res_ensemble["val_loss"]:.4f}/{res_ensemble["test_loss"]:.4f}')
+        ax[0].set_title(f'Train/Test {res_ensemble["train_loss"]:.4f}/{res_ensemble["test_loss"]:.4f}')
         ax[0].legend(loc="upper right")
         ax[0].grid(True)
 
-        for training_hpoloss_i in res_models[self.hpo_loss]:
-            ax[1].plot(epochs, training_hpoloss_i, color='b', alpha=alpha)
-        ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], label='Training', color='b')
-        # for validation_hpoloss_i in res_models[f'val_{self.hpo_loss}']['all scores']:
-        #     ax[1].plot(epochs, validation_hpoloss_i, color='r', alpha=alpha)
-        ax[1].scatter(epochs[-1], res_ensemble[f'val_{self.hpo_loss}'], label='Validation', color='r')
-        # for test_hpoloss_i in res_models[f'test_{self.hpo_loss}']['all scores']:
-        #     ax[1].scatter(epochs[-1], test_hpoloss_i, c='k', alpha=alpha)
-        ax[1].scatter(epochs[-1], res_ensemble[f'test_{self.hpo_loss}'], label='Test', c='k')
+        for model_i, res_model_i in res_models.items():
+            ax[1].plot(epochs, res_model_i[self.hpo_loss], color='b', alpha=alpha,
+                       label=None if model_i != 0 else 'Train Single Model')
+            # ax[1].plot(epochs, res_model_i[f'test_{self.hpo_loss}'], color='m', linestyle='dashed', alpha=alpha,
+            #            label=None if model_i != 0 else 'Test Single Model')
+        ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], label='Train Ensemble', color='r')
+        ax[1].scatter(epochs[-1], res_ensemble[f'test_{self.hpo_loss}'], label='Test Ensemble', c='k')
         ax[1].set_xlim([0, epochs[-1] + 1])
         # ax[1].set_ylim([0.0, 1.05])
         ax[1].grid(True)
-        ax[1].set_xlabel('Epochs')
+        ax[1].set_xlabel('Epoch Number')
         ax[1].set_ylabel(self.hpo_loss)
-        ax[1].set_title(f'{self.hpo_loss}\nVal/Test '
-                        f'{res_ensemble[f"val_{self.hpo_loss}"]:.4f}/{res_ensemble[f"test_{self.hpo_loss}"]:.4f}')
+        ax[1].set_title(f'Train/Test '
+                        f'{res_ensemble[f"train_{self.hpo_loss}"]:.4f}/{res_ensemble[f"test_{self.hpo_loss}"]:.4f}')
         ax[1].legend(loc="lower right")
         f.suptitle(f'Config {config_id} | Budget = {epochs[-1]}')
-        f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
+        f.tight_layout()
+        # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
         f.savefig(plot_fp)
         plt.close()
 

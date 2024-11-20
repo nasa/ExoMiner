@@ -1455,8 +1455,8 @@ class ExoMiner_JointLocalFlux(object):
         n_blocks = self.config['num_diffimg_conv_blocks']
         kernel_size = (self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'], 1)
         pool_size = (self.config['pool_size_diffimg'], self.config['pool_size_diffimg'], 1)
-        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'], self.config['kernel_stride'])
-        pool_stride = (self.config['pool_stride'], self.config['pool_stride'], self.config['pool_stride'])
+        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'], 1)
+        pool_stride = (self.config['pool_stride'], self.config['pool_stride'], 1)
         n_layers_per_block = self.config['diffimg_conv_ls_per_block']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
