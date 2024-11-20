@@ -25,9 +25,9 @@ N_GPUS_TOTAL=4
 
 # number of total jobs per job in job array
 # NUM_TOTAL_JOBS=$((1 * 4))
-NUM_TOTAL_JOBS=4
+NUM_TOTAL_JOBS=2
 # number of jobs run simultaneously
-NUM_JOBS_PARALLEL=4
+NUM_JOBS_PARALLEL=2
 
 # run with GNU parallel
 # run CV sh script

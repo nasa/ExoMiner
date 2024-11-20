@@ -21,14 +21,11 @@ from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
 from src_hpo.utils_hpo import analyze_results
 from utils.utils_dataio import is_yamlble
 
-logging.basicConfig(level=logging.WARNING)
 
-
-def run_main(hpo_config, logger=None):
+def run_main(hpo_config):
     """ Run HPO study.
 
     :param hpo_config: dict, HPO parameters
-    :param logger: logger
     :return:
     """
 
@@ -38,8 +35,8 @@ def run_main(hpo_config, logger=None):
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
         time.sleep(2 * hpo_config['worker_id'])
 
-        if logger is not None:
-            logger.info(f'Starting worker {hpo_config["worker_id"]}')
+        # if logger is not None:
+        #     logger.info(f'Starting worker {hpo_config["worker_id"]}')
         # printstr = "Starting worker %s" % worker_id
         # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
@@ -49,13 +46,21 @@ def run_main(hpo_config, logger=None):
         w.run(background=False)
         exit(0)
 
+    # set up logger
+    logger = logging.getLogger(name='hpo_main_run')
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
+                                                  f'hpo_main_worker_{config["worker_id"]}.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+
     # Start nameserver:
     name_server = hpns.NameServer(run_id=hpo_config['study'], host=host, port=0,
                                   working_directory=hpo_config['paths']['experiment_dir'])
     ns_host, ns_port = name_server.start()
 
-    if logger is not None:
-        logger.info(f'Starting worker {hpo_config["worker_id"]} on master node')
+    logger.info(f'Starting worker {hpo_config["worker_id"]} on master node')
     # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
     w = TransitClassifier(hpo_config, worker_id_custom=hpo_config['worker_id'], run_id=hpo_config['study'], host=host,
                           nameserver=ns_host, nameserver_port=ns_port)
@@ -68,15 +73,13 @@ def run_main(hpo_config, logger=None):
     # note that the search space has to be identical though!
     # directory must contain a config.json and results.json for the same configuration space.'
     if hpo_config['paths']['prev_run_dir'] is not None:
-        if logger is not None:
-            logger.info(f'Warm-start using results from HPO run in {hpo_config["paths"]["prev_run_dir"]}')
+        logger.info(f'Warm-start using results from HPO run in {hpo_config["paths"]["prev_run_dir"]}')
         previous_run = hpres.logged_results_to_HBS_result(hpo_config['paths']['prev_run_dir'])
     else:
         previous_run = None
 
     if hpo_config['optimizer'] == 'bohb':
-        if logger is not None:
-            logger.info(f'Starting BOHB/BO run')
+        logger.info(f'Starting BOHB/BO run')
         # instantiate BOHB or BO study
         hpo = BOHB(configspace=get_configspace(hpo_config['configuration_space']),
                    run_id=hpo_config['study'],
@@ -96,23 +99,20 @@ def run_main(hpo_config, logger=None):
         res = hpo.run(n_iterations=hpo_config['n_iterations'])
 
         # save kde parameters
-        if logger is not None:
-            logger.info(f'Saving KDE parameters')
-        if hpo_config['worker_id'] != 0:
-            kde_models_bdgt = hpo.config_generator.kde_models
-            kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
-            for bdgt in kde_models_bdgt:
-                for est in kde_models_bdgt[bdgt]:
-                    kde_models_bdgt_params[bdgt][est] = [kde_models_bdgt[bdgt][est].data,
-                                                         kde_models_bdgt[bdgt][est].data_type,
-                                                         kde_models_bdgt[bdgt][est].bw]
-            kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
+        logger.info(f'Saving KDE parameters')
+        kde_models_bdgt = hpo.config_generator.kde_models
+        kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
+        for bdgt in kde_models_bdgt:
+            for est in kde_models_bdgt[bdgt]:
+                kde_models_bdgt_params[bdgt][est] = [kde_models_bdgt[bdgt][est].data,
+                                                     kde_models_bdgt[bdgt][est].data_type,
+                                                     kde_models_bdgt[bdgt][est].bw]
+        kde_models_bdgt_params['hyperparameters'] = list(hpo.config_generator.configspace._hyperparameters.keys())
 
-            np.save(hpo_config['paths']['experiment_dir'] / 'kde_models_params.npy', kde_models_bdgt_params)
+        np.save(hpo_config['paths']['experiment_dir'] / 'kde_models_params.npy', kde_models_bdgt_params)
 
     else:  # run random search
-        if logger is not None:
-            logger.info(f'Starting random search')
+        logger.info(f'Starting random search')
         hpo = RandomSearch(configspace=get_configspace(hpo_config['configuration_space']),
                            run_id=hpo_config['study'],
                            host=host,
@@ -126,14 +126,12 @@ def run_main(hpo_config, logger=None):
         res = hpo.run(n_iterations=hpo_config['n_iterations'])
 
     # shutdown
-    if logger is not None:
-        logger.info(f'Shutting down workers')
+    logger.info(f'Shutting down workers')
     hpo.shutdown(shutdown_workers=True)
     name_server.shutdown()
 
     # analyse and save results
-    if logger is not None:
-        logger.info(f'Analyzing results from HPO run')
+    logger.info(f'Analyzing results from HPO run')
     analyze_results(res, hpo_config)
 
 
@@ -165,15 +163,6 @@ if __name__ == '__main__':
         if path_str is not None:
             config['paths'][path_name] = Path(path_str)
 
-    # set up logger
-    logger = logging.getLogger(name='hpo_run')
-    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
-                                                  f'hpo_run_worker_{config["worker_id"]}.log', mode='w')
-    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
-    logger.setLevel(logging.INFO)
-    logger_handler.setFormatter(logger_formatter)
-    logger.addHandler(logger_handler)
-
     # set HPO run name
     config['study'] = config['paths']['experiment_dir'].name
 
@@ -190,4 +179,4 @@ if __name__ == '__main__':
         with open(config['paths']['experiment_dir'] / 'hpo_run_config.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file, sort_keys=False)
 
-    run_main(config, logger)
+    run_main(config)

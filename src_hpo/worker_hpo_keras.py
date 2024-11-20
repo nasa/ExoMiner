@@ -9,6 +9,7 @@ import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
 import matplotlib.pyplot as plt
 import copy
+import logging
 # import traceback
 
 # local
@@ -31,7 +32,7 @@ def delete_model_files(model_dir):
     # model_dir.rmdir()
 
 
-def evaluate_config(worker_id_custom, config_id, config, verbose):
+def evaluate_config(worker_id_custom, config_id, config, verbose, logger):
     """ Evaluate a sampled configuration by first training a model (or a set of models) and then conducting evaluation.
     In the case of `ensemble_n` > 1, a set of `ensemble_n` models are trained and then the metrics are reported for the
     average score ensemble.
@@ -40,6 +41,7 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
     :param config_id: int, configuration id
     :param config: dict, configuration parameters
     :param verbose: bool, verbose if set to True
+    :param logger: logger
     :return:
         res_eval: dict, results for the ensemble during evaluation in 'train', 'val', and 'test' datasets
     """
@@ -51,9 +53,9 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
         model_dir.mkdir(exist_ok=True)
 
         if verbose:
-            print(f'[worker_{worker_id_custom},config{config_id}] Started training model '
-                  f'{model_i + 1} (out of {config["ensemble_n"]} models): using {config["training"]["n_epochs"]} '
-                  f'epochs.')
+            logger.info(f'[worker_{worker_id_custom},config{config_id}] Started training model '
+                        f'{model_i + 1} (out of {config["ensemble_n"]} models): using {config["training"]["n_epochs"]} '
+                        f'epochs.')
 
         model_i_config = copy.deepcopy(config)
         # choose random fold from the training set to use as validation set for this model
@@ -61,15 +63,15 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
         # model_i_config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train']])]
         # model_i_config['datasets_fps']['train'].remove(model_i_config['datasets_fps']['val'][0])
         # train single model for this configuration
-        train_model(model_i_config, model_dir, logger=None)
+        train_model(model_i_config, model_dir, logger=logger)
 
     models_fps = [fp / 'model.keras'
                   for fp in config['paths']['config_models_dir'].iterdir() if fp.stem.startswith('model_')
                   and fp.is_dir()]
     if config['ensemble_n'] > 1:  # create ensemble model
         if verbose:
-            print(f'[worker_{worker_id_custom},config{config_id}] Creating ensemble with {config["ensemble_n"]} '
-                  f'trained models.')
+            logger.info(f'[worker_{worker_id_custom},config{config_id}] Creating ensemble with {config["ensemble_n"]} '
+                        f'trained models.')
 
         ensemble_fp = config['paths']['config_models_dir'] / 'ensemble_avg_model.keras'
         create_avg_ensemble_model(models_fps, config['features_set'], ensemble_fp)
@@ -79,11 +81,11 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
 
     # evaluate model
     if verbose:
-        print(f'[worker_{worker_id_custom},config{config_id}] Started evaluating ensemble.')
+        logger.info(f'[worker_{worker_id_custom},config{config_id}] Started evaluating ensemble.')
     ensemble_model_config = copy.deepcopy(config)
     # # no evaluation on the validation set since each model in the ensemble gets a random training fold as validation set
     # ensemble_model_config['datasets'].remove('val')
-    evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=None)
+    evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=logger)
     res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
 
     for metric_name, metric_val in res_eval.items():
@@ -92,9 +94,6 @@ def evaluate_config(worker_id_custom, config_id, config, verbose):
             res_eval[metric_name] = metric_val[-1]
         else:
             res_eval[metric_name] = metric_val
-
-    # delete trained models and ensemble
-    delete_model_files(config['paths']['config_models_dir'])
 
     return res_eval
 
@@ -155,13 +154,27 @@ class TransitClassifier(Worker):
         budget = int(budget)
         run_config['training']['n_epochs'] = int(budget)  # set budget for this config
 
+        # create logger for this config run
+        logger = logging.getLogger(name='config_budget_log')
+        logger_handler = logging.FileHandler(filename=run_config['paths']['config_dir'] /
+                                                      f'config_run_budget{budget}.log', mode='w')
+        logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+        logger.setLevel(logging.INFO)
+        logger_handler.setFormatter(logger_formatter)
+        logger.addHandler(logger_handler)
+
+        logger.info('Started evaluating configuration on budget...')
+
         try:
             res_ensemble = evaluate_config(
                 self.worker_id_custom,
                 config_id,
                 run_config,
                 run_config['verbose'],
+                logger
             )
+
+            logger.info('Finished evaluating configuration on budget. Creating plots with results...')
 
             # plots
             if run_config['draw_plots']:
@@ -173,6 +186,8 @@ class TransitClassifier(Worker):
                 plot_fp = (run_config['paths']['config_dir'] /
                            f'config{config_id}_budget_{budget}epochs_loss_metric_curves.png')
                 self.draw_plots_ensemble(res_ensemble, res_models, config_id, budget, plot_fp)
+
+            logger.info('Setting HPO loss and metrics...')
 
             # report HPO loss and additional metrics and loss
             hpo_loss = res_ensemble[f'test_{self.hpo_loss}']
@@ -187,7 +202,14 @@ class TransitClassifier(Worker):
         except Exception as error:  # return infinite HPO loss if there is any error during configuration evaluation
             # with open(run_config['paths']['config_dir'] / 'run_config_exception.txt', "w") as excl_file:
             #     traceback.print_exception(error, file=excl_file)
+            logger.info('Error when evaluating configuration on budget. Set HPO loss to infinity.')
             res_hpo = {'loss': np.inf, 'info': str(error)}
+
+        # delete trained models and ensemble
+        logger.info('Deleting model Keras files.')
+        delete_model_files(run_config['paths']['config_models_dir'])
+
+        logger.info('Work for this configuration on this budget has been finished. Returning results to HPO.')
 
         return res_hpo
 
