@@ -1,17 +1,18 @@
-ngpus_per_node: 4  # number of GPUs per node
-rank: null
-
+worker_id: null
+rnd_seed: 42
 paths:
-  experiment_dir: /nobackup/cyates2/experiments/hpo/hpo_exp/hpo_merged_unfolded_7-5-2023
-  tfrec_dir: /nobackup/cyates2/data/cvs/updt_diffimg_centr_2-8-2023/tfrecords/norm_data
+  experiment_dir: null
+  # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
+  datasets_fps: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval_normalized/cv_iterations.yaml
   prev_run_dir: null  # warm-up from previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
+# Hyperband parameters ----
 # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
-min_budget: 6  # 6  # budget in this case is number of epochs a given configuration is evaluated on
-max_budget: 50  # 50
-n_iterations: 400
-eta: 2  # down-sampling rate, must be greater or equal to 2, hyperband parameter; check [1]
+min_budget: 2  # 6  # budget in this case is number of epochs a given configuration is evaluated on
+max_budget: 10  # 50
+n_iterations: 20
+eta: 2  # downsampling rate, must be greater or equal to 2
 # BOHB and BO parameters ----
 bohb_params:
   top_n_percent: 15
@@ -22,8 +23,10 @@ bohb_params:
 hpo_loss: auc_pr  # metric used to evaluate the performance of a given configuration on the validation set
 # number of models trained per configuration evaluated on a given budget
 # used to decrease the variability due to random weights initialization
-ensemble_n: 3
+ensemble_n: 2
 nic_name: ib0  # 'ib0' (infiniband, use in the HECC cluster), 'lo' (local on Linux systems); 'en0' (local on MacOS)
+
+draw_plots: true  # draw loss and metric curves for trained models
 
 # set general architecture of the model based on implementations under models.models_keras.py
 model_architecture: ExoMiner_JointLocalFlux
@@ -38,7 +41,8 @@ config:
       views:
         - unfolded_local_flux_view_fluxnorm
       scalars:   # null
-        - tce_num_transits_obs_norm
+#        - tce_num_transits_obs_norm
+        - tce_num_transits_norm
         # - mission
 
     global_flux:
@@ -136,7 +140,6 @@ config:
       - tce_hap_stat_norm
       ##      - tce_cap_hap_stat_diff_norm
       ##      - tce_rb_tcount0n_norm  # kepler only
-      ##      - tce_prad_norm
       - tce_period_norm
       - tce_max_mult_ev_norm
       - tce_max_sngle_ev_norm
@@ -216,7 +219,7 @@ config:
   # optimization hyperparameters ------
   optimizer: 'Adam'
   #  'lr': 1.0e-5
-  #  'batch_size': 64
+#  batch_size: 64  # used in field training; deprecated
   force_softmax: false
   #  use_kepler_ce: false
 
@@ -249,8 +252,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 #  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
-#  tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
+#  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # flux
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -375,30 +378,33 @@ training:
 #    PC: 1.0
 #    AFP: 1.0
 #    NTP: 1.0
-  shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 26000  # should be larger than size of the training set to allow perfect sampling
+
+label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
 evaluation:
   batch_size: 32
 inference:
   batch_size: 32
 
-callbacks: null
-#  early_stopping:
-#    monitor: val_auc_pr  # which metric to monitor for early stopping
-#    min_delta: 0
-#    patience: 20
-#    verbose: 1
-#    mode: max  # maximize/minimize monitored metric in early stopping
-#    baseline: null
-#    restore_best_weights: true
-#  tensorboard:
-#    histogram_freq: 1
-#    write_graph: true
-#    write_images: false
-#    update_freq: epoch
-#    profile_batch: 2
-#    embeddings_metadata: null
-#    embeddings_freq: 0
+callbacks:
+  train: null
+#    early_stopping: null
+#      monitor: val_auc_pr  # which metric to monitor for early stopping
+#      min_delta: 0
+#      patience: 20
+#      verbose: 1
+#      mode: max  # maximize/minimize monitored metric in early stopping
+#      baseline: null
+#      restore_best_weights: true
+#    tensorboard: null
+#      histogram_freq: 1
+#      write_graph: true
+#      write_images: false
+#      update_freq: epoch
+#      profile_batch: 2
+#      embeddings_metadata: null
+#      embeddings_freq: 0
 
 label_map:
   # Kepler
@@ -582,6 +588,9 @@ configuration_space:
     pool_size_diffimg:
       type: categorical
       parameters: [ 2, 4, 8, 16 ]
+    num_fc_diff_units:
+      type: categorical
+      parameters: [ 4, 8, 16 ]
 
     # shared conv hyperparameters ----
     dropout_rate_fc_conv:
@@ -595,8 +604,8 @@ configuration_space:
       type: uniform_integer
       parameters:
         lower: 1
-        upper: 4
-        default_value: 4
+        upper: 8
+        default_value: 8
 
     # fc block hyperparameters --------
     num_fc_layers:
@@ -617,9 +626,9 @@ configuration_space:
         log: true
 
 
-  conditions: # {}  # replace by empty dictionary `{}` if not using any condition
-    sgd_momentum:
-      type: equal
-      child: sgd_momentum
-      parent: optimizer
-      value: SGD
+  conditions: {}  # replace by empty dictionary `{}` if not using any condition
+#    sgd_momentum:
+#      type: equal
+#      child: sgd_momentum
+#      parent: optimizer
+#      value: SGD

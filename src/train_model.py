@@ -20,6 +20,14 @@ from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 
 def train_model(config, model_dir, logger=None):
+    """ Train a model.
+
+    :param config: dict, training run parameters
+    :param model_dir: Path, directory used to save the trained model
+    :param logger: logger
+
+    :return:
+    """
 
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
@@ -83,12 +91,19 @@ def train_model(config, model_dir, logger=None):
     else:
         val_input_fn = None
 
-    # early stopping callback
-    config['callbacks_list'] = {
-        'train': [
-            callbacks.EarlyStopping(**config['callbacks']['early_stopping']),
-                  ],
-    }
+    # set train callbacks
+    config['callbacks_list'] = {'train': None}
+    if config['callbacks']['train'] is not None:
+        config['callbacks_list']['train'] = []
+        for callback_name, callback_params in config['callbacks']['train'].items():
+            if callback_name == 'early_stopping':  # early stopping callback
+                config['callbacks_list']['train'].append(
+                    callbacks.EarlyStopping(**config['callbacks']['early_stopping']))
+            else:
+                if logger is None:
+                    print(f'Callback {callback_name} not implemented for training. Skipping this callback.')
+                else:
+                    logger.info(f'Callback {callback_name} not implemented for training. Skipping this callback.')
 
     # fit the model to the training data
     if logger is None:

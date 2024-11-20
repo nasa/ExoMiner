@@ -3,21 +3,32 @@
 #PBS -S /bin/bash
 #PBS -N hpo_exoplanet
 #PBS -l walltime=72:00:00
-#PBS -l select=4:model=sky_gpu:ngpus=2:mpiprocs=2:ncpus=2:mem=50g
-#PBS -l place=vscatter:excl
+#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
+# place the chunk wherever it is possible for the requested resources; share resources with other people
+#PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_hpo_mgpus.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_hpo_mgpus.err
 #PBS -W group_list=a1509
 #PBS -m bea
 
-module list
+# config file path
+CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/config_hpo.yaml
+# job script for running the Python application
+RUN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/run_hpo_worker.sh
+# output directory
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/test_hpo_kepler_11-19-2024_1613
+mkdir -p $OUTPUT_DIR
 
-source ~/.bashrc
+# number of GPUs per node
+N_GPUS_TOTAL=4
 
-# source activate /home6/msaragoc/work_dir/tools/python_envs/exoplnt_dl
-source activate exoplnt_dl
+# number of total jobs per job in job array
+# NUM_TOTAL_JOBS=$((1 * 4))
+NUM_TOTAL_JOBS=4
+# number of jobs run simultaneously
+NUM_JOBS_PARALLEL=4
 
-cd /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
-
-mpiexec python src_hpo/hpo_keras.py  &>  /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo.txt
+# run with GNU parallel
+# run CV sh script
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"

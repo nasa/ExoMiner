@@ -6,17 +6,9 @@ arXiv preprint arXiv:1807.01774 (2018).
 """
 
 # 3rd party
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import tensorflow as tf
 import time
-from mpi4py import MPI
 import numpy as np
 import logging
-logging.basicConfig(level=logging.WARNING)
 from pathlib import Path
 import yaml
 import hpbandster.core.nameserver as hpns
@@ -25,10 +17,11 @@ import hpbandster.core.result as hpres
 import argparse
 
 # local
-from models.models_keras import Astronet, Exonet, TransformerExoMiner, ExoMiner, UnfoldedConvExoMiner
 from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
-from src_hpo.utils_hpo import analyze_results, json_result_logger, check_run_id
+from src_hpo.utils_hpo import analyze_results
 from utils.utils_dataio import is_yamlble
+
+logging.basicConfig(level=logging.WARNING)
 
 
 def run_main(hpo_config, logger=None):
@@ -39,22 +32,19 @@ def run_main(hpo_config, logger=None):
     :return:
     """
 
-    # # for each rank, create a folder to save temporarily the models created for a given run
-    # hpo_config['model_dir_rank'] = hpo_config['paths']['experiment_dir'] / f'models_rank{hpo_config["rank"]}'
-    # hpo_config['model_dir_rank'].mkdir(exist_ok=True)
-
     host = hpns.nic_name_to_host(hpo_config['nic_name'])
 
-    if hpo_config['rank'] != 0:  # workers go here
+    if hpo_config['worker_id'] != 0:  # workers go here
         # short artificial delay to make sure the nameserver is already running and current run_id is instantiated
-        time.sleep(2 * hpo_config['rank'])
+        time.sleep(2 * hpo_config['worker_id'])
 
         if logger is not None:
-            logger.info(f'Starting worker {hpo_config["rank"]}')
-        # printstr = "Starting worker %s" % rank
+            logger.info(f'Starting worker {hpo_config["worker_id"]}')
+        # printstr = "Starting worker %s" % worker_id
         # print('\n\x1b[0;33;33m' + printstr + '\x1b[0m\n')
 
-        w = TransitClassifier(hpo_config, worker_id_custom=hpo_config['rank'], run_id=hpo_config['study'], host=host)
+        w = TransitClassifier(hpo_config, worker_id_custom=hpo_config['worker_id'], run_id=hpo_config['study'],
+                              host=host)
         w.load_nameserver_credentials(working_directory=hpo_config['paths']['experiment_dir'])
         w.run(background=False)
         exit(0)
@@ -65,9 +55,9 @@ def run_main(hpo_config, logger=None):
     ns_host, ns_port = name_server.start()
 
     if logger is not None:
-        logger.info(f'Starting worker {hpo_config["rank"]} on master node')
+        logger.info(f'Starting worker {hpo_config["worker_id"]} on master node')
     # start worker on master node  ~optimizer is inexpensive, so can afford to run worker alongside optimizer
-    w = TransitClassifier(hpo_config, worker_id_custom=hpo_config['rank'], run_id=hpo_config['study'], host=host,
+    w = TransitClassifier(hpo_config, worker_id_custom=hpo_config['worker_id'], run_id=hpo_config['study'], host=host,
                           nameserver=ns_host, nameserver_port=ns_port)
     w.run(background=True)
 
@@ -108,7 +98,7 @@ def run_main(hpo_config, logger=None):
         # save kde parameters
         if logger is not None:
             logger.info(f'Saving KDE parameters')
-        if hpo_config['rank'] != 0:
+        if hpo_config['worker_id'] != 0:
             kde_models_bdgt = hpo.config_generator.kde_models
             kde_models_bdgt_params = {bdgt: dict() for bdgt in kde_models_bdgt}
             for bdgt in kde_models_bdgt:
@@ -150,88 +140,48 @@ def run_main(hpo_config, logger=None):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--worker_id', type=int, help='Worker ID.',
+                        default=0)
     parser.add_argument('--config_file', type=str, help='File path to YAML configuration file.',
                         default='/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/config_hpo.yaml')
+    parser.add_argument('--output_dir', type=str, help='File path to HPO run directory.',
+                        default=None)
+
     args = parser.parse_args()
 
-    with(open(args.config_file, 'r')) as file:
+    # load HPO running parameters from configuration yaml file
+    with open(args.config_file, 'r') as file:
         config = yaml.safe_load(file)
 
-    for path_name, path_str in config['paths'].items():  # converting paths from string to Path
+    # set worker id
+    config['worker_id'] = args.worker_id
+
+    # set output directory
+    if args.output_dir is not None:
+        config['paths']['experiment_dir'] = args.output_dir
+
+    # convert paths to Path objects
+    for path_name, path_str in config['paths'].items():
         if path_str is not None:
             config['paths'][path_name] = Path(path_str)
 
-    if config['rank'] == 0 or config['rank'] is None:
-        config['paths']['experiment_dir'].mkdir(exist_ok=True)
-
     # set up logger
     logger = logging.getLogger(name='hpo_run')
-    logger_handler = logging.FileHandler(
-        filename=config['paths']['experiment_dir'] /
-                 f'hpo_run_{config["rank"]}.log' if config['rank'] is not None
-        else config['paths']['experiment_dir'] / 'hpo_run.log',
-        mode='w')
+    logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
+                                                  f'hpo_run_worker_{config["worker_id"]}.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
 
-    config['rank'] = MPI.COMM_WORLD.rank
-    config['size'] = MPI.COMM_WORLD.size
-    logger.info(f'Rank (size) = {config["rank"]} ({config["size"]})')
-
-    if config['rank'] == 0:
-        logger.info(f'Starting run {config["paths"]["experiment_dir"].name}...')
-
-    if config['rank'] != 0:
-        time.sleep(20)
-
-    try:
-        logger.info(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
-        logger.info(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
-    except:
-        logger.info(f'[rank_{config["rank"]}] No CUDA environment variables exist.')
-
-    # n_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(','))  # number of GPUs visible to the process
-    if config["rank"] == 0:
-        logger.info(f'Number of GPUs selected per node = {config["ngpus_per_node"]}')
-    config['gpu_id'] = config["rank"] % config['ngpus_per_node']
-    logger.info(f'GPU ID: {config["gpu_id"]}')
-
-    # setting GPU
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(config['gpu_id'])  # "0, 1"
-
-    logger.info(f'[rank_{config["rank"]}] CUDA DEVICE ORDER: {os.environ["CUDA_DEVICE_ORDER"]}')
-    logger.info(f'[rank_{config["rank"]}] CUDA VISIBLE DEVICES: {os.environ["CUDA_VISIBLE_DEVICES"]}')
-
-    # features set
-    for feature_name, feature in config['features_set'].items():
-        if feature['dtype'] == 'float':
-            config['features_set'][feature_name]['dtype'] = tf.float32
-        elif feature['dtype'] == 'int':
-            config['features_set'][feature_name]['dtype'] = tf.int64
-        elif feature['dtype'] == 'str':
-            config['features_set'][feature_name]['dtype'] = tf.string
-
-    # add callback parameters
-    config['callbacks_list'] = {'train': None}
-
-    # select base model architecture
-    config['base_model'] = UnfoldedConvExoMiner
-
     # set HPO run name
     config['study'] = config['paths']['experiment_dir'].name
 
-    # set TFRecords for training, validation, and test
-    config['datasets_fps'] = {
-        'train': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('train')],
-        'val': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('val')],
-        'test': [fp for fp in config['paths']['tfrec_dir'].iterdir() if fp.name.startswith('test')],
-    }
+    # set TFRecords for training, validation, and test from yaml file
+    with open(config['paths']['datasets_fps'],  'r') as file:
+        config['datasets_fps'] = yaml.unsafe_load(file)[0]
 
-    if config['rank'] == 0:
-        # (config['paths']['experiment_dir'] / 'logs').mkdir(exist_ok=True)
+    if config['worker_id'] == 0:
 
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)
 

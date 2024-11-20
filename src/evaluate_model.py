@@ -21,6 +21,15 @@ from src.utils_train_eval_predict import write_performance_metrics_to_txt_file, 
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):
+    """ Evaluate a model.
+
+    :param config: dict, training run parameters
+    :param model_path: Path, file path to trained model
+    :param res_dir: Path, output directory
+    :param logger: logger
+
+    :return:
+    """
 
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
@@ -40,12 +49,12 @@ def evaluate_model(config, model_path, res_dir, logger=None):
     # plot model and save the figure
     if config['plot_model']:
         plot_model(model,
-                               to_file=res_dir / 'model.png',
-                               show_shapes=False,
-                               show_layer_names=True,
-                               rankdir='TB',
-                               expand_nested=False,
-                               dpi=96)
+                   to_file=res_dir / 'model.png',
+                   show_shapes=False,
+                   show_layer_names=True,
+                   rankdir='TB',
+                   expand_nested=False,
+                   dpi=96)
 
     # set up metrics to be monitored
     if not config['config']['multi_class']:

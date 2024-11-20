@@ -936,8 +936,10 @@ class ExoMiner_JointLocalFlux(object):
 
         # get init parameters for given view
         n_blocks = self.config[config_mapper['blocks']]
-        kernel_size = self.config[config_mapper['kernel_size']]
-        pool_size = self.config[config_mapper['pool_size']]
+        kernel_size = (1, self.config[config_mapper['kernel_size']])
+        pool_size = (1, self.config[config_mapper['pool_size']])
+        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'])
+        pool_stride = (self.config['pool_stride'], self.config['pool_stride'])
         init_conv_filters = self.config[config_mapper['init_conv_filters']]
         conv_ls_per_block = self.config[config_mapper['conv_ls_per_block']]
 
@@ -949,12 +951,15 @@ class ExoMiner_JointLocalFlux(object):
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
                            'kernel_size': kernel_size,
-                           'strides': self.config['kernel_stride'],
+                           'strides': kernel_stride,
                            'padding': 'same'
+                           }
+            pool_kwargs = {'pool_size': pool_size,
+                           'strides': pool_stride
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional layers for the block
-                net = tf.keras.layers.Conv1D(dilation_rate=1,
+                net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
                                              bias_initializer='zeros',
@@ -982,8 +987,7 @@ class ExoMiner_JointLocalFlux(object):
                                                 name='prelu{}_{}_{}'.format(branch, conv_block_i,
                                                                             seq_conv_block_i))(net)
 
-            net = tf.keras.layers.MaxPooling2D(pool_size=(1, pool_size),
-                                               strides=(1, self.config['pool_stride']),
+            net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
                                                name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
 
         # split layer in preparation to avg/min/max
@@ -1122,6 +1126,8 @@ class ExoMiner_JointLocalFlux(object):
             n_blocks = self.config[config_mapper['blocks'][branch]]
             kernel_size = self.config[config_mapper['kernel_size'][branch]]
             pool_size = self.config[config_mapper['pool_size'][branch]]
+            kernel_stride = self.config['kernel_stride']
+            pool_stride = self.config['pool_stride']
             conv_ls_per_block = self.config[config_mapper['conv_ls_per_block'][branch]]
             init_conv_filters = self.config[config_mapper['init_conv_filters'][branch]]
 
@@ -1134,9 +1140,13 @@ class ExoMiner_JointLocalFlux(object):
                 conv_kwargs = {'filters': num_filters,
                                'kernel_initializer': weight_initializer,
                                'kernel_size': kernel_size,
-                               'strides': self.config['kernel_stride'],
+                               'strides': kernel_stride,
                                'padding': 'same'
                                }
+                pool_kwargs = {
+                    'pool_size': pool_size,
+                    'strides': pool_stride
+                }
 
                 for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
                     net = tf.keras.layers.Conv1D(dilation_rate=1,
@@ -1169,8 +1179,7 @@ class ExoMiner_JointLocalFlux(object):
                                                     name='prelu{}_{}_{}'.format(branch, conv_block_i,
                                                                                 seq_conv_block_i))(net)
 
-                net = tf.keras.layers.MaxPooling1D(pool_size=pool_size,
-                                                   strides=self.config['pool_stride'],
+                net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
                                                    name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
 
             # flatten output of the convolutional branch
@@ -1297,8 +1306,10 @@ class ExoMiner_JointLocalFlux(object):
         # convolve inputs with convolutional blocks
         # get init parameters for the given view
         n_blocks = self.config[config_mapper['blocks']['local_view']]
-        kernel_size = self.config[config_mapper['kernel_size']['local_view']]
-        pool_size = self.config[config_mapper['pool_size']['local_view']]
+        kernel_size = (1, self.config[config_mapper['kernel_size']['local_view']])
+        pool_size = (1, self.config[config_mapper['pool_size']['local_view']])
+        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'])
+        pool_stride = (self.config['pool_stride'], self.config['pool_stride'])
         conv_ls_per_block = self.config[config_mapper['conv_ls_per_block']['local_view']]
         init_conv_filters = self.config[config_mapper['init_conv_filters']['local_view']]
 
@@ -1309,10 +1320,14 @@ class ExoMiner_JointLocalFlux(object):
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
-                           'kernel_size': (1, kernel_size),
-                           'strides': (1, self.config['kernel_stride']),
+                           'kernel_size': kernel_size,
+                           'strides': kernel_stride,
                            'padding': 'same'
                            }
+            pool_kwargs = {
+                'pool_size': pool_size,
+                'strides': pool_stride
+            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
@@ -1344,8 +1359,7 @@ class ExoMiner_JointLocalFlux(object):
                                                 name='prelu_{}_{}'.format(conv_block_i,
                                                                           seq_conv_block_i))(net)
 
-            net = tf.keras.layers.MaxPooling2D(pool_size=(1, pool_size),
-                                               strides=(1, self.config['pool_stride']),
+            net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
                                                name='maxpooling_{}'.format(conv_block_i))(net)
 
         # split up extracted features for each local transit view (flux, secondary, and odd-even)
@@ -1439,8 +1453,10 @@ class ExoMiner_JointLocalFlux(object):
 
         # get number of conv blocks, layers per block, and kernel and pool sizes for the branch
         n_blocks = self.config['num_diffimg_conv_blocks']
-        kernel_size = self.config['kernel_size_diffimg']
-        pool_size = self.config['pool_size_diffimg']
+        kernel_size = (self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'], 1)
+        pool_size = (self.config['pool_size_diffimg'], self.config['pool_size_diffimg'], 1)
+        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'], self.config['kernel_stride'])
+        pool_stride = (self.config['pool_stride'], self.config['pool_stride'], self.config['pool_stride'])
         n_layers_per_block = self.config['diffimg_conv_ls_per_block']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
@@ -1451,9 +1467,13 @@ class ExoMiner_JointLocalFlux(object):
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
                            'kernel_size': kernel_size,
-                           # 'strides': (1, 1, 1),
+                           'strides': kernel_stride,
                            'padding': 'same'
                            }
+            pool_kwargs = {
+                'pool_size': pool_size,
+                'strides': pool_stride
+            }
 
             for seq_conv_block_i in range(n_layers_per_block):  # create convolutional block
 
@@ -1486,8 +1506,7 @@ class ExoMiner_JointLocalFlux(object):
                                                 name='preludiff_img_{}_{}'.format(conv_block_i,
                                                                                   seq_conv_block_i))(net)
 
-            net = tf.keras.layers.MaxPooling3D(pool_size=pool_size,
-                                               strides=self.config['pool_stride'],
+            net = tf.keras.layers.MaxPooling3D(**pool_kwargs,
                                                name='maxpooling_diff_img_{}_{}'.format(conv_block_i,
                                                                                        seq_conv_block_i))(net)
 
@@ -1515,7 +1534,7 @@ class ExoMiner_JointLocalFlux(object):
         net = tf.keras.layers.Conv1D(filters=self.config['num_fc_diff_units'],
                                      kernel_size=net.shape[1:-1],
                                      strides=1,
-                                     padding='valid',
+                                     padding='same',
                                      kernel_initializer=weight_initializer,
                                      dilation_rate=1,
                                      activation=None,

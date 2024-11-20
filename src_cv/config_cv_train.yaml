@@ -350,13 +350,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # difference image
   diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-<<<<<<< HEAD
 #   diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-=======
-#   diff_imgs_stdnorm: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#   oot_imgs_stdnorm: { 'dim': [ 33, 33, 5 ], 'dtype': float }
->>>>>>> 62fdb32 (- CV: in add_tfrec_dataset_fps_to_config_file.py, fixed bug in `add_tfrec_dataset_fps_to_config_file()` that was not filtering kepler folds as intended when randomly choosing a fold as validation set from the training set.)
+
   target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   quality: { 'dim': [ 5, 1], 'dtype': float }
   #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
