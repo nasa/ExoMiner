@@ -10,6 +10,8 @@ from hpbandster.core.worker import Worker
 import matplotlib.pyplot as plt
 import copy
 import logging
+import shutil
+import multiprocessing
 # import traceback
 
 # local
@@ -32,7 +34,7 @@ def delete_model_files(model_dir):
     # model_dir.rmdir()
 
 
-def evaluate_config(worker_id_custom, config_id, config, verbose, logger):
+def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logger):
     """ Evaluate a sampled configuration by first training a model (or a set of models) and then conducting evaluation.
     In the case of `ensemble_n` > 1, a set of `ensemble_n` models are trained and then the metrics are reported for the
     average score ensemble.
@@ -43,7 +45,7 @@ def evaluate_config(worker_id_custom, config_id, config, verbose, logger):
     :param verbose: bool, verbose if set to True
     :param logger: logger
     :return:
-        res_eval: dict, results for the ensemble during evaluation in 'train', 'val', and 'test' datasets
+        # res_eval: dict, results for the ensemble during evaluation in 'train', 'val', and 'test' datasets
     """
 
     for model_i in range(config['ensemble_n']):  # train and evaluate an ensemble of `ensemble_n` models
@@ -86,16 +88,55 @@ def evaluate_config(worker_id_custom, config_id, config, verbose, logger):
     # # no evaluation on the validation set since each model in the ensemble gets a random training fold as validation set
     # ensemble_model_config['datasets'].remove('val')
     evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=logger)
-    res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
+    # res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
 
-    for metric_name, metric_val in res_eval.items():
 
-        if isinstance(metric_val, list):
-            res_eval[metric_name] = metric_val[-1]
-        else:
-            res_eval[metric_name] = metric_val
+def wrapper_evaluate_config_on_budget(worker_id, config_id, run_config, budget):
+    """ Wrapper for `evaluate_config_on_budget()` function.
 
-    return res_eval
+    :param worker_id: int, worker id
+    :param config_id: int, configuration id
+    :param run_config: dict, configuration parameters
+    :param budget: int, budget allocated to configuration (number of epochs)
+
+    :return:
+    """
+
+    # create logger for this config run
+    logger = logging.getLogger(name=f'config_{config_id}_budget{budget}_log')
+    logger_handler = logging.FileHandler(filename=run_config['paths']['config_dir'] /
+                                                  f'config_run_budget{budget}.log', mode='a')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+
+    logger.info('Running evaluating configuration on budget...')
+
+    try:
+        evaluate_config_on_budget(
+            worker_id,
+            config_id,
+            run_config,
+            run_config['verbose'],
+            logger
+        )
+    except Exception as error:  # return infinite HPO loss if there is any error during configuration evaluation
+        with open(run_config['paths']['config_dir'] /
+                  f'run_config_exception_budget_{budget}epochs.txt', "w") as excl_file:
+            excl_file.write(str(error))
+        logger.info('Error when evaluating configuration on budget.')
+
+    # rename results to add budget to the filename
+    for fp in run_config['paths']['config_dir'].rglob('*train.npy'):
+        shutil.move(fp, fp.parent / f'{fp.stem}_budget_{budget}epochs.npy')
+    for fp in run_config['paths']['config_dir'].rglob('*eval.npy'):
+        shutil.move(fp, fp.parent / f'{fp.stem}_budget_{budget}epochs.npy')
+    results_txt_fp = run_config['paths']['config_dir'] / 'loss_and_performance_metrics.txt'
+    if results_txt_fp.exists():
+        shutil.move(results_txt_fp, results_txt_fp.parent / f'{results_txt_fp.stem}_budget_{budget}epochs.txt')
+
+    logger.info('Finished evaluating configuration on budget.')
 
 
 class TransitClassifier(Worker):
@@ -155,7 +196,7 @@ class TransitClassifier(Worker):
         run_config['training']['n_epochs'] = int(budget)  # set budget for this config
 
         # create logger for this config run
-        logger = logging.getLogger(name='config_budget_log')
+        logger = logging.getLogger(name=f'config_{config_id}_budget{budget}_log')
         logger_handler = logging.FileHandler(filename=run_config['paths']['config_dir'] /
                                                       f'config_run_budget{budget}.log', mode='w')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -163,23 +204,30 @@ class TransitClassifier(Worker):
         logger_handler.setFormatter(logger_formatter)
         logger.addHandler(logger_handler)
 
-        logger.info('Started evaluating configuration on budget...')
+        logger.info(f'Sampled configuration {config_id} to be evaluated on budget {budget} epochs:\n {config}')
 
-        try:
-            res_ensemble = evaluate_config(
-                self.worker_id_custom,
-                config_id,
-                run_config,
-                run_config['verbose'],
-                logger
-            )
+        p = multiprocessing.Process(target=wrapper_evaluate_config_on_budget,
+                                    args=(self.worker_id_custom,
+                                          config_id,
+                                          run_config,
+                                          budget
+                                          )
+                                    )
+        p.start()
+        p.join()
 
-            logger.info('Finished evaluating configuration on budget. Creating plots with results...')
+        res_ensemble_fp = run_config['paths']['config_dir'] / f'res_eval_budget_{budget}epochs.npy'
+        if res_ensemble_fp.exists():
+            res_ensemble = np.load(res_ensemble_fp, allow_pickle=True).item()
 
             # plots
             if run_config['draw_plots']:
+
+                logger.info('Creating plots with results...')
+
                 # get results for all trained models
-                res_models = {model_i_dir.name: np.load(model_i_dir / 'res_train.npy', allow_pickle=True).item()
+                res_models = {model_i_dir.name: np.load(model_i_dir / f'res_train_budget_{budget}epochs.npy',
+                                                        allow_pickle=True).item()
                               for model_i_dir in run_config['paths']['config_models_dir'].iterdir()
                               if model_i_dir.is_dir() and model_i_dir.name.startswith('model_')}
 
@@ -198,12 +246,15 @@ class TransitClassifier(Worker):
             res_hpo = {'loss': 1 - hpo_loss,  # HPO loss to be minimized
                        'info': info_dict
                        }
-
-        except Exception as error:  # return infinite HPO loss if there is any error during configuration evaluation
-            # with open(run_config['paths']['config_dir'] / 'run_config_exception.txt', "w") as excl_file:
-            #     traceback.print_exception(error, file=excl_file)
+        else:
             logger.info('Error when evaluating configuration on budget. Set HPO loss to infinity.')
-            res_hpo = {'loss': np.inf, 'info': str(error)}
+            run_config_error = ''
+            with open(run_config['paths']['config_dir'] /
+                      f'run_config_exception_budget_{budget}epochs.txt', "r") as excl_file:
+                for line in excl_file:
+                    run_config_error += line
+
+            res_hpo = {'loss': np.inf, 'info': str(run_config_error)}
 
         # delete trained models and ensemble
         logger.info('Deleting model Keras files.')
@@ -230,43 +281,42 @@ class TransitClassifier(Worker):
         alpha = 0.3
 
         # initialize epochs array
-        epochs = np.arange(1, int(budget) + 1)
+        epochs = np.arange(budget)
 
-        # plot loss and optimization metric as function of the epochs
+        # plot loss and optimization metric as function of the epoch number
         f, ax = plt.subplots(1, 2)
-        for model_i, res_model_i in res_models.items():
+        for model_i, (_, res_model_i) in enumerate(res_models.items()):
             ax[0].plot(epochs, res_model_i['loss'], color='b', alpha=alpha,
                        label=None if model_i != 0 else 'Train Single Model')
             # ax[0].plot(epochs, res_model_i['test_loss'], color='m', linestyle='dashed', alpha=alpha,
             #            label=None if model_i != 0 else 'Test Single Model')
-        ax[0].scatter(epochs[-1], res_ensemble['train_loss'], label='Train Ensemble', color='r')
-        ax[0].scatter(epochs[-1], res_ensemble['test_loss'], c='k', label='Test Ensemble')
-        ax[0].set_xlim([0, epochs[-1] + 1])
+        ax[0].scatter(epochs[-1], res_ensemble['train_loss'], s=8, label='Train Ensemble', color='r')
+        ax[0].scatter(epochs[-1], res_ensemble['test_loss'], s=8, c='k', label='Test Ensemble')
+        ax[0].set_xlim(left=epochs[0], right=epochs[-1] + 1)
         # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epoch Number')
         ax[0].set_ylabel('Loss')
         ax[0].set_title(f'Train/Test {res_ensemble["train_loss"]:.4f}/{res_ensemble["test_loss"]:.4f}')
-        ax[0].legend(loc="upper right")
+        ax[0].legend()  # loc="upper right")
         ax[0].grid(True)
 
-        for model_i, res_model_i in res_models.items():
+        for model_i, (_, res_model_i) in enumerate(res_models.items()):
             ax[1].plot(epochs, res_model_i[self.hpo_loss], color='b', alpha=alpha,
                        label=None if model_i != 0 else 'Train Single Model')
             # ax[1].plot(epochs, res_model_i[f'test_{self.hpo_loss}'], color='m', linestyle='dashed', alpha=alpha,
             #            label=None if model_i != 0 else 'Test Single Model')
-        ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], label='Train Ensemble', color='r')
-        ax[1].scatter(epochs[-1], res_ensemble[f'test_{self.hpo_loss}'], label='Test Ensemble', c='k')
-        ax[1].set_xlim([0, epochs[-1] + 1])
+        ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], s=8, label='Train Ensemble', color='r')
+        ax[1].scatter(epochs[-1], res_ensemble[f'test_{self.hpo_loss}'], s=8, label='Test Ensemble', c='k')
+        ax[1].set_xlim(left=epochs[0], right=epochs[-1] + 1)
         # ax[1].set_ylim([0.0, 1.05])
         ax[1].grid(True)
         ax[1].set_xlabel('Epoch Number')
         ax[1].set_ylabel(self.hpo_loss)
         ax[1].set_title(f'Train/Test '
                         f'{res_ensemble[f"train_{self.hpo_loss}"]:.4f}/{res_ensemble[f"test_{self.hpo_loss}"]:.4f}')
-        ax[1].legend(loc="lower right")
-        f.suptitle(f'Config {config_id} | Budget = {epochs[-1]}')
+        ax[1].legend()  # loc="lower right")
+        f.suptitle(f'Config {config_id} | Budget = {budget} epochs')
         f.tight_layout()
-        # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
         f.savefig(plot_fp)
         plt.close()
 

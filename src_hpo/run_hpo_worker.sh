@@ -26,7 +26,7 @@ HPO_PY_SCRIPT=$PYTHONPATH/src_hpo/run_hpo.py
 #WORKER_ID=$(($GNU_PARALLEL_INDEX + $N_GPUS_PER_NODE))
 WORKER_ID=$GNU_PARALLEL_INDEX
 
-LOG_WORKER="$OUTPUT_DIR"/hpo_run_worker_"$WORKER_ID"_stdout.log
+LOG_WORKER="$OUTPUT_DIR"/worker_"$WORKER_ID"_stdout.log
 
 echo "Starting HPO run on worker $WORKER_ID..." > "$LOG_WORKER"
 

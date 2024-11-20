@@ -49,7 +49,7 @@ def run_main(hpo_config):
     # set up logger
     logger = logging.getLogger(name='hpo_main_run')
     logger_handler = logging.FileHandler(filename=config['paths']['experiment_dir'] /
-                                                  f'hpo_main_worker_{config["worker_id"]}.log', mode='w')
+                                                  f'main_worker_{config["worker_id"]}.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
@@ -167,11 +167,10 @@ if __name__ == '__main__':
     config['study'] = config['paths']['experiment_dir'].name
 
     # set TFRecords for training, validation, and test from yaml file
-    with open(config['paths']['datasets_fps'],  'r') as file:
+    with open(config['paths']['datasets_fps'], 'r') as file:
         config['datasets_fps'] = yaml.unsafe_load(file)[0]
 
     if config['worker_id'] == 0:
-
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)
 
         # save the YAML file with configuration parameters that are YAML serializable

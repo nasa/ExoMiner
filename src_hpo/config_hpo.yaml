@@ -4,7 +4,7 @@ paths:
   experiment_dir: null
   # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
   datasets_fps: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval_normalized/cv_iterations.yaml
-  prev_run_dir: null  # warm-up from previous HPO run
+  prev_run_dir: null  # warm-start using previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 # Hyperband parameters ----

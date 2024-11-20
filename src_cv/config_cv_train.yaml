@@ -212,8 +212,8 @@ config:
   num_diffimg_conv_blocks: 4
   diffimg_conv_ls_per_block: 4
   init_diffimg_conv_filters: 1
-  kernel_size_diffimg: [ 3, 3, 1 ]
-  pool_size_diffimg: [ 2, 2, 1 ]
+  kernel_size_diffimg: 3  # (1, k , k)
+  pool_size_diffimg: 2  # (1, k, k)
   num_fc_diff_units: 12
 
   # shared conv hyperparameters ----

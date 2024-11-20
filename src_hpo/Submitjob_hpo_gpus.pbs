@@ -3,7 +3,8 @@
 #PBS -S /bin/bash
 #PBS -N hpo_exoplanet
 #PBS -l walltime=72:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
+# PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
+#PBS -l select=2:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
 #PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
@@ -24,11 +25,10 @@ mkdir -p $OUTPUT_DIR
 N_GPUS_TOTAL=4
 
 # number of total jobs per job in job array
-# NUM_TOTAL_JOBS=$((1 * 4))
-NUM_TOTAL_JOBS=2
+NUM_TOTAL_JOBS=8
 # number of jobs run simultaneously
-NUM_JOBS_PARALLEL=2
+NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
-# run CV sh script
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL -u --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
