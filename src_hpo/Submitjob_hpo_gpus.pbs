@@ -18,7 +18,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/config
 # job script for running the Python application
 RUN_SH_SCRIPT=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_hpo/run_hpo_worker.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/test_hpo_kepler_11-19-2024_1613
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/hpo_run_keplerq1q17dr25_11-20-2024_1640
 mkdir -p $OUTPUT_DIR
 
 # number of GPUs per node

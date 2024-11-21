@@ -9,21 +9,21 @@ paths:
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 # Hyperband parameters ----
 # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
-min_budget: 2  # 6  # budget in this case is number of epochs a given configuration is evaluated on
-max_budget: 4  # 50
-n_iterations: 20
+min_budget: 6  # 6  # budget in this case is number of epochs a given configuration is evaluated on
+max_budget: 50  # 50
+n_iterations: 300
 eta: 2  # downsampling rate, must be greater or equal to 2
 # BOHB and BO parameters ----
 bohb_params:
   top_n_percent: 15
-  num_samples: 64
+  num_samples: 32
   random_fraction: 0.333
   bandwidth_factor: 3
   min_bandwidth: 1.0e-3
 hpo_loss: auc_pr  # metric used to evaluate the performance of a given configuration on the validation set
 # number of models trained per configuration evaluated on a given budget
 # used to decrease the variability due to random weights initialization
-ensemble_n: 2
+ensemble_n: 3
 nic_name: ib0  # 'ib0' (infiniband, use in the HECC cluster), 'lo' (local on Linux systems); 'en0' (local on MacOS)
 
 draw_plots: true  # draw loss and metric curves for trained models

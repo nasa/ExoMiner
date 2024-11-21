@@ -134,6 +134,8 @@ def run_main(hpo_config):
     logger.info(f'Analyzing results from HPO run')
     analyze_results(res, hpo_config)
 
+    logger.info(f'Finished HPO run.')
+
 
 if __name__ == '__main__':
 
