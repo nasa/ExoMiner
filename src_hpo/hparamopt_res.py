@@ -15,21 +15,21 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result
 # %% load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_kepler-reduced_tess_12-1-2022_2051')
+hpo_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_run_keplerq1q17dr25_11-20-2024_2105')
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
 ensemble_study = True
 nmodels = 3  # number of models in the ensemble trained for each configuration
 # set which metric to be used when ranking configurations evaluated
-rankmetric = 'val_auc_pr'  # 'validation pr auc'
+rankmetric = 'test_auc_pr'  # 'validation pr auc'
 # set two performance metrics to plot in a 2D histogram
 metrics_plot = ['test_recall', 'test_precision']  # ['test recall', 'test precision']
 # minimum value of top configurations (used also for Parallel Coordinates Visualization)
 min_val = 0.90
 
 # load results json
-res = logged_results_to_HBS_result(hpo_dir, '')
+res = logged_results_to_HBS_result(hpo_dir)
 
 #%%
 
@@ -114,6 +114,7 @@ f, ax = plt.subplots()
 ax.plot(idxs_modelbased)
 ax.set_xlabel('Time Ordered Runs')
 ax.set_ylabel('Model based (1)/Random (0) \npicked configs.')
+f.tight_layout()
 f.savefig(hpo_dir / 'time_model-random.png')
 
 nconfigs_valid = len(idxs_modelbased)
@@ -149,7 +150,7 @@ ax.set_yticks(np.linspace(0, 1, num=11, endpoint=True))
 ax.set_xlabel(metrics_plot[0])
 ax.set_ylabel(metrics_plot[1])
 ax.set_title('2D histogram of configs performance metrics')
-plt.colorbar(axh[3])
+plt.colorbar(axh[3], label='Counts')
 f.savefig(hpo_dir / '2dhist_precision-recall.png')
 
 # rank configurations based on metric
@@ -193,25 +194,26 @@ f.savefig(hpo_dir / 'hist_top{}_{}.png'.format(min_val, rankmetric))
 
 #%% Check model's weights
 
+bins = np.logspace(5, 7, 20)
+
 configs_dirs = [fp for fp in hpo_dir.iterdir() if fp.is_dir() and fp.name.startswith('config')]
 
 configs_model_weights = {}
 for config_dir in configs_dirs:
-    model_summary_fp = Path(config_dir / 'model_summary.txt')  # MODEL SUMMARY FOR THE ENSEMBLE; NEED TO DIVIDE BY NUMBER OF MODELS
+    model_summary_fp = Path(config_dir / 'models' / 'model_0' / 'model_summary.txt')
 
     if model_summary_fp.exists():
         with open(model_summary_fp, 'r') as model_summary_file:
             for line in model_summary_file.readlines():
                 if 'Total params' in line:
-                    configs_model_weights[config_dir.name[6:]] = int(line[14:-1].replace(',', '')) / nmodels
+                    configs_model_weights[config_dir.name[6:]] = int(line.split(' ')[2])
 
 # plot histogram of models' weights
-bins = np.logspace(5, 6, 10)
 f, ax = plt.subplots()
 ax.hist(configs_model_weights.values(), bins=bins, edgecolor='k')
 ax.set_xlabel('Number Model Weights')
 ax.set_ylabel('Number Configurations Evaluated')
-ax.set_yscale('log')
+# ax.set_yscale('log')
 ax.grid(axis='y')
 ax.set_xscale('log')
 f.savefig(hpo_dir / 'hist_num_weights.png')
@@ -228,21 +230,25 @@ for config in lc_configs:
     for run in lc_configs[config][0]:
         bdgt.append(run[0])
         lc.append(run[1])
-    ax.plot(lc, bdgt)
-    # ax.scatter(lc, bdgt)
-ax.set_ylabel('Budget [number of epochs]')
-ax.set_xlabel('Loss')
-ax.set_ylim(bottom=0)
-ax.set_xlim(left=0)
-plt.close()
+    ax.plot(bdgt, lc, linestyle='dashed', zorder=1, alpha=0.3)  # , label=f'{config}')
+    ax.scatter(bdgt, lc, s=8, zorder=2)
+ax.set_xlabel('Budget [number of training epochs]')
+ax.set_ylabel('HPO loss')
+# ax.set_ylim(bottom=0)
+# ax.set_xlim(left=0)
+ax.set_yscale('log')
+# ax.legend()
+# plt.close()
 
-# returns the best configuration over time
+#%% Returns the best configuration over time
+
+metric = 'auc_pr'
+# hpo_loss = 'test_auc_pr'  # 'pr auc'
+budget_chosen = 12  # 50.0  # 'all
+lim_totalbudget = np.inf
+
 best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)
 
-# returns the best configuration over time/over cumulative budget
-hpo_loss = 'val_auc_pr'  # 'pr auc'
-budget_chosen = 50  # 'all'  # 50.0  # 'all
-lim_totalbudget = np.inf
 timesorted_allruns = sorted(all_runs, key=lambda x: x.time_stamps['finished'], reverse=False)
 if ensemble_study:
     ensmetrics_list = [config_dir / f'{config_dir.name}_budget{budget_chosen}_ensemblemetrics.npy'
@@ -284,20 +290,29 @@ for run_i, run in enumerate(timesorted_allruns):
             tinc_hpoloss.append(run.loss)
         else:  # for ensemble studies, use the mean and std
 
-            ensmetrics_fp = Path(hpo_dir / f'config{run.config_id}' /
-                                 f'config{run.config_id}_budget{int(run.budget)}_ensemblemetrics.npy')
-            if not ensmetrics_fp.exists():
-                 # did not find the file for that run
+            # ensmetrics_fp = Path(hpo_dir / f'config{run.config_id}' /
+            #                      f'config{run.config_id}_budget{int(run.budget)}_ensemblemetrics.npy')
+            # if not ensmetrics_fp.exists():  # did not find the file for that run
+            #     raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
+            #                                                                                         int(run.budget)))
+            # ensmetrics = np.array(np.load(ensmetrics_fp, allow_pickle=True).item()['single_models'][hpo_loss]['all scores'])
+            # centraltend_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
+            # dev_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
+            # ens_hpoloss = run.loss  # ensemble hpo loss
+
+            ensmetrics_fp = Path(hpo_dir / f'config{run.config_id}' / f'res_eval_budget_{int(run.budget)}epochs.npy')
+
+            if not ensmetrics_fp.exists():  # did not find the file for that run
                 raise ValueError('No saved metrics matched this run: config {} on budget {}'.format(run.config_id,
                                                                                                     int(run.budget)))
 
-            ensmetrics = np.array(np.load(ensmetrics_fp,
-                                          allow_pickle=True).item()['single_models'][hpo_loss]['all scores'])
-            centraltend_hpoloss = 1 - np.mean(ensmetrics[:, -1])  # np.median(ensmetrics[:, -1])
-            dev_hpoloss = np.std(ensmetrics[:, -1], ddof=1) / np.sqrt(ensmetrics.shape[0])
-            ens_hpoloss = run.loss  # ensemble hpo loss
+            ensmetrics = np.load(ensmetrics_fp, allow_pickle=True).item()
+            ens_hpoloss = ensmetrics[f'test_{metric}']
+            centraltend_hpoloss = ensmetrics[f'train_{metric}']
+            dev_hpoloss = np.nan
 
             if run.loss < bconfig_loss:  # found run with better HPO loss than the best run so far
+
                 bens_hpoloss, bcentraltend_hpoloss, bdev_hpoloss = ens_hpoloss, centraltend_hpoloss, dev_hpoloss
 
                 tinc_hpoloss.append(ens_hpoloss)
@@ -314,16 +329,19 @@ for run_i, run in enumerate(timesorted_allruns):
             bconfig_loss = run.loss
 
 f, ax = plt.subplots()
-ax.plot(timestamps, tinc_hpoloss, label='Ensemble' if ensemble_study else None)
-ax.scatter(timestamps, tinc_hpoloss, c='r')
+# ax.plot(timestamps, tinc_hpoloss, label='Ensemble' if ensemble_study else None)
+ax.plot(timestamps, tinc_hpoloss, linestyle='dashed', zorder=2)
+ax.scatter(timestamps, tinc_hpoloss, label='Test', s=8, zorder=2)
 if ensemble_study:
-    ax.errorbar(timestamps, tinc_hpoloss_centraltend,
-                tinc_hpoloss_dev, capsize=5, label='Single model variability')
-ax.set_yscale('log')
+    # ax.errorbar(timestamps, tinc_hpoloss_centraltend,
+    #             tinc_hpoloss_dev, capsize=5, label='Single model variability')
+    ax.plot(timestamps, tinc_hpoloss_centraltend, 'r', linestyle='dashed', alpha=0.5, zorder=1)
+    ax.scatter(timestamps, tinc_hpoloss_centraltend, c='r', label='Train', alpha=0.5, zorder=1, s=8)
+# ax.set_yscale('log')
 ax.set_xscale('log')
 # ax.set_ylim(top=1)
 # ax.set_xlim(right=1e5)
-ax.set_ylabel(f'Optimization loss\n{hpo_loss}')
+ax.set_ylabel(f'{metric}')
 ax.set_xlabel('Wall clock time [s]')
 # ax.set_title('')
 ax.grid(True, which='both')
@@ -333,31 +351,34 @@ f.tight_layout()
 f.savefig(hpo_dir / 'walltime-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
-ax.plot(cum_budget_vec, tinc_hpoloss, label='Ensemble' if ensemble_study else None)
-ax.scatter(cum_budget_vec, tinc_hpoloss, c='r')
+ax.plot(cum_budget_vec, tinc_hpoloss, zorder=2)  # , label='Ensemble' if ensemble_study else None)
+ax.scatter(cum_budget_vec, tinc_hpoloss, label='Test', zorder=2, s=8)
 if ensemble_study:
-    ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
-                tinc_hpoloss_dev, capsize=5, label='Single model variability')
-ax.set_yscale('log')
-ax.set_xscale('log')
-# ax.set_ylim(top=1)
-ax.legend()
-# ax.set_xlim(right=1e5)
-ax.set_ylabel(f'Optimization loss\n{hpo_loss}')
-ax.set_xlabel('Cumulative budget [Epochs]')
-# ax.set_title('')
-ax.grid(True, which='both')
-ax.set_title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
-f.tight_layout()
-f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
-
-f, ax = plt.subplots()
-ax.plot(cum_budget_vec, models_n_weights, label='Ensemble' if ensemble_study else None)
-ax.scatter(cum_budget_vec, models_n_weights, c='r')
+    # ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
+    #             tinc_hpoloss_dev, capsize=5, label='Single model variability')
+    ax.plot(cum_budget_vec, tinc_hpoloss_centraltend, 'r', linestyle='dashed', alpha=0.5, zorder=1)
+    ax.scatter(cum_budget_vec, tinc_hpoloss_centraltend, c='r', label='Train', zorder=1, s=8)
 # ax.set_yscale('log')
 ax.set_xscale('log')
 # ax.set_ylim(top=1)
 ax.legend()
+# ax.set_xlim(right=1e5)
+ax.set_ylabel(f'{metric}')
+ax.set_xlabel('Cumulative budget [Epochs]')
+# ax.set_title('')
+ax.grid(True, which='both')
+ax.set_title('Budget {} (Best: {:.5f})'.format(budget_chosen, tinc_hpoloss[-1]))
+ax.legend()
+f.tight_layout()
+f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
+
+f, ax = plt.subplots()
+ax.plot(cum_budget_vec, models_n_weights)  # , label='Ensemble' if ensemble_study else None)
+ax.scatter(cum_budget_vec, models_n_weights, s=8)
+# ax.set_yscale('log')
+ax.set_xscale('log')
+# ax.set_ylim(top=1)
+# ax.legend()
 # ax.set_xlim(right=1e5)
 ax.set_ylabel('Num model weights')
 ax.set_xlabel('Cumulative budget [Epochs]')
@@ -386,9 +407,12 @@ for run in inc_runs:
 inc_run = inc_runs[-1]  # performance in the largest budget
 inc_hpoloss = inc_run.loss
 # inc_val_hpoloss, inc_test_hpoloss = inc_run.info['validation ' + hpo_loss], inc_run.info['test ' + hpo_loss]
-inc_val_hpoloss, inc_test_hpoloss = inc_run.info['val_{}'.format(hpo_loss)], inc_run.info['test_{}'.format(hpo_loss)]
-print('It achieved optimization loss ({}) of {} (validation) and {} (test).'.format(hpo_loss, inc_val_hpoloss,
-                                                                                    inc_test_hpoloss))
+# inc_val_hpoloss, inc_test_hpoloss = inc_run.info['val_{}'.format(hpo_loss)], inc_run.info['test_{}'.format(hpo_loss)]
+# print('It achieved optimization loss ({}) of {} (validation) and {} (test).'.format(hpo_loss, inc_val_hpoloss,
+#                                                                                     inc_test_hpoloss))
+inc_train_hpoloss = inc_run.info['train_{}'.format(hpo_loss)]
+inc_test_hpoloss = inc_run.info['test_{}'.format(hpo_loss)]
+print('It achieved optimization loss ({}) of {} (train) and {} (test).'.format(hpo_loss, inc_train_hpoloss, inc_test_hpoloss))
 
 # Let's plot the observed losses grouped by budget,
 f, ax = hpvis.losses_over_time(all_runs)

@@ -1,7 +1,10 @@
 # Create new sh script with curl commands only for xml files.
 
-TARGET_SH_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/dv/target_sh
-DEST_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/dv/target_sh_xml_only
+TARGET_SH_DIR=/Users/msaragoc/Downloads/tess-spoc_ffi_s71_s72/target_sh
+DEST_DIR=/Users/msaragoc/Downloads/tess-spoc_ffi_s71_s72/target_sh_xml_only
+
+COMPLETED_DIR=$TARGET_SH_DIR/completed
+mkdir -p $COMPLETED_DIR
 
 for sector_shfile in "$TARGET_SH_DIR"/*dv.sh
 do
@@ -9,7 +12,7 @@ do
    FILENAME=${sector_shfile:$FILENAME_INDEX}
    echo "$FILENAME"
    grep xml "$sector_shfile" > $DEST_DIR/"$FILENAME"
-   mv "$sector_shfile" "$TARGET_SH_DIR"/completed
+   mv "$sector_shfile" "$COMPLETED_DIR"
 done
 
 # set permissions and group when in ranokau
