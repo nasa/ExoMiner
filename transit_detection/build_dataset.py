@@ -15,6 +15,8 @@ import multiprocessing
 from functools import partial
 from copy import deepcopy
 import logging
+import os
+import sys
 
 # local
 from transit_detection.utils_flux_processing import extract_flux_windows_for_tce, build_transit_mask_for_lightcurve, plot_detrended_flux_time_series_sg
@@ -132,7 +134,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             for tce_i, tce_data in sector_run_data.iterrows():
 
                 data_for_tce = {
-                'uid': tce_data['uid'],
+                'tce_uid': tce_data['uid'],
                 'tce_info': tce_data,
                 'sectors': [],
                 'disposition': tce_data['disposition']
@@ -262,7 +264,7 @@ def process_target_sector_run(target, sector_run, sector_run_data,
             sector_data_to_tfrec.append(data_for_tce)
 
         logger.info(f"Processing for sector_run {sector_run} complete.")
-        print(f"Processing for sector_run {sector_run} complete.")
+        # print(f"Processing for sector_run {sector_run} complete.")
         return sector_data_to_tfrec
     except Exception as e:
         logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
@@ -273,6 +275,8 @@ def process_target_sector_run(target, sector_run, sector_run_data,
         file_handler.close()
 
 if __name__ == "__main__":
+
+    # file paths
 
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -287,6 +291,22 @@ if __name__ == "__main__":
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
 
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
+
+
+    # # dataset chunking build parameters
+
+    # dataset_chunk_size = 10000 # in terms of target, sector run pairs
+    # dataset_chunk_num = 1 # the chunk to run the dataset pipeline for. 
+    
+    # n_groups = tce_tbl.groupby(['target_id','sector_run']).ngroups
+
+    # tce_start_i = dataset_chunk_size * (dataset_chunk_num - 1)
+    # tce_end_i = tce_start_i + dataset_chunk_size if tce_start_i + dataset_chunk_size < n_groups else n_groups
+
+    # # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
+    # jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])][tce_start_i:tce_end_i]
+
+    # dataset hyperparameters
 
     n_durations_window = 5  # number of transit durations in each extracted window
     frac_valid_cadences_in_window_thr = 0.85
@@ -344,8 +364,22 @@ if __name__ == "__main__":
                                     log_dir=job_log_dir,
                                     )
 
-    # None processes defaults to number of available cpu cores
-    pool = multiprocessing.Pool(processes=None) 
+
+    # Multiprocessing with minimum number of processes
+
+    min_processes = 10
+    try:
+        cpu_count = os.cpu_count()
+        if cpu_count < min_processes:
+            raise ValueError(f"Insufficient CPUs: {cpu_count} available")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+        
+    print(f'STATUS: Processing inputs with {cpu_count} processes')
+
+    pool = multiprocessing.Pool(processes=cpu_count) 
 
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])]
@@ -391,7 +425,7 @@ if __name__ == "__main__":
         with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
 
             for data_for_tce in shard_data:
-                dataset_logger.info(f'Adding data for TCE {shard_data["uid"]} to the TFRecord file {tfrec_fp.name}...')
+                dataset_logger.info(f"Adding data for TCE {data_for_tce['tce_uid']} to the TFRecord file {tfrec_fp.name}...")
 
                 examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
 
