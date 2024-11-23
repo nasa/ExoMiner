@@ -69,7 +69,7 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
 
     # check model size
     num_model_params = check_model_size(config)
-    if num_model_params > config['max_num_model_params']:
+    if num_model_params > float(config['max_num_model_params']):
         logger.info(f'Model is too large model ({num_model_params} parameters > {config["max_num_model_params"]}). '
                     f'Skipping model training and assigning infinite HPO loss.')
         raise ValueError(f'Model is too large model ({num_model_params} parameters > {config["max_num_model_params"]})')
