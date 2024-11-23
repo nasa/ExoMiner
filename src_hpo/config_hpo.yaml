@@ -4,7 +4,7 @@ paths:
   experiment_dir: null
   # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
   datasets_fps: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval_normalized/cv_iterations.yaml
-  prev_run_dir: null  # warm-start using previous HPO run
+  prev_run_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/hpo_run_keplerq1q17dr25_11-20-2024_1640  # warm-start using previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 # Hyperband parameters ----
@@ -25,6 +25,8 @@ hpo_loss: auc_pr  # metric used to evaluate the performance of a given configura
 # used to decrease the variability due to random weights initialization
 ensemble_n: 3
 nic_name: ib0  # 'ib0' (infiniband, use in the HECC cluster), 'lo' (local on Linux systems); 'en0' (local on MacOS)
+
+max_num_model_params: 2.0e7  # maximum number of parameters in sampled models
 
 draw_plots: true  # draw loss and metric curves for trained models
 

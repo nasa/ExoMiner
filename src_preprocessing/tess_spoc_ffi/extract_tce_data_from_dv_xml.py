@@ -82,16 +82,20 @@ def get_allTransitsFit(planet_res, tce_i, output_csv):
     dikco_msky_val = planet_res[3][0][0][2].attrib['value']
     dikco_msky_unc = planet_res[3][0][0][2].attrib['uncertainty']
     output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.value'] = dikco_msky_val
+        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.value'] = (
+        dikco_msky_val)
     output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.uncertainty'] = dikco_msky_unc
+        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.uncertainty'] = (
+        dikco_msky_unc)
 
     dicco_msky_val = planet_res[3][0][1][2].attrib['value']
     dicco_msky_unc = planet_res[3][0][1][2].attrib['uncertainty']
     output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.value'] = dicco_msky_val
+        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.value'] = (
+        dicco_msky_val)
     output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.uncertainty'] = dicco_msky_unc
+        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.uncertainty'] = (
+        dicco_msky_unc)
 
 
 def get_outside_params(root, output_csv):
@@ -321,20 +325,23 @@ def process_xml(dv_xml_fp):
     return output_csv
 
 
-def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
-    """ Extracts TCE data from the set of DV xml files in a sector run directory into a table and returns the table as
-    a pandas DataFrame.
+def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
+    """ Extracts TCE data from a set of DV xml files in a directory `dv_xml_sector_run_dir` into a table and returns
+    the table as a pandas DataFrame.
 
     Args:
+        # dv_xml_fps: list of Paths, DV xml filepaths
         dv_xml_sector_run_dir: Path, path to the sector run directory
+        dv_xml_tbl_fp: Path, filepath used to save table with DV xml results
 
     Returns:
-        dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files in the sector run
+        dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files
     """
 
-    dv_xml_fps = [fp for fp in dv_xml_sector_run_dir.rglob('*.xml')]
+    dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml'))
     n_dv_xmls = len(dv_xml_fps)
     print(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
+    # print(f'Extracting TCEs from {n_dv_xmls} xml files for...')
 
     dv_xmls_tbls = []
     for dv_xml_fp_i, dv_xml_fp in enumerate(dv_xml_fps):
@@ -351,9 +358,11 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
             print(f'Error: {e}')
 
     dv_xml_tbl = pd.concat(dv_xmls_tbls, axis=0, ignore_index=True)
+    dv_xml_tbl.to_csv(dv_xml_tbl_fp, index=False)
 
-    print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for '
-          f'{dv_xml_sector_run_dir.name}.')
+    # print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for '
+    #       f'{dv_xml_sector_run_dir.name}.')
+    print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files.')
 
     return dv_xml_tbl
 
@@ -361,34 +370,45 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir):
 if __name__ == "__main__":
 
     # output file path to csv with extracted data
-    new_tce_tbls_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/09-12-2024_0943_s70_from_dv_xml/')
+    new_tce_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942/')
     new_tce_tbls_dir.mkdir(exist_ok=True)
 
-    # dv_xml_fps = [
-    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0066/target/0000/0002/7947/8852/hlsp_tess-spoc_tess_phot_0000000279478852-s0066-s0066_tess_v1_dvr.xml'),
-    # ]
+    dv_xml_tbl_fp = new_tce_tbls_dir / f'{new_tce_tbls_dir.name}.csv'
 
     # get file paths to DV xml files
-    # dv_xml_sector_runs_dirs = [
-    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0066'),
-    #     Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/s0069'),
-    # ]
-    dv_xml_sector_runs_dirs = list(Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/single-sector/').iterdir())
-    dv_xml_sector_runs_dirs = [fp for fp in dv_xml_sector_runs_dirs if fp.name == "s0070"]
-    print(f'Choosing sectors {dv_xml_sector_runs_dirs}.')
+    dv_xml_sector_runs_root_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
+    dv_xml_sector_runs_dirs_lst = [sector_run_dir
+                                   for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]
+    dv_xml_sector_runs_dirs_lst += [sector_run_dir
+                                    for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]
+
+    print(f'Choosing sectors {dv_xml_sector_runs_dirs_lst}.')
+
+    # dv_xml_sector_runs_fps = list(dv_xml_sector_runs_dir.rglob('*dvr.xml'))
+    # print(f'Extracting TCE data from {len(dv_xml_sector_runs_fps)} DV xml files.')
 
     # parallel extraction of data from multiple DV xml files
-    n_processes = 1
-    n_jobs = len(dv_xml_sector_runs_dirs)
+    n_processes = 36
+    n_jobs = len(dv_xml_sector_runs_dirs_lst)
+    # dv_xml_arr = np.array_split(dv_xml_sector_runs_fps, n_jobs)
     print(f'Starting {n_processes} processes to deal with {n_jobs} jobs.')
     pool = multiprocessing.Pool(processes=n_processes)
-    async_results = [pool.apply_async(process_sector_run_of_dv_xmls, (dv_xml_sector_runs_dir,))
-                     for dv_xml_sector_runs_dir in dv_xml_sector_runs_dirs]
+    async_results = [pool.apply_async(process_sector_run_of_dv_xmls,
+                                      (dv_xml_sector_run_dir,
+                                       new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv'))
+                     for dv_xml_i, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
     pool.close()
     pool.join()
 
-    for proc_output in async_results:
-        tce_tbl_sector = proc_output.get()
-        tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
-        tce_tbl_sector.to_csv(tce_tbl_fp, index=False)
-        print(f'Saved TCE table for sector run {tce_tbl_sector} to {str(tce_tbl_fp)}.')
+    dv_xml_tbls = []
+    for proc_output_i, proc_output in enumerate(async_results):
+        dv_xml_tbls.append(proc_output.get())
+        # tce_tbl_sector = proc_output.get()
+        # tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
+        # tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
+        # tce_tbl_sector.to_csv(tce_tbl_fp, index=False)
+        # print(f'Saved TCE table for sector run {tce_tbl_sector} to {str(tce_tbl_fp)}.')
+
+    dv_xml_tbl = pd.concat(dv_xml_tbls, axis=0, ignore_index=True)
+    dv_xml_tbl.to_csv(dv_xml_tbl_fp, index=False)
+    print(f'Saved TCE table to {str(dv_xml_tbl_fp)}.')

@@ -1,7 +1,7 @@
 # Create new sh script with curl commands only for xml files.
 
-TARGET_SH_DIR=/Users/msaragoc/Downloads/tess-spoc_ffi_s71_s72/target_sh
-DEST_DIR=/Users/msaragoc/Downloads/tess-spoc_ffi_s71_s72/target_sh_xml_only
+TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh
+DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh_xml_only
 
 COMPLETED_DIR=$TARGET_SH_DIR/completed
 mkdir -p $COMPLETED_DIR

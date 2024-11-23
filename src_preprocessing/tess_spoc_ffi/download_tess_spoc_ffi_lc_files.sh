@@ -1,23 +1,34 @@
 # Download xml files using curl statements in sh files.
 
 # directory with sh files
-TARGET_SH_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/lc/dv_target_list_sh/
+TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc_sh/filtered_src_lc_sh
 # destination directory for lc files
-DEST_DIR=/data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files
+DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc
+# set permissions and group if needed
+CHANGE_PERMISSIONS_AND_GROUP=false
+GROUP=ar-gg-ti-tess-dsg
 
-for sector_shfile in "$TARGET_SH_DIR"/*lc.sh
+# create directory for completed sh scripts
+COMPLETED_DIR=$TARGET_SH_DIR/completed
+mkdir -p $COMPLETED_DIR
+for SECTOR_SHFILE in "$TARGET_SH_DIR"/*lc.sh
 do
-    # !!! HARDCODED EXPRESSION! WATCH OUT FOR CHANGES IN THE PATH!!!
-    #TODO: automate this process
-    echo Sector run "${sector_shfile:46:-17}"
-    cp "$sector_shfile" $DEST_DIR
+    echo "$SECTOR_SHFILE"
+
     cd $DEST_DIR
-    bash *.sh  # download files for sector run; sh script creates directory for sector run
-    rm hlsp_tess-spoc*  # remove copied sh file
+
+    bash "$SECTOR_SHFILE"  # download files for sector run; sh script creates directory for sector run
+
     cd ../
-    mv "$sector_shfile" "$TARGET_SH_DIR"/completed
+
+    mv "$SECTOR_SHFILE" "$COMPLETED_DIR"  # move completed sh script
+
 done
 
-# set group and permissions for rwx in group
-chgrp -R ar-gg-ti-tess-dsg $DEST_DIR
-chmod -R 770 $DEST_DIR
+# set permissions and group
+if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
+
+then
+  chgrp -R $GROUP $DEST_DIR
+  chmod -R 770 $DEST_DIR
+fi

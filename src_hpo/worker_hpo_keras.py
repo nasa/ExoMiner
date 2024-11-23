@@ -18,8 +18,27 @@ import multiprocessing
 from src.train_model import train_model
 from src.evaluate_model import evaluate_model
 from models.create_ensemble_avg_model import create_avg_ensemble_model
+from models import models_keras
+from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 plt.switch_backend('agg')
+
+
+def check_model_size(config):
+    """ Check number of parameters in model.
+
+    :param config: dict, HPO configuration run parameters
+
+    :return: num_model_params: int, number of parameters in model
+    """
+
+    check_model_config = copy.deepcopy(config)
+    check_model_config['features_set'] = set_tf_data_type_for_features(check_model_config['features_set'])
+    base_model = getattr(models_keras, check_model_config['model_architecture'])
+    check_model = base_model(config, check_model_config['features_set']).kerasModel
+    num_model_params = check_model.count_params()
+
+    return num_model_params
 
 
 def delete_model_files(model_dir):
@@ -48,6 +67,14 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
         # res_eval: dict, results for the ensemble during evaluation in 'train', 'val', and 'test' datasets
     """
 
+    # check model size
+    num_model_params = check_model_size(config)
+    if num_model_params > config['max_num_model_params']:
+        logger.info(f'Model is too large model ({num_model_params} parameters > {config["max_num_model_params"]}). '
+                    f'Skipping model training and assigning infinite HPO loss.')
+        raise ValueError(f'Model is too large model ({num_model_params} parameters > {config["max_num_model_params"]})')
+
+    # train and evaluate only if number of parameters constraint is respected
     for model_i in range(config['ensemble_n']):  # train and evaluate an ensemble of `ensemble_n` models
 
         # set directory for models for the sampled config
@@ -56,7 +83,8 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
 
         if verbose:
             logger.info(f'[worker_{worker_id_custom},config{config_id}] Started training model '
-                        f'{model_i + 1} (out of {config["ensemble_n"]} models): using {config["training"]["n_epochs"]} '
+                        f'{model_i + 1} (out of {config["ensemble_n"]} models): '
+                        f'using {config["training"]["n_epochs"]} '
                         f'epochs.')
 
         model_i_config = copy.deepcopy(config)
@@ -254,7 +282,7 @@ class TransitClassifier(Worker):
                 for line in excl_file:
                     run_config_error += line
 
-            res_hpo = {'loss': np.inf, 'info': str(run_config_error)}
+            res_hpo = {'loss': np.inf, 'info': run_config_error}
 
         # delete trained models and ensemble
         logger.info('Deleting model Keras files.')
