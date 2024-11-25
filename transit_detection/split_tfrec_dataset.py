@@ -28,9 +28,23 @@ def compute_and_write_example_stats(all_set_feature_img_pixels_dict, dest_stats_
             'total_examples' : len(all_set_feature_img_pixels_dict[feature_img])
         }
 
-        np.save(f"{feature_img}_stats.npy", stats)
+        np.save(dest_stats_dir / f"{feature_img}_stats.npy", stats)
         print(f"Statistics for {feature_img} saved in a single .npy file")
 
+def process_aux_tbl(src_aux_tbl_fp, dest_aux_tbl_fp, train_targets, val_targets, test_targets, set_names):
+    aux_tbl = pd.read_csv(src_aux_tbl_fp)
+
+    aux_tbl.loc[aux_tbl['target_id'].isin(train_targets), 'tfrec_fp'] = set_names['train_set']
+    aux_tbl.loc[aux_tbl['target_id'].isin(val_targets), 'tfrec_fp'] = set_names['val_set']
+    aux_tbl.loc[aux_tbl['target_id'].isin(test_targets), 'tfrec_fp'] = set_names['test_set']
+
+    invalid_rows = aux_tbl[~aux_tbl['tfrec_fp'].isin([set_names['train_set'], set_names['val_set'], set_names['test_set']])]
+    num_invalid_rows = invalid_rows.shape[0]
+
+    if num_invalid_rows > 0:
+        print(f'ERROR: Number of invalid rows: {num_invalid_rows}')
+
+    aux_tbl.to_csv(dest_aux_tbl_fp, index=False)
 
 # function to process a split and write the output
 def process_split(target_ids, src_tfrec_fp, dest_tfrec_fp, dest_stats_dir=None):
@@ -71,14 +85,21 @@ if __name__ == "__main__":
     tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
 
-    #src directory for merged tfrecord shard
+    # src directory for merged tfrecord shard
     src_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024")
+
+    # src fp for auxillary table
+    src_aux_tbl_fp = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024/data_tbl.csv")
 
     # destination directory for tfrecord shard splits
     dest_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024_split")
 
     # destination directory for computed training stats
     dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_stats")
+
+    #destination fp for auxillary tbl based on tf record shard splits
+    dest_aux_tbl_fp = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024_split")
+
 
     # set random seed
     np.random.seed(42) 
@@ -99,20 +120,23 @@ if __name__ == "__main__":
     num_test = len(shuffled_targets) - num_train - num_val
 
     # load targets per set from randomly shuffled targets
-    train_targets = shuffled_targets[:num_train]
-    val_targets = shuffled_targets[num_train:num_train + num_val]
-    test_targets = shuffled_targets[num_train + num_val:]
+    train_targets = set(shuffled_targets[:num_train])
+    val_targets = set(shuffled_targets[num_train:num_train + num_val])
+    test_targets = set(shuffled_targets[num_train + num_val:])
 
     print(f'Using {len(train_targets)} targets in training set')
     print(f'Using {len(val_targets)} targets in validation set')
     print(f'Using {len(test_targets)} targets in test set')
 
-    # use auxillary table that contains uid
-    aux_table = pd.read_csv('data_tbl.csv')
+    set_names = {
+        'train_set' : 'train_set',
+        'val_set' : 'val_set',
+        'test_set' : 'test_set'
+    }
 
-    train_tfrec_fp = dest_tfrec_dir / 'training_set'
-    val_tfrec_fp = dest_tfrec_dir / 'validation_set'
-    test_tfrec_fp = dest_tfrec_dir / 'test_set'
+    train_tfrec_fp = dest_tfrec_dir / set_names['train_set']
+    val_tfrec_fp = dest_tfrec_dir / set_names['val_set']
+    test_tfrec_fp = dest_tfrec_dir / set_names['test_set']
 
     # Build training set
     process_split(train_targets, src_tfrec_dir, train_tfrec_fp, dest_stats_dir)
@@ -123,6 +147,8 @@ if __name__ == "__main__":
     # Build test set
     process_split(test_targets, src_tfrec_dir, test_tfrec_fp)
 
+    # Create new auxillary table with mappings based on set
+    process_aux_tbl(src_aux_tbl_fp, dest_aux_tbl_fp, train_targets, val_targets, test_targets, set_names)
 
 
 
