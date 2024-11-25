@@ -23,6 +23,7 @@ from transit_detection.utils_difference_img_processing import extract_diff_img_d
 from transit_detection.utils_build_dataset import serialize_set_examples_for_tce, write_data_to_auxiliary_tbl
 from transit_detection.utils_local_fits_processing import search_and_read_tess_lightcurve, search_and_read_tess_targetpixelfile
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_sg_filter
+from transit_detection.utils_chunk_dataset import build_chunk_mask
 
 #%%
 def process_target_sector_run(chunked_target_sector_run_data,
@@ -310,8 +311,8 @@ def process_target_sector_run(chunked_target_sector_run_data,
 
 if __name__ == "__main__":
 
-    # file paths
 
+    # file paths
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -393,8 +394,16 @@ if __name__ == "__main__":
     job_chunk_size = 100
     chunked_jobs = [jobs[i:i+job_chunk_size] for i in range(0, len(jobs), job_chunk_size)]
 
+    validate_chunks = True
+    processed_chunk_mask = [0] * len(chunked_jobs)
+
+    if validate_chunks:
+        #build chunk mask
+        processed_chunk_mask = build_chunk_mask(chunked_jobs, data_dir / 'tfrecords')
+
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-        pool.apply_async(partial_func, args=(job_chunk, chunk_num))
+        if processed_chunk_mask[chunk_num] == 0:
+            pool.apply_async(partial_func, args=(job_chunk, chunk_num))
         
     pool.close()
     pool.join()
