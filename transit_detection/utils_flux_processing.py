@@ -211,6 +211,9 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
     n_it_windows = len(time_it_windows_arr)
     print(f'Extracted {n_it_windows} transit windows.')
 
+    if n_it_windows == 0:
+        raise ValueError(f'No valid transit windows detected for tce: {tce_uid}')
+
     # get start and end timestamps for the windows that should be excluded from out-of-transit windows
     start_time_windows, end_time_windows = (midtransit_points_arr - (n_durations_window + 1) * tce_duration / 2 -
                                             buffer_time,

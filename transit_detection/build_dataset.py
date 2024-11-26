@@ -165,13 +165,18 @@ def process_target_sector_run(chunked_target_sector_run_data,
                     tce_duration = tce_data['tce_duration']
 
                     # extract flux time series windows
-                    (resampled_flux_it_windows_arr, resampled_flux_oot_windows_arr, midtransit_points_windows_arr,
-                    midoot_points_windows_arr) = extract_flux_windows_for_tce(time, flux, in_transit_mask, tce_time0bk, period_days, 
-                                                                            tce_duration, n_durations_window, gap_width,
-                                                                            buffer_time, frac_valid_cadences_in_window_thr,
-                                                                            frac_valid_cadences_it_thr,
-                                                                            resampled_num_points, tce_data['uid'], rng,
-                                                                            plot_dir_target_sector_run_sector_tce, logger=logger)
+                    try:
+                        (resampled_flux_it_windows_arr, resampled_flux_oot_windows_arr, midtransit_points_windows_arr,
+                        midoot_points_windows_arr) = extract_flux_windows_for_tce(time, flux, in_transit_mask, tce_time0bk, period_days, 
+                                                                                tce_duration, n_durations_window, gap_width,
+                                                                                buffer_time, frac_valid_cadences_in_window_thr,
+                                                                                frac_valid_cadences_it_thr,
+                                                                                resampled_num_points, tce_data['uid'], rng,
+                                                                                plot_dir_target_sector_run_sector_tce, logger=logger)
+                    except ValueError as error:
+                        logger.warning(error.args[0])
+                        continue
+
                     if plot_dir_target_sector_run_sector_tce:
                         plot_dir_tce_diff_img_data = plot_dir_target_sector_run_sector_tce / 'diff_img_data'
                         plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
