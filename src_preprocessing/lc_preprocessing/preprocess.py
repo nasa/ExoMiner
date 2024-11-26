@@ -479,7 +479,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['n_max_phases'],
         config['keep_odd_even_order'],
         config['frac_it_cadences_thr'],
-        config['sampling_rate_h'][config['satellite']],
+        config['sampling_rate_h'],  # [config['satellite']],
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config[
             'quarter_sampling']
@@ -505,7 +505,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['n_max_phases'],
         config['keep_odd_even_order'],
         0,
-        config['sampling_rate_h'][config['satellite']],
+        config['sampling_rate_h'],  # [config['satellite']],
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config['quarter_sampling']
         else None,
@@ -588,6 +588,31 @@ def process_tce(tce, table, config):
     return: a tensorflow.train.Example proto containing TCE features
     """
 
+    # check if preprocessing pipeline figures are saved for the TCE
+    plot_preprocessing_tce = False  # False
+    if np.random.random() < config['plot_prob']:
+        plot_preprocessing_tce = config['plot_figures']
+
+    # sample TCE ephemeris using uncertainty interval
+    tce = sample_ephemerides(tce, config)
+
+    # get cadence, flux and centroid data for the tce
+    data = read_light_curve(tce, config)
+    if data is None:
+        raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
+
+    # update target position in FITS file with that from the TCE table
+    if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
+        data['target_position'] = [tce['ra'], tce['dec']]
+    config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
+
+    # config['primary_buffer_time'] = (config['primary_buffer_nsamples'] /
+    #                                  config['sampling_rate_h'][config['satellite']] / 24)
+    data['errors'] = check_inputs(data)
+
+    # get number of samples per hour
+    config['sampling_rate_h'] = 1 / (np.median(np.diff(np.concatenate(data['all_time']))) * 24)
+
     # setting primary and secondary transit gap duration
     if 'tce_maxmesd' in tce:
         config['duration_gapped_primary'] = max(
@@ -614,28 +639,8 @@ def process_tce(tce, table, config):
         #                            config['sampling_rate_h'][f'{config["satellite"]}'])
         # win_dur_h = config['sg_n_durations_win'] * tce['tce_duration'] * 24
         win_dur_h = 1.2 * 24
-        config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'][f'{config["satellite"]}'])
+        config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'])  # [f'{config["satellite"]}'])
         config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
-
-    # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
-    if np.random.random() < config['plot_prob']:
-        plot_preprocessing_tce = config['plot_figures']
-
-    # sample TCE ephemeris using uncertainty interval
-    tce = sample_ephemerides(tce, config)
-
-    # get cadence, flux and centroid data for the tce
-    data = read_light_curve(tce, config)
-    if data is None:
-        raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
-
-    # update target position in FITS file with that from the TCE table
-    if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
-        data['target_position'] = [tce['ra'], tce['dec']]
-    config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
-
-    data['errors'] = check_inputs(data)
 
     # # TODO: use this?
     # if config['satellite'] == 'kepler':

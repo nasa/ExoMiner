@@ -92,13 +92,12 @@ def train_model(config, model_dir, logger=None):
         val_input_fn = None
 
     # set train callbacks
-    config['callbacks_list'] = {'train': None}
+    config['callbacks_list'] = {'train': []}
     if config['callbacks']['train'] is not None:
-        config['callbacks_list']['train'] = []
         for callback_name, callback_params in config['callbacks']['train'].items():
             if callback_name == 'early_stopping':  # early stopping callback
                 config['callbacks_list']['train'].append(
-                    callbacks.EarlyStopping(**config['callbacks']['early_stopping']))
+                    callbacks.EarlyStopping(**config['callbacks']['train']['early_stopping']))
             else:
                 if logger is None:
                     print(f'Callback {callback_name} not implemented for training. Skipping this callback.')

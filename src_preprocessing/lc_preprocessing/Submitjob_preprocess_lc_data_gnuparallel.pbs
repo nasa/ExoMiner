@@ -3,7 +3,7 @@
 #PBS -S /bin/bash
 #PBS -N preprocessing_data_exoplanet
 #PBS -l walltime=72:00:00
-# PBS -l select=6:ncpus=128:model=rom_ait
+#PBS -l select=1:ncpus=128:model=rom_ait
 # PBS -l select=10:ncpus=40:model=cas_ait
 # PBS -q debug
 # PBS -q long
@@ -33,9 +33,9 @@ CONFIG_FP=$LC_PREPROCESSING_DIR/config_preprocessing.yaml
 PREPROCESS_SH_SCRIPT=$LC_PREPROCESSING_DIR/preprocessing_job.sh
 
 # number of total jobs
-NUM_TOTAL_JOBS=36
+NUM_TOTAL_JOBS=384
 # number of jobs run simultaneously in one node
-NUM_JOBS_PARALLEL=36
+NUM_JOBS_PARALLEL=128
 
 # run with GNU parallel; exclude --sshloginfile argument to use one single core setup
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
