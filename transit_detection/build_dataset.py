@@ -402,13 +402,33 @@ if __name__ == "__main__":
     validate_chunks = True
     processed_chunk_mask = [0] * len(chunked_jobs)
 
+    # log chunk validation
+    logger = logging.getLogger(f"chunk_validation_logger")
+    logger.setLevel(logging.INFO)
+
+    log_path = Path(log_dir) / f"chunk_validation.log"
+    file_handler = logging.FileHandler(log_path)
+    logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
+    file_handler.setFormatter(logger_formatter)
+
+    logger.info(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
+
     if validate_chunks:
         #build chunk mask
-        processed_chunk_mask = build_chunk_mask(chunked_jobs, data_dir / 'tfrecords')
+        tfrec_dir = data_dir / 'tfrecords'
+        tfrec_dir.mkdir(exist_ok=True, parents=True)
+
+        logger.info('Building chunk mask for processed chunks')
+        processed_chunk_mask = build_chunk_mask(chunked_jobs, tfrec_dir)
+
+    logger.info(f'Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed.')
 
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
         if processed_chunk_mask[chunk_num] == 0:
+            logger.info(f'Processing chunk {chunk_num}.')
             pool.apply_async(partial_func, args=(job_chunk, chunk_num))
+        else:
+            logger.info(f'Skipping processing for chunk {chunk_num}.')
         
     pool.close()
     pool.join()
