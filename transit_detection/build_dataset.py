@@ -410,6 +410,7 @@ if __name__ == "__main__":
     file_handler = logging.FileHandler(log_path)
     logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
     file_handler.setFormatter(logger_formatter)
+    logger.addHandler(file_handler)
 
     logger.info(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
 
