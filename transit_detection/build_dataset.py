@@ -319,9 +319,15 @@ if __name__ == "__main__":
 
     # file paths
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
+
+    #create log directory
     log_dir.mkdir(parents=True, exist_ok=True)
 
     data_dir = Path('/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024')
+    
+    # create dataset directory
+    data_dir.mkdir(exist_ok=True, parents=True)
+
     # set light curve data directory
     lc_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
     # set target pixel file data directory
@@ -350,8 +356,6 @@ if __name__ == "__main__":
     f_size = [3, 3]  # enlarge `size_img` by these factors; final dimensions are f_size * size_img
     center_target = False  # center target in images
 
-    # create dataset directory
-    data_dir.mkdir(exist_ok=True, parents=True)
 
     # create plot dir
     # plot_dir = data_dir / 'plots'
@@ -425,7 +429,7 @@ if __name__ == "__main__":
     logger.info(f'Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed.')
 
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-        if processed_chunk_mask[chunk_num] == 0:
+        if processed_chunk_mask[chunk_num - 1] == 0:
             logger.info(f'Processing chunk {chunk_num}.')
             pool.apply_async(partial_func, args=(job_chunk, chunk_num))
         else:
