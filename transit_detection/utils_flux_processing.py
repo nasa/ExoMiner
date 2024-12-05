@@ -111,7 +111,7 @@ def resample_timeseries(time, flux, num_resampled_points):
 
 def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_days, tce_duration, n_durations_window, 
                                  gap_width, buffer_time, frac_valid_cadences_in_window_thr, frac_valid_cadences_it_thr,
-                                 resampled_num_points, tce_uid, rng, plot_dir=None):
+                                 resampled_num_points, tce_uid, rng, plot_dir=None, logger=None):
     """ Extract flux windows for a TCE based on its orbital period, epoch, and transit duration. These windows are set
     to `n_durations_window` * `tce_duration` and are resampled to `resampled_num_points`. Transit windows are first 
     built centered around the midtransit points available in the `time` timestamps array. Out-of-transit windows are 
@@ -152,15 +152,16 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
 
     # split time series on gaps
     time_arrs, flux_arrs = split_timeseries_on_time_gap(time, flux, gap_width)
-    print(f'Time series split into {len(time_arrs)} arrays due to gap(s) in time.')
+    if logger:
+        logger.info(f'Time series split into {len(time_arrs)} arrays due to gap(s) in time.')
 
     # find first midtransit point in the time array
     first_transit_time = find_first_epoch_after_this_time(tce_time0bk, period_days, time[0])
     # compute all midtransit points in the time array
     midtransit_points_arr = np.array([first_transit_time + phase_k * period_days
                                       for phase_k in range(int(np.ceil((time[-1] - time[0]) / period_days)))])
-
-    print(f'Found {len(midtransit_points_arr)} midtransit points.')
+    if logger:
+        logger.info(f'Found {len(midtransit_points_arr)} midtransit points.')
 
     # get start and end timestamps for the windows based on the available midtransit points
     start_time_windows, end_time_windows = (midtransit_points_arr - n_durations_window * tce_duration / 2,
@@ -170,7 +171,9 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
     valid_midtransit_points_arr = midtransit_points_arr[np.logical_and(start_time_windows >= time[0],
                                                                       end_time_windows <= time[-1])]
 
-    print(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
+    if logger:
+        
+        logger.info(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
           f'array.')
 
     valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
@@ -183,7 +186,8 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
         # find indices in window
         idxs_window = np.logical_and(time >= start_time_window, time <= end_time_window)
         if idxs_window.sum() == 0:
-            print(f'No valid indices in window [{start_time_window}, {end_time_window}.')
+            if logger:
+                logger.info(f'No valid indices in window [{start_time_window}, {end_time_window}.')
             continue
 
         # find in-transit windows
@@ -191,7 +195,8 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
                                         time <= midtransit_point_window + tce_duration / 2)
 
         if idxs_it_window.sum() == 0:
-            print(f'No valid in-transit indices in window [{start_time_window}, {end_time_window}.')
+            if logger:
+                logger.info(f'No valid in-transit indices in window [{start_time_window}, {end_time_window}.')
             continue
 
         # check for valid window and in-transit region
@@ -209,7 +214,8 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
             midtransit_points_windows_arr.append(midtransit_point_window)
 
     n_it_windows = len(time_it_windows_arr)
-    print(f'Extracted {n_it_windows} transit windows.')
+    if logger:
+        logger.info(f'Extracted {n_it_windows} transit windows.')
 
     if n_it_windows == 0:
         raise ValueError(f'No valid transit windows detected for tce: {tce_uid}')
@@ -229,7 +235,8 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
     
     oot_points_arr = time[np.logical_and(~it_window_mask, ~transit_mask)]
 
-    print(f'Found {len(oot_points_arr)} out-of-transit points.')
+    if logger:
+        logger.info(f'Found {len(oot_points_arr)} out-of-transit points.')
 
     rng.shuffle(oot_points_arr)
 
@@ -243,7 +250,8 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
         idxs_window = np.logical_and(time >= start_time_window, time <= end_time_window)
 
         if idxs_window.sum() == 0:
-            print(f'No valid indices in window [{start_time_window}, {end_time_window}.')
+            if logger:
+                logger.info(f'No valid indices in window [{start_time_window}, {end_time_window}.')
             continue
 
         # check for valid window and in-transit region
@@ -262,9 +270,13 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
             break
 
     n_oot_windows = len(time_oot_windows_arr)
-    print(f'Extracted {len(time_oot_windows_arr)} out-of-transit windows.')
+    if logger:
+        logger.info(f'Extracted {len(time_oot_windows_arr)} out-of-transit windows.')
 
     if n_oot_windows < n_it_windows:
+        if logger:
+            logger.warn(f'Number of out-of-transit windows ({n_oot_windows}) is less than number of transit windows '
+                      f'({n_it_windows}).')
         warnings.warn(f'Number of out-of-transit windows ({n_oot_windows}) is less than number of transit windows '
                       f'({n_it_windows}).')
 
