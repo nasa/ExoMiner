@@ -583,7 +583,7 @@ def local_view(time,
         med = np.median(flux)
         std_rob_estm = mad_std(flux)  # robust std estimator of the time series
         view_var = std_rob_estm * np.ones(num_bins, dtype='float')
-        view = med  # + np.random.normal(0, std_rob_estm, num_bins, seed=?)
+        view = med + np.ones(num_bins, dtype='float')  # np.random.normal(0, std_rob_estm, num_bins, seed=?)
         inds_nan = {'oot': False * np.ones(num_bins, dtype='bool'), 'it': False * np.ones(num_bins, dtype='bool')}
         bin_counts = np.ones(num_bins, dtype='float')
     else:

@@ -359,6 +359,15 @@ def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
 
 
 def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
+    """ Merge TFRecord datasets.
+
+    Args:
+        dest_tfrec_dir: Path, destination TFRecord directory
+        src_tfrecs: dict, where the keys are the suffix of the source TFRecord file and the value is the path to the
+        source file
+
+    Returns:
+    """
 
     dest_tfrec_dir.mkdir(exist_ok=True)
 
@@ -371,7 +380,7 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 if __name__ == '__main__':
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_splinedetrending_11-4-2024_1121_data/tfrecords_tess_spoc_2min_s1-s67_splinedetrending_11-4-2024_1121')
+    tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
