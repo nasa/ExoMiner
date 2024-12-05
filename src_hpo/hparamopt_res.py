@@ -277,7 +277,7 @@ for run_i, run in enumerate(timesorted_allruns):
         if int(run.budget) != budget_chosen:
             continue
 
-    if run.loss < bconfig_loss or run_i == len(timesorted_allruns) - 1:
+    if run.loss < bconfig_loss:
 
         if run.loss < bconfig_loss:
             print('Best config so far: {} ({} on budget {})'. format(run.config_id, run.loss, int(run.budget)))
@@ -351,7 +351,7 @@ f.tight_layout()
 f.savefig(hpo_dir / 'walltime-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
-ax.plot(cum_budget_vec, tinc_hpoloss, zorder=2)  # , label='Ensemble' if ensemble_study else None)
+ax.plot(cum_budget_vec, tinc_hpoloss, zorder=2, linestyle='dashed')  # , label='Ensemble' if ensemble_study else None)
 ax.scatter(cum_budget_vec, tinc_hpoloss, label='Test', zorder=2, s=8)
 if ensemble_study:
     # ax.errorbar(cum_budget_vec, tinc_hpoloss_centraltend,
@@ -373,7 +373,7 @@ f.tight_layout()
 f.savefig(hpo_dir / 'cumbudget-hpoloss_budget_{}.png'.format(budget_chosen))
 
 f, ax = plt.subplots()
-ax.plot(cum_budget_vec, models_n_weights)  # , label='Ensemble' if ensemble_study else None)
+ax.plot(cum_budget_vec, models_n_weights, linestyle='dashed')  # , label='Ensemble' if ensemble_study else None)
 ax.scatter(cum_budget_vec, models_n_weights, s=8)
 # ax.set_yscale('log')
 ax.set_xscale('log')
