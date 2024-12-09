@@ -397,8 +397,8 @@ if __name__ == "__main__":
                                     data_dir=data_dir
                                     )
 
-    # using N-1 = 127
-    pool = multiprocessing.Pool(processes=127, maxtasksperchild=1) # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
+    # using N-2 = 126
+    pool = multiprocessing.Pool(processes=126, maxtasksperchild=1) # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
     
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])]
