@@ -312,7 +312,6 @@ def process_target_sector_run(chunked_target_sector_run_data,
                 writer.write(example_for_tce)
 
     # create auxiliary table
-    # create auxiliary table
     dataset_logger.info('Creating auxiliary table to TFRecord dataset.')
     data_tbl = write_data_to_auxiliary_tbl(chunk_data, tfrec_fp)
     data_tbl.to_csv(tfrec_dir / f'data_tbl_chunk-{str(chunk_num).zfill(4)}.csv', index=False)
