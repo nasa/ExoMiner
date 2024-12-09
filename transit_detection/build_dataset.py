@@ -93,7 +93,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
             found_sectors, lcfs = search_and_read_tess_lightcurve(target=target, sectors=sector_run_arr, lc_dir=lc_dir)
             
             if len(found_sectors) == 0:
-                logger.error(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
+                logger.warning(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
                 continue
 
             logger.info(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
@@ -175,6 +175,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
                                                                                 plot_dir_target_sector_run_sector_tce, logger=logger)
                     except ValueError as error:
                         logger.warning(error.args[0])
+                        print(f"ERROR: Extracting flux windows for chunk: {chunk_num} - {error.args[0]}")
                         continue
 
                     if plot_dir_target_sector_run_sector_tce:
@@ -188,7 +189,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
                     
                     # if no target pixel
                     if len(found_sector) == 0:
-                        logger.error(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
+                        logger.warning(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                         continue
 
                     # get tpf for sector
@@ -206,7 +207,6 @@ def process_target_sector_run(chunked_target_sector_run_data,
 
                     excl_idxs_it_ts = []
                     for window_i, midtransit_point_window in enumerate(midtransit_points_windows_arr):  # iterate on midtransit points in window
-
                         try:
                             diff_img_processed, oot_img_processed, snr_img_processed, target_img, target_pos_col, target_pos_row = (
                                 extract_diff_img_data_from_window(tpf.path, midtransit_point_window, tce_duration, buffer_time,
@@ -276,10 +276,12 @@ def process_target_sector_run(chunked_target_sector_run_data,
                 sector_data_to_tfrec.append(data_for_tce)
 
             logger.info(f"{chunk_num}) Processing for target: {target}, sector_run: {sector_run} complete.")
+            print(f"{chunk_num}) Processing for target: {target}, sector_run: {sector_run} complete.")
             chunk_data.extend(sector_data_to_tfrec)
 
         except Exception as e:
             logger.error(f"Error processing target: {target}, sector run: {sector_run} - {e}")
+            print(f"ERROR processing chunk: {chunk_num} with target: {target}, sector run: {sector_run} - {e}")
             continue
 
     # write data to TFRecord dataset
@@ -310,7 +312,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
     # create auxiliary table
     dataset_logger.info('Creating auxiliary table to TFRecord dataset.')
     data_tbl = write_data_to_auxiliary_tbl(chunk_data, tfrec_fp)
-    data_tbl.to_csv(tfrec_dir / f'data_tbl_chunk_{str(chunk_num).zfill(4)}.csv', index=False)
+    data_tbl.to_csv(tfrec_dir / f'data_tbl_chunk-{str(chunk_num).zfill(4)}.csv', index=False)
     dataset_logger.info(f"Dataset chunk {chunk_num} build completed!")
 
 
@@ -401,7 +403,7 @@ if __name__ == "__main__":
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [(target, sector_run, sector_run_data) for (target, sector_run), sector_run_data in tce_tbl.groupby(['target_id','sector_run'])]
 
-    job_chunk_size = 100
+    job_chunk_size = 5
     chunked_jobs = [jobs[i:i+job_chunk_size] for i in range(0, len(jobs), job_chunk_size)]
 
     validate_chunks = True
@@ -418,6 +420,7 @@ if __name__ == "__main__":
     logger.addHandler(file_handler)
 
     logger.info(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
+    print(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
 
     if validate_chunks:
         #build chunk mask
@@ -431,6 +434,7 @@ if __name__ == "__main__":
 
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
         if processed_chunk_mask[chunk_num - 1] == 0:
+            print(f'Processing chunk {chunk_num}')
             logger.info(f'Processing chunk {chunk_num}.')
             pool.apply_async(partial_func, args=(job_chunk, chunk_num))
         else:
