@@ -238,7 +238,6 @@ def process_target_sector_run(chunked_target_sector_run_data,
 
                     excl_idxs_oot_ts = []
                     for window_i, midoot_point_window in enumerate(midoot_points_windows_arr):  # iterate on oot points in window
-
                         try:
                             diff_img_processed, oot_img_processed, snr_img_processed, target_img, target_pos_col, target_pos_row = (
                                 extract_diff_img_data_from_window(tpf.path, midoot_point_window, tce_duration, buffer_time,
@@ -296,6 +295,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
 
     tfrec_dir = data_dir / 'tfrecords'
     tfrec_dir.mkdir(exist_ok=True, parents=True)
+    
     tfrec_fp = tfrec_dir / f'test_shard_0001-{str(chunk_num).zfill(4)}'
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
@@ -334,6 +334,7 @@ if __name__ == "__main__":
     tpf_dir = Path('/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/')
     # TCE table
     tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
+    
     tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
 
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
@@ -403,9 +404,6 @@ if __name__ == "__main__":
     job_chunk_size = 100
     chunked_jobs = [jobs[i:i+job_chunk_size] for i in range(0, len(jobs), job_chunk_size)]
 
-    validate_chunks = True
-    processed_chunk_mask = [0] * len(chunked_jobs)
-
     # log chunk validation
     logger = logging.getLogger(f"chunk_validation_logger")
     logger.setLevel(logging.INFO)
@@ -418,22 +416,9 @@ if __name__ == "__main__":
 
     logger.info(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
 
-    if validate_chunks:
-        #build chunk mask
-        tfrec_dir = data_dir / 'tfrecords'
-        tfrec_dir.mkdir(exist_ok=True, parents=True)
-
-        logger.info('Building chunk mask for processed chunks')
-        processed_chunk_mask = build_chunk_mask(chunked_jobs, tfrec_dir)
-
-    logger.info(f'Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed.')
-
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-        if processed_chunk_mask[chunk_num - 1] == 0:
-            logger.info(f'Processing chunk {chunk_num}.')
-            pool.apply_async(partial_func, args=(job_chunk, chunk_num))
-        else:
-            logger.info(f'Skipping processing for chunk {chunk_num}.')
+        logger.info(f'Processing chunk {chunk_num}.')
+        pool.apply_async(partial_func, args=(job_chunk, chunk_num))
         
     pool.close()
     pool.join()
