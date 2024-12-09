@@ -404,6 +404,9 @@ if __name__ == "__main__":
     job_chunk_size = 100
     chunked_jobs = [jobs[i:i+job_chunk_size] for i in range(0, len(jobs), job_chunk_size)]
 
+    validate_chunks = True
+    processed_chunk_mask = [0] * len(chunked_jobs)
+
     # log chunk validation
     logger = logging.getLogger(f"chunk_validation_logger")
     logger.setLevel(logging.INFO)
@@ -416,9 +419,22 @@ if __name__ == "__main__":
 
     logger.info(f'Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}')
 
+    if validate_chunks:
+        #build chunk mask
+        tfrec_dir = data_dir / 'tfrecords'
+        tfrec_dir.mkdir(exist_ok=True, parents=True)
+
+        logger.info('Building chunk mask for processed chunks')
+        processed_chunk_mask = build_chunk_mask(chunked_jobs, tfrec_dir)
+
+    logger.info(f'Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed.')
+
     for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-        logger.info(f'Processing chunk {chunk_num}.')
-        pool.apply_async(partial_func, args=(job_chunk, chunk_num))
+        if processed_chunk_mask[chunk_num - 1] == 0:
+            logger.info(f'Processing chunk {chunk_num}.')
+            pool.apply_async(partial_func, args=(job_chunk, chunk_num))
+        else:
+            logger.info(f'Skipping processing for chunk {chunk_num}.')
         
     pool.close()
     pool.join()
