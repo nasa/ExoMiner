@@ -93,7 +93,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
             found_sectors, lcfs = search_and_read_tess_lightcurve(target=target, sectors=sector_run_arr, lc_dir=lc_dir)
             
             if len(found_sectors) == 0:
-                logger.warning(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
+                # logger.warning(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
                 continue
 
             logger.info(f'Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}.')
@@ -172,10 +172,10 @@ def process_target_sector_run(chunked_target_sector_run_data,
                                                                                 buffer_time, frac_valid_cadences_in_window_thr,
                                                                                 frac_valid_cadences_it_thr,
                                                                                 resampled_num_points, tce_data['uid'], rng,
-                                                                                plot_dir_target_sector_run_sector_tce, logger=logger)
+                                                                                plot_dir_target_sector_run_sector_tce, logger=None)
+                        logger.info(f"Extracted flux windows for sector: {sector} with tce: {tce_data['uid']} ")
                     except ValueError as error:
-                        logger.warning(error.args[0])
-                        print(f"ERROR: Extracting flux windows for chunk: {chunk_num} - {error.args[0]}")
+                        logger.warning(f"ERROR: Extracting flux windows - {error.args[0]}")
                         continue
 
                     if plot_dir_target_sector_run_sector_tce:
@@ -189,7 +189,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
                     
                     # if no target pixel
                     if len(found_sector) == 0:
-                        logger.warning(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
+                        # logger.warning(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
                         continue
 
                     # get tpf for sector
@@ -215,8 +215,8 @@ def process_target_sector_run(chunked_target_sector_run_data,
                                                                 plot_dir=plot_dir_tce_transit_diff_img_data))
                         except ValueError as error:
                             logger.warning(error.args[0])
-                            logger.warning(f'no difference image data computed for midtransit point {midtransit_point_window}, '
-                                        f'skipping this window')
+                            # logger.warning(f'no difference image data computed for midtransit point {midtransit_point_window}, '
+                            #             f'skipping this window')
                             excl_idxs_it_ts.append(window_i)
                             continue
 
@@ -246,8 +246,8 @@ def process_target_sector_run(chunked_target_sector_run_data,
                                                                 plot_dir=plot_dir_tce_oottransit_diff_img_data))
                         except ValueError as error:
                             logger.warning(error.args[0])
-                            logger.warning(f'no difference image data computed for out-of-transit point {midoot_point_window}, '
-                                        f'skipping this window')
+                            # logger.warning(f'no difference image data computed for out-of-transit point {midoot_point_window}, '
+                            #             f'skipping this window')
                             excl_idxs_oot_ts.append(window_i)
                             continue
 
@@ -284,6 +284,9 @@ def process_target_sector_run(chunked_target_sector_run_data,
             print(f"ERROR processing chunk: {chunk_num} with target: {target}, sector run: {sector_run} - {e}")
             continue
 
+    logger.info(f"{chunk_num}) Processing for all target, sector_run pairs complete.")
+    logger.info(f"{chunk_num}) Beginning dataset logging")
+
     # write data to TFRecord dataset
     dataset_logger = logging.getLogger("DatasetLogger")
     dataset_logger.setLevel(logging.INFO)
@@ -317,8 +320,6 @@ def process_target_sector_run(chunked_target_sector_run_data,
 
 
 if __name__ == "__main__":
-
-
     # file paths
     log_dir = Path('/nobackup/jochoa4/work_dir/data/logging')
 
@@ -342,7 +343,6 @@ if __name__ == "__main__":
     tce_tbl.rename(columns={'label': 'disposition', 'label_source': 'disposition_source'}, inplace=True)
 
     # dataset hyperparameters
-
     n_durations_window = 5  # number of transit durations in each extracted window
     frac_valid_cadences_in_window_thr = 0.85
     frac_valid_cadences_it_thr = 0.85
