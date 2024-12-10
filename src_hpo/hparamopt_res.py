@@ -12,10 +12,10 @@ from pathlib import Path
 # local
 from src_hpo.utils_hpo import logged_results_to_HBS_result
 
-# %% load results from a HPO study
+#%% Load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_run_keplerq1q17dr25_11-20-2024_2105')
+hpo_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_run_keplerq1q17dr25_11-22-2024_1703')
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated
@@ -31,7 +31,7 @@ min_val = 0.90
 # load results json
 res = logged_results_to_HBS_result(hpo_dir)
 
-#%%
+#%% Get all runs
 
 id2config = res.get_id2config_mapping()
 all_runs = res.get_all_runs()
@@ -52,7 +52,8 @@ all_runs = [run for run in all_runs if run.info is not None]
 all_runs = [run for run in all_runs if not isinstance(run.info, str)]
 print('Number of valid/invalid runs: {}|{}'.format(len(all_runs), total_runs - len(all_runs)))
 
-# extract budgets
+#%% Extract budgets
+
 budgets = []
 for run in all_runs:
     if int(run.budget) not in budgets:
@@ -80,7 +81,8 @@ for run in all_runs:
 print('Runs per budget (valid): ', {k: runs_per_budget[k][0] for k in runs_per_budget})
 print('Configs per budget (valid): ', {k: configs_per_budget[k][0] for k in configs_per_budget})
 
-# extract model based and random picks per budget
+#%% Extract model based and random picks per budget
+
 modelspicks_per_budget = {key: {'model based': [0, []], 'random': [0, []]} for key in budgets}
 for b in configs_per_budget:
     for config in configs_per_budget[b][1]:
@@ -99,7 +101,8 @@ print('Model/random based pick configurations: ',
       {b: {'model based': modelspicks_per_budget[b]['model based'][0], 'random': modelspicks_per_budget[b]['random'][0]}
        for b in modelspicks_per_budget})
 
-# plot time ordered model based and random picked configurations
+#%% Plot time ordered model based and random picked configurations
+
 configs_ftime = [config_sorted[0] for config_sorted in sorted(configs_ftime, key=lambda x: x[1])]
 configs_ftimeu = []
 for config in configs_ftime:
@@ -124,7 +127,8 @@ print('Number of valid configurations: {}'.format(nconfigs_valid))
 print('Number of model based pick configurations: {}'.format(nconfigs_modelbased))
 print('Number of random picked configurations: {}'.format(nconfigs_valid - nconfigs_modelbased))
 
-# plot 2D histograms for two chosen metrics
+#%% Plot 2D histograms for two chosen metrics
+
 f, ax = plt.subplots()
 if ensemble_study:
     # axh = ax.hist2d([run.info[metrics_plot[0]][0] for run in all_runs],
@@ -151,9 +155,12 @@ ax.set_xlabel(metrics_plot[0])
 ax.set_ylabel(metrics_plot[1])
 ax.set_title('2D histogram of configs performance metrics')
 plt.colorbar(axh[3], label='Counts')
+# cbar = f.colorbar(axh, ax=ax, cax=None, format="$%.2f$", orientation='vertical', location='right', fraction=0.05, label='Recall', aspect=8, ticks=np.arange(0, 1.1, 0.1))
+# cbar.ax.tick_params(labelsize=10, rotation=0)
 f.savefig(hpo_dir / '2dhist_precision-recall.png')
 
-# rank configurations based on metric
+#%% rank configurations based on metric
+
 if ensemble_study:
     # ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric][0], reverse=True)
     ranked_allruns = sorted(all_runs, key=lambda x: x.info[rankmetric], reverse=True)
@@ -194,7 +201,7 @@ f.savefig(hpo_dir / 'hist_top{}_{}.png'.format(min_val, rankmetric))
 
 #%% Check model's weights
 
-bins = np.logspace(5, 7, 20)
+bins = np.logspace(5, 8, 30)
 
 configs_dirs = [fp for fp in hpo_dir.iterdir() if fp.is_dir() and fp.name.startswith('config')]
 
@@ -244,7 +251,7 @@ ax.set_yscale('log')
 
 metric = 'auc_pr'
 # hpo_loss = 'test_auc_pr'  # 'pr auc'
-budget_chosen = 12  # 50.0  # 'all
+budget_chosen = 'all'  # 50.0  # 'all
 lim_totalbudget = np.inf
 
 best_configtime = res.get_incumbent_trajectory(all_budgets=True, bigger_is_better=False, non_decreasing_budget=False)

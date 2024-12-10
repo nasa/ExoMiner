@@ -216,6 +216,9 @@ if __name__ == '__main__':
 
     exp_dir = Path(config["exp_dir"])
 
+    log_dir = exp_dir / 'logs'
+    log_dir.mkdir(exist_ok=True)
+
     # create experiment directory
     exp_dir.mkdir(exist_ok=True)
     print(f'Starting run {exp_dir}...')
@@ -247,14 +250,12 @@ if __name__ == '__main__':
     sector_timestamps_tbl = pd.read_csv(config["sector_timestamps_tbl_fp"]).sort_values('sector')
     print(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
 
-    plot_prob = 0.01  # 0.01
-    print(f'Plot probability: {plot_prob}')
-    sampling_interval = 2 / 60 / 24  # sampling rate for binary time series
-    print(f'Sampling interval for binary time series: {sampling_interval}')
+    print(f'Plot probability: {config["plot_prob"]}')
+    print(f'Sampling interval for binary time series: {config["sampling_interval"]}')
 
     targets_arr = tce_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     # sequential option
-    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
-                                    plot_prob=plot_prob, plot_dir=plot_dir)
+    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, config['sampling_interval'],
+                                    save_dir, plot_prob=config['plot_prob'], plot_dir=plot_dir)
