@@ -160,9 +160,9 @@ def get_tce_table(config):
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
     # FIXME: this is temporary!!
-    if 'sector_run' in tce_table:
-        logger.info('Excluding TCEs from sector run S68')
-        tce_table = tce_table.loc[tce_table['sector_run'] != '68']
+    # if 'sector_run' in tce_table:
+    #     logger.info('Excluding TCEs from sector run S68')
+    #     tce_table = tce_table.loc[tce_table['sector_run'] != '68']
     # FIXME: add wst_depth_err to the Kepler Q1-Q17 DR25 TCE table
     if 'wst_depth_err' not in tce_table:
         logger.info('Adding `wst_depth_err` to the TCE table. Setting value to all TCEs as -1')
@@ -170,7 +170,7 @@ def get_tce_table(config):
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)
-    # preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['305633328-1-S14-60'])]
+    # preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['16284697-1-S51'])]
     # preprocess_tce_table = preprocess_tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel

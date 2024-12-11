@@ -17,18 +17,18 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # CV destination data directory
-    dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/')
+    dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347')
     # TFRecord source directory
-    src_tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_adddiffimg_perimgnormdiffimg')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
-    n_processes = 10
+    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/shards_tbl.csv')
+    n_processes = 128
     # directory with the TCE tables for each fold in the labeled data set
-    labeled_shard_tbls_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/shard_tables/eval')  # dest_dir / 'shard_tables' / 'eval'
+    labeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347/shard_tables/eval')  # dest_dir / 'shard_tables' / 'eval'
     # destination directory for the TFRecords for all CV folds in the labeled data set
     labeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'eval'
     # directory with the TCE tables for each fold for the unlabeled data set
-    unlabeled_shard_tbls_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
+    unlabeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
     # destination directory for the TFRecords for all CV folds in the unlabeled data set
     unlabeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'predict'
     log_dir = dest_dir / 'create_cv_folds_logs'

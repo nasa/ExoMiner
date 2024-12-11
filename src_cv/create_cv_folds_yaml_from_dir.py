@@ -1,24 +1,17 @@
 """
 Run setup for CV iteration.
 - Add file paths to the TFRecord files for a given CV iteration.
-- Load model's hyperparameters from an HPO run.
 """
 
 # 3rd party
 import yaml
 from pathlib import Path
 import argparse
-# import logging
-import numpy as np
-
-# 3rd party
-from src_cv.create_cv_dataset.add_tfrec_dataset_fps_to_config_file import add_tfrec_dataset_fps_to_config_file
-from src_hpo.utils_hpo import load_hpo_config
 
 
 def create_cv_folds_yaml_from_dir(data_dir, config, cv_iter):
-    """ Run setup for a CV iteration. This involves things such as adding the filepaths for this given iteration to the
-    general config yaml file for the CV experiment; loading model hyperparameters from an HPO run
+    """ Run setup for a CV iteration. This involves adding the filepaths for this given iteration to the
+    general config yaml file for the CV experiment.
 
     :param data_dir: Path, data directory
     :param config: dict, CV run parameters

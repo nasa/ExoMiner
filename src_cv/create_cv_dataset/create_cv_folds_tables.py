@@ -8,12 +8,12 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227')
+data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347')
 
 rnd_seed = 24
-n_folds_eval = 10  # which is also the number of shards
-n_folds_predict = 300
-dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/tfrecords_kepler_q1q17dr25_9-30-2024_1730_adddiffimg_perimgnormdiffimg/shards_tbl.csv')
+n_folds_eval = 5  # which is also the number of shards
+n_folds_predict = 100
+dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
     # # Kepler

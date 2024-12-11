@@ -13,15 +13,15 @@ from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_t
 if __name__ == '__main__':
 
     # DV XML file path
-    dv_xml_root_fp = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/')
+    dv_xml_root_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
     single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]  #  and fp.stem in ['s0062', 's0057', 's0056', 's0055']]  # [dv_xml_root_fp / 'single-sector' / 's0051']
     multi_sector_runs = []  # [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
 
     # run directory
-    run_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943')
+    run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/extracted_data/s36-s72_singlesector_11-25-2024_0948')
     plot_prob = 0.01  # plot probability
-    n_processes = 14  # number of processes used to parallelize extraction
+    n_processes = 120  # number of processes used to parallelize extraction
 
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)

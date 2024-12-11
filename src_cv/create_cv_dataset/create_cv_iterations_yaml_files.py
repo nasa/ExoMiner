@@ -11,7 +11,7 @@ from pathlib import Path
 
 #%% Create yaml file to be used to create the normalized labeled dataset for the CV experiment from the nonnormalized dataset
 
-data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
+data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval')
 datasets = ['train', 'test']
 
 cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard')]
@@ -35,9 +35,9 @@ with open(data_dir / 'cv_iterations.yaml', 'w') as file:
 
 #%% Create yaml file to be used to run the CV experiment with the normalized labeled dataset
 
-data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval_normalized')
+data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset')
 # use yaml file for CV iterations created when normalizing the data
-cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval/cv_iterations.yaml')
+cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset/src_cv_iterations.yaml')
 
 with open(cv_iterations_fp, 'r') as file:
     cv_iterations = yaml.unsafe_load(file)
@@ -66,9 +66,9 @@ with open(data_dir / 'cv_iterations.yaml', 'w') as file:
 
 #%% Create new yaml file from another one by including Kepler data in the training set
 
-src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml')
-kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
-dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_with_kepler_trainset')
+src_cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval/cv_iterations.yaml')
+kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval')
+dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset')
 
 dest_dir.mkdir(exist_ok=True)
 
@@ -91,7 +91,7 @@ with open(dest_dir / 'src_cv_iterations.yaml', 'w') as file:
 
 src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml')
 kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
-dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_with_kepler_trainset_only')
+dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_/eval_normalized_with_kepler_trainset')
 
 dest_dir.mkdir(exist_ok=True)
 

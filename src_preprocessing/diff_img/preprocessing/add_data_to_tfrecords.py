@@ -26,7 +26,7 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir):
             src_tfrec_fps: list of Path objects, source TFRecord filepaths
             dest_tfrec_dir: Path, destination TFRecord
 
-        Returns: examples_not_found_dict, dict with examples with no difference image data found
+        Returns: examples_not_found_df, pandas DataFrame with examples with no difference image data found
 
     """
 
@@ -39,18 +39,20 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir):
                         force=True
                         )
 
-    examples_not_found_dict = {'uid': [], 'filename': [], 'example_i': [], 'label': []}
+    examples_not_found_df_lst = []
     for src_tfrec_fp_i, src_tfrec_fp in enumerate(src_tfrec_fps):
 
         logger.info(f'Iterating through shard {src_tfrec_fp} ({src_tfrec_fp_i + 1}/{len(src_tfrec_fps)})...')
 
         dest_tfrec_fp = dest_tfrec_dir / src_tfrec_fp.name
 
-        examples_not_found_dict_tfrec = write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger)
+        examples_not_found_df = write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger)
 
-        examples_not_found_dict.update(examples_not_found_dict_tfrec)
+        examples_not_found_df_lst.append(examples_not_found_df)
 
-    return examples_not_found_dict
+    examples_not_found_df = pd.concat(examples_not_found_df_lst, axis=0, ignore_index=True)
+
+    return examples_not_found_df
 
 
 def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger=None):
@@ -62,7 +64,7 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger=None):
             dest_tfrec_dir: Path, destination TFRecord
             logger: logger
 
-        Returns: examples_not_found_dict, dict with examples with no difference image data found
+        Returns: examples_not_found_df pandas DataFrame with examples with no difference image data found
 
     """
 
@@ -114,16 +116,20 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger=None):
 
             writer.write(example.SerializeToString())
 
-    return examples_not_found_dict
+    examples_not_found_df = pd.DataFrame(examples_not_found_dict)
+
+    return examples_not_found_df
 
 
 if __name__ == '__main__':
 
-    n_procs = 20
-    n_jobs = 40
+    tf.config.set_visible_devices([], 'GPU')
+
+    n_procs = 36
+    n_jobs = 108
 
     # %% set file paths
-    src_tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055')
     src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
 
     # # Kepler - single NumPy file
@@ -133,12 +139,21 @@ if __name__ == '__main__':
     # TESS - one NumPy file per sector run
     # aggregate all dictionaries
     # might be memory intensive as number of sector runs increases...
-    diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tess/2min/dv/diff_img/preprocessed/11-20-2023_1127')
+    diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/preprocessed_data')
     diff_img_data = {}
-    # get file paths to directories with difference image data in NumPy files
-    sector_dirs = [fp for fp in diff_img_data_dir.iterdir() if fp.is_dir() and 'sector' in fp.name]
-    for fp in sector_dirs:
-        diff_img_data_sector_run = np.load(fp / 'diffimg_preprocess.npy', allow_pickle=True).item()
+
+    # # get file paths to directories with difference image data in NumPy files
+    # sector_dirs = [fp for fp in diff_img_data_dir.iterdir() if fp.is_dir() and 'sector' in fp.name]
+    # for fp in sector_dirs:
+    #     diff_img_data_sector_run = np.load(fp / 'diffimg_preprocess.npy', allow_pickle=True).item()
+    #     diff_img_data.update(diff_img_data_sector_run)
+
+    # get file paths to difference image NumPy files for the needed sector runs
+    diff_img_fps = list(diff_img_data_dir.rglob('*.npy'))
+    print(f'Found {len(diff_img_fps)} difference image files.')
+    n_jobs = min(len(diff_img_fps), n_jobs)
+    for fp in diff_img_fps:
+        diff_img_data_sector_run = np.load(fp, allow_pickle=True).item()
         diff_img_data.update(diff_img_data_sector_run)
 
     dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_adddiffimg'
@@ -152,7 +167,7 @@ if __name__ == '__main__':
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='a',
+                        filemode='w',
                         )
 
     logger.info(f'Found {len(src_tfrec_fps)} source TFRecord files.')
@@ -165,11 +180,11 @@ if __name__ == '__main__':
     async_results = [pool.apply_async(write_diff_img_data_to_tfrec_files, job) for job in jobs]
     pool.close()
 
-    examples_not_found_dict = {}
+    examples_not_found_df_lst = []
     for async_result in async_results:
-        examples_not_found_dict.update(async_result.get())
+        examples_not_found_df_lst.append(async_result.get())
 
-    examples_not_found_df = pd.DataFrame(examples_not_found_dict)
+    examples_not_found_df = pd.concat(examples_not_found_df_lst, axis=0, ignore_index=True)
     examples_not_found_df.to_csv(dest_tfrec_dir / 'examples_without_diffimg_data.csv', index=False)
 
     logger.info(f'Number of examples without difference image data: {len(examples_not_found_df)}.')

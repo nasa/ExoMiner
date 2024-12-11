@@ -11,8 +11,8 @@ import re
 
 #%%
 
-dv_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/xml_files/')
-save_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/quality_metrics/s36-s69_singlesectorsonly_7-9-2024_1244')
+dv_root_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
+save_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/quality_metrics/s36-s72_singlesector_11-25-2024_0952')
 
 save_dir.mkdir(exist_ok=True)
 
