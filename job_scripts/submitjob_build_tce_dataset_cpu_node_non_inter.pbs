@@ -4,8 +4,8 @@
 #PBS -l walltime=48:00:00
 #PBS -l select=1:ncpus=128:mpiprocs=128:model=rom_ait
 #PBS -q long
-#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset.out
-#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset.err
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset_v2.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_transit_detection_dataset_v2.err
 #PBS -W group_list=s2857
 
 module use -a /swbuild/analytix/tools/modulefiles
