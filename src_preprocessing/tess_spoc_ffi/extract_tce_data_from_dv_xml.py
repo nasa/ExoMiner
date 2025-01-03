@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import multiprocessing
+import re
 
 DV_XML_HEADER = '{http://www.nasa.gov/2018/TESS/DV}'
 
@@ -181,10 +182,11 @@ def get_outside_params(root, output_csv):
     # get observed sectors
     obs_sectors_idxs = np.where(np.array([*root.attrib['sectorsObserved']]) == '1')[0]
     # get start and end sector
-    if len(obs_sectors_idxs) == 1:  # single-sector run
-        output_csv['sector_run'] = str(obs_sectors_idxs[0])
-    else:  # multi-sector run
-        output_csv['sector_run'] = f'{obs_sectors_idxs[0]}-{obs_sectors_idxs[-1]}'
+    output_csv['sectors_observed'] = obs_sectors_idxs
+    # if len(obs_sectors_idxs) == 1:  # single-sector run
+    #     output_csv['sector_run'] = str(obs_sectors_idxs[0])
+    # else:  # multi-sector run
+    #     output_csv['sector_run'] = f'{obs_sectors_idxs[0]}-{obs_sectors_idxs[-1]}'
 
 
 def find_descendants(output_csv, descendants, tce_i, keywords):
@@ -252,6 +254,14 @@ def process_xml(dv_xml_fp):
     n_tces = len(planet_res_lst)
 
     output_csv = pd.DataFrame(index=np.arange(n_tces))
+
+    # get sector run from filename
+    sector_run_str = re.search('s\d{4}-s\d{4}', dv_xml_fp.name).group()
+    s_sector, e_sector = sector_run_str.split('-')
+    if s_sector == e_sector:  # single-sector run
+        output_csv['sector_run'] = str(s_sector[1:])
+    else:   # multi-sector
+        output_csv['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
 
     # insert same number of planets for all the tces within this xml file
     output_csv['numberOfPlanets'] = n_tces

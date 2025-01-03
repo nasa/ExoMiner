@@ -85,6 +85,9 @@ def median_filter(x, y, num_bins, bin_width=None, x_min=None, x_max=None, bin_fn
 
     # Validate bin_width.
     bin_width = bin_width if bin_width is not None else (x_max - x_min) / num_bins
+    # set bin width to median time interval between consecutive cadences if bin width is shorter
+    if bin_width < np.median(np.diff(x)):
+        bin_width = np.median(np.diff(x))
     if bin_width <= 0:
         raise ValueError("bin_width must be positive. Got: {}".format(bin_width))
     if bin_width >= x_max - x_min:
