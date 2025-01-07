@@ -12,7 +12,7 @@ def build_chunk_mask(chunks_to_process, chunked_dataset_dir):
         return chunk_mask
 
     shard_prefix = 'test_shard_0001-'
-    aux_tbl_prefix = 'data_tbl_chunk_'
+    aux_tbl_prefix = 'data_tbl_chunk-'
     
     for chunk_i, chunk in enumerate(chunks_to_process):
         try:
