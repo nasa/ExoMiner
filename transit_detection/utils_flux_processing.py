@@ -172,7 +172,6 @@ def extract_flux_windows_for_tce(time, flux, transit_mask, tce_time0bk, period_d
                                                                       end_time_windows <= time[-1])]
 
     if logger:
-        
         logger.info(f'Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time '
           f'array.')
 
