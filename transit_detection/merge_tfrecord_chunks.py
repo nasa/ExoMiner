@@ -87,15 +87,15 @@ def get_chunk_paths(chunked_dataset_dir, chunk_num_range, shard_prefix, aux_tbl_
 if __name__ == "__main__":
 
     # directory containing unmerged tfrecord and auxillary chunks
-    chunked_dataset_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024")
+    chunked_dataset_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024/tfrecords")
 
     # directory for merged tf record and auxillary table
-    dest_dataset_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024_merged")
+    dest_dataset_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024/merged_tfrecords")
 
     shard_prefix = 'test_shard_0001-'
-    aux_tbl_prefix = 'data_tbl_chunk_'
+    aux_tbl_prefix = 'data_tbl_chunk-'
 
-    chunk_paths = get_chunk_paths(chunked_dataset_dir, (1,1000), shard_prefix, aux_tbl_prefix)
+    chunk_paths = get_chunk_paths(chunked_dataset_dir, (1,8151), shard_prefix, aux_tbl_prefix)
 
     # stop here for testing
     dest_tfrec_dir = dest_dataset_dir / 'merged_shard_0001-0001'
