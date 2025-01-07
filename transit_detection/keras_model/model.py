@@ -127,6 +127,7 @@ class ExoMiner_TESS_Transit_Detection(object):
                                             name='fc_prelu_{}'.format(branch_name))(net)
 
             net = tf.keras.layers.Dropout(self.config['global_branch_settings']['dropout_rate_fc_conv'], name='dropout_fc_conv_{}'.format(branch_name))(net) 
+            # keep at 0
 
         return {branch_name: net}
 
@@ -202,8 +203,9 @@ class ExoMiner_TESS_Transit_Detection(object):
                                                 name='maxpooling_{}_{}_{}'.format(branch_name, conv_block_i,
                                                                                         seq_conv_block_i))(net)
         # flatten output of the final conv block (None, 4, 4, 16) -> (None, 16, 16)
-        net = tf.keras.layers.Reshape((np.prod(net.shape[1:-1].as_list()), net.shape[-1]),
-                                      name='flatten_{}'.format(branch_name))(net)
+
+        # net = tf.keras.layers.Reshape((np.prod(net.shape[1:-1].as_list()), net.shape[-1]),
+        #                               name='flatten_{}'.format(branch_name))(net)
         
 
         # flatten 2d feature map -> 1d array 
