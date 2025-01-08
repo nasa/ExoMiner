@@ -27,19 +27,19 @@ def merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths, update_col=Tru
 
     with tf.io.TFRecordWriter(str(dest_tfrec_path)) as writer:
         try:                
-            for shard_path, aux_tbl_path in chunk_paths:
+            for chunk_shard_path, chunk_aux_tbl_path in chunk_paths:
                 # write to new TFRecordDataset
-                dataset_chunk = tf.data.TFRecordDataset(str(shard_path))
+                dataset_chunk = tf.data.TFRecordDataset(str(chunk_shard_path))
 
                 for example in dataset_chunk:
                     writer.write(example.numpy())
 
                 # load aux_tbls
-                aux_tbl_chunk = pd.read(aux_tbl_path)
+                aux_tbl_chunk = pd.read_csv(chunk_aux_tbl_path)
                 aux_tbls.append(aux_tbl_chunk)
 
         except Exception as e:
-            print(f"ERROR: For {shard_path.name} and {aux_tbl_path.name}: {e}")
+            print(f"ERROR: For {chunk_shard_path.name} and {chunk_aux_tbl_path.name}: {e}")
 
     # concatenate aux_tbls
     merged_aux_tbl = pd.concat(aux_tbls, ignore_index=True)
@@ -53,11 +53,11 @@ def merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths, update_col=Tru
 
 def get_chunk_paths(chunked_dataset_dir, chunk_num_range, shard_prefix, aux_tbl_prefix) -> list[tuple]:
     """
-    Gets corresponding shard and aux_tbl chunk paths for a range of chunk nums.
+    Gets corresponding shard and aux_tbl chunk paths for a range of inclusive chunk nums.
 
     Input: 
         chunked_dataset_dir: Path, directory containing shard and aux tbl chunks
-        chunk_num_range: tuple(int, int), the range of chunk numbers to process, ie: (1,100)
+        chunk_num_range: tuple(int, int), the inclusive range of chunk numbers to process, ie: (1,100)
         shard_prefix: str, a prefix that chunk shards adhere to
         aux_tbl_prefix: str, a prefix that chunk aux tbls adhere to
 
@@ -71,18 +71,32 @@ def get_chunk_paths(chunked_dataset_dir, chunk_num_range, shard_prefix, aux_tbl_
     chunk_num_start, chunk_num_end = chunk_num_range
     chunks_to_process = np.arange(start=chunk_num_start, stop=chunk_num_end + 1) # range of chunks to process
 
-    for chunk in chunks_to_process:
+    for chunk_i in chunks_to_process:
         try:
-            chunk_shard_path = list(chunked_dataset_dir.rglob(f"*{shard_prefix}{str(chunk).zfill(4)}"))[0]
-            chunk_aux_tbl_path = list(chunked_dataset_dir.rglob(f"*{aux_tbl_prefix}{str(chunk).zfill(4)}.csv"))[0]
+            chunk_shard_path = list(chunked_dataset_dir.rglob(f"*{shard_prefix}{str(chunk_i).zfill(4)}"))[0]
+            chunk_aux_tbl_path = list(chunked_dataset_dir.rglob(f"*{aux_tbl_prefix}{str(chunk_i).zfill(4)}.csv"))[0]
 
-            chunk_shards.append(chunk_shard_path)
-            chunk_aux_tbls.append(chunk_aux_tbl_path)
-            
+            if chunk_shard_path.exists() and chunk_aux_tbl_path.exists():
+                chunk_shards.append(chunk_shard_path)
+                chunk_aux_tbls.append(chunk_aux_tbl_path)
+                
         except Exception as e:
-            print(f"ERROR: Chunk {chunk} not found: {e}")
+            print(f"ERROR: Chunk {chunk_i} not found: {e}")
 
     return list(zip(chunk_shards, chunk_aux_tbls))
+
+def test_chunk_paths(chunked_dataset_dir, shard_prefix, aux_tbl_prefix):
+    chunks = np.zeros(8611)
+    for chunk_i, chunk in enumerate(chunks, start=1):
+        try:
+            chunk_shard_path = list(chunked_dataset_dir.rglob(f"*{shard_prefix}{str(chunk_i).zfill(4)}"))[0]
+            chunk_aux_tbl_path = list(chunked_dataset_dir.rglob(f"*{aux_tbl_prefix}{str(chunk_i).zfill(4)}.csv"))[0]
+
+            if chunk_shard_path.exists() and chunk_aux_tbl_path.exists():
+                print(f'Chunk exists: {chunk_i}')
+
+        except Exception as e:
+            print(f"ERROR: Chunk {chunk_i} not found: {e}")
 
 if __name__ == "__main__":
 
@@ -95,8 +109,14 @@ if __name__ == "__main__":
     shard_prefix = 'test_shard_0001-'
     aux_tbl_prefix = 'data_tbl_chunk-'
 
-    chunk_paths = get_chunk_paths(chunked_dataset_dir, (1,8151), shard_prefix, aux_tbl_prefix)
+    # test_chunk_paths(chunked_dataset_dir, shard_prefix, aux_tbl_prefix)
+    chunk_paths = get_chunk_paths(chunked_dataset_dir, (1,8611), shard_prefix, aux_tbl_prefix)
 
     # stop here for testing
-    dest_tfrec_dir = dest_dataset_dir / 'merged_shard_0001-0001'
+    dest_tfrec_path = dest_dataset_dir / 'merged_shard_0001-0001'
+    dest_aux_tbl_path = dest_dataset_dir / 'merged_data_tbl_chunk-0001'
+
+    # merge all chunks
+    merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths)
+
 
