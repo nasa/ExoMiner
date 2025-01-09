@@ -114,9 +114,9 @@ if __name__ == "__main__":
 
     # stop here for testing
     dest_tfrec_path = dest_dataset_dir / 'merged_shard_0001-0001'
-    dest_aux_tbl_path = dest_dataset_dir / 'merged_data_tbl_chunk-0001'
+    dest_aux_tbl_path = dest_dataset_dir / 'merged_data_tbl_chunks_0001-8611.csv'
 
     # merge all chunks
-    merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths)
+    merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths, update_col=False)
 
 
