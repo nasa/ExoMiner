@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 
 # local
-from model import ExoMiner_TESS_Transit_Detection
+from transit_detection.keras_model.model_keras import ExoMiner_TESS_Transit_Detection
 from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 # load file with features and model config

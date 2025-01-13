@@ -11,10 +11,10 @@ from pathlib import Path
 import logging
 
 # local
-from src.utils_dataio import InputFnv2 as InputFn
+from transit_detection.keras_model.utils_dataio import InputFnv2 as InputFn
 from src.utils_metrics import get_metrics
 from models.utils_models import compile_model
-from transit_detection.keras_model import model
+from transit_detection.keras_model import model_keras
 from src.utils_train_eval_predict import set_tf_data_type_for_features
 
 
@@ -23,11 +23,11 @@ def train_model(config, model_dir, logger=None):
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
-    base_model = getattr(model, config['model_architecture'])
+    base_model = getattr(model_keras, config['model_architecture'])
 
     model = base_model(config, config['features_set']).kerasModel
 
-    if config['plot_model']:
+    if config['plot_model']: #currently true, look @ model_dir
         # save plot of model
         plot_model(model,
                    to_file=model_dir / 'model.png',
@@ -119,7 +119,7 @@ def train_model(config, model_dir, logger=None):
 
     res = history.history
 
-    np.save(model_dir / 'res_train.npy', res)
+    np.save(model_dir / 'res_train.npy', res) #will contain monitored metrics for train/val, but not for test set
 
 
 if __name__ == "__main__":
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     # TODO: update file paths
 
     # output directory
-    model_dir_fp = Path('/Users/jochoa4/Desktop/transit_detection/datasets/outputs/example')
+    model_dir_fp = Path('/Users/jochoa4/Desktop/test_model/')
 
     # YAML configuration
     config_fp = Path('/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/keras_model/config_train.yaml')
