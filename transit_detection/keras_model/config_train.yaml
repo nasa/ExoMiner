@@ -117,14 +117,14 @@ training:
   batch_size: 32
   #  ce_weights: null
   filter_data: null  # deprecated; useless
-  category_weights: false  # category weights used in weighted loss; set to null for non-weighted loss
+  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 120000  # should be larger than size of the training set to allow perfect sampling
 
 
 
-label_field_name: disposition  # name of the label field in the TFRecord that is going to be used as the label
+label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
 evaluation:
   batch_size: 32
@@ -149,11 +149,17 @@ callbacks:
     embeddings_metadata: null
     embeddings_freq: 0
 
-label_map: null # maps label to a label id
+label_map: # maps label to a label id
+  0.0: 0
+  1.0: 1
+
+labels: [0, 1]
 
 datasets_fps: # TODO: update fps
-  train: null
-  val: null
+  # train: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0001
+  train: /Users/jochoa4/Desktop/test_transfers/test_shard_0001-0001
+  # val: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0013
+  val: /Users/jochoa4/Desktop/test_transfers/test_shard_0001-0013
   test: null
 
 datasets:
@@ -168,4 +174,4 @@ verbose: true  # general
 
 metrics:
   'clf_thr': 0.5  # classification threshold
-  'num_thr': 1000  # number of thresholds used to compute some metrics
+  'num_thr': 10  # number of thresholds used to compute some metrics
