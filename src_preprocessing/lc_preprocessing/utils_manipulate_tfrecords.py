@@ -402,6 +402,9 @@ if __name__ == '__main__':
             # fp.unlink()
             # (fp.parent / f'{fp.name}.csv').unlink()
 
-    tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+    if len(tfrec_fps) > 1:
+        tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+    else:
+        tfrec_tbl = tfrec_tbls[0]
 
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)

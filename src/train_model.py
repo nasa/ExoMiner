@@ -51,11 +51,11 @@ def train_model(config, model_dir, logger=None):
         model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # setup metrics to be monitored
-    if not config['config']['multi_class']:
+    if config['config']['multi_class']:
+        metrics_list = get_metrics_multiclass(label_map=config['label_map'])
+    else:
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
-    else:
-        metrics_list = get_metrics_multiclass(label_map=config['label_map'])
 
     # compile model - set optimizer, loss and metrics
     model = compile_model(model, config, metrics_list)
@@ -71,7 +71,6 @@ def train_model(config, model_dir, logger=None):
         features_set=config['features_set'],
         category_weights=config['training']['category_weights'],
         multiclass=config['config']['multi_class'],
-        use_transformer=config['config']['use_transformer'],
         feature_map=config['feature_map'],
         shuffle_buffer_size=config['training']['shuffle_buffer_size'],
         label_field_name=config['label_field_name'],
@@ -84,7 +83,6 @@ def train_model(config, model_dir, logger=None):
             label_map=config['label_map'],
             features_set=config['features_set'],
             multiclass=config['config']['multi_class'],
-            use_transformer=config['config']['use_transformer'],
             feature_map=config['feature_map'],
             label_field_name=config['label_field_name'],
         )

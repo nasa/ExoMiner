@@ -44,9 +44,9 @@ class InputFnv2(object):
     """Class that acts as a callable input function."""
 
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
-                 online_preproc_params=None, filter_data=None, category_weights=None, sample_weights=False,
+                 online_preproc_params=None, category_weights=None, sample_weights=False,
                  multiclass=False, shuffle_buffer_size=27000, shuffle_seed=24, prefetch_buffer_nsamples=256,
-                 use_transformer=False, feature_map=None, label_field_name='label'):
+                 feature_map=None, label_field_name='label', filter_fn=None):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -59,7 +59,6 @@ class InputFnv2(object):
         (can the dimension and data type be inferred from the tensors in the dataset?)
         :param data_augmentation: bool, if True data augmentation is performed
         :param online_preproc_params: dict, contains data used for preprocessing examples online for data augmentation
-        :param filter_data:
         :param category_weights: dict, each key/val pair represents the weight for any sample associated with the
         given category as key
         :param sample_weights: bool, if True uses sample weights provided in the TFRecords for the examples in the
@@ -73,6 +72,7 @@ class InputFnv2(object):
         :use_transformer: bool, set to True if using a transformer
         :feature_map: dict, mapping of label to label id
         :label_field_name: str, name for label stored in the TFRecord files
+        :filter_fn: function, used to filter data in the TFRecord files
         :return:
         """
 
@@ -90,13 +90,11 @@ class InputFnv2(object):
         self.shuffle_seed = shuffle_seed
         self.prefetch_buffer_size = int(prefetch_buffer_nsamples / self.batch_size)
 
-        self.filter_data = filter_data
+        self.filter_fn = filter_fn
 
         self.category_weights = category_weights
         self.sample_weights = sample_weights
         self.multiclass = multiclass
-
-        self.use_transformer = use_transformer
 
         self.feature_map = feature_map if feature_map is not None else {}
 
@@ -192,8 +190,6 @@ class InputFnv2(object):
                 if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # parse tensors
                     value = tf.io.parse_tensor(serialized=value[0], out_type=self.features_set[feature_name]['dtype'])
                     value = tf.reshape(value, self.features_set[feature_name]['dim'])
-                    # if not self.use_transformer:
-                    # value = tf.transpose(value)
 
                 # data augmentation for time series features
                 if 'view' in feature_name and self.data_augmentation:
@@ -280,6 +276,9 @@ class InputFnv2(object):
         # dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE)
         dataset = dataset.map(_example_parser, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True
         if self.mode == 'PREDICT' else False)
+
+        if self.filter_fn:  # use filter function to filter parsed examples in the TFRecord dataset
+            dataset = dataset.filter(self.filter_fn)
 
         # creates batches by combining consecutive elements
         # dataset = dataset.batch(self.batch_size)

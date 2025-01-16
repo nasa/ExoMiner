@@ -2,13 +2,13 @@ rank: null
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 paths:
   # experiment directory; results are saved here
-  experiment_root_dir: null
+  experiment_root_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_filter_callback_while_training_1-15-2025_0950
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  datasets_fps_yaml: /Users/msaragoc/Downloads/normalize_data_test/normalized_data/dataset_splits_6-27-2024_0919.yaml
+  datasets_fps_yaml: null
   # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
+  hpo_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_run_keplerq1q17dr25_11-22-2024_1703
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
@@ -118,57 +118,43 @@ config:
 #        - local_momentum_dump_view_var
 #      scalars: null
 #        # - mission
-  scalar_branches: # null
-    stellar:
-      - tce_sdens_norm
-      - tce_steff_norm
-      - tce_smet_norm
-      - tce_slogg_norm
-      - tce_smass_norm
-      - tce_sradius_norm
-#      # - mission
-    dv_tce_fit:
-      - boot_fap_norm
-      - tce_cap_stat_norm
-      - tce_hap_stat_norm
-#      ##      - tce_cap_hap_stat_diff_norm
-#      ##      - tce_rb_tcount0n_norm  # kepler only
-#      ##      - tce_prad_norm
-      - tce_period_norm
-#      # - mission
-
-  #   centroid_scalars:
-  #     - tce_dikco_msky_norm
-  #     - tce_dikco_msky_err_norm
-  #     - ruwe_norm
-  #     - mag_shift_norm
-  #   secondary_scalars:
-  #     - tce_ptemp_stat_norm
-  #     - tce_albedo_stat_norm
-  #     - tce_maxmes_norm
-  ##     - wst_depth_norm
-  #     - tce_prad_norm
-  #   odd_even_scalars:
-  #     - tce_bin_oedp_stat_norm
+  scalar_branches: null
+#    stellar:
+#      - tce_sdens_norm
+#      - tce_steff_norm
+#      - tce_smet_norm
+#      - tce_slogg_norm
+#      - tce_smass_norm
+#      - tce_sradius_norm
+##      # - mission
+#    dv_tce_fit:
+#      - boot_fap_norm
+#      - tce_cap_stat_norm
+#      - tce_hap_stat_norm
+##      ##      - tce_cap_hap_stat_diff_norm
+##      ##      - tce_rb_tcount0n_norm  # kepler only
+##      ##      - tce_prad_norm
+#      - tce_period_norm
+##      # - mission
 
   transformer_branches: null
     ##      global:
     ##        - unfolded_global_flux_view_fluxnorm
     #    local:
     #      - unfolded_local_flux_view_fluxnorm
-  diff_img_branch: # null
-    imgs:
-      - diff_imgs_std_trainset
-      - oot_imgs_std_trainset
-#      #       - diff_imgs_stdnorm
-#      #       - oot_imgs_stdnorm
-      - target_imgs
-    imgs_scalars:
-      - quality
-    scalars:
-      - mag_shift_norm
-#      # - mission
-  #
+  diff_img_branch: null
+#    imgs:
+#      - diff_imgs_std_trainset
+#      - oot_imgs_std_trainset
+##      #       - diff_imgs_stdnorm
+##      #       - oot_imgs_stdnorm
+#      - target_imgs
+#    imgs_scalars:
+#      - quality
+#    scalars:
+#      - mag_shift_norm
+##      # - mission
+
   # transformer hyperparameters ---------
   #if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
   use_transformer: false  # set to true when using N-d data (N>1)
@@ -303,7 +289,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #   diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   quality: { 'dim': [ 5, 1], 'dtype': float }
 
   # momentum dump
@@ -324,7 +310,7 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
 #  n_models: 2  # number of models in the ensemble
-  n_epochs: 2  # number of epochs used to train each model
+  n_epochs: 100  # number of epochs used to train each model
   #  use_kepler_ce: false
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
@@ -357,37 +343,40 @@ inference:
   batch_size: 32
 
 callbacks:
-  early_stopping:
-    monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
-    min_delta: 0
-    patience: 20
-    verbose: 1
-    mode: max  # maximize/minimize monitored metric in early stopping
-    baseline: null
-    restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
-  tensorboard:
-    histogram_freq: 1
-    write_graph: true
-    write_images: false
-    update_freq: epoch
-    profile_batch: 2
-    embeddings_metadata: null
-    embeddings_freq: 0
+  train:
+    early_stopping:
+      monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+      min_delta: 0
+      patience: 20
+      verbose: 1
+      mode: max  # maximize/minimize monitored metric in early stopping
+      baseline: null
+      restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
+    tensorboard:
+      histogram_freq: 1
+      write_graph: true
+      write_images: false
+      update_freq: epoch
+      profile_batch: 2
+      embeddings_metadata: null
+      embeddings_freq: 0
 
 label_map:  # maps label to a label id
 #  # Kepler
-  PC: 1
+#  PC: 1
   # AFP: 0
 #  NTP: 0
   # TESS
   KP: 1
   CP: 1
-#  FP: 0
+  FP: 0
 #  FA: 0
-#  EB: 0
+  EB: 0
+  NEB: 0
+  NPC: 0
 #  B: 0
 #  J: 0
-#  NTP: 0
+  NTP: 0
   # Kepler Sim
 #  INJ1: 1
 #  INJ2: 0
@@ -400,7 +389,6 @@ label_map:  # maps label to a label id
 datasets:
   - train
   - val
-  - test
 
 plot_model: true
 write_model_summary: true

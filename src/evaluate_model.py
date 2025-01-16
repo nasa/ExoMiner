@@ -57,11 +57,11 @@ def evaluate_model(config, model_path, res_dir, logger=None):
                    dpi=96)
 
     # set up metrics to be monitored
-    if not config['config']['multi_class']:
+    if config['config']['multi_class']: # metrics for multiclass setting
+        metrics_list = get_metrics_multiclass(config['label_map'])
+    else:
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
-    else:  # metrics for multiclass setting
-        metrics_list = get_metrics_multiclass(config['label_map'])
 
     # compile model - loss and metrics
     model = compile_model(model, config, metrics_list, train=False)
@@ -86,7 +86,6 @@ def evaluate_model(config, model_path, res_dir, logger=None):
                                 features_set=config['features_set'],
                                 online_preproc_params=None,
                                 multiclass=config['config']['multi_class'],
-                                use_transformer=config['config']['use_transformer'],
                                 feature_map=config['feature_map'],
                                 label_field_name=config['label_field_name'],
                                 )
