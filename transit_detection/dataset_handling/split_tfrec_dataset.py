@@ -25,7 +25,7 @@ def compute_and_write_example_stats(all_set_feature_img_pixels_dict, dest_stats_
             'mean' : mean,
             'std' : std,
             'median' : median,
-            'total_examples' : len(all_set_feature_img_pixels_dict[feature_img])
+            'total_pixels' : len(all_set_feature_img_pixels_dict[feature_img]),
         }
 
         np.save(dest_stats_dir / f"{feature_img}_stats.npy", stats)
@@ -66,7 +66,7 @@ def process_split(target_ids, src_tfrec_fp, dest_tfrec_fp, dest_stats_dir=None):
             target_id = example.features.feature['target_id'].bytes_list.value[0].decode('utf-8')
 
             if target_id in target_ids:
-                if dest_stats_dir:
+                if dest_stats_dir: #compute stats for set
                     # get pixel values for diff, oot, and snr imgs
                     for feature_img in all_set_feature_img_pixels.keys():
                         # load img feature
@@ -74,9 +74,10 @@ def process_split(target_ids, src_tfrec_fp, dest_tfrec_fp, dest_stats_dir=None):
                                                         [-1]).numpy() # flattened pixels in feature img
                         all_set_feature_img_pixels[feature_img].extend(feature_img_pixels)
 
+                # write example to dest_tfrec_fp
                 writer.write(example.SerializeToString())
 
-        if dest_stats_dir:
+        if dest_stats_dir: # write example stats to dest_stats_dir
             compute_and_write_example_stats(all_set_feature_img_pixels, dest_stats_dir)
         
 
@@ -114,10 +115,13 @@ if __name__ == "__main__":
     train_set_frac = 0.8
     val_set_frac = 0.1
 
+    # number of unique targets
+    N = len(shuffled_targets)
+
     # compute exact sizes for each split
-    num_train = int(len(shuffled_targets) * 0.8)
-    num_val = int(len(shuffled_targets) * 0.1)
-    num_test = len(shuffled_targets) - num_train - num_val
+    num_train = int(N * 0.8)
+    num_val = int(N * 0.1)
+    num_test = N - num_train - num_val # remaining fraction 
 
     # load targets per set from randomly shuffled targets
     train_targets = set(shuffled_targets[:num_train])

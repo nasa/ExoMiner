@@ -31,11 +31,13 @@ def merge_chunks(dest_tfrec_path, dest_aux_tbl_path, chunk_paths, update_col=Tru
                 # write to new TFRecordDataset
                 dataset_chunk = tf.data.TFRecordDataset(str(chunk_shard_path))
 
-                for example in dataset_chunk:
+                for example in dataset_chunk: 
+                    # copy each example to dest_tfrec_path
                     writer.write(example.numpy())
 
                 # load aux_tbls
                 aux_tbl_chunk = pd.read_csv(chunk_aux_tbl_path)
+                # copy aux_tbl chunk to dest_aux_tbl_path
                 aux_tbls.append(aux_tbl_chunk)
 
         except Exception as e:
