@@ -174,7 +174,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
 
 def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
-                             verbose=True):
+                             verbose=True, csv_fp=None):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -201,13 +201,17 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
     uris_dict = {'uid': [''] * len(objs_list)}
     uris_dict.update({field: [''] * len(objs_list) for field in data_products_lst})
     for obj_i, obj in enumerate(objs_list):
-        print(f'[{proc_id}] Getting data products for object {obj} ({obj_i + 1}/{len(objs_list)})...')
+        print(f'[{proc_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
         uris_dict['uid'][obj_i] = obj
         _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
         for field in data_products_lst:
             uris_dict[field][obj_i] = URL_HEADER + uris[field] if uris[field] != '' else ''
 
-    return uris_dict
+    if csv_fp:
+        uris_df = pd.DataFrame(uris_dict)
+        uris_df.to_csv(csv_fp, index=False)
+
+    # return uris_dict
 
 
 if __name__ == "__main__":
@@ -218,6 +222,7 @@ if __name__ == "__main__":
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
+    # TESS
     def _correct_sector_field(x):
         target_id, tce_id = x.split('-')[:2]
         sector_id = x.split('-')[2:]
@@ -229,13 +234,13 @@ if __name__ == "__main__":
 
     objs_list = ['336767770-1-S17-17']  # objs.apply(_correct_sector_field)
 
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/TESS/')
-    spoc_ffi = True
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/tess_spoc_2min_s1-s68_1-23-2025_1120')
+    download_dir.mkdir(parents=True, exist_ok=True)
+    spoc_ffi = False
     data_products_lst = ['TCE summary report', 'Full DV report', 'TCERT report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'tcert', 'dv', 'all'
-    download_products = True
-    create_csv = False
-    csv_name = 'tces_test_extract_and_compute_diff_img_data_5-16-2024_1716.csv'
+    download_products = False
+    csv_fp = download_dir / 'tess_spoc_2min_s1-s68_dv_urls_1-23-2025_0947.csv'
     verbose = True
     n_procs = 12
     n_jobs = 12
@@ -244,6 +249,7 @@ if __name__ == "__main__":
             for objs_list_job in np.array_split(objs_list, n_jobs)]
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
+    pool.join()
 
     if create_csv:
         uris_df = pd.concat([pd.DataFrame(async_result.get()) for async_result in async_results], axis=0,
