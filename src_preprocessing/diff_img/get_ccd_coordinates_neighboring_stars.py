@@ -1,5 +1,6 @@
 """
-
+Get neighbors in a cone search for a set of targets, and map their celestial coordinates to CCD pixel frame for the
+sectors these neighbors were observed.
 """
 
 # 3rd party
@@ -98,14 +99,14 @@ def create_neighbors_table(neighbors_tbl, save_fp):
     (columns 'col_px' and 'row_px').
 
     Args:
-        neighbors_tbl: pandas DataFrame, table with neighbors. Must contain columns 'ID', 'ra', and 'dec', with RA and Dec in degrees
+        neighbors_tbl: pandas DataFrame, table with neighbors. Must contain columns 'ID', 'ra', and 'dec', with RA and
+        Dec in degrees
         save_fp: Path, save filepath
 
     Returns:
 
     """
-    # if save_fp.name == 'neighbors1_search_radius_168.0 arcsec_mag_thr_inf.csv':
-    #     aaaa
+
     neighbors = neighbors_tbl.drop_duplicates('ID')  # drop duplicates
     neighbors = neighbors.drop(columns=['dstArcSec', 'target_id', 'Tmag_rel'])
     print(f'Found {len(neighbors)} unique neighbors.')
@@ -116,7 +117,8 @@ def create_neighbors_table(neighbors_tbl, save_fp):
 
     # get output from tess-point for these neighbors
     output_fp = save_fp.parent / f'{save_fp.stem}_output_to_tess_point.txt'
-    _ = subprocess.run(['python', '-m', 'tess_stars2px', '-f', str(input_fp), '-o', str(output_fp)], capture_output=True, text=True)
+    _ = subprocess.run(['python', '-m', 'tess_stars2px', '-f', str(input_fp), '-o', str(output_fp)],
+                       capture_output=True, text=True)
 
     # convert txt file to dataframe
     tess_point_columns = ['ID', 'ra_tess_point', 'dec_tess_point', 'eclip_long', 'eclip_lat', 'sector', 'camera',
@@ -152,48 +154,39 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
 
     search_res_tics_mag = filter_neighbors_by_magnitude(search_res_tics, mag_thr)
 
-    save_fp_targets = res_dir / f'targets{tbl_suffix}_search_radius_{search_radius_arcsec}_mag_thr_{mag_thr}.npy'
+    save_fp_targets = res_dir / f'targets{tbl_suffix}_search_radius_{search_radius_arcsec.value}_mag_thr_{mag_thr}.npy'
     create_targets_to_neighbors_data(search_res_tics_mag, save_fp_targets)
 
-    save_fp_neighbors = res_dir / f'neighbors{tbl_suffix}_search_radius_{search_radius_arcsec}_mag_thr_{mag_thr}.csv'
+    save_fp_neighbors = res_dir / f'neighbors{tbl_suffix}_search_radius_{search_radius_arcsec.value}_mag_thr_{mag_thr}.csv'
     create_neighbors_table(search_res_tics_mag, save_fp_neighbors)
 
 
 if __name__ == "__main__":
 
-    res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/1-23-2025_1148_test_mp')
+    # load tce table
+    tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv')
+    # search parameters
+    search_radius_arcsec = 168 * u.arcsec  # np.sqrt(2) * 121 / 2 * u.arcsec  # 168 DV (Joe)
+    mag_thr = np.inf
+    # results directory
+    res_dir = Path(f'~/Projects/exoplnt_dl/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_ mag_thr_{mag_thr}_1-23-2025_1246')
+    # multiprocessing parameters
+    n_jobs = 256
+    n_procs = 16
+
     res_dir.mkdir(parents=True, exist_ok=True)
 
-    # load tce table
-    tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv')
-
     # get unique targets in tce table
-    tics = tce_tbl['target_id'].unique()[:10]
+    tics = tce_tbl['target_id'].unique()
     print(f'There are {len(tics)} targets in the TCE table.')
 
-    # query neighboring TICs
-    search_radius_arcsec = 168 * u.arcsec # np.sqrt(2) * 121 / 2 * u.arcsec  # 168 DV (Joe)
-    mag_thr = np.inf
-
-    # save_fp_targets = res_dir / f'targets_search_radius_{search_radius_arcsec}_mag_thr_{mag_thr}.csv'
-    # save_fp_neighbors = res_dir / f'neighbors_search_radius_{search_radius_arcsec}_mag_thr_{mag_thr}.csv'
-    #
-    # search_res_tics = get_neighbors_in_search_radius(tics, search_radius_arcsec)
-    #
-    # search_res_tics_mag = filter_neighbors_by_magnitude(search_res_tics, mag_thr)
-    #
-    # create_targets_to_neighbors_data(search_res_tics_mag, save_fp_targets)
-    #
-    # create_neighbors_table(search_res_tics_mag, save_fp_neighbors)
-
-    n_jobs = 100
     tics_jobs = np.array_split(tics, n_jobs)
     print(f'Split work into {n_jobs} jobs.')
 
     # parallelize jobs
-    n_procs = 12
     pool = multiprocessing.Pool(processes=n_procs)
-    jobs = [(tics_job, search_radius_arcsec, mag_thr, res_dir, tics_job_i) for tics_job_i, tics_job in enumerate(tics_jobs)]
+    jobs = [(tics_job, search_radius_arcsec, mag_thr, res_dir, str(tics_job_i))
+            for tics_job_i, tics_job in enumerate(tics_jobs)]
     async_results = [pool.apply_async(get_ccd_coords_neighbors_targets, job) for job in jobs]
     pool.close()
     pool.join()
