@@ -191,6 +191,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
             'all': downloads DV and TCERT reports.
         spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
         verbose: bool, verbose
+        csv_fp: str, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
 
     Returns: uris_dict, dictionary that contains the URIs for the data products downloaded for each object
 
