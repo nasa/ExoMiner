@@ -18,6 +18,8 @@ if __name__ == '__main__':
     multi_sector_runs = []  # [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
 
+    neighbors_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_mag_thr_inf_1-30-2025_1212')
+
     # run directory
     run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/extracted_data/s36-s72_singlesector_11-25-2024_0948')
     plot_prob = 0.01  # plot probability

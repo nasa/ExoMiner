@@ -517,7 +517,6 @@ def create_target_image(size_h, size_w, target_pos_pixel_col, target_pos_pixel_r
         target_img: NumPy array of target image
 
     """
-    # create target image
 
     # initialize with all zeros
     target_img = np.zeros((size_h, size_w), dtype='float')

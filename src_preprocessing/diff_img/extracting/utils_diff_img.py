@@ -24,7 +24,7 @@ MIN_IMG_VALUE = 1e-12
 
 
 def plot_diff_img_data(diff_imgs, target_coords, plot_fp, neighbors_coords=None, target_mag=None, neighbors_mag=None,
-                       mag_sat=1, logscale=True):
+                       mag_sat=1, min_mag=None, logscale=True):
     """ Plot difference image data for TCE in a given quarter/sector.
 
     Args:
@@ -35,6 +35,7 @@ def plot_diff_img_data(diff_imgs, target_coords, plot_fp, neighbors_coords=None,
         target_mag: float, target magnitude
         neighbors_mag: list of floats, neighbors magnitudes
         mag_sat: float, magnitude saturation threshold
+        min_mag: float, minimum magnitude at which the colormap is clipped
         logscale: bool, if True images color is set to logscale
 
     Returns:
@@ -59,13 +60,13 @@ def plot_diff_img_data(diff_imgs, target_coords, plot_fp, neighbors_coords=None,
         # set target location and magnitude
         sc = ax_img.scatter(target_coords[0], target_coords[1],
                             marker='x', c=[target_mag], label='Target', zorder=2, cmap='plasma_r',
-                            vmin=mag_sat, vmax=MAX_MAG)
+                            vmin=mag_sat, vmax=MAX_MAG if min_mag is None else min_mag)
         # set neighbors location and magnitude
         if neighbors_coords:
             for neighbor_i, neighbor_coords in enumerate(neighbors_coords):
                 ax_img.scatter(neighbor_coords[0], neighbor_coords[1],
                                marker='*', c=neighbors_mag[neighbor_i], label=None, zorder=1, cmap='plasma_r',
-                               vmin=mag_sat, vmax=MAX_MAG)
+                               vmin=mag_sat, vmax=MAX_MAG if min_mag is None else min_mag)
         # set color bars
         cbar_im = plt.colorbar(im, ax=ax_img, orientation='vertical', fraction=0.046, pad=0.04)
         cbar_sc = plt.colorbar(sc, ax=ax_img, orientation='horizontal', location='top', fraction=0.046, pad=0.01)
@@ -341,7 +342,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     for sector_obs in sectors_obs:
         targets_dict = np.load(neighbors_dir / f'targets_S{sector_obs}.npy', allow_pickle=True).item()
         neighbors_tbl = pd.read_csv(neighbors_dir / f'neighbors_S{sector_obs}.csv',
-                                    usecols=['ID', 'sector', 'col_px', 'row_px', 'Tmag'])
+                                    usecols=['ID', 'col_px', 'row_px', 'Tmag'])
 
         if int(tic_id) not in targets_dict:
             raise ValueError(f'{proc_id}] [Sector run {sector_run_id}] Target {tic_id}'
@@ -350,8 +351,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
         target_neighbors_dict = targets_dict[int(tic_id)]
 
         # filter neighbors for this target and sector
-        neighbors = neighbors_tbl.loc[((neighbors_tbl['ID'].isin(list(targets_dict[int(tic_id)].keys()))) &
-                                       (neighbors_tbl['sector'] == sector_obs))]
+        neighbors = neighbors_tbl.loc[((neighbors_tbl['ID'].isin(list(targets_dict[int(tic_id)].keys()))))]
 
         neighbors = neighbors.set_index('ID')
 
@@ -373,12 +373,25 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
 
         uid = f'{root.attrib["ticId"]}-{planet_res.attrib["planetNumber"]}-S{sector_run_id}'
 
+        # filter neighbors based on transit depth - could these objects cause the observed transit depth?
+        tce_depth = float(planet_res.find('.//dv:modelParameter[@name="transitDepthPpm"]',
+                                          {'dv': 'http://www.nasa.gov/2018/TESS/DV'}).attrib['value'])
+        tce_depth /= 1e6
+        delta_mag = tmag - np.log10(tce_depth) * 2.5
+        tce_neighbors_lst = []
+        for neighbors_sector in neighbors_lst:
+            tce_neighbors_sector = {}
+            for neighbor_id, neighbor_data in neighbors_sector.items():
+                if neighbor_data['Tmag'] <= delta_mag:
+                    tce_neighbors_sector.update({neighbor_id: dict(neighbor_data)})
+            tce_neighbors_lst.append(tce_neighbors_sector)
+
         data[uid] = {
             'target_ref_centroid': [],
             'image_data': [],
             'mag': tmag,
             'image_number': [],
-            'neighbor_data': neighbors_lst,
+            'neighbor_data': tce_neighbors_lst,
             'quality_metric': [],
         }
 
@@ -436,8 +449,6 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
                 diff_imgs[px_coord[0] - min_row, px_coord[1] - min_col, :, 1] = [float(el.attrib['uncertainty'])
                                                                                  for el in diff_imgs_q]
 
-            # diff_imgs = np.flip(diff_imgs, axis=0)
-
             # get target position in pixel frame
             tic_centroid_ref = [el for el in img_res_s if 'ticReferenceCentroid' in el.tag][0]
             tic_centroid_ref_col = [el for el in tic_centroid_ref if 'col' in el.tag][0].attrib
@@ -464,10 +475,9 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
                 }
 
             # center neighboring stars location to origin pixel
-            if tce_i == 1:  # because data in memory is the same
-                for neighbor_id, neighbor_data in data[uid]['neighbor_data'][sector_i].items():
-                    neighbor_data['col_px'] -= min_col
-                    neighbor_data['row_px'] -= min_row
+            for neighbor_id, neighbor_data in data[uid]['neighbor_data'][sector_i].items():
+                neighbor_data['col_px'] -= min_col - 1
+                neighbor_data['row_px'] -= min_row
 
             # plot difference image
             if np.random.uniform() <= plot_prob:
@@ -476,12 +486,13 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
                                                   tic_centroid_ref_dict['row']['value']),
                                    plot_fp=plot_dir / f'tic_{uid}.png',
                                    neighbors_coords=[(neighbor_data['col_px'], neighbor_data['row_px'])
-                                                     for _, neighbor_data in neighbors_lst[sector_i].items()],
+                                                     for _, neighbor_data in tce_neighbors_lst[sector_i].items()],
                                    logscale=True,
                                    target_mag=data[uid]['mag'],
                                    neighbors_mag=[neighbor_data['Tmag']
-                                                  for _, neighbor_data in neighbors_lst[sector_i].items()],
+                                                  for _, neighbor_data in tce_neighbors_lst[sector_i].items()],
                                    mag_sat=TESS_MAG_SAT,
+                                   min_mag=delta_mag,
                                    )
 
             data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
@@ -520,7 +531,8 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
     data = {}
 
     # get filepaths to xml files
-    dv_xml_run_fps = list(dv_xml_run.rglob(f"*{'260416361'.zfill(16)}*.xml"))
+    # dv_xml_run_fps = list(dv_xml_run.rglob(f"*{'356358371'.zfill(16)}*.xml"))
+    dv_xml_run_fps = list(dv_xml_run.rglob(f"*.xml"))
     # aaa
 
     # get sector run ID from filename
@@ -560,6 +572,7 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
             data.update(data_dv_xml)
         except Exception as e:
             logger.info(f'[{job_i}] Exception occurred: {e}')
+            continue
 
     np.save(save_dir / f'tess_diffimg_{dv_xml_run.name}.npy', data)
 
