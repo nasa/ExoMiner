@@ -18,19 +18,24 @@ from copy import deepcopy
 
 # local
 from src_preprocessing.tf_util import example_util
+from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_table_with_tfrecord_examples
 
 def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_targets, test_targets):
 
     input_shard_fp = input_dir / f'test_shard_0001-{input_shard_num}'
 
-    train_tfrec_fp = output_dir / 'train_set'
-    val_tfrec_fp = output_dir / 'val_set'
-    test_tfrec_fp = output_dir / 'test_set'
+    train_tfrec_fp = output_dir / 'train_tfrecords' / f"train_shard_{input_shard_num}-8611"
+    val_tfrec_fp = output_dir / 'val_tfrecords' / f"val_shard_{input_shard_num}-8611"
+    test_tfrec_fp = output_dir / 'test_tfrecords' / f"test_shard_{input_shard_num}-8611"
+
+    train_count = 0
+    val_count = 0
+    test_count = 0
 
     writers = {
-        "train" : tf.io.TFRecordWriter(train_tfrec_fp / f"train_shard_0001-{input_shard_num}"),
-        "val" : tf.io.TFRecordWriter(val_tfrec_fp / f"val_shard_0001-{input_shard_num}"),
-        "test" : tf.io.TFRecordWriter(test_tfrec_fp / f"test_shard_0001-{input_shard_num}")
+        "train" : tf.io.TFRecordWriter(train_tfrec_fp),
+        "val" : tf.io.TFRecordWriter(val_tfrec_fp),
+        "test" : tf.io.TFRecordWriter(test_tfrec_fp)
     }
 
     for str_record in tf.data.TFRecordDataset(input_shard_fp):
@@ -41,10 +46,13 @@ def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_tar
 
         if target_id in train_targets:
             split = "train"
+            train_count += 1
         elif target_id in val_targets:
             split = "val"
+            val_count += 1
         elif target_id in test_targets:
             split = "test"
+            test_count += 1
         else:
             raise ValueError(f"Target ID {target_id} not found in any set")
         
@@ -52,6 +60,29 @@ def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_tar
     
     for writer in writers.values():
         writer.close()
+
+    tfrec_tbls = []
+
+    data_fields = {
+        'uid': 'str',
+        'target_id': 'int',
+        'tce_plnt_num': 'int',
+        'sector_run': 'str',
+        'label': 'str',
+    }
+
+    if train_count > 0:
+        tfrec_tbls.append(create_table_with_tfrecord_examples(train_tfrec_fp, data_fields))
+    
+    if val_count > 0:
+        tfrec_tbls.append(create_table_with_tfrecord_examples(val_tfrec_fp, data_fields))
+    
+    if test_count > 0:
+        tfrec_tbls.append(create_table_with_tfrecord_examples(test_tfrec_fp, data_fields))
+
+    tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+
+    tfrec_tbl.to_csv(output_dir / f'shards_tbl_{input_shard_num}-8611.csv', index=False)
 
     print(f"Processed shard: {input_shard_fp}")
 
@@ -70,7 +101,7 @@ if __name__ == "__main__":
     src_aux_tbl_fp = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024/data_tbl.csv")
 
     # destination directory for tfrecord shard splits
-    dest_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024_split")
+    dest_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024_split/tfrecords")
 
     # destination directory for logging
     dest_log_dir = Path("/nobackup/jochoa4/work_dir/data/logging") #TODO: revisit and update dest_log_dir
