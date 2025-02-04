@@ -10,8 +10,6 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 
-# TODO: Add multiple shards for train/test/val
-# can parallelize on multiple shards
 import multiprocessing
 from functools import partial
 from copy import deepcopy
@@ -90,9 +88,8 @@ def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_tar
 
 
 if __name__ == "__main__":
-    # load tce tbl
-    tce_tbl = pd.read_csv('/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv')
-    tce_tbl = tce_tbl.loc[tce_tbl['label'].isin(['EB','KP','CP','NTP','NEB','NPC'])] #filter for relevant labels
+    # load merged aux tbl
+    aux_tbl = pd.read_csv("merged_data_tbl_chunks_0001-8611.csv")
 
     # src directory for raw tfrecord shards
     src_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-25-2024")
@@ -109,8 +106,8 @@ if __name__ == "__main__":
     # set random seed
     np.random.seed(42) 
 
-    # get unique targets from tce_tbl
-    unique_targets = tce_tbl['target_id'].unique() # TODO: update with targets found in auxillary table
+    # get unique targets from aux tbl
+    unique_targets = aux_tbl['target_id'].unique() # TODO: update with targets found in auxillary table
 
     # shuffle targets
     shuffled_targets = np.random.permutation(unique_targets) 
