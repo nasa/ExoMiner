@@ -28,6 +28,7 @@ from transit_detection.utils_chunk_dataset import build_chunk_mask
 #%%
 def process_target_sector_run(chunked_target_sector_run_data,
                                 chunk_num,
+                                num_chunks,
                                 lc_dir,
                                 tpf_dir,
                                 n_durations_window,
@@ -301,7 +302,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
     tfrec_dir = data_dir / 'tfrecords'
     tfrec_dir.mkdir(exist_ok=True, parents=True)
     
-    tfrec_fp = tfrec_dir / f'test_shard_0001-{str(chunk_num).zfill(4)}'
+    tfrec_fp = tfrec_dir / f'shard-{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}'
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
         for data_for_tce in chunk_data:
@@ -436,7 +437,7 @@ if __name__ == "__main__":
         if processed_chunk_mask[chunk_num - 1] == 0:
             print(f'Processing chunk {chunk_num}')
             logger.info(f'Processing chunk {chunk_num}.')
-            pool.apply_async(partial_func, args=(job_chunk, chunk_num))
+            pool.apply_async(partial_func, args=(job_chunk, chunk_num, len(chunked_jobs)))
         else:
             logger.info(f'Skipping processing for chunk {chunk_num}.')
         
