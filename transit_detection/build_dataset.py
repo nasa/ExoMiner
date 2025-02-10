@@ -302,7 +302,7 @@ def process_target_sector_run(chunked_target_sector_run_data,
     tfrec_dir = data_dir / 'tfrecords'
     tfrec_dir.mkdir(exist_ok=True, parents=True)
     
-    tfrec_fp = tfrec_dir / f'shard-{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}'
+    tfrec_fp = tfrec_dir / f'shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}'
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
         for data_for_tce in chunk_data:
