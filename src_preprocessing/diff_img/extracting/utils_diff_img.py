@@ -309,12 +309,19 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     :param proc_id: int, process ID
 
     :return: dict, each item is the difference image data for a given TCE. The TCE is identified by the string key
-    '{tic_id}-{tce_plnt_num}-S{sector_run}. The value is a dictionary that contains two items: 'target_ref_centroid' is
-    a dictionary that contains the value and uncertainty for the reference coordinates of the target star in the pixel
-    domain; 'image_data' is a NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit, out-of-transit,
-    difference, and SNR flux images in this order (pixel values and uncertainties are addressed by the last dimension
-    of the array, in this order); 'image_number' is a list that contains the integer sector number of the corresponding
-    sequence of difference image data extracted for the TCE.
+    '{tic_id}-{tce_plnt_num}-S{sector_run}. The value is a dictionary that contains six items:
+        - 'target_ref_centroid' is a list of dictionaries that contain the value and uncertainty for the reference
+        coordinates of the target star in the pixel domain in each observed sector;
+        - 'image_data' is a list of NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit,
+        out-of-transit, difference, and SNR flux images in this order (pixel values and uncertainties are addressed by
+        the last dimension of the array, in this order) for each observe sector;
+        - 'image_number' is a list that contains the integer sector number of the corresponding sequence of difference
+        image data extracted for the TCE.
+        - 'mag' is the target's magnitude.
+        - 'neighbor_data' is a list that, for each sector, contains a dictionary where each key is the TIC ID of
+        neighboring objects that maps to a dictionary with the column 'col_px' and row 'row_px' coordinates of these
+        objects in the CCD pixel frame of the target star along with the corresponding magnitude 'TMag' and distance to
+        the target in arcseconds 'dst_arcsec'.
     """
 
     data = {}
@@ -415,7 +422,10 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
 
             # get quality metric data
             q_metric_s = [el.attrib for el in img_res_s if 'qualityMetric' in el.tag][0]
-            data[uid]['quality_metric'].append(q_metric_s)
+            q_metric_s['value'] = float(q_metric_s['value'])
+            q_metric_s['attempted'] = True if q_metric_s['attempted'] == 'true' else False
+            q_metric_s['valid'] = True if q_metric_s['valid'] == 'true' else False
+            data[uid]['quality_metric'].append(int(q_metric_s))
 
             # get sector id
             data[uid]['image_number'].append(int(img_res_s.attrib['sector']))

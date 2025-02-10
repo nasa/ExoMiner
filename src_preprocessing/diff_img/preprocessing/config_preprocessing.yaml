@@ -1,7 +1,7 @@
 # results directory for processed data
-dest_dir: null
+dest_dir: /data5/tess_project/Data/tess_spoc_2min_data/dv/xml_files/preprocessing_step2/test_3-2-2025_1213
 # file path to difference image data NumPy file
-diff_img_data_fp: null
+diff_img_data_fp: /data5/tess_project/Data/tess_spoc_2min_data/dv/xml_files/preprocessing/test_add_neighbors_2-3-2025_1009/data/tess_diffimg_sector_52.npy
 mission: tess  # either 'kepler' or 'tess'
 num_sampled_imgs: 5  # number of sampled quarters/sector runs
 final_size:  # final size for preprocessed images before resizing
@@ -9,13 +9,10 @@ final_size:  # final size for preprocessed images before resizing
   y: 11
 # upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
 upscale_f:
-  x: 3
-  y: 3
-# file path to table with quality metrics; used for Kepler, since it is a single file for the run (e.g., DR25)
-qual_metrics_tbl_fp: null
-#sat_thr: 7  # saturation threshold
-# file path to TCE table with saturation values
-sat_tbl_fp: null
-n_processes: 14  # number of processes to run jobs in parallel
-n_jobs: 32 # total number of jobs
-plot_prob: 0.001  # probability to plot preprocessing results for each example
+  x: 5
+  y: 5
+# exclude neighbors that are outside the target mask
+exclude_neighbor_objs_outside: true
+n_processes: 1  # number of processes to run jobs in parallel
+n_jobs: 1 # total number of jobs
+plot_prob: 1  # probability to plot preprocessing results for each example
