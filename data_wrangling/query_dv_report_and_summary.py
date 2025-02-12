@@ -49,8 +49,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     :param reports: str, choose which reports to get.
         'dv_summary': downloads only TCE DV summary reports.
         'dv_report': downloads only full DV reports.
-        'tcert': downloads only TCERT reports.
-        'dv': downloads both TCE DV summary and full DV reports.
+        'dv_mini_report': downloads only TCERT reports.
         'all': downloads DV and TCERT reports.
     :param spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
     :param verbose: bool, verbose
@@ -65,10 +64,9 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     # maps option to name in MAST table for the data products reports
     report_type_map = {
         'all': ['TCE summary report', 'full data validation report', 'Data validation mini report'],
-        'dv': ['TCE summary report', 'full data validation report'],
         'dv_summary': ['TCE summary report'],
         'dv_report': ['full data validation report'],
-        'tcert': ['Data validation mini report'],
+        'dv_mini_report': ['Data validation mini report'],
     }
     reports_to_get = report_type_map[reports]
 
@@ -105,7 +103,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     products_filenames = obs_products.to_pandas()['productFilename']
 
     prods = []
-    uris = {'TCE summary report': '', 'Full DV report': '', 'TCERT report': ''}
+    uris = {'DV TCE summary report': '', 'Full DV report': '', 'DV mini-report': ''}
 
     if 'TCE summary report' in reports_to_get:  # TCE DV summary reports
 
@@ -123,9 +121,9 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
             prod_tce = Observations.download_products(obs_products_filter, download_dir=download_dir)
             prods.append(prod_tce)
         try:
-            uris['TCE summary report'] = obs_products_filter['dataURI'].tolist()[0]
+            uris['DV TCE summary report'] = obs_products_filter['dataURI'].tolist()[0]
         except:
-            print(f'No TCE summary report found for {example_id}')
+            print(f'No DV TCE summary report found for {example_id}')
 
     if 'full data validation report' in reports_to_get:  # DV full reports
 
@@ -161,9 +159,9 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
                                                            else 'PDF',
                                                            productFilename=filtered_products_filenames)
         try:
-            uris['TCERT report'] = obs_products_filter['dataURI'].tolist()[0]
+            uris['DV mini-report'] = obs_products_filter['dataURI'].tolist()[0]
         except:
-            print(f'No TCERT report found for {example_id}')
+            print(f'No DV mini-report found for {example_id}')
 
         # download selected products
         if download_products:
@@ -233,26 +231,37 @@ if __name__ == "__main__":
             sector_id = f'{sector_id[0]}-{sector_id[0][1:]}'
             return f'{target_id}-{tce_id}-{sector_id}'
 
-    objs_list = ['336767770-1-S17-17']  # objs.apply(_correct_sector_field)
+    objs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv')
+    objs = objs.loc[objs['sector_run'].isin(['14'])]
+    objs['uid'] = objs['uid'].apply(_correct_sector_field)
+    print(f'Found {len(objs)} events. Downloading DV reports...')
+    objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
+                       objs.groupby('sector_run')}
+    # objs_list_jobs = np.array_split(objs_list, n_jobs)
 
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/tess_spoc_2min_s1-s68_1-23-2025_1120')
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/tess_spoc_2min_urls/tess_spoc_2min_s1-s68_1-24-2025_1709')
     download_dir.mkdir(parents=True, exist_ok=True)
     spoc_ffi = False
-    data_products_lst = ['TCE summary report', 'Full DV report', 'TCERT report']
-    reports = 'all'   # 'dv_summary', 'dv_report', 'tcert', 'dv', 'all'
+    data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
+    reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False
-    csv_fp = download_dir / 'tess_spoc_2min_s1-s68_dv_urls_1-23-2025_0947.csv'
+    csv_fp = download_dir / f'{download_dir.name}.csv'
     verbose = True
     n_procs = 12
-    n_jobs = 12
+    n_jobs = len(objs_list_jobs)
+    print(f'Split work into {n_jobs} jobs.')
+
+    # parallelize jobs
     pool = multiprocessing.Pool(processes=n_procs)
-    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose)
-            for objs_list_job in np.array_split(objs_list, n_jobs)]
+    # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp)
+    #         for objs_list_job in objs_list_jobs]
+    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
+            for sector_run, objs_list_job in objs_list_jobs.items()]
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
     pool.join()
 
-    if create_csv:
-        uris_df = pd.concat([pd.DataFrame(async_result.get()) for async_result in async_results], axis=0,
-                            ignore_index=True)
-        uris_df.to_csv(download_dir / csv_name, index=False)
+    # if create_csv:
+    #     uris_df = pd.concat([pd.DataFrame(async_result.get()) for async_result in async_results], axis=0,
+    #                         ignore_index=True)
+    #     uris_df.to_csv(download_dir / csv_name, index=False)

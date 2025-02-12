@@ -157,19 +157,19 @@ if __name__ == '__main__':
         # TESS
         'KP': 1,
         'CP': 1,
-        # 'BD': 0,
         'EB': 0,
         # 'B': 0,
         'FP': 0,
-        # 'NEB': 0,
-        # 'NPC': 0,
         # 'J': 0,
         # 'FA': 0,
+        'NEB': 0,
+        'NPC': 0,
         'NTP': 0,
+        'BD': 0,
     }
     num_thresholds = 1000
     clf_threshold = 0.5
-    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000, 4000, 5000, 10000]
+    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
@@ -177,9 +177,9 @@ if __name__ == '__main__':
     multiclass_target_score = None
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_spline_all_3-29-2024_1046/ensemble_ranked_predictions_allfolds_higher_tce_num_transits_obs.csv")
+    predictions_tbl_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_1-19-2025_1250/ranked_predictions_allfolds.csv")
     # save path
-    save_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/cv_tess_spline_all_3-29-2024_1046/metrics_high_tce_num_transits_obs_onlymatchedobjects.csv")
+    save_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_1-19-2025_1250/metrics_2min_only.csv")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
     predictions_tbl = predictions_tbl[~predictions_tbl['matched_object'].isna()]

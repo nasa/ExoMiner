@@ -181,3 +181,15 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,
                                                       top_k_vals, class_name, cat_name)
         metrics_df.to_csv(cv_run_dir / f'metrics_{dataset}_all.csv', index=False)
+
+    # create table with mean and std metrics for all datasets
+    if compute_mean_std_metrics:
+        all_datasets_metrics = []
+        for dataset in datasets:
+            metrics_df = pd.read_csv(cv_run_dir / f'metrics_{dataset}.csv', index_col=0)
+            metrics_df = metrics_df.loc[['mean', 'std']]
+            metrics_df['dataset'] = dataset
+            all_datasets_metrics.append(metrics_df)
+        all_datasets_metrics = pd.concat(all_datasets_metrics, axis=0).reset_index(names='statistic')
+        all_datasets_metrics = all_datasets_metrics.set_index('dataset')
+        all_datasets_metrics.to_csv(cv_run_dir / 'all_datasets_metrics.csv', index=True)

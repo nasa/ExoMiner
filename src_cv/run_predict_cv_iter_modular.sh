@@ -67,7 +67,7 @@ echo "GPU $GPU_ID is available. Resuming CV iteration." >> "$LOG_FP_CV_ITER"
 if [ "$PREPROCESS_DATA" = true ] ; then
     echo "Started preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 
-    export DATA_DIR="$CV_DIR"data
+    export DATA_DIR="$CV_DIR"/data
     mkdir -p "$DATA_DIR"
 
     python "$PREPROCESS_SCRIPT" --rank=$CV_ITER --config_fp="$CONFIG_PREPROCESS_FP" --output_dir="$DATA_DIR" &>> "$LOG_FP_CV_ITER"
