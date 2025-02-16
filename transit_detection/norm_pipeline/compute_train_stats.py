@@ -144,6 +144,7 @@ if __name__ == "__main__":
     # define partial func to predefine default values for directories and target sets
     partial_func = partial(retrieve_shard_feature_img_pixels,
                                 feature_names=train_set_feature_imgs,
+                                max_examples_per_tce=2,
                                 )
     
     start = time.time()
