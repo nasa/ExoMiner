@@ -117,14 +117,20 @@ if __name__ == "__main__":
 
     # src directory containing training set tfrecords
     train_set_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train_tfrecords")
-
-    # destination directory for computed training stats
+    
+    # TRUE RUNS
+    # # destination directory for computed training stats
     # dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split/")
-    dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/test")
 
-    # destination directory for logging
+    # # destination directory for logging
     # log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs")
-    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/test/compute_train_stats_logs")
+
+    # TESTING
+    dest_stats_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/stats/")
+    log_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/compute_train_stats_logs/")
+
+    dest_stats_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     # setting up logger
     logger = logging.getLogger(f"compute_train_stats_logger")
