@@ -1,8 +1,5 @@
-import pandas pd
+import pandas as pd
 import numpy as np
-import Path
-
-
 
 if __name__ == "__main__":
 
