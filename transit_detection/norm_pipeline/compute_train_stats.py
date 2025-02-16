@@ -2,7 +2,6 @@
 Split tfrec dataset into training, validation, and test sets
 """
 
-
 # 3rd party
 import tensorflow as tf
 from pathlib import Path
@@ -46,7 +45,7 @@ def compute_and_write_example_stats(set_feature_img_pixels_dict, dest_stats_dir)
         print(f"Statistics for {feature_img} saved in a single .npy file")
 
 # function to process a split and write the output
-def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names):
+def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_per_tce):
     """
     Retrieve a shard's flattened feature_img pixels for all examples in the shard, based on features provided
     as keys in shard_feature_img_pixels
@@ -59,6 +58,7 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names):
         shard_feature_img_pixels : Dict of npy arrays holding all pixels in shard per feature_name
                                     ie) {feature1: [1,...N], feature2: [1....N]}
     """
+    
     # set logger for each process
     logger = logging.getLogger(f"{src_tfrec_fp.split('/')[-1]}")
     logger.setLevel(logging.INFO)
@@ -73,7 +73,9 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names):
         logger.handlers.clear()
     
     logger.addHandler(file_handler)
-    logger.info(f'Beginning data processing for {src_tfrec_fp.split('/')[-1]}.')
+    logger.info(f'Beginning data processing for {src_tfrec_fp.split('/')[-1]} using max of {max_examples_per_tce} examples per tce.')
+
+    tce_example_count_map = defaultdict(int) # Default dict initialized value to 0
 
     shard_feature_img_pixels = {feature_name : [] for feature_name in feature_names}
 
@@ -82,20 +84,29 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names):
     record_num = 0
 
     for str_record in src_tfrec_dataset:
-        record_num += 1
+        
         logger.info(f'Processing tfrecord example #{str(record_num).zfill(4)}')
         # load example
         example = tf.train.Example()
         example.ParseFromString(str_record)
+        
+        # Get only uid, without mid transit/oot point; expected to be in form 1129033-1-S1-36_t_1412.344...
+        tce_uid = str(example.features.feature["uid"].bytes_list.value[0]).split('_')[0]
+        print(f"TCE_UID: {tce_uid}")
 
-        # get pixel values for diff, oot, and snr imgs
-        for feature_img in shard_feature_img_pixels.keys():
-            logger.info(f'Processing feature: {feature_img} for example #{str(record_num).zfill(4)}')
-            # load img feature
-            feature_img_pixels = tf.reshape(tf.io.parse_tensor(example.features.feature[feature_img].bytes_list.value[0], tf.float32),
-                                            [-1]).numpy() # flattened pixels in feature img
-            
-            shard_feature_img_pixels[feature_img].extend(feature_img_pixels.tolist())
+        if tce_example_count_map.get(tce_uid, 0) < max_examples_per_tce:
+            tce_example_count_map[tce_uid] += 1 # Increase example count
+            print(f"New value in dict: {tce_example_count_map[tce_uid]}")
+
+            record_num += 1
+            # get pixel values for diff, oot, and snr imgs
+            for feature_img in shard_feature_img_pixels.keys():
+                logger.info(f'Processing feature: {feature_img} for example #{str(record_num).zfill(4)}')
+                # load img feature
+                feature_img_pixels = tf.reshape(tf.io.parse_tensor(example.features.feature[feature_img].bytes_list.value[0], tf.float32),
+                                                [-1]).numpy() # flattened pixels in feature img
+                
+                shard_feature_img_pixels[feature_img].extend(feature_img_pixels.tolist())
         
     logger.info(f'Successfully finished processing {src_tfrec_fp.split('/')[-1]} for a total of {record_num} examples.')
 
@@ -161,7 +172,6 @@ if __name__ == "__main__":
         for feature, pixels in result.items():
             train_set_feature_img_pixels[feature].extend(pixels)
             
-        
     pool.close()
     pool.join()
     
