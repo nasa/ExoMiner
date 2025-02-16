@@ -30,19 +30,20 @@ def compute_and_write_example_stats(set_feature_img_pixels_dict, dest_stats_dir)
     """
 
     for feature_img in set_feature_img_pixels_dict.keys():
-        median = set_feature_img_pixels_dict[feature_img].median()
-        mean = set_feature_img_pixels_dict[feature_img].mean()
-        std = set_feature_img_pixels_dict[feature_img].std()
+        median = np.median(set_feature_img_pixels_dict[feature_img])
+        mean = np.mean(set_feature_img_pixels_dict[feature_img])
+        std = np.std(set_feature_img_pixels_dict[feature_img])
 
         stats = {
             'mean' : mean,
             'std' : std,
             'median' : median,
-            # 'total_pixels' : len(set_feature_img_pixels_dict[feature_img]),
+            'total_pixels' : len(set_feature_img_pixels_dict[feature_img]),
         }
 
         np.save(dest_stats_dir / f"train_set_{feature_img}_stats.npy", stats)
         print(f"Statistics for {feature_img} saved in a single .npy file")
+        print(stats)
 
 # function to process a split and write the output
 def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_per_tce):
@@ -60,10 +61,10 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
     """
     
     # set logger for each process
-    logger = logging.getLogger(f"{src_tfrec_fp.split('/')[-1]}")
+    logger = logging.getLogger(f"{str(src_tfrec_fp).split('/')[-1]}")
     logger.setLevel(logging.INFO)
 
-    log_path = Path(log_dir) / f"{src_tfrec_fp.split('/')[-1]}.log"
+    log_path = Path(log_dir) / f"{str(src_tfrec_fp).split('/')[-1]}.log"
     file_handler = logging.FileHandler(log_path)
     logger_formatter = logging.Formatter('%(asctime)s - %(levelname)s- %(message)s')
     file_handler.setFormatter(logger_formatter)
@@ -73,7 +74,7 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
         logger.handlers.clear()
     
     logger.addHandler(file_handler)
-    logger.info(f'Beginning data processing for {src_tfrec_fp.split('/')[-1]} using max of {max_examples_per_tce} examples per tce.')
+    logger.info(f"Beginning data processing for {str(src_tfrec_fp).split('/')[-1]} using max of {max_examples_per_tce} examples per tce.")
 
     tce_example_count_map = defaultdict(int) # Default dict initialized value to 0
 
@@ -82,13 +83,14 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
     src_tfrec_dataset = tf.data.TFRecordDataset(str(src_tfrec_fp))
 
     record_num = 0
+    recorded_record_num = 0
 
     for str_record in src_tfrec_dataset:
-        
-        logger.info(f'Processing tfrecord example #{str(record_num).zfill(4)}')
+        record_num += 1
+        logger.info(f"Processing tfrecord example #{str(record_num).zfill(4)}")
         # load example
         example = tf.train.Example()
-        example.ParseFromString(str_record)
+        example.ParseFromString(str_record.numpy())
         
         # Get only uid, without mid transit/oot point; expected to be in form 1129033-1-S1-36_t_1412.344...
         tce_uid = str(example.features.feature["uid"].bytes_list.value[0]).split('_')[0]
@@ -97,18 +99,19 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
         if tce_example_count_map.get(tce_uid, 0) < max_examples_per_tce:
             tce_example_count_map[tce_uid] += 1 # Increase example count
             print(f"New value in dict: {tce_example_count_map[tce_uid]}")
+            print(tce_example_count_map)
 
-            record_num += 1
+            recorded_record_num += 1
             # get pixel values for diff, oot, and snr imgs
             for feature_img in shard_feature_img_pixels.keys():
-                logger.info(f'Processing feature: {feature_img} for example #{str(record_num).zfill(4)}')
+                logger.info(f"Processing feature: {feature_img} for example #{str(record_num).zfill(4)}")
                 # load img feature
                 feature_img_pixels = tf.reshape(tf.io.parse_tensor(example.features.feature[feature_img].bytes_list.value[0], tf.float32),
                                                 [-1]).numpy() # flattened pixels in feature img
                 
                 shard_feature_img_pixels[feature_img].extend(feature_img_pixels.tolist())
         
-    logger.info(f'Successfully finished processing {src_tfrec_fp.split('/')[-1]} for a total of {record_num} examples.')
+    logger.info(f"Successfully finished processing {str(src_tfrec_fp).split('/')[-1]} for a total of {recorded_record_num}/{record_num} examples.")
 
     return shard_feature_img_pixels
         
@@ -150,7 +153,7 @@ if __name__ == "__main__":
     # define partial func to predefine default values for directories and target sets
     partial_func = partial(retrieve_shard_feature_img_pixels,
                                 feature_names=train_set_feature_imgs,
-                                max_examples_per_tce=2,
+                                max_examples_per_tce=4,
                                 )
     
     start = time.time()
@@ -161,21 +164,22 @@ if __name__ == "__main__":
     # jobs = [str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)] # chunk 1 to chunk 8611
     jobs = [str(shard_num).zfill(4) for shard_num in range(1, 10 + 1)] # chunk 1 to chunk 8611
 
-    logger.info(f'Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}')
-    print(f'Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}')
+    logger.info(f"Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}")
+    print(f"Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}")
 
     results = []
     for shard_num in jobs:
         shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611"
-        shard_pixels = pool.apply_async(partial_func, args=[shard_fp])
-        results.extend(shard_pixels) # add flattened images to it
+        shard_pixels = pool.apply_async(partial_func, args=[shard_fp]).get()
+        results.append(shard_pixels) # add flattened images to it
         # TODO: fix return type to be compatible with dictionary
 
-    logger.info(f'Succesfully finished retrieving pixels for {len(results)} shards.')
+    logger.info(f"Succesfully finished retrieving pixels for {len(results)} shards.")
 
     num_results = 0
     for result in results:
-        logger.info(f'Extending set pixels for result {str(num_results).zfill(4)}')
+        num_results += 1
+        logger.info(f"Extending set pixels for result {str(num_results).zfill(4)}")
         for feature, pixels in result.items():
             train_set_feature_img_pixels[feature].extend(pixels)
             
@@ -183,12 +187,12 @@ if __name__ == "__main__":
     pool.join()
     
     # Compute statistics based on train_set_img_pixels
-    logger.info(f'Beginning computing train_set statistics.')
+    logger.info(f"Beginning computing train_set statistics.")
     compute_and_write_example_stats(set_feature_img_pixels_dict=train_set_feature_img_pixels, dest_stats_dir=dest_stats_dir)
-    logger.info(f'Finished computing train_set statistics.')
+    logger.info(f"Finished computing train_set statistics.")
 
     end = time.time()
-    logger.info(f'Succesfully finished processing train_set shards in {end-start} seconds')
+    logger.info(f"Succesfully finished processing train_set shards in {end-start} seconds")
 
 
 
