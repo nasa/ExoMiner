@@ -122,15 +122,15 @@ if __name__ == "__main__":
     train_set_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train_tfrecords")
     
     # TRUE RUNS
-    # # destination directory for computed training stats
-    # dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split/")
+    # destination directory for computed training stats
+    dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v2/")
 
-    # # destination directory for logging
-    # log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs")
+    # destination directory for logging
+    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs_v2")
 
-    # TESTING
-    dest_stats_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/stats/")
-    log_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/compute_train_stats_logs/")
+    # # TESTING
+    # dest_stats_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/stats/")
+    # log_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/compute_train_stats_logs/")
 
     dest_stats_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=126)
 
     # jobs = [str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)] # chunk 1 to chunk 8611
-    jobs = [str(shard_num).zfill(4) for shard_num in range(1, 10 + 1)] # chunk 1 to chunk 8611
+    jobs = [str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)] # chunk 1 to chunk 8611
 
     logger.info(f"Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}")
     print(f"Beginning processing {len(jobs)} shards from range {jobs[0]} to {jobs[-1]}")
@@ -172,7 +172,6 @@ if __name__ == "__main__":
         shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611"
         shard_pixels = pool.apply_async(partial_func, args=[shard_fp]).get()
         results.append(shard_pixels) # add flattened images to it
-        # TODO: fix return type to be compatible with dictionary
 
     logger.info(f"Succesfully finished retrieving pixels for {len(results)} shards.")
 
