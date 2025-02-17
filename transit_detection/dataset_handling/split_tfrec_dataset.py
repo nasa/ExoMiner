@@ -26,11 +26,11 @@ def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_tar
 
         input_shard_fp = input_dir / f'test_shard_0001-{input_shard_num}'
 
-        train_tfrec_dir = output_dir / 'train_tfrecords'
+        train_tfrec_dir = output_dir / 'train'
         train_tfrec_dir.mkdir(parents=True, exist_ok=True)
-        val_tfrec_dir = output_dir / 'val_tfrecords'
+        val_tfrec_dir = output_dir / 'val'
         val_tfrec_dir.mkdir(parents=True, exist_ok=True)
-        test_tfrec_dir = output_dir / 'test_tfrecords'
+        test_tfrec_dir = output_dir / 'test'
         test_tfrec_dir.mkdir(parents=True, exist_ok=True)
 
         train_tfrec_fp = train_tfrec_dir / f"train_shard_{input_shard_num}-8611"
