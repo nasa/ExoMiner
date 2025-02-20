@@ -46,7 +46,7 @@ def compute_and_write_example_stats(set_feature_img_pixels_dict, dest_stats_dir)
         print(stats)
 
 # function to process a split and write the output
-def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_per_tce):
+def retrieve_shard_feature_img_pixels(src_tfrec_fp, src_aux_tbl_fp, feature_names, max_examples_per_tce):
     """
     Retrieve a shard's flattened feature_img pixels for all examples in the shard, based on features provided
     as keys in shard_feature_img_pixels
@@ -76,7 +76,6 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
     logger.addHandler(file_handler)
     logger.info(f"Beginning data processing for {str(src_tfrec_fp).split('/')[-1]} using max of {max_examples_per_tce} examples per tce.")
 
-    tce_example_count_map = defaultdict(int) # Default dict initialized value to 0
 
     shard_feature_img_pixels = {feature_name : [] for feature_name in feature_names}
 
@@ -84,6 +83,24 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
 
     record_num = 0
     recorded_record_num = 0
+
+    uids_to_process_set = set()
+
+    split_df = pd.read_csv(src_aux_tbl_fp)
+    split_df = split_df[split_df['shard'] == str(src_tfrec_fp.name)]
+
+    # Transform uid with midpoint included (358-2-S38_t_2342.461771194361) -> to without (358-2-S38) for selecting randomly
+    split_df['uid_prefix'] = split_df["uid"].apply(lambda x: x.split('_')[0])
+
+    for uid_prefix in split_df['uid_prefix'].unique():
+        df_subset = split_df[split_df['uid_prefix'] == uid_prefix]
+        uids = df_subset['uid'].sample(min(len(df_subset), max_examples_per_tce))
+
+        for uid in uids:
+            uids_to_process_set.add(uid)
+
+    if len(uids_to_process_set) == 0:
+        return shard_feature_img_pixels # skip processing
 
     for str_record in src_tfrec_dataset:
         record_num += 1
@@ -93,13 +110,10 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, feature_names, max_examples_
         example.ParseFromString(str_record.numpy())
         
         # Get only uid, without mid transit/oot point; expected to be in form 1129033-1-S1-36_t_1412.344...
-        tce_uid = str(example.features.feature["uid"].bytes_list.value[0]).split('_')[0]
-        print(f"TCE_UID: {tce_uid}")
+        tce_uid = str(example.features.feature["uid"].bytes_list.value[0])
 
-        if tce_example_count_map.get(tce_uid, 0) < max_examples_per_tce:
-            tce_example_count_map[tce_uid] += 1 # Increase example count
-            print(f"New value in dict: {tce_example_count_map[tce_uid]}")
-            print(tce_example_count_map)
+        if tce_uid in uids_to_process_set:
+
 
             recorded_record_num += 1
             # get pixel values for diff, oot, and snr imgs
@@ -120,6 +134,9 @@ if __name__ == "__main__":
 
     # src directory containing training set tfrecords
     train_set_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train_tfrecords")
+
+    # src directory containing set aux_tbls
+    src_aux_tbl_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/aux_tbls")
     
     # TRUE RUNS
     # destination directory for computed training stats
@@ -170,7 +187,8 @@ if __name__ == "__main__":
     results = []
     for shard_num in jobs:
         shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611"
-        shard_pixels = pool.apply_async(partial_func, args=[shard_fp]).get()
+        aux_tbl_fp = src_aux_tbl_dir / f"shards_tbl_{shard_num}-8611.csv"
+        shard_pixels = pool.apply_async(partial_func, args=[shard_fp, aux_tbl_fp]).get()
         results.append(shard_pixels) # add flattened images to it
 
     logger.info(f"Succesfully finished retrieving pixels for {len(results)} shards.")
