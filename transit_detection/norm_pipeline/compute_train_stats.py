@@ -133,7 +133,7 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, src_aux_tbl_fp, feature_name
 if __name__ == "__main__":
 
     # src directory containing training set tfrecords
-    train_set_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train_tfrecords")
+    train_set_tfrec_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train")
 
     # src directory containing set aux_tbls
     src_aux_tbl_dir = Path("/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/aux_tbls")
