@@ -17,7 +17,7 @@ import logging
 from src_preprocessing.tf_util import example_util
 
 
-
+# TODO: update function descriptions
 # function to process a single shard for a given set of tce uids
 def compute_and_write_example_stats(set_feature_img_pixels_dict, dest_stats_dir):
     """
@@ -140,10 +140,10 @@ if __name__ == "__main__":
     
     # TRUE RUNS
     # destination directory for computed training stats
-    dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v2/")
+    dest_stats_dir = Path("/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v3/")
 
     # destination directory for logging
-    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs_v2")
+    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs_v3")
 
     # # TESTING
     # dest_stats_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/compute_test_stats/stats/")
