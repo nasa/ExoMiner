@@ -92,6 +92,7 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, src_aux_tbl_fp, feature_name
     # Transform uid with midpoint included (358-2-S38_t_2342.461771194361) -> to without (358-2-S38) for selecting randomly
     split_df['uid_prefix'] = split_df["uid"].apply(lambda x: x.split('_')[0])
 
+
     for uid_prefix in split_df['uid_prefix'].unique():
         df_subset = split_df[split_df['uid_prefix'] == uid_prefix]
         uids = df_subset['uid'].sample(min(len(df_subset), max_examples_per_tce))
@@ -110,10 +111,9 @@ def retrieve_shard_feature_img_pixels(src_tfrec_fp, src_aux_tbl_fp, feature_name
         example.ParseFromString(str_record.numpy())
         
         # Get only uid, without mid transit/oot point; expected to be in form 1129033-1-S1-36_t_1412.344...
-        tce_uid = str(example.features.feature["uid"].bytes_list.value[0])
+        tce_uid = str(example.features.feature["uid"].bytes_list.value[0].decode('utf-8'))
 
         if tce_uid in uids_to_process_set:
-
 
             recorded_record_num += 1
             # get pixel values for diff, oot, and snr imgs
