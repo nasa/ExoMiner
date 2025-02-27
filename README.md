@@ -92,43 +92,47 @@ Research Center (NASA ARC).
 - Main Contributors
   - Hamed Valizadegan<sup>1,2</sup>, hamed.valizadegan@nasa.gov
   - Miguel Martinho<sup>1,2</sup>, miguel.martinho@nasa.gov
-  
-- Collaborators
-    - Doug Caldwell<sup>1,3</sup>
-    - Jeff Smith<sup>1,3</sup>
-    - Jon Jenkins<sup>1,3</sup>
-    - Joseph Twicken<sup>1,3</sup>
-    - Stephen Bryson<sup>1</sup>
-  
-- Active Developers
-    - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification; Structured and Adversarial Training for Transit 
-  Classification Robustness)
-    - Josue Ochoa<sup>7</sup> (Transit Detection)
 
-- Past developers 
-    - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
-    - Fellipe Marcellino<sup>2</sup> (Transit detection using Kepler data)
-    - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
-    - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
-    - Laurent Wilkens<sup>2</sup> (Kepler)
-    - Martin Koeling<sup>4</sup> (Kepler to TESS transfer learning)
-    - Nikash Walia<sup>2</sup> (Kepler)
-    - Noa Lubin <sup>4</sup> (Kepler)
-    - Pedro Gerum<sup>4</sup> (Kepler, Kepler non-TCE classification)
-    - Patrick Maynard<sup>2,5,7</sup> (Kepler to TESS transfer learning)
-    - Sam Donald<sup>4</sup> (Kepler to TESS transfer learning)
-    - Theng Yang<sup>2,7</sup> (Label noise detection in Kepler data)
-    - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
-    - Stuti Agarwal <sup>6</sup> (Difference image)
-    - Joshua Belofsky <sup>2,5</sup> (Difference image)
-    - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification, Kepler to TESS 
-    transfer learning)
-    - William Zhong <sup>5</sup> (Difference Image)
-    - Ashley Raigosa<sup>7</sup> (TESS SPOC FFI)
-    - Saiswaroop Thammineni<sup>7</sup> (Transit Encoding)
-    - Kunal Malhotra<sup>7</sup> (Transit Detection)
-    - Eric Liang<sup>7</sup> (Transit Encoding)
-    - Ujjawal Prasad<sup>8</sup> (Transit Detection)
+- Collaborators
+  - Active Collaborators
+      - Doug Caldwell<sup>1,3</sup>
+      - Jon Jenkins<sup>1,3</sup>
+      - Joseph Twicken<sup>1,3</sup>
+    
+  - Past Collaborators
+    - Stephen Bryson<sup>1</sup>
+    - Jeff Smith<sup>1,3</sup>
+  
+- Developers
+  - Active Developers
+      - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification; Structured and Adversarial Training for Transit 
+    Classification Robustness)
+      - Josue Ochoa<sup>7</sup> (Transit Detection)
+    
+  - Past Developers 
+      - Andrés Carranza <sup>2,5</sup> (Unfolded phase time series for transit signal classification)
+      - Fellipe Marcellino<sup>2</sup> (Transit detection using Kepler data)
+      - Jennifer Andersson<sup>4</sup> (Kepler to TESS transfer learning)
+      - Kaylie Hausknecht<sup>2,6</sup> (Explainability framework using Kepler data)
+      - Laurent Wilkens<sup>2</sup> (Kepler)
+      - Martin Koeling<sup>4</sup> (Kepler to TESS transfer learning)
+      - Nikash Walia<sup>2</sup> (Kepler)
+      - Noa Lubin <sup>4</sup> (Kepler)
+      - Pedro Gerum<sup>4</sup> (Kepler, Kepler non-TCE classification)
+      - Patrick Maynard<sup>2,5,7</sup> (Kepler to TESS transfer learning)
+      - Sam Donald<sup>4</sup> (Kepler to TESS transfer learning)
+      - Theng Yang<sup>2,7</sup> (Label noise detection in Kepler data)
+      - Hongbo Wei<sup>2,6,7</sup> (Kepler non-TCE classification, KOI classification, Kepler to TESS transfer learning)
+      - Stuti Agarwal <sup>6</sup> (Difference image)
+      - Joshua Belofsky <sup>2,5</sup> (Difference image)
+      - Charles Yates <sup>2,5</sup> (Unfolded phase time series for transit signal classification, Kepler to TESS 
+      transfer learning)
+      - William Zhong <sup>5</sup> (Difference Image)
+      - Ashley Raigosa<sup>7</sup> (TESS SPOC FFI)
+      - Saiswaroop Thammineni<sup>7</sup> (Transit Encoding)
+      - Kunal Malhotra<sup>7</sup> (Transit Detection)
+      - Eric Liang<sup>7</sup> (Transit Encoding)
+      - Ujjawal Prasad<sup>8</sup> (Transit Detection)
 
 1 - NASA Ames Research Center (NASA ARC)\
 2 - Universities Space Research Association (USRA)\
