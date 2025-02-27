@@ -3,6 +3,7 @@ Create ensemble average model.
 """
 
 # 3rd party
+import tensorflow as tf
 from tensorflow.keras.utils import custom_object_scope
 from pathlib import Path
 from keras.saving import load_model
@@ -32,7 +33,10 @@ def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
     with custom_object_scope(custom_objects):
         for model_i, model_fp in enumerate(models_fps):
             model = load_model(filepath=model_fp, compile=False)
-            model.name = f'model{model_i}'
+            if tf.__version__ < '2.14.0':
+                model._name = f'model{model_i}'
+            else:
+                model.name = f'model{model_i}'
             models.append(model)
 
     # create ensemble average model
