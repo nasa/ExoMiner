@@ -1,9 +1,14 @@
 # ExoMiner
 
 [//]: # (![ExoMiner Logo.]&#40;/others/images/exominer_logo.png&#41;)
-<p align="center">
-<img src="/others/images/exominer_logo.png"  width="250" height="250">
-</p>
+[//]: # (<p align="center">)
+
+[//]: # (<img src="/others/images/exominer_logo.png"  width="250" height="250">)
+
+[//]: # (</p>)
+<div style="text-align: center;">
+    <img src="/others/images/exominer_logo.png" width="250" height="250" alt="Exominer Logo">
+</div>
 
 ## Introduction
 
