@@ -14,7 +14,7 @@ import logging
 
 # local
 from src_preprocessing.lc_preprocessing.utils_generate_input_records import get_tce_table
-from utils.utils_dataio import is_yamlble
+# from old.utils import is_yamlble
 from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shards_table
 from src_preprocessing.lc_preprocessing.utils_generate_input_records import process_file_shard, create_shards
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import is_pfe
@@ -97,7 +97,7 @@ def main():
     if config['process_i'] in [0, -1]:
         np.save(config['output_dir'] / 'preprocessing_params.npy', config)
         # save the YAML file with preprocessing parameters that are YAML serializable
-        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+        json_dict = {key: val for key, val in config.items()}  #  if is_yamlble(val)}
         with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as preproc_run_file:
             yaml.dump(json_dict, preproc_run_file)
 

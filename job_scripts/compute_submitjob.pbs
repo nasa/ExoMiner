@@ -1,15 +1,25 @@
 # Used to run interactive jobs
 #PBS -S /bin/bash
 #PBS -N data_analysis
-#PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=36:mem=360g:ngpus=1:model=sky_gpu
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
+#PBS -l walltime=02:00:00
+# DSG GPU v100 nodes
+# PBS -l select=1:ncpus=36:mem=360g:ngpus=1:model=sky_gpu
+# PBS -l place=free:excl
+# PBS -q dsg_gpu@pbspl4
+# Cabeus (A100, V100, ..., GPU nodes)
+# PBS -l select=1:ncpus=16:mem=128g:ngpus=1:model=mil_a100
+# PBS -l place=scatter:shared
+# PBS -q gpu_devel@pbspl4
+# non-GPU nodes
+#PBS -l select=1:ncpus=40:model=cas_ait
 # PBS -l select=1:ncpus=1:model=rom_ait
-# PBS -q debug
+#PBS -q debug
+# Early Access Grace Hopper nodes
+#PBS -lselect=1:ncpus=16:model=gra_h100:mem=400g
+#PBS -q alpha_test
+#PBS -A ARMD
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_data_analysis.err
-#PBS -W group_list=a1509
-# PBS -W group_list=s2857
+# PBS -W group_list=a1509
+#PBS -W group_list=s2857
 #PBS -m bea
-

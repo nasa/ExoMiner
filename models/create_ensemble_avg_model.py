@@ -11,7 +11,7 @@ import argparse
 
 # local
 from models.utils_models import create_ensemble
-from models.models_keras import Time2Vec
+from models.models_keras import Time2Vec, SplitLayer
 
 
 def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
@@ -28,11 +28,11 @@ def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
 
     # load models into a list
     models = []
-    custom_objects = {"Time2Vec": Time2Vec}
+    custom_objects = {"Time2Vec": Time2Vec, "SplitLayer": SplitLayer}
     with custom_object_scope(custom_objects):
         for model_i, model_fp in enumerate(models_fps):
             model = load_model(filepath=model_fp, compile=False)
-            model._name = f'model{model_i}'
+            model.name = f'model{model_i}'
             models.append(model)
 
     # create ensemble average model

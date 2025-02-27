@@ -19,7 +19,7 @@ import argparse
 # local
 from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
 from src_hpo.utils_hpo import analyze_results
-from utils.utils_dataio import is_yamlble
+# from old.utils import is_yamlble
 
 
 def run_main(hpo_config):
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)
 
         # save the YAML file with configuration parameters that are YAML serializable
-        json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+        json_dict = {key: val for key, val in config.items()}  # if is_yamlble(val)}
         with open(config['paths']['experiment_dir'] / 'hpo_run_config.yaml', 'w') as cv_run_file:
             yaml.dump(json_dict, cv_run_file, sort_keys=False)
 

@@ -159,10 +159,10 @@ Supercomputing (NAS) Division at Ames Research Center.
 First release of ExoMiner (v1.0). Expected features to be added in subsequent releases:
 - TBD.
 
-See the [NASA Open Source Agreement (NOSA)](licenses/nasa_open_source_agreement_ExoMiner-18792-1.pdf) for this software release.
+See the [NASA Open Source Agreement (NOSA)](others/licenses/nasa_open_source_agreement_ExoMiner-18792-1.pdf) for this software release.
 
 For external collaborators, see the 
-[Individual](ExoMiner_ARC-18792-1_Individual%20CLA.pdf) and [Corporate](licenses/Corporate_CLA_ExoMiner_ARC-18792-1.pdf) 
+[Individual](ExoMiner_ARC-18792-1_Individual%20CLA.pdf) and [Corporate](others/licenses/Corporate_CLA_ExoMiner_ARC-18792-1.pdf) 
 Contributor License Agreements.
 
 * * * * * * * * * * * * * * 

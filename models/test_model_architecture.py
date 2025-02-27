@@ -4,14 +4,12 @@ Used to test building models.
 
 # 3rd party
 import yaml
-from pathlib import Path
 from tensorflow.keras.utils import plot_model
 
 
 # local
 from models.models_keras import ExoMiner_JointLocalFlux
-from src.utils_train_eval_predict import set_tf_data_type_for_features
-from src_hpo.utils_hpo import load_hpo_config
+from src.utils.utils import set_tf_data_type_for_features
 
 # load file with features and model config
 yaml_config_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml'

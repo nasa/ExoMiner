@@ -60,34 +60,34 @@ def update_legacy_configs(config_hpo_chosen):
 
     """
 
-    # if 'kernel_size_glob' not in config_hpo_chosen:
-    #     config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
-    #     config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
-    #     config_hpo_chosen['kernel_size_unfolded'] = config_hpo_chosen['kernel_size_loc']
-    #     config_hpo_chosen['kernel_size_centr'] = config_hpo_chosen['kernel_size_glob']
-    # elif 'kernel_size_unfolded' not in config_hpo_chosen:
-    #     config_hpo_chosen['kernel_size_unfolded'] = config_hpo_chosen['kernel_size_loc']
-    #     config_hpo_chosen['kernel_size_centr'] = config_hpo_chosen['kernel_size_glob']
-    #
-    # if 'pool_size_unfolded' not in config_hpo_chosen:
-    #     config_hpo_chosen['pool_size_unfolded'] = config_hpo_chosen['pool_size_loc']
-    #     config_hpo_chosen['pool_size_centr'] = config_hpo_chosen['pool_size_loc']
-    #
-    # if 'num_unfolded_conv_blocks' not in config_hpo_chosen:
-    #     config_hpo_chosen['num_unfolded_conv_blocks'] = config_hpo_chosen['num_loc_conv_blocks']
-    #     config_hpo_chosen['num_centr_conv_blocks'] = config_hpo_chosen['num_loc_conv_blocks']
-    #
-    # if 'init_loc_conv_filters' not in config_hpo_chosen:
-    #     config_hpo_chosen['init_loc_conv_filters'] = config_hpo_chosen['init_conv_filters']
-    #     config_hpo_chosen['init_glob_conv_filters'] = config_hpo_chosen['init_conv_filters']
-    #     config_hpo_chosen['init_unfolded_conv_filters'] = config_hpo_chosen['init_conv_filters']
-    #     config_hpo_chosen['init_centr_conv_filters'] = config_hpo_chosen['init_conv_filters']
-    #
-    # if 'loc_conv_ls_per_block' not in config_hpo_chosen:
-    #     config_hpo_chosen['loc_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
-    #     config_hpo_chosen['glob_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
-    #     config_hpo_chosen['unfolded_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
-    #     config_hpo_chosen['centr_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
+    if 'kernel_size_glob' not in config_hpo_chosen:
+        config_hpo_chosen['kernel_size_glob'] = config_hpo_chosen['kernel_size']
+        config_hpo_chosen['kernel_size_loc'] = config_hpo_chosen['kernel_size']
+        config_hpo_chosen['kernel_size_unfolded'] = config_hpo_chosen['kernel_size_loc']
+        config_hpo_chosen['kernel_size_centr'] = config_hpo_chosen['kernel_size_glob']
+    elif 'kernel_size_unfolded' not in config_hpo_chosen:
+        config_hpo_chosen['kernel_size_unfolded'] = config_hpo_chosen['kernel_size_loc']
+        config_hpo_chosen['kernel_size_centr'] = config_hpo_chosen['kernel_size_glob']
+
+    if 'pool_size_unfolded' not in config_hpo_chosen:
+        config_hpo_chosen['pool_size_unfolded'] = config_hpo_chosen['pool_size_loc']
+        config_hpo_chosen['pool_size_centr'] = config_hpo_chosen['pool_size_loc']
+
+    if 'num_unfolded_conv_blocks' not in config_hpo_chosen:
+        config_hpo_chosen['num_unfolded_conv_blocks'] = config_hpo_chosen['num_loc_conv_blocks']
+        config_hpo_chosen['num_centr_conv_blocks'] = config_hpo_chosen['num_loc_conv_blocks']
+
+    if 'init_loc_conv_filters' not in config_hpo_chosen:
+        config_hpo_chosen['init_loc_conv_filters'] = config_hpo_chosen['init_conv_filters']
+        config_hpo_chosen['init_glob_conv_filters'] = config_hpo_chosen['init_conv_filters']
+        config_hpo_chosen['init_unfolded_conv_filters'] = config_hpo_chosen['init_conv_filters']
+        config_hpo_chosen['init_centr_conv_filters'] = config_hpo_chosen['init_conv_filters']
+
+    if 'loc_conv_ls_per_block' not in config_hpo_chosen:
+        config_hpo_chosen['loc_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
+        config_hpo_chosen['glob_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
+        config_hpo_chosen['unfolded_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
+        config_hpo_chosen['centr_conv_ls_per_block'] = config_hpo_chosen['conv_ls_per_block']
 
     return config_hpo_chosen
 

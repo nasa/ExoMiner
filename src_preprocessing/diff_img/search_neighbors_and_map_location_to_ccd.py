@@ -14,6 +14,7 @@ import multiprocessing
 import logging
 # from tess_stars2px import tess_stars2px_function_entry
 import lightkurve as lk
+import shutil
 
 
 def log_or_print(message, logger=None):
@@ -131,7 +132,11 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
 
     # using WCS transformation stored in the target pixel files for each object
     outColPix, outRowPix, stars_ids = [], [], stars_tbl['ID']
-    for target_id, objs in stars_tbl.groupby('target_id'):
+    target_grps = stars_tbl.groupby('target_id')
+    for target_i, (target_id, objs) in enumerate(target_grps):
+
+        if target_i % 100 == 0:
+            log_or_print(f'Iterated through {target_i}/{len(target_grps)} targets.', logger)
 
         search_result = lk.search_targetpixelfile(target=f'tic{target_id}', mission='TESS',
                                                   author=('TESS-SPOC', 'SPOC'),
@@ -142,7 +147,7 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
                          f'{sector}', logger)
 
         # Download the first search result
-        tpf = search_result.download(download_dir='/home/msaragoc/Downloads/', quality_bitmask='default')
+        tpf = search_result.download(download_dir='/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/', quality_bitmask='default')
         # use WCS transformation to map objects to CCD pixel frame
         outColPix_obj, outRowPix_obj = tpf.wcs.all_world2pix(objs['ra'], objs['dec'], 0)
 
@@ -150,7 +155,9 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
         outRowPix += list(outRowPix_obj)
 
         # delete target pixel file
-        Path(tpf.path).unlink()
+        # Path(tpf.path).unlink()
+        # Path(tpf.path).parent.unlink()
+        shutil.rmtree(Path(tpf.path).parent, ignore_errors=True)
 
     # # using tess-point
     # # initialize scinfo
@@ -223,7 +230,7 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
 
         # set up logger
         logger = logging.getLogger(name=f'targets_S{res_suffix}')
-        logger_handler = logging.FileHandler(filename=log_dir / f'targets_S{res_suffix}.log', mode='w')
+        logger_handler = logging.FileHandler(filename=log_dir / f'targets_S{res_suffix}.log', mode='a')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         logger.setLevel(logging.INFO)
         logger_handler.setFormatter(logger_formatter)
@@ -232,9 +239,6 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
         logger.info(f'Number of targets: {len(targets)}')
     else:
         logger = None
-
-    log_or_print(f'Searching for neighbors in a radius of {search_radius_arcsec} arcsec '
-                 f'for {len(targets)} targets...', logger)
 
     if (res_dir / f'targets_S{res_suffix}.npy').exists():
         log_or_print(f'Found NumPy file '
@@ -249,6 +253,9 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
         search_res_targets = search_res_targets.reset_index()
 
     else:
+        log_or_print(f'Searching for neighbors in a radius of {search_radius_arcsec} arcsec '
+                     f'for {len(targets)} targets...', logger)
+
         search_res_targets = get_neighbors_in_search_radius(targets, search_radius_arcsec, mag_thr, logger)
 
         # log_or_print(f'Filtering neighbors based on magnitude: magnitude threshold = {mag_thr}...', logger)
@@ -273,17 +280,18 @@ if __name__ == "__main__":
         'sectors_observed',
         'mag',
     ]
-    tce_tbl = pd.read_csv('/data5/tess_project/Data/Ephemeris_tables/TESS/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv',
+    tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv',
                           usecols=tce_tbl_cols)
     # tce_tbl = tce_tbl.loc[tce_tbl['target_id'] == 356229935]
     # search parameters
     search_radius_arcsec = 168 * u.arcsec  # np.sqrt(2) * 121 / 2 * u.arcsec  # 168 DV (Joe)
     mag_thr = np.inf
     # results directory
-    res_dir = Path(f'/home/msaragoc/Projects/exoplnt_dl/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_tpf_wcs_2-10-2025_1008')
+    # res_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_tess-point_2-12-2025_2114')
+    res_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_tpf_wcs_2-11-2025_1757')
     # multiprocessing parameters
     # n_jobs = 1
-    n_procs = 13
+    n_procs = 8
 
     use_logs = True
 
