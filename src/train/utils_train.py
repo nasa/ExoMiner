@@ -8,6 +8,8 @@ import tensorflow as tf
 import numpy as np
 from pathlib import Path
 import pandas as pd
+from functools import partial
+from tensorflow import keras
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn
@@ -253,3 +255,201 @@ class PredictDuringFitCallback(tf.keras.callbacks.Callback):
             tbl = self.create_score_table(scores, self.data_to_tbl[dataset])
 
             tbl.to_csv(self.save_dir / f'scores_{dataset}set_epoch{epoch}.csv', index=False)
+
+
+def filter_examples_tfrecord_obs_type(parsed_features, label_id, obs_type):
+    """ Filters out examples based on `obs_type`.
+
+    Args:
+        parsed_features: tf tensor, parsed features for example
+        label_id: tf tensor, label id for example
+        obs_type: str, observation type to be filtered
+
+    Returns: tf boolean tensor
+
+    """
+
+    # vocabulary = {'ffi': 0, '2min': 1}
+    #
+    # # table = tf.lookup.StaticHashTable(
+    # #     initializer=tf.lookup.KeyValueTensorInitializer(
+    # #         keys=list(vocabulary.keys()),
+    # #         values=list(vocabulary.values()),
+    # #         key_dtype=tf.string,
+    # #         value_dtype=tf.int32)
+    # #     )
+    # table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(vocabulary.keys()),
+    #                                                         values=list(vocabulary.values()),
+    #                                                         key_dtype=tf.string,
+    #                                                         value_dtype=tf.int32)
+    # obs_type_mapping = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
+    # encoding_obs_type = vocabulary[obs_type]  # obs_type_mapping.lookup(obs_type)
+
+
+    # table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
+    #                                                             values=list(self.label_map.values()),
+    #                                                             key_dtype=tf.string,
+    #                                                             value_dtype=tf.int32)
+    # label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
+    # label_id = label_to_id.lookup(parsed_label[self.label_field_name])
+    #
+
+    # encoding_obs_type = table.lookup(vocabulary[obs_type])
+
+    return tf.squeeze(parsed_features['obs_type'] == obs_type)
+    # return tf.squeeze(parsed_features['tce_period_norm'] >= 0)
+    # return tf.squeeze(tf.equal(parsed_features['obs_type'], encoding_obs_type))
+    # return tf.reduce_any(tf.equal(parsed_features['obs_type'], encoding_obs_type))
+
+
+def filter_examples_tfrecord_label(parsed_features, label_id, label):
+    """ Filters out examples whose label is not `label`.
+
+    Args:
+        parsed_features: tf tensor, parsed features for example
+        label_id: tf tensor, label id for example
+        label: str, label to be used as filter
+
+    Returns: tf boolean tensor
+
+    """
+
+    return tf.squeeze(parsed_features['label'] == label)
+
+
+class ComputePerformanceOnFFIand2min(keras.callbacks.Callback):
+    """
+    Custom Keras Callback to evaluate model at the end of each epoch separately on 2-min and FFI data.
+    """
+
+    def __init__(self, config, save_dir, filter_fn=None):
+        """ Callback constructor.
+
+        Args:
+            config: dict, configuration parameters for the run.
+            save_dir: Path, save directory for the results.
+            filter_fn: function, filter function used to filter parsed examples from the TFRecord datasets.
+        """
+
+        super().__init__()
+        self.config = config
+        self.datasets = list(self.config['datasets_fps'].keys())
+        self.obs_types = ['ffi', '2min']
+        self.filter_fn = filter_fn
+        self.save_dir = save_dir
+
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
+    def on_epoch_end(self, epoch, logs=None):
+        """ Evaluate model at the end of the epoch.
+
+        Args:
+            epoch: int, epoch number
+            logs: dict, logs returned by keras.callbacks.Callback
+
+        Returns:
+
+        """
+
+        res = {obs_type: {} for obs_type in self.obs_types}
+
+        for obs_type in self.obs_types:  # iterate on observation type (i.e., ffi and 2min)
+            for dataset in self.datasets:  # iterate on datasets (i.e., train, val, test)
+                eval_input_fn = InputFn(file_paths=self.config['datasets_fps'][dataset],
+                                        batch_size=self.config['evaluation']['batch_size'],
+                                        mode='EVAL',
+                                        label_map=self.config['label_map'],
+                                        features_set=self.config['features_set'],
+                                        multiclass=self.config['config']['multi_class'],
+                                        use_transformer=self.config['config']['use_transformer'],
+                                        feature_map=self.config['feature_map'],
+                                        label_field_name=self.config['label_field_name'],
+                                        filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type=obs_type),
+                                        )
+
+                # evaluate model in the given dataset
+                res_eval = self.model.evaluate(x=eval_input_fn(),
+                                               y=None,
+                                               batch_size=None,
+                                               verbose=0,
+                                               sample_weight=None,
+                                               steps=None,
+                                               callbacks=None
+                                               )
+
+                # add evaluated dataset metrics to result dictionary
+                if len(res_eval) == 0:  # no examples for that category; set to NaN
+                    for metric_name_i, metric_name in enumerate(self.model.metrics_names):
+                        res[obs_type][f'{dataset}_{metric_name}'] = np.nan
+                else:
+                    for metric_name_i, metric_name in enumerate(self.model.metrics_names):
+                        res[obs_type][f'{dataset}_{metric_name}'] = res_eval[metric_name_i]
+
+        np.save(self.save_dir / f'res_eval_epoch_{epoch}.npy', res)
+
+
+class ComputePerformanceAfterFilteringLabel(keras.callbacks.Callback):
+    """
+    Custom Keras Callback to evaluate model at the end of each epoch separately on each label.
+    """
+
+    def __init__(self, config, save_dir, filter_fn=None):
+        """ Callback constructor.
+
+        Args:
+            config: dict, configuration parameters for the run.
+            save_dir: Path, save directory for the results.
+            filter_fn: function, filter function used to filter parsed examples from the TFRecord datasets.
+        """
+
+        super().__init__()
+        self.config = config
+        self.datasets = list(self.config['datasets_fps'].keys())
+        self.labels = ['KP', 'CP', 'FP', 'EB', 'NEB', 'NPC', 'NTP', 'BD']
+        self.filter_fn = filter_fn
+        self.save_dir = save_dir
+
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
+    def on_epoch_end(self, epoch, logs=None):
+        """ Evaluate model at the end of the epoch.
+
+        Args:
+            epoch: int, epoch number
+            logs: dict, logs returned by keras.callbacks.Callback
+
+        Returns:
+
+        """
+
+        res = {label: {} for label in self.labels}
+
+        for label in self.labels:  # iterate on observation type (i.e., ffi and 2min)
+            for dataset in self.datasets:  # iterate on datasets (i.e., train, val, test)
+                eval_input_fn = InputFn(file_paths=self.config['datasets_fps'][dataset],
+                                        batch_size=self.config['evaluation']['batch_size'],
+                                        mode='EVAL',
+                                        label_map=self.config['label_map'],
+                                        features_set=self.config['features_set'],
+                                        multiclass=self.config['config']['multi_class'],
+                                        feature_map=self.config['feature_map'],
+                                        label_field_name=self.config['label_field_name'],
+                                        filter_fn=partial(filter_examples_tfrecord_label, label=label),
+                                        )
+
+                # evaluate model in the given dataset
+                res_eval = self.model.evaluate(x=eval_input_fn(),
+                                               y=None,
+                                               batch_size=None,
+                                               verbose=0,
+                                               )
+
+                # add evaluated dataset metrics to result dictionary
+                if len(res_eval) == 0:  # no examples for that category; set to NaN
+                    for metric_name_i, metric_name in enumerate(self.model.metrics_names):
+                        res[label][f'{dataset}_{metric_name}'] = np.nan
+                else:
+                    for metric_name_i, metric_name in enumerate(self.model.metrics_names):
+                        res[label][f'{dataset}_{metric_name}'] = res_eval[metric_name_i]
+
+        np.save(self.save_dir / f'res_eval_epoch_{epoch}.npy', res)

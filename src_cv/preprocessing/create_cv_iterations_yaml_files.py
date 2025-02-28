@@ -14,7 +14,7 @@ from pathlib import Path
 data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval')
 datasets = ['train', 'test']
 
-cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard')]
+cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
 
 cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
 for fp in cv_folds_fps:

@@ -46,7 +46,7 @@ class Time2Vec(keras.layers.Layer):
         return config
 
 
-class ExoMiner_JointLocalFlux(object):
+class ExoMinerJointLocalFlux(object):
 
     def __init__(self, config, features):
         """ Initializes the ExoMiner architecture that processes local flux through the same convolutional branch
@@ -202,7 +202,7 @@ class ExoMiner_JointLocalFlux(object):
             else 'glorot_uniform'
 
         # expand dims to prevent last dimension being "lost"
-        view_inputs = tf.expand_dims(view_inputs, axis=-1, name='expanding_unfolded_flux')
+        view_inputs = tf.keras.layers.Reshape(view_inputs.shape + (1,), name='expanding_unfolded_flux')(view_inputs)
 
         # get number of conv blocks for the given view
         n_blocks = self.config['num_loc_conv_blocks']
@@ -312,7 +312,7 @@ class ExoMiner_JointLocalFlux(object):
         view_inputs = self.inputs["unfolded_local_flux_view_fluxnorm"]
 
         # expand dims to prevent last dimension being "lost"
-        view_inputs = tf.expand_dims(view_inputs, axis=-1, name='expanding_unfolded_flux')
+        view_inputs = tf.keras.layers.Reshape(view_inputs.shape + (1,), name='expanding_unfolded_flux')(view_inputs)
 
         unfolded_conv_branches = {branch: None}
 
@@ -373,7 +373,7 @@ class ExoMiner_JointLocalFlux(object):
                                                name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
 
         # split layer in preparation to avg/min/max
-        net = tf.split(net, net.shape[1], axis=1, name='split_merge')
+        net = SplitLayer(net.shape[1], axis=1, name='split_merge')(net)
 
         # get avg, min, max of all layers
         merge_layer_avg = tf.keras.layers.Average()(net)
@@ -671,7 +671,8 @@ class ExoMiner_JointLocalFlux(object):
 
         local_transit_views_inputs = []
         for local_transit_feature in local_transit_features:
-            view_inputs = [tf.expand_dims(self.inputs[view_name], axis=1, name=f'expanding_{view_name}')
+            view_inputs = [tf.keras.layers.Reshape((1,) + self.inputs[view_name].shape[1:],
+                                                   name=f'expanding_{view_name}_dim')(self.inputs[view_name])
                            for view_name in local_transit_feature]
             view_inputs = tf.keras.layers.Concatenate(axis=-1,
                                                       name=f'concat_{local_transit_feature[0]}_with_var')(view_inputs)
@@ -745,7 +746,7 @@ class ExoMiner_JointLocalFlux(object):
                                                name='maxpooling_{}'.format(conv_block_i))(net)
 
         # split up extracted features for each local transit view (flux, secondary, and odd-even)
-        net = tf.split(net, net.shape[1], axis=1, name='split_merge')
+        net = SplitLayer(net.shape[1], axis=1, name='split_merge')(net)
 
         # combine them again based on which branch they are in
         cur = 0
@@ -764,7 +765,7 @@ class ExoMiner_JointLocalFlux(object):
             net = conv_branches[branch]
 
             if branch == odd_even_branch_name:  # subtract extracted features for odd and even views branch
-                net = tf.split(conv_branches[branch], 2, axis=1, name='split_oe')
+                net = SplitLayer(2, axis=1, name='split_oe')(conv_branches[branch])
                 net = tf.keras.layers.Subtract(name='subtract_oe')(net)
 
             # flatten output of the convolutional branch
@@ -827,8 +828,8 @@ class ExoMiner_JointLocalFlux(object):
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
 
         branch_view_inputs = [self.inputs[view_name] for view_name in self.config['diff_img_branch']['imgs']]
-        branch_view_inputs = [tf.expand_dims(branch_view_input, axis=-1, name='expanding_diff_img')
-                              for branch_view_input in branch_view_inputs]
+        branch_view_inputs = [tf.keras.layers.Reshape(l.shape[1:] + (1,), name=f'expanding_{l.name}_dims')(l)
+                              for l in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
         # branch_view_inputs = tf.keras.layers.Permute((2, 3, 1, 4), name='permute_inputs')(branch_view_inputs)
@@ -917,7 +918,7 @@ class ExoMiner_JointLocalFlux(object):
             # net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
             net = tf.keras.layers.Concatenate(axis=2, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
 
-        net = tf.expand_dims(net, axis=-1, name=f'expanding_flattend_diff_img')
+        net = tf.keras.layers.Reshape(net.shape + (1, ), name=f'expanding_flattened_diff_img')(net)
 
         # compress features from image and scalar sector data into a set of features
         net = tf.keras.layers.Conv2D(filters=self.config['num_fc_diff_units'],
