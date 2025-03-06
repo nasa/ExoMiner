@@ -296,7 +296,8 @@ def filter_examples_tfrecord_obs_type(parsed_features, label_id, obs_type):
 
     # encoding_obs_type = table.lookup(vocabulary[obs_type])
 
-    return tf.squeeze(parsed_features['obs_type'] == obs_type)
+    # return tf.squeeze(parsed_features['obs_type'] == obs_type)
+    return tf.squeeze(parsed_features['obs_type_int'] == obs_type)
     # return tf.squeeze(parsed_features['tce_period_norm'] >= 0)
     # return tf.squeeze(tf.equal(parsed_features['obs_type'], encoding_obs_type))
     # return tf.reduce_any(tf.equal(parsed_features['obs_type'], encoding_obs_type))

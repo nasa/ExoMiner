@@ -16,10 +16,10 @@ JOB_ARRAY_INDEX="$2"
 N_MODELS="$6"
 
 # Paths
-SETUP_RUN_FP=$PYTHONPATH/src/setup_train.py
-TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train_model.py
-EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate_model.py
-PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
+SETUP_RUN_FP=$PYTHONPATH/src/train/setup_train.py
+TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train/train_model.py
+EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate/evaluate_model.py
+PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
 # set model id based on received indexes
 MODEL_I=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))

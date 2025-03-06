@@ -4,12 +4,38 @@
 import os
 import tensorflow as tf
 import numpy as np
-import tensorflow_probability as tfp
+# import tensorflow_probability as tfp
 import traceback
 import pandas as pd
 
 # local
 from src.train.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
+
+
+def set_tf_data_type_for_features(features_set):
+    """ Set TF data types for features in the feature set.
+
+    Args:
+        features_set: dict, each key is the name of a feature that maps to a dictionary with keys 'dim' and 'dtype'.
+        'dim' is a list that describes the dimensionality of the feature and 'dtype' the data type of the feature.
+        'dtype' should be a string (either 'float' - mapped to tf.float32; or 'int' - mapped to tf.int64).
+
+    Returns:
+        features_set: the data type is now a TensorFlow data type
+
+    """
+
+    # choose features set
+    for feature_name, feature in features_set.items():
+        if feature['dtype'] == 'float':
+            features_set[feature_name]['dtype'] = tf.float32
+        if feature['dtype'] == 'int':
+            features_set[feature_name]['dtype'] = tf.int64
+        if feature['dtype'] == 'string':
+            features_set[feature_name]['dtype'] = tf.string
+
+    return features_set
+
 
 
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
@@ -203,15 +229,15 @@ class InputFnv2(object):
                     else:
                         oot_values = tf.boolean_mask(value, idxs_nontransitcadences_loc)
 
-                    # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
-                    oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
-                    # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
-                    # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
-                    #                       name='oot_median')
+                    # # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
+                    # oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
+                    # # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
+                    # # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
+                    # #                       name='oot_median')
 
-                    oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
+                    # oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
 
-                    value = add_whitegaussiannoise(value, oot_median, oot_std)
+                    # value = add_whitegaussiannoise(value, oot_median, oot_std)
 
                     # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
                     #                                parsed_features[feature_name + '_stdoot'])
@@ -269,6 +295,7 @@ class InputFnv2(object):
             if not self.shuffle_buffer_size:
                 self.shuffle_buffer_size = dataset.reduce(0, lambda x, _: x + 1).numpy()
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
+            # dataset = dataset.shuffle(30000, seed=self.shuffle_seed)
             # dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)
 
         # map the example parser across the tfrecords dataset to extract the examples and manipulate them

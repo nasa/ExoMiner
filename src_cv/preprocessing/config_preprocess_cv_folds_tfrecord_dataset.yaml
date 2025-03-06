@@ -26,8 +26,6 @@ compute_norm_stats_params:
   num_bins_glob: 301  # number of bins for global view
 
   timeSeriesFDLList:  null  # set to null to not compute normalization statistics and normalize FDL centroid
-#    - 'global_centr_fdl_view'
-#    - 'local_centr_fdl_view'
 
   centroidList:  # set to null to not compute normalization statistics and normalize centroid
     - 'global_centr_view'

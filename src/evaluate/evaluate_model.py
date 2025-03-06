@@ -13,11 +13,11 @@ import logging
 
 
 # local
-from src.utils.utils_dataio import InputFnv2 as InputFn
+from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models.models_keras import Time2Vec, SplitLayer
-from src.utils.utils import write_performance_metrics_to_txt_file, set_tf_data_type_for_features
+from src.evaluate.utils_eval import write_performance_metrics_to_txt_file
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):

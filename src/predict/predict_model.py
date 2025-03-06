@@ -12,9 +12,8 @@ from pathlib import Path
 import logging
 
 # local
-from src.utils.utils_dataio import InputFnv2 as InputFn
+from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from models.models_keras import Time2Vec, SplitLayer
-from src.utils.utils import set_tf_data_type_for_features
 from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
 
 

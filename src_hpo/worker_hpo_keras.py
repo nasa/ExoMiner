@@ -19,7 +19,7 @@ from src.train.train_model import train_model
 from src.evaluate.evaluate_model import evaluate_model
 from models.create_ensemble_avg_model import create_avg_ensemble_model
 from models import models_keras
-from src.utils.utils import set_tf_data_type_for_features
+from src.utils.utils_dataio import set_tf_data_type_for_features
 
 plt.switch_backend('agg')
 

@@ -8,11 +8,11 @@ from tensorflow.keras.utils import plot_model
 
 
 # local
-from models.models_keras import ExoMiner_JointLocalFlux
-from src.utils.utils import set_tf_data_type_for_features
+from models.models_keras import ExoMinerPlusPlus, ExoMinerJointLocalFlux
+from src.utils.utils_dataio import set_tf_data_type_for_features
 
 # load file with features and model config
-yaml_config_fp = '/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_cv/config_cv_train.yaml'
+yaml_config_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/config_cv_train.yaml'
 
 with open(yaml_config_fp, 'r') as file:
     config = yaml.unsafe_load(file)
@@ -24,10 +24,10 @@ with open(yaml_config_fp, 'r') as file:
 
 config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
-model = ExoMiner_JointLocalFlux(config, config['features_set']).kerasModel
+model = ExoMinerPlusPlus(config, config['features_set']).kerasModel
 
 plot_model(model,
-           to_file='/Users/msaragoc/Downloads/test_exominer_architecture_11-19-2024_0939.png',
+           to_file='/home6/msaragoc/model_tf_learning.png',
            show_shapes=True,
            show_layer_names=True,
            rankdir='TB',

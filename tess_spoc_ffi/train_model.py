@@ -1,10 +1,11 @@
 """
-Train a  model.
+Train a model.
 """
 
 # 3rd party
-from tensorflow.keras.utils import plot_model
+from tensorflow.keras.utils import plot_model, custom_object_scope
 from tensorflow.keras import callbacks
+from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
 import yaml
@@ -17,8 +18,27 @@ from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_fe
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models import models_keras
-from src.utils.utils import set_tf_data_type_for_features
-# from src.train.utils_train import ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
+from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
+from models.models_keras import Time2Vec, SplitLayer
+
+
+def freeze_layers(model, layers_to_train):
+    """ Freeze layers in a model whose name is in `layers_to_be_frozen`.
+
+    :param model: TF Keras model, model with layers to be frozen
+    :param layers_to_train: Path, file path to yaml with list of names of layers to be trainable
+
+    :return: TF Keras model, model with frozen layers
+    """
+
+    with open(layers_to_train, 'r') as file:
+        layers_to_be_frozen = yaml.unsafe_load(file)
+
+    for layer in model.layers:
+        if layer.name not in layers_to_be_frozen:
+            layer.trainable = False
+
+    return model
 
 
 def train_model(config, model_dir, logger=None):
@@ -34,9 +54,13 @@ def train_model(config, model_dir, logger=None):
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
-    base_model = getattr(models_keras, config['model_architecture'])
-
-    model = base_model(config, config['features_set']).kerasModel
+    if config['model_fp']:  # load pre-existing model
+        custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
+        with custom_object_scope(custom_objects):
+            model = load_model(filepath=config['model_fp'], compile=False)
+    else:
+        base_model = getattr(models_keras, config['model_architecture'])
+        model = base_model(config, config['features_set']).kerasModel
 
     if config['plot_model']:
         # save plot of model
@@ -58,6 +82,9 @@ def train_model(config, model_dir, logger=None):
     else:
         metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
                                    num_thresholds=config['metrics']['num_thr'])
+
+    if config['trainable_layers_fp']:  # freeze layers
+        model = freeze_layers(model, config['trainable_layers_fp'])
 
     # compile model - set optimizer, loss and metrics
     model = compile_model(model, config, metrics_list)
@@ -87,7 +114,7 @@ def train_model(config, model_dir, logger=None):
             multiclass=config['config']['multi_class'],
             feature_map=config['feature_map'],
             label_field_name=config['label_field_name'],
-            # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type='ffi'),
+            # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type=1),
         )
     else:
         val_input_fn = None
@@ -150,6 +177,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
     parser.add_argument('--model_dir', type=str, help='Output directory', default=None)
+    parser.add_argument('--model_fp', type=str, help='Path to pre-existing model', default=None)
     args = parser.parse_args()
 
     model_dir_fp = Path(args.model_dir)
@@ -166,5 +194,7 @@ if __name__ == "__main__":
     logger_handler.setFormatter(logger_formatter)
     train_config['logger'].addHandler(logger_handler)
     train_config['logger'].info(f'Starting training model in {model_dir_fp}')
+
+    train_config['model_fp'] = args.model_fp
 
     train_model(train_config, model_dir_fp, logger=train_config['logger'])

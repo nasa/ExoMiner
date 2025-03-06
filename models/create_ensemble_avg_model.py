@@ -13,6 +13,7 @@ import argparse
 # local
 from models.utils_models import create_ensemble
 from models.models_keras import Time2Vec, SplitLayer
+from src.utils.utils_dataio import set_tf_data_type_for_features
 
 
 def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
@@ -64,5 +65,8 @@ if __name__ == "__main__":
     with open(config_fp, 'r') as file:
         run_params = yaml.unsafe_load(file)
     features_set_dict = run_params['features_set']
+
+    # convert features to appropriate tf data type
+    features_set_dict = set_tf_data_type_for_features(features_set_dict)
 
     create_avg_ensemble_model(models_fps_lst, features_set_dict, ensemble_model_fp)
