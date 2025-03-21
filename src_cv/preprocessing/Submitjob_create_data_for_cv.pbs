@@ -20,13 +20,14 @@
 #PBS -m bea
 
 # initialize conda and activate conda environment
-# GH nodes ---
 module use -a /swbuild/analytix/tools/modulefiles
-module load miniconda3/gh2
-source activate exoplnt_dl_gh
+# GH nodes ---
+# module load miniconda3/gh2
+# source activate exoplnt_dl_gh
 # other nodes ----
 # source "$HOME"/.bashrc
-# conda activate exoplnt_dl_tf2_13
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
 
 # set path to codebase root directory
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/

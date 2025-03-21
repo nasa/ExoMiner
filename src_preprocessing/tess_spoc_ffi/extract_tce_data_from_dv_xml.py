@@ -10,23 +10,22 @@ import numpy as np
 from pathlib import Path
 import multiprocessing
 import re
+import logging
 
 DV_XML_HEADER = '{http://www.nasa.gov/2018/TESS/DV}'
 
 
-def append_attributes(descendants, tce_i, output_csv, keywords):
+def append_attributes(descendants, tce_dict, keywords):
     """ Appends attributes of a given parameter. Helper to process_xml().
 
     Args:
         descendants: elem, given location within a processed .xml file. Will include the key value we are currently
         sitting at
-        tce_i: int, current tce index that we are on to log which position we should output the attribute to within the
-        csv file
-        output_csv: pandas DataFrame, contains extracted data so far
+        tce_dict: dict, contains extracted data so far for the TCE
         keywords: list, keywords that have been logged when traversing the tree of the .xml file. Necessary for naming
         a designated column in the final table
 
-    Returns:
+    Returns: tce_dict with added attributes
 
     """
 
@@ -41,15 +40,17 @@ def append_attributes(descendants, tce_i, output_csv, keywords):
         out_col_name = '.'.join(keywords)
 
         if cur_att == 'suspectedEclipsingBinary':
-            output_csv.at[tce_i, out_col_name] = int(attributes[cur_att] == 'true')
+            tce_dict[ out_col_name] = int(attributes[cur_att] == 'true')
         else:
-            output_csv.at[tce_i, out_col_name] = attributes[cur_att]
+            tce_dict[out_col_name] = attributes[cur_att]
 
         # we checked the attribute, backtrack from it
         keywords.pop()
 
+    return tce_dict
 
-def get_allTransitsFit(planet_res, tce_i, output_csv):
+
+def get_allTransitsFit(planet_res, tce_dict):
     """ Function designed specifically for getting the 'allTransitsFit' parameters.
 
     Hardcoded variables are designated to ensure that they are outputted correctly with desired labels to the final csv.
@@ -57,9 +58,9 @@ def get_allTransitsFit(planet_res, tce_i, output_csv):
     Args:
         planet_res: elem, current location within the given XML file along the tree
         tce_i: int, current TCE index to properly output the current attributes to a proper
-        output_csv: pandas DataFrame, contains extracted data so far
+        tce_dict: dict, contains extracted data so far for the TCE
 
-    Returns:
+    Returns: tce_dict updated with allTransitsFit parameters
 
     """
 
@@ -74,139 +75,135 @@ def get_allTransitsFit(planet_res, tce_i, output_csv):
         fitted_col = model_param.attrib['fitted']
 
         param_name = model_param.attrib['name']
-        output_csv.at[tce_i, f'allTransitsFit.{param_name}.uncertainty'] = unc_col
+        tce_dict[f'allTransitsFit.{param_name}.uncertainty'] = unc_col
 
-        output_csv.at[tce_i, f'allTransitsFit.{param_name}.value'] = val_col
-        output_csv.at[tce_i, f'allTransitsFit.{param_name}.fitted'] = fitted_col
+        tce_dict[f'allTransitsFit.{param_name}.value'] = val_col
+        tce_dict[f'allTransitsFit.{param_name}.fitted'] = fitted_col
 
     # meanskyoffset
     dikco_msky_val = planet_res[3][0][0][2].attrib['value']
     dikco_msky_unc = planet_res[3][0][0][2].attrib['uncertainty']
-    output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.value'] = (
+    tce_dict['centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.value'] = (
         dikco_msky_val)
-    output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.uncertainty'] = (
+    tce_dict['centroidResults.differenceImageMotionResults.msTicCentroidOffsets.meanSkyOffset.uncertainty'] = (
         dikco_msky_unc)
 
     dicco_msky_val = planet_res[3][0][1][2].attrib['value']
     dicco_msky_unc = planet_res[3][0][1][2].attrib['uncertainty']
-    output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.value'] = (
+    tce_dict['centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.value'] = (
         dicco_msky_val)
-    output_csv.at[
-        tce_i, 'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.uncertainty'] = (
+    tce_dict['centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset.uncertainty'] = (
         dicco_msky_unc)
 
+    return  tce_dict
 
-def get_outside_params(root, output_csv):
+
+def get_outside_params(root):
     """ Hard-coded method for grabbing the attributes not nested within "descendants" or sub-levels within the tree of
     the xml file that need to grab.
 
     Args:
         root: root elem, the topmost level of the given xml file
-        output_csv: pandas DataFrame, contains extracted data so far
 
-    Returns:
+    Returns: target_params, dict with parameters shared by all TCEs in a given target
 
     """
+
+    target_params = {}
 
     # decDegrees
     decDegrees_val = root.find(f'{DV_XML_HEADER}decDegrees').attrib['value']
     decDegrees_unc = root.find(f'{DV_XML_HEADER}decDegrees').attrib['uncertainty']
-    output_csv['decDegrees.value'] = decDegrees_val
-    output_csv['decDegrees.uncertainty'] = decDegrees_unc
+    target_params['decDegrees.value'] = decDegrees_val
+    target_params['decDegrees.uncertainty'] = decDegrees_unc
 
     # retrieve effective temp
     tce_steff = root.find(f'{DV_XML_HEADER}effectiveTemp').attrib['value']
     tce_steff_unc = root.find(f'{DV_XML_HEADER}effectiveTemp').attrib['uncertainty']
-    output_csv['effectiveTemp.value'] = tce_steff
-    output_csv['effectiveTemp.uncertainty'] = tce_steff_unc
+    target_params['effectiveTemp.value'] = tce_steff
+    target_params['effectiveTemp.uncertainty'] = tce_steff_unc
 
     # limbDarkeningModel
     limbDark_val = root.find(f'{DV_XML_HEADER}limbDarkeningModel').attrib['modelName']
-    output_csv['limbDarkeningModel.modelName'] = limbDark_val
+    target_params['limbDarkeningModel.modelName'] = limbDark_val
 
     # obtain log10Metallicity
     tce_smet_val = root.find(f'{DV_XML_HEADER}log10Metallicity').attrib['value']
     tce_smet_unc = root.find(f'{DV_XML_HEADER}log10Metallicity').attrib['uncertainty']
-    output_csv['log10Metallicity.value'] = tce_smet_val
-    output_csv['log10Metallicity.uncertainty'] = tce_smet_unc
+    target_params['log10Metallicity.value'] = tce_smet_val
+    target_params['log10Metallicity.uncertainty'] = tce_smet_unc
 
     # obtain log10SurfaceGravity
     tce_slogg_val = root.find(f'{DV_XML_HEADER}log10SurfaceGravity').attrib['value']
     tce_slogg_unc = root.find(f'{DV_XML_HEADER}log10SurfaceGravity').attrib['uncertainty']
-    output_csv['log10SurfaceGravity.value'] = tce_slogg_val
-    output_csv['log10SurfaceGravity.uncertainty'] = tce_slogg_unc
+    target_params['log10SurfaceGravity.value'] = tce_slogg_val
+    target_params['log10SurfaceGravity.uncertainty'] = tce_slogg_unc
 
     # tessMag
     mag_val = root.find(f'{DV_XML_HEADER}tessMag').attrib['value']
     mag_unc = root.find(f'{DV_XML_HEADER}tessMag').attrib['uncertainty']
-    output_csv['tessMag.value'] = mag_val
-    output_csv['tessMag.uncertainty'] = mag_unc
+    target_params['tessMag.value'] = mag_val
+    target_params['tessMag.uncertainty'] = mag_unc
 
     # stellar density
     stellar_density_val = root.find(f'{DV_XML_HEADER}stellarDensity').attrib['value']
     stellar_density_unc = root.find(f'{DV_XML_HEADER}stellarDensity').attrib['uncertainty']
-    output_csv['stellarDensity.value'] = stellar_density_val
-    output_csv['stellarDensity.uncertainty'] = stellar_density_unc
+    target_params['stellarDensity.value'] = stellar_density_val
+    target_params['stellarDensity.uncertainty'] = stellar_density_unc
 
     # radius
     radius_val = root.find(f'{DV_XML_HEADER}radius').attrib['value']
     radius_unc = root.find(f'{DV_XML_HEADER}radius').attrib['uncertainty']
-    output_csv['radius.value'] = radius_val
-    output_csv['radius.uncertainty'] = radius_unc
+    target_params['radius.value'] = radius_val
+    target_params['radius.uncertainty'] = radius_unc
 
     # raDegrees
     raDegrees_val = root.find(f'{DV_XML_HEADER}raDegrees').attrib['value']
     raDegrees_unc = root.find(f'{DV_XML_HEADER}raDegrees').attrib['uncertainty']
-    output_csv['raDegrees.value'] = raDegrees_val
-    output_csv['raDegrees.uncertainty'] = raDegrees_unc
+    target_params['raDegrees.value'] = raDegrees_val
+    target_params['raDegrees.uncertainty'] = raDegrees_unc
 
     # pmRa
     pmRa_val = root.find(f'{DV_XML_HEADER}pmRa').attrib['value']
     pmRa_unc = root.find(f'{DV_XML_HEADER}pmRa').attrib['uncertainty']
-    output_csv['ra.value'] = pmRa_val
-    output_csv['ra.uncertainty'] = pmRa_unc
+    target_params['ra.value'] = pmRa_val
+    target_params['ra.uncertainty'] = pmRa_unc
 
     # pmDec
     pmDec_val = root.find(f'{DV_XML_HEADER}pmDec').attrib['value']
     pmDec_unc = root.find(f'{DV_XML_HEADER}pmDec').attrib['uncertainty']
-    output_csv['pm_dec.value'] = pmDec_val
-    output_csv['pm_dec.uncertainty'] = pmDec_unc
+    target_params['pm_dec.value'] = pmDec_val
+    target_params['pm_dec.uncertainty'] = pmDec_unc
 
     # pipelineTaskId
     pipelineTaskId_val = root.attrib['pipelineTaskId']
-    output_csv['taskFieldId'] = pipelineTaskId_val
+    target_params['taskFieldId'] = pipelineTaskId_val
 
     # get observed sectors
-    obs_sectors_idxs = np.where(np.array([*root.attrib['sectorsObserved']]) == '1')[0]
+    obs_sectors = np.where(np.array([*root.attrib['sectorsObserved']]) == '1')[0]
     # get start and end sector
-    output_csv['sectors_observed'] = obs_sectors_idxs
-    # if len(obs_sectors_idxs) == 1:  # single-sector run
-    #     output_csv['sector_run'] = str(obs_sectors_idxs[0])
-    # else:  # multi-sector run
-    #     output_csv['sector_run'] = f'{obs_sectors_idxs[0]}-{obs_sectors_idxs[-1]}'
+    target_params['sectors_observed'] = '_'.join([str(obs_sector) for obs_sector in obs_sectors])
+
+    return  target_params
 
 
-def find_descendants(output_csv, descendants, tce_i, keywords):
+def find_descendants(tce_dict, descendants, keywords):
     """ Helper function which iteratively finds descendants based on the current parameter. Leverages the helper of
     append_attributes() to then append the given attribute that we have navigated to via find_descendants().
 
     Args:
-        output_csv: pandas DataFrame, contains extracted data so far
+        tce_dict: dict, contains extracted data so far for the TCE
         descendants: list, descendants that we must iterate through and append their given attributes for (within the
         XML file)
-        tce_i:
         keywords: list, keywords that should be passed to append_attributes to properly name the column for a given
         attribute we are processing
 
-    Returns:
+    Returns: tce_dict, dict updated with new attributes
 
     """
 
     # get attributed from current element
-    append_attributes(descendants, tce_i, output_csv, keywords)
+    append_attributes(descendants, tce_dict, keywords)
 
     if len(list(descendants.findall('.//*'))) != 0:
 
@@ -219,26 +216,29 @@ def find_descendants(output_csv, descendants, tce_i, keywords):
             if "modelParameter" not in next_keyword and "differenceImagePixelData" not in next_keyword:
                 keywords.append(next_keyword)
 
-            append_attributes(descendant, tce_i, output_csv, keywords)
+            tce_dict = append_attributes(descendant, tce_dict, keywords)
 
             next_set_descendants = descendant.findall('.//*')
 
             # find new set of descendants
             if len(next_set_descendants) != 0:
-                find_descendants(output_csv, descendant, tce_i, keywords)
+                tce_dict = find_descendants(tce_dict, descendant, keywords)
 
             # exclude current node if search for descendants was completed
             if len(keywords) != 0:
                 keywords.pop()
 
+    return tce_dict
 
-def process_xml(dv_xml_fp):
+
+def process_xml(dv_xml_fp, logger):
     """ Main call for processing xml files. Will take a desired XML directory and output it to a designate output
     directory. Will output a set of individual files, with each target being restricted to one CSV file. The next
     python files you will need to run will end up compiling these files together to form a cohesive TCE table.
 
     Args:
         dv_xml_fp: Path, path to the DV xml file
+        logger: logger
 
     Returns:
         output_csv: pandas DataFrame, contains extracted data from the DV xml file
@@ -252,33 +252,21 @@ def process_xml(dv_xml_fp):
 
     # add number of TCEs
     n_tces = len(planet_res_lst)
+    logger.info(f'Found {n_tces} TCEs results in {dv_xml_fp.name}')
 
-    output_csv = pd.DataFrame(index=np.arange(n_tces))
-
-    # get sector run from filename
-    sector_run_str = re.search('s\d{4}-s\d{4}', dv_xml_fp.name).group()
-    s_sector, e_sector = sector_run_str.split('-')
-    if s_sector == e_sector:  # single-sector run
-        output_csv['sector_run'] = str(s_sector[1:])
-    else:   # multi-sector
-        output_csv['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
-
-    # insert same number of planets for all the tces within this xml file
-    output_csv['numberOfPlanets'] = n_tces
-
-    # set any parameters on the topmost level
-    output_csv['catId'] = tic_id
-
+    tces_in_target = []
     for tce_i, planet_res in enumerate(planet_res_lst):
 
-        output_csv.at[tce_i, 'planetIndexNumber'] = planet_res.attrib['planetNumber']
+        tce_dict = {}
+
+        tce_dict['planetIndexNumber'] = planet_res.attrib['planetNumber']
 
         # cur_eclipbin = planet_res[8].attrib['suspectedEclipsingBinary']
         # bool_cur_eclipbin = int(cur_eclipbin == 'true')
         # output_csv.at[tce_i, f'planetCandidate.suspectedEclipsingBinary'] = bool_cur_eclipbin
 
         # allTransitsFit_numberOfModelParameters
-        output_csv.at[tce_i, f'allTransitsFit_numberOfModelParameters'] = len(planet_res[0][1])
+        tce_dict[f'allTransitsFit_numberOfModelParameters'] = len(planet_res[0][1])
 
         # iterate through elements in planet results and their children
         for topmost_param in planet_res:
@@ -289,50 +277,67 @@ def process_xml(dv_xml_fp):
             if "binaryDiscriminationResults" in topmost_param_str:  # binary discrimination test
                 longer_period_val = topmost_param[0].attrib['value']
                 longer_period_sig = topmost_param[0].attrib['significance']
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.longerPeriodComparisonStatistic_val'] = longer_period_val
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.longerPeriodComparisonStatistic_significance'] = (
+                tce_dict['binaryDiscriminationResults.longerPeriodComparisonStatistic_val'] = longer_period_val
+                tce_dict['binaryDiscriminationResults.longerPeriodComparisonStatistic_significance'] = (
                     longer_period_sig)
 
                 trans_depth_val = topmost_param[1].attrib['value']
                 trans_depth_sig = topmost_param[1].attrib['significance']
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.oddEvenTransitDepthComparisonStatistic_val'] = trans_depth_val
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.oddEvenTransitDepthComparisonStatistic_significance'] = (
+                tce_dict['binaryDiscriminationResults.oddEvenTransitDepthComparisonStatistic_val'] = trans_depth_val
+                tce_dict['binaryDiscriminationResults.oddEvenTransitDepthComparisonStatistic_significance'] = (
                     trans_depth_sig)
 
                 short_period_val = topmost_param[2].attrib['value']
                 short_period_sig = topmost_param[2].attrib['significance']
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.shorterPeriodComparisonStatistic_val'] = short_period_val
-                output_csv.at[
-                    tce_i, 'binaryDiscriminationResults.shorterPeriodComparisonStatistic_sig'] = short_period_sig
+                tce_dict['binaryDiscriminationResults.shorterPeriodComparisonStatistic_val'] = short_period_val
+                tce_dict['binaryDiscriminationResults.shorterPeriodComparisonStatistic_sig'] = short_period_sig
 
             if "centroidResults" in topmost_param_str:  # centroid results
                 centroidOffsets = topmost_param[0][0]
                 skyoffset_val = centroidOffsets[2].attrib['value']
                 skyoffset_unc = centroidOffsets[2].attrib['uncertainty']
-                output_csv.at[
-                    tce_i,
+                tce_dict[
                     'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset_value'] = (
                     skyoffset_val)
-                output_csv.at[
-                    tce_i,
+                tce_dict[
                     'centroidResults.differenceImageMotionResults.msControlCentroidOffsets.meanSkyOffset_uncertainty'] \
                     = skyoffset_unc
 
             # iteratively find descendants
-            find_descendants(output_csv, topmost_param, tce_i, [topmost_param_str])
+            tce_dict = find_descendants(tce_dict, topmost_param, [topmost_param_str])
 
         # get the allTransitsFit results
-        get_allTransitsFit(planet_res, tce_i, output_csv)
+        tce_dict = get_allTransitsFit(planet_res, tce_dict)
+
+        tces_in_target.append(tce_dict)
+
+    tces_df = pd.DataFrame(tces_in_target)
+
+    # get sector run from filename
+    sector_run_str = re.search(r's\d{4}-s\d{4}', dv_xml_fp.name).group()
+    s_sector, e_sector = sector_run_str.split('-')
+    if s_sector == e_sector:  # single-sector run
+        tces_df['sector_run'] = str(s_sector[1:])
+    else:   # multi-sector
+        tces_df['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
+
+    # insert same number of planets for all the tces within this xml file
+    tces_df['numberOfPlanets'] = n_tces
+
+    # set any parameters on the topmost level
+    tces_df['catId'] = tic_id
 
     # get all outside params from the planet candidates
-    get_outside_params(root, output_csv)
+    target_params = get_outside_params(root)
 
-    return output_csv
+    for param_name, param_val in target_params.items():
+        tces_df[param_name] = param_val
+
+    if len(tces_df) != n_tces:
+        logger.info(f'Number of TCEs extracted {len(tces_df)} is different than the number of TCEs with DV results '
+                    f'({n_tces}) in {dv_xml_fp.name}.')
+
+    return tces_df
 
 
 def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
@@ -340,7 +345,6 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
     the table as a pandas DataFrame.
 
     Args:
-        # dv_xml_fps: list of Paths, DV xml filepaths
         dv_xml_sector_run_dir: Path, path to the sector run directory
         dv_xml_tbl_fp: Path, filepath used to save table with DV xml results
 
@@ -348,49 +352,53 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
         dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files
     """
 
+    # set up logger
+    logger = logging.getLogger(name='create_tess_tce_tbl_from_dv')
+    logger_handler = logging.FileHandler(filename=dv_xml_tbl_fp.parent / 'logs' /
+                                                  f'create_tce_tbl_from_dv_{dv_xml_sector_run_dir.name}.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting run...')
+
     dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml'))
     n_dv_xmls = len(dv_xml_fps)
-    print(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
-    # print(f'Extracting TCEs from {n_dv_xmls} xml files for...')
+    logger.info(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
 
     dv_xmls_tbls = []
     for dv_xml_fp_i, dv_xml_fp in enumerate(dv_xml_fps):
-        if dv_xml_fp_i % 500 == 0:
-            print(f'Target DV XML file {dv_xml_fp.name} ({dv_xml_fp_i + 1}/{n_dv_xmls})')
+        if dv_xml_fp_i % 100 == 0:
+            logger.info(f'Target DV XML file {dv_xml_fp.name} ({dv_xml_fp_i + 1}/{n_dv_xmls})')
 
         try:
-            dv_xml_tbl_target = process_xml(dv_xml_fp)
+            dv_xml_tbl_target = process_xml(dv_xml_fp, logger)
             dv_xmls_tbls.append(dv_xml_tbl_target)
         except Exception as e:
-            print(f'Error when adding TCE table from {dv_xml_fp}. Shape of table: {dv_xml_tbl_target.shape}')
-            print(f'Data type: {type(dv_xml_tbl_target)}')
-            print(f'Table:\n{dv_xml_tbl_target}')
-            print(f'Error: {e}')
+            logger.info(f'Error when adding TCE table from {dv_xml_fp}.')
+            logger.info(f'Error: {e}')
 
     dv_xml_tbl = pd.concat(dv_xmls_tbls, axis=0, ignore_index=True)
     dv_xml_tbl.to_csv(dv_xml_tbl_fp, index=False)
 
-    # print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for '
-    #       f'{dv_xml_sector_run_dir.name}.')
-    print(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files.')
-
-    return dv_xml_tbl
+    logger.info(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for {dv_xml_tbl_fp.name}.')
 
 
 if __name__ == "__main__":
 
     # output file path to csv with extracted data
-    new_tce_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942/')
+    new_tce_tbls_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_tces_dv_s36-s72_s56s69_3-21-2025_1010/')
     new_tce_tbls_dir.mkdir(exist_ok=True)
+
+    logs_dir = new_tce_tbls_dir / 'logs'
+    logs_dir.mkdir(exist_ok=True)
 
     dv_xml_tbl_fp = new_tce_tbls_dir / f'{new_tce_tbls_dir.name}.csv'
 
     # get file paths to DV xml files
-    dv_xml_sector_runs_root_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
-    dv_xml_sector_runs_dirs_lst = [sector_run_dir
-                                   for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]
-    dv_xml_sector_runs_dirs_lst += [sector_run_dir
-                                    for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]
+    dv_xml_sector_runs_root_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
+    dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]  #  if sector_run_dir.name in [f'sector_{sector_run}' for sector_run in range(69, 88 + 1)]]
+    dv_xml_sector_runs_dirs_lst += [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]  #  if sector_run_dir.name in [f'multisector_{sector_run}' for sector_run in ['s0014-s0078', 's0002-s0072', 's0001-s0069', 's0014-s0078']]]
 
     print(f'Choosing sectors {dv_xml_sector_runs_dirs_lst}.')
 
@@ -398,7 +406,7 @@ if __name__ == "__main__":
     # print(f'Extracting TCE data from {len(dv_xml_sector_runs_fps)} DV xml files.')
 
     # parallel extraction of data from multiple DV xml files
-    n_processes = 36
+    n_processes = len(dv_xml_sector_runs_dirs_lst)  # 36
     n_jobs = len(dv_xml_sector_runs_dirs_lst)
     # dv_xml_arr = np.array_split(dv_xml_sector_runs_fps, n_jobs)
     print(f'Starting {n_processes} processes to deal with {n_jobs} jobs.')
@@ -410,14 +418,12 @@ if __name__ == "__main__":
     pool.close()
     pool.join()
 
-    dv_xml_tbls = []
-    for proc_output_i, proc_output in enumerate(async_results):
-        dv_xml_tbls.append(proc_output.get())
-        # tce_tbl_sector = proc_output.get()
-        # tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
-        # tce_tbl_fp = new_tce_tbls_dir / f'tess_spoc_ffi_tces_s{tce_tbl_sector["sector_run"][0]}.csv'
-        # tce_tbl_sector.to_csv(tce_tbl_fp, index=False)
-        # print(f'Saved TCE table for sector run {tce_tbl_sector} to {str(tce_tbl_fp)}.')
+    # for dv_xml_i, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst):
+    #     process_sector_run_of_dv_xmls(dv_xml_sector_run_dir,
+    #                                    new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv')
+
+    # concatenated extracted TCE tables for each sector run
+    dv_xml_tbls = [pd.read_csv(fp) for fp in new_tce_tbls_dir.glob('*.csv') if fp != dv_xml_tbl_fp]
 
     dv_xml_tbl = pd.concat(dv_xml_tbls, axis=0, ignore_index=True)
     dv_xml_tbl.to_csv(dv_xml_tbl_fp, index=False)

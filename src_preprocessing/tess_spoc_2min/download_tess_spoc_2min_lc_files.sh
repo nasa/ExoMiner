@@ -3,7 +3,9 @@
 # directory with lc sh files
 SH_DIR=/data5/tess_project/Data/tess_spoc_2min_data/lc/dv_target_list_sh
 # destination directory
-LC_DIR=/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files
+LC_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/
+
+mkdir -p "$SH_DIR"/completed
 
 for sector_shfile in "$SH_DIR"/*lc.sh
 do

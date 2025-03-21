@@ -337,7 +337,8 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                 # get images and target position in the pixel frame
                 diff_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 2, 0].copy()
                 oot_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 1, 0].copy()
-                snr_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 3, 0].copy()
+                # snr_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 3, 0].copy()
+                snr_img = diff_img / diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 2, 1]
                 target_pos_col = (
                     float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['col']['value']))
                 target_pos_row = (

@@ -353,7 +353,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
 
         if int(tic_id) not in targets_dict:
             raise ValueError(f'{proc_id}] [Sector run {sector_run_id}] Target {tic_id}'
-                             f'not found in the targets dictionary for sector {sector_obs}')
+                             f' not found in the targets dictionary for sector {sector_obs}')
 
         target_neighbors_dict = targets_dict[int(tic_id)]
 
@@ -425,7 +425,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
             q_metric_s['value'] = float(q_metric_s['value'])
             q_metric_s['attempted'] = True if q_metric_s['attempted'] == 'true' else False
             q_metric_s['valid'] = True if q_metric_s['valid'] == 'true' else False
-            data[uid]['quality_metric'].append(int(q_metric_s))
+            data[uid]['quality_metric'].append(q_metric_s)
 
             # get sector id
             data[uid]['image_number'].append(int(img_res_s.attrib['sector']))

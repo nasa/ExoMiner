@@ -13,17 +13,17 @@ from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_t
 if __name__ == '__main__':
 
     # DV XML file path
-    dv_xml_root_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
+    dv_xml_root_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs')
     single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]  #  and fp.stem in ['s0062', 's0057', 's0056', 's0055']]  # [dv_xml_root_fp / 'single-sector' / 's0051']
-    multi_sector_runs = []  # [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
+    multi_sector_runs = [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
 
-    neighbors_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_mag_thr_inf_1-30-2025_1212')
+    neighbors_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_tpf_wcs_2-28-2025_1217')
 
     # run directory
-    run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/extracted_data/s36-s72_singlesector_11-25-2024_0948')
+    run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/extracted_data/s1-s68_3-7-2025_1413')
     plot_prob = 0.01  # plot probability
-    n_processes = 120  # number of processes used to parallelize extraction
+    n_processes = 72  # number of processes used to parallelize extraction
 
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
-    jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i)
+    jobs = [(dv_xml_run, data_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i)
             for job_i, dv_xml_run in enumerate(dv_xml_runs)]
     logger.info(f'Setting {len(jobs)} jobs.')
     logger.info('Started running jobs.')

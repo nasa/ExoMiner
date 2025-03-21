@@ -259,8 +259,6 @@ class InputFnv2(object):
             else:
                 return output, label_id
 
-        # with tf.variable_scope('input_data'):
-
         # Create a HashTable mapping label strings to integer ids.
         table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
                                                                 values=list(self.label_map.values()),
@@ -282,18 +280,25 @@ class InputFnv2(object):
         else:
             filenames = [str(fp) for fp in self.file_paths]
 
-        # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
-
         # create filename dataset based on the list of tfrecords filepaths
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
+
+        # shuffle the TFRecord files
+        if self.mode == 'TRAIN':
+            filename_dataset = filename_dataset.shuffle(buffer_size=len(filenames), seed=self.shuffle_seed)
 
         # map a TFRecordDataset object to each tfrecord filepath
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
 
         # shuffle the examples in the dataset if training
         if self.mode == 'TRAIN':
-            if not self.shuffle_buffer_size:
-                self.shuffle_buffer_size = dataset.reduce(0, lambda x, _: x + 1).numpy()
+            # if 'eval_with_2mindata_transferlearning' in filenames[0]:
+            # self.shuffle_buffer_size = 1000
+            # else:
+            #     if not self.shuffle_buffer_size:
+            #         self.shuffle_buffer_size = dataset.reduce(0, lambda x, _: x + 1).numpy()
+            #     else:
+            #         self.shuffle_buffer_size = dataset.cardinality()
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
             # dataset = dataset.shuffle(30000, seed=self.shuffle_seed)
             # dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)

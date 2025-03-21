@@ -22,20 +22,24 @@ from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePe
 from models.models_keras import Time2Vec, SplitLayer
 
 
-def freeze_layers(model, layers_to_train):
+def freeze_layers(model, layers_to_train_fp):
     """ Freeze layers in a model whose name is in `layers_to_be_frozen`.
 
     :param model: TF Keras model, model with layers to be frozen
-    :param layers_to_train: Path, file path to yaml with list of names of layers to be trainable
+    :param layers_to_train_fp: Path, file path to yaml with list of names of layers to be trainable
 
     :return: TF Keras model, model with frozen layers
     """
 
-    with open(layers_to_train, 'r') as file:
-        layers_to_be_frozen = yaml.unsafe_load(file)
+    with open(layers_to_train_fp, 'r') as file:
+        layers_to_train_lst = yaml.unsafe_load(file)
+
+    print(f'Layers to be trained: {layers_to_train_lst}')
 
     for layer in model.layers:
-        if layer.name not in layers_to_be_frozen:
+        # if layer.name not in layers_to_train_lst:
+        # TODO: experimenting
+        if layer.name not in layers_to_train_lst:
             layer.trainable = False
 
     return model
@@ -55,6 +59,7 @@ def train_model(config, model_dir, logger=None):
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
     if config['model_fp']:  # load pre-existing model
+        print(f'Loading model from {config["model_fp"]}')
         custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
         with custom_object_scope(custom_objects):
             model = load_model(filepath=config['model_fp'], compile=False)
@@ -84,6 +89,7 @@ def train_model(config, model_dir, logger=None):
                                    num_thresholds=config['metrics']['num_thr'])
 
     if config['trainable_layers_fp']:  # freeze layers
+        print(f'Freezing layers based on file: {config["trainable_layers_fp"]}')
         model = freeze_layers(model, config['trainable_layers_fp'])
 
     # compile model - set optimizer, loss and metrics

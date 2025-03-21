@@ -1,7 +1,9 @@
 # Create new sh script with curl commands only for xml files.
 
-TARGET_SH_DIR=/data5/tess_project/Data/tess_spoc_2min_data/dv/target_sh
-DEST_DIR=/data5/tess_project/Data/tess_spoc_2min_data/dv/target_sh_xml_only
+TARGET_SH_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/s81-s88_dv_sh/dv_xml/
+DEST_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/s81-s88_dv_sh/dv_xml_only/
+
+mkdir -p "$TARGET_SH_DIR"/completed
 
 for sector_shfile in "$TARGET_SH_DIR"/*dv.sh
 do

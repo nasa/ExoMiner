@@ -1,5 +1,5 @@
 """
-Train a  model.
+Train a model.
 """
 
 # 3rd party

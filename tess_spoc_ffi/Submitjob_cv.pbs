@@ -27,8 +27,8 @@
 # initialize conda and activate conda environment
 module use -a /swbuild/analytix/tools/modulefiles
 # non-GH conda
-# module load miniconda3/v4
-# source activate exoplnt_dl_tf2_13
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
 # GH conda (aarch64)
 module load miniconda3/gh2
 source activate exoplnt_dl_gh

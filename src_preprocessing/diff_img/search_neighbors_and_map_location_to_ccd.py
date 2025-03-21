@@ -17,8 +17,6 @@ import lightkurve as lk
 import shutil
 # import time
 
-TEMP_DIR_FITS='/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/'
-
 
 def log_or_print(message, logger=None):
     """ Either log or print `message` to stdout.
@@ -119,7 +117,7 @@ def create_targets_to_neighbors_data(neighbors_tbl, save_fp):
     np.save(save_fp, targets_dict)
 
 
-def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
+def map_star_celestial_coordinates_to_ccd(stars_tbl, temp_fits_dir, sector=None, logger=None):
     """ Maps celestial coordinates of stars (RA and Dec) in degrees to the pixel coordinates for each star in
     one/multiple observed sectors (columns 'col_px' and 'row_px').
 
@@ -127,6 +125,7 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
         stars_tbl: pandas DataFrame, table with stars. Must contain columns 'target_id' (in case the target pixel files
             of the target stars are being used), 'ID' (of the neighboring object), 'ra' and 'dec' coordinates of the
             neighboring object, with RA and Dec in degrees
+        temp_fits_dir: Path, temporary directory to store target pixel FITS files
         sector: int, sector for which to get the pointing. If `None`, it considers all available sectors
         logger: logger
 
@@ -159,7 +158,7 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
                          f'{sector}. Considering only first result:\n {search_result.table}', logger)
 
         # Download the first search result
-        tpf = search_result.download(download_dir=TEMP_DIR_FITS, quality_bitmask='default')
+        tpf = search_result.download(download_dir=str(temp_fits_dir), quality_bitmask='default')
 
         # use WCS transformation to map objects to CCD pixel frame
         outColPix_obj, outRowPix_obj = tpf.wcs.all_world2pix(objs['ra'], objs['dec'], 0)
@@ -194,7 +193,7 @@ def map_star_celestial_coordinates_to_ccd(stars_tbl, sector=None, logger=None):
     return stars_px_coords_tbl
 
 
-def create_neighbors_table(neighbors_tbl, save_fp, sector=None, logger=None):
+def create_neighbors_table(neighbors_tbl, save_fp, temp_fits_dir, sector=None, logger=None):
     """ Create neighbors table that contains the pixel coordinates for each neighbor in different sectors
     (columns 'col_px' and 'row_px').
 
@@ -202,6 +201,7 @@ def create_neighbors_table(neighbors_tbl, save_fp, sector=None, logger=None):
         neighbors_tbl: pandas DataFrame, table with neighbors. Must contain columns 'ID', 'ra', and 'dec', with RA and
         Dec in degrees
         save_fp: Path, save filepath
+        temp_fits_dir: Path, temporary directory to store target pixel FITS files
         sector: int, sector for which to get the pointing. If `None`, it considers all available sectors
         logger: logger
 
@@ -215,7 +215,7 @@ def create_neighbors_table(neighbors_tbl, save_fp, sector=None, logger=None):
 
     # map celestial coordinates to CCD from tess-point for these neighbors
     log_or_print('Getting pixel coordinates for neighbors...', logger)
-    stars_px_coords_tbl = map_star_celestial_coordinates_to_ccd(neighbors, sector, logger)
+    stars_px_coords_tbl = map_star_celestial_coordinates_to_ccd(neighbors, temp_fits_dir, sector, logger)
 
     # add pixel coordinates to neighbors table
     log_or_print(f'Adding pixel coordinates to neighbors...', logger)
@@ -224,7 +224,8 @@ def create_neighbors_table(neighbors_tbl, save_fp, sector=None, logger=None):
     neighbors_px_coords.to_csv(save_fp, index=False)
 
 
-def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res_dir, res_suffix='', use_logs=True):
+def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res_dir, temp_fits_dir, res_suffix='',
+                                     use_logs=True):
     """ Pipeline to search for neighbors within `search_radius_arcsec` arcseconds of the `targets` and map their
     celestial coordinates to the pixel CCD frame.
 
@@ -233,6 +234,7 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
         search_radius_arcsec: astropy quantity, search radius in arcseconds
         mag_thr: float, magnitude threshold
         res_dir: Path, directory to save output files
+        temp_fits_dir: Path, temporary directory to store target pixel FITS files
         res_suffix: str, suffix to add to the output filenames
         use_logs: bool, if True writes information about run to logs. Otherwise, it prints them to the console
 
@@ -283,7 +285,7 @@ def get_ccd_coords_neighbors_targets(targets, search_radius_arcsec, mag_thr, res
 
     log_or_print('Creating table with neighbors...', logger)
     save_fp_neighbors = res_dir / f'neighbors_S{res_suffix}.csv'
-    create_neighbors_table(search_res_targets, save_fp_neighbors, int(res_suffix), logger)
+    create_neighbors_table(search_res_targets, save_fp_neighbors, temp_fits_dir, int(res_suffix), logger)
 
     log_or_print(f'Finished run for targets in S{res_suffix}.', logger)
 
@@ -295,19 +297,24 @@ if __name__ == "__main__":
         'target_id',
         'sectors_observed',
         'mag',
+        # 'uid'
     ]
-    tce_tbl = pd.read_csv('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv',
+
+    temp_tpf_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/')
+
+    tce_tbl = pd.read_csv('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv',
                           usecols=tce_tbl_cols)
-    # tce_tbl = tce_tbl.loc[tce_tbl['target_id'] == 356229935]
+    # tce_tbl = tce_tbl.loc[tce_tbl['uid'] == '182588086-1-S34']
+
     # search parameters
     search_radius_arcsec = 168 * u.arcsec  # np.sqrt(2) * 121 / 2 * u.arcsec  # 168 DV (Joe)
     mag_thr = np.inf
     # results directory
     # res_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_tess-point_2-12-2025_2114')
-    res_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_tpf_wcs_2-28-2025_1217')
+    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_168.0_tpf_wcs_2-28-2025_1217')
     # multiprocessing parameters
     # n_jobs = 1
-    n_procs = 8
+    n_procs = 60
 
     use_logs = True
 
@@ -320,9 +327,10 @@ if __name__ == "__main__":
     else:
         targets_dict = {'target_id': [], 'sector': [], 'mag': []}
         targets = tce_tbl.groupby('target_id')
+        # get observed sectors for each target based on its TCEs
         for target_id, target_data in targets:
             target_data = target_data.reset_index(drop=True)
-            obs_sectors_target = np.nonzero(np.prod(
+            obs_sectors_target = np.nonzero(np.sum(
                 target_data['sectors_observed'].apply(lambda x: np.array([int(el) for el in x])).values, axis=0))[0]
             for obs_sector in obs_sectors_target:
                 targets_dict['target_id'].append(target_id)
@@ -334,11 +342,15 @@ if __name__ == "__main__":
 
     print(f'Found {len(targets_df)} target-sector pairs.')
 
-    targets_df = targets_df.loc[targets_df['sector'] == 14]
+    # targets_df = targets_df.loc[targets_df['sector'] == 34]
+    # targets_df = targets_df.loc[targets_df['uid'] == '182588086-1-S34']
+
+    # find sectors without neighbors results (when run did not finish or there was an error)
+    sectors_finished = [int(el.stem.split('_')[-1][1:]) for el in res_dir.glob('neighbors_S*.csv')]
 
     # split based on sector runs
     tics_jobs = {sector: targets_srun.reset_index(drop=True)
-                 for sector, targets_srun in targets_df.groupby('sector')}  #  if sector in [12, 38, 3, 7, 9]}
+                 for sector, targets_srun in targets_df.groupby('sector') if sector not in sectors_finished}
     print(f'Found {len(tics_jobs)} sectors.')
 
     n_jobs = len(tics_jobs)
@@ -346,14 +358,14 @@ if __name__ == "__main__":
 
     # parallelize jobs
     n_procs = min(n_jobs, n_procs)
-    # pool = multiprocessing.Pool(processes=n_procs)
-    jobs = [(tics_job_sector_run, search_radius_arcsec, mag_thr, res_dir, str(sector_run), use_logs)
+    pool = multiprocessing.Pool(processes=n_procs)
+    jobs = [(tics_job_sector_run, search_radius_arcsec, mag_thr, res_dir, temp_tpf_dir, str(sector_run), use_logs)
             for sector_run, tics_job_sector_run in tics_jobs.items()]
-    # async_results = [pool.apply_async(get_ccd_coords_neighbors_targets, job) for job in jobs]
-    # pool.close()
-    # pool.join()
+    async_results = [pool.apply_async(get_ccd_coords_neighbors_targets, job) for job in jobs]
+    pool.close()
+    pool.join()
 
-    for job in jobs:
-        get_ccd_coords_neighbors_targets(*job)
+    # for job in jobs:
+    #     get_ccd_coords_neighbors_targets(*job)
 
     print(f'Finished.')

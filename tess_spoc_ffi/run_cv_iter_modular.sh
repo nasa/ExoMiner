@@ -6,8 +6,9 @@
 # $4: File path to configuration yaml file for the FFI run
 # $5: Path to output directory
 # $6: Number of GPUs per node
-# $7: Number of CV iterations
-# $8: Number of trained models per CV iteration
+# $7: Number of trained models per CV iteration
+# $8: Check GPU usage (default is false)
+# $9: Number of CV iterations (default is -1)
 
 # External arguments
 GNU_PARALLEL_INDEX="$1"
@@ -18,6 +19,7 @@ CV_DIR="$5"
 N_GPUS_PER_NODE="$6"
 N_MODELS_PER_CV_ITER="$7"
 CHECK_GPU=${8:-0}
+N_CV_ITERS=${9:--1}
 
 # define paths to python scripts in the codebase
 SETUP_CV_ITER_FP=$PYTHONPATH/tess_spoc_ffi/setup_cv_iter.py
@@ -28,6 +30,17 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
 # set CV iteration ID
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
+
+# Check if N_CV_ITERS is different from -1 and CV_ITER is greater than or equal to N_CV_ITERS
+if [ "$N_CV_ITERS" -ne -1 ] && [ "$CV_ITER" -ge "$N_CV_ITERS" ]; then
+    echo "Stopping script: CV iteration ($CV_ITER) is greater than or equal to total number of CV iterations ($N_CV_ITERS)"
+    exit 0
+fi
+
+#if [ "$CV_ITER" -ne 9 ]; then  #  && [ "$CV_ITER" -ne 8 ]; then
+#  echo "CV_ITER must be 9. Exiting."
+#  exit 1
+#fi
 
 CV_ITER_DIR="$CV_DIR"/cv_iter_$CV_ITER
 mkdir -p "$CV_ITER_DIR"
@@ -81,6 +94,11 @@ do
     MODEL_DIR_FFI="$MODELS_DIR_FFI"/model$MODEL_I
     mkdir -p "$MODEL_DIR_FFI"
     LOG_FP_TRAIN_MODEL_FFI="$MODEL_DIR_FFI"/train_model_ffi_"$MODEL_I".log
+
+    if [ -f "$MODEL_DIR_FFI/model.keras" ]; then
+        echo "Model $MODEL_I in CV iteration $CV_ITER already exists. Skipping..."
+        continue
+    fi
 
     # setup run
     echo "Setting up configuration for model $MODEL_I in CV iteration $CV_ITER for FFI data." >> "$LOG_FP_CV_ITER"
