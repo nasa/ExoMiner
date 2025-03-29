@@ -84,7 +84,7 @@ def predict_model(config, model_path, res_dir, logger=None):
             for class_label, label_id in config['label_map'].items():
                 data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
 
-    # write results to a txt file
+    # write results to a csv file
     for dataset in config['datasets']:
 
         data_df = pd.DataFrame(data[dataset])

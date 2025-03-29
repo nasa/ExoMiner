@@ -19,31 +19,45 @@ fine_tuning_hyperparameters_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exopl
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
-data_fields: # scalar data from TFRecords to add to ranking table
-  uid: 'string'
-  target_id: 'int_scalar'
-  tce_plnt_num: 'int_scalar'
-  label: 'string'
-#  label_id: 'int_scalar'
+data_fields: # scalar data from TFRecords to add to prediction table
+  - uid
+  - target_id
+  - tce_plnt_num
+  - label
+  - tce_period
+  - tce_duration
+  - tce_time0bk
+  - tce_depth
+  - ruwe
+  - tce_prad
+  - tce_max_mult_ev
+  - tce_model_snr
+  - obs_type  # tess spoc ffi
 
-#  odd_even_flag: 'string'
-#  sec_flag: 'string'
-#  centroid_flag: 'string'
-#  not_transit_like_flag: 'string'
-
-  tce_period: 'float_scalar'
-  tce_duration: 'float_scalar'
-  tce_time0bk: 'float_scalar'
-  tce_depth: 'float_scalar'
-  ruwe: 'float_scalar'
-  tce_prad: 'float_scalar'
-  tce_max_mult_ev: 'float_scalar'
-  tce_model_snr: 'float_scalar'
-
-  tce_dikco_msky_rat: 'float_scalar'
-  tce_dicco_msky_rat: 'float_scalar'
-
-  obs_type: string  # tess spoc ffi
+#  uid: 'string'
+#  target_id: 'int_scalar'
+#  tce_plnt_num: 'int_scalar'
+#  label: 'string'
+##  label_id: 'int_scalar'
+#
+##  odd_even_flag: 'string'
+##  sec_flag: 'string'
+##  centroid_flag: 'string'
+##  not_transit_like_flag: 'string'
+#
+#  tce_period: 'float_scalar'
+#  tce_duration: 'float_scalar'
+#  tce_time0bk: 'float_scalar'
+#  tce_depth: 'float_scalar'
+#  ruwe: 'float_scalar'
+#  tce_prad: 'float_scalar'
+#  tce_max_mult_ev: 'float_scalar'
+#  tce_model_snr: 'float_scalar'
+#
+##  tce_dikco_msky_rat: 'float_scalar'
+##  tce_dicco_msky_rat: 'float_scalar'
+#
+#  obs_type: string  # tess spoc ffi
 
 # set general architecture of the model based on implementations under models.models_keras.py
 model_architecture: ExoMinerPlusPlus

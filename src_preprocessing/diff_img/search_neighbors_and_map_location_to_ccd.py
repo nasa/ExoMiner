@@ -108,10 +108,12 @@ def create_targets_to_neighbors_data(neighbors_tbl, save_fp):
 
     """
 
-    targets_dict = {target_id: {neighbor_id: {'dstArcSec': neighbor_dst_arc_sec, 'mag': neighbor_mag, 'ra': neighbor_ra, 'dec': neighbor_dec}
+    targets_dict = {target_id: {neighbor_id: {'dstArcSec': neighbor_dst_arc_sec, 'mag': neighbor_mag, 'ra': neighbor_ra,
+                                              'dec': neighbor_dec}
                                 for neighbor_id, neighbor_dst_arc_sec, neighbor_mag, neighbor_ra, neighbor_dec in
                                 zip(neighbors_target['ID'].tolist(), neighbors_target['dstArcSec'].tolist(),
-                                    neighbors_target['Tmag'].tolist(), neighbors_target['ra'].tolist(), neighbors_target['dec'].tolist())}
+                                    neighbors_target['Tmag'].tolist(), neighbors_target['ra'].tolist(),
+                                    neighbors_target['dec'].tolist())}
                     for target_id, neighbors_target in neighbors_tbl.groupby('target_id')}
 
     np.save(save_fp, targets_dict)

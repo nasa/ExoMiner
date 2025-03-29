@@ -8,7 +8,7 @@ from tensorflow.keras.utils import plot_model
 
 
 # local
-from models.models_keras import ExoMinerPlusPlus, ExoMinerJointLocalFlux
+from models.models_keras import ExoMinerPlusPlus, ExoMinerJointLocalFlux, ExoMinerMLP
 from src.utils.utils_dataio import set_tf_data_type_for_features
 
 # load file with features and model config

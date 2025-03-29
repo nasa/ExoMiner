@@ -319,7 +319,8 @@ def process_xml(dv_xml_fp, logger):
     if s_sector == e_sector:  # single-sector run
         tces_df['sector_run'] = str(s_sector[1:])
     else:   # multi-sector
-        tces_df['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
+        # tces_df['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
+        tces_df['sector_run'] = f'{int(s_sector[1:])}-{int(e_sector[1:])}'
 
     # insert same number of planets for all the tces within this xml file
     tces_df['numberOfPlanets'] = n_tces

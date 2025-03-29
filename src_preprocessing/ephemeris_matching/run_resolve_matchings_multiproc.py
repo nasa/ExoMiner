@@ -56,4 +56,4 @@ if __name__ == '__main__':
 
     matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)
 
-    print('Finished resolving matchings.')
+    print('Finished resolving matches.')

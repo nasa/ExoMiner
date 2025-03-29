@@ -10,6 +10,7 @@ import pandas as pd
 
 # local
 from src.train.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
+from src_preprocessing.tf_util.example_util import get_feature
 
 
 def set_tf_data_type_for_features(features_set):
@@ -292,8 +293,8 @@ class InputFnv2(object):
 
         # shuffle the examples in the dataset if training
         if self.mode == 'TRAIN':
-            # if 'eval_with_2mindata_transferlearning' in filenames[0]:
-            # self.shuffle_buffer_size = 1000
+            if 'eval_with_2mindata_transferlearning' in filenames[0]:
+                self.shuffle_buffer_size = 1000
             # else:
             #     if not self.shuffle_buffer_size:
             #         self.shuffle_buffer_size = dataset.reduce(0, lambda x, _: x + 1).numpy()
@@ -380,54 +381,12 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     return ce_weights
 
 
-def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname='label'):
-    """ Compute number of samples in the datasets for each class.
-
-    :param label_map: dict, map between class name and integer value
-    :param tfrec_dir: str, filepath to directory with the tfrecords
-    :param datasets: list, datasets to be counted. It follows that convention that the tfrecords have in their name
-    train, val, or test if they contain examples pertaining to the training, validation or test sets, respectively.
-    :return:
-        n_samples: int, number of samples in the datasets for each class
-    """
-
-    n_samples = {dataset: {label: 0 for label in label_map.values()} for dataset in datasets}
-
-    filenames = [tfrec_dir + '/' + file for file in os.listdir(tfrec_dir) if
-                 any([dataset in file for dataset in datasets])]
-
-    for file in filenames:
-
-        file_dataset = file.split('/')[-1]
-        curr_dataset = datasets[np.where([dataset in file_dataset for dataset in datasets])[0][0]]
-
-        tfrecord_dataset = tf.data.TFRecordDataset(file)
-        try:
-            for string_record in tfrecord_dataset.as_numpy_iterator():
-
-                example = tf.train.Example()
-                example.ParseFromString(string_record)
-                try:
-                    label = example.features.feature[label_fieldname].bytes_list.value[0].decode("utf-8")
-                except ValueError as e:
-                    print('No label field found on the example. Ignoring it.')
-                    print('Error output:', e)
-                    continue
-
-                n_samples[curr_dataset][label_map[label]] += 1
-
-        except tf.errors.DataLossError as err:
-            print("{}".format(err))
-
-    return n_samples
-
-
-def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
+def get_data_from_tfrecord(tfrecord, data_fields):
     """ Extract data from a tfrecord file.
 
     :param tfrecord: str, tfrecord filepath
     :param data_fields: list of data fields to be extracted from the tfrecords.
-    :param label_map: dict, map between class name and integer value
+
     :return:
         data: dict, each key value pair is a list of values for a specific data field
 
@@ -446,20 +405,14 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
         datum = {}
 
         for field in data_fields:
-            try:
-                if data_fields[field] == 'float_scalar':
-                    datum[field] = example.features.feature[field].float_list.value[0]
-                elif data_fields[field] == 'int_scalar':
-                    datum[field] = example.features.feature[field].int64_list.value[0]
-                elif data_fields[field] == 'string':
-                    datum[field] = example.features.feature[field].bytes_list.value[0].decode("utf-8")
 
-                elif data_fields[field] == 'float_list':
-                    datum[field] = example.features.feature[field].float_list.value
-                elif data_fields[field] == 'int_list':
-                    datum[field] = example.features.feature[field].int64_list.value[0]
-                else:
-                    raise TypeError('Incompatible data type specified.')
+            try:
+                extracted_feature = get_feature(example, field)[0]
+
+                if isinstance(extracted_feature, bytes):  # convert bytes to strings
+                    extracted_feature = extracted_feature.decode("utf-8")
+                datum[field] = extracted_feature
+
             except Exception as e:
                 print(traceback.format_exc())
                 print(e)
@@ -497,44 +450,6 @@ def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None, c
             data[field].extend(data_aux[field])
 
     return data
-
-
-def create_filtered_tfrecord(src_tfrecord, save_dir, filt, append_name='', kw_filt_args=None):
-    """ Create filtered tfrecord from a source tfrecord file.
-
-    :param: src_tfrecord:
-    :param save_dir: str, directory in which the new tfrecords are saved
-    :param filt: dict, containing as keys the fields used to filter the examples. For 'label', 'kepid' and 'tce_n' the
-    values should be a list; for the other data_fields, it should be a two element list that defines the interval of
-    acceptable values
-    :param append_name: str, string added to the name of the new filtered tfrecord
-    :param kw_filt_args: dict, keyword parameters for function get_data_from_tfrecord
-    :return:
-    """
-
-    if kw_filt_args is None:
-        kw_filt_args = {}
-
-    # get boolean indexes for the examples in the tfrecord file
-    filt_idx = get_data_from_tfrecord(src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args)['selected_idxs']
-
-    # tfrecord destination filepath
-    dest_tfrecord = save_dir + src_tfrecord.split['/'][-1] + append_name
-
-    # write new tfrecord
-    with tf.python.python_io.TFRecordWriter(dest_tfrecord) as writer:
-        # create iterator for source tfrecord
-        record_iterator = tf.python.python_io.tf_record_iterator(path=src_tfrecord)
-        # go over the examples in the source tfrecord
-        for i, string_record in enumerate(record_iterator):
-            if not filt_idx[i]:  # filter out examples
-                continue
-
-            # add example to the new tfrecord
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-            if example is not None:
-                writer.write(example.SerializeToString())
 
 
 def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
@@ -590,4 +505,6 @@ def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period
 
 if __name__ == '__main__':
 
-    pass
+    tfrec_fp = '/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/shard-0001'
+    data_fields = ['label']
+    tfrec_data = get_data_from_tfrecord(tfrec_fp, data_fields)

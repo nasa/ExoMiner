@@ -83,6 +83,8 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
         neighbors_img, NumPy array for neighbors image
     """
 
+    target_pos_col_input, target_pos_row_input = target_pos_col, target_pos_row
+
     # map subpixel coordinates to discrete range {-1, 0, 1}; zero is target pixel
     target_col_disc, target_row_disc = map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row)
 
@@ -136,17 +138,24 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
                                                     (size_f_h - 1) * 0.5)
 
     if center_target:
-        diff_img, oot_img, snr_img, center_col_offset, center_row_offset = (center_images_to_target_pixel_location(
-            diff_img, oot_img, snr_img, target_pos_col, target_pos_row))
+        if target_pos_col_input == -1:  # target location not available
+            if log:
+                log.info(
+                    f'[{proc_id}] Target location from DV was not available ({target_pos_row_input}, '
+                    f'{target_pos_col_input}). No centering performed for example {tce_uid} in {prefix} {img_n}.'
+                    f' for example {tce_uid} in {prefix} {img_n}.')
+        else:
+            diff_img, oot_img, snr_img, center_col_offset, center_row_offset = (center_images_to_target_pixel_location(
+                diff_img, oot_img, snr_img, target_pos_col, target_pos_row))
 
-        # update target location after centering on target
-        target_pos_col = target_pos_col + center_col_offset
-        target_pos_row = target_pos_row + center_row_offset
+            # update target location after centering on target
+            target_pos_col = target_pos_col + center_col_offset
+            target_pos_row = target_pos_row + center_row_offset
 
-        if neighbor_data:
-            for neighbor_id, neighbor_id_data in neighbor_data.items():
-                neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] + center_col_offset
-                neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] + center_row_offset
+            if neighbor_data:
+                for neighbor_id, neighbor_id_data in neighbor_data.items():
+                    neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] + center_col_offset
+                    neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] + center_row_offset
 
     # crop images to target dimension if they are larger
     diff_img, oot_img, snr_img, crop_size_col_offset, crop_size_row_offset = crop_images_to_size(diff_img,
