@@ -119,9 +119,9 @@ def evaluate_model(config, model_path, res_dir, logger=None):
 if __name__ == "__main__":
 
 
-    model_fp = Path("/Users/jochoa4/Desktop/test_model/model.keras") #Model file path.
-    config_fp = Path("/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/keras_model/config_train.yaml") #File path to YAML config file
-    output_dir = Path("/Users/jochoa4/Desktop/test_model/evaluate") #Output directory path
+    model_fp = Path("/nobackupp27/jochoa4/work_dir/test_runs/train_model_v2/model.keras") #Model file path.
+    config_fp = Path("/nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/config_train.yaml") #File path to YAML config file
+    output_dir = Path("/nobackupp27/jochoa4/work_dir/test_runs/evaluate_model_v1") #Output directory path
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with(open(config_fp,'r')) as file:

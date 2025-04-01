@@ -228,10 +228,15 @@ class InputFnv2(object):
             label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
             if include_labels:
                 # map label to integer
+<<<<<<< Updated upstream
                 label_id = parsed_label[
                     self.label_field_name
                 ]  # label_to_id.lookup(parsed_label[self.label_field_name])
                 print(f"label_id: {(label_id)}, {type(label_id)}")
+=======
+                label_id = parsed_label[self.label_field_name] #label_to_id.lookup(parsed_label[self.label_field_name])
+                
+>>>>>>> Stashed changes
                 # Ensure that the label_id is non negative to verify a successful hash map lookup.
                 assert_known_label = tf.Assert(
                     tf.greater_equal(label_id, tf.cast(0, dtype=tf.float32)),
@@ -334,7 +339,7 @@ class InputFnv2(object):
 
         # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
-        # create filename dataset based on the list of tfrecords filepaths
+          # create filename dataset based on the list of tfrecords filepaths
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
 
         # shuffle the TFRecord files

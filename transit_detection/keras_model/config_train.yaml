@@ -112,7 +112,7 @@ training:
   data_augmentation: false  # perform online data augmentation
   online_preprocessing_params: null # online data augmentation parameters - not used for transit detection
 #  n_models: 2  # number of models in the ensemble
-  n_epochs: 50  # TODO: determine number of epochs? # number of epochs used to train each model
+  n_epochs: 300  # TODO: determine number of epochs? # number of epochs used to train each model
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   #  ce_weights: null
@@ -135,15 +135,28 @@ callbacks:
   early_stopping:
     monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
     min_delta: 0
-    patience: 20
+    patience: 300
     verbose: 1
     mode: max  # maximize/minimize monitored metric in early stopping
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
+<<<<<<< Updated upstream
     backup_dir: "" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch 
     delete_checkpoint: true # Overwrite previous model @ each save_freq
+=======
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v3/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    save_freq: epoch
+    delete_checkpoint: true # Overwrite previous model @ each save_freq
+  model_checkpoint:
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v3/model_checkpoints/model_epoch_{epoch:03d}-{val_loss:.2f}.keras"
+    save_freq: 'epoch'
+    save_weights_only: false
+    save_best_only: false
+    verbose: 1
+
+>>>>>>> Stashed changes
 
   tensorboard:
     histogram_freq: 1
@@ -162,10 +175,10 @@ labels: [0, 1]
 
 datasets_fps: # TODO: update fps
   # train: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0001
-  train: /Users/jochoa4/Desktop/test_transfers/test_shard_0001-0001
+  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/train/norm_train_shard_????-8611
   # val: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0013
-  val: /Users/jochoa4/Desktop/test_transfers/test_shard_0001-0013
-  test: null
+  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/val/norm_val_shard_????-8611
+  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/test/norm_test_shard_????-8611
 
 datasets:
   - train
@@ -179,4 +192,4 @@ verbose: true  # general
 
 metrics:
   'clf_thr': 0.5  # classification threshold
-  'num_thr': 10  # number of thresholds used to compute some metrics
+  'num_thr': 1000  # number of thresholds used to compute some metrics
