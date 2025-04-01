@@ -120,7 +120,7 @@ training:
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 
   sample_weights: false  # use sample weights defined in the data set
-  shuffle_buffer_size: 120000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
 
 
 
@@ -140,6 +140,11 @@ callbacks:
     mode: max  # maximize/minimize monitored metric in early stopping
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
+  backup_and_restore:
+    backup_dir: "" # Path to backup directory used for saving intermediate models in case of interruption
+    save_freq: epoch 
+    delete_checkpoint: true # Overwrite previous model @ each save_freq
+
   tensorboard:
     histogram_freq: 1
     write_graph: true

@@ -110,7 +110,7 @@ def process_shard(input_shard_num, input_dir, output_dir, train_targets, val_tar
 
         tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
 
-        aux_tbl_path = output_dir / 'aux_tbls'
+        aux_tbl_path = output_dir / 'aux_tbls' 
         aux_tbl_path.mkdir(parents=True, exist_ok=True)
 
         tfrec_tbl.to_csv(aux_tbl_path / f'shards_tbl_{input_shard_num}-8611.csv', index=False)
