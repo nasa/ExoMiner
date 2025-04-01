@@ -34,12 +34,12 @@ def compute_and_write_example_stats(set_feature_img_pixels_dict, dest_stats_dir)
         median = np.median(set_feature_img_pixels_dict[feature_img])
         mean = np.mean(set_feature_img_pixels_dict[feature_img])
         std = np.std(set_feature_img_pixels_dict[feature_img])
-        mad_std = mad_std(set_feature_img_pixels_dict[feature_img])
+        std_mad = mad_std(set_feature_img_pixels_dict[feature_img])
 
         stats = {
             "mean": mean,
             "std": std,
-            "mad_std": mad_std,
+            "std_mad": std_mad,
             "median": median,
             "total_pixels": len(set_feature_img_pixels_dict[feature_img]),
         }
