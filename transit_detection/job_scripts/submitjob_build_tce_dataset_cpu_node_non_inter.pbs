@@ -1,11 +1,11 @@
 # Used to run interactive jobs
 #PBS -S /bin/bash
-#PBS -N transit_detection_dataset
-#PBS -l walltime=01:30:00
+#PBS -N job_compute_train_stats_v4 
+#PBS -l walltime=02:00:00
 #PBS -l select=1:ncpus=128:mpiprocs=128:model=rom_ait
-#PBS -q normal 
-#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_normalize_val_set.out
-#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_normalize_val_set.err
+#PBS -q normal
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/compute_train_stats_v4.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/compute_train_stats_v4.err
 #PBS -W group_list=s2857
 
 module use -a /swbuild/analytix/tools/modulefiles
@@ -18,5 +18,5 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 export PYTHONPATH=/nobackup/jochoa4/work_dir/exoplanet_dl
 
-python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/norm_pipeline/norm_tfrec_dataset_split.py
+python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/norm_pipeline/compute_train_stats.py  &> /nobackupp27/jochoa4/work_dir/data/logging/compute_train_stats_v4.txt
 
