@@ -146,7 +146,7 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
 if __name__ == "__main__":
 
     # Define split name when processing multiple split directories
-    SPLIT_NAME = "val"  # TODO: normalize train, test
+    SPLIT_NAME = "train"  # TODO: normalize train, test
 
     # Define logging directory
     log_dir = Path(
