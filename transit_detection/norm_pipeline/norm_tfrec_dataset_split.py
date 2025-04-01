@@ -35,10 +35,20 @@ def normalize_flux(flux_window):
     # load as np array
     flux_window = np.array(flux_window)
     median = np.median(flux_window)
-    minimum = np.min(flux_window)
+
+    med_centered_flux = flux_window - median
+
+    # Functions with a flux window with 100 indices, assuming 5tds window size
+    center = len(flux_window) // 2  # 100 // 2 = 50
+
+    half_td = (len(flux_window) // 5) // 2  # 100 // 5 = 20 // 2 = 10
+
+    one_td_minimum = np.min(
+        med_centered_flux[center - half_td : center + half_td]
+    )  # Minmum value 1 transit duration around center
 
     # zero division eps term added to denominator to avoid division by zero
-    norm_flux_window = (flux_window - median) / (minimum + 1e-12)
+    norm_flux_window = med_centered_flux / (one_td_minimum + 1e-12)
 
     return norm_flux_window.tolist()
 
@@ -103,7 +113,7 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
 
                     img_feature_set_med, img_feature_set_std = (
                         norm_stats["median"],
-                        norm_stats["std"],
+                        norm_stats["std_mad"],
                     )
 
                     example_img_feature = tf.reshape(
@@ -136,10 +146,12 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
 if __name__ == "__main__":
 
     # Define split name when processing multiple split directories
-    SPLIT_NAME = "val"
+    SPLIT_NAME = "val"  # TODO: normalize train, test
 
     # Define logging directory
-    log_dir = Path("/nobackupp27/jochoa4/work_dir/data/logging/norm_val_set/")
+    log_dir = Path(
+        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_v2/{SPLIT_NAME}_set"
+    )  # TODO: train, test
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # # Define source dataset directory & dest dataset directory with same structure + norm suffix
@@ -156,8 +168,9 @@ if __name__ == "__main__":
 
     # Define destination norm stats directory for the split
     src_norm_stats_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v3"
+        "/nobackupp27/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v4"
     )
+    src_norm_stats_dir.mkdir(parents=True, exist_ok=True)
 
     # Define pool for multiprocessing
     pool = multiprocessing.Pool(processes=126)  # TODO: move up processes
