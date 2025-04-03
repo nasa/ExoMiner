@@ -83,21 +83,14 @@ def train_model(config, model_dir, logger=None):
 
     # keep early stopping?
     # early stopping callback
-<<<<<<< Updated upstream
+
     config["callbacks_list"] = {
         "train": [
             callbacks.EarlyStopping(**config["callbacks"]["early_stopping"]),
             callbacks.BackupAndRestore(**config["callbacks"]["backup_and_restore"]),
+            callbacks.ModelCheckpoint(**config["callbacks"]["model_checkpoint"]),
+            callbacks.CSVLogger(**config["callbacks"]["csv_logger"]),
         ],
-=======
-
-    config["callbacks_list"] = {
-    "train": [
-        callbacks.EarlyStopping(**config["callbacks"]["early_stopping"]),
-        callbacks.BackupAndRestore(**config["callbacks"]["backup_and_restore"]),
-        callbacks.ModelCheckpoint(**config["callbacks"]["model_checkpoint"])
-    ],
->>>>>>> Stashed changes
     }
 
     # fit the model to the training data
@@ -145,20 +138,13 @@ if __name__ == "__main__":
     # TODO: update file paths
 
     # output directory
-<<<<<<< Updated upstream
-    model_dir_fp = Path("/Users/jochoa4/Desktop/test_model/")
-
-    # YAML configuration
-    config_fp = Path(
-        "/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/keras_model/config_train.yaml"
-    )
-=======
-    model_dir_fp = Path('/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v3/')
+    model_dir_fp = Path("/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/")
     model_dir_fp.mkdir(parents=True, exist_ok=True)
 
     # YAML configuration
-    config_fp = Path('/nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/config_train.yaml')
->>>>>>> Stashed changes
+    config_fp = Path(
+        "/nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/config_train.yaml"
+    )
 
     with open(config_fp, "r") as file:
         train_config = yaml.unsafe_load(file)

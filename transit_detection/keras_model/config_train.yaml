@@ -141,22 +141,19 @@ callbacks:
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
-<<<<<<< Updated upstream
-    backup_dir: "" # Path to backup directory used for saving intermediate models in case of interruption
-    save_freq: epoch 
-    delete_checkpoint: true # Overwrite previous model @ each save_freq
-=======
-    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v3/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch
     delete_checkpoint: true # Overwrite previous model @ each save_freq
   model_checkpoint:
-    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v3/model_checkpoints/model_epoch_{epoch:03d}-{val_loss:.2f}.keras"
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/model_checkpoints/model_epoch_{epoch:03d}.keras"
     save_freq: 'epoch'
     save_weights_only: false
     save_best_only: false
     verbose: 1
+  csv_logger:
+    file_path: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/training_metrics_log.csv"
+    append: true # If training paused
 
->>>>>>> Stashed changes
 
   tensorboard:
     histogram_freq: 1
@@ -175,10 +172,10 @@ labels: [0, 1]
 
 datasets_fps: # TODO: update fps
   # train: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0001
-  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/train/norm_train_shard_????-8611
+  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/train/opt_norm_train_shard_????-????
   # val: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0013
-  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/val/norm_val_shard_????-8611
-  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/test/norm_test_shard_????-8611
+  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/val/opt_norm_val_shard_????-????
+  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/test/opt_norm_test_shard_????-????
 
 datasets:
   - train
