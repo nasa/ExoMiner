@@ -793,7 +793,7 @@ class ExoMinerJointLocalFlux(object):
 
         return transformer_branches
 
-    def build_conv_unfolded_flux_alt(self):
+    def build_conv2d_unfolded_flux(self):
         """ Uses Conv2D as a way to process unfolded flux.
 
         Returns: net, output of this unfolded flux branch
@@ -902,6 +902,10 @@ class ExoMinerJointLocalFlux(object):
 
         """
 
+        # hard-coded hyperparameters for convolution of statistics feature maps (e.g., avg, max, ...)
+        kernel_size_conv_stats = 1
+        num_filters_conv_stats = 4
+
         branch = "local_unfolded_flux"
         config_mapper = {
                      'blocks': 'num_loc_conv_blocks',
@@ -918,7 +922,7 @@ class ExoMinerJointLocalFlux(object):
         view_inputs = self.inputs["unfolded_local_flux_view_fluxnorm"]
 
         # expand dims to prevent last dimension being "lost"
-        view_inputs = tf.keras.layers.Reshape(view_inputs.shape + (1,), name='expanding_unfolded_flux')(view_inputs)
+        view_inputs = tf.keras.layers.Reshape(view_inputs.shape[1:] + (1,), name='unfolded_flux_expanding')(view_inputs)
 
         unfolded_conv_branches = {branch: None}
 
@@ -956,42 +960,135 @@ class ExoMinerJointLocalFlux(object):
                                              activity_regularizer=None,
                                              kernel_constraint=None,
                                              bias_constraint=None,
-                                             name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
+                                             name='unfolded_flux_conv{}_{}_{}'.format(branch, conv_block_i,
+                                                                                      seq_conv_block_i),
                                              **conv_kwargs)(view_inputs if conv_block_i == 0 and
                                                                            seq_conv_block_i == 0 else net)
 
+                # if seq_conv_block_i == conv_ls_per_block - 1:
+                #     net = tf.keras.layers.BatchNormalization(
+                #         axis=-1,
+                #         momentum=0.99,
+                #         epsilon=0.001,
+                #         center=True,
+                #         scale=True,
+                #         beta_initializer='zeros',
+                #         gamma_initializer='ones',
+                #         moving_mean_initializer='zeros',
+                #         moving_variance_initializer='ones',
+                #         beta_regularizer=None,
+                #         gamma_regularizer=None,
+                #         beta_constraint=None,
+                #         gamma_constraint=None,
+                #         synchronized=False,
+                #         name=f'unfolded_flux_conv{conv_block_i}_{seq_conv_block_i}_batch_norm'
+                #     )(net)
+
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01,
-                                                    name='lrelu{}_{}_{}'.format(branch, conv_block_i,
+                                                    name='unfolded_flux_lrelu_{}_{}'.format(conv_block_i,
                                                                                 seq_conv_block_i))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='relu{}_{}_{}'.format(branch, conv_block_i,
+                    net = tf.keras.layers.ReLU(name='unfolded_flux_relu_{}_{}'.format(conv_block_i,
                                                                           seq_conv_block_i))(net)
                 elif self.config['non_lin_fn'] == 'prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1, 2],
-                                                name='prelu{}_{}_{}'.format(branch, conv_block_i,
+                                                name='unfolded_flux_prelu_{}_{}'.format(conv_block_i,
                                                                             seq_conv_block_i))(net)
 
             net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
-                                               name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
+                                               name='unfolded_flux_maxpooling_{}'.format(conv_block_i))(net)
 
         # split layer in preparation to avg/min/max
-        net = SplitLayer(net.shape[1], axis=1, name='split_merge')(net)
+        net = SplitLayer(net.shape[1], axis=1, name='unfolded_flux_split')(net)
 
-        # get avg, min, max of all layers
-        merge_layer_avg = tf.keras.layers.Average()(net)
-        merge_layer_min = tf.keras.layers.Minimum()(net)
-        merge_layer_max = tf.keras.layers.Maximum()(net)
+        # get avg, min, max, and std of all layers
+        merge_layer_avg = tf.keras.layers.Average(name='unfolded_flux_avg')(net)
+        merge_layer_min = tf.keras.layers.Minimum(name='unfolded_flux_min')(net)
+        merge_layer_max = tf.keras.layers.Maximum(name='unfolded_flux_max')(net)
+        # merge_layer_std = StdLayer(axis=0, name='unfolded_flux_std')(net)
 
         # concat 3 different layers
-        net = tf.keras.layers.Concatenate(axis=1, name='input_merges')([
+        net = tf.keras.layers.Concatenate(axis=1, name='unfolded_flux_concat_stats')([
             merge_layer_min, merge_layer_max, merge_layer_avg])
 
-        # flatten output of the convolutional branch
-        net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
+        # set the 3 layers to be the channels
+        net = tf.keras.layers.Permute((2, 3, 1), name='unfolded_flux_permute_stats')(net)
+
+        # convolve features of the different channels
+        conv_kwargs = {'filters': num_filters_conv_stats,
+                       'kernel_initializer': weight_initializer,
+                       'kernel_size': (kernel_size_conv_stats, 1),
+                       }
+        net = tf.keras.layers.Conv2D(dilation_rate=1,
+                                     activation=None,
+                                     use_bias=True,
+                                     bias_initializer='zeros',
+                                     kernel_regularizer=None,
+                                     bias_regularizer=None,
+                                     activity_regularizer=None,
+                                     kernel_constraint=None,
+                                     bias_constraint=None,
+                                     name='unfolded_flux_2conv',
+                                     **conv_kwargs)(net)
+
+        # net = tf.keras.layers.BatchNormalization(
+        #     axis=-1,
+        #     momentum=0.99,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     moving_mean_initializer='zeros',
+        #     moving_variance_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     synchronized=False,
+        #     name=f'unfolded_flux_2conv_batch_norm'
+        # )(net)
+
+        # extract global max pooling from output of conv branch on statistics
+        net = tf.keras.layers.GlobalMaxPool2D(name='unfolded_flux_global_max_pooling')(net)
+        # # flatten output of the convolutional branch
+        # net = tf.keras.layers.Flatten(data_format='channels_last', name='unfolded_flux_flatten')(net)
+
+        # net = tf.keras.layers.LayerNormalization(
+        #     axis=-1,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     rms_scaling=False,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     name='unfolded_flux_layer_norm'
+        # )(net)
+        # net = tf.keras.layers.BatchNormalization(
+        #     axis=-1,
+        #     momentum=0.99,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     moving_mean_initializer='zeros',
+        #     moving_variance_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     synchronized=False,
+        #     name=f'unfolded_flux_batch_norm'
+        # )(net)
 
         # concatenate scalar features with features extracted in the convolutional branch for the time series views
         if self.config['conv_branches'][branch]['scalars'] is not None:
@@ -1002,7 +1099,7 @@ class ExoMinerJointLocalFlux(object):
             else:
                 scalar_inputs = scalar_inputs[0]
 
-            net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+            net = tf.keras.layers.Concatenate(axis=1, name='unfolded_flux_flatten_wscalar')([
                 net,
                 scalar_inputs
             ])
@@ -1018,20 +1115,38 @@ class ExoMinerJointLocalFlux(object):
                                         activity_regularizer=None,
                                         kernel_constraint=None,
                                         bias_constraint=None,
-                                        name='fc_{}'.format(branch))(net)
+                                        name='unfolded_flux_fc')(net)
+
+            # net = tf.keras.layers.BatchNormalization(
+            #     axis=-1,
+            #     momentum=0.99,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     moving_mean_initializer='zeros',
+            #     moving_variance_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     synchronized=False,
+            #     name=f'unfolded_flux_fc_batch_norm'
+            # )(net)
 
             if self.config['non_lin_fn'] == 'lrelu':
-                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='unfolded_flux_fc_lrelu')(net)
             elif self.config['non_lin_fn'] == 'relu':
-                net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                net = tf.keras.layers.ReLU(name='unfolded_flux_fc_relu')(net)
             elif self.config['non_lin_fn'] == 'prelu':
                 net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                             alpha_regularizer=None,
                                             alpha_constraint=None,
                                             shared_axes=[1],
-                                            name='fc_prelu_{}'.format(branch))(net)
+                                            name='unfolded_flux_fc_prelu')(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_conv_{branch}')(net)
+            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'unfolded_flux_dropout_fc_conv')(net)
 
         unfolded_conv_branches[branch] = net
 
@@ -1108,7 +1223,9 @@ class ExoMinerJointLocalFlux(object):
 
             # add var time series
             if len(branch_view_inputs) > 1:
-                branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name=f'input_{branch}')(branch_view_inputs)
+                branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name=f'{branch}_input')(branch_view_inputs)
+            else:
+                branch_view_inputs = branch_view_inputs[0]
 
             # get init parameters for the given view
             n_blocks = self.config[config_mapper['blocks'][branch]]
@@ -1146,32 +1263,85 @@ class ExoMinerJointLocalFlux(object):
                                                  activity_regularizer=None,
                                                  kernel_constraint=None,
                                                  bias_constraint=None,
-                                                 name='conv{}_{}_{}'.format(branch, conv_block_i,
+                                                 name='{}_conv_{}_{}'.format(branch, conv_block_i,
                                                                             seq_conv_block_i),
                                                  **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
                                                                                       seq_conv_block_i == 0
                                                                 else net)
 
+                    # if seq_conv_block_i == conv_ls_per_block - 1:
+                    #     net = tf.keras.layers.BatchNormalization(
+                    #         axis=-1,
+                    #         momentum=0.99,
+                    #         epsilon=0.001,
+                    #         center=True,
+                    #         scale=True,
+                    #         beta_initializer='zeros',
+                    #         gamma_initializer='ones',
+                    #         moving_mean_initializer='zeros',
+                    #         moving_variance_initializer='ones',
+                    #         beta_regularizer=None,
+                    #         gamma_regularizer=None,
+                    #         beta_constraint=None,
+                    #         gamma_constraint=None,
+                    #         synchronized=False,
+                    #         name=f'{branch}_conv_{conv_block_i}_{seq_conv_block_i}_batch_norm'
+                    #     )(net)
+
                     if self.config['non_lin_fn'] == 'lrelu':
                         net = tf.keras.layers.LeakyReLU(alpha=0.01,
-                                                        name='lrelu{}_{}_{}'.format(branch, conv_block_i,
+                                                        name='{}_lrelu_{}_{}'.format(branch, conv_block_i,
                                                                                     seq_conv_block_i))(net)
                     elif self.config['non_lin_fn'] == 'relu':
-                        net = tf.keras.layers.ReLU(name='relu{}_{}_{}'.format(branch, conv_block_i,
+                        net = tf.keras.layers.ReLU(name='{}_relu_{}_{}'.format(branch, conv_block_i,
                                                                               seq_conv_block_i))(net)
                     elif self.config['non_lin_fn'] == 'prelu':
                         net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                     alpha_regularizer=None,
                                                     alpha_constraint=None,
                                                     shared_axes=[1, 2],
-                                                    name='prelu{}_{}_{}'.format(branch, conv_block_i,
+                                                    name='{}_prelu_{}_{}'.format(branch, conv_block_i,
                                                                                 seq_conv_block_i))(net)
 
-                net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
-                                                   name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
+                if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+                    net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
+                                                       name='{}_maxpooling_{}'.format(branch, conv_block_i))(net)
 
-            # flatten output of the convolutional branch
-            net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
+            net = tf.keras.layers.GlobalMaxPool1D(name=f'{branch}_global_max_pooling')(net)
+            # # flatten output of the convolutional branch
+            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
+
+            # net = tf.keras.layers.LayerNormalization(
+            #     axis=-1,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     rms_scaling=False,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     name=f'{branch}_flux_layer_norm'
+            # )(net)
+            # net = tf.keras.layers.BatchNormalization(
+            #     axis=-1,
+            #     momentum=0.99,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     moving_mean_initializer='zeros',
+            #     moving_variance_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     synchronized=False,
+            #     name=f'{branch}_flux_batch_norm'
+            # )(net)
 
             # concatenate scalar features with features extracted in the convolutional branch for the time series views
             if self.config['conv_branches'][branch]['scalars'] is not None:
@@ -1184,7 +1354,7 @@ class ExoMinerJointLocalFlux(object):
                 else:
                     scalar_inputs = scalar_inputs[0]
 
-                net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+                net = tf.keras.layers.Concatenate(axis=1, name='{}_flatten_wscalar'.format(branch))([
                     net,
                     scalar_inputs
                 ])
@@ -1202,21 +1372,39 @@ class ExoMinerJointLocalFlux(object):
                                             activity_regularizer=None,
                                             kernel_constraint=None,
                                             bias_constraint=None,
-                                            name='fc_{}'.format(branch))(net)
+                                            name='{}_fc'.format(branch))(net)
+
+                # net = tf.keras.layers.BatchNormalization(
+                #     axis=-1,
+                #     momentum=0.99,
+                #     epsilon=0.001,
+                #     center=True,
+                #     scale=True,
+                #     beta_initializer='zeros',
+                #     gamma_initializer='ones',
+                #     moving_mean_initializer='zeros',
+                #     moving_variance_initializer='ones',
+                #     beta_regularizer=None,
+                #     gamma_regularizer=None,
+                #     beta_constraint=None,
+                #     gamma_constraint=None,
+                #     synchronized=False,
+                #     name=f'{branch}_fc_batch_norm'
+                # )(net)
 
                 if self.config['non_lin_fn'] == 'lrelu':
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='{}_fc_lrelu'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                    net = tf.keras.layers.ReLU(name='{}_fc_relu'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1],
-                                                name='fc_prelu_{}'.format(branch))(net)
+                                                name='{}_fc_prelu'.format(branch))(net)
 
                 net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'],
-                                              name=f'dropout_fc_conv_{branch}')(net)
+                                              name=f'{branch}_dropout_fc_conv')(net)
 
             conv_branches[branch] = net
 
@@ -1277,19 +1465,25 @@ class ExoMinerJointLocalFlux(object):
 
         local_transit_views_inputs = []
         for local_transit_feature in local_transit_features:
+
             view_inputs = [tf.keras.layers.Reshape((1,) + self.inputs[view_name].shape[1:],
-                                                   name=f'expanding_{view_name}_dim')(self.inputs[view_name])
+                                                   name=f'local_fluxes_expanding_{view_name}_dim')(self.inputs[view_name])
                            for view_name in local_transit_feature]
-            view_inputs = tf.keras.layers.Concatenate(axis=-1,
-                                                      name=f'concat_{local_transit_feature[0]}_with_var')(view_inputs)
+
+            if len(view_inputs) > 1:  # when adding var time series
+                view_inputs = tf.keras.layers.Concatenate(axis=-1,
+                                                          name=f'local_fluxes_concat_{local_transit_feature[0]}_'
+                                                               f'with_var')(view_inputs)
+            else:
+                view_inputs = view_inputs[0]
 
             local_transit_views_inputs.append(view_inputs)
 
         # combine the local transits to put through conv block (dim = [view, bins, avg/var view])
         if len(local_transit_views_inputs) > 1:
             branch_view_inputs = tf.keras.layers.Concatenate(axis=1,
-                                                             name='concat_local_views')(local_transit_views_inputs)
-        else:
+                                                             name='local_fluxes_concat_local_views')(local_transit_views_inputs)
+        else:  # only one local flux
             branch_view_inputs = local_transit_views_inputs[0]
 
         # convolve inputs with convolutional blocks
@@ -1328,31 +1522,51 @@ class ExoMinerJointLocalFlux(object):
                                              activity_regularizer=None,
                                              kernel_constraint=None,
                                              bias_constraint=None,
-                                             name='conv{}_{}'.format(conv_block_i, seq_conv_block_i),
+                                             name='local_fluxes_conv{}_{}'.format(conv_block_i, seq_conv_block_i),
                                              **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
                                                                                   seq_conv_block_i == 0
                                                             else net)
 
+                # if seq_conv_block_i == conv_ls_per_block - 1:
+                #     net = tf.keras.layers.BatchNormalization(
+                #         axis=-1,
+                #         momentum=0.99,
+                #         epsilon=0.001,
+                #         center=True,
+                #         scale=True,
+                #         beta_initializer='zeros',
+                #         gamma_initializer='ones',
+                #         moving_mean_initializer='zeros',
+                #         moving_variance_initializer='ones',
+                #         beta_regularizer=None,
+                #         gamma_regularizer=None,
+                #         beta_constraint=None,
+                #         gamma_constraint=None,
+                #         synchronized=False,
+                #         name=f'local_fluxes_conv{conv_block_i}_{seq_conv_block_i}_batch_norm'
+                #     )(net)
+
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01,
-                                                    name='lrelu_{}_{}'.format(conv_block_i,
+                                                    name='local_fluxes_lrelu_{}_{}'.format(conv_block_i,
                                                                               seq_conv_block_i))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='relu_{}_{}'.format(conv_block_i,
+                    net = tf.keras.layers.ReLU(name='local_fluxes_relu_{}_{}'.format(conv_block_i,
                                                                         seq_conv_block_i))(net)
-                elif self.config['non_lin_fn'] == 'prelu':
+                elif self.config['non_lin_fn'] == 'local_fluxes_prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1, 2],
-                                                name='prelu_{}_{}'.format(conv_block_i,
+                                                name='local_fluxes_prelu_{}_{}'.format(conv_block_i,
                                                                           seq_conv_block_i))(net)
 
-            net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
-                                               name='maxpooling_{}'.format(conv_block_i))(net)
+            if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+                net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
+                                                   name='local_fluxes_maxpooling_{}'.format(conv_block_i))(net)
 
         # split up extracted features for each local transit view (flux, secondary, and odd-even)
-        net = SplitLayer(net.shape[1], axis=1, name='split_merge')(net)
+        net = SplitLayer(net.shape[1], axis=1, name='local_fluxes_split')(net)
 
         # combine them again based on which branch they are in
         cur = 0
@@ -1360,7 +1574,7 @@ class ExoMinerJointLocalFlux(object):
             sz = local_transit_sz[branch]
             if sz != 1:  # multiple views in branch
                 conv_branches[branch] = (
-                    tf.keras.layers.Concatenate(axis=1, name='loc_transit_merge_{}'.format(branch))(net[cur:cur + sz]))
+                    tf.keras.layers.Concatenate(axis=1, name='local_fluxes_merge_{}'.format(branch))(net[cur:cur + sz]))
                 cur += sz
             else:  # only one view in branch
                 conv_branches[branch] = net[cur]
@@ -1371,11 +1585,45 @@ class ExoMinerJointLocalFlux(object):
             net = conv_branches[branch]
 
             if branch == odd_even_branch_name:  # subtract extracted features for odd and even views branch
-                net = SplitLayer(2, axis=1, name='split_oe')(conv_branches[branch])
-                net = tf.keras.layers.Subtract(name='subtract_oe')(net)
+                net = SplitLayer(2, axis=1, name='local_fluxes_split_oe')(conv_branches[branch])
+                net = tf.keras.layers.Subtract(name='local_fluxes_subtract_oe')(net)
 
-            # flatten output of the convolutional branch
-            net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
+            # global max pooling of the convolutional branch
+            net = tf.keras.layers.GlobalMaxPool2D(name=f'local_fluxes_{branch}_global_max_pooling')(net)
+            # # flatten output of the convolutional branch
+            # net = tf.keras.layers.Flatten(data_format='channels_last', name='local_fluxes_flatten_{}'.format(branch))(net)
+
+            # net = tf.keras.layers.LayerNormalization(
+            #     axis=-1,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     rms_scaling=False,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     name=f'local_fluxes_{branch}_flux_layer_norm'
+            # )(net)
+            # net = tf.keras.layers.BatchNormalization(
+            #     axis=-1,
+            #     momentum=0.99,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     moving_mean_initializer='zeros',
+            #     moving_variance_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     synchronized=False,
+            #     name=f'local_fluxes_{branch}_flux_batch_norm'
+            # )(net)
 
             # concatenate scalar features with features extracted in the convolutional branch for the time series views
             if self.config['conv_branches'][branch]['scalars'] is not None:
@@ -1386,7 +1634,7 @@ class ExoMinerJointLocalFlux(object):
                 else:
                     scalar_inputs = scalar_inputs[0]
 
-                net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_{}'.format(branch))([
+                net = tf.keras.layers.Concatenate(axis=1, name='local_fluxes_flatten_wscalar_{}'.format(branch))([
                     net,
                     scalar_inputs
                 ])
@@ -1404,21 +1652,39 @@ class ExoMinerJointLocalFlux(object):
                                             activity_regularizer=None,
                                             kernel_constraint=None,
                                             bias_constraint=None,
-                                            name='fc_{}'.format(branch))(net)
+                                            name='local_fluxes_fc_{}'.format(branch))(net)
+
+                # net = tf.keras.layers.BatchNormalization(
+                #     axis=-1,
+                #     momentum=0.99,
+                #     epsilon=0.001,
+                #     center=True,
+                #     scale=True,
+                #     beta_initializer='zeros',
+                #     gamma_initializer='ones',
+                #     moving_mean_initializer='zeros',
+                #     moving_variance_initializer='ones',
+                #     beta_regularizer=None,
+                #     gamma_regularizer=None,
+                #     beta_constraint=None,
+                #     gamma_constraint=None,
+                #     synchronized=False,
+                #     name=f'local_fluxes_fc_batch_norm_{branch}'
+                # )(net)
 
                 if self.config['non_lin_fn'] == 'lrelu':
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='local_fluxes_fc_lrelu_{}'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
+                    net = tf.keras.layers.ReLU(name='local_fluxes_fc_relu_{}'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1],
-                                                name='fc_prelu_{}'.format(branch))(net)
+                                                name='local_fluxes_fc_prelu_{}'.format(branch))(net)
 
                 net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'],
-                                              name=f'dropout_fc_conv_{branch}')(net)
+                                              name=f'local_fluxes_dropout_fc_conv_{branch}')(net)
 
             conv_branches[branch] = net
 
@@ -1434,7 +1700,7 @@ class ExoMinerJointLocalFlux(object):
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
 
         branch_view_inputs = [self.inputs[view_name] for view_name in self.config['diff_img_branch']['imgs']]
-        branch_view_inputs = [tf.keras.layers.Reshape(l.shape[1:] + (1,), name=f'expanding_{l.name}_dims')(l)
+        branch_view_inputs = [tf.keras.layers.Reshape(l.shape[1:] + (1,), name=f'diff_imgs_expanding_{l.name}_dims')(l)
                               for l in branch_view_inputs]
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
@@ -1475,56 +1741,119 @@ class ExoMinerJointLocalFlux(object):
                                              activity_regularizer=None,
                                              kernel_constraint=None,
                                              bias_constraint=None,
-                                             name='convdiff_img_{}_{}'.format(conv_block_i, seq_conv_block_i),
+                                             name='diff_imgs_conv{}_{}'.format(conv_block_i, seq_conv_block_i),
                                              **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
                                                                                   seq_conv_block_i == 0
                                                             else net)
 
+                # if seq_conv_block_i == n_layers_per_block - 1:
+                #     net = tf.keras.layers.BatchNormalization(
+                #         axis=-1,
+                #         momentum=0.99,
+                #         epsilon=0.001,
+                #         center=True,
+                #         scale=True,
+                #         beta_initializer='zeros',
+                #         gamma_initializer='ones',
+                #         moving_mean_initializer='zeros',
+                #         moving_variance_initializer='ones',
+                #         beta_regularizer=None,
+                #         gamma_regularizer=None,
+                #         beta_constraint=None,
+                #         gamma_constraint=None,
+                #         synchronized=False,
+                #         name=f'diff_imgs_conv{conv_block_i}_{seq_conv_block_i}_batch_norm'
+                #     )(net)
+
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01,
-                                                    name='lreludiff_img_{}_{}'.format(conv_block_i,
+                                                    name='diff_imgs_lrelu_{}_{}'.format(conv_block_i,
                                                                                       seq_conv_block_i))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='reludiff_img_{}_{}'.format(conv_block_i,
+                    net = tf.keras.layers.ReLU(name='diff_imgs_relu_{}_{}'.format(conv_block_i,
                                                                                 seq_conv_block_i))(net)
                 elif self.config['non_lin_fn'] == 'prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1, 2],
-                                                name='preludiff_img_{}_{}'.format(conv_block_i,
+                                                name='diff_imgs_prelu_{}_{}'.format(conv_block_i,
                                                                                   seq_conv_block_i))(net)
 
-            net = tf.keras.layers.MaxPooling3D(**pool_kwargs,
-                                               name='maxpooling_diff_img_{}_{}'.format(conv_block_i,
-                                                                                       seq_conv_block_i))(net)
+            if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+                net = tf.keras.layers.MaxPooling3D(**pool_kwargs,
+                                                   name='diff_imgs_maxpooling_{}_{}'.format(conv_block_i,
+                                                                                           seq_conv_block_i))(net)
 
-        # flatten output of the convolutional branch
-        # net = tf.keras.layers.Permute((2, 3, 4, 1), name='permute_diff_imgs')(net)
-        net = tf.keras.layers.Reshape((net.shape[1], np.prod(net.shape[2:].as_list())),
-                                      name='flatten_diff_imgs')(net)
+        # split extracted features for each sector/quarter
+        diff_imgs_split = SplitLayer(net.shape[1], 1, name='diff_imgs_split_extracted_features')(net)
+        diff_imgs_global_max_res = []
+        for img_i, extracted_img in enumerate(diff_imgs_split):
+            # remove sector/quarter dimension
+            extracted_img = tf.keras.layers.Reshape(extracted_img.shape[2:])(extracted_img)
+            # compute pooling
+            global_max_pooling_img = tf.keras.layers.GlobalMaxPool2D(name=f'diff_imgs_global_max_pooling_{img_i}')(extracted_img)
+            # add channel dimension need for concatenation after
+            global_max_pooling_img = tf.keras.layers.Reshape(
+                (1,) + global_max_pooling_img.shape[1:],
+                name=f'diff_imgs_global_max_pooling_expand_dim_{img_i}')(global_max_pooling_img)
+            # add result to list of pooling for current sector/quarter
+            diff_imgs_global_max_res.append(
+                global_max_pooling_img
+            )
+
+        # concatenate global max pooling features for all sectors/quarters
+        net = tf.keras.layers.Concatenate(axis=1, name=f'diff_imgs_global_max_pooling_concat')(diff_imgs_global_max_res)
+
+        # net = tf.keras.layers.LayerNormalization(
+        #     axis=-1,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     rms_scaling=False,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     name=f'diff_imgs_layer_norm'
+        # )(net)
+        # net = tf.keras.layers.BatchNormalization(
+        #     axis=-1,
+        #     momentum=0.99,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     moving_mean_initializer='zeros',
+        #     moving_variance_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     synchronized=False,
+        #     name=f'diff_imgs_batch_norm'
+        # )(net)
+
+        # # flatten output of the convolutional branch
+        # net = tf.keras.layers.Reshape((net.shape[1], np.prod(net.shape[2:])), name='diff_imgs_flatten')(net)
 
         # add per-image scalar features
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
 
-            # scalar_inputs = [tf.keras.layers.Permute((2, 1),
-            #                                          name=f'permute_{feature_name}')(self.inputs[feature_name])
-            #                  if 'pixel' not in feature_name else self.inputs[feature_name]
-            #                  for feature_name in self.config['diff_img_branch']['imgs_scalars']]
             scalar_inputs = [self.inputs[feature_name]
                              if 'pixel' not in feature_name else self.inputs[feature_name]
                              for feature_name in self.config['diff_img_branch']['imgs_scalars']]
             if len(scalar_inputs) > 1:
-                # scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
-                scalar_inputs = tf.keras.layers.Concatenate(axis=0, name=f'diff_img_imgsscalars_concat')(scalar_inputs)
+                scalar_inputs = tf.keras.layers.Concatenate(axis=0, name=f'diff_imgs_imgs_scalars_inputs_concat')(scalar_inputs)
             else:
                 scalar_inputs = scalar_inputs[0]
 
-            # concatenate per-image scalar features with extracted features from the difference images
-            # net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
-            net = tf.keras.layers.Concatenate(axis=2, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
+            net = tf.keras.layers.Concatenate(axis=2, name='diff_imgs_imgsscalars_concat')([net, scalar_inputs])
 
-        net = tf.keras.layers.Reshape(net.shape + (1, ), name=f'expanding_flattened_diff_img')(net)
+        net = tf.keras.layers.Reshape(net.shape[1:] + (1, ), name=f'diff_imgs_expanding_w_imgs_scalars')(net)
 
         # compress features from image and scalar sector data into a set of features
         net = tf.keras.layers.Conv2D(filters=self.config['num_fc_diff_units'],
@@ -1541,33 +1870,51 @@ class ExoMinerJointLocalFlux(object):
                                      activity_regularizer=None,
                                      kernel_constraint=None,
                                      bias_constraint=None,
-                                     name='convfc_{}'.format('diff_img'),
+                                     name='diff_imgs_convfc'.format('diff_img'),
                                      )(net)
 
+        # net = tf.keras.layers.BatchNormalization(
+        #     axis=-1,
+        #     momentum=0.99,
+        #     epsilon=0.001,
+        #     center=True,
+        #     scale=True,
+        #     beta_initializer='zeros',
+        #     gamma_initializer='ones',
+        #     moving_mean_initializer='zeros',
+        #     moving_variance_initializer='ones',
+        #     beta_regularizer=None,
+        #     gamma_regularizer=None,
+        #     beta_constraint=None,
+        #     gamma_constraint=None,
+        #     synchronized=False,
+        #     name=f'diff_imgs_convfc_batch_norm'
+        # )(net)
+
         if self.config['non_lin_fn'] == 'lrelu':
-            net = tf.keras.layers.LeakyReLU(alpha=0.01, name='convfc_lrelu_diff_img')(net)
+            net = tf.keras.layers.LeakyReLU(alpha=0.01, name='diff_imgs_convfc_lrelu')(net)
         elif self.config['non_lin_fn'] == 'relu':
-            net = tf.keras.layers.ReLU(name='convfc_relu_diff_img')(net)
+            net = tf.keras.layers.ReLU(name='diff_imgs_convfc_relu')(net)
         elif self.config['non_lin_fn'] == 'prelu':
             net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                         alpha_regularizer=None,
                                         alpha_constraint=None,
                                         shared_axes=[1],
-                                        name='convfc_prelu_diff_img')(net)
+                                        name='diff_imgs_convfc_prelu')(net)
 
-        net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_convfc_diff_img')(net)
+        net = tf.keras.layers.Flatten(data_format='channels_last', name='diff_imgs_flatten_convfc')(net)
 
         # add scalar features
         if self.config['diff_img_branch']['scalars'] is not None:
 
             scalar_inputs = [self.inputs[feature_name] for feature_name in self.config['diff_img_branch']['scalars']]
             if len(scalar_inputs) > 1:
-                scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_img_scalars_concat')(scalar_inputs)
+                scalar_inputs = tf.keras.layers.Concatenate(axis=1, name=f'diff_imgs_scalars_inputs_concat')(scalar_inputs)
             else:
                 scalar_inputs = scalar_inputs[0]
 
             # concatenate scalar features with remaining features
-            net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_scalars')([net, scalar_inputs])
+            net = tf.keras.layers.Concatenate(axis=1, name='diff_imgs_flatten_w_scalar_inputs_concat')([net, scalar_inputs])
 
         # add FC layer that extracts features from the combined feature vector of features from the convolutional
         # branch (flattened) and corresponding scalar features
@@ -1582,20 +1929,38 @@ class ExoMinerJointLocalFlux(object):
                                         activity_regularizer=None,
                                         kernel_constraint=None,
                                         bias_constraint=None,
-                                        name='fc_diff_img')(net)
+                                        name='diff_imgs_fc')(net)
+
+            # net = tf.keras.layers.BatchNormalization(
+            #     axis=-1,
+            #     momentum=0.99,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     moving_mean_initializer='zeros',
+            #     moving_variance_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     synchronized=False,
+            #     name=f'diff_imgs_fc_batch_norm'
+            # )(net)
 
             if self.config['non_lin_fn'] == 'lrelu':
-                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_diff_img')(net)
+                net = tf.keras.layers.LeakyReLU(alpha=0.01, name='diff_imgs_fc_lrelu')(net)
             elif self.config['non_lin_fn'] == 'relu':
-                net = tf.keras.layers.ReLU(name='fc_relu_diff_img')(net)
+                net = tf.keras.layers.ReLU(name='diff_imgs_fc_relu')(net)
             elif self.config['non_lin_fn'] == 'prelu':
                 net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                             alpha_regularizer=None,
                                             alpha_constraint=None,
                                             shared_axes=[1],
-                                            name='fc_prelu_diff_img')(net)
+                                            name='diff_imgs_fc_prelu')(net)
 
-            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_diff_img')(net)
+            net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'diff_imgs_dropout_fc')(net)
 
         return {'diff_img': net}
 
@@ -1630,6 +1995,24 @@ class ExoMinerJointLocalFlux(object):
                                                      bias_constraint=None,
                                                      name=f'fc_{scalar_branch_name}_scalar')(scalar_input)
 
+            # scalar_fc_output = tf.keras.layers.BatchNormalization(
+            #     axis=-1,
+            #     momentum=0.99,
+            #     epsilon=0.001,
+            #     center=True,
+            #     scale=True,
+            #     beta_initializer='zeros',
+            #     gamma_initializer='ones',
+            #     moving_mean_initializer='zeros',
+            #     moving_variance_initializer='ones',
+            #     beta_regularizer=None,
+            #     gamma_regularizer=None,
+            #     beta_constraint=None,
+            #     gamma_constraint=None,
+            #     synchronized=False,
+            #     name=f'fc_{scalar_branch_name}_scalar_batch_norm'
+            # )(scalar_fc_output)
+
             if self.config['non_lin_fn'] == 'lrelu':
                 scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name=f'fc_lrelu_{scalar_branch_name}_scalar')(
                     scalar_fc_output)
@@ -1661,29 +2044,6 @@ class ExoMinerJointLocalFlux(object):
             net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_to_concatenate)
         else:
             net = branches_to_concatenate[0]
-
-        if self.config['batch_norm']:
-            net = tf.keras.layers.BatchNormalization(axis=-1,
-                                                     momentum=0.99,
-                                                     epsilon=1e-3,
-                                                     center=True,
-                                                     scale=True,
-                                                     beta_initializer='zeros',
-                                                     gamma_initializer='ones',
-                                                     moving_mean_initializer='zeros',
-                                                     moving_variance_initializer='ones',
-                                                     beta_regularizer=None,
-                                                     gamma_regularizer=None,
-                                                     beta_constraint=None,
-                                                     gamma_constraint=None,
-                                                     renorm=False,
-                                                     renorm_clipping=None,
-                                                     renorm_momentum=0.99,
-                                                     fused=None,
-                                                     trainable=True,
-                                                     virtual_batch_size=None,
-                                                     adjustment=None,
-                                                     name='batch_norm_convbranch_wscalar_concat')(net)
 
         return net
 
@@ -1725,6 +2085,25 @@ class ExoMinerJointLocalFlux(object):
                                             kernel_constraint=None,
                                             bias_constraint=None,
                                             name='fc{}'.format(fc_layer_i))(net)
+
+            # if fc_layer_i != self.config['num_fc_layers'] - 1:
+            #     net = tf.keras.layers.BatchNormalization(
+            #         axis=-1,
+            #         momentum=0.99,
+            #         epsilon=0.001,
+            #         center=True,
+            #         scale=True,
+            #         beta_initializer='zeros',
+            #         gamma_initializer='ones',
+            #         moving_mean_initializer='zeros',
+            #         moving_variance_initializer='ones',
+            #         beta_regularizer=None,
+            #         gamma_regularizer=None,
+            #         beta_constraint=None,
+            #         gamma_constraint=None,
+            #         synchronized=False,
+            #         name=f'fc{fc_layer_i}_batch_norm'
+            #     )(net)
 
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu{}'.format(fc_layer_i))(net)
@@ -2041,6 +2420,10 @@ class ExoMinerPlusPlus(object):
 
         """
 
+        # hard-coded hyperparameter for convolution of extracted statistics
+        kernel_size_conv_stats = 1
+        num_filters_conv_stats = 4
+
         config_mapper = {'blocks': 'num_unfolded_conv_blocks',
                          'pool_size': 'pool_size_unfolded',
                          'kernel_size': 'kernel_size_unfolded',
@@ -2141,11 +2524,9 @@ class ExoMinerPlusPlus(object):
         net = tf.keras.layers.Permute((2, 3, 1), name='unfolded_flux_permute_merge')(net)
 
         # convolve output with conv1d to produce final output
-        kernel_size = 1
-        num_filters = 4
-        conv_kwargs = {'filters': num_filters,
+        conv_kwargs = {'filters': num_filters_conv_stats,
                        'kernel_initializer': weight_initializer,
-                       'kernel_size': (kernel_size, 1),
+                       'kernel_size': (kernel_size_conv_stats, 1),
                        }
 
         # net = tf.keras.layers.Conv1D(dilation_rate=1,
@@ -2295,6 +2676,8 @@ class ExoMinerPlusPlus(object):
             # add var time series
             if len(branch_view_inputs) > 1:
                 branch_view_inputs = tf.keras.layers.Concatenate(axis=2, name=f'input_{branch}')(branch_view_inputs)
+            else:
+                branch_view_inputs = branch_view_inputs[0]
 
             # get init parameters for the given view
             n_blocks = self.config[config_mapper['blocks'][('centr_view', 'global_view')['global' in branch]]]
@@ -2931,29 +3314,6 @@ class ExoMinerPlusPlus(object):
             net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_to_concatenate)
         else:
             net = branches_to_concatenate[0]
-
-        if self.config['batch_norm']:
-            net = tf.keras.layers.BatchNormalization(axis=-1,
-                                                     momentum=0.99,
-                                                     epsilon=1e-3,
-                                                     center=True,
-                                                     scale=True,
-                                                     beta_initializer='zeros',
-                                                     gamma_initializer='ones',
-                                                     moving_mean_initializer='zeros',
-                                                     moving_variance_initializer='ones',
-                                                     beta_regularizer=None,
-                                                     gamma_regularizer=None,
-                                                     beta_constraint=None,
-                                                     gamma_constraint=None,
-                                                     renorm=False,
-                                                     renorm_clipping=None,
-                                                     renorm_momentum=0.99,
-                                                     fused=None,
-                                                     trainable=True,
-                                                     virtual_batch_size=None,
-                                                     adjustment=None,
-                                                     name='batch_norm_convbranch_wscalar_concat')(net)
 
         return net
 

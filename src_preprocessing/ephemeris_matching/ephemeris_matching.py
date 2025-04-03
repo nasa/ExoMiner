@@ -127,7 +127,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='w',
+                        filemode='a',
                         force=True
                         )
 
@@ -152,6 +152,13 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
         sector_runs_target = tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique()
         logger.info(f'Found {len(sector_runs_target)} sector runs for target {target}.')
         for sector_run_i, sector_run in enumerate(sector_runs_target):
+
+            tic_match_tbl_fp = save_dir / f'match_tbl_s{sector_run}_tic_{target}.csv'
+            if tic_match_tbl_fp.exists():
+                logger.info(f'Found matching table for sector run {sector_run} and target {target} '
+                            f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
+                continue
+
             logger.info(f'Iterating over sector run {sector_run} for target {target} '
                   f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
 
@@ -187,7 +194,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for obj_i, obj in objects_in_tic.iterrows():
-                    # obj['duration'] = tce['duration']
+                    obj['duration'] = tce['duration']
                     corr_coef_mat[tce_i, obj_i] = \
                         match_transit_signals(tce, obj, sampling_interval, tstart, tend,
                                               plot_signals,
@@ -196,7 +203,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'],
                                          columns=objects_in_tic['uid'])
 
-            tic_match_tbl.to_csv(save_dir / f'match_tbl_s{sector_run}_tic_{target}.csv')
+            tic_match_tbl.to_csv(tic_match_tbl_fp)
 
 
 if __name__ == '__main__':

@@ -58,8 +58,8 @@ def create_dataset(config):
         ds = {dataset: create_tf_data_dataset(config['datasets_fps'][dataset],
                                               config['features_set'],
                                               config['label_map'],
-                                              config['label_field_name'].batch(BATCH_SIZE)
-                                              )
+                                              config['label_field_name']
+                                              ).batch(BATCH_SIZE)
                           for dataset in config['datasets']
               }
 
@@ -68,6 +68,12 @@ def create_dataset(config):
                                    usecols=config['features_set'],
 
                                    )  for dataset in config['datasets']}
+
+        if config['label_field_name'] == 'label_id':  # map labels to binary 0/1 label id
+            for dataset, data_df in ds.items():
+                ds[dataset]['label_id'] = ds[dataset].apply(lambda x: config['label_map'][x['label']], axis=1)
+                ds[dataset]['label_id'] = ds[dataset]['label_id'].astype('str')
+                ds[dataset] = ds[dataset].drop('label', axis=1)
 
     else:
         raise ValueError(f'Dataset type {config["dataset_type"]} not recognized.')
@@ -88,12 +94,24 @@ def train_model(config, model_dir, logger=None):
     # get auxiliary data for predictions table
     aux_data = get_auxiliary_data(config)
 
-    # initialize learner hyperparameters
-    learner = ydf.GradientBoostedTreesLearner(
+    # # initialize learner
+    # learner = ydf.GradientBoostedTreesLearner(
+    #     label=config['label_field_name'],
+    #     task=ydf.Task.CLASSIFICATION,
+    #     # Enable feature selection using the "backward selection" algorithm.
+    #     # feature_selector=ydf.BackwardSelectionFeatureSelector(),
+    # )
+    # class_weights = {'2min': (487840 + 59750) / 487840, 'ffi': (487840 + 59750) / 59750}
+    class_weights = {'1': (706 + 5371) / 706, '0': (706 + 5371) / 5371}
+    # class_weights = {'2min': 1, 'ffi': 6}
+    learner = ydf.CartLearner(
         label=config['label_field_name'],
         task=ydf.Task.CLASSIFICATION,
-        # Enable feature selection using the "backward selection" algorithm.
-        # feature_selector=ydf.BackwardSelectionFeatureSelector(),
+        max_depth=-1,
+        # split_axis="SPARSE_OBLIQUE",
+        # sparse_oblique_max_num_features=3,
+        # sparse_oblique_normalization="STANDARD_DEVIATION",
+        class_weights=class_weights,
     )
 
     with open(model_dir / 'model_hyperparameters.yml', 'w') as model_hp_file:
@@ -126,6 +144,11 @@ def train_model(config, model_dir, logger=None):
 
     # conduct analysis of each dataset
     for dataset in config['datasets']:
+        if logger is None:
+            print(f'Conducting analysis of dataset {dataset}...')
+        else:
+            logger.info(f'Conducting analysis of dataset {dataset}...')
+
         analysis = model.analyze(ds[dataset], sampling=0.1)
         analysis.to_file(str(model_dir / f'analysis_{dataset}.html'))
 
@@ -137,7 +160,10 @@ def train_model(config, model_dir, logger=None):
         else:
             logger.info(f'Evaluating model on dataset {dataset}...')
 
-        evaluation = model.evaluate(ds[dataset])
+        evaluation = model.evaluate(
+            ds[dataset],
+            # weighted=False if class_weights is None else True
+                                    )
 
         with open(str(model_dir / f'evaluation_{dataset}.txt'), 'w') as evaluation_file:
             evaluation_file.write(str(evaluation))
@@ -148,6 +174,11 @@ def train_model(config, model_dir, logger=None):
     # run inference
     scores = {dataset: [] for dataset in config['datasets']}
     for dataset in config['datasets']:
+        if logger is None:
+            print(f'Running inference on dataset {dataset}...')
+        else:
+            logger.info(f'Running inference on dataset {dataset}...')
+
         scores[dataset] = model.predict(ds[dataset])
 
     # process multiclass results if applicable
@@ -173,14 +204,19 @@ if __name__ == "__main__":
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
                         default=None)
     parser.add_argument('--model_dir', type=str, help='Output directory', default=None)
-    parser.add_argument('--model_fp', type=str, help='Path to pre-existing model', default=None)
+
     args = parser.parse_args()
 
     model_dir_fp = Path(args.model_dir)
     config_fp = Path(args.config_fp)
 
-    with(open(args.config_fp, 'r')) as file:
+    # model_dir_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_gbt_planetvsnotplanet_extractedfeaturesconvbranchesafterprelu_ffi_vs_2min_4-1-2025_1658/cv_iter_0/models/model0')
+    # config_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_gbt_planetvsnotplanet_extractedfeaturesconvbranchesafterprelu_ffi_vs_2min_4-1-2025_1658/cv_iter_0/models/model0/config_cv.yaml')
+
+    with(open(config_fp, 'r')) as file:
         train_config = yaml.unsafe_load(file)
+        # train_config['features_set'].remove('label_id')
+        # train_config['features_set'].append('label')
 
     # set up logger
     train_config['logger'] = logging.getLogger(name=f'train_model')
@@ -190,7 +226,5 @@ if __name__ == "__main__":
     logger_handler.setFormatter(logger_formatter)
     train_config['logger'].addHandler(logger_handler)
     train_config['logger'].info(f'Starting training model in {model_dir_fp}')
-
-    train_config['model_fp'] = args.model_fp
 
     train_model(train_config, model_dir_fp, logger=train_config['logger'])

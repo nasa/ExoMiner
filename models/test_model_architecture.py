@@ -12,7 +12,7 @@ from models.models_keras import ExoMinerPlusPlus, ExoMinerJointLocalFlux, ExoMin
 from src.utils.utils_dataio import set_tf_data_type_for_features
 
 # load file with features and model config
-yaml_config_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/config_cv_train.yaml'
+yaml_config_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/tess_spoc_ffi/config_cv_train_ffi.yaml'
 
 with open(yaml_config_fp, 'r') as file:
     config = yaml.unsafe_load(file)
@@ -24,10 +24,12 @@ with open(yaml_config_fp, 'r') as file:
 
 config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
-model = ExoMinerPlusPlus(config, config['features_set']).kerasModel
+# model = ExoMinerPlusPlus(config, config['features_set']).kerasModel
+model = ExoMinerJointLocalFlux(config, config['features_set']).kerasModel
+# model = ExoMinerMLP(config, config['features_set']).kerasModel
 
 plot_model(model,
-           to_file='/home6/msaragoc/model_tf_learning.png',
+           to_file='/home6/msaragoc/model_exominer_new_novar.png',
            show_shapes=True,
            show_layer_names=True,
            rankdir='TB',

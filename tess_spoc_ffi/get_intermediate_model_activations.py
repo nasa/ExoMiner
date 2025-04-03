@@ -66,7 +66,7 @@ def extract_features_into_csv(config, save_dir):
         'tce_sradius',
         'tce_steff',
     }
-    scalar_inputs =[scalar_input for scalar_input in scalar_inputs if scalar_input not in config['data_fields']]
+    scalar_inputs = [scalar_input for scalar_input in scalar_inputs if scalar_input not in config['data_fields']]
 
     # get data from TFRecords files to be displayed in the table with predictions
     data = get_data_from_tfrecords_for_predictions_table(config['datasets'],
@@ -82,23 +82,38 @@ def extract_features_into_csv(config, save_dir):
         model = load_model(filepath=config['model_fp'], compile=False)
 
     chosen_layers = [
-        # 'diff_imgs_global_max_pooling_concat',
-        'diff_imgs_convfc_batch_norm',  # 15 (including quality metrics)
-        'global_flux_global_max_pooling',  # 16
-        # 'global_flux_conv_1_2_batch_norm',  # 16 (after global max pooling)
-        # 'global_flux_fc',  # 3 (with norm stat)
-        'flux_trend_global_max_pooling',  # 16
-        # 'flux_trend_conv_1_2_batch_norm',  # 16
-        # 'local_centroid_conv_1_2_batch_norm',  # 16
-        'local_centroid_global_max_pooling',  # 16
-        # 'momentum_dump_conv_1_2_batch_norm',  # 16
-        'momentum_dump_global_max_pooling',  # 16
-        # 'flux_periodogram_conv_1_0_batch_norm',  # 8
-        'flux_periodogram_max_pooling',  # 8
-        'local_fluxes_local_weak_secondary_global_max_pooling',  # 16
-        'local_fluxes_local_flux_global_max_pooling',  # 16
-        'local_fluxes_local_odd_even_global_max_pooling',  # 16
-        'unfolded_flux_global_max_pooling',  # 4
+        # # 'diff_imgs_global_max_pooling_concat',
+        # 'diff_imgs_convfc_batch_norm',  # 15 (including quality metrics)
+        # 'global_flux_global_max_pooling',  # 16
+        # # 'global_flux_conv_1_2_batch_norm',  # 16 (after global max pooling)
+        # # 'global_flux_fc',  # 3 (with norm stat)
+        # 'flux_trend_global_max_pooling',  # 16
+        # # 'flux_trend_conv_1_2_batch_norm',  # 16
+        # # 'local_centroid_conv_1_2_batch_norm',  # 16
+        # 'local_centroid_global_max_pooling',  # 16
+        # # 'momentum_dump_conv_1_2_batch_norm',  # 16
+        # 'momentum_dump_global_max_pooling',  # 16
+        # # 'flux_periodogram_conv_1_0_batch_norm',  # 8
+        # 'flux_periodogram_max_pooling',  # 8
+        # 'local_fluxes_local_weak_secondary_global_max_pooling',  # 16
+        # 'local_fluxes_local_flux_global_max_pooling',  # 16
+        # 'local_fluxes_local_odd_even_global_max_pooling',  # 16
+        # 'unfolded_flux_global_max_pooling',  # 4
+
+        # end of all branches
+        'local_fluxes_fc_prelu_local_odd_even',
+        'local_fluxes_fc_prelu_local_flux',
+        'local_fluxes_fc_prelu_local_weak_secondary',
+        'flux_periodogram_fc_prelu',
+        'momentum_dump_fc_prelu',
+        'local_centroid_fc_prelu',
+        'flux_trend_fc_prelu',
+        'global_flux_fc_prelu',
+        'unfolded_flux_fc_prelu',
+        'diff_imgs_fc_prelu',
+        'fc_prelu_stellar_scalar',
+        'fc_prelu_dv_tce_fit_scalar',
+
     ]
     config['output_layers'] = [layer.name for layer in model.layers if layer.name in chosen_layers]
 
