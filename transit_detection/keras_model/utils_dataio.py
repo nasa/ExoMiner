@@ -67,6 +67,7 @@ class InputFnv2(object):
         use_transformer=False,
         feature_map=None,
         label_field_name="label",
+        filter_fn=None,
     ):
         """Initializes the input function.
 
@@ -94,6 +95,8 @@ class InputFnv2(object):
         :use_transformer: bool, set to True if using a transformer
         :feature_map: dict, mapping of label to label id
         :label_field_name: str, name for label stored in the TFRecord files
+        :filter_fn: function, used to filter data in the TFRecord files
+
         :return:
         """
 
@@ -120,6 +123,7 @@ class InputFnv2(object):
         self.use_transformer = use_transformer
 
         self.feature_map = feature_map if feature_map is not None else {}
+        self.filter_fn = filter_fn
 
     def __call__(self):
         """Builds the input pipeline.
@@ -228,15 +232,10 @@ class InputFnv2(object):
             label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
             if include_labels:
                 # map label to integer
-<<<<<<< Updated upstream
                 label_id = parsed_label[
                     self.label_field_name
                 ]  # label_to_id.lookup(parsed_label[self.label_field_name])
-                print(f"label_id: {(label_id)}, {type(label_id)}")
-=======
-                label_id = parsed_label[self.label_field_name] #label_to_id.lookup(parsed_label[self.label_field_name])
-                
->>>>>>> Stashed changes
+                # print(f"label_id: {(label_id)}, {type(label_id)}")
                 # Ensure that the label_id is non negative to verify a successful hash map lookup.
                 assert_known_label = tf.Assert(
                     tf.greater_equal(label_id, tf.cast(0, dtype=tf.float32)),
@@ -339,7 +338,7 @@ class InputFnv2(object):
 
         # tf.logging.info("Building input pipeline from %d files matching patterns: %s", len(filenames), file_patterns)
 
-          # create filename dataset based on the list of tfrecords filepaths
+        # create filename dataset based on the list of tfrecords filepaths
         filename_dataset = tf.data.Dataset.from_tensor_slices(filenames)
 
         # shuffle the TFRecord files
@@ -367,6 +366,11 @@ class InputFnv2(object):
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True if self.mode == "PREDICT" else False,
         )
+
+        if (
+            self.filter_fn
+        ):  # use filter function to filter parsed examples in the TFRecord dataset
+            dataset = dataset.filter(self.filter_fn)
 
         # creates batches by combining consecutive elements
         # dataset = dataset.batch(self.batch_size)

@@ -1,14 +1,14 @@
 # Used to run non interactive jobs
 #PBS -S /bin/bash
-#PBS -N train_keras_model_v4
+#PBS -N train_keras_model_min_snr_20
 #PBS -l walltime=24:00:00
 #PBS -l select=1:ncpus=12:mem=360gb:ngpus=1:model=sky_gpu
 #PBS -l place=free:excl
 # PBS -l place=scatter:shared
 # PBS -q dsg_gpu@pbspl4
 #PBS -q v100@pbspl4
-#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_train_keras_model_v4_p2.out
-#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_train_keras_model_v4_p2.err
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/job_train_keras_model_min_snr_20.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/job_train_keras_model_min_snr_20.err
 #PBS -W group_list=s2857
 #PBS -m bea
 
@@ -22,4 +22,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 export PYTHONPATH=/nobackup/jochoa4/work_dir/exoplanet_dl
 
-python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/train_model.py &> /nobackupp27/jochoa4/work_dir/data/logging/train_keras_model_v4.txt
+python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/train_model.py &> /nobackupp27/jochoa4/work_dir/data/logging/train_keras_model_min_snr_20.txt

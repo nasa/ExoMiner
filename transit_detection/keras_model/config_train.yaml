@@ -141,17 +141,17 @@ callbacks:
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
-    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch
     delete_checkpoint: true # Overwrite previous model @ each save_freq
   model_checkpoint:
-    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/model_checkpoints/model_epoch_{epoch:03d}.keras"
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/model_checkpoints/model_epoch_{epoch:03d}.keras"
     save_freq: 'epoch'
     save_weights_only: false
     save_best_only: false
     verbose: 1
   csv_logger:
-    file_path: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_v4/training_metrics_log.csv"
+    file_path: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/training_metrics_log.csv"
     append: true # If training paused
 
 
