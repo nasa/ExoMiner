@@ -9,7 +9,11 @@ import traceback
 import pandas as pd
 
 # local
-from src.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
+from src.train.data_augmentation import (
+    phase_shift,
+    phase_inversion,
+    add_whitegaussiannoise,
+)
 
 
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
