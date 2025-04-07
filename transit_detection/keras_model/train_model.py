@@ -3,8 +3,8 @@ Train a  model.
 """
 
 # 3rd party
-from tensorflow.python.keras.utils import plot_model
-from tensorflow.python.keras import callbacks  # TODO: remove python^
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras import callbacks  # TODO: remove python^
 import numpy as np
 import yaml
 from pathlib import Path
