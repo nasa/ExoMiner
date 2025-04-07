@@ -13,5 +13,9 @@ def filter_examples_tfrecord_tce_model_snr(
 
     Returns: tf boolean tensor
     """
+    print(f"FILTER_ARGS:\n")
+    print(f"label_id: {label_id}")
+    print(f"Parsed features: {parsed_features}")
+    print(f"snr_threshold: {snr_threshold}")
 
     return tf.squeeze(parsed_features["tce_model_snr"] >= snr_threshold)
