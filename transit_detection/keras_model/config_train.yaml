@@ -151,7 +151,7 @@ callbacks:
     save_best_only: false
     verbose: 1
   csv_logger:
-    file_path: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/training_metrics_log.csv"
+    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/training_metrics_log.csv"
     append: true # If training paused
 
 
