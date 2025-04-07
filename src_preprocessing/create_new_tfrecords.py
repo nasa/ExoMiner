@@ -29,7 +29,7 @@ import yaml
 
 # local
 from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shard
-from utils.utils_dataio import is_yamlble
+# from old.utils import is_yamlble
 
 if __name__ == '__main__':
 
@@ -134,6 +134,6 @@ if __name__ == '__main__':
 
     print(f'Finished checking for examples in the dataset tables that are missing from the TFRecord shards.')
 
-    json_dict = {key: val for key, val in config.items() if is_yamlble(val)}
+    json_dict = {key: val for key, val in config.items()}  #  if is_yamlble(val)}
     with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
         yaml.dump(json_dict, preproc_run_file)

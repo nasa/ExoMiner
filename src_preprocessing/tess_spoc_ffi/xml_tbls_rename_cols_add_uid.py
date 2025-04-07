@@ -1,7 +1,6 @@
 """
-Script that processes the TCE tables with data extracted from the DV xml files:
-1. Rename columns to required naming conventions.
-2. Set unique ids (uids) for each TCE.
+Script that loads the TCE table with data extracted from the DV xml files and renames columns to required naming
+conventions.
 """
 
 # 3rd party
@@ -129,33 +128,30 @@ MAP_DV_XML_FIELDS = {
 
 }
 
-# directory with TCE tables with extracted data from the DV xml files
-src_tbls_dir = Path('/data5/tess_project/Data/Ephemeris_tables/TESS/dv_spoc_ffi/preprocessed_tce_tables/07-03-2024_1311_from_dv_xml/')
-dest_dir = src_tbls_dir.parent / f'{src_tbls_dir.name}_renamed_cols_added_uid'
-dest_dir.mkdir(exist_ok=True)
+def rename_dv_xml_fields(tce_tbl):
+    """ Rename DV XML fields for TCE table in `tce_tbl_fp`.
 
-src_tbls_fps = [fp for fp in src_tbls_dir.iterdir() if fp.suffix == '.csv']
-print(f'Found {len(src_tbls_fps)} TCE tables.')
+    :param tce_tbl: pandas DataFrame, TCE table
 
-for src_tbl_fp in src_tbls_fps:
-    print(f'Processing table {src_tbl_fp.name}...')
-    src_tbl = pd.read_csv(src_tbl_fp)
+    :return: tce_tbl, pandas DataFrame with renamed DV XML fields
+    """
+
     # rename columns
-    src_tbl.rename(columns=MAP_DV_XML_FIELDS, inplace=True, errors='raise')
-    # set uid
-    src_tbl['uid'] = src_tbl.apply(lambda x: '{}-{}-S{}'.format(x['target_id'], x['tce_plnt_num'],
-                                                                x['sector_run']), axis=1)
+    tce_tbl.rename(columns=MAP_DV_XML_FIELDS, inplace=True, errors='raise')
 
-    src_tbl.set_index('uid', inplace=True)  # set uid as index
-    src_tbl.to_csv(dest_dir / f'{src_tbl_fp.name}', index=True)
+    return tce_tbl
 
-#%%
 
-# sector_runs_lst = []
-# for src_tbl_fp in src_tbls_fps:
-#     sector_runs_lst.append(int(src_tbl_fp.stem[-2:]))
-#
-# import numpy as np
-#
-# a = np.setdiff1d(np.arange(36, 70), sector_runs_lst)
-# print(a)
+if __name__ == '__main__':
+
+    # directory with TCE tables with extracted data from the DV xml files
+    src_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945.csv')
+
+    tce_tbl = pd.read_csv(src_tbl_fp)
+
+    print(f'Renaming DV SPOC fields for TCE table {src_tbl_fp.name}...')
+    tce_tbl = rename_dv_xml_fields(tce_tbl)
+
+    tce_tbl.to_csv(src_tbl_fp.parent / f'{src_tbl_fp.stem}_uid.csv', index=True)
+
+    print('Finished.')

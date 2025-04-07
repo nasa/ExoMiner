@@ -6,82 +6,109 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 from matplotlib.colors import LogNorm
+import pandas as pd
 
 plt.switch_backend('agg')
 
 N_QUARTERS_KEPLER = 17
 N_IMGS_IN_DIFF = 4  # diff, oot, it, snr
+MAX_MAG = 25
+MIN_MAG = 1
+MAG_RANGE = MIN_MAG - MAX_MAG
+TESS_MAG_SAT = 7
+KEPLER_MAG_SAT = 12
+MIN_IMG_VALUE = 1e-12
 
 
-def plot_diff_img_data(diff_imgs, target_col, target_row, plot_fp, logscale=True):
+def plot_diff_img_data(diff_imgs, plot_fp, target_coords=None, neighbors_coords=None, target_mag=None, neighbors_mag=None,
+                       mag_sat=1, min_mag=None, logscale=True):
     """ Plot difference image data for TCE in a given quarter/sector.
 
     Args:
         diff_imgs: NumPy array, difference image data [cols, rows, it|oot|diff|snr, value| uncertainty]
-        target_col: float, target column location
-        target_row: float, target row location
         plot_fp: Path, plot file path
+        target_coords: tuple, target col and row coordinates
+        neighbors_coords: list of tuples, neighbors col and row coordinates
+        target_mag: float, target magnitude
+        neighbors_mag: list of floats, neighbors magnitudes
+        mag_sat: float, magnitude saturation threshold
+        min_mag: float, minimum magnitude at which the colormap is clipped
         logscale: bool, if True images color is set to logscale
 
     Returns:
 
     """
 
-    f, ax = plt.subplots(2, 2, figsize=(12, 8))
-    # diff img
-    im = ax[0, 0].imshow(diff_imgs[:, :, 2, 0], norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[0, 0])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[0, 0].scatter(target_col, target_row,
-                     marker='x',
-                     color='r', label='Target')
-    ax[0, 0].set_ylabel('Row')
-    ax[0, 0].set_xlabel('Col')
-    ax[0, 0].legend()
-    ax[0, 0].set_title('Difference Flux (e-/cadence)')
-    # oot img
-    im = ax[0, 1].imshow(diff_imgs[:, :, 1, 0], norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[0, 1])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[0, 1].scatter(target_col, target_row,
-                     marker='x',
-                     color='r', label='Target')
-    ax[0, 1].set_ylabel('Row')
-    ax[0, 1].set_xlabel('Col')
-    ax[0, 1].legend()
-    ax[0, 1].set_title('Out of Transit Flux (e-/cadence)')
-    # it img
-    im = ax[1, 0].imshow(diff_imgs[:, :, 0, 0], norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[1, 0])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[1, 0].scatter(target_col, target_row,
-                     marker='x',
-                     color='r', label='Target')
-    ax[1, 0].set_ylabel('Row')
-    ax[1, 0].set_xlabel('Col')
-    ax[1, 0].legend()
-    ax[1, 0].set_title('In Transit Flux (e-/cadence)')
-    # snr img
-    im = ax[1, 1].imshow(diff_imgs[:, :, 3, 0], norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[1, 1])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[1, 1].scatter(target_col, target_row,
-                     marker='x',
-                     color='r', label='Target')
-    ax[1, 1].set_ylabel('Row')
-    ax[1, 1].set_xlabel('Col')
-    ax[1, 1].legend()
-    ax[1, 1].set_title('Difference SNR')
+    def _create_subplot(ax_img, img, img_title, target_coords=None, neighbors_coords=None, target_mag=None,
+                        neighbors_mag=None, logscale=True, mask_invalid_pixels=False):
 
-    # f.suptitle(f'TCE {uid} {tce_lbl if not None else ""}')
-    f.tight_layout()
+        if mask_invalid_pixels:
+            img = np.ma.masked_less(img, 0)
+            cmap_img = plt.cm.viridis
+            cmap_img.set_bad(color='gray')  # Set the color for non-positive values
+        else:
+            cmap_img = plt.cm.viridis
+
+        if logscale:  # handle zero-valued pixels
+            img[img == 0] = MIN_IMG_VALUE
+
+        # plot image data
+        im = ax_img.imshow(img, cmap=cmap_img, norm=LogNorm() if logscale else None, origin='lower')
+        # set target location and magnitude
+        if target_coords:
+            sc = ax_img.scatter(target_coords[0], target_coords[1],
+                                marker='x', c=[target_mag], label='Target', zorder=2, cmap='plasma_r',
+                                vmin=mag_sat, vmax=MAX_MAG if min_mag is None else min_mag)
+            cbar_sc = plt.colorbar(sc, ax=ax_img, orientation='horizontal', location='top', fraction=0.046, pad=0.01)
+            cbar_sc.set_label('Magnitude')
+
+        # set neighbors location and magnitude
+        if neighbors_coords:
+            for neighbor_i, neighbor_coords in enumerate(neighbors_coords):
+                ax_img.scatter(neighbor_coords[0], neighbor_coords[1],
+                               marker='*', c=neighbors_mag[neighbor_i], label=None, zorder=1, cmap='plasma_r',
+                               vmin=mag_sat, vmax=MAX_MAG if min_mag is None else min_mag)
+        # set color bars
+        cbar_im = plt.colorbar(im, ax=ax_img, orientation='vertical', fraction=0.046, pad=0.04)
+        # Set colorbar labels
+        cbar_im.set_label(r'Flux [$e^-/cadence$]')
+        cbar_im.ax.set_position([cbar_im.ax.get_position().x1 - 0.02,
+                                 cbar_im.ax.get_position().y0,
+                                 cbar_im.ax.get_position().width,
+                                 cbar_im.ax.get_position().height])
+
+        ax_img.set_ylabel('Row')
+        ax_img.set_xlabel('Col', labelpad=10)
+        # ax_img.invert_yaxis()
+        # ax[0, 0].legend()
+        ax_img.set_title(img_title, pad=50)
+
+    f, ax = plt.subplots(2, 2, figsize=(14, 14))
+
+    # diff img
+    _create_subplot(ax[0, 0], diff_imgs[:, :, 2, 0], 'Difference Flux', target_coords,
+                    neighbors_coords=neighbors_coords, target_mag=target_mag, neighbors_mag=neighbors_mag,
+                    logscale=False)
+
+    # oot img
+    _create_subplot(ax[0, 1], diff_imgs[:, :, 1, 0], 'Out-of-transit Flux', target_coords,
+                    neighbors_coords=neighbors_coords, target_mag=target_mag, neighbors_mag=neighbors_mag,
+                    logscale=logscale, mask_invalid_pixels=True)
+
+    # it img
+    _create_subplot(ax[1, 0], diff_imgs[:, :, 0, 0], 'In-transit Flux', target_coords,
+                    neighbors_coords=neighbors_coords, target_mag=target_mag, neighbors_mag=neighbors_mag,
+                    logscale=logscale, mask_invalid_pixels=True)
+
+    # snr img
+    _create_subplot(ax[1, 1], diff_imgs[:, :, 3, 0], 'SNR Flux', target_coords,
+                    neighbors_coords=neighbors_coords, target_mag=target_mag, neighbors_mag=neighbors_mag,
+                    logscale=logscale, mask_invalid_pixels=True)
+
+    f.subplots_adjust(hspace=0.4, wspace=0.4)
     f.savefig(plot_fp)
     plt.close()
 
@@ -137,10 +164,16 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
             logger.info(f'[{proc_id}] Getting difference image data for TCE KIC {uid}... ({n_tces_added}/{n_tces} '
                         f'TCEs)')
 
+            # TODO: test this
+            kmag = float([el for el in root if 'keplerMag' in el.tag][0].attrib['value'])
+
             data[uid] = {
                 'target_ref_centroid': [],
                 'image_data': [],
                 'image_number': [],
+                'mag': kmag,
+                'neighbor_data': None,
+                'quality_metric': [],
             }
 
             # get difference image results
@@ -155,6 +188,10 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
             for quarter_i in range(n_quarters):
 
                 img_res_q = diff_img_res[quarter_i]
+
+                # get quality metric data
+                q_metric_q = [el.attrib for el in img_res_q if 'qualityMetric' in el.tag][0]
+                data[uid]['quality_metric'].append(q_metric_q)
 
                 # get quarter information
                 data[uid]['image_number'].append(int(img_res_q.attrib['quarter']))
@@ -207,13 +244,18 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
                                 for k, v in kic_centroid_ref.find('row').attrib.items()}
                     }
 
-                    # plot difference image with target location
-                    if np.random.uniform() <= plot_prob:
-                        plot_diff_img_data(diff_imgs,
-                                           kic_centroid_ref_dict['col']['value'],
-                                           kic_centroid_ref_dict['row']['value'],
-                                           plot_dir / f'kic_{uid}.png',
-                                           True)
+                # plot difference image
+                if np.random.uniform() <= plot_prob:
+                    plot_diff_img_data(diff_imgs,
+                                       target_coords=(kic_centroid_ref_dict['col']['value'],
+                                                      kic_centroid_ref_dict['row']['value']),
+                                       plot_fp=plot_dir / f'kic_{uid}.png',
+                                       neighbors_coords=None,
+                                       logscale=True,
+                                       target_mag=data[uid]['mag'],
+                                       neighbors_mag=None,
+                                       mag_sat=KEPLER_MAG_SAT,
+                                       )
 
                 data[uid]['target_ref_centroid'].append(kic_centroid_ref_dict)
                 data[uid]['image_data'].append(diff_imgs)
@@ -255,186 +297,233 @@ def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_dir, p
     np.save(save_dir / f'keplerq1q17_dr25_diffimg_{job_i}.npy', data)
 
 
-def get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger):
-    """ Extract difference image data from the DV XML files for a TESS sector run.
+def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir, plot_prob, logger, proc_id=-1):
+    """ Extract difference image data from the TESS target DV XML file for the set of TCEs detected in that star for
+    that TESS SPOC sector run.
 
-    :param dv_xml_run: Path, path to sector run with DV XML files.
+    :param dv_xml_fp: Path, filepath to DV XML file.
+    :param neighbors_dir: Path, path to directory containing target neighbors data
+    :param sector_run_id: str, sector run ID
     :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param logger: logger
+    :param proc_id: int, process ID
 
     :return: dict, each item is the difference image data for a given TCE. The TCE is identified by the string key
-    '{tic_id}-{tce_plnt_num}-S{sector_run}. The value is a dictionary that contains two items: 'target_ref_centroid' is
-    a dictionary that contains the value and uncertainty for the reference coordinates of the target star in the pixel
-    domain; 'image_data' is a NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit, out-of-transit,
-    difference, and SNR flux images in this order (pixel values and uncertainties are addressed by the last dimension
-    of the array, in this order); 'image_number' is a list that contains the integer sector number of the corresponding
-    sequence of difference image data extracted for the TCE.
+    '{tic_id}-{tce_plnt_num}-S{sector_run}'. The value is a dictionary that contains six items:
+        - 'target_ref_centroid' is a list of dictionaries that contain the value and uncertainty for the reference
+        coordinates of the target star in the pixel domain in each observed sector;
+        - 'image_data' is a list of NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit,
+        out-of-transit, difference, and SNR flux images in this order (pixel values and uncertainties are addressed by
+        the last dimension of the array, in this order) for each observe sector;
+        - 'image_number' is a list that contains the integer sector number of the corresponding sequence of difference
+        image data extracted for the TCE.
+        - 'mag' is the target's magnitude.
+        - 'neighbor_data' is a list that, for each sector, contains a dictionary where each key is the TIC ID of
+        neighboring objects that maps to a dictionary with the column 'col_px' and row 'row_px' coordinates of these
+        objects in the CCD pixel frame of the target star along with the corresponding magnitude 'TMag' and distance to
+        the target in arcseconds 'dst_arcsec'.
     """
-
-    proc_id = os.getpid()
-
+    # TODO: make `neighbors_dir` as an optional argument so the function can extract information solely from the DV xml
     data = {}
 
-    # get filepaths to xml files
-    dv_xml_run_fps = list(dv_xml_run.rglob("*.xml"))
+    try:
+        tree = et.parse(dv_xml_fp)
+    except Exception as e:
+        raise Exception(f'{proc_id}] [Sector run {sector_run_id}] Exception found when reading {dv_xml_fp}: {e}.')
 
-    s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
-    s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
-    if s_sector != e_sector:  # multisector run
-        sector_run_id = f'{s_sector}-{e_sector}'
-    else:
-        sector_run_id = f'{s_sector}'
+    root = tree.getroot()
 
-    n_targets = len(dv_xml_run_fps)
-    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
+    tic_id = root.attrib['ticId']
 
-    for target_i, dv_xml_fp in enumerate(dv_xml_run_fps):
+    tmag = float([el for el in root if 'tessMag' in el.tag][0].attrib['value'])
 
-        if target_i % 1000 == 0:
-            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Iterating over TIC {target_i}/{n_targets} in '
-                        f'{dv_xml_fp.name}.')
+    planet_res_lst = [el for el in root if 'planetResults' in el.tag]
 
-        try:
-            tree = et.parse(dv_xml_fp)
-        except Exception as e:
-            logger.info(f'Exception found when reading {dv_xml_fp}: {e}.')
-            continue
-        root = tree.getroot()
+    n_sectors_expected = root.attrib['sectorsObserved'].count('1')
+    sectors_obs = [i for i, char in enumerate(root.attrib['sectorsObserved']) if char == '1']
 
-        # check if there are results for more than one processing run for this TIC and sector run
-        tic_id = root.attrib['ticId']
-        # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
-        tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
-        if len(tic_drs) > 1:
-            curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
-            latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
-                                for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')])[-1]
-            if curr_dr != latest_dr:
-                logger.info(f'[{proc_id}] [Sector run {sector_run_id}] '
-                            f'Skipping {dv_xml_fp.name} for TIC {tic_id} since there is '
-                            f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
-                            f'... ({target_i}/{n_targets} targets)')
-                continue
+    # get neighboring stars
+    logger.info(f'{proc_id}] [Sector run {sector_run_id}] Getting neighbors information for target {tic_id} in '
+                f'sectors {sectors_obs}...')
+    neighbors_lst = []
+    for sector_obs in sectors_obs:
+        targets_dict = np.load(neighbors_dir / f'targets_S{sector_obs}.npy', allow_pickle=True).item()
+        neighbors_tbl = pd.read_csv(neighbors_dir / f'neighbors_S{sector_obs}.csv',
+                                    usecols=['ID', 'col_px', 'row_px', 'Tmag'])
 
-        planet_res_lst = [el for el in root if 'planetResults' in el.tag]
+        if int(tic_id) not in targets_dict:
+            raise ValueError(f'{proc_id}] [Sector run {sector_run_id}] Target {tic_id}'
+                             f' not found in the targets dictionary for sector {sector_obs}')
 
-        # sectors_obs = root.attrib['sectorsObserved']
-        # first_sector_obs, last_sector_obs = sectors_obs.find('1'), sectors_obs.rfind('1')
-        n_sectors_expected = root.attrib['sectorsObserved'].count('1')
+        target_neighbors_dict = targets_dict[int(tic_id)]
 
-        n_tces = len(planet_res_lst)
-        tce_i = 0
+        # filter neighbors for this target and sector
+        neighbors = neighbors_tbl.loc[((neighbors_tbl['ID'].isin(list(targets_dict[int(tic_id)].keys()))))]
 
-        for planet_res in planet_res_lst:
+        neighbors = neighbors.set_index('ID')
 
-            tce_i += 1
+        # add specific target information for this neighbor from the target dictionary
+        for neighbor_id, neighbor_data in target_neighbors_dict.items():
+            neighbors.loc[neighbor_id, ['dst_arcsec']] = neighbor_data['dstArcSec']
 
-            uid = f'{root.attrib["ticId"]}-{planet_res.attrib["planetNumber"]}-S{sector_run_id}'
+        neighbors = neighbors.to_dict(orient='index')
+        neighbors_lst.append(neighbors)
 
-            data[uid] = {
-                'target_ref_centroid': [],
-                'image_data': [],
-                # 'tic_tess_mag': tmag,
-                'image_number': []
-            }
+        logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {len(neighbors)} neighbors for '
+                    f'target {tic_id} in sector {sector_obs}.')
 
-            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Getting difference image data for TCE TIC '
-                        f'{uid} ({tce_i}/{n_tces} TCEs)... ({target_i}/{n_targets} targets)')
+    n_tces = len(planet_res_lst)
+    tce_i = 0
+    for planet_res in planet_res_lst:
 
-            # get difference image results
-            diff_img_res = [el for el in planet_res if 'differenceImageResults' in el.tag]
+        tce_i += 1
 
-            n_sectors = len(diff_img_res)
+        uid = f'{root.attrib["ticId"]}-{planet_res.attrib["planetNumber"]}-S{sector_run_id}'
 
-            if n_sectors < n_sectors_expected:
-                logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has less than '
-                            f'{n_sectors_expected} '
-                            f'sectors ({n_sectors})')
+        # filter neighbors based on transit depth - could these objects cause the observed transit depth?
+        tce_depth = max(0,
+                        float(planet_res.find(
+                            './/dv:modelParameter[@name="transitDepthPpm"]',
+                            {'dv': 'http://www.nasa.gov/2018/TESS/DV'}).attrib['value'])) + 1
+        tce_depth /= 1e6
+        delta_mag = tmag - np.log10(tce_depth) * 2.5
+        tce_neighbors_lst = []
+        for neighbors_sector in neighbors_lst:
+            tce_neighbors_sector = {}
+            for neighbor_id, neighbor_data in neighbors_sector.items():
+                if np.isnan(neighbor_data['row_px']) or np.isnan(neighbor_data['col_px']):
+                    continue
+                if neighbor_data['Tmag'] <= delta_mag:
+                    tce_neighbors_sector.update({neighbor_id: dict(neighbor_data)})
+            tce_neighbors_lst.append(tce_neighbors_sector)
 
-            # iterate over sectors
-            for sector_i in range(n_sectors):
+        data[uid] = {
+            'target_ref_centroid': [],
+            'image_data': [],
+            'mag': tmag,
+            'image_number': [],
+            'neighbor_data': tce_neighbors_lst,
+            'quality_metric': [],
+        }
 
-                img_res_s = diff_img_res[sector_i]
+        logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Getting difference image data for TCE TIC '
+                    f'{uid} ({tce_i}/{n_tces} TCEs)...')
 
-                data[uid]['image_number'].append(int(img_res_s.attrib['sector']))
+        # get difference image results
+        diff_img_res = [el for el in planet_res if 'differenceImageResults' in el.tag]
 
-                img_px_data = [el for el in img_res_s if 'differenceImagePixelData' in el.tag]
+        n_sectors = len(diff_img_res)
 
-                # n_pxs = len(img_px_data)
+        if n_sectors < n_sectors_expected:
+            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has less than '
+                        f'{n_sectors_expected} '
+                        f'sectors ({n_sectors})')
 
-                px_dict = {(int(el.attrib['ccdRow']), int(el.attrib['ccdColumn'])): list(el) for el in img_px_data}
+        # iterate over sectors
+        for sector_i in range(n_sectors):
 
-                # get max and min row and col
-                px_row_lst, px_col_lst = [], []
-                for px_row, px_col in px_dict.keys():
-                    px_row_lst.append(px_row)
-                    px_col_lst.append(px_col)
+            img_res_s = diff_img_res[sector_i]
 
-                min_row, max_row = min(px_row_lst), max(px_row_lst)
-                min_col, max_col = min(px_col_lst), max(px_col_lst)
+            # get quality metric data
+            q_metric_s = [el.attrib for el in img_res_s if 'qualityMetric' in el.tag][0]
+            q_metric_s['value'] = float(q_metric_s['value'])
+            q_metric_s['attempted'] = True if q_metric_s['attempted'] == 'true' else False
+            q_metric_s['valid'] = True if q_metric_s['valid'] == 'true' else False
+            data[uid]['quality_metric'].append(q_metric_s)
 
-                # determine size of images
-                row_size = max_row - min_row + 1
-                col_size = max_col - min_col + 1
+            # get sector id
+            data[uid]['image_number'].append(int(img_res_s.attrib['sector']))
 
-                # populate array with pixel values
-                diff_imgs = np.nan * np.ones((row_size, col_size, N_IMGS_IN_DIFF, 2), dtype='float')
+            # get difference image pixel data
+            img_px_data = [el for el in img_res_s if 'differenceImagePixelData' in el.tag]
 
-                for px_coord, diff_imgs_q in px_dict.items():
-                    diff_imgs[px_coord[0] - min_row, px_coord[1] - min_col, :, 0] = [float(el.attrib['value'])
-                                                                                     for el in diff_imgs_q]
-                    diff_imgs[px_coord[0] - min_row, px_coord[1] - min_col, :, 1] = [float(el.attrib['uncertainty'])
-                                                                                     for el in diff_imgs_q]
+            # n_pxs = len(img_px_data)
 
-                # get target position in pixel frame
-                tic_centroid_ref = [el for el in img_res_s if 'ticReferenceCentroid' in el.tag][0]
-                tic_centroid_ref_col = [el for el in tic_centroid_ref if 'col' in el.tag][0].attrib
-                tic_centroid_ref_row = [el for el in tic_centroid_ref if 'row' in el.tag][0].attrib
+            px_dict = {(int(el.attrib['ccdRow']), int(el.attrib['ccdColumn'])): list(el) for el in img_px_data}
 
-                # check for missing value
-                if float(tic_centroid_ref_col['uncertainty']) == -1 or \
-                        float(tic_centroid_ref_row['uncertainty']) == -1:
-                    tic_centroid_ref_dict = {
-                        'col': {k: float(v) if k == 'value' else float(v)
-                                for k, v in tic_centroid_ref_col.items()},
-                        'row': {k: float(v) if k == 'value' else float(v)
-                                for k, v in tic_centroid_ref_row.items()}
-                    }
-                    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has missing reference '
-                                f'centroid for target in sector {img_res_s.attrib["sector"]}.')
-                    # continue
-                else:
-                    tic_centroid_ref_dict = {
-                        'col': {k: float(v) - min_col if k == 'value' else float(v)
-                                for k, v in tic_centroid_ref_col.items()},
-                        'row': {k: float(v) - min_row if k == 'value' else float(v)
-                                for k, v in tic_centroid_ref_row.items()}
-                    }
+            # get max and min row and col
+            px_row_lst, px_col_lst = [], []
+            for px_row, px_col in px_dict.keys():
+                px_row_lst.append(px_row)
+                px_col_lst.append(px_col)
 
-                    # plot difference image with target location
-                    if np.random.uniform() <= plot_prob:
-                        plot_diff_img_data(diff_imgs,
-                                           tic_centroid_ref_dict['col']['value'],
-                                           tic_centroid_ref_dict['row']['value'],
-                                           plot_dir / f'tic_{uid}.png',
-                                           True
-                                           )
+            min_row, max_row = min(px_row_lst), max(px_row_lst)
+            min_col, max_col = min(px_col_lst), max(px_col_lst)
 
-                data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
-                data[uid]['image_data'].append(diff_imgs)
+            # determine size of images
+            row_size = max_row - min_row + 1
+            col_size = max_col - min_col + 1
 
-    # np.save(save_dir / f'tess_diffimg_pid{proc_id}.npy', data)
+            # populate array with pixel values
+            diff_imgs = np.nan * np.ones((row_size, col_size, N_IMGS_IN_DIFF, 2), dtype='float')
+
+            for px_coord, diff_imgs_q in px_dict.items():
+                diff_imgs[px_coord[0] - min_row, px_coord[1] - min_col, :, 0] = [float(el.attrib['value'])
+                                                                                 for el in diff_imgs_q]
+                diff_imgs[px_coord[0] - min_row, px_coord[1] - min_col, :, 1] = [float(el.attrib['uncertainty'])
+                                                                                 for el in diff_imgs_q]
+
+            # get target position in pixel frame
+            tic_centroid_ref = [el for el in img_res_s if 'ticReferenceCentroid' in el.tag][0]
+            tic_centroid_ref_col = [el for el in tic_centroid_ref if 'col' in el.tag][0].attrib
+            tic_centroid_ref_row = [el for el in tic_centroid_ref if 'row' in el.tag][0].attrib
+
+            # check for missing value
+            if float(tic_centroid_ref_col['uncertainty']) == -1 or \
+                    float(tic_centroid_ref_row['uncertainty']) == -1:
+                tic_centroid_ref_dict = {
+                    'col': {k: float(v) if k == 'value' else float(v)
+                            for k, v in tic_centroid_ref_col.items()},
+                    'row': {k: float(v) if k == 'value' else float(v)
+                            for k, v in tic_centroid_ref_row.items()}
+                }
+                logger.info(f'[{proc_id}] [Sector run {sector_run_id}] TCE TIC {uid} has missing reference '
+                            f'centroid for target in sector {img_res_s.attrib["sector"]}.')
+                # continue
+            else:
+                tic_centroid_ref_dict = {
+                    'col': {k: float(v) - min_col if k == 'value' else float(v)
+                            for k, v in tic_centroid_ref_col.items()},
+                    'row': {k: float(v) - min_row if k == 'value' else float(v)
+                            for k, v in tic_centroid_ref_row.items()}
+                }
+
+            # # center neighboring stars location to origin pixel
+            # for neighbor_id, neighbor_data in data[uid]['neighbor_data'][sector_i].items():
+            #     neighbor_data['col_px'] -= min_col - 1
+            #     neighbor_data['row_px'] -= min_row
+
+            # plot difference image
+            if np.random.uniform() <= plot_prob:
+                plot_diff_img_data(diff_imgs,
+                                   plot_dir / f'tic_{uid}.png',
+                                   target_coords=(tic_centroid_ref_dict['col']['value'],
+                                                  tic_centroid_ref_dict['row']['value'])
+                                   if tic_centroid_ref_dict['col']['uncertainty'] != -1 else None,
+                                   neighbors_coords=[(neighbor_data['col_px'], neighbor_data['row_px'])
+                                                     for _, neighbor_data in tce_neighbors_lst[sector_i].items()],
+                                   logscale=True,
+                                   target_mag=data[uid]['mag'],
+                                   neighbors_mag=[neighbor_data['Tmag']
+                                                  for _, neighbor_data in tce_neighbors_lst[sector_i].items()],
+                                   mag_sat=TESS_MAG_SAT,
+                                   min_mag=delta_mag,
+                                   )
+
+            data[uid]['target_ref_centroid'].append(tic_centroid_ref_dict)
+            data[uid]['image_data'].append(diff_imgs)
 
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_prob, log_dir, job_i):
+def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
-     :param dv_xml_run: Path, path to sector run with DV XML files.
+    :param dv_xml_run: Path, path to sector run with DV XML files.
     :param save_dir: Path, save directory
+    :param neighbors_dir: Path, path to directory containing target neighbors data
     :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param log_dir: Path, log directory
@@ -453,8 +542,52 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_pro
     logger.addHandler(logger_handler)
     logger.info(f'[{job_i}] Starting run {dv_xml_run.name}...')
 
-    data = get_data_from_tess_dv_xml(dv_xml_run, plot_dir, plot_prob, logger)
+    proc_id = os.getpid()
 
-    logger.info(f'[{job_i}] Finished run {dv_xml_run.name}.')
+    data = {}
+
+    # get filepaths to xml files
+    dv_xml_run_fps = list(dv_xml_run.rglob(f"*.xml"))
+
+    # get sector run ID from filename
+    s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
+    s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
+    if s_sector != e_sector:  # multisector run
+        sector_run_id = f'{s_sector}-{e_sector}'
+    else:
+        sector_run_id = f'{s_sector}'
+
+    n_targets = len(dv_xml_run_fps)
+    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
+
+    for target_i, dv_xml_fp in enumerate(dv_xml_run_fps):
+
+        if target_i % 1000 == 0:
+            logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Iterating over TIC {target_i}/{n_targets} in '
+                        f'{dv_xml_fp.name}.')
+        try:
+            # check if there are results for more than one processing run for this TIC and sector run
+            tic_id = re.findall('\d{16}', dv_xml_fp.name)[0]  # get tic id from filename
+            # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
+            tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id}*')]
+            if len(tic_drs) > 1:
+                curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
+                latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
+                                    for fp in dv_xml_run.glob(f'*{tic_id}*')])[-1]
+                if curr_dr != latest_dr:
+                    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] '
+                                f'Skipping {dv_xml_fp.name} for TIC {int(tic_id)} since there is '
+                                f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
+                                f'... ({target_i}/{n_targets} targets)')
+                    continue
+
+            data_dv_xml = get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir, plot_prob,
+                                                    logger, proc_id)
+            data.update(data_dv_xml)
+        except Exception as e:
+            logger.info(f'[{job_i}] Exception occurred when getting data from {dv_xml_fp.name}:\n {e}')
+            continue
 
     np.save(save_dir / f'tess_diffimg_{dv_xml_run.name}.npy', data)
+
+    logger.info(f'[{job_i}] Finished run {dv_xml_run.name}.')

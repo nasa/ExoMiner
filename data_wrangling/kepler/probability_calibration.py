@@ -15,8 +15,8 @@ import paths
 # local
 from models.old import config_keras
 from models.models_keras import create_inputs
-from src.utils_dataio import InputFnv2 as InputFn
-from src.utils_dataio import get_data_from_tfrecord
+from src.utils.utils_dataio import InputFnv2 as InputFn
+from src.utils.utils_dataio import get_data_from_tfrecord
 from src_hpo import utils_hpo
 
 

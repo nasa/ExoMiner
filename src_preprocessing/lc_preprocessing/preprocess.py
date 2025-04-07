@@ -20,7 +20,6 @@ from src_preprocessing.lc_preprocessing.utils_centroid_preprocessing import (kep
                                                                              correct_centroid_using_transit_depth)
 from src_preprocessing.lc_preprocessing.utils_ephemeris import create_binary_time_series, \
     find_first_epoch_after_this_time
-from src_preprocessing.lc_preprocessing.utils_gapping import gap_other_tces
 from src_preprocessing.lc_preprocessing.utils_imputing import imputing_gaps
 from src_preprocessing.lc_preprocessing.utils_odd_even import create_odd_even_views, \
     phase_fold_and_sort_light_curve_odd_even
@@ -136,7 +135,7 @@ def read_light_curve(tce, config):
         tce: row of DataFrame, information on the TCE (ID, ephemeris, ...).
         config: Config object, preprocessing parameters
 
-    Returns:
+    Returns: dictionary with data extracted from the FITS files
         all_time: A list of numpy arrays; the time values of the raw light curve
         all_flux: A list of numpy arrays corresponding to the PDC flux time series
         all_centroid: A list of numpy arrays corresponding to the raw centroid time series
@@ -263,7 +262,25 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
     """
 
     # get all TCEs detected for the target stars' TCE of interest
-    tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
+    if 'sector_run' in tce:  # all TCEs in same target and sector run (TESS)
+        tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
+                                   (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
+    else:  # all TCEs in the same target (Kepler)
+        tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # get all TCEs detected for the target star's TCE of interest that share at least one sector observation
+    # tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
+    # valid_tces = []
+    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
+    # for _, tce_cand in tces_in_target.iterrows():
+    #     tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
+    #     overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
+    #     if overlaping_sectors_check:
+    #         valid_tces.append(tce_cand['uid'])
+    #
+    # tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
+
     # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
     idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
     n_tces_in_target = len(tces_in_target)
@@ -313,46 +330,56 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
     return target_intransit_cadences_arr, idx_tce
 
 
-def gap_intransit_cadences_other_tces(tce, table, data, config):
+def gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data, gap_keep_overlap=True,
+                                      impute_gaps=False, seed=None, tce=None, config=None):
     """ Find in-transit cadences (primary and secondary transits) for other detected TCEs in the light curve time series
-    and gaps them (i.e., sets cadences to NaN).
+    and gaps them (i.e., sets cadences to NaN) or imputes them if `impute_gaps` is set to True.
 
         Args:
-            tce: pandas Series, TCE of interest
-            table: pandas Dataframe, TCE dataset
-            data: dict, lightcurve raw data from the FITS files (e.g., timestamps, flux, centroid motion time series)
+            target_intransit_cadences_arr: list of boolean NumPy arrays (n_tces_in_target, n_cadences); each row is for
+                a given TCE in the target star; True for in-transit cadences, False otherwise
+            idx_tce: index of TCE of interest in `target_intransit_cadences_arr`
+            data: dict, lightcurve raw data from the FITS files (e.g., flux, centroid motion time series)
+            gap_keep_overlap: bool, if True it does not gap cadences belonging to the TCE of interest that overlap with
+                other TCEs
+            impute_gaps: bool, if True it imputes data in the gapped transits instead of setting them to NaN.
+            seed: rng seed
+            tce: pandas Series, TCE parameters
             config: dict, preprocessing parameters
-
         Returns:
             data, dict with light curve raw data from the FITS files, but now with cadences for the transits of other
-            detected TCEs set to NaN. If data['gap_imputed'] is True, gapped timestamps are stored in data['gap_time']
+            detected TCEs set to NaN or imputed
     """
 
-    # FIXME: what if removes a whole quarter? need to adjust all_additional_info to it
-    timeseries_gapped = ['all_time', 'all_flux', 'all_centroids']  # timeseries to be gapped
-    data['gap_time'] = None
+    other_tces_idxs = np.ones(len(target_intransit_cadences_arr[0]), dtype='bool')
+    other_tces_idxs[idx_tce] = False
 
-    # get cadence indices to be gapped/imputed
-    gapped_idxs = gap_other_tces(data['all_time'],
-                                 tce,
-                                 table,
-                                 config,
-                                 gap_pad=config['gap_padding'],
-                                 keep_overlap=config['gap_keep_overlap'])
-    if config['gap_imputed']:
-        data['gap_time'] = []
-    # set to NaN gapped cadences in the time series
-    for arr_i in range(len(gapped_idxs)):
-        if len(gapped_idxs[arr_i]) == 0:
-            continue
-        for timeseries in timeseries_gapped:
-            if 'centroids' in timeseries:
-                data[timeseries]['x'][arr_i][gapped_idxs[arr_i]] = np.nan
-                data[timeseries]['y'][arr_i][gapped_idxs[arr_i]] = np.nan
-            else:
-                data[timeseries][arr_i][gapped_idxs[arr_i]] = np.nan
-        if config['gap_imputed']:
-            data['gap_time'].append(data['all_time'][arr_i][gapped_idxs[arr_i]])
+    it_cadences_other_tces = [np.sum(target_intransit_cadences[other_tces_idxs, :], axis=0) != 0
+                              for target_intransit_cadences in target_intransit_cadences_arr]
+    if gap_keep_overlap:
+        for arr_i, it_cadences_other_tces_arr in enumerate(it_cadences_other_tces):
+            it_cadences_other_tces_arr[target_intransit_cadences_arr[arr_i][idx_tce]] = False
+
+    for arr_i, it_cadences_other_tces_arr in enumerate(it_cadences_other_tces):
+        for timeseries in data:
+            if impute_gaps:  # impute gapped transit cadences
+                if 'centroids' in timeseries:
+                    data[timeseries]['x'][arr_i] = (
+                        imputing_gaps(data[timeseries]['x'][arr_i], it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                      config=config))
+                    data[timeseries]['y'][arr_i] = imputing_gaps(data[timeseries]['y'][arr_i],
+                                                                 it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                                                 config=config)
+                else:
+                    data[timeseries][arr_i] = (
+                        imputing_gaps(data[timeseries][arr_i], it_cadences_other_tces_arr, seed=seed, tce=tce,
+                                      config=config))
+            else:  # set gapped transit cadences to NaN
+                if 'centroids' in timeseries:
+                    data[timeseries]['x'][arr_i][it_cadences_other_tces_arr] = np.nan
+                    data[timeseries]['y'][arr_i][it_cadences_other_tces_arr] = np.nan
+                else:
+                    data[timeseries][arr_i][it_cadences_other_tces_arr] = np.nan
 
     return data
 
@@ -377,8 +404,6 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
     for key, val in data.items():
         if val is None:
             raise KeyError(f'No detrended data for {key} time series before creating the phase folded time series.')
-            # report_exclusion(config, tce, f'No data for {key} before creating the views.')
-            # return None
 
     phasefolded_timeseries = {field: 3 * (None,)
                               for field in ['flux', 'flux_unfolded', 'flux_trend', 'flux_trend_unfolded', 'flux_odd',
@@ -454,16 +479,20 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['n_max_phases'],
         config['keep_odd_even_order'],
         config['frac_it_cadences_thr'],
-        config['sampling_rate_h'][config['satellite']],
+        config['sampling_rate_h'],  # [config['satellite']],
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config[
             'quarter_sampling']
-        else None
+        else None,
+        remove_outliers_params={'sigma': config['outlier_removal_sigma'],
+                                'fill': config['outlier_removal_fill'],
+                                'outlier_type': 'upper',
+                                } if config['outlier_removal'] else None
     )
     phasefolded_timeseries['flux_unfolded'] = (time_split, flux_split, n_phases_split)
 
     if n_phases_split < config['min_n_phases']:
-        raise ValueError(f'Only found {n_phases_split} phase for flux, need at least {config["min_n_phases"]} to '
+        raise ValueError(f'Only found {n_phases_split} phase(s) for flux, need at least {config["min_n_phases"]} to '
                          f'create example.')
 
     # phase folding for flux trend time series to generate phases separately
@@ -476,28 +505,43 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         config['n_max_phases'],
         config['keep_odd_even_order'],
         0,
-        config['sampling_rate_h'][config['satellite']],
+        config['sampling_rate_h'],  # [config['satellite']],
         config['phase_extend_method'],
         quarter_timestamps=data['quarter_timestamps'] if config['satellite'] == 'kepler' and config['quarter_sampling']
-        else None
+        else None,
+        remove_outliers_params={'sigma': config['outlier_removal_sigma'],
+                                'fill': config['outlier_removal_fill'],
+                                'outlier_type': 'upper',
+                                } if config['outlier_removal'] else None
     )
     phasefolded_timeseries['flux_trend_unfolded'] = (time_trend_split, flux_trend_split, n_phases_trend_split)
 
     if n_phases_trend_split < config['min_n_phases']:
-        raise ValueError(f'Only found {n_phases_split} phase for flux trend, need at least {config["min_n_phases"]} to '
-                         f'create example.')
+        raise ValueError(f'Only found {n_phases_trend_split} phase(s) for flux trend, need at least '
+                         f'{config["min_n_phases"]} to create example.')
+
+    if plot_preprocessing_tce:
+        # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
+        utils_visualization.plot_all_phasefoldedtimeseries({ts_name: ts_data
+                                                            for ts_name, ts_data in phasefolded_timeseries.items()
+                                                            if 'unfolded' not in ts_name},
+                                                           tce,
+                                                           PHASEFOLD_GRID_PLOTS,
+                                                           config['plot_dir'] /
+                                                           f'{tce["uid"]}_{tce["label"]}_'
+                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           None
+                                                           )
 
     # remove outliers from the phase folded flux time series
     if config['outlier_removal']:
 
-        # phasefolded_timeseries_posout = {ts_name: (np.array(ts_arr[0]), np.array(ts_arr[1]))
-        #                                  for ts_name, ts_arr in phasefolded_timeseries.items()
-        #                                  if 'flux' in ts_name and
-        #                                  ('trend' not in ts_name and 'unfolded' not in ts_name)}
-
         for ts_name, (ts_time, ts_values, n_transits_ts) in phasefolded_timeseries.items():
 
             if ts_name in ['momentum_dump', 'centroid_offset_distance_to_target']:
+                continue
+
+            if 'unfolded' in ts_name:  # outlier removal was already performed
                 continue
 
             if 'trend' in ts_name:
@@ -517,13 +561,6 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                     outlier_type='upper',
                 )
 
-                # phasefolded_timeseries[ts_name] = (ts_time, ts_arr, n_transits_ts)
-                # phasefolded_timeseries_posout[ts_name] = (ts_time[idxs_out],
-                #                                           phasefolded_timeseries_posout[ts_name][1][idxs_out])
-
-    # else:
-    #     phasefolded_timeseries_posout = None
-
     if plot_preprocessing_tce:
         # CHANGE NUMBER OF PLOTS AS FUNCTION OF THE TIME SERIES PREPROCESSED
         utils_visualization.plot_all_phasefoldedtimeseries({ts_name: ts_data
@@ -533,7 +570,8 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            PHASEFOLD_GRID_PLOTS,
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
-                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           f'5_phasefolded_timeseries_outlierrem_' 
+                                                           f'aug{tce["augmentation_idx"]}.png',
                                                            None
                                                            )
 
@@ -550,31 +588,6 @@ def process_tce(tce, table, config):
     return: a tensorflow.train.Example proto containing TCE features
     """
 
-    # setting primary and secondary transit gap duration
-    if 'tce_maxmesd' in tce:
-        config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'],
-                                                2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
-                                                tce['tce_period'])
-        # setting secondary gap duration
-        config['duration_gapped_secondary'] = config['duration_gapped_primary']
-        # config['duration_gapped_secondary'] = (
-        #     min(
-        #         max(
-        #             0,
-        #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
-        #         config['gap_padding'] * tce['tce_duration']))
-    else:
-        config['duration_gapped_primary'] = min(config['gap_padding'] * tce['tce_duration'], tce['tce_period'])
-        config['duration_gapped_secondary'] = 0
-
-    # set Savitzky-Golay window
-    if config['detrending_method'] == 'savitzky-golay':
-        # config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
-        #                            config['sampling_rate_h'][f'{config["satellite"]}'])
-        win_dur_h = 1.2 * 24
-        config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'][f'{config["satellite"]}'])
-        config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
-
     # check if preprocessing pipeline figures are saved for the TCE
     plot_preprocessing_tce = False  # False
     if np.random.random() < config['plot_prob']:
@@ -587,15 +600,47 @@ def process_tce(tce, table, config):
     data = read_light_curve(tce, config)
     if data is None:
         raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
-        # report_exclusion(config, tce, 'Issue when reading data from the FITS file(s).')
-        # return None
 
     # update target position in FITS file with that from the TCE table
     if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
         data['target_position'] = [tce['ra'], tce['dec']]
     config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
 
+    # config['primary_buffer_time'] = (config['primary_buffer_nsamples'] /
+    #                                  config['sampling_rate_h'][config['satellite']] / 24)
     data['errors'] = check_inputs(data)
+
+    # get number of samples per hour
+    config['sampling_rate_h'] = 1 / (np.median(np.diff(np.concatenate(data['all_time']))) * 24)
+
+    # setting primary and secondary transit gap duration
+    if 'tce_maxmesd' in tce:
+        config['duration_gapped_primary'] = max(
+            min(config['tr_dur_f'] * tce['tce_duration'],
+                2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
+                tce['tce_period']),
+            tce['tce_duration']
+        )
+        # setting secondary gap duration
+        config['duration_gapped_secondary'] = config['duration_gapped_primary']
+        # config['duration_gapped_secondary'] = (
+        #     min(
+        #         max(
+        #             0,
+        #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
+        #         config['gap_padding'] * tce['tce_duration']))
+    else:
+        config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'], tce['tce_period'])
+        config['duration_gapped_secondary'] = 0
+
+    # set Savitzky-Golay window
+    if config['detrending_method'] == 'savitzky-golay':
+        # config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
+        #                            config['sampling_rate_h'][f'{config["satellite"]}'])
+        # win_dur_h = config['sg_n_durations_win'] * tce['tce_duration'] * 24
+        win_dur_h = 1.2 * 24
+        config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'])  # [f'{config["satellite"]}'])
+        config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
 
     # # TODO: use this?
     # if config['satellite'] == 'kepler':
@@ -636,14 +681,21 @@ def process_tce(tce, table, config):
 
     # gap cadences belonging to the transits of other TCEs in the same target star
     if config['gapped']:
-        # TODO: fix code for gapping transits
-        data = gap_intransit_cadences_other_tces(tce, table, data, config)
+        data_to_be_gapped = {ts_name: ts_data for ts_name, ts_data in data.items()
+                             if ts_name in ['all_flux', 'all_centroids']}
+        # if config['get_momentum_dump']:
+        #     data_to_be_gapped['momentum_dump'] = data['momentum_dump']
+
+        data_gapped = gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data_to_be_gapped,
+                                                        config['gap_keep_overlap'], config['gap_imputed'],
+                                                        seed=config['random_seed'], tce=tce, config=config)
+        data.update(data_gapped)
 
     # compute lc periodogram
     pgram_data = lc_periodogram_pipeline(
         config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
         config['smooth_filter_type'], config['smooth_filter_w_f'],
-        config['gap_padding'],
+        config['tr_dur_f'],
         tce, data['all_time'], data['all_flux'], data['all_flux_err'],
         save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png',
         plot_preprocessing_tce=plot_preprocessing_tce)
@@ -703,18 +755,19 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
         time, flux, intransit_cadences_target = (np.concatenate(time_arrs), np.concatenate(flux_arrs),
                                                  np.concatenate(intransit_cadences_target))
         lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
-        # # mask in-transit cadences
-        # mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
-        #                                          config['duration_gapped_primary'])
 
-        time, detrended_flux, trend = detrend_flux_using_sg_filter(lc,
-                                                                   intransit_cadences_target,
-                                                                   config['sg_win_len'],
-                                                                   config['sg_sigma'],
-                                                                   config['sg_max_poly_order'],
-                                                                   config['sg_penalty_weight'],
-                                                                   config['sg_break_tolerance']
+        time, detrended_flux, trend, models_info_df = detrend_flux_using_sg_filter(lc,
+                                                                                   intransit_cadences_target,
+                                                                                   config['sg_win_len'],
+                                                                                   config['sg_sigma'],
+                                                                                   config['sg_max_poly_order'],
+                                                                                   config['sg_penalty_weight'],
+                                                                                   config['sg_break_tolerance']
                                                                    )
+
+        logger.info(f'[{tce["uid"]}] SG detrending model flux data info\n{models_info_df}. Chosen polynomial order: '
+                    f'{models_info_df.index[0]}')
+
         flux_lininterp = None
     else:
         raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
@@ -730,89 +783,6 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                               flux_interp=flux_lininterp)
 
     return time, detrended_flux, trend
-
-
-def weak_secondary_flux_preprocessing(all_time, all_flux_noprimary, tce, config, plot_preprocessing_tce):
-    """ Preprocess the weak secondary flux timeseries.
-
-    :param all_time: list of NumPy arrays, timestamps
-    :param all_flux_noprimary: list of NumPy arrays, weak secondary flux time series
-    :param tce: Pandas Series, TCE parameters
-    :param config: dict, preprocessing parameters
-    :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
-    :return:
-        time: NumPy array, timestamps for preprocessed flux time series
-        detrended_flux: NumPy array, preprocessed weak secondary flux timeseries
-    """
-
-    time_arrs, flux_arrs = [np.array(el) for el in all_time], [np.array(el) for el in all_flux_noprimary]
-
-    # remove non-finite values
-    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
-
-    first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                               tce['tce_period'], time[0])
-                              for time in time_arrs]
-    binary_time_all = [create_binary_time_series(time, first_transit_time, config['duration_gapped_primary'],
-                                                 tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_intransit_binary_timeseries(time_arrs, flux_arrs, binary_time_all, tce,
-                                                             config['plot_dir'] /
-                                                             '2_intransit_wksflux_binary_timeseries.png')
-    # # gap primary transits
-    # # get epoch of first transit for each time array
-    # first_transit_time_primary_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-    #                                   for time in time_arrs]
-    # # create binary time series for each time array in which in-transit points are labeled as 1's, otherwise as 0's
-    # binary_time_primary_all = [create_binary_time_series(time, first_transit_time_secondary,
-    #                                                      config['duration_gapped_secondary'],
-    #                                                      tce['tce_period'])
-    #                            for first_transit_time_secondary, time in zip(first_transit_time_primary_all, time_arrs)]
-    # # set primary in-transit cadences to np.nan
-    # flux_arrs = [np.where(binary_time_primary, np.nan, flux_arr)
-    #              for flux_arr, binary_time_primary in zip(flux_arrs, binary_time_primary_all)]
-
-    # remove non-finite values
-    time_arrs, flux_arrs = remove_non_finite_values([time_arrs, flux_arrs])
-
-    flux = np.concatenate(flux_arrs)
-
-    # detrend flux
-    if config['detrending_method'] == 'spline':
-        time, detrended_flux, trend, res_flux, flux_lininterp = detrend_flux_using_spline(flux_arrs, time_arrs,
-                                                                                          binary_time_all, config)
-
-    elif config['detrending_method'] == 'savitzky-golay':
-        # convert data to lightcurve object
-        time, flux = np.concatenate(time_arrs), np.concatenate(flux_arrs)
-        lc = lk.LightCurve(data={'time': np.array(time), 'flux': np.array(flux)})
-        # mask in-transit cadences for secondary
-        mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'] + tce['tce_maxmesd'],
-                                                 config['duration_gapped_primary'])
-
-        time, detrended_flux, trend, _ = detrend_flux_using_sg_filter(lc, mask_in_transit,
-                                                                      config['sg_win_len'],
-                                                                      config['sg_sigma'],
-                                                                      config['sg_max_poly_order'],
-                                                                      config['sg_penalty_weight'],
-                                                                      config['sg_break_tolerance'])
-        flux_lininterp = None
-    else:
-        raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_flux_detrend(time,
-                                              flux,
-                                              trend,
-                                              detrended_flux,
-                                              tce,
-                                              config['plot_dir'],
-                                              f'3_detrendedwksflux_aug{tce["augmentation_idx"]}',
-                                              flux_interp=flux_lininterp)
-
-    return time, detrended_flux
 
 
 def centroid_preprocessing(all_time, all_centroids, target_position, add_info, tce, config, plot_preprocessing_tce):
@@ -898,14 +868,18 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
             # mask_in_transit = lc.create_transit_mask(tce['tce_period'], tce['tce_time0bk'],
             #                                          config['duration_gapped_primary'])
 
-            _, detrended_centroid, trend = detrend_flux_using_sg_filter(lc,
-                                                                        intransit_cadences_target,
-                                                                        config['sg_win_len'],
-                                                                        config['sg_sigma'],
-                                                                        config['sg_max_poly_order'],
-                                                                        config['sg_penalty_weight'],
-                                                                        config['sg_break_tolerance'],
-                                                                        )
+            _, detrended_centroid, trend, models_info_df = detrend_flux_using_sg_filter(lc,
+                                                                                        intransit_cadences_target,
+                                                                                        config['sg_win_len'],
+                                                                                        config['sg_sigma'],
+                                                                                        config['sg_max_poly_order'],
+                                                                                        config['sg_penalty_weight'],
+                                                                                        config['sg_break_tolerance'],
+                                                                                        )
+
+            logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info\n{models_info_df}. '
+                        f'Chosen polynomial order: {models_info_df.index[0]}')
+
         else:
             raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
 
@@ -1052,10 +1026,10 @@ def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, 
                               for time in time_arrs]
 
     if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
+        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
                               tce['tce_period'])
     else:
-        duration_gapped = min((1 + 2 * config['gap_padding']) * tce['tce_duration'], tce['tce_period'])
+        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], tce['tce_period'])
 
     binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
                        for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
@@ -1422,6 +1396,23 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
                    bin_width_factor=config['bin_width_factor_loc'],
                    report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                    )
+
+    # set local flux view to Gaussian noise using statistics from flux phase folded time series when there are no data
+    # to create the local view
+    if np.all(np.isnan(loc_flux_view)):
+        report_exclusion(
+            f'No data available for local flux view. Setting it to median and var view to mad std using '
+            f'statistics from the flux phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        mu, sigma = np.nanmedian(data['flux'][1]), mad_std(data['flux'][1], ignore_nan=True)
+
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_flux_view = mu * np.ones(config['num_bins_loc'])
+            loc_flux_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_flux_view = np.zeros(config['num_bins_loc'])
+            loc_flux_view_var = np.zeros(config['num_bins_loc'])
+
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_flux_view_var /= np.sqrt(bin_counts)
 
@@ -1586,10 +1577,26 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                    bin_width_factor=config['bin_width_factor_loc'],
                    report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                    )
+
+    # set local flux view to Gaussian noise using statistics from flux phase folded time series when there are no data
+    # to create the local view
+    if np.all(np.isnan(loc_flux_view)):
+        report_exclusion(
+            f'No data available for local flux trend view. Setting it to median and var view to mad std using '
+            f'statistics from the flux trend phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        mu, sigma = np.nanmedian(data['flux_trend'][1]), mad_std(data['flux_trend'][1], ignore_nan=True)
+
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_flux_view = mu * np.ones(config['num_bins_loc'])
+            loc_flux_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_flux_view = np.zeros(config['num_bins_loc'])
+            loc_flux_view_var = np.zeros(config['num_bins_loc'])
+
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_flux_view_var /= np.sqrt(bin_counts)
 
-    # create unfolded local flux views
     unfolded_loc_flux_view = []
     unfolded_loc_flux_view_var = []
     for phase_i in range(data['flux_trend_unfolded'][2]):
@@ -1606,6 +1613,11 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                        bin_width_factor=config['bin_width_factor_loc'],
                        report={'config': config, 'tce': tce, 'view': 'local_flux_view'}
                        )
+
+        if np.all(~np.isfinite(unfolded_loc_flux_view_phase)):
+            unfolded_loc_flux_view_phase = np.median(glob_flux_view) * np.ones(config['num_bins_loc'])
+            unfolded_loc_flux_view_var_phase = (
+                    mad_std(glob_flux_view, ignore_nan=False) * np.ones(config['num_bins_loc']))
 
         bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
         unfolded_loc_flux_view_var_phase /= np.sqrt(bin_counts)
@@ -1678,6 +1690,21 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
           Additionally, there is one key that maps to the absolute minimum of the local weak secondary flux.
     """
 
+    # gap primary in-transit cadences in the phase folded secondary time series by imputing them with Gaussian noise
+    # estimated from the full phase folded time series
+    midpoint_primary_transit_time = -tce['tce_maxmesd']
+    tr_dur_f_primary_gap = 1
+
+    primary_gap_indices = np.logical_and(data['flux_weak_secondary'][0] > midpoint_primary_transit_time -
+                                         tr_dur_f_primary_gap * tce['tce_duration'],
+                                         data['flux_weak_secondary'][0] < midpoint_primary_transit_time +
+                                         tr_dur_f_primary_gap * tce['tce_duration'],
+                                         )
+    mu = np.nanmedian(data['flux_weak_secondary'][1])
+    sigma = mad_std(data['flux_weak_secondary'][1], ignore_nan=True)
+    rng = np.random.default_rng(seed=config['random_seed'])
+    data['flux_weak_secondary'][1][primary_gap_indices] = rng.normal(mu, sigma, primary_gap_indices.sum())
+
     # create local view for the weak secondary flux
     loc_weak_secondary_view, binned_time, loc_weak_secondary_view_var, _, bin_counts = \
         local_view(data['flux_weak_secondary'][0],
@@ -1693,34 +1720,37 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
                    report={'config': config, 'tce': tce, 'view': 'local_wks_view'}
                    )
 
-    # set local wks view to Gaussian noise using statistics from global weak secondary view when there are no data
-    # to create the local view
+    # set local weak secondary flux view to Gaussian noise using statistics from the weak secondary flux phase folded
+    # time series when there are no data to create the local view
     if np.all(np.isnan(loc_weak_secondary_view)):
         report_exclusion(
-            f'No data available for local weak secondary view. Setting it to Gaussian noise using '
-            f'statistics from the global wks view.',
+            f'No data available for local weak secondary view. Setting it to median and var view to mad std using '
+            f'statistics from the weak secondary phase folded time series.',
             config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
         mu, sigma = np.nanmedian(data['flux_weak_secondary'][1]), mad_std(data['flux_weak_secondary'][1],
                                                                           ignore_nan=True)
-        rng = np.random.default_rng()
-        loc_weak_secondary_view = rng.normal(mu, sigma, config['num_bins_loc'])
-        loc_weak_secondary_view_var = sigma * np.ones(config['num_bins_loc'])
 
-        _, _, _, _, bin_counts = \
-            global_view(data['flux_weak_secondary'][0],
-                        data['flux_weak_secondary'][1],
-                        tce['tce_period'],
-                        tce=tce,
-                        normalize=False,
-                        centering=False,
-                        num_bins=config['num_bins_glob'],
-                        bin_width_factor=config['bin_width_factor_glob'],
-                        report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
-                        tce_duration=tce['tce_duration']
-                        )
-        mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
-        bin_counts = rng.normal(mu, sigma, len(loc_weak_secondary_view))
-        bin_counts[bin_counts < 0] = 1
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_weak_secondary_view = mu * np.ones(config['num_bins_loc'])
+            loc_weak_secondary_view_var = sigma * np.ones(config['num_bins_loc'])
+        else:
+            loc_weak_secondary_view = np.zeros(config['num_bins_loc'])
+            loc_weak_secondary_view_var = np.zeros(config['num_bins_loc'])
+
+        # _, _, _, _, bin_counts = \
+        #     global_view(data['flux_weak_secondary'][0],
+        #                 data['flux_weak_secondary'][1],
+        #                 tce['tce_period'],
+        #                 tce=tce,
+        #                 normalize=False,
+        #                 centering=False,
+        #                 num_bins=config['num_bins_glob'],
+        #                 bin_width_factor=config['bin_width_factor_glob'],
+        #                 report={'config': config, 'tce': tce, 'view': 'global_flux_view'},
+        #                 tce_duration=tce['tce_duration']
+        #                 )
+        # mu, sigma = np.nanmedian(bin_counts), mad_std(bin_counts, ignore_nan=True)
+        # bin_counts = mu * np.ones(config['num_bins_loc'])
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_weak_secondary_view_var /= np.sqrt(bin_counts)
@@ -1729,7 +1759,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
     if norm_stats is None:  # normalize by self absolute minimum
         norm_stats = {'mu': np.median(loc_weak_secondary_view)}
 
-        norm_stats['sigma'] = np.abs(np.min(loc_weak_secondary_view - norm_stats['mu']))
+        norm_stats['sigma'] = np.abs(np.min(loc_weak_secondary_view - norm_stats['mu'])) + NORM_SIGMA_EPS
 
     loc_weak_secondary_view_norm = \
         centering_and_normalization(loc_weak_secondary_view,
@@ -1829,6 +1859,23 @@ def generate_centroid_binned_views(data, tce, config):
                    report={'config': config, 'tce': tce,
                            'view': 'local_centr_view'}
                    )
+
+    if np.isnan(loc_centr_view).all():
+        report_exclusion(
+            f'No data available for local centroid view. Setting it to median and var view to mad std using '
+            f'statistics from the phase folded time series.',
+            config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt')
+        t_min = max(-tce['tce_period'] / 2, -tce['tce_duration'] * config['num_durations'])
+        t_max = min(tce['tce_period'] / 2, tce['tce_duration'] * config['num_durations'])
+        loc_binned_time = np.linspace(t_min, t_max, config['num_bins_loc'], endpoint=True)
+        mu = np.nanmedian(data['centroid_offset_distance_to_target'][1])
+        sigma = mad_std(data['centroid_offset_distance_to_target'][1], ignore_nan=True)
+        if np.isfinite(mu) and np.isfinite(sigma):
+            loc_centr_view = mu * np.ones(config['num_bins_loc'], dtype='float')
+            loc_centr_view_var = sigma * np.ones(config['num_bins_loc'], dtype='float')
+        else:
+            loc_centr_view = np.zeros(config['num_bins_loc'])
+            loc_centr_view_var = np.zeros(config['num_bins_loc'])
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_centr_view_var /= np.sqrt(bin_counts)

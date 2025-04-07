@@ -15,6 +15,7 @@ import yaml
 
 # local
 from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.tf_util.example_util import get_feature
 
 
 def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=None, centroidList=None, diff_imgList=None, **kwargs):
@@ -65,12 +66,14 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, timeSeriesFDLList=N
         example.ParseFromString(string_record)
 
         # get scalar parameters data
+        # TODO: no need for data type in config file
         if scalar_params is not None:
             for scalarParam in scalar_params:
-                if scalar_params[scalarParam]['dtype'] == 'int':
-                    scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].int64_list.value[0])
-                elif scalar_params[scalarParam]['dtype'] == 'float':
-                    scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
+                # if scalar_params[scalarParam]['dtype'] == 'int':
+                #     scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].int64_list.value[0])
+                # elif scalar_params[scalarParam]['dtype'] == 'float':
+                #     scalarParamsDict[scalarParam].append(example.features.feature[scalarParam].float_list.value[0])
+                scalarParamsDict[scalarParam].append(get_feature(example, scalarParam)[0])
 
         # get FDL centroid time series data
         if timeSeriesFDLList is not None:
@@ -373,7 +376,7 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_tfrecord_dataset.yaml')
+    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.unsafe_load(file)

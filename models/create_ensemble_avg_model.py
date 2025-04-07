@@ -3,6 +3,7 @@ Create ensemble average model.
 """
 
 # 3rd party
+import tensorflow as tf
 from tensorflow.keras.utils import custom_object_scope
 from pathlib import Path
 from keras.saving import load_model
@@ -11,7 +12,8 @@ import argparse
 
 # local
 from models.utils_models import create_ensemble
-from models.models_keras import Time2Vec
+from models.models_keras import Time2Vec, SplitLayer
+from src.utils.utils_dataio import set_tf_data_type_for_features
 
 
 def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
@@ -28,11 +30,14 @@ def create_avg_ensemble_model(models_fps, features_set, ensemble_fp):
 
     # load models into a list
     models = []
-    custom_objects = {"Time2Vec": Time2Vec}
+    custom_objects = {"Time2Vec": Time2Vec, "SplitLayer": SplitLayer}
     with custom_object_scope(custom_objects):
         for model_i, model_fp in enumerate(models_fps):
             model = load_model(filepath=model_fp, compile=False)
-            model._name = f'model{model_i}'
+            if tf.__version__ < '2.14.0':
+                model._name = f'model{model_i}'
+            else:
+                model.name = f'model{model_i}'
             models.append(model)
 
     # create ensemble average model
@@ -60,5 +65,8 @@ if __name__ == "__main__":
     with open(config_fp, 'r') as file:
         run_params = yaml.unsafe_load(file)
     features_set_dict = run_params['features_set']
+
+    # convert features to appropriate tf data type
+    features_set_dict = set_tf_data_type_for_features(features_set_dict)
 
     create_avg_ensemble_model(models_fps_lst, features_set_dict, ensemble_model_fp)

@@ -8,6 +8,7 @@ Prepare TEC flux triage catalog to be used for:
 import pandas as pd
 from pathlib import Path
 import logging
+import re
 
 # %% Processing TEC flux triage tables
 
@@ -72,3 +73,49 @@ logger.info(f'Counts for flux triage comment:\n{tce_tbl["tec_fluxtriage_comment"
 
 tce_tbl.to_csv(res_dir / f'{tce_tbl_fp.stem}_tec.csv', index=False)
 logger.info('Saved TCE table with TEC results')
+
+#%% Create table for triage tier 2
+
+sector_runs_root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/TEC_SPOC/sector_run_results')
+
+sector_runs_dirs = [fp for fp in sector_runs_root_dir.iterdir() if fp.is_dir()]
+
+print(f'Found {len(sector_runs_dirs)} sector run results.')
+
+sector_run_tbls_lst = []
+for sector_run_dir in sector_runs_dirs:
+
+    # get sector id
+    singlesector_re_search = re.search('Sector_[0-9]*', sector_run_dir.name)
+    singlesector_re_search_nounderscore = re.search('Sector[0-9]*', sector_run_dir.name)
+
+    # multisector_re_search = re.search('MultiSector_[0-9]*_[0-9]*', sector_run_dir.name)
+    multisector_re_search2 = re.search('Sector_[0-9]*_[0-9]+', sector_run_dir.name)
+
+    if singlesector_re_search and not multisector_re_search2:  #  and not multisector_re_search2:
+        sector_run_id = str(int(singlesector_re_search.group().split('_')[-1]))
+    elif singlesector_re_search_nounderscore and not multisector_re_search2:
+        sector_run_id = str(int(singlesector_re_search_nounderscore.group()[6:]))
+    # elif multisector_re_search:
+    #     sector_run_id = '-'.join([int(el) for el in multisector_re_search.group().split('_')[1:]])
+    elif multisector_re_search2:
+        sector_run_id = '-'.join([str(int(el)) for el in multisector_re_search2.group().split('_')[1:]])
+    else:
+        raise ValueError(f'No matching pattern found for sector run in {sector_run_dir.name}')
+
+    # get txt table
+    sector_run_tbl_fp = list(sector_run_dir.glob('*Tier2*'))[0]
+    # read and parse table
+    sector_run_tbl = pd.read_csv(sector_run_tbl_fp, names=['target_id', 'tce_plnt_num', 'col_a', 'col_b', 'col_c', 'comment'], sep=' ')
+
+    # add sector id
+    sector_run_tbl['sector_run'] = sector_run_id
+
+    # set unique id
+    sector_run_tbl['uid'] = sector_run_tbl[['target_id', 'tce_plnt_num', 'sector_run']].apply(lambda x: f'{x["target_id"]}-{x["tce_plnt_num"]}-S{x["sector_run"]}', axis=1)
+
+    sector_run_tbls_lst.append(sector_run_tbl)
+
+tier2_tbl = pd.concat(sector_run_tbls_lst, axis=0, ignore_index=True)
+tier2_tbl.set_index('uid', inplace=True)
+tier2_tbl.to_csv(sector_runs_root_dir.parent / 'tec_tier2_10-16-2024_1137.csv', index=True)

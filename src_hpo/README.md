@@ -1,4 +1,4 @@
-# Hyperparameter optimization
+# Hyperparameter Optimization
 
 ### Goals
 
@@ -8,7 +8,7 @@ find optimized architectures for a given classification task, features, and data
 ### Methodology
 
 The HPO module uses the Python module `hpbandster` [1], which consists of an implementation in 
-Python of the Bayesian-Hyperband (BOHB), Bayesian-only, and Random Search algorithms.
+Python of the **Bayesian-Hyperband (BOHB)**, **Bayesian-only**, and **Random Search** algorithms.
 
 We wish to train multiple models (with different configurations) on a given number of epochs (budget per model). 
 However, we have limited compute and time resources, so BOHB explores the configuration space in a 'smarter' way than 
@@ -21,18 +21,20 @@ that assumption holds.
 
 ### Code
 
-1. hpo_keras.py: main script.
-2. worker_hpo_keras.py: worker implementation.
-3. hparamopt_res.py: script used to analyze results from an HPO run.
-4. utils_hpo.py: auxiliary functions.
-5. config_hpo.yaml: configuration parameters for the HPO experiment.
-6. Submit_hpo_gpus_i.pbs: PBS script used to run HPO on a multi-GPU and multi-node setup in the HECC.
+1. `run_hpo_worker.sh`: bash script used to start and control each worker.
+2. `run_hpo.py`: main Python script. All workers call this Python application.
+3. `worker_hpo.py`: worker implementation.
+4. `utils_hpo.py`: utility functions.
+5. `config_hpo.yaml`: configuration parameters for the HPO experiment.
+6. `Submit_hpo_gpus.pbs`: PBS script used to run HPO on a multi-GPU and multi-node setup in the HECC cluster.
+7. `hparamopt_res.py`: script used to analyze results from an HPO run in postprocessing.
+
 
 ### Results
 
-The main results for each HPO experiment are two json files (configs.json and results.json). The configs.json file logs
-all the configurations that were sampled for the experiment. Invalid configurations, i.e., that cannot be built or had 
-an error are assigned a loss of infinity. The results.json file logs the results and performance of the sampled 
+The main results for each HPO experiment are two json files (`configs.json` and `results.json`). The `configs.json` file 
+logs all the configurations that were sampled for the experiment. Invalid configurations, i.e., that cannot be built or 
+had an error are assigned a loss of infinity. The `results.json` file logs the results and performance of the sampled 
 configurations evaluated on the different budgets.
 
 ### References

@@ -1,29 +1,38 @@
 # Conduct ephemeris matching run.
 #PBS -S /bin/bash
 #PBS -N ephem_matching_exoplnt
-#PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=128:model=rom_ait
-#PBS -q long
+#PBS -l walltime=72:00:00
+# DSG GPU V100 nodes
+#PBS -l select=1:ncpus=36:mem=360g:ngpus=1:model=sky_gpu
+#PBS -l place=free:excl
+#PBS -q dsg_gpu@pbspl4
+# non-GPU nodes
+# PBS -l select=1:ncpus=128:model=rom_ait
+# PBS -q long
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_ephem_matching.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_ephem_matching.err
-#PBS -W group_list=a1509
+# PBS -W group_list=a1509
+#PBS -W group_list=s2857
 #PBS -m bea
 
-source "$HOME"/.bashrc
-
-conda activate exoplnt_dl_tf2_13
+module use -a /swbuild/analytix/tools/modulefiles
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
 
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s67_villanovaebs_1-25-2024_1235
+OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s56-s69_villanovaebs_10-7-2024_1538
 mkdir -p $OUTPUT_DIR
+
 # script file path
-SCRIPT_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/data_wrangling/ephemeris_matching/run_ephemeris_match_multiproc.py
+SCRIPT_FP=$PYTHONPATH/src_preprocessing/ephemeris_matching/run_ephemeris_match_multiproc.py
 # config file path
-CONFIG_FP=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/data_wrangling/ephemeris_matching/config_ephem_matching.yaml
+CONFIG_FP=$PYTHONPATH/src_preprocessing/ephemeris_matching/config_ephem_matching.yaml
+
+LOG_DIR=$OUTPUT_DIR/logs
+mkdir -p $LOG_DIR
 # log file
-LOG_FP=$OUTPUT_DIR/ephem_matching.log
-touch $LOG_FP
+LOG_FP=$LOG_DIR/ephem_matching_stdout.log
 
 python $SCRIPT_FP --config_fp=$CONFIG_FP --output_dir=$OUTPUT_DIR &> "$LOG_FP"

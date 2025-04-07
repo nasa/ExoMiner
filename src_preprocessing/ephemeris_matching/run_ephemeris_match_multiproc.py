@@ -24,16 +24,19 @@ import pandas as pd
 import multiprocessing
 import argparse
 import yaml
+import logging
 
 # local
 from src_preprocessing.ephemeris_matching.ephemeris_matching import match_transit_signals_in_target
+
+logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='./src_preprocessing/ephemeris_matching/config_ephem_matching.yaml')
+                        default='./config_ephem_matching.yaml')
     args = parser.parse_args()
 
     with(open(Path(args.config_fp).resolve(), 'r')) as file:
@@ -52,36 +55,46 @@ if __name__ == '__main__':
     save_dir.mkdir(exist_ok=True)
     plot_dir = exp_dir / 'bin_ts_plots'
     plot_dir.mkdir(exist_ok=True)
+    log_dir = exp_dir / 'logs'
+    log_dir.mkdir(exist_ok=True)
+
+    # create logger
+    logging.basicConfig(filename=log_dir / f'ephem_matching_main.log',
+                        level=logging.INFO,
+                        format='%(asctime)s - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        filemode='a',
+                        )
 
     # save yaml config file
     with open(exp_dir / 'config_run.yaml', 'w') as run_file:
         yaml.dump(config, run_file, sort_keys=False)
 
-    print(f'Plot probability: {config["plot_prob"]}')
-    print(f'Sampling interval for binary time series: {config["sampling_interval"]}')
+    logger.info(f'Plot probability: {config["plot_prob"]}')
+    logger.info(f'Sampling interval for binary time series: {config["sampling_interval"]}')
 
     # load table of signals of interest (usually TCEs)
     tce_tbl = pd.read_csv(config['tbl_a_fp'])
     tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
     tce_tbl = tce_tbl.dropna(subset=['period', 'epoch', 'duration'])
     tce_tbl['sector_run'] = tce_tbl['sector_run'].astype('str')
-    print(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
-    print(f'Table with {len(tce_tbl)} signals.')
+    logger.info(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
+    logger.info(f'Table with {len(tce_tbl)} signals.')
 
     # load of signals to be matched to those in table of signals of interest (usually objects with dispositions)
     toi_tbl = pd.read_csv(config['tbl_b_fp'])
-    print(f'Using objects\' table: {config["tbl_b_fp"]}')
-    print(f'Table with {len(toi_tbl)} signals.')
+    logger.info(f'Using objects\' table: {config["tbl_b_fp"]}')
+    logger.info(f'Table with {len(toi_tbl)} signals.')
 
     # load table with start and end timestamps for each sector run for the TICs associated with the tCEs in the TCE
     # table
     sector_timestamps_tbl = pd.read_csv(config["sector_timestamps_tbl_fp"]).sort_values('sector')
-    print(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
+    logger.info(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
 
     targets_arr = toi_tbl['target_id'].unique()
-    print(f'Number of targets to be iterated through: {len(targets_arr)}')
+    logger.info(f'Number of targets to be iterated through: {len(targets_arr)}')
 
-    print(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
+    logger.info(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
     pool = multiprocessing.Pool(processes=config["n_procs"])
     targets_arr_jobs = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, config["sampling_interval"],
                          save_dir, config["plot_prob"], plot_dir)
@@ -90,5 +103,7 @@ if __name__ == '__main__':
                      for targets_arr_job in targets_arr_jobs]
     pool.close()
     pool.join()
+    # for job in targets_arr_jobs:
+    #     a = match_transit_signals_in_target(*job)
 
-    print('Finished ephemeris matching.')
+    logger.info('Finished ephemeris matching.')

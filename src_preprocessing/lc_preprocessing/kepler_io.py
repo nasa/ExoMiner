@@ -393,6 +393,7 @@ def read_kepler_light_curve(filenames,
     data = {
         'all_time': [],
         'all_flux': [],
+        'all_flux_err': [],
         'all_centroids': {'x': [], 'y': []},
         'all_centroids_px': {'x': [], 'y': []},
         'flag_keep': [],
@@ -503,6 +504,7 @@ def read_kepler_light_curve(filenames,
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME
         flux = light_curve.PDCSAP_FLUX
+        flux_err = light_curve.PDCSAP_FLUX_ERR
 
         if not time.size:
             continue  # No data.
@@ -542,6 +544,7 @@ def read_kepler_light_curve(filenames,
         # add data
         data['all_time'].append(time)
         data['all_flux'].append(flux)
+        data['all_flux_err'].append(flux_err)
         data['all_centroids']['x'].append(centroid_x)
         data['all_centroids']['y'].append(centroid_y)
         data['all_centroids_px']['x'].append(centroid_fdl_x)

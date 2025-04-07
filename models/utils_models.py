@@ -29,7 +29,7 @@ def create_inputs(features, feature_map=None):
                                              dtype=features[feature]['dtype'],
                                              sparse=False,
                                              tensor=None,
-                                             ragged=False)
+                                             )
         else:
             inputs[feature_map[feature]] = tf.keras.Input(shape=features[feature]['dim'],
                                                           batch_size=None,
@@ -37,7 +37,7 @@ def create_inputs(features, feature_map=None):
                                                           dtype=features[feature]['dtype'],
                                                           sparse=False,
                                                           tensor=None,
-                                                          ragged=False)
+                                                          )
 
     return inputs
 
@@ -60,9 +60,9 @@ def create_ensemble(features, models, feature_map=None):
     if len(single_models_outputs) == 1:
         outputs = single_models_outputs
     else:
-        outputs = tf.keras.layers.Average()(single_models_outputs)
+        outputs = tf.keras.layers.Average(name='avg_model_outputs')(single_models_outputs)
 
-    return keras.Model(inputs=inputs, outputs=outputs)
+    return keras.Model(inputs=inputs, outputs=outputs, name='ensemble_avg_model')
 
 
 def compile_model(model, config, metrics_list, train=True):

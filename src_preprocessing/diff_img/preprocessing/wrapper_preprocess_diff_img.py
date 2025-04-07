@@ -10,21 +10,21 @@ import yaml
 import re
 
 # file path to script that preprocesses difference image data for a sector run (i.e, for a DV xml file)
-script_fp = '/home/msaragoc/Projects/exoplnt_dl/codebase/src_preprocessing/diff_img/preprocessing/preprocess_diff_img.py'
+script_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/preprocess_diff_img.py'
 
 # path to directory with difference image data for the different sector runs
-diff_img_data_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943/data')
+diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/extracted_data/s36-s72_singlesector_11-25-2024_0948/data')
 # list of file paths to DV NumPy files for the sector runs to be preprocessed
 diff_img_data_fps = diff_img_data_dir.iterdir()
 
 # destination root directory for all the preprocessed data
-dest_root_dir = Path(f'/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/preprocessed_data/s36-s68_singlesectorsonly_3-20-2024_1636')
+dest_root_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/preprocessed_data/s36-s72_singlesector_11-25-2024_1210')
 dest_root_dir.mkdir(exist_ok=True)
 
-qual_metrics_tbl_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/dv/diff_img/extracted_data/s36-s68_singlesectorsonly_3-20-2024_0943/diff_img_quality_metric/')
+qual_metrics_tbl_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/quality_metrics/s36-s72_singlesector_11-25-2024_0952')
 
 # set file path for default config file
-default_config_fp = Path('/home/msaragoc/Projects/exoplnt_dl/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+default_config_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
 
 for diff_img_data_fp in diff_img_data_fps:
 

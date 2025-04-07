@@ -1142,7 +1142,6 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
     ax[0].set_title('Full-orbit View')
     ax[1].plot(binned_time, loc_mom_dump_view)
     ax[1].plot(binned_time, loc_mom_dump_view + loc_mom_dump_view_var, 'r--')
-    ax[1].plot(binned_time, loc_mom_dump_view - loc_mom_dump_view_var, 'r--')
     ax[1].set_xlim(binned_time[[0, -1]])
     ax[1].set_ylabel('Momentum Dump Flag')
     ax[1].set_xlabel('Binned Time [day]')
@@ -1150,6 +1149,26 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
     f.tight_layout()
     plt.savefig(savefp)
     plt.close()
+
+    # f, ax = plt.subplots(2, 1)
+    # ax[0].plot(time * 24, momentum_dump, c='b', linewidth=3)
+    # # ax[0].set_xlim(time[[0, -1]])
+    # ax[0].set_xlim(binned_time[[0, -1]] * 24)
+    # ax[0].set_ylabel('Mom. Dump Flag', fontsize=16)
+    # # ax[0].set_xlabel('Phase [day]')
+    # ax[0].set_ylim(bottom=0)
+    # # ax[0].set_title('Full-orbit View')
+    # ax[1].plot(binned_time * 24, loc_mom_dump_view, c='b', linewidth=3)
+    # ax[1].plot(binned_time * 24, loc_mom_dump_view + loc_mom_dump_view_var, 'r--', linewidth=3)
+    # # ax[1].plot(binned_time * 24, loc_mom_dump_view - loc_mom_dump_view_var, 'r--')
+    # ax[1].set_xlim(binned_time[[0, -1]] * 24)
+    # ax[1].set_ylabel('Binned Value', fontsize=16)
+    # ax[1].set_xlabel('Phase [hour]', fontsize=16)
+    # ax[1].set_ylim(bottom=0)
+    # # ax[1].set_title('Transit View')
+    # f.tight_layout()
+    # plt.savefig(savefp)
+    # plt.close()
 
 
 def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savefp):
@@ -1262,10 +1281,10 @@ def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmo
     ax[2].set_yscale('log')
     ax[2].set_xscale('log')
 
-    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]}' 
+    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]} ' 
                fr'Period: {tce_data["tce_period"]:.3f} day | $f_0={f0_tce:.3e} /s$')
     f.tight_layout()
-    f.savefig(save_fp)
+    plt.savefig(save_fp)
     plt.close()
 
 
@@ -1356,9 +1375,11 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
                c='r', zorder=3)
     ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
             zorder=2)
+    ax.axvline(x=-tce['tce_maxmesd'] * 24, c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
     ax.set_ylabel('Amplitude')
     ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+    ax.legend()
 
     ax = plt.subplot(gs[1, 1])
     ax.scatter(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],

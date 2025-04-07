@@ -10,6 +10,7 @@ from astropy.stats import mad_std
 from src_preprocessing.light_curve import median_filter, util
 from src_preprocessing.lc_preprocessing.utils_imputing import impute_binned_ts
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.lc_preprocessing.utils_preprocessing import remove_outliers
 
 
 NORM_SIGMA_EPS = 1e-12
@@ -53,7 +54,8 @@ def phase_fold_and_sort_light_curve(time, timeseries, period, t0, augmentation=F
 
 
 def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases, keep_odd_even_order,
-                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None):
+                            it_cadences_per_thr, num_cadences_per_h, extend_method, quarter_timestamps=None, seed=None,
+                            remove_outliers_params=None):
     """ Splits a 1D time series phases using the detected orbital period and epoch. Extracts `n_max_phases` from the
     time series.
 
@@ -73,6 +75,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       quarter_timestamps: dict, each value is a list. The key is the quarter id and the value is a list with the
       start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
       sampling takes into account transits from different quarters.
+      seed: integer, rng seed
+      remove_outliers_params: dict, outlier removal parameters
 
     Returns:
       phase_split: 2D NumPy array (n_phases x n_points) of phase folded time values in
@@ -85,9 +89,10 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     """
 
     # phase interval for classifying cadences as in-transit cadences
-    tmin_it, tmax_it = max(-period / 2, -1.5 * duration), min(period / 2, 1.5 * duration)
+    duration_f = 1.5
+    tmin_it, tmax_it = max(-period / 2, -duration_f * duration), min(period / 2, duration_f * duration)
 
-    expected_num_it_cadences = int(duration * 24 * num_cadences_per_h)
+    expected_num_it_cadences = int(2 * duration_f * duration * 24 * num_cadences_per_h)
 
     # find mid-transit points in [time[0], t0] and [t0, time[-1]]
     k_min, k_max = int(np.ceil((t0 - time[0]) / period)), int(np.ceil((time[-1] - t0) / period))
@@ -146,13 +151,33 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
     if n_obs_phases == 0:
         return None, None, 0, None
 
+    # outlier removal
+    if remove_outliers_params:
+        timeseries_split, idxs_out_lst = remove_outliers(
+            timeseries_split,
+            seed=seed,
+            **remove_outliers_params,
+        )
+        # get indices of phases that are valid, i.e., not all NaNs after outlier removal
+        idxs_valid_phases = [phase_idx for phase_idx in range(len(timeseries_split)) if len(timeseries_split) > 0]
+        timeseries_split = [timeseries_split[phase_i] for phase_i in range(len(timeseries_split))
+                            if phase_i in idxs_valid_phases]
+        # do the same for the phase and time split arrays and odd/even array
+        time_split = [time_split[phase_i] for phase_i in idxs_valid_phases]
+        phase_split = [phase_split[phase_i] for phase_i in idxs_valid_phases]
+        odd_even_obs = [odd_even_obs[phase_i] for phase_i in idxs_valid_phases]
+        n_obs_phases = len(time_split)
+        if n_obs_phases == 0:
+            return None, None, 0, None
+
     # remove phases that contain less than some number/fraction of in-transit cadences; they are not reliable
     # representations of the potential transit
-    num_it_cadences_phases = np.array([np.sum(np.logical_and(phase_split[phase_i] > tmin_it,
-                                                             phase_split[phase_i] < tmax_it))
+    num_it_cadences_phases = np.array([np.isfinite(timeseries_split[phase_i][
+                                                       np.logical_and(phase_split[phase_i] > tmin_it,
+                                                                      phase_split[phase_i] < tmax_it)]).sum()
                                        for phase_i in range(n_obs_phases)])
     # idx_valid_phases = num_it_cadences_phases > min_num_it_cadences
-    idx_valid_phases = num_it_cadences_phases / expected_num_it_cadences > it_cadences_per_thr
+    idx_valid_phases = (num_it_cadences_phases / expected_num_it_cadences) > it_cadences_per_thr
     time_split = [time_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     timeseries_split = [timeseries_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
     phase_split = [phase_split[phase_i] for phase_i in range(n_obs_phases) if idx_valid_phases[phase_i]]
@@ -179,49 +204,50 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
 
     # choosing a random consecutive set of phases if there are more than the requested maximum number of phases
     if quarter_timestamps is None:
-            if n_obs_phases > n_max_phases:
+        if n_obs_phases > n_max_phases:
 
-                chosen_phases_st = np.random.randint(n_obs_phases - n_max_phases)
-                chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
+            rng = np.random.default_rng(seed=seed)
+            chosen_phases_st = rng.integers(0, n_obs_phases - n_max_phases, size=None)
+            chosen_phases = np.arange(chosen_phases_st, chosen_phases_st + n_max_phases)
 
-                time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
-                timeseries_split = [timeseries_split[chosen_phase] for chosen_phase in chosen_phases]
-                phase_split = [phase_split[chosen_phase] for chosen_phase in chosen_phases]
-                odd_even_obs = [odd_even_obs[chosen_phase] for chosen_phase in chosen_phases]
+            time_split = [time_split[chosen_phase] for chosen_phase in chosen_phases]
+            timeseries_split = [timeseries_split[chosen_phase] for chosen_phase in chosen_phases]
+            phase_split = [phase_split[chosen_phase] for chosen_phase in chosen_phases]
+            odd_even_obs = [odd_even_obs[chosen_phase] for chosen_phase in chosen_phases]
 
-            elif n_obs_phases < n_max_phases:
+        elif n_obs_phases < n_max_phases:
 
-                if extend_method == 'zero_padding':  # new phases are assigned baseline value
-                    n_miss_phases = n_max_phases - n_obs_phases
+            if extend_method == 'zero_padding':  # new phases are assigned baseline value
+                n_miss_phases = n_max_phases - n_obs_phases
 
-                    # zero phases have median number of cadences of observed phases
-                    med_n_cadences = np.median([time_split[phase_i] for phase_i in range(n_obs_phases)])
-                    # zero phases have median value of observed phases
-                    med_timeseries_val = np.median([timeseries_split[phase_i] for phase_i in range(n_obs_phases)])
-                    # linear phase space
-                    phase_split_miss = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
+                # zero phases have median number of cadences of observed phases
+                med_n_cadences = np.median([time_split[phase_i] for phase_i in range(n_obs_phases)])
+                # zero phases have median value of observed phases
+                med_timeseries_val = np.median([timeseries_split[phase_i] for phase_i in range(n_obs_phases)])
+                # linear phase space
+                phase_split_miss = np.linspace(-period / 2, period / 2, med_n_cadences, endpoint=True)
 
-                    phase_split += [phase_split_miss] * n_miss_phases
-                    timeseries_split += [med_timeseries_val * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
-                    time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
-                    odd_even_obs += [np.nan] * n_miss_phases
+                phase_split += [phase_split_miss] * n_miss_phases
+                timeseries_split += [med_timeseries_val * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
+                time_split += [np.nan * np.ones(med_n_cadences, dtype='float')] * n_miss_phases
+                odd_even_obs += [np.nan] * n_miss_phases
 
-                elif extend_method == 'copy_phases':  # phases are copied from the start
+            elif extend_method == 'copy_phases':  # phases are copied from the start
 
-                    n_full_group_phases = n_max_phases // n_obs_phases
-                    n_partial_group_phases = n_max_phases % n_obs_phases
-                    # phase_split = np.concatenate((np.tile(phase_split, n_full_group_phases),
-                    #                               phase_split[:n_partial_group_phases]), axis=1)
-                    phase_split = phase_split * n_full_group_phases + phase_split[:n_partial_group_phases]
+                n_full_group_phases = n_max_phases // n_obs_phases
+                n_partial_group_phases = n_max_phases % n_obs_phases
+                # phase_split = np.concatenate((np.tile(phase_split, n_full_group_phases),
+                #                               phase_split[:n_partial_group_phases]), axis=1)
+                phase_split = phase_split * n_full_group_phases + phase_split[:n_partial_group_phases]
 
-                    time_split = list(time_split) * n_full_group_phases + \
-                                 list(time_split[:n_partial_group_phases])
-                    timeseries_split = list(timeseries_split) * n_full_group_phases + \
-                                       list(timeseries_split[:n_partial_group_phases])
-                    odd_even_obs = odd_even_obs * n_full_group_phases + odd_even_obs[:n_partial_group_phases]
+                time_split = list(time_split) * n_full_group_phases + \
+                             list(time_split[:n_partial_group_phases])
+                timeseries_split = list(timeseries_split) * n_full_group_phases + \
+                                   list(timeseries_split[:n_partial_group_phases])
+                odd_even_obs = odd_even_obs * n_full_group_phases + odd_even_obs[:n_partial_group_phases]
 
-                else:
-                    raise NotImplementedError(f'Extend method for phases `{extend_method}` not implemented.')
+            else:
+                raise NotImplementedError(f'Extend method for phases `{extend_method}` not implemented.')
 
     else:
         # assign each phase to a season
@@ -246,7 +272,8 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
             # more phases available than the requested number of phases per season
             if n_phases_in_season >= n_phases_per_season:
                 # choose set of consecutive phases with random starting point
-                chosen_phases_st = np.random.randint(n_phases_in_season - n_phases_per_season + 1)
+                rng = np.random.default_rng(seed=seed)
+                chosen_phases_st = rng.integers(0, n_phases_in_season - n_phases_per_season + 1, size=None)
                 chosen_idx_phases_season = \
                     idxs_phases_in_season[chosen_phases_st: chosen_phases_st + n_phases_per_season]
                 # bookkeeping for phases not chosen
@@ -430,7 +457,7 @@ def normalize_view(view, val=None, centroid=False, **kwargs):
         # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
         report_exclusion(
             f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
-            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]["uid"]}.txt',
                          )
 
     return view / (val + NORM_SIGMA_EPS)
@@ -451,7 +478,7 @@ def centering_and_normalization(view, val_centr, val_norm, **kwargs):
         # print(f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.')
         report_exclusion(
             f'Dividing view by 0. Returning the non-normalized view {kwargs["report"]["view"]}.',
-            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]}.txt',
+            kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{kwargs["report"]["tce"]["uid"]}.txt',
                          )
 
     return (view - val_centr) / (val_norm + NORM_SIGMA_EPS)
@@ -549,14 +576,14 @@ def local_view(time,
     if t_min > time[-1] or t_max < time[0]:
         report_exclusion(
             f'No in-transit cadences in view {kwargs["report"]["view"]}. Setting local view to '
-            f'random Gaussian noise using med/mad_std statistics from the phase folded time series.',
+            f'median and var view to mad std using med/mad_std statistics from the phase folded time series.',
             kwargs['report']['config']['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                          )
         time_bins = np.linspace(t_min, t_max, num_bins, endpoint=True)
         med = np.median(flux)
         std_rob_estm = mad_std(flux)  # robust std estimator of the time series
         view_var = std_rob_estm * np.ones(num_bins, dtype='float')
-        view = med + np.random.normal(0, std_rob_estm, num_bins)
+        view = med + np.ones(num_bins, dtype='float')  # np.random.normal(0, std_rob_estm, num_bins, seed=?)
         inds_nan = {'oot': False * np.ones(num_bins, dtype='bool'), 'it': False * np.ones(num_bins, dtype='bool')}
         bin_counts = np.ones(num_bins, dtype='float')
     else:

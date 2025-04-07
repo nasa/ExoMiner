@@ -266,66 +266,6 @@ def analyze_results(result, hpo_config):
     #         print('\nGot TypeError: ', e)
 
 
-class json_result_logger(hpres.json_result_logger):
-    def __init__(self, directory, run_id, overwrite=False):
-        """ This implementation saves the config and results json files appending also the study name id. The  function
-        to load the results assumes that the files are named config.json and results.json.
-
-        convenience logger for 'semi-live-results'
-
-        Logger that writes job results into two files (configs.json and results.json).
-        Both files contain proper json objects in each line.
-
-        This version opens and closes the files for each result.
-        This might be very slow if individual runs are fast and the
-        filesystem is rather slow (e.g. a NFS).
-
-        Parameters
-        ----------
-
-        directory: string
-            the directory where the two files 'configs.json' and
-            'results.json' are stored
-        overwrite: bool
-            In case the files already exist, this flag controls the
-            behavior:
-
-                * True:   The existing files will be overwritten. Potential risk of deleting previous results
-                * False:  A FileExistsError is raised and the files are not modified.
-        """
-        os.makedirs(directory, exist_ok=True)
-
-        self.config_fn = os.path.join(directory, 'configs_%s.json' % run_id)
-        self.results_fn = os.path.join(directory, 'results_%s.json' % run_id)
-
-        try:
-            with open(self.config_fn, 'x') as fh:
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.config_fn, 'w') as fh:
-                    pass
-            else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
-        except:
-            raise
-
-        try:
-            with open(self.results_fn, 'x') as fh:
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.results_fn, 'w') as fh:
-                    pass
-            else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
-
-        except:
-            raise
-
-        self.config_ids = set()
-
-
 def logged_results_to_HBS_result(directory):
     """
     function to import logged 'live-results' and return a HB_result object
@@ -388,14 +328,15 @@ def logged_results_to_HBS_result(directory):
 
 
 if __name__ == '__main__':
+
     num_iterations = 1
     eta = 2
-    bmin, bmax = 1, 10
+    bmin, bmax = 5, 60
     print('Total number of runs,total budget: {}'.format(estimate_BOHB_runs(num_iterations, eta, bmin, bmax)))
 
     train_time = 0.5  # assuming that models on average take 30 minutes to train on 50 epochs
     nensemble = 3
-    nnodes = 24
+    nnodes = 2
     niter = 400
     runtime = niter * train_time * nensemble / nnodes
     print('Estimate on the number of hours needed, number of configurations tested, total budget: ', runtime, niter,

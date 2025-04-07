@@ -1,5 +1,4 @@
 """ Utility functions used to manipulate TFRecords. """
-import shutil
 
 # 3rd party
 import tensorflow as tf
@@ -8,10 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
+import shutil
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
+                                                                    get_out_of_transit_idxs_loc)
 from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 
 
@@ -358,6 +359,15 @@ def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
 
 
 def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
+    """ Merge TFRecord datasets.
+
+    Args:
+        dest_tfrec_dir: Path, destination TFRecord directory
+        src_tfrecs: dict, where the keys are the suffix of the source TFRecord file and the value is the path to the
+        source file
+
+    Returns:
+    """
 
     dest_tfrec_dir.mkdir(exist_ok=True)
 
@@ -369,14 +379,16 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
 
 if __name__ == '__main__':
 
+    tf.config.set_visible_devices([], 'GPU')
+
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_splinedetrending_s1-s67_4-5-2024_1513_merged')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_adddiffimg')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',
         'target_id': 'int',
         'tce_plnt_num': 'int',
-        'sector_run': 'str',
+        'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
     }
     tfrec_tbls = []
@@ -390,6 +402,9 @@ if __name__ == '__main__':
             # fp.unlink()
             # (fp.parent / f'{fp.name}.csv').unlink()
 
-    tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+    if len(tfrec_fps) > 1:
+        tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+    else:
+        tfrec_tbl = tfrec_tbls[0]
 
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)

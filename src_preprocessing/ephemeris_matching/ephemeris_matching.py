@@ -8,16 +8,20 @@ duration (in hours), and epoch (in days and same frame, e.g., TBJD), respectivel
 """
 
 # 3rd party
+import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import yaml
 import argparse
+import logging
 
 # local
 from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
     find_first_epoch_after_this_time
+
+logger = logging.getLogger(__name__)
 
 
 def compute_correlation_coeff(bin_ts_a, bin_ts_b):
@@ -86,8 +90,10 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
         ax.plot(time_arr, transit_signal_a_bin_ts, 'b', label='Signal A', zorder=1)
         ax.plot(time_arr, transit_signal_b_bin_ts, 'r--', label='Signal B', zorder=2, alpha=0.8)
         ax.legend()
-        ax.set_title(f'Signal A: {transit_signal_a["uid"]} p={transit_signal_a["period"]:.4f},e={transit_signal_a["epoch"]:.4f}, d={transit_signal_a["duration"]:.4f}'
-                     f'\nSignal B: {transit_signal_b["uid"]} p={transit_signal_b["period"]:.4f},e={transit_signal_b["epoch"]:.4f}, d={transit_signal_b["duration"]:.4f}, e_shift={epoch_new}'
+        ax.set_title(f'Signal A: {transit_signal_a["uid"]} p={transit_signal_a["period"]:.4f},' 
+                     f'e={transit_signal_a["epoch"]:.4f}, d={transit_signal_a["duration"]:.4f}'
+                     f'\nSignal B: {transit_signal_b["uid"]} p={transit_signal_b["period"]:.4f},' 
+                     f'e={transit_signal_b["epoch"]:.4f}, d={transit_signal_b["duration"]:.4f}, e_shift={epoch_new}'
                      f'\nCorrelation Coefficient: {corr_coeff:.4f}')
         ax.set_xlabel('Timestamps [BTJD]')
         ax.set_ylabel('In-transit Flag')
@@ -116,35 +122,51 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
 
     """
 
+    pid = os.getpid()
+    logging.basicConfig(filename=save_dir.parent / 'logs' / f'ephem_matching_{pid}.log',
+                        level=logging.INFO,
+                        format='%(asctime)s - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        filemode='a',
+                        force=True
+                        )
+
     for target_i, target in enumerate(targets_arr):
 
-        print(f'Iterating over target {target} ({target_i + 1}/{len(targets_arr)} targets)...')
+        logger.info(f'Iterating over target {target} ({target_i + 1}/{len(targets_arr)} targets)...')
 
         # get start and end timestamps for this TIC
         tic_timestamps_sector = sector_timestamps_tbl.loc[sector_timestamps_tbl['target'] == target]
         tic_timestamps_sector = tic_timestamps_sector.sort_values('sector')
         if len(tic_timestamps_sector) == 0:
-            print(f'Target {target} not found in the timestamps table.')
+            logger.info(f'Target {target} not found in the timestamps table.')
             continue
 
         # get objects in this TIC
         objects_in_tic = objects_tbl.loc[objects_tbl['target_id'] == target].reset_index()
         if len(objects_in_tic) == 0:
-            print(f'No objects in target {target} to be matched to.')
+            logger.info(f'No objects in target {target} to be matched to.')
             continue
 
         # iterate over sector runs
         sector_runs_target = tce_tbl.loc[tce_tbl['target_id'] == target, 'sector_run'].unique()
-        print(f'Found {len(sector_runs_target)} sector runs for target {target}.')
+        logger.info(f'Found {len(sector_runs_target)} sector runs for target {target}.')
         for sector_run_i, sector_run in enumerate(sector_runs_target):
-            print(f'Iterating over sector run {sector_run} for target {target} '
+
+            tic_match_tbl_fp = save_dir / f'match_tbl_s{sector_run}_tic_{target}.csv'
+            if tic_match_tbl_fp.exists():
+                logger.info(f'Found matching table for sector run {sector_run} and target {target} '
+                            f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
+                continue
+
+            logger.info(f'Iterating over sector run {sector_run} for target {target} '
                   f'({sector_run_i + 1}/{len(sector_runs_target)} sector runs)')
 
             # get TCEs in this TIC and sector run
             tces_in_tic_sectorun = tce_tbl.loc[(tce_tbl['target_id'] == target) &
                                                (tce_tbl['sector_run'] == sector_run)].reset_index()
             if len(tces_in_tic_sectorun) == 0:
-                print(f'No TCEs in target {target} for sector run {sector_run}.')
+                logger.info(f'No TCEs in target {target} for sector run {sector_run}.')
                 continue
 
             # get start and end timestamps for the sector run
@@ -153,7 +175,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
                 sector_flag = (tic_timestamps_sector['sector'] >= s_sector) & \
                               (tic_timestamps_sector['sector'] <= e_sector)
                 if sector_flag.sum() == 0:
-                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
+                    logger.info(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
 
                 tstart = tic_timestamps_sector.loc[sector_flag, 'start'].values[0]
@@ -161,7 +183,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             else:
                 sector = int(sector_run)
                 if (tic_timestamps_sector['sector'] == sector).sum() == 0:
-                    print(f'No start and end timestamps available for target {target} in sector run {sector_run}')
+                    logger.info(f'No start and end timestamps available for target {target} in sector run {sector_run}')
                     continue
                 tstart = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'start'].values[0]
                 tend = tic_timestamps_sector.loc[tic_timestamps_sector['sector'] == sector, 'end'].values[0]
@@ -172,7 +194,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for obj_i, obj in objects_in_tic.iterrows():
-                    # toi['duration'] = tce['duration']
+                    obj['duration'] = tce['duration']
                     corr_coef_mat[tce_i, obj_i] = \
                         match_transit_signals(tce, obj, sampling_interval, tstart, tend,
                                               plot_signals,
@@ -181,7 +203,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             tic_match_tbl = pd.DataFrame(corr_coef_mat, index=tces_in_tic_sectorun['uid'],
                                          columns=objects_in_tic['uid'])
 
-            tic_match_tbl.to_csv(save_dir / f'match_tbl_s{sector_run}_tic_{target}.csv')
+            tic_match_tbl.to_csv(tic_match_tbl_fp)
 
 
 if __name__ == '__main__':
@@ -200,6 +222,9 @@ if __name__ == '__main__':
         config['exp_dir'] = args.output_dir
 
     exp_dir = Path(config["exp_dir"])
+
+    log_dir = exp_dir / 'logs'
+    log_dir.mkdir(exist_ok=True)
 
     # create experiment directory
     exp_dir.mkdir(exist_ok=True)
@@ -232,14 +257,12 @@ if __name__ == '__main__':
     sector_timestamps_tbl = pd.read_csv(config["sector_timestamps_tbl_fp"]).sort_values('sector')
     print(f'Using sector timestamps table {config["sector_timestamps_tbl_fp"]}')
 
-    plot_prob = 0.01  # 0.01
-    print(f'Plot probability: {plot_prob}')
-    sampling_interval = 2 / 60 / 24  # sampling rate for binary time series
-    print(f'Sampling interval for binary time series: {sampling_interval}')
+    print(f'Plot probability: {config["plot_prob"]}')
+    print(f'Sampling interval for binary time series: {config["sampling_interval"]}')
 
     targets_arr = tce_tbl['target_id'].unique()
     print(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     # sequential option
-    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, sampling_interval, save_dir,
-                                    plot_prob=plot_prob, plot_dir=plot_dir)
+    match_transit_signals_in_target(targets_arr, tce_tbl, toi_tbl, sector_timestamps_tbl, config['sampling_interval'],
+                                    save_dir, plot_prob=config['plot_prob'], plot_dir=plot_dir)

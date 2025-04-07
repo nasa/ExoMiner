@@ -3,10 +3,7 @@
 .DS_Store
 *.pyc
 */__pycache__/*
-src_deployment/
 local_scripts/
-old/
+**/old/
 .idea/
-conda_vulnerabilities_jake.txt
-/job_scripts/old/
-*fits
+others/conda_vulnerabilities_jake.txt
