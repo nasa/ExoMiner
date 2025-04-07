@@ -95,6 +95,9 @@ config:
   multi_class: false  # used by compile_model
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+  #SNR
+  tce_model_snr: { 'dim': [1, ], 'dtype': float }
+
   #flux windows
   flux: { 'dim': [ 100, ], 'dtype': float }
 
