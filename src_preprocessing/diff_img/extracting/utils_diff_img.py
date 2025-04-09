@@ -346,31 +346,25 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     # get neighboring stars
     logger.info(f'{proc_id}] [Sector run {sector_run_id}] Getting neighbors information for target {tic_id} in '
                 f'sectors {sectors_obs}...')
-    neighbors_lst = []
+    neighbors_lst = []  # list of neighbors table for target across observed sectors
     for sector_obs in sectors_obs:
-        targets_dict = np.load(neighbors_dir / f'targets_S{sector_obs}.npy', allow_pickle=True).item()
-        neighbors_tbl = pd.read_csv(neighbors_dir / f'neighbors_S{sector_obs}.csv',
-                                    usecols=['ID', 'col_px', 'row_px', 'Tmag'])
 
-        if int(tic_id) not in targets_dict:
+        # load neighbors table for this sector
+        neighbors_tbl = pd.read_csv(neighbors_dir / f'S{sector_obs}' / 'mapping_results' /
+                                    f'neighbors_pxcoords_S{sector_obs}.csv')
+
+        # filter neighbors for this target
+        neighbors_target = neighbors_tbl.loc[neighbors_tbl['target_id'] == tic_id]
+
+        if len(neighbors_target) == 0:
             raise ValueError(f'{proc_id}] [Sector run {sector_run_id}] Target {tic_id}'
                              f' not found in the targets dictionary for sector {sector_obs}')
 
-        target_neighbors_dict = targets_dict[int(tic_id)]
+        neighbors_target = neighbors_target.set_index('ID')
 
-        # filter neighbors for this target and sector
-        neighbors = neighbors_tbl.loc[((neighbors_tbl['ID'].isin(list(targets_dict[int(tic_id)].keys()))))]
+        neighbors_lst.append(neighbors_target)
 
-        neighbors = neighbors.set_index('ID')
-
-        # add specific target information for this neighbor from the target dictionary
-        for neighbor_id, neighbor_data in target_neighbors_dict.items():
-            neighbors.loc[neighbor_id, ['dst_arcsec']] = neighbor_data['dstArcSec']
-
-        neighbors = neighbors.to_dict(orient='index')
-        neighbors_lst.append(neighbors)
-
-        logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {len(neighbors)} neighbors for '
+        logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {len(neighbors_target)} neighbors for '
                     f'target {tic_id} in sector {sector_obs}.')
 
     n_tces = len(planet_res_lst)
@@ -391,7 +385,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
         tce_neighbors_lst = []
         for neighbors_sector in neighbors_lst:
             tce_neighbors_sector = {}
-            for neighbor_id, neighbor_data in neighbors_sector.items():
+            for neighbor_id, neighbor_data in neighbors_sector.iterrows():
                 if np.isnan(neighbor_data['row_px']) or np.isnan(neighbor_data['col_px']):
                     continue
                 if neighbor_data['Tmag'] <= delta_mag:

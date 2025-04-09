@@ -11,14 +11,14 @@ import argparse
 import yaml
 from pathlib import Path
 import logging
-from functools import partial
+# from functools import partial
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models import models_keras
-from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
+# from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
 from models.models_keras import Time2Vec, SplitLayer
 
 

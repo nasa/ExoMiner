@@ -94,7 +94,9 @@ def get_neighbors_in_search_radius(targets, search_radius_arcsec, mag_thr=np.inf
 
 def get_neighbors_in_search_radius_splits(targets, search_radius_arcsec, save_subtbl_dir_fp, n_splits_targets,
                                           mag_thr=np.inf, logger=None):
-    """ Get neighbors in search radius `search_radius_arcsec` around each target in `targets`.
+    """ Get neighbors in search radius `search_radius_arcsec` around each target in `targets`. Splits `targets` into
+    `n_splits_targets` tables. The search is conducted for each one of these tables and the results of each search are
+    saved into a table.
 
     Args:
         targets: pandas DataFrame, table of targets ('target_id') to perform search
@@ -107,14 +109,13 @@ def get_neighbors_in_search_radius_splits(targets, search_radius_arcsec, save_su
         logger: logger
 
     Returns:
-        search_res: pandas DataFrame, table with neighbors. Returns `None` is `save_subtbl_fp` is not `None`
     """
 
     targets_splits = np.array_split(targets, n_splits_targets)
 
     for target_split_i, target_split in enumerate(targets_splits):
 
-        log_or_print(f'Iterated through {len(target_split)}/{len(target_split)} targets in split '
+        log_or_print(f'Iterating through {len(target_split)} targets in split '
                      f'{target_split_i} (out of {len(targets)} in total) split across {n_splits_targets} splits',
                      logger)
 
@@ -235,11 +236,11 @@ if __name__ == "__main__":
     n_splits_targets = 20
     # results directory
     # res_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_tess-point_2-12-2025_2114')
-    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233')
+    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_ffi_s36-s72_search_radius_arcsec_168.0_tpf_wcs_4-7-2025_1322')
     # multiprocessing parameters
     # n_jobs = 1
     n_procs = 6
-    targets_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_2min_tces_dv_s1-s88_4-3-2025_1231.csv')
+    targets_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s36-s72_4-7-2025_0931.csv')
     use_logs = True
 
     res_dir.mkdir(parents=True, exist_ok=True)

@@ -46,7 +46,7 @@ fi
 CV_ITER_DIR="$CV_DIR"/cv_iter_$CV_ITER
 mkdir -p "$CV_ITER_DIR"
 
-LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_iter_"$CV_ITER"_run_"$GNU_PARALLEL_INDEX"_jobarray_"$JOB_ARRAY_INDEX"_2.log
+LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_iter_"$CV_ITER"_run_"$GNU_PARALLEL_INDEX"_jobarray_"$JOB_ARRAY_INDEX".log
 
 echo "Starting job $GNU_PARALLEL_INDEX in job array $JOB_ARRAY_INDEX for CV iteration $CV_ITER..." > "$LOG_FP_CV_ITER"
 
@@ -112,35 +112,47 @@ do
 #    python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP_2MIN" --output_dir="$MODEL_DIR_2MIN" --model_i="$MODEL_I" &>> "$LOG_FP_TRAIN_MODEL_2MIN"
 #    CV_ITER_CONFIG_FP_2MIN=$MODEL_DIR_2MIN/config_cv.yaml
 #
-#    echo "Training model $MODEL_I in CV iteration $CV_ITER for 2-min data..." >> "$LOG_FP_CV_ITER"
-#    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_2MIN" --model_dir="$MODEL_DIR_2MIN" &> "$LOG_FP_TRAIN_MODEL_2MIN"
-#    echo "Finished training model $MODEL_I in CV iteration $CV_ITER for 2-min data" >> "$LOG_FP_CV_ITER"
+#    if [ -f "$MODEL_DIR_2MIN/model.keras" ]; then
+#        echo "Model $MODEL_I for 2-min data in CV iteration $CV_ITER already exists. Skipping training..."
+#        # continue
+#    else
+#        echo "Training model $MODEL_I in CV iteration $CV_ITER for 2-min data..." >> "$LOG_FP_CV_ITER"
+#        python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_2MIN" --model_dir="$MODEL_DIR_2MIN" &> "$LOG_FP_TRAIN_MODEL_2MIN"
+#        echo "Finished training model $MODEL_I in CV iteration $CV_ITER for 2-min data" >> "$LOG_FP_CV_ITER"
+#    fi
 
     # run second training step on FFI data
     MODEL_DIR_FFI="$MODELS_DIR_FFI"/model$MODEL_I
     mkdir -p "$MODEL_DIR_FFI"
-    LOG_FP_TRAIN_MODEL_FFI="$MODEL_DIR_FFI"/train_model_ffi_"$MODEL_I"_2.log
+    LOG_FP_TRAIN_MODEL_FFI="$MODEL_DIR_FFI"/train_model_ffi_"$MODEL_I".log
 
     # setup run
     echo "Setting up configuration for model $MODEL_I in CV iteration $CV_ITER for FFI data." >> "$LOG_FP_CV_ITER"
     python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP_FFI" --output_dir="$MODEL_DIR_FFI" --model_i="$MODEL_I" &>> "$LOG_FP_TRAIN_MODEL_FFI"
     CV_ITER_CONFIG_FP_FFI=$MODEL_DIR_FFI/config_cv.yaml
 
+#  # evaluating 2-min model on FFI data
+#    MODEL_FP="$MODEL_DIR_2MIN"/model.keras
+#    EVAL_MODEL_2MIN_ON_FFI_DIR=$MODEL_DIR_2MIN/eval_2min_model_on_ffi
+#    mkdir -p "$EVAL_MODEL_2MIN_ON_FFI_DIR"
+#    echo "Evaluating trained 2-min model $MODEL_I in CV iteration on FFI data..."
+#    python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$MODEL_FP" --output_dir="$EVAL_MODEL_2MIN_ON_FFI_DIR" &> "$LOG_FP_TRAIN_MODEL_2MIN"
+    
     if [ -f "$MODEL_DIR_FFI/model.keras" ]; then
         echo "Model $MODEL_I in CV iteration $CV_ITER already exists. Skipping training..."
         # continue
     else
         echo "Training model $MODEL_I in CV iteration $CV_ITER for FFI data..." >> "$LOG_FP_CV_ITER"
-#      python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_dir="$MODEL_DIR_FFI" --model_fp="$MODEL_DIR_2MIN"/model.keras &> "$LOG_FP_TRAIN_MODEL_FFI"
+        # python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_dir="$MODEL_DIR_FFI" --model_fp="$MODEL_DIR_2MIN"/model.keras &> "$LOG_FP_TRAIN_MODEL_FFI"
         python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_dir="$MODEL_DIR_FFI" &> "$LOG_FP_TRAIN_MODEL_FFI"
         echo "Finished training model $MODEL_I in CV iteration $CV_ITER for FFI data" >> "$LOG_FP_CV_ITER"
     fi
 
-    echo "Extracting learned intermediate features from trained model $MODEL_I in CV iteration $CV_ITER for FFI data" >> "$LOG_FP_CV_ITER"
-    EXTRACT_LEARNED_FEATURES_MODEL_DIR=$MODEL_DIR_FFI/extracted_learned_features_endbranches_after_prelu
-    mkdir -p "$EXTRACT_LEARNED_FEATURES_MODEL_DIR"
-    python "$EXTRACT_LEARNED_FEATURES_SCRIPT" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$MODEL_DIR_FFI"/model.keras --res_dir="$EXTRACT_LEARNED_FEATURES_MODEL_DIR" >> "$LOG_FP_CV_ITER"
-    echo "Finished extracting learned intermediate features from trained model $MODEL_I in CV iteration $CV_ITER for FFI data" >> "$LOG_FP_CV_ITER"
+#    echo "Extracting learned intermediate features from trained model $MODEL_I in CV iteration $CV_ITER for FFI data" >> "$LOG_FP_CV_ITER"
+#    EXTRACT_LEARNED_FEATURES_MODEL_DIR=$MODEL_DIR_FFI/extracted_learned_features_endbranches_after_prelu
+#    mkdir -p "$EXTRACT_LEARNED_FEATURES_MODEL_DIR"
+#    python "$EXTRACT_LEARNED_FEATURES_SCRIPT" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$MODEL_DIR_FFI"/model.keras --res_dir="$EXTRACT_LEARNED_FEATURES_MODEL_DIR" >> "$LOG_FP_CV_ITER"
+#    echo "Finished extracting learned intermediate features from trained model $MODEL_I in CV iteration $CV_ITER for FFI data" >> "$LOG_FP_CV_ITER"
 
 done
 
@@ -163,14 +175,49 @@ echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 echo "Started evaluating ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 
 LOG_FP_EVAL_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/eval_ensemble_model.log
-python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
+python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
 
 echo "Evaluated ensemble of models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 
-# run inference with ensemble model
+# run inference on FFI data with ensemble model of FFI trained models
 echo "Started running inference with ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 
 LOG_FP_PREDICT_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/predict_ensemble_model.log
 python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
 
 echo "Ran inference with ensemble of models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+
+## run inference on FFI data with ensemble model of 2-min trained models
+#echo "Creating ensemble model for 2-minute models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
+#
+#ENSEMBLE_MODEL_DIR="$CV_ITER_DIR"/ensemble_model_2min
+#mkdir -p "$ENSEMBLE_MODEL_DIR"
+#LOG_FP_CREATE_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/create_ensemble_model.log
+#ENSEMBLE_MODEL_FP="$ENSEMBLE_MODEL_DIR"/ensemble_avg_model.keras
+#
+## create ensemble model
+#python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_2MIN" --models_dir="$MODELS_DIR_2MIN" --ensemble_fp="$ENSEMBLE_MODEL_FP" &> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
+#
+#echo "Created 2-min ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+#
+## evaluate ensemble model
+#echo "Started evaluating ensemble of 2-min models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
+#
+#LOG_FP_EVAL_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/eval_ensemble_model.log
+## 2-min
+##python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_2MIN" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
+## ffi
+#python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
+#
+#echo "Evaluated ensemble of 2-min models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+#
+## run inference with ensemble model
+#echo "Started running inference with ensemble of 2-min models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
+#
+#LOG_FP_PREDICT_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/predict_ensemble_model.log
+## 2-min
+##python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_2MIN" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
+## ffi
+#python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP_FFI" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
+#
+#echo "Ran inference with ensemble of 2-min models in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"

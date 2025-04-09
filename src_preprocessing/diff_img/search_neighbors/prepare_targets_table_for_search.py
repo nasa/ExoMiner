@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 
 # destination file path
-target_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_2min_tces_dv_s1-s88_4-3-2025_1231.csv')
+target_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s36-s72_4-7-2025_0931.csv')
 # source table
-tce_tbl_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s88_3-27-2025_1316.csv'
+tce_tbl_fp = '/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label_features_adjusted.csv'
 # load tce table
 tce_tbl_cols = [
     'target_id',
@@ -19,7 +19,7 @@ tce_tbl_cols = [
     # 'uid'
     # 'sector_run',  # not needed
 ]
-tce_tbl = pd.read_csv(tce_tbl_fp, usecols=tce_tbl_cols)
+tce_tbl = pd.read_csv(tce_tbl_fp)  # , usecols=tce_tbl_cols)
 
 
 def _convert_sectors_observed_format(x):
@@ -34,6 +34,7 @@ def _convert_sectors_observed_format(x):
 
     return x
 
+# if needed
 tce_tbl = tce_tbl.apply(_convert_sectors_observed_format, axis=1)
 
 # get sectors observed for each target in the table
