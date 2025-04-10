@@ -43,7 +43,7 @@ config:
 
   flux_window_branch_settings:
     window:
-      - flux
+      - flux_norm
       
     n_blocks: 3
     kernel_size: 3 #1d conv
@@ -55,10 +55,10 @@ config:
 
   diff_img_branch_settings: # null
     imgs:
-      - oot_img
-      - diff_img
-      - snr_img
-      - target_img
+      - oot_img_stdnorm
+      - diff_img_stdnorm
+      - snr_img_stdnorm
+      - target_img_stdnorm
 
     n_blocks: 3
     kernel_size: !!python/tuple [3,3] #2d conv
@@ -95,17 +95,19 @@ config:
   multi_class: false  # used by compile_model
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
-  #SNR
-  tce_model_snr: { 'dim': [1, ], 'dtype': float }
-
   #flux windows
-  flux: { 'dim': [ 100, ], 'dtype': float }
+  flux_norm: { 'dim': [ 100, ], 'dtype': float }
 
   # difference image - normalize later?
   oot_img: { 'dim': [33, 33], 'dtype': float}
   diff_img: { 'dim': [33, 33], 'dtype': float}
   snr_img: { 'dim': [33, 33], 'dtype': float}
   target_img: { 'dim': [33, 33], 'dtype': float}
+
+  oot_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+  diff_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+  snr_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+  target_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
 
 
 # maps features' names to features names expected by the model
@@ -144,17 +146,17 @@ callbacks:
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
-    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_norm_v1/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch
     delete_checkpoint: true # Overwrite previous model @ each save_freq
   model_checkpoint:
-    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/model_checkpoints/model_epoch_{epoch:03d}.keras"
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_norm_v1/model_checkpoints/model_epoch_{epoch:03d}.keras"
     save_freq: 'epoch'
     save_weights_only: false
     save_best_only: false
     verbose: 1
   csv_logger:
-    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/training_metrics_log.csv"
+    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_norm_v1/training_metrics_log.csv"
     append: true # If training paused
 
 

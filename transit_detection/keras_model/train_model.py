@@ -70,7 +70,7 @@ def train_model(config, model_dir, logger=None):
         feature_map=config["feature_map"],
         shuffle_buffer_size=config["training"]["shuffle_buffer_size"],  # ???
         label_field_name=config["label_field_name"],
-        filter_fn=partial(filter_examples_tfrecord_tce_model_snr, snr_threshold=20),
+        # filter_fn=partial(filter_examples_tfrecord_tce_model_snr, snr_threshold=20),
     )
     if "val" in config["datasets"]:
         val_input_fn = InputFn(
@@ -82,7 +82,7 @@ def train_model(config, model_dir, logger=None):
             multiclass=config["config"]["multi_class"],
             feature_map=config["feature_map"],
             label_field_name=config["label_field_name"],
-            filter_fn=partial(filter_examples_tfrecord_tce_model_snr, snr_threshold=20),
+            # filter_fn=partial(filter_examples_tfrecord_tce_model_snr, snr_threshold=20),
         )
     else:
         val_input_fn = None
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     # output directory
     model_dir_fp = Path(
-        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_min_snr_20/"
+        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_norm_v1/"
     )
     model_dir_fp.mkdir(parents=True, exist_ok=True)
 
