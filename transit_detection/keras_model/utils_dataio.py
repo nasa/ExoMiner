@@ -1,4 +1,5 @@
 """Utilty functions for data I/O for TFRecords and model ingestion."""
+"""Utilty functions for data I/O for TFRecords and model ingestion."""
 
 # 3rd party
 import os
@@ -18,6 +19,7 @@ from src.train.data_augmentation import (
 
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
     """Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
+    """Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
     pandas DataFrame with those data for each data set.
 
     Args:
@@ -35,12 +37,19 @@ def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, dataset
     dataset_tbls = {
         dataset: {field: [] for field in data_fields} for dataset in datasets
     }
+    dataset_tbls = {
+        dataset: {field: [] for field in data_fields} for dataset in datasets
+    }
     for dataset in datasets:  # iterate over the data sets
         for tfrec_fp in datasets_fps[dataset]:  # iterate over the TFRecord files
             data_aux = get_data_from_tfrecord(tfrec_fp, data_fields)
             for field in data_aux:
                 dataset_tbls[dataset][field].extend(data_aux[field])
 
+    dataset_tbls = {
+        dataset: pd.DataFrame(dataset_tbl)
+        for dataset, dataset_tbl in dataset_tbls.items()
+    }
     dataset_tbls = {
         dataset: pd.DataFrame(dataset_tbl)
         for dataset, dataset_tbl in dataset_tbls.items()
@@ -111,6 +120,7 @@ class InputFnv2(object):
         self.n_classes = len(np.unique(list(label_map.values())))
         self.features_set = features_set
         self.data_augmentation = data_augmentation and self.mode == "TRAIN"
+        self.data_augmentation = data_augmentation and self.mode == "TRAIN"
         self.online_preproc_params = online_preproc_params
         self.label_field_name = label_field_name
 
@@ -131,6 +141,7 @@ class InputFnv2(object):
 
     def __call__(self):
         """Builds the input pipeline.
+        """Builds the input pipeline.
 
         :return:
             a tf.data.Dataset with features and labels
@@ -150,13 +161,22 @@ class InputFnv2(object):
                 if (
                     len(feature_info["dim"]) > 1 and feature_info["dim"][-1] > 1
                 ):  # N-D feature, N > 1
+                if (
+                    len(feature_info["dim"]) > 1 and feature_info["dim"][-1] > 1
+                ):  # N-D feature, N > 1
                     data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
                 else:
                     data_fields[feature_name] = tf.io.FixedLenFeature(
                         feature_info["dim"], feature_info["dtype"]
                     )
+                    data_fields[feature_name] = tf.io.FixedLenFeature(
+                        feature_info["dim"], feature_info["dtype"]
+                    )
 
             # parse the features
+            parsed_features = tf.io.parse_single_example(
+                serialized=serialized_example, features=data_fields
+            )
             parsed_features = tf.io.parse_single_example(
                 serialized=serialized_example, features=data_fields
             )
@@ -169,7 +189,14 @@ class InputFnv2(object):
                 parsed_label = tf.io.parse_single_example(
                     serialized=serialized_example, features=label_field
                 )
+                label_field = {
+                    self.label_field_name: tf.io.FixedLenFeature([], tf.float32)
+                }
+                parsed_label = tf.io.parse_single_example(
+                    serialized=serialized_example, features=label_field
+                )
 
+            if self.category_weights is not None and self.mode == "TRAIN":
             if self.category_weights is not None and self.mode == "TRAIN":
                 category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
                     keys=list(self.category_weights.keys()),
@@ -177,7 +204,22 @@ class InputFnv2(object):
                     key_dtype=tf.string,
                     value_dtype=tf.float32,
                 )
+                    value_dtype=tf.float32,
+                )
 
+                label_to_weight = tf.lookup.StaticHashTable(
+                    category_weight_table_initializer, default_value=1
+                )
+                example_weight = label_to_weight.lookup(
+                    parsed_label[self.label_field_name]
+                )
+            elif self.sample_weights and self.mode == "TRAIN":
+                sample_weight_field = {
+                    "sample_weight": tf.io.FixedLenFeature([], tf.float32)
+                }
+                example_weight = tf.io.parse_single_example(
+                    serialized=serialized_example, features=sample_weight_field
+                )
                 label_to_weight = tf.lookup.StaticHashTable(
                     category_weight_table_initializer, default_value=1
                 )
@@ -200,9 +242,21 @@ class InputFnv2(object):
                     y=0.5,
                     name="should_reverse",
                 )
+                should_reverse = tf.less(
+                    x=tf.random.uniform([], minval=0, maxval=1),
+                    y=0.5,
+                    name="should_reverse",
+                )
 
                 # bin shifting
                 bin_shift = [-5, 5]
+                shift = tf.random.uniform(
+                    shape=(),
+                    minval=bin_shift[0],
+                    maxval=bin_shift[1],
+                    dtype=tf.dtypes.int32,
+                    name="randuniform",
+                )
                 shift = tf.random.uniform(
                     shape=(),
                     minval=bin_shift[0],
@@ -219,8 +273,20 @@ class InputFnv2(object):
                         "tce_duration": tf.io.FixedLenFeature([], tf.float32),
                     },
                 )
+                tce_ephem = tf.io.parse_single_example(
+                    serialized=serialized_example,
+                    features={
+                        "tce_period": tf.io.FixedLenFeature([], tf.float32),
+                        "tce_duration": tf.io.FixedLenFeature([], tf.float32),
+                    },
+                )
 
                 # boolean tensor for oot indices for global view
+                idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(
+                    self.online_preproc_params["num_bins_global"],
+                    tce_ephem["tce_duration"],
+                    tce_ephem["tce_period"],
+                )
                 idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(
                     self.online_preproc_params["num_bins_global"],
                     tce_ephem["tce_duration"],
@@ -231,8 +297,13 @@ class InputFnv2(object):
                     self.online_preproc_params["num_bins_local"],
                     self.online_preproc_params["num_transit_dur"],
                 )
+                idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(
+                    self.online_preproc_params["num_bins_local"],
+                    self.online_preproc_params["num_transit_dur"],
+                )
 
             # map label to integer value
+            label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
             label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
             if include_labels:
                 # map label to integer
@@ -241,6 +312,11 @@ class InputFnv2(object):
                 ]  # label_to_id.lookup(parsed_label[self.label_field_name])
                 # print(f"label_id: {(label_id)}, {type(label_id)}")
                 # Ensure that the label_id is non negative to verify a successful hash map lookup.
+                assert_known_label = tf.Assert(
+                    tf.greater_equal(label_id, tf.cast(0, dtype=tf.float32)),
+                    ["Unknown label string:", parsed_label[self.label_field_name]],
+                    name="assert_non-negativity",
+                )
                 assert_known_label = tf.Assert(
                     tf.greater_equal(label_id, tf.cast(0, dtype=tf.float32)),
                     ["Unknown label string:", parsed_label[self.label_field_name]],
@@ -266,15 +342,28 @@ class InputFnv2(object):
                         out_type=self.features_set[feature_name]["dtype"],
                     )
                     value = tf.reshape(value, self.features_set[feature_name]["dim"])
+                if (
+                    len(feature_info["dim"]) > 1 and feature_info["dim"][-1] > 1
+                ):  # parse tensors
+                    value = tf.io.parse_tensor(
+                        serialized=value[0],
+                        out_type=self.features_set[feature_name]["dtype"],
+                    )
+                    value = tf.reshape(value, self.features_set[feature_name]["dim"])
                     # if not self.use_transformer:
                     # value = tf.transpose(value)
 
                 # data augmentation for time series features
                 if "view" in feature_name and self.data_augmentation:
+                if "view" in feature_name and self.data_augmentation:
 
                     # with tf.variable_scope('input_data/data_augmentation'):
 
                     # add white gaussian noise
+                    if "global" in feature_name:
+                        oot_values = tf.boolean_mask(
+                            value, idxs_nontransitcadences_glob
+                        )
                     if "global" in feature_name:
                         oot_values = tf.boolean_mask(
                             value, idxs_nontransitcadences_glob
@@ -286,10 +375,14 @@ class InputFnv2(object):
                     oot_median = tfp.stats.percentile(
                         oot_values, 50, axis=0, name="oot_median"
                     )
+                    oot_median = tfp.stats.percentile(
+                        oot_values, 50, axis=0, name="oot_median"
+                    )
                     # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
                     # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
                     #                       name='oot_median')
 
+                    oot_std = tf.math.reduce_std(oot_values, axis=0, name="oot_std")
                     oot_std = tf.math.reduce_std(oot_values, axis=0, name="oot_std")
 
                     value = add_whitegaussiannoise(value, oot_median, oot_std)
@@ -312,6 +405,9 @@ class InputFnv2(object):
             if (
                 self.category_weights is not None or self.sample_weights
             ) and self.mode == "TRAIN":
+            if (
+                self.category_weights is not None or self.sample_weights
+            ) and self.mode == "TRAIN":
                 return output, label_id, example_weight
             else:
                 return output, label_id
@@ -327,6 +423,7 @@ class InputFnv2(object):
 
         # label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
 
+        include_labels = self.mode in ["TRAIN", "EVAL"]
         include_labels = self.mode in ["TRAIN", "EVAL"]
 
         if isinstance(self.file_paths, str):
@@ -351,10 +448,19 @@ class InputFnv2(object):
                 buffer_size=len(filenames), seed=self.shuffle_seed
             )
 
+        # shuffle the TFRecord files
+        if self.mode == "TRAIN":
+            filename_dataset = filename_dataset.shuffle(
+                buffer_size=len(filenames), seed=self.shuffle_seed
+            )
+
         # map a TFRecordDataset object to each tfrecord filepath
         dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
 
         # shuffle the examples in the dataset if training
+        if self.mode == "TRAIN":
+            dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
+            # dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)
         if self.mode == "TRAIN":
             dataset = dataset.shuffle(self.shuffle_buffer_size, seed=self.shuffle_seed)
             # dataset = dataset.shuffle(dataset.cardinality(), seed=self.shuffle_seed)
@@ -383,6 +489,11 @@ class InputFnv2(object):
             deterministic=True if self.mode == "PREDICT" else False,
             num_parallel_calls=tf.data.AUTOTUNE,
         )
+        dataset = dataset.batch(
+            self.batch_size,
+            deterministic=True if self.mode == "PREDICT" else False,
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
 
         # prefetches batches determined by the buffer size chosen
         # parallelized processing in the CPU with model computations in the GPU
@@ -392,6 +503,10 @@ class InputFnv2(object):
         return dataset
 
 
+def get_ce_weights(
+    label_map, tfrec_dir, datasets=["train"], label_fieldname="label", verbose=False
+):
+    """Compute class cross-entropy weights based on the amount of labels for each class.
 def get_ce_weights(
     label_map, tfrec_dir, datasets=["train"], label_fieldname="label", verbose=False
 ):
@@ -417,6 +532,11 @@ def get_ce_weights(
         for file in os.listdir(tfrec_dir)
         if file.split("-")[0] in datasets
     ]
+    filenames = [
+        os.path.join(tfrec_dir, file)
+        for file in os.listdir(tfrec_dir)
+        if file.split("-")[0] in datasets
+    ]
 
     # instantiate list of labels
     label_vec = []
@@ -429,9 +549,17 @@ def get_ce_weights(
             for (
                 string_record
             ) in tfrecord_dataset.as_numpy_iterator():  # parse the label
+            for (
+                string_record
+            ) in tfrecord_dataset.as_numpy_iterator():  # parse the label
 
                 example = tf.train.Example()
                 example.ParseFromString(string_record)
+                label = (
+                    example.features.feature[label_fieldname]
+                    .bytes_list.value[0]
+                    .decode("utf-8")
+                )
                 label = (
                     example.features.feature[label_fieldname]
                     .bytes_list.value[0]
@@ -452,10 +580,14 @@ def get_ce_weights(
         for dataset in datasets:
             print("Number of examples for dataset {}: {}".format(dataset, label_counts))
         print("CE weights: {}".format(ce_weights))
+            print("Number of examples for dataset {}: {}".format(dataset, label_counts))
+        print("CE weights: {}".format(ce_weights))
 
     return ce_weights
 
 
+def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
+    """Compute number of samples in the datasets for each class.
 def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
     """Compute number of samples in the datasets for each class.
 
@@ -470,7 +602,15 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
     n_samples = {
         dataset: {label: 0 for label in label_map.values()} for dataset in datasets
     }
+    n_samples = {
+        dataset: {label: 0 for label in label_map.values()} for dataset in datasets
+    }
 
+    filenames = [
+        tfrec_dir + "/" + file
+        for file in os.listdir(tfrec_dir)
+        if any([dataset in file for dataset in datasets])
+    ]
     filenames = [
         tfrec_dir + "/" + file
         for file in os.listdir(tfrec_dir)
@@ -479,6 +619,10 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
 
     for file in filenames:
 
+        file_dataset = file.split("/")[-1]
+        curr_dataset = datasets[
+            np.where([dataset in file_dataset for dataset in datasets])[0][0]
+        ]
         file_dataset = file.split("/")[-1]
         curr_dataset = datasets[
             np.where([dataset in file_dataset for dataset in datasets])[0][0]
@@ -496,7 +640,14 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
                         .bytes_list.value[0]
                         .decode("utf-8")
                     )
+                    label = (
+                        example.features.feature[label_fieldname]
+                        .bytes_list.value[0]
+                        .decode("utf-8")
+                    )
                 except ValueError as e:
+                    print("No label field found on the example. Ignoring it.")
+                    print("Error output:", e)
                     print("No label field found on the example. Ignoring it.")
                     print("Error output:", e)
                     continue
@@ -510,6 +661,7 @@ def get_num_samples(label_map, tfrec_dir, datasets, label_fieldname="label"):
 
 
 def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
+    """Extract data from a tfrecord file.
     """Extract data from a tfrecord file.
 
     :param tfrecord: str, tfrecord filepath
@@ -535,7 +687,9 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
         for field in data_fields:
             try:
                 if data_fields[field] == "float_scalar":
+                if data_fields[field] == "float_scalar":
                     datum[field] = example.features.feature[field].float_list.value[0]
+                elif data_fields[field] == "int_scalar":
                 elif data_fields[field] == "int_scalar":
                     datum[field] = example.features.feature[field].int64_list.value[0]
                 elif data_fields[field] == "string":
@@ -544,16 +698,26 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
                         .bytes_list.value[0]
                         .decode("utf-8")
                     )
+                elif data_fields[field] == "string":
+                    datum[field] = (
+                        example.features.feature[field]
+                        .bytes_list.value[0]
+                        .decode("utf-8")
+                    )
 
                 elif data_fields[field] == "float_list":
+                elif data_fields[field] == "float_list":
                     datum[field] = example.features.feature[field].float_list.value
+                elif data_fields[field] == "int_list":
                 elif data_fields[field] == "int_list":
                     datum[field] = example.features.feature[field].int64_list.value[0]
                 else:
                     raise TypeError("Incompatible data type specified.")
+                    raise TypeError("Incompatible data type specified.")
             except Exception as e:
                 print(traceback.format_exc())
                 print(e)
+                raise TypeError(f"Field not found: {field}")
                 raise TypeError(f"Field not found: {field}")
 
         # add example
@@ -563,6 +727,10 @@ def get_data_from_tfrecord(tfrecord, data_fields, label_map=None):
     return data
 
 
+def get_data_from_tfrecords(
+    tfrecords, data_fields, label_map=None, filt=None, coupled=False
+):
+    """Extract data from a set of tfrecord files.
 def get_data_from_tfrecords(
     tfrecords, data_fields, label_map=None, filt=None, coupled=False
 ):
@@ -583,8 +751,12 @@ def get_data_from_tfrecords(
 
     if filt is not None:
         data["selected_idxs"] = []
+        data["selected_idxs"] = []
 
     for tfrecord in tfrecords:
+        data_aux = get_data_from_tfrecord(
+            tfrecord, data_fields, label_map=label_map, filt=filt, coupled=coupled
+        )
         data_aux = get_data_from_tfrecord(
             tfrecord, data_fields, label_map=label_map, filt=filt, coupled=coupled
         )
@@ -594,6 +766,10 @@ def get_data_from_tfrecords(
     return data
 
 
+def create_filtered_tfrecord(
+    src_tfrecord, save_dir, filt, append_name="", kw_filt_args=None
+):
+    """Create filtered tfrecord from a source tfrecord file.
 def create_filtered_tfrecord(
     src_tfrecord, save_dir, filt, append_name="", kw_filt_args=None
 ):
@@ -616,8 +792,12 @@ def create_filtered_tfrecord(
     filt_idx = get_data_from_tfrecord(
         src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args
     )["selected_idxs"]
+    filt_idx = get_data_from_tfrecord(
+        src_tfrecord, [], label_map=None, filt=filt, **kw_filt_args
+    )["selected_idxs"]
 
     # tfrecord destination filepath
+    dest_tfrecord = save_dir + src_tfrecord.split["/"][-1] + append_name
     dest_tfrecord = save_dir + src_tfrecord.split["/"][-1] + append_name
 
     # write new tfrecord
@@ -638,6 +818,7 @@ def create_filtered_tfrecord(
 
 def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
     """Get boolean mask of out-of-transit cadences for the local views.
+    """Get boolean mask of out-of-transit cadences for the local views.
 
     :param num_bins_loc: int, number of bins for the local views
     :param num_transit_durations: int, number of transit durations in the local views
@@ -650,8 +831,17 @@ def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
     transit_duration_bins_loc = (
         num_bins_loc / num_transit_durations
     )  # number of bins per transit duration
+    transit_duration_bins_loc = (
+        num_bins_loc / num_transit_durations
+    )  # number of bins per transit duration
 
     # get left and right in-transit indices
+    left_lim = tf.cast(
+        tf.math.round((num_bins_loc - transit_duration_bins_loc) / 2), tf.int32
+    )
+    right_lim = tf.cast(
+        tf.math.round((num_bins_loc + transit_duration_bins_loc) / 2), tf.int32
+    )
     left_lim = tf.cast(
         tf.math.round((num_bins_loc - transit_duration_bins_loc) / 2), tf.int32
     )
@@ -665,11 +855,16 @@ def get_out_of_transit_idxs_loc(num_bins_loc, num_transit_durations):
         tf.math.less_equal(idx_range, left_lim),
         tf.math.greater_equal(idx_range, right_lim),
     )
+    idxs_nontransitcadences_loc = tf.math.logical_or(
+        tf.math.less_equal(idx_range, left_lim),
+        tf.math.greater_equal(idx_range, right_lim),
+    )
 
     return idxs_nontransitcadences_loc
 
 
 def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period):
+    """Get boolean mask of out-of-transit cadences for the global views.
     """Get boolean mask of out-of-transit cadences for the global views.
 
     :param num_bins_glob: int, number of bins for the global views
@@ -684,6 +879,9 @@ def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period
     frac_durper = (
         transit_duration / orbital_period
     )  # ratio transit duration to orbital period
+    frac_durper = (
+        transit_duration / orbital_period
+    )  # ratio transit duration to orbital period
 
     # get left and right in-transit indices
     left_lim = tf.cast(tf.math.round(num_bins_glob / 2 * (1 - frac_durper)), tf.int32)
@@ -695,10 +893,15 @@ def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period
         tf.math.less_equal(idx_range, left_lim),
         tf.math.greater_equal(idx_range, right_lim),
     )
+    idxs_nontransitcadences_glob = tf.math.logical_or(
+        tf.math.less_equal(idx_range, left_lim),
+        tf.math.greater_equal(idx_range, right_lim),
+    )
 
     return idxs_nontransitcadences_glob
 
 
+if __name__ == "__main__":
 if __name__ == "__main__":
 
     pass

@@ -126,6 +126,7 @@ training:
 
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
 
 
 
