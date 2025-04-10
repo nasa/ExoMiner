@@ -48,7 +48,7 @@ def normalize_flux(flux_window):
     )  # Minmum value 1 transit duration around center
 
     # zero division eps term added to denominator to avoid division by zero
-    norm_flux_window = med_centered_flux / (one_td_minimum + 1e-12)
+    norm_flux_window = med_centered_flux / (abs(one_td_minimum) + 1e-12)
 
     return norm_flux_window.tolist()
 
