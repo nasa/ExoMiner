@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     # Define logging directory
     log_dir = Path(
-        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_v2/{SPLIT_NAME}_set"
+        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_v3/{SPLIT_NAME}_set"
     )  # TODO: train, test
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     src_dataset_dir = Path(
         "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split"
     )
-    dest_dataset_dir = src_dataset_dir.parent / (str(src_dataset_dir.name) + "_norm_v2")
+    dest_dataset_dir = src_dataset_dir.parent / (str(src_dataset_dir.name) + "_norm_v3")
 
     # Define source/destination tfrec directory based on src dataset + split_name specification
     src_tfrec_dir = src_dataset_dir / "tfrecords" / SPLIT_NAME
