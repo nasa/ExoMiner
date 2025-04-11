@@ -27,19 +27,20 @@ source activate exoplnt_dl_tf2_13
 # set path to codebase root directory
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
-
 # script for running inference for a single CV iteration
-RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/run_predict_cv_iter_modular.sh
+RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/predict/run_predict_cv_iter_modular.sh
 
 # config yaml file used to run inference
-CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/config_cv_predict.yaml
+CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/predict/config_cv_predict.yaml
 
 # config yaml file used to preprocess data for model inference
-CONFIG_PREPROCESS_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/create_cv_dataset/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
+CONFIG_PREPROCESS_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
 
 # output directory
 OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess-spoc-2min_s1-s67_predict_unks_12-2-2024_1351/
 mkdir -p $OUTPUT_DIR
+PBS_SCRIPT_FP=$(realpath $0)
+cp $PBS_SCRIPT_FP $OUTPUT_DIR/pbs_job.txt
 
 # root directory for model file paths
 MODELS_CV_ROOT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/cv_tess-spoc-2min_s1-s67_kepler_trainset_10-4-2024_1353/

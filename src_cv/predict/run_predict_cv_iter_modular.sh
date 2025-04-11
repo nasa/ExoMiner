@@ -24,10 +24,10 @@ DELETE_DATA_AFTER_INFERENCE="$9"
 CHECK_GPU=${10:-0}
 
 # set up Python scripts
-SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
-PREPROCESS_SCRIPT=$PYTHONPATH/src_cv/create_cv_dataset/preprocess_cv_folds_predict_trecord_dataset.py
-CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/utils/create_cv_folds_yaml_from_dir.py
-PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
+SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
+PREPROCESS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/preprocess_cv_folds_predict_trecord_dataset.py
+CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/create_cv_folds_yaml_from_dir.py
+PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
 # set CV iteration id
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))

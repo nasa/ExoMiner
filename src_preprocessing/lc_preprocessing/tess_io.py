@@ -8,6 +8,7 @@ import numpy as np
 from astropy import wcs
 from astropy.io import fits
 from tensorflow.io import gfile
+from pathlib import Path
 
 # local
 from src_preprocessing.light_curve import util
@@ -106,10 +107,7 @@ SECTOR_ID = {1: ("2018206045859", "120"),
              }
 
 
-def tess_filenames(base_dir,
-                   ticid,
-                   sectors,
-                   check_existence=True):
+def tess_filenames(base_dir, ticid, sectors):
     """ Returns the light curve filenames for a TESS target star in 2-min cadence data.
 
     This function assumes the file structure of the Mikulski Archive for Space Telescopes
@@ -127,9 +125,8 @@ def tess_filenames(base_dir,
 
     Args:
     base_dir: Base directory containing TESS 2-min cadence data
-    ticid: Id of the TESS target star. May be an int or a possibly zero-padded string
+    ticid: ID of the TESS target star. It can be an int or a possibly zero-padded string
     sectors: list of observation sector(s)
-    check_existence: If True, only return filenames corresponding to files that exist
 
     Returns:
     A list of filepaths to the FITS files for a given TIC and observation sector(s)
@@ -138,25 +135,33 @@ def tess_filenames(base_dir,
     # initialize variables
     filenames = []
 
-    # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
-    tess_id = str(ticid).zfill(16)
+    # # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
+    # tess_id = str(ticid).zfill(16)
 
     for sector in sectors:
 
-        sector_timestamp = SECTOR_ID[sector][0]  # timestamp associated with the file (yyyydddhhmmss format)
+        sector_dir = Path(base_dir) / f'sector_{sector}'
+        fps_lst = list(sector_dir.glob(f'*{ticid}*lc.fits'))
+        if len(fps_lst) == 0:
+            filename = None
+        else:
+            filename = fps_lst[0]
 
-        # a zero - padded, four - digit identifier of the spacecraft configuration map used to process this data.
-        scft_configmapid = SECTOR_ID[sector][1]
+        # sector_timestamp = SECTOR_ID[sector][0]  # timestamp associated with the file (yyyydddhhmmss format)
+        #
+        # # a zero - padded, four - digit identifier of the spacecraft configuration map used to process this data.
+        # scft_configmapid = SECTOR_ID[sector][1]
+        #
+        # # zero-padded 2-digit integer indicating the sector in which the data were collected
+        # sector_string = str(sector).zfill(2)
+        #
+        # base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
+        # filename = os.path.join(base_dir, base_name)
+        # # lc_dir = Path(f'{base_dir}/sector_{sector}')
+        # # filename = list(lc_dir.glob(f"tess*-s0[0-9][0-9][0-9]-{tess_id}*"))[0]
 
-        # zero-padded 2-digit integer indicating the sector in which the data were collected
-        sector_string = str(sector).zfill(2)
-
-        base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
-        filename = os.path.join(base_dir, base_name)
-        # lc_dir = Path(f'{base_dir}/sector_{sector}')
-        # filename = list(lc_dir.glob(f"tess*-s0[0-9][0-9][0-9]-{tess_id}*"))[0]
-
-        if not check_existence or gfile.exists(filename):
+        # if not check_existence or gfile.exists(filename):
+        if filename:
             filenames.append(filename)
 
     return filenames

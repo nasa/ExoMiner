@@ -59,12 +59,14 @@ if __name__ == '__main__':
     for dv_xml_run in dv_xml_runs:
         logger.info(f'Run {str(dv_xml_run)}')
 
-    logger.info(f'Using {n_processes} processes...')
     jobs = [(dv_xml_run, data_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i)
             for job_i, dv_xml_run in enumerate(dv_xml_runs)]
+    n_jobs = len(jobs)
     logger.info(f'Setting {len(jobs)} jobs.')
     logger.info('Started running jobs.')
 
+    n_processes = min(n_processes, n_jobs)
+    logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
     async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
     pool.close()

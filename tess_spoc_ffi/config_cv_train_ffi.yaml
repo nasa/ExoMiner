@@ -60,7 +60,7 @@ data_fields: # scalar data from TFRecords to add to prediction table
 #  obs_type: string  # tess spoc ffi
 
 # set general architecture of the model based on implementations under models.models_keras.py
-model_architecture: ExoMinerPlusPlus
+model_architecture: ExoMinerJointLocalFlux  # ExoMinerPlusPlus
 
 config:
   # branches used in ExoMiner
@@ -381,15 +381,15 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-#  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #  #  diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #  #  oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   # ExoMiner++
-  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
 
   quality: { 'dim': [ 5, 1], 'dtype': float }
   #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -449,7 +449,7 @@ callbacks:
     early_stopping:
       monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
-      patience: 20
+      patience: 50
       verbose: 1
       mode: max  # maximize/minimize monitored metric in early stopping
       baseline: null

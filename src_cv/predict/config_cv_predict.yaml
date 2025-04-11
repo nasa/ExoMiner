@@ -46,7 +46,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
 #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
   tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # flux
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -131,9 +131,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   # difference image
   diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
   oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#   diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
   quality: { 'dim': [ 5, 1], 'dtype': float }
 
   # momentum dump

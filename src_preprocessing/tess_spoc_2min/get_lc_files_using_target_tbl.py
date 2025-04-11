@@ -13,15 +13,18 @@ import numpy as np
 import pandas as pd
 import lightkurve as lk
 import multiprocessing
+import logging
+import os
 
 
-def download_lc_file_target_in_sector(target_id, sector, save_dir):
+def download_lc_file_target_in_sector(target_id, sector, save_dir, logger=None):
     """ Download lightcurve FITS file for TIC `target_id` in sector `sector` to directory `save_dir`.
 
     Args:
         target_id: int, TIC ID
         sector: int, sector
         save_dir: str, save directory
+        logger: logger
     """
 
     search_lc_res = lk.search_lightcurve(target=f"tic{target_id}", mission='TESS',
@@ -29,7 +32,10 @@ def download_lc_file_target_in_sector(target_id, sector, save_dir):
                                          exptime=120, cadence='long', sector=sector)
 
     if len(search_lc_res) == 0:
-        print(f'Found no lightcurve results for TIC {target_id} in sector {sector}. Skipping')
+        if logger:
+            logger.info(f'Found no lightcurve results for TIC {target_id} in sector {sector}. Skipping')
+        else:
+            print(f'Found no lightcurve results for TIC {target_id} in sector {sector}. Skipping')
     else:
         _ = search_lc_res[0].download(download_dir=save_dir)
         lc_fp = list((Path(save_dir) / 'mastDownload' / 'TESS').rglob("*lc.fits"))[0]
@@ -38,39 +44,53 @@ def download_lc_file_target_in_sector(target_id, sector, save_dir):
         shutil.rmtree(Path(save_dir) / 'mastDownload')
 
 
-def download_lc_file_for_set_targets(targets_df, lc_root_dir):
+def download_lc_file_for_set_targets(targets_df, lc_root_dir, log_dir):
     """ Download lightcurve FITS file for TICs in `targets_df` (with columns 'target_id' and 'sector'). Lightcurve FITS
     files are saved to `lc_root_dir/sector_{sector}`.
 
     Args:
         targets_df: pandas DataFrame, targets table
         lc_root_dir: Path, root directory for saving lightcurve FITS files
+        log_dir: Path, log directory
     """
+
+    proc_id = os.getpid()
+
+    # set up logger
+    logger = logging.getLogger(name=f'preprocess')
+    logger_handler = logging.FileHandler(filename=log_dir / f'download_lc_proc{proc_id}.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Starting downloading lightcurve FITS files for {len(targets_df)} targets in {lc_root_dir}...')
 
     targets_not_downloaded = {field: [] for field in ['target_id', 'sector', 'error']}
     for target_i, target_data in targets_df.iterrows():
 
         if target_i % 100 == 0:
-            print(f'Iterated through {target_i + 1} target-sector pairs out of {len(targets_df)} total...')
+            logger.info(f'Iterated through {target_i + 1} target-sector pairs out of {len(targets_df)} total...')
 
         sector_dir = lc_root_dir / f'sector_{target_data["sector"]}'
         lc_fps = list(sector_dir.glob(f'*{target_data["target_id"]}*lc.fits'))
 
         if len(lc_fps) == 0:  # did not find target lc fits file for the sector
-            print(f'Downloading lightcurve data for TIC {target_data["target_id"]} in sector {target_data["sector"]}')
+            logger.info(f'Downloading lightcurve data for TIC {target_data["target_id"]} in sector '
+                        f'{target_data["sector"]}')
             try:
-                download_lc_file_target_in_sector(target_data['target_id'], target_data['sector'], str(sector_dir))
+                download_lc_file_target_in_sector(target_data['target_id'], target_data['sector'], str(sector_dir),
+                                                  logger)
             except Exception as e:
-                print(f'Found error {e} when downloading lightcurve data for target {target_data["target_id"]} in '
-                      f'sector {target_data["sector"]}')
+                logger.info(f'Found error {e} when downloading lightcurve data for target {target_data["target_id"]} in '
+                            f'sector {target_data["sector"]}')
 
                 targets_not_downloaded['target_id'].append(target_data['target_id'])
                 targets_not_downloaded['sector'].append(target_data['sector'])
                 targets_not_downloaded['error'].append(e)
 
     targets_not_downloaded = pd.DataFrame(targets_not_downloaded)
-    print(f'Number of targets whose light curve was not downloaded: {len(targets_not_downloaded)}\nSector statistics: '
-          f'{targets_not_downloaded["sector"].value_counts()}')
+    logger.info(f'Number of targets whose light curve was not downloaded: {len(targets_not_downloaded)}\n'
+                f'Sector statistics: {targets_not_downloaded["sector"].value_counts()}')
 
     return targets_not_downloaded
 
@@ -79,6 +99,10 @@ if __name__ == "__main__":
 
     tce_tbl = pd.read_csv('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s88_3-27-2025_1316.csv')
     lc_root_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/')
+    log_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/download_2min_lc_logs_9-11-2025')
+    n_procs = 20
+
+    log_dir.mkdir(exist_ok=True)
 
     # filter for subset of TCEs from new runs
     tce_tbl = tce_tbl.loc[tce_tbl['sector_run'].isin(['1-69', '14-78', '2-72'])]
@@ -112,12 +136,11 @@ if __name__ == "__main__":
 
     targets_df = pd.DataFrame(targets_dict)
 
-    jobs = [(targets_df, lc_root_dir)]
+    jobs = [(targets_df, lc_root_dir, log_dir)]
     n_jobs = len(jobs)
     print(f'Split work into {n_jobs} job(s).')
 
     # parallelize jobs
-    n_procs = 10
     n_procs = min(n_jobs, n_procs)
     pool = multiprocessing.Pool(processes=n_procs)
     async_results = [pool.apply_async(download_lc_file_for_set_targets, job) for job in jobs]

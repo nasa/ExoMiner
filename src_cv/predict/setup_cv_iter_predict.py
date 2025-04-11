@@ -15,10 +15,19 @@ from src_cv.preprocessing.add_tfrec_dataset_fps_to_config_file import add_tfrec_
 
 
 def run_setup_for_cv_iter_predict(cv_iter, cv_iter_dir, config):
+    """ Set configuration yaml file for CV iteration `cv_iter`.
+
+    :param cv_iter: int, CV iteration ID
+    :param cv_iter_dir: CV iteration directory
+    :param config: dict, configuration parameters
+
+    :return:
+    """
 
     # get TFRecord files for the given CV iteration
-    cv_iter_data = list((Path(config['paths']['tfrec_dir']) / f'cv_iter_{cv_iter}').iterdir())
-    config['datasets_fps'] = {'predict': cv_iter_data}
+    # cv_iter_data = list((Path(config['paths']['tfrec_dir']) / f'cv_iter_{cv_iter}').iterdir())
+    # add TFRecord data set file paths for this CV iteration to config yaml file
+    config = add_tfrec_dataset_fps_to_config_file(cv_iter, config, -1)
 
     # # get model to run for this CV iteration
     # model_fp = Path(config['paths']['models_cv_root_dir'] / f'cv_iter_{cv_iter}/ensemble_model/ensemble_avg_model.keras')
