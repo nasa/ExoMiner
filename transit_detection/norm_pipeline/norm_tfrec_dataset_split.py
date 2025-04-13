@@ -186,7 +186,7 @@ if __name__ == "__main__":
     logger.addHandler(file_handler)
 
     # Create list of shard_nums to process from 1 to NUM_SHARDS bound
-    shards_to_process = [shard_num for shard_num in range(1, 8611 + 1)]
+    shards_to_process = [shard_num for shard_num in range(7486, 8611 + 1)]
 
     results = []
 
