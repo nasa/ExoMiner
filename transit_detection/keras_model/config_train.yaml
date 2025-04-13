@@ -178,10 +178,10 @@ labels: [0, 1]
 
 datasets_fps: # TODO: update fps
   # train: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0001
-  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/train/opt_norm_train_shard_????-????
+  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/train/norm_train_shard_????-????
   # val: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0013
-  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/val/opt_norm_val_shard_????-????
-  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v2_opt/tfrecords/test/opt_norm_test_shard_????-????
+  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/val/norm_val_shard_????-????
+  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/test/norm_test_shard_????-????
 
 datasets:
   - train
