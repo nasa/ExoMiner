@@ -58,7 +58,7 @@ config:
       - oot_img_stdnorm
       - diff_img_stdnorm
       - snr_img_stdnorm
-      - target_img_stdnorm
+      - target_img
 
     n_blocks: 3
     kernel_size: !!python/tuple [3,3] #2d conv
@@ -107,8 +107,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   oot_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
   diff_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
   snr_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
-  target_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
-
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -125,7 +123,6 @@ training:
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 
   sample_weights: false  # use sample weights defined in the data set
-  shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
   shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
 
 
