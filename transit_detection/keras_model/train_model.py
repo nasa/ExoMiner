@@ -13,13 +13,12 @@ from functools import partial
 
 # local
 from transit_detection.keras_model.utils_dataio import InputFnv2 as InputFn
-from transit_detection.keras_model.utils_train import (
-    filter_examples_tfrecord_tce_model_snr,
-)
 from src.utils.utils_metrics import get_metrics
 from models.utils_models import compile_model
 from transit_detection.keras_model import model_keras
 from src.utils.utils_dataio import set_tf_data_type_for_features
+
+# from transit_detection.keras_model.utils_train import filter_examples_tfrecord_tce_model_snr
 
 
 def train_model(config, model_dir, logger=None):
