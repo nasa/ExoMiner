@@ -133,7 +133,7 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
     half_height, half_width = size_h // 2, size_w // 2
 
     # update data using placeholder values
-    missing_data_placeholder = {
+    data_placeholder = {
         'images': {
             'diff_imgs': [np.zeros((size_h, size_w), dtype='float')
                           for _ in range(number_of_imgs_to_sample)],
@@ -172,11 +172,12 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
         'images_numbers': [np.nan] * number_of_imgs_to_sample,
     }
 
+    # set target position to center of image
     for target_img_i in range(number_of_imgs_to_sample):
-        missing_data_placeholder['images']['target_imgs'][target_img_i][half_height, half_width] = 1
-        missing_data_placeholder['images']['target_imgs_tc'][target_img_i][half_height, half_width] = 1
+        data_placeholder['images']['target_imgs'][target_img_i][half_height, half_width] = 1
+        data_placeholder['images']['target_imgs_tc'][target_img_i][half_height, half_width] = 1
 
-    return missing_data_placeholder
+    return data_placeholder
 
 
 def sample_image_data(n_valid_imgs, valid_images_idxs, number_of_imgs_to_sample):
@@ -528,6 +529,9 @@ def map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row
 
     """
 
+    if np.isnan(target_pos_row):
+        return 0, 0
+
     target_pos_pixel_col = int(np.round(target_pos_col))
     target_pos_pixel_row = int(np.round(target_pos_row))
 
@@ -566,7 +570,7 @@ def create_neighbors_img(neighbor_data, img_shape, target_mag, exclude_objs_outs
     if n_neighbors == 0:
         return np.zeros(img_shape + (n_neighbors,), dtype='float')
 
-    # initialize with all zeros
+    # initialize with all infinity values
     neighbor_img = np.inf * np.ones(img_shape + (n_neighbors,), dtype='float')
 
     # sort neighbors from brightest to dimmest

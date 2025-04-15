@@ -138,7 +138,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
                                                     (size_f_h - 1) * 0.5)
 
     if center_target:
-        if target_pos_col_input == -1:  # target location not available
+        if np.isnan(target_pos_col_input):  # target location not available
             if log:
                 log.info(
                     f'[{proc_id}] Target location from DV was not available ({target_pos_row_input}, '
@@ -348,10 +348,14 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                 oot_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 1, 0].copy()
                 # snr_img = diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 3, 0].copy()
                 snr_img = diff_img / diff_img_data_dict[tce_uid]['image_data'][sampled_img_idx][:, :, 2, 1]
-                target_pos_col = (
-                    float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['col']['value']))
-                target_pos_row = (
-                    float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['row']['value']))
+                # check if target location is missing
+                if float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['col']['value']) == -1:
+                    target_pos_col, target_pos_row = np.isnan, np.isnan
+                else:
+                    target_pos_col = (
+                        float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['col']['value']))
+                    target_pos_row = (
+                        float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['row']['value']))
                 image_number = diff_img_data_dict[tce_uid]['image_number'][sampled_img_idx]
                 target_mag = diff_img_data_dict[tce_uid]['mag']
                 if 'neighbor_data' in diff_img_data_dict[tce_uid]:

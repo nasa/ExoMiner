@@ -110,7 +110,7 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector(objs_tbl, sector_lc_di
     return stars_px_coords_tbl
 
 def map_neighbors_loc_to_target_ccd_px_coordinates_sector_splits(objs_tbl, sector_lc_dir, res_dir, n_splits_objs,
-                                                                 logger=None):
+                                                                 logger=None, targets_filtered=False):
     """ Maps celestial coordinates of objects in `objs_tbl` ('ra' and 'dec' in degrees) that are neighbors of target
     with TIC ID 'target_id' to pixel coordinates in CCD for sector in `sector_lc_dir`. Splits `objs_tbl` into
     `n_splits_objs` tables before mapping celestial coordinates. The mapping results of each split are saved into a
@@ -122,27 +122,38 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_splits(objs_tbl, secto
         res_dir: Path, path to directory to save results
         n_splits_objs: int, split search results into multiple tables by splitting objects into `n_splits_objs`
         logger: logger
+        targets_filtered: bool, if `True`, it assumes that these are targets that were not processed before
 
     Returns:
         search_res: pandas DataFrame, table with neighbors. Returns `None` is `save_subtbl_fp` is not `None`
     """
 
+    if targets_filtered:
+        res_splits_found = [int(fp.stem.split('_')[-1]) for fp in res_dir.glob('neighbors_pxcoords_*.csv')]
+        new_split_i = max(res_splits_found) + 1
+        log_or_print(f'Adding results for new targets to previous results. New tables start at {new_split_i}',
+                     logger)
+    else:
+        new_split_i = 0
+
     objs_splits = np.array_split(objs_tbl, n_splits_objs)
 
     for obj_split_i, objs_split in enumerate(objs_splits):
 
-        log_or_print(f'Iterating through {len(objs_split)} objects in split '
-                     f'{obj_split_i} (out of {len(objs_tbl)} in total) split across {n_splits_objs} splits',
-                     logger)
-
         if len(objs_split) == 0:
             continue
 
-        if (res_dir / f'neighbors_{obj_split_i}.csv').exists():
-            log_or_print(f'Found table for target split {obj_split_i} (out of {n_splits_objs} splits). '
+        res_obj_split_i = obj_split_i + new_split_i
+
+        if (res_dir / f'neighbors_pxcoords_{res_obj_split_i}.csv').exists():
+            log_or_print(f'Found table for target split {res_obj_split_i} (out of {n_splits_objs} splits). '
                          f'Skipping {len(objs_split)} targets in this split...', logger)
             continue
 
+        log_or_print(f'Iterating through {len(objs_split)} objects in split '
+                     f'{res_obj_split_i} (out of {len(objs_tbl)} in total) split across {n_splits_objs} splits',
+                     logger)
+        
         objs_split_pxcoords = map_neighbors_loc_to_target_ccd_px_coordinates_sector(objs_split, sector_lc_dir, logger)
 
         log_or_print(f'Adding pixel coordinates to neighbors...', logger)
@@ -150,13 +161,30 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_splits(objs_tbl, secto
         objs_split = objs_split.merge(objs_split_pxcoords, how='left', on=['ID', 'target_id'], validate='one_to_one')
 
         log_or_print(f'Saving subset table of results...', logger)
-        objs_split.to_csv(res_dir / f'neighbors_pxcoords_{obj_split_i}.csv', index=False)
+        objs_split.to_csv(res_dir / f'neighbors_pxcoords_{res_obj_split_i}.csv', index=False)
 
     log_or_print(f'Iterated through all {len(objs_tbl)} across {n_splits_objs} splits.', logger)
 
 
+def filter_neighbors_tbl(neighbors_tbl, filter_target_tbl):
+    """ Filter targets in `neighbors_tbl` based on targets in `filter_target_tbl` for the corresponding sector.
+
+    Args:
+        neighbors_tbl: pandas DataFrame, table with objects with celestial coordinates to be mapped to CCD pixel
+            coordinates
+        filter_target_tbl: pandas DataFrame, table used to filter targets in `neighbors_tbl` for the corresponding
+            sector
+    Returns:
+        neighbor_tbl: removed neighbors whose targets are not in `filter_target_tbl`
+    """
+
+    neighbors_tbl = neighbors_tbl.loc[neighbors_tbl['target_id'].isin(filter_target_tbl['target_id'])]
+
+    return neighbors_tbl
+
+
 def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp, lc_sector_dir, n_splits_objs,
-                                                               use_logs=True):
+                                                               use_logs=True, filter_target_tbl=None):
     """ Maps celestial coordinates of objects in `neighbors_tbl_fp` ('ra' and 'dec' in degrees) that are neighbors of
     target with TIC ID 'target_id' to pixel coordinates in CCD for sector in `lc_sector_dir`.
 
@@ -172,9 +200,8 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
         lc_sector_dir: Path, path to directory that contains lightcurve FITS files for the corresponding sector
         n_splits_objs: int, split search results into multiple tables by splitting objects into `n_splits_objs`
         use_logs: bool, if True writes information about run to logs. Otherwise, it prints them to the console
+        filter_target_tbl: pandas DataFrame, table used to filter targets in `neighbors_tbl`
     """
-
-    datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     match = re.search(r'S(\d+)', neighbors_tbl_fp.name)
     if match:
@@ -200,12 +227,21 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
         logger_handler.setFormatter(logger_formatter)
         logger.addHandler(logger_handler)
         logger.info(f'Started run for targets in S{sector}.')
-        logger.info(f'Number of targets: {len(sector)}')
     else:
         logger = None
 
     log_or_print(f'Reading neighbors table {neighbors_tbl_fp}...', logger)
     neighbors_df = pd.read_csv(neighbors_tbl_fp)
+
+    if filter_target_tbl:
+
+        filter_target_tbl_sector = filter_target_tbl.loc[filter_target_tbl['sector'] == sector]
+
+        log_or_print(f'Getting results for a subset of {len(filter_target_tbl_sector)} targets', logger)
+
+        neighbors_df = filter_neighbors_tbl(neighbors_df, filter_target_tbl_sector)
+
+        logger.info(f'Number of targets after filtering: {len(neighbors_df["target_id"].unique())}')
 
     # map celestial coordinates to CCD from tess-point for these neighbors
     log_or_print('Mapping celestial to pixel coordinates for neighbors...', logger)
@@ -232,21 +268,24 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
 
 if __name__ == "__main__":
 
-    neighbors_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_ffi_s36-s72_search_radius_arcsec_168.0_tpf_wcs_4-7-2025_1322')
-    n_procs = 128  # multiprocessing parameters
+    neighbors_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233')
+    n_procs = 36  # multiprocessing parameters
     use_logs = True
     n_splits_objs = 20
-    lc_root_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc')
+    lc_root_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
+    filter_target_tbl = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233/missing_targets_lcs_4-14-2025_1016.csv')
 
     neighbors_subdirs = list(neighbors_dir.glob('S*'))
+    # neighbors_subdirs = list(neighbors_dir.glob('S65'))
     neighbors_tbls_fps = [list(neighbors_subdir.glob('neighbors_S*.csv'))[0] for neighbors_subdir in neighbors_subdirs]
     print(f'Found {len(neighbors_tbls_fps)} neighbors table(s).')
 
-    # for FFI data
     jobs = [(neighbors_tbl_fp,
-             lc_root_dir / f's{neighbors_tbl_fp.stem.split("_")[1][1:].zfill(4)}',
+            #  lc_root_dir / f's{neighbors_tbl_fp.stem.split("_")[1][1:].zfill(4)}',  # for FFI data
+             lc_root_dir / f'sector_{neighbors_tbl_fp.stem.split("_")[1][1:]}',  # for 2-min data
              n_splits_objs,
-             use_logs
+             use_logs,
+             filter_target_tbl,
              )
             for neighbors_tbl_fp in neighbors_tbls_fps]
     n_jobs = len(jobs)
