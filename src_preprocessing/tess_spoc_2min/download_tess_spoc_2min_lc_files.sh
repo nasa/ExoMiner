@@ -1,9 +1,12 @@
 # Download lc fits files to `LC_DIR` based on sh files in `SH_DIR`
 
 # directory with lc sh files
-SH_DIR=/data5/tess_project/Data/tess_spoc_2min_data/lc/dv_target_list_sh
+SH_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_targets_4-16-2025_1014/
 # destination directory
 LC_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/
+# set permissions and group if needed
+CHANGE_PERMISSIONS_AND_GROUP=false
+GROUP=ar-gg-ti-tess-dsg
 
 mkdir -p "$SH_DIR"/completed
 
@@ -22,7 +25,14 @@ do
     cd ../
     mv "$sector_shfile" "$SH_DIR"/completed
 
-    # set group and permissions for rwx in group
-    chgrp -R ar-gg-ti-tess-dsg "$LC_SECTOR_DIR"
-    chmod -R 770 "$LC_SECTOR_DIR"
 done
+
+echo "Finished downloading light curve FITS files"
+
+# set permissions and group
+if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
+
+then
+  chgrp -R $GROUP $DEST_DIR
+  chmod -R 770 $DEST_DIR
+fi

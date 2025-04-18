@@ -1,9 +1,9 @@
 # Download xml files using curl statements in sh files.
 
 # directory with sh files
-TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc_sh/filtered_src_lc_sh
+TARGET_SH_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc_sh_files/download_targets_4-16-2025_1014/
 # destination directory for lc files
-DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc
+DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/
 # set permissions and group if needed
 CHANGE_PERMISSIONS_AND_GROUP=false
 GROUP=ar-gg-ti-tess-dsg
@@ -24,6 +24,8 @@ do
     mv "$SECTOR_SHFILE" "$COMPLETED_DIR"  # move completed sh script
 
 done
+
+echo "Finished downloading light curve FITS files"
 
 # set permissions and group
 if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]

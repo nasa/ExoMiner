@@ -129,7 +129,8 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_splits(objs_tbl, secto
     """
 
     if targets_filtered:
-        res_splits_found = [int(fp.stem.split('_')[-1]) for fp in res_dir.glob('neighbors_pxcoords_*.csv')]
+        res_splits_found = [int(fp.stem.split('_')[-1]) for fp in res_dir.glob('neighbors_pxcoords_*.csv') if
+                            'neighbors_pxcoords_S' not in fp.stem]
         new_split_i = max(res_splits_found) + 1
         log_or_print(f'Adding results for new targets to previous results. New tables start at {new_split_i}',
                      logger)
@@ -205,7 +206,7 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
 
     match = re.search(r'S(\d+)', neighbors_tbl_fp.name)
     if match:
-        sector = match.group(1)
+        sector = int(match.group(1))
     else:
         raise ValueError(f"Could not find sector ID based on neighbors table filename: {neighbors_tbl_fp.name}\n "
                          f"Expected pattern S[0-9]+")
@@ -233,7 +234,7 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
     log_or_print(f'Reading neighbors table {neighbors_tbl_fp}...', logger)
     neighbors_df = pd.read_csv(neighbors_tbl_fp)
 
-    if filter_target_tbl:
+    if filter_target_tbl is not None:
 
         filter_target_tbl_sector = filter_target_tbl.loc[filter_target_tbl['sector'] == sector]
 
@@ -251,7 +252,8 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
         lc_sector_dir,
         map_px_res_dir,
         n_splits_objs,
-        logger
+        logger=logger,
+        targets_filtered=filter_target_tbl is not None
     )
 
     # get filepaths, read csv files and concatenate them
@@ -269,11 +271,12 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
 if __name__ == "__main__":
 
     neighbors_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233')
-    n_procs = 36  # multiprocessing parameters
+    n_procs = 88  # multiprocessing parameters
     use_logs = True
     n_splits_objs = 20
+    data_collection_mode = '2min'  # either ffi or 2min
     lc_root_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
-    filter_target_tbl = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233/missing_targets_lcs_4-14-2025_1016.csv')
+    filter_target_tbl = None  # pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233/missing_targets_lcs_4-14-2025_1016.csv')
 
     neighbors_subdirs = list(neighbors_dir.glob('S*'))
     # neighbors_subdirs = list(neighbors_dir.glob('S65'))
@@ -281,8 +284,8 @@ if __name__ == "__main__":
     print(f'Found {len(neighbors_tbls_fps)} neighbors table(s).')
 
     jobs = [(neighbors_tbl_fp,
-            #  lc_root_dir / f's{neighbors_tbl_fp.stem.split("_")[1][1:].zfill(4)}',  # for FFI data
-             lc_root_dir / f'sector_{neighbors_tbl_fp.stem.split("_")[1][1:]}',  # for 2-min data
+             lc_root_dir / f's{neighbors_tbl_fp.stem.split("_")[1][1:].zfill(4)}'
+             if data_collection_mode == 'ffi' else lc_root_dir / f'sector_{neighbors_tbl_fp.stem.split("_")[1][1:]}',
              n_splits_objs,
              use_logs,
              filter_target_tbl,
