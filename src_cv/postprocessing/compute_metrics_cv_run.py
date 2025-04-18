@@ -16,17 +16,17 @@ clf_threshold = 0.5  # classification threshold used to compute accuracy, precis
 multiclass = False  # multiclass or bin class?
 target_score = 'score_AFP'  # get auc_pr metrics for different class labels
 class_name = 'label_id'
-cat_name = 'label'
+cat_name = 'label'  # 'obs_type'  # 'label'
 
 cats = {
     # data set (since each data set might contain different populations of examples)
     'train': {
         # Kepler
-        'PC': 1,
-        'AFP': 0,
-        # 'NTP': 0,
-        # 'UNK': 0,
-        # TESS
+        # 'PC': 1,
+        # 'AFP': 0,
+        # # 'NTP': 0,
+        # # 'UNK': 0,
+        # # TESS
         'KP': 1,
         'CP': 1,
         'EB': 0,
@@ -38,6 +38,9 @@ cats = {
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
+        # # TESS 2-min vs FFI
+        # '2min': 0,
+        # 'ffi': 1,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -64,6 +67,9 @@ cats = {
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
+        # # TESS 2-min vs FFI
+        # '2min': 0,
+        # 'ffi': 1,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -90,6 +96,9 @@ cats = {
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
+        # # TESS 2-min vs FFI
+        # '2min': 0,
+        # 'ffi': 1,
         # Kepler Simulated
         # 'INJ1': 1,
         # 'INJ2': 0,
@@ -127,9 +136,11 @@ metrics_lst += [f'precision_at_{k_val}' for k_val in top_k_vals]
 metrics_lst += [f'recall_class_{class_id}' for class_id in class_ids]
 metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
+results_sub_dir = 'ensemble_model'  # 'ensemble_model'  # 'models/model0'  # 'ensemble_model'
+
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_1-6-2025_2152'),
+    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_patience50ffi_exominernew_4-11-2025_1255'),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
@@ -145,9 +156,8 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         metrics_df = []
         for cv_iter_dir in sorted(cv_iters_dirs):  # iterate through each cv iteration
             print(f'CV iteration {cv_iter_dir}')
-            ranking_tbl = pd.read_csv(cv_iter_dir / 'ensemble_model' / f'ranked_predictions_{dataset}set.csv')
-            ranking_tbl = ranking_tbl.loc[ranking_tbl['obs_type'] == 'ffi']
-            ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
+            ranking_tbl = pd.read_csv(cv_iter_dir / results_sub_dir / f'ranked_predictions_{dataset}set.csv')
+            ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x[cat_name]], axis=1)
 
             # compute metrics
             with tf.device('/cpu:0'):
@@ -176,8 +186,7 @@ for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
         data_to_tbl = {col: [] for col in metrics_lst}
 
         ranking_tbl = pd.read_csv(cv_run_dir / 'ranked_predictions_allfolds.csv')
-        ranking_tbl = ranking_tbl.loc[ranking_tbl['obs_type'] == 'ffi']
-        ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x['label']], axis=1)
+        ranking_tbl['label_id'] = ranking_tbl.apply(lambda x: cats[dataset][x[cat_name]], axis=1)
 
         # compute metrics
         metrics_df = compute_metrics_from_predictions(ranking_tbl, cats[dataset], num_thresholds, clf_threshold,

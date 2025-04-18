@@ -266,16 +266,6 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
     preprocessing_dict = {}
     for tce_i, tce_uid in enumerate(diff_img_data_dict):  # iterate over TCEs
 
-        # # TODO: no need for float once extracted diff image data is reprocessed
-        # for img_idx in range(len(diff_img_data_dict[tce_uid]['quality_metric'])):
-        #     diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['value'] = (
-        #         float(diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['value']))
-        #     diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['attempted'] = True if (
-        #             diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['attempted'] == 'true') else False
-        #     diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['valid'] = True if \
-        #     diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['valid'] == 'true' else False
-        #     diff_img_data_dict[tce_uid]['quality_metric'][img_idx]['valid'] = True
-
         # initialize dictionary for the preprocessing results
         preprocessing_dict[tce_uid] = initialize_data_example_with_missing_values(final_size['x'] * upscale_f['x'],
                                                                                   final_size['y'] * upscale_f['y'],
@@ -477,7 +467,7 @@ if __name__ == '__main__':
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
-                        default='/home/msaragoc/Projects/exoplnt_dl/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
     args = parser.parse_args()
 
     # load yaml file with run setup

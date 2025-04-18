@@ -177,12 +177,11 @@ if __name__ == '__main__':
     multiclass_target_score = None
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_noduplicate2mindata_2-18-2025_1135/ranked_predictions_allfolds.csv")
+    predictions_tbl_fp = Path(f"/Users/msaragoc/Downloads/ensemble_ranked_predictions_testset 2.csv")
     # save path
-    save_fp = Path(f"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_noduplicate2mindata_2-18-2025_1135/metrics_2min_only.csv")
+    save_fp = Path(f"/Users/msaragoc/Downloads//metrics_prev2.csv")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
-    predictions_tbl = predictions_tbl.loc[predictions_tbl['obs_type'] == '2min']
 
     predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
