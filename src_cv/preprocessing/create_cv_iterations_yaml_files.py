@@ -1,112 +1,114 @@
 """
 Create yaml CV iteration files for CV experiments.
 
-1) Normalize CV dataset to prepare it to be used for a CV experiment.
-2) Create CV iterations yaml for the CV experiment.
+1) Create CV iterations yaml for the non-normalized dataset.
+2) Create CV iterations yaml for the normalized dataset based on the CV iterations yaml for the non-normalized dataset.
+3) Create CV iterations yaml for inference on a CV dataset already normalized and using a set of trained models from a
+    CV experiment.
 """
 
 # 3rd party
 import yaml
 from pathlib import Path
+import numpy as np
 
-#%% Create yaml file to be used to create the normalized labeled dataset for the CV experiment from the nonnormalized dataset
 
-data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval')
-datasets = ['train', 'test']
+def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21):
+    """ Create CV iterations yaml file for the non-normalized dataset.
 
-cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
+    Args:
+        data_dir: Path, CV dataset directory
+        datasets: list, datasets to create for each CV iteration. Must contain at least 'train' and 'test'. If 'val' is
+            present, then a random fold from the is chosen as validation fold from the training set folds.
 
-cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-for fp in cv_folds_fps:
+    Returns:
 
-    cv_iter = {dataset: None for dataset in datasets}  # 'val', 'test']}
+    """
 
-    cv_iter['test'] = [fp]  # each CV fold shows up as test once; number of folds determines number of CV iterations
+    # get filepaths for the CV folds tfrecord files
+    cv_folds_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
 
-    no_test_fps = [fp_n for fp_n in cv_folds_fps if fp_n != fp]
+    cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
+    for fp in cv_folds_fps:
 
-    cv_iter['train'] = no_test_fps  # no_test_fps[:-1]
-    # cv_iter['val'] = [no_test_fps[-1]]  # get one of the training folds as validation fold
+        cv_iter = {dataset: None for dataset in datasets}
 
-    cv_iters.append(cv_iter)
+        cv_iter['test'] = [fp]  # each CV fold shows up as test once; number of folds determines number of CV iterations
 
-with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-    yaml.dump(cv_iters, file, sort_keys=False)
+        no_test_fps = [fp_n for fp_n in cv_folds_fps if fp_n != fp]
 
-#%% Create yaml file to be used to run the CV experiment with the normalized labeled dataset
+        if 'val' in datasets:  # get one of the training folds as validation fold
+            rng = np.random.default_rng(seed=rnd_seed)
+            cv_iter['train'] = rng.choice(no_test_fps, len(no_test_fps) - 1, replace=False).tolist()
+            cv_iter['val'] = [fp for fp in no_test_fps if fp not in cv_iter['train']]
+        else:
+            cv_iter['train'] = no_test_fps
 
-data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset')
-# use yaml file for CV iterations created when normalizing the data
-cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset/src_cv_iterations.yaml')
+        cv_iters.append(cv_iter)
 
-with open(cv_iterations_fp, 'r') as file:
-    cv_iterations = yaml.unsafe_load(file)
+    with open(data_dir / 'cv_iterations.yaml', 'w') as file:
+        yaml.dump(cv_iters, file, sort_keys=False)
 
-cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-for cv_iter_i, cv_iter in enumerate(cv_iterations):
 
-    cv_iter = {dataset: [data_dir / f'cv_iter_{cv_iter_i}/norm_data' / dataset_fp.name for dataset_fp in dataset_fps]
-               for dataset, dataset_fps in cv_iter.items()}
+def create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp):
+    """ Create CV iterations yaml file for the normalized CV dataset based on the CV iterations yaml file for the
+    non-normalized dataset  `src_cv_iterations_fp`.
 
-    cv_iters.append(cv_iter)
+    Args:
+        data_dir: Path, CV dataset directory with normalized data
+        src_cv_iterations_fp: Path, path to the yaml file with the CV iterations for the non-normalized dataset
 
-with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-    yaml.dump(cv_iters, file, sort_keys=False)
+    Returns:
 
-#%% Create yaml file to be used to run the CV trained models on a predict dataset
+    """
+    # Create yaml file to be used to run the CV experiment with the normalized labeled dataset
 
-data_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tess_spoc_ffi/cv_tfrecords_tess_spoc_ffi_s36-s69_7-24-2024_1610_predict/tfrecords_normalized')
-n_cv_iterations = 5
+    with open(src_cv_iterations_fp, 'r') as file:
+        cv_iterations = yaml.unsafe_load(file)
 
-data_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
-cv_iters = [{'predict': data_fps} for cv_i in range(n_cv_iterations)]
+    cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
+    for cv_iter_i, cv_iter in enumerate(cv_iterations):
 
-with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-    yaml.dump(cv_iters, file, sort_keys=False)
+        cv_iter = {dataset: [data_dir / f'cv_iter_{cv_iter_i}/norm_data' / dataset_fp.name for dataset_fp in dataset_fps]
+                   for dataset, dataset_fps in cv_iter.items()}
 
-#%% Create new yaml file from another one by including Kepler data in the training set
+        cv_iters.append(cv_iter)
 
-src_cv_iterations_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval/cv_iterations.yaml')
-kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval')
-dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized_with_kepler_trainset')
+    with open(data_dir / 'cv_iterations.yaml', 'w') as file:
+        yaml.dump(cv_iters, file, sort_keys=False)
 
-dest_dir.mkdir(exist_ok=True)
 
-kepler_src_fps = [fp for fp in kepler_src_dir.iterdir() if fp.name.startswith('shard-')]
+def create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterations):
+    """ Create CV iterations yaml file to be used to run CV trained models on a predict dataset (already normalized).
+    Args:
+        data_dir: Path, CV dataset directory
+        n_cv_iterations: int, number of CV iterations trained models
 
-with open(src_cv_iterations_fp, 'r') as file:
-    cv_iterations = yaml.unsafe_load(file)
+    Returns:
 
-new_cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-for cv_iter_i, cv_iter in enumerate(cv_iterations):
+    """
 
-    cv_iter['train'] += kepler_src_fps
+    data_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
+    cv_iters = [{'predict': data_fps} for cv_i in range(n_cv_iterations)]
 
-    new_cv_iters.append(cv_iter)
+    with open(data_dir / 'cv_iterations.yaml', 'w') as file:
+        yaml.dump(cv_iters, file, sort_keys=False)
 
-with open(dest_dir / 'src_cv_iterations.yaml', 'w') as file:
-    yaml.dump(new_cv_iters, file, sort_keys=False)
 
-#%% Create new yaml file from another one by adding only Kepler data to the training set
+if __name__ == "__main__":
 
-src_cv_iterations_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml')
-kepler_src_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227/tfrecords/eval')
-dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_/eval_normalized_with_kepler_trainset')
+    # Create CV iterations yaml file for the non-normalized dataset
+    data_dir = Path('')
+    datasets = ['train', 'test', 'val']
+    create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21)
 
-dest_dir.mkdir(exist_ok=True)
+    # Create CV iterations yaml file to be used to run the CV experiment with the normalized labeled dataset
+    data_dir = Path( '')
+    # use yaml file for CV iterations created when normalizing the data
+    src_cv_iterations_fp = Path('')
+    create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp)
 
-kepler_src_fps = [fp for fp in kepler_src_dir.iterdir() if fp.name.startswith('shard-')]
-
-with open(src_cv_iterations_fp, 'r') as file:
-    cv_iterations = yaml.unsafe_load(file)
-
-new_cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-for cv_iter_i, cv_iter in enumerate(cv_iterations):
-
-    cv_iter['val'] = cv_iter['train']
-    cv_iter['train'] = kepler_src_fps
-
-    new_cv_iters.append(cv_iter)
-
-with open(dest_dir / 'src_cv_iterations.yaml', 'w') as file:
-    yaml.dump(new_cv_iters, file, sort_keys=False)
+    # Create CV iterations yaml file to be used to run the CV trained models on a predict dataset
+    data_dir = Path('')
+    n_cv_iterations = 5
+    create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterations)

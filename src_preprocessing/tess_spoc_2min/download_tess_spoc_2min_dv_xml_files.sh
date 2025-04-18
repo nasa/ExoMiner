@@ -1,9 +1,12 @@
 # Download xml files using curl statements in sh files.
 
 # directory with sh files
-TARGET_SH_DIR=/data5/tess_project/Data/tess_spoc_2min_data/dv/target_sh_xml_only
+TARGET_SH_DIR=null
 # destination directory for xml files
-DEST_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs/
+DEST_DIR=null
+# set permissions and group if needed
+CHANGE_PERMISSIONS_AND_GROUP=false
+GROUP=null
 
 mkdir -p "$TARGET_SH_DIR"/completed
 
@@ -32,10 +35,12 @@ do
     rm tesscurl*
     mv "$sector_shfile" "$TARGET_SH_DIR"/completed
 
-    # set permissions and group
-    chgrp -R ar-gg-ti-tess-dsg "$DEST_DIR_SECTOR"
-    chmod -R 770 "$DEST_DIR_SECTOR"
-
 done
 
+# set permissions and group
+if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
 
+then
+  chgrp -R $GROUP "$DEST_DIR"
+  chmod -R 770 "$DEST_DIR"
+fi

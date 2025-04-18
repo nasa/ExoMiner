@@ -1,7 +1,7 @@
 # source TFRecord directory
-tfrecDir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+tfrecDir:
 # destination directory for computed statistics
-norm_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tfrecords_tess_s1-s67_10-31-2023_1452_data/tfrecords_tess_s1-s67_10-31-2023_1452_magshift_mission_adddiffimg_dataset_split
+norm_dir:
 
 n_processes_compute_norm_stats: 10  # number of processes used to parallelize reading the values for the dataset
 

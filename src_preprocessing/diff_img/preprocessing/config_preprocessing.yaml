@@ -1,7 +1,7 @@
 # results directory for processed data
-dest_dir: /data5/tess_project/Data/tess_spoc_2min_data/dv/xml_files/preprocessing_step2/test_3-2-2025_1213
+dest_dir:
 # file path to difference image data NumPy file
-diff_img_data_fp: /data5/tess_project/Data/tess_spoc_2min_data/dv/xml_files/preprocessing/test_add_neighbors_2-3-2025_1009/data/tess_diffimg_sector_52.npy
+diff_img_data_fp:
 mission: tess  # either 'kepler' or 'tess'
 num_sampled_imgs: 5  # number of sampled quarters/sector runs
 final_size:  # final size for preprocessed images before resizing

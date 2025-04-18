@@ -65,7 +65,6 @@ def plot_loss_metric(res, epochs, save_path, ep_idx=-1, opt_metric=None):
         ax[1].set_title(val_test_str)
         ax[1].legend(loc="lower right")
     f.suptitle(f'Epochs = {epochs[-1]}(Best:{epochs[ep_idx]:})')
-    # f.subplots_adjust(top=0.85, bottom=0.091, left=0.131, right=0.92, hspace=0.2, wspace=0.357)
     f.tight_layout()
     f.savefig(save_path)
     plt.close()

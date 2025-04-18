@@ -34,10 +34,10 @@ def aggregate_cv_fold_predictions(cv_run_dir, tbl_sub_dir):
 
 if __name__ == '__main__':
 
-    tbl_sub_dir = 'ensemble_model'  # 'ensemble_model'  # models/model0'  # 'ensemble_model'
+    tbl_sub_dir = 'ensemble_model'
 
     cv_run_dirs = [
-        Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_patience50ffi_exominernew_4-11-2025_1255'),
+        Path(''),
     ]
     for cv_run_dir in cv_run_dirs:
 

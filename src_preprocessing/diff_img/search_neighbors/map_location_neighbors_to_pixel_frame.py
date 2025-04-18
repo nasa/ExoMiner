@@ -270,16 +270,15 @@ def map_neighbors_loc_to_target_ccd_px_coordinates_sector_main(neighbors_tbl_fp,
 
 if __name__ == "__main__":
 
-    neighbors_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233')
+    neighbors_dir = Path('')
     n_procs = 88  # multiprocessing parameters
     use_logs = True
     n_splits_objs = 20
     data_collection_mode = '2min'  # either ffi or 2min
-    lc_root_dir = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
-    filter_target_tbl = None  # pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233/missing_targets_lcs_4-14-2025_1016.csv')
+    lc_root_dir = Path('')
+    filter_target_tbl = None
 
     neighbors_subdirs = list(neighbors_dir.glob('S*'))
-    # neighbors_subdirs = list(neighbors_dir.glob('S65'))
     neighbors_tbls_fps = [list(neighbors_subdir.glob('neighbors_S*.csv'))[0] for neighbors_subdir in neighbors_subdirs]
     print(f'Found {len(neighbors_tbls_fps)} neighbors table(s).')
 

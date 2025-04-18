@@ -19,9 +19,9 @@ The yaml has the following structure:
 import yaml
 from pathlib import Path
 
-yaml_fp = Path('/Users/msaragoc/Downloads/normalize_data_test/dataset_splits_6-27-2024_0919.yaml')
+yaml_fp = Path('')
 # TFRecord directory with dataset shards
-tfrec_dir = Path('/Users/msaragoc/Downloads/normalize_data_test/normalized_data')
+tfrec_dir = Path('')
 # set datasets; comment if not needed
 datasets = [
     'train',

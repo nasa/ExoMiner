@@ -29,7 +29,7 @@ dataset = 'test'
 n_statistics = 10
 metric = 'auc_pr'
 
-metrics_tbl = pd.read_excel('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/metrics_per_set_ffivs2minvsffitl_4-7-2025_1440.xlsx')
+metrics_tbl = pd.read_excel('')
 
 experiments = metrics_tbl['experiment'].unique()
 experiments_pair_combinations = list(combinations(experiments, 2))
@@ -58,4 +58,4 @@ for experiment_pair in experiments_pair_combinations:
     effect_size_dict['cohen_effect_size'].append(cohen_eff_size)
 
 effect_size_df = pd.DataFrame(effect_size_dict)
-effect_size_df.to_csv(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cohen_effect_size_{dataset}set_metric_{metric}_ffivs2minvsffitl_4-7-2025_1440.csv', index=False)
+effect_size_df.to_csv(f'', index=False)

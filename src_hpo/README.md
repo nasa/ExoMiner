@@ -26,7 +26,7 @@ that assumption holds.
 3. `worker_hpo.py`: worker implementation.
 4. `utils_hpo.py`: utility functions.
 5. `config_hpo.yaml`: configuration parameters for the HPO experiment.
-6. `Submit_hpo_gpus.pbs`: PBS script used to run HPO on a multi-GPU and multi-node setup in the HECC cluster.
+6. `hpo_run_main.sh`: script used to run HPO on a multi-GPU and multi-node setup in the HECC cluster.
 7. `hparamopt_res.py`: script used to analyze results from an HPO run in postprocessing.
 
 

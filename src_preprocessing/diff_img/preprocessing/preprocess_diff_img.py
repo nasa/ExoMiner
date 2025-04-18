@@ -467,7 +467,7 @@ if __name__ == '__main__':
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+                        default='')
     args = parser.parse_args()
 
     # load yaml file with run setup

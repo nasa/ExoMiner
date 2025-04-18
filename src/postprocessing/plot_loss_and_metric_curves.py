@@ -13,10 +13,10 @@ import numpy as np
 from pathlib import Path
 
 # local
-from src.train.utils_train import plot_metric_from_res_file
+from src.utils.utils_visualization import plot_metric_from_res_file
 
 # file pat to results numpy file
-res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/res_train.npy')
+res_fp = Path('')
 # file path to save image to
 # save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/plot_prauc_curve.png')
 

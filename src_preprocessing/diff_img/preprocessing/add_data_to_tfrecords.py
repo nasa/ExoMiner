@@ -129,7 +129,7 @@ if __name__ == '__main__':
     n_jobs = 108
 
     # %% set file paths
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055')
+    src_tfrec_dir = Path('')
     src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
 
     # # Kepler - single NumPy file
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # TESS - one NumPy file per sector run
     # aggregate all dictionaries
     # might be memory intensive as number of sector runs increases...
-    diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/preprocessed_data')
+    diff_img_data_dir = Path('')
     diff_img_data = {}
 
     # # get file paths to directories with difference image data in NumPy files

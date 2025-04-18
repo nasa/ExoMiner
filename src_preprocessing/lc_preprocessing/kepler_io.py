@@ -438,52 +438,23 @@ def read_kepler_light_curve(filenames,
 
             light_curve = hdu_list[light_curve_extension].data
 
-            # if _has_finite(light_curve.PSF_CENTR1) and prefer_psfcentr:
             if prefer_psfcentr:
                 centroid_x, centroid_y = light_curve.PSF_CENTR1, light_curve.PSF_CENTR2
             else:
-                # if _has_finite(light_curve.MOM_CENTR1):
                 # correct centroid time series using the POS_CORR (position correction) time series which take into
                 # account DVA, pointing drift and thermal transients - based on PSF centroids, so not the best
                 # approach to correct systematics in the MOM (flux-weighted) centroids
                 centroid_x, centroid_y = light_curve.MOM_CENTR1 - light_curve.POS_CORR1, \
                                          light_curve.MOM_CENTR2 - light_curve.POS_CORR2
-                # centroid_x, centroid_y = light_curve.MOM_CENTR1, \
-                #                          light_curve.MOM_CENTR2
 
             centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-            # else:
-            #     continue  # no data
 
             # get components required for the transformation from CCD pixel coordinates to world coordinates RA and Dec
             if centroid_radec:
-                # transformation matrix from aperture coordinate frame to RA and Dec
-                # cd_transform_matrix = np.zeros((2, 2))
-                # cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header['CDELT1'], \
-                #                          hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header['CDELT1']
-                # cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header['CDELT2'], \
-                #                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header['CDELT2']
-
-                # # reference pixel in the aperture coordinate frame
-                # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']],
-                #                        [hdu_list['APERTURE'].header['CRPIX2']]])
 
                 # reference pixel in CCD coordinate frame
                 ref_px_ccdf = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
                                         [hdu_list['APERTURE'].header['CRVAL2P']]])
-
-                # # RA and Dec at reference pixel
-                # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
-                #                          [hdu_list['APERTURE'].header['CRVAL2']]])
-
-                # convert from CCD pixel coordinates to world coordinates RA and Dec
-        # if centroid_radec:
-                # centroid_ra, centroid_dec = convertpxtoradec_centr(centroid_x, centroid_y,
-                #                                                    cd_transform_matrix,
-                #                                                    ref_px_ccdf,  # np.array([[0], [0]])
-                #                                                    ref_px_apf,  # np.array([[0], [0]])
-                #                                                    ref_angcoord
-                #                                                    )
 
                 w = wcs.WCS(hdu_list['APERTURE'].header)
                 pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T
@@ -492,14 +463,6 @@ def read_kepler_light_curve(filenames,
                 target_pos_px = w.wcs_world2pix(np.expand_dims(data['target_position'], 0), 1,
                                                 ra_dec_order=True)
                 data['target_position_px'].append(target_pos_px)
-
-        # if get_px_centr:
-        # required for FDL centroid time-series; center centroid time-series relative to the reference pixel in the
-        # aperture
-        # 1st attempt at reproducing FDL centroid; they mention centroid relative to the Target Pixel File center,
-        # It is not clear what exactly that means
-        # centroid_fdl_x = centroid_fdl_x - ref_px_ccdf[0])
-        # centroid_fdl_y = centroid_fdl_y - ref_px_ccdf[1])
 
         # get time and PDC-SAP flux arrays
         time = light_curve.TIME

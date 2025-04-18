@@ -376,7 +376,7 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml')
+    path_to_yaml = Path('src_preprocessing/config_compute_normalization_stats.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.unsafe_load(file)
@@ -388,7 +388,7 @@ if __name__ == '__main__':
     # tfrecTrainFiles = [file for file in Path(config['tfrecDir']).iterdir() if file.name.startswith('shard')]  #  if 'train-' in file.stem]
 
     # config['norm_dir'] = Path(config['norm_dir'])
-    config['norm_dir'] = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_8-21-2024_1038_data/cv_tfrecords_tess_spoc_2min_s1-s67_8-27-2024_1300/tfrecords/eval_normalized')
+    config['norm_dir'] = Path('')
     config['norm_dir'].mkdir(exist_ok=True)
 
     compute_normalization_stats(tfrecTrainFiles, config['compute_norm_stats_params'])

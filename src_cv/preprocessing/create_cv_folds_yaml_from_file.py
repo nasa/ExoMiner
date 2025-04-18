@@ -8,9 +8,9 @@ from pathlib import Path
 import yaml
 import re
 
-src_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tess_spoc_2min_paper/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized/cv_iterations.yaml')
-dest_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tess_spoc_2min_paper/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized/cv_iterations_local.yaml')
-dest_root_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/tess_spoc_2min_paper/cv_tfrecords_tess_spoc_2min_s1-s67_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047/tfrecords/eval_normalized/')
+src_fp = Path('')
+dest_fp = Path('')
+dest_root_dir = Path('')
 
 with open(src_fp, 'r') as file:
     cv_config = yaml.unsafe_load(file)

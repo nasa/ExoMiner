@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label.csv
+input_tce_csv_file:
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc
+lc_data_dir:
 
 using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True

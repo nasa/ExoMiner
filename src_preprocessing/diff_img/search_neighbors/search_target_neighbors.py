@@ -235,12 +235,11 @@ if __name__ == "__main__":
     mag_thr = np.inf
     n_splits_targets = 20
     # results directory
-    # res_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/search_neighboring_stars/tess_spoc_2min_s1-s68_search_radius_arcsec_{search_radius_arcsec.value}_tess-point_2-12-2025_2114')
-    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_ffi_s36-s72_search_radius_arcsec_168.0_tpf_wcs_4-7-2025_1322')
+    res_dir = Path('')
     # multiprocessing parameters
     # n_jobs = 1
     n_procs = 6
-    targets_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s36-s72_4-7-2025_0931.csv')
+    targets_tbl_fp = Path('')
     use_logs = True
 
     res_dir.mkdir(parents=True, exist_ok=True)
@@ -248,9 +247,6 @@ if __name__ == "__main__":
     targets_tbl = pd.read_csv(targets_tbl_fp)
 
     print(f'Found {len(targets_tbl)} target-sector pairs.')
-
-    # targets_df = targets_df.loc[targets_df['sector'] == 34]
-    # targets_df = targets_df.loc[targets_df['uid'] == '182588086-1-S34']
 
     # find sectors without neighbors results (when run did not finish or there was an error)
     sectors_finished = [int(el.stem.split('_')[-1][1:]) for el in res_dir.rglob('targets_neighbors_pxcoords_S*.csv')]

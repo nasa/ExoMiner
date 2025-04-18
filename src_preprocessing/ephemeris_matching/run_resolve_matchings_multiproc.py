@@ -33,7 +33,7 @@ if __name__ == '__main__':
     match_thr = 0.75  # set matching threshold
     print(f'Set matching threshold to {match_thr}.')
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_2min_s1-s88_prsaebs_3-28-2025_0951')
+    matching_root_dir = Path('')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
 
     # # sequential processing

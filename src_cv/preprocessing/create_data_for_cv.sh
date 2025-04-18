@@ -1,0 +1,27 @@
+# Conduct preprocessing run that creates a TFRecord dataset for CV; uses GNU parallel to generate multiple processes,
+# each one conducting the preprocessing of a subset of the examples.
+
+# initialize conda and activate conda environment
+source activate envname
+
+# set path to codebase root directory
+export PYTHONPATH=
+
+# create output directory for preprocessing results
+OUTPUT_DIR=
+mkdir -p $OUTPUT_DIR
+
+# script file path
+SCRIPT_FP=$PYTHONPATH/src_cv/preprocessing/preprocess_cv_folds_trecord_dataset.py
+# config file path
+CONFIG_FP=$PYTHONPATH/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml
+# job script for running preprocessing pipeline
+PREPROCESS_SH_SCRIPT=$PYTHONPATH/src_cv/preprocessing/preprocessing_job.sh
+
+# number of total jobs; CV iterations
+NUM_TOTAL_JOBS=10
+# number of jobs run simultaneously
+NUM_JOBS_PARALLEL=10
+
+# run with GNU parallel
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"

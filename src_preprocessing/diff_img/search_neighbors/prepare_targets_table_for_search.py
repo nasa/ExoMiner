@@ -8,16 +8,13 @@ from pathlib import Path
 import numpy as np
 
 # destination file path
-target_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s36-s72_4-7-2025_0931.csv')
+target_tbl_fp = Path('')
 # source table
-tce_tbl_fp = '/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label_features_adjusted.csv'
+tce_tbl_fp = ''
 # load tce table
 tce_tbl_cols = [
     'target_id',
     'sectors_observed',
-    # 'mag',  # not needed now
-    # 'uid'
-    # 'sector_run',  # not needed
 ]
 tce_tbl = pd.read_csv(tce_tbl_fp)  # , usecols=tce_tbl_cols)
 

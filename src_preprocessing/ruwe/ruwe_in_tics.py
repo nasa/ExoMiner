@@ -110,11 +110,11 @@ def query_gaiadr_for_ruwe(tce_tbl, res_dir):
 
 if __name__ == '__main__':
 
-    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/gaiadr2_tics_ruwe')
+    res_dir = Path('')
     res_dir.mkdir(exist_ok=True)
 
     # file path to TCE table
-    tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945_uid_tic8stellar.csv')
+    tce_tbl_fp = Path('')
     # load TCE table
     tce_tbl = pd.read_csv(tce_tbl_fp)
 

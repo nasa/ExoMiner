@@ -221,20 +221,6 @@ def sample_ephemerides(tce, config):
 
     if tce['augmentation_idx'] != 0 and config['augmentation']:  # one of the TCEs does not use uncertainty values
 
-        # tce_tbl_ephem = {ephemeris: tce[ephemeris] for ephemeris in ['tce_period', 'tce_duration', 'tce_time0bk']}
-        #
-        # # fill missing values in uncertainty
-        # for ephemeris in ['tce_period', 'tce_duration', 'tce_time0bk']:
-        #     if tce['{}_err'.format(ephemeris)] == -1:
-        #         tce['{}_err'.format(ephemeris)] = config['tce_min_err[ephemeris]']
-        #
-        #     tce[ephemeris] = np.random.normal(tce[ephemeris], tce['{}_err'.format(ephemeris)])
-        #
-        # # sample ephemerides until they are positive
-        # for ephemeris in ['tce_period', 'tce_duration']:
-        #     while tce[ephemeris] <= 0:
-        #         tce[ephemeris] = np.random.normal(tce_tbl_ephem[ephemeris], tce['{}_err'.format(ephemeris)])
-
         # add noise to the ephemerides; assuming augmenting data with 2 more TCEs (ephemeris * (1 +- aug_noise_factor))
         for ephemeris in ['tce_period', 'tce_duration', 'tce_time0bk']:
             tce[ephemeris] = tce[ephemeris] * (1 - config['aug_noise_factor'],
@@ -261,25 +247,12 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
         idx_tce, index of TCE of interest in `target_intransit_cadences_arr`
     """
 
-    # get all TCEs detected for the target stars' TCE of interest
-    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
     # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
     if 'sector_run' in tce:  # all TCEs in same target and sector run (TESS)
         tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
                                    (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
     else:  # all TCEs in the same target (Kepler)
         tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-    # get all TCEs detected for the target star's TCE of interest that share at least one sector observation
-    # tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
-    # valid_tces = []
-    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-    # for _, tce_cand in tces_in_target.iterrows():
-    #     tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
-    #     overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
-    #     if overlaping_sectors_check:
-    #         valid_tces.append(tce_cand['uid'])
-    #
-    # tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
 
     # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
     idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
@@ -606,8 +579,6 @@ def process_tce(tce, table, config):
         data['target_position'] = [tce['ra'], tce['dec']]
     config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
 
-    # config['primary_buffer_time'] = (config['primary_buffer_nsamples'] /
-    #                                  config['sampling_rate_h'][config['satellite']] / 24)
     data['errors'] = check_inputs(data)
 
     # get number of samples per hour
@@ -623,12 +594,7 @@ def process_tce(tce, table, config):
         )
         # setting secondary gap duration
         config['duration_gapped_secondary'] = config['duration_gapped_primary']
-        # config['duration_gapped_secondary'] = (
-        #     min(
-        #         max(
-        #             0,
-        #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
-        #         config['gap_padding'] * tce['tce_duration']))
+
     else:
         config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'], tce['tce_period'])
         config['duration_gapped_secondary'] = 0
@@ -641,12 +607,6 @@ def process_tce(tce, table, config):
         win_dur_h = 1.2 * 24
         config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'])  # [f'{config["satellite"]}'])
         config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
-
-    # # TODO: use this?
-    # if config['satellite'] == 'kepler':
-    #     add_info = {'quarter': data['quarter'], 'module': data['module']}
-    # else:
-    #     add_info = {'sectors': data['sectors']}
 
     # find transits for all detected TCEs in the target
     target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table,
@@ -910,50 +870,11 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                            config['delta_dec'],
                                            )
 
-        # for coord, centroid_coord_data in detrended_centroid_dict.items():
-        #     utils_visualization.plot_residual(time_centroid,
-        #                                       centroid_coord_data['residual'],
-        #                                       tce,
-        #                                       config['plot_dir'],
-        #                                       f'3_residual_centroid{coord}_aug{tce["augmentation_idx"]}',
-        #                                       )
-
-    # # set outliers to zero using Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
-    # q25_75 = {'x': {'q25': np.percentile(np.concatenate(centroid_dict['x']), 25),
-    #                 'q75': np.percentile(np.concatenate(centroid_dict['x']), 75)},
-    #           'y': {'q25': np.percentile(np.concatenate(centroid_dict['y']), 25),
-    #                 'q75': np.percentile(np.concatenate(centroid_dict['y']), 75)}
-    #           }
-    # iqr = {'x': q25_75['x']['q75'] - q25_75['x']['q25'],
-    #        'y': q25_75['y']['q75'] - q25_75['y']['q25']}
-    # outlier_thr = 1.5
-    # for coord in centroid_dict:
-    #     for i in range(len(centroid_dict[coord])):
-    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-
-    # avg_centroid_oot = {coord: np.median(np.concatenate(centroid_dict[coord])) for coord in centroid_dict}
-
-    # compute the new average oot after the spline fitting and normalization
-    # TODO: how to compute the average oot? mean, median, other...
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids_it_oot(time_arrs,
-    #                                               binary_time_all,
-    #                                               centroid_dict,
-    #                                               avg_centroid_oot,
-    #                                               target_position,
-    #                                               tce, config,
-    #                                               os.path.join(config['output_dir'], 'plots'),
-    #                                               f'4_centroidtimeseries_it-ot-target_aug{tce["augmentation_idx"]}',
-    #                                               target_center=True)
-
     transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
     corrected_centroids = correct_centroid_using_transit_depth(detrended_centroid_dict['x']['detrended'],
                                                                detrended_centroid_dict['y']['detrended'],
                                                                transit_depth,
                                                                avg_centroid_oot)
-    # corrected_centroids = {'x': detrended_centroid_dict['x']['detrended'],
-    #                        'y': detrended_centroid_dict['y']['detrended']}
 
     if plot_preprocessing_tce:
         utils_visualization.plot_corrected_centroids(time_centroid,
@@ -986,96 +907,6 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                 f'3_3_distcentr_aug{tce["augmentation_idx"]}.png')
 
     return time_centroid, centroid_dist
-
-
-def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, config, plot_preprocessing_tce):
-    """ Preprocess the centroid time series following FDL preprocessing pipeline [1].
-
-     :param all_time: list of NumPy arrays, timestamps
-     :param all_centroids: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to a list of
-     NumPy arrays for the respective centroid coordinate time series
-     :param add_info: dictionary, additional information such as quarters and modules
-     :param gap_time: list of NumPy arrays, gapped timestamps
-     :param tce: pandas Series, TCE parameters
-     :param config: dict, preprocessing parameters
-     :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
-     :return:
-         time: NumPy array, timestamps for preprocessed centroid time series
-         centroid_dist: NumPy array, preprocessed centroid time series according to FDL
-
-     [1] Ansdell, Megan, et al. "Scientific Domain Knowledge Improves Exoplanet Transit Classification with Deep
-     Learning." The Astrophysical Journal Letters 869.1 (2018): L7.
-     """
-
-    time_arrs, centroid_dict = [np.array(el) for el in all_time], \
-        {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()}
-
-    time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
-                                                                                  centroid_dict['x'],
-                                                                                  centroid_dict['y']])
-
-    time_arrs, centroid_dict, add_info = util.split(time_arrs, centroid_dict,
-                                                    gap_width=config['gapWidth'],
-                                                    centroid=True,
-                                                    add_info=add_info)
-
-    if config['satellite'] == 'kepler' and add_info['quarter'][0] == 13:
-        centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
-
-    first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                              for time in time_arrs]
-
-    if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                              tce['tce_period'])
-    else:
-        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], tce['tce_period'])
-
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-
-    all_centroids_lininterp = lininterp_transits(centroid_dict, binary_time_all, centroid=True)
-
-    spline_centroid = {coord: kepler_spline.fit_kepler_spline(time_arrs,
-                                                              all_centroids_lininterp[coord],
-                                                              verbose=False)[0] for coord in all_centroids_lininterp}
-
-    finite_i_centroid = [np.logical_and(np.isfinite(spline_centroid['x'][i]), np.isfinite(spline_centroid['y'][i]))
-                         for i in range(len(spline_centroid['x']))]
-
-    # all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] /
-    #                          spline_centroid[coord][i][finite_i_centroid[i]]
-    #                          for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
-    #                  for coord in all_centroids}
-    centroid_dict = {coord: [centroid_dict[coord][i][finite_i_centroid[i]] -
-                             spline_centroid[coord][i][finite_i_centroid[i]]
-                             for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
-                     for coord in centroid_dict}
-
-    time_arrs = [time_arrs[i][finite_i_centroid[i]] for i in range(len(time_arrs)) if len(finite_i_centroid[i]) > 0]
-
-    all_centroid_dist = [np.sqrt(np.square(centroid_dict['x'][i]) + np.square(centroid_dict['y'][i]))
-                         for i in range(len(centroid_dict['x']))]
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(time_arrs,
-                                                all_centroid_dist,
-                                                None,
-                                                None,
-                                                tce,
-                                                config,
-                                                os.path.join(config['output_dir'], 'plots'),
-                                                f'6_distcentrfdl_aug{tce["augmentation_idx"]}',
-                                                pxcoordinates=True)
-
-    # impute the time series with Gaussian noise based on global estimates of median and std
-    if config['gap_imputed']:
-        time_arrs, all_centroid_dist = imputing_gaps(time_arrs, all_centroid_dist, gap_time)
-
-    time = np.concatenate(time_arrs)
-    centroid_dist = np.concatenate(all_centroid_dist)
-
-    return time, centroid_dist
 
 
 def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
@@ -1198,10 +1029,6 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
     example_stats['transit_depth_hat_se'] = binned_timeseries['flux_local'][1][loc_flux_it_bins][ind] * 1e6
 
     # odd/even flux
-    # example_stats.update({f'odd_{key}': val for key, val in odd_data.items()
-    #                       if key not in ['local_flux_view', 'local_flux_view_se', 'binned_time']})
-    # example_stats.update({f'even_{key}': val for key, val in even_data.items()
-    #                       if key not in ['local_flux_view', 'local_flux_view_se', 'binned_time']})
     example_stats['odd_even_flag'] = odd_even_flag
 
     loc_flux_odd_it_bins = (binned_timeseries['flux_odd_local'][0] >= t_min_transit) & \
@@ -1769,23 +1596,6 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
                                     )
     loc_weak_secondary_view_var_norm = loc_weak_secondary_view_var / norm_stats['sigma']
 
-    # # normalize by flux absolute minimum
-    # norm_wks_factor_fluxnorm = flux_views_stats['min'][('local', 'global')['global' in flux_view]]
-    # views_aux[f'{flux_view}_fluxnorm'] = \
-    #     centering_and_normalization(weak_secondary_flux_views[flux_view],
-    #                                 flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-    #                                 norm_wks_factor_fluxnorm,
-    #                                 report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                 )
-    # # normalize by max between flux absolute minimum and wks flux absolute minimum
-    # norm_wks_factor_fluxselfnorm = max(norm_wks_factor_fluxnorm, norm_wks_factor_selfnorm),
-    # views_aux[f'{flux_view}_max_flux-wks_norm'] = \
-    #     centering_and_normalization(weak_secondary_flux_views[flux_view],
-    #                                 flux_views_stats['median'][('local', 'global')['global' in flux_view]],
-    #                                 norm_wks_factor_fluxselfnorm,
-    #                                 report={'config': config, 'tce': tce, 'view': flux_view}
-    #                                 )
-
     binned_timeseries = {
         'flux_weak_secondary_local': (binned_time,
                                       loc_weak_secondary_view,
@@ -1879,153 +1689,6 @@ def generate_centroid_binned_views(data, tce, config):
 
     bin_counts[bin_counts == 0] = max(1, np.median(bin_counts))
     loc_centr_view_var /= np.sqrt(bin_counts)
-
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids_views(glob_centr_view, loc_centr_view, tce, config,
-    #                                              os.path.join(config['output_dir'], 'plots'),
-    #                                              f'7_non-normalized_centroid_views_aug{tce["augmentation_idx"]}')
-
-    # # get median statistics for global and local centroid views
-    # centr_views_stats = {'median': {'global': np.median(glob_centr_view),
-    #                                 'local': np.median(loc_centr_view)}
-    #                      }
-    #
-    # # median centering, absolute and max normalization of the centroid views
-    # # removes magnitude and direction of shift; describes shift relative to oot only
-    # # defined in [0, 1]
-    # glob_centr_view_medc_abs_maxn = centering_and_normalization(glob_centr_view,
-    #                                                             centr_views_stats['median']['global'],
-    #                                                             1,
-    #                                                             # np.max(glob_centr_view - centr_views_stats['median']['global']),
-    #                                                             report={'config': config, 'tce': tce,
-    #                                                                     'view': 'global_centr_view_medcmaxn'}
-    #                                                             )
-    # glob_centr_view_medc_abs_maxn = np.abs(glob_centr_view_medc_abs_maxn)
-    # normval = np.max(glob_centr_view_medc_abs_maxn)
-    # if normval != 0:
-    #     glob_centr_view_medc_abs_maxn /= normval
-    # else:
-    #     print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
-    #     report_exclusion(config, tce,
-    #                      f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn.')
-    #
-    # loc_centr_view_medc_abs_maxn = centering_and_normalization(loc_centr_view,
-    #                                                            centr_views_stats['median']['local'],
-    #                                                            1,
-    #                                                            # np.max(loc_centr_view - centr_views_stats['median']['local']),
-    #                                                            report={'config': config, 'tce': tce,
-    #                                                                    'view': 'local_centr_view_medcmaxn'}
-    #                                                            )
-    # loc_centr_view_medc_abs_maxn = np.abs(loc_centr_view_medc_abs_maxn)
-    # normval = np.max(loc_centr_view_medc_abs_maxn)
-    # if normval != 0:
-    #     loc_centr_view_medc_abs_maxn /= normval
-    # else:
-    #     print('Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
-    #     report_exclusion(config, tce,
-    #                      f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn.')
-    #
-    # # median centering, max absolute normalization of the centroid views
-    # # removes magnitude of shift, but keeps direction of shift from oot relative to the target star
-    # # closer to -1, closer to target star; closer to 0, closer to oot; closer to 1, further from target star
-    # # defined in [-1, 1]
-    # glob_centr_view_medc_maxabsn = centering_and_normalization(glob_centr_view,
-    #                                                            centr_views_stats['median']['global'],
-    #                                                            1,
-    #                                                            # np.max(glob_centr_view - centr_views_stats['median']['global']),
-    #                                                            report={'config': config, 'tce': tce,
-    #                                                                    'view': 'global_centr_view_medcmaxn'}
-    #                                                            )
-    # normval = np.max(np.abs(glob_centr_view_medc_maxabsn))
-    # if normval != 0:
-    #     glob_centr_view_medc_maxabsn /= normval
-    # else:
-    #     print('Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
-    #     report_exclusion(config, tce,
-    #                      f'Dividing view by 0. Returning the non-normalized view global_centr_view_medcmaxn_dir.')
-    #
-    # loc_centr_view_medc_maxabsn = centering_and_normalization(loc_centr_view,
-    #                                                           centr_views_stats['median']['local'],
-    #                                                           1,
-    #                                                           # np.max(loc_centr_view - centr_views_stats['median']['local']),
-    #                                                           report={'config': config, 'tce': tce,
-    #                                                                   'view': 'local_centr_view_medcmaxn'}
-    #                                                           )
-    # normval = np.max(np.abs(loc_centr_view_medc_maxabsn))
-    # if normval != 0:
-    #     loc_centr_view_medc_maxabsn /= normval
-    # else:
-    #     print('Dividing view by 0. Returning the non-normalized view.')
-    #     report_exclusion(config, tce,
-    #                      f'Dividing view by 0. Returning the non-normalized view local_centr_view_medcmaxn_dir.')
-    #
-    # # median normalization for centroid views
-    # # centroid is normalized by oot value, which is set to around 1
-    # # the shift is scaled by oot, so bound is not defined [P/N, 1] or [1, P/N]
-    # glob_centr_view_mn = centering_and_normalization(glob_centr_view, 0, centr_views_stats['median']['global'],
-    #                                                  report={'config': config, 'tce': tce,
-    #                                                          'view': 'global_centr_view_medn'}
-    #                                                  )
-    # loc_centr_view_mn = centering_and_normalization(loc_centr_view, 0, centr_views_stats['median']['local'],
-    #                                                 report={'config': config, 'tce': tce,
-    #                                                         'view': 'local_centr_view_medn'}
-    #                                                 )
-
-    # FDL centroid normalization
-    # non-normalized views that need to be normalized using statistics from the training set
-    # glob_centr_fdl_view, _, _, _, _ = global_view(time_centroid_dist_fdl,
-    #                                               centroid_dist_fdl,
-    #                                               tce['tce_period'],
-    #                                               tce=tce,
-    #                                               centroid=True,
-    #                                               normalize=False,
-    #                                               centering=False,
-    #                                               num_bins=config['num_bins_glob'],
-    #                                               bin_width_factor=config['bin_width_factor_glob'],
-    #                                               report={'config': config, 'tce': tce,
-    #                                                       'view': 'global_centr_fdl_view'},
-    #                                               tce_duration=tce['tce_duration']
-    #                                               )
-    # loc_centr_fdl_view, _, _, _, _ = local_view(time_centroid_dist_fdl,
-    #                                             centroid_dist_fdl,
-    #                                             tce['tce_period'],
-    #                                             tce['tce_duration'],
-    #                                             tce=tce,
-    #                                             centroid=True,
-    #                                             normalize=False,
-    #                                             centering=False,
-    #                                             num_durations=config['num_durations'],
-    #                                             num_bins=config['num_bins_loc'],
-    #                                             bin_width_factor=config['bin_width_factor_loc'],
-    #                                             report={'config': config, 'tce': tce,
-    #                                                     'view': 'local_centr_fdl_view'}
-    #                                             )
-
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids_views(glob_centr_fdl_view, loc_centr_fdl_view, tce, config,
-    #                                              os.path.join(config['output_dir'], 'plots'),
-    #                                              '7_non-normalized_centroid_fdl_views_aug{}'.format(tce['augmentation_idx']))
-
-    # centr_views = {'global_centr_view': glob_centr_view,
-    #                'local_centr_view': loc_centr_view,
-    #                # 'global_centr_view_medcmaxn': glob_centr_view_medc_abs_maxn,
-    #                # 'local_centr_view_medcmaxn': loc_centr_view_medc_abs_maxn,
-    #                # 'global_centr_view_medn': glob_centr_view_mn,
-    #                # 'local_centr_view_medn': loc_centr_view_mn,
-    #                # 'global_centr_view_medcmaxn_dir': glob_centr_view_medc_maxabsn,
-    #                # 'local_centr_view_medcmaxn_dir': loc_centr_view_medc_maxabsn,
-    #                # 'global_centr_fdl_view': glob_centr_fdl_view,
-    #                # 'local_centr_fdl_view': loc_centr_fdl_view
-    #                }
-    #
-    # # # adjust TESS centroids to Kepler by dividing by pixel scale factor
-    # # if config['satellite'] == 'tess':
-    # #     centr_views['global_centr_view_adjscl'] = glob_centr_view / config['tess_to_kepler_px_scale_factor']
-    # #     centr_views['local_centr_view_adjscl'] = loc_centr_view / config['tess_to_kepler_px_scale_factor']
-    #
-    # centr_views_var = {'global_centr_view': glob_centr_view_var,
-    #                    'local_centr_view': loc_centr_view_var,
-    #                    }
 
     binned_timeseries = {
         'centroid_offset_distance_to_target_global': (glob_binned_time, glob_centr_view, glob_centr_view_var,

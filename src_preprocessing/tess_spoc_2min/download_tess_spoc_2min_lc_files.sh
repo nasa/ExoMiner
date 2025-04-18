@@ -1,12 +1,12 @@
 # Download lc fits files to `LC_DIR` based on sh files in `SH_DIR`
 
 # directory with lc sh files
-SH_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_targets_4-16-2025_1014/
+SH_DIR=
 # destination directory
-LC_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/
+LC_DIR=
 # set permissions and group if needed
 CHANGE_PERMISSIONS_AND_GROUP=false
-GROUP=ar-gg-ti-tess-dsg
+GROUP=null
 
 mkdir -p "$SH_DIR"/completed
 
@@ -33,6 +33,6 @@ echo "Finished downloading light curve FITS files"
 if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
 
 then
-  chgrp -R $GROUP $DEST_DIR
-  chmod -R 770 $DEST_DIR
+  chgrp -R $GROUP "$DEST_DIR"
+  chmod -R 770 "$DEST_DIR"
 fi

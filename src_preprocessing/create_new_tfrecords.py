@@ -34,7 +34,7 @@ from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)

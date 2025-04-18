@@ -12,99 +12,10 @@ from pathlib import Path
 
 # local
 from src_preprocessing.light_curve import util
-# from src_preprocessing.utils_centroid_preprocessing import convertpxtoradec_centr
 
 
 MOMENTUM_DUMP_VALUE = 32  # momentum dump value in the DQ array
 MAX_BIT = 12  # max number of bits in the DQ array
-
-# mapping sector number to date and id
-SECTOR_ID = {1: ("2018206045859", "120"),
-             2: ("2018234235059", "121"),
-             3: ("2018263035959", "123"),
-             4: ("2018292075959", "124"),
-             5: ("2018319095959", "125"),
-             6: ("2018349182500", "126"),
-             7: ("2019006130736", "131"),
-             8: ("2019032160000", "136"),
-             9: ("2019058134432", "139"),
-             10: ("2019085135100", "140"),
-             11: ("2019112060037", "143"),
-             12: ("2019140104343", "144"),
-             13: ("2019169103026", "146"),
-             14: ("2019198215352", "150"),
-             15: ("2019226182529", "151"),
-             16: ("2019253231442", "152"),
-             17: ("2019279210107", "161"),
-             18: ("2019306063752", "162"),
-             19: ("2019331140908", "164"),
-             20: ("2019357164649", "165"),
-             21: ("2020020091053", "167"),
-             22: ("2020049080258", "174"),
-             23: ("2020078014623", "177"),
-             24: ("2020106103520", "180"),
-             25: ("2020133194932", "182"),
-             26: ("2020160202036", "188"),
-             27: ("2020186164531", "189"),
-             28: ("2020212050318", "190"),
-             29: ("2020238165205", "193"),
-             30: ("2020266004630", "195"),
-             31: ("2020294194027", "198"),
-             32: ("2020324010417", "200"),
-             33: ("2020351194500", "203"),
-             34: ("2021014023720", "204"),
-             35: ("2021039152502", "205"),
-             36: ("2021065132309", "207"),
-             37: ("2021091135823", "208"),
-             38: ("2021118034608", "209"),
-             39: ("2021146024351", "210"),
-             40: ("2021175071901", "211"),
-             41: ("2021204101404", "212"),
-             42: ("2021232031932", "213"),
-             43: ("2021258175143", "214"),
-             44: ("2021284114741", "215"),
-             45: ("2021310001228", "216"),
-             46: ("2021336043614", "217"),
-             47: ("2021364111932", "218"),
-             48: ("2022027120115", "219"),
-             49: ("2022057073128", "221"),
-             50: ("2022085151738", "222"),
-             51: ("2022112184951", "223"),
-             52: ("2022138205153", "224"),
-             53: ("2022164095748", "226"),
-             54: ("2022190063128", "227"),
-             55: ("2022217014003", "242"),
-             56: ("2022244194134", "243"),
-             57: ("2022273165103", "245"),
-             58: ("2022302161335", "247"),
-             59: ("2022330142927", "248"),
-             60: ("2022357055054", "249"),
-             61: ("2023018032328", "250"),
-             62: ("2023043185947", "254"),
-             63: ("2023069172124", "255"),
-             64: ("2023096110322", "257"),
-             65: ("2023124020739", "259"),
-             66: ("2023153011303", "260"),
-             67: ("2023181235917", "261"),
-             68: ("", ""),
-             69: ("", ""),
-             70: ("", ""),
-             71: ("", ""),
-             72: ("", ""),
-             73: ("2023341045131", "268"),
-             74: ("2024003055635", "269"),
-             75: ("024030031500", "270"),
-             76: ("2024058030222", "271"),
-             77: ("2024085201119", "272"),
-             78: ("2024114025118", "273"),
-             79: ("2024142205832", "274"),
-             80: ("2024170053053", "275"),
-             81: ("2024196212429", "276"),
-             82: ("", ""),
-             83: ("2024249191853", "280"),
-             84: ("2024274222008", "281"),
-             85: ("2024300212641", "282"),
-             }
 
 
 def tess_filenames(base_dir, ticid, sectors):
@@ -147,20 +58,6 @@ def tess_filenames(base_dir, ticid, sectors):
         else:
             filename = fps_lst[0]
 
-        # sector_timestamp = SECTOR_ID[sector][0]  # timestamp associated with the file (yyyydddhhmmss format)
-        #
-        # # a zero - padded, four - digit identifier of the spacecraft configuration map used to process this data.
-        # scft_configmapid = SECTOR_ID[sector][1]
-        #
-        # # zero-padded 2-digit integer indicating the sector in which the data were collected
-        # sector_string = str(sector).zfill(2)
-        #
-        # base_name = f"sector_{sector}/tess{sector_timestamp}-s00{sector_string}-{tess_id}-0{scft_configmapid}-s_lc.fits"
-        # filename = os.path.join(base_dir, base_name)
-        # # lc_dir = Path(f'{base_dir}/sector_{sector}')
-        # # filename = list(lc_dir.glob(f"tess*-s0[0-9][0-9][0-9]-{tess_id}*"))[0]
-
-        # if not check_existence or gfile.exists(filename):
         if filename:
             filenames.append(filename)
 
@@ -305,42 +202,17 @@ def read_tess_light_curve(filenames,
                                              light_curve.MOM_CENTR2 - light_curve.POS_CORR2
 
                 centroid_fdl_x, centroid_fdl_y = light_curve.MOM_CENTR1, light_curve.MOM_CENTR2
-                # else:
-                #     continue  # no data
 
                 # get components required for the transformation from CCD pixel coordinates to world coordinates RA and
                 # Dec
                 if centroid_radec:
-                    # transformation matrix from aperture coordinate frame to RA and Dec
-                    # cd_transform_matrix = np.zeros((2, 2))
-                    # cd_transform_matrix[0] = hdu_list['APERTURE'].header['PC1_1'] * hdu_list['APERTURE'].header[
-                    #     'CDELT1'], \
-                    #                          hdu_list['APERTURE'].header['PC1_2'] * hdu_list['APERTURE'].header[
-                    #                              'CDELT1']
-                    # cd_transform_matrix[1] = hdu_list['APERTURE'].header['PC2_1'] * hdu_list['APERTURE'].header[
-                    #     'CDELT2'], \
-                    #                          hdu_list['APERTURE'].header['PC2_2'] * hdu_list['APERTURE'].header[
-                    #                              'CDELT2']
-
-                    # # reference pixel in the aperture coordinate frame
-                    # ref_px_apf = np.array([[hdu_list['APERTURE'].header['CRPIX1']], [hdu_list['APERTURE'].header['CRPIX2']]])
 
                     # reference pixel in CCD coordinate frame
                     ref_px_ccdf = np.array([[hdu_list['APERTURE'].header['CRVAL1P']],
                                             [hdu_list['APERTURE'].header['CRVAL2P']]])
 
-                    # # RA and Dec at reference pixel
-                    # ref_angcoord = np.array([[hdu_list['APERTURE'].header['CRVAL1']],
-                    #                          [hdu_list['APERTURE'].header['CRVAL2']]])
-
             # convert from CCD pixel coordinates to world coordinates RA and Dec
             if centroid_radec:
-                # centroid_x, centroid_y = convertpxtoradec_centr(centroid_x,
-                #                                                 centroid_y,
-                #                                                 cd_transform_matrix,
-                #                                                 ref_px_apert,
-                #                                                 ref_angcoord
-                #                                                 )
 
                 w = wcs.WCS(hdu_list['APERTURE'].header)
                 pixcrd = np.vstack((centroid_x - ref_px_ccdf[0], centroid_y - ref_px_ccdf[1])).T

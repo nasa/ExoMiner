@@ -76,8 +76,8 @@ metric = 'auc_pr'
 dataset = 'test'
 n_statistics = 10
 
-exp1_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_nobatchnorm_4-4-2025_1545')
-exp2_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_transferlearning_lr1e-7_fclayertrained_patience50ffi_nobatchnorm_4-7-2025_1737')
+exp1_dir = Path('')
+exp2_dir = Path('')
 
 exp1_metric_vals, exp2_metric_vals = [], []
 for stat_i in range(n_statistics):

@@ -37,11 +37,8 @@ def phase_fold_and_sort_light_curve_odd_even(time, timeseries, period, t0, augme
     # is the number of periods between t0 and tmin even (switcher=1) or odd (switcher=-1)?
     # starts counting in the period centered in t0 (assumed as odd period)
     # this is done so that we get the first valid period
-    # if np.min(time) < i - half_period:
     if np.min(time) < i + half_period:
         # is the right side of the current period interval after minimum time?
-        # while i - half_period >= np.min(time):
-        # while i + half_period >= np.min(time):
         while i + half_period > np.min(time):
             # iterate to the previous period
             i -= period
@@ -692,13 +689,6 @@ def create_odd_even_views(odd_time, odd_flux, even_time, even_flux, num_tr_odd, 
         binned_time_odd = np.linspace(tmin_local, tmax_local, config['num_bins_loc'], endpoint=True)
         bin_counts_odd = np.ones(config['num_bins_loc'], dtype='float')
         bin_values_odd = [np.array([loc_flux_odd_view[i]]) for i in range(config['num_bins_loc'])]
-
-        # # create local odd flux view by imputing odd time series
-        # loc_flux_odd_view, loc_flux_odd_view_var, inds_nan = impute_binned_ts(binned_time_odd,
-        #                                                                       loc_flux_odd_view,
-        #                                                                       tce['tce_period'],
-        #                                                                       tce['tce_duration'],
-        #                                                                       loc_flux_odd_view_var)
 
         # set nan indices for it and oot
         inds_nan_bins = np.isnan(binned_time_odd)

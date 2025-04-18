@@ -177,9 +177,9 @@ if __name__ == '__main__':
     multiclass_target_score = None
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/Users/msaragoc/Downloads/ensemble_ranked_predictions_testset 2.csv")
+    predictions_tbl_fp = Path(f"")
     # save path
-    save_fp = Path(f"/Users/msaragoc/Downloads//metrics_prev2.csv")
+    save_fp = Path(f"")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
 

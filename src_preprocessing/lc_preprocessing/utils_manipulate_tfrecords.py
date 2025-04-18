@@ -382,7 +382,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_adddiffimg')
+    tfrec_dir = Path('')
     tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
     data_fields = {
         'uid': 'str',

@@ -54,29 +54,6 @@ def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_targ
     ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
     ax[1].set_ylabel('Amplitude')
     ax[1].set_xlabel('Time [day]')
-    # else:
-    #     f, ax = plt.subplots(3, 1, sharex=True, figsize=(14, 8))
-    #
-    #     for i in range(len(all_time)):
-    #         ax[0].plot(all_time[i], binary_time_all[i], 'b')
-    #         ax[0].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-    #     ax[0].set_title('Binary timeseries')
-    #     ax[0].set_ylabel('In-transit Cadences Flag')
-    #     ax[0].set_xlim([all_time[0][0], all_time[-1][-1]])
-    #
-    #     for i in range(len(all_time)):
-    #         ax[1].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
-    #         ax[1].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-    #     ax[1].set_ylabel('RA [deg]')
-    #     ax[1].set_title('Centroid')
-    #     ax[1].set_xlim([all_time[0][0], all_time[-1][-1]])
-    #     for i in range(len(all_time)):
-    #         # ax[2].plot(all_time[i], all_flux['y'][i], 'b')
-    #         ax[2].scatter(all_time[i], all_flux['x'][i], c='k', s=4)
-    #         ax[2].axvline(x=all_time[i][-1], ymax=1, ymin=0, c='r')
-    #     ax[2].set_ylabel('Dec [deg]')
-    #     ax[2].set_xlabel('Time [day]')
-    #     ax[2].set_xlim([all_time[0][0], all_time[-1][-1]])
 
     f.suptitle(f'{tce.uid} {tce.label}')
     plt.savefig(savefp)
@@ -253,8 +230,6 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
         target_coords = [coord * DEGREETOARCSEC for coord in target_coords]
 
         avg_centroid_oot = {coord: DEGREETOARCSEC * avg_centroid_oot[coord] for coord in avg_centroid_oot}
-        # avg_centroid_oot = {coord: [DEGREETOARCSEC * avg_centroid_oot[coord][i] for i in range(len(avg_centroid_oot[coord]))]
-        #                     for coord in avg_centroid_oot}
 
     centroid_oot = {coord: [centroids[np.where(binary_time == 0)] for binary_time, centroids in
                             zip(binary_time_all, all_centroids[coord])] for coord in all_centroids}
@@ -265,20 +240,15 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     all_time_it = [time[np.where(binary_time == 1)] for time, binary_time in zip(all_time, binary_time_all)]
 
     avg_centroid_it = {coord: np.median(np.concatenate(centroid_it[coord])) for coord in centroid_it}
-    # avg_centroid_it = {coord: [np.median(centroid_it[coord][i]) for i in range(len(centroid_it[coord]))]
-    #                    for coord in centroid_it}
 
     f, ax = plt.subplots(2, 2, figsize=(18, 8))
 
     for i in range(len(all_time_oot)):
         ax[0, 0].plot(all_time_oot[i], centroid_oot['x'][i], 'b', zorder=0)
-    # plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['x']))
     ax[0, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['x'] * np.ones(len(np.concatenate(all_time_oot))),
                   'r--',
              label='avg oot', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_oot['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'r--', label='avg oot', zorder=1)
+
     ax[0, 0].legend()
     if config['px_coordinates']:
         ax[0, 0].set_ylabel('Col pixel')
@@ -287,25 +257,18 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
     ax[0, 0].set_title('Out-of-transit points')
 
     for i in range(len(all_time_it)):
-        # plt.scatter(all_time_it[i], centroid_it['x'][i], color='c', zorder=0)
         ax[0, 1].plot(all_time_it[i], centroid_it['x'][i], 'b', zorder=0)
     ax[0, 1].plot(np.concatenate(all_time_it), avg_centroid_it['x'] * np.ones(len(np.concatenate(all_time_it))), 'g--',
              label='avg it', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_it['x'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'g--', label='avg it', zorder=1)
+
     ax[0, 1].legend()
     ax[0, 1].set_title('In-transit points')
 
     for i in range(len(all_time_oot)):
         ax[1, 0].plot(all_time_oot[i], centroid_oot['y'][i], 'b', zorder=0)
-    # plt.plot(np.concatenate(all_time), np.concatenate(all_centroids['y']))
     ax[1, 0].plot(np.concatenate(all_time_oot), avg_centroid_oot['y'] * np.ones(len(np.concatenate(all_time_oot))),
                   'r--',
              label='avg oot', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_oot['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'r--', label='avg oot', zorder=1)
 
     ax[1, 0].legend()
     ax[1, 0].set_xlabel('Time [day]')
@@ -315,13 +278,10 @@ def plot_centroids_it_oot(all_time, binary_time_all, all_centroids, avg_centroid
         ax[1, 0].set_ylabel(f'Dec [arcsec] {"from target" if target_center else ""}')
 
     for i in range(len(all_time_it)):
-        # plt.scatter(all_time_it[i], centroid_it['y'][i], color='c', zorder=0)
         ax[1, 1].plot(all_time_it[i], centroid_it['y'][i], 'b', zorder=0)
     ax[1, 1].plot(np.concatenate(all_time_it), avg_centroid_it['y'] * np.ones(len(np.concatenate(all_time_it))), 'g--',
                   label='avg it', zorder=1)
-    # plt.plot(np.concatenate(all_time),
-    #          np.concatenate([avg_centroid_it['y'][i] * np.ones(len(all_time[i])) for i in range(len(all_time))]),
-    #          'g--', label='avg it', zorder=1)
+
     ax[1, 1].legend()
     ax[1, 1].set_xlabel('Time [day]')
 
@@ -433,33 +393,6 @@ def plot_dist_centroids(time, centroid_dist, tce, config, savefp, pxcoordinates=
     plt.close()
 
 
-def plot_centroids_views(glob_view_centr, loc_view_centr, tce, config, savedir, basename):
-    """ Creates and saves a 2x1 figure with plots that show the global and local views for the centroid time-series for
-     a given TCE.
-
-    :param glob_view_centr: numpy array, global centroid view
-    :param loc_view_centr: numpy array, local centroid view
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters
-    :param savedir: str, filepath to directory in which the figure is saved
-    :param basename: str, added to the figure filename
-    :return:
-    """
-
-    f, ax = plt.subplots(2, 1, figsize=(12, 10))
-    ax[0].plot(glob_view_centr)
-    ax[0].set_ylabel('Amplitude')
-    ax[0].set_title('Global view')
-    ax[1].plot(loc_view_centr)
-    ax[1].set_ylabel('Amplitude')
-    ax[1].set_xlabel('Bin number')
-    ax[1].set_title('Local view')
-
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
-    plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
-    plt.close()
-
-
 def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_centr, tce, config, savedir, basename):
     """ Creates and saves a 2x2 figure with plots that show the global and local views for the flux and centroid
     time-series for a given TCE.
@@ -505,10 +438,6 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
     :return:
     """
 
-    # global_phase = np.linspace(-tce['tce_period'] / 2, tce['tce_period'] / 2, config.num_bins_glob, endpoint=True)
-    # local_phase = np.linspace(-tce['tce_duration'] * config.num_durations, tce['tce_duration'] * config.num_durations,
-    #                           config.num_bins_loc, endpoint=True)
-
     scalarParamsStr = ''
     for scalarParam_i in range(len(config['scalar_params'])):
         if scalarParam_i % 7 == 0:
@@ -537,16 +466,11 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
     for i in range(scheme[0]):
         for j in range(scheme[1]):
             if k < len(views_list):
-                # ax[i, j].plot(views[views_list[k]][1], zorder=2, color='k')
-                # ax[i, j].scatter(np.arange(len(views[views_list[k]][1])), views[views_list[k]][1], s=10, color='k',
-                #                  zorder=2)
 
                 ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1], zorder=2, color='k')
                 ax[i, j].scatter(views[views_list[k]][0], views[views_list[k]][1], s=10, color='k',
                                  zorder=2)
                 if plot_var:
-                    # ax[i, j].plot(views[views_list[k]][1] + views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
-                    # ax[i, j].plot(views[views_list[k]][1] - views[views_list[k]][2], 'r--', alpha=0.7, zorder=1)
 
                     ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1] + views[views_list[k]][2], 'r--',
                                   alpha=0.3, zorder=1)
@@ -555,10 +479,10 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
 
                 ax[i, j].set_title(f'{views_list[k]} num transits={views[views_list[k]][3]}', pad=20)
 
-                # ax[i, j].set_xlim([0, len(views[views_list[k]])])
+
                 ax[i, j].set_xlim(views[views_list[k]][0][[0, -1]])
             if i == scheme[0] - 1:
-                # ax[i, j].set_xlabel('Bin Number')
+
                 ax[i, j].set_xlabel('Phase [day]')
             if j == 0:
                 ax[i, j].set_ylabel('Amplitude')
@@ -702,11 +626,7 @@ def plot_all_phasefoldedtimeseries(timeseries, tce, scheme, savefp, timeseries_o
                                          c='r', s=5, zorder=2)
                     ax[i, j].set_title(views_list[k], pad=20)
                     ax[i, j].set_xlim([timeseries[views_list[k]][0][0], timeseries[views_list[k]][0][-1]])
-                    # timeseries_madstd, timeseries_med = mad_std(timeseries[views_list[k]][1], ignore_nan=True), \
-                    #                                     np.nanmedian(timeseries[views_list[k]][1])
-                    # std_range = SIGMA_FACTOR * timeseries_madstd
-                    # range_timeseries = [timeseries_med - std_range, timeseries_med + std_range]
-                    # ax[i, j].set_ylim(range_timeseries)
+
                     if 'FDL' in views_list[k]:
                         ax[i, j].set_ylim(bottom=0)
             if i == scheme[0] - 1:
@@ -770,16 +690,9 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     ax.plot(binned_timeseries['flux_global'][0], binned_timeseries['flux_global'][1], 'b')
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase (day)')
-    # ax.set_xlim([timeseries['Flux'][0][0], timeseries['Flux'][0][-1]])
+
     ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
-    # timeseries_madstd, timeseries_med = mad_std(timeseries['flux'][1]), np.median(timeseries['Flux'][1])
-    # std_range = SIGMA_FACTOR * timeseries_madstd
-    # ts_len = len(timeseries['flux'][1])
-    # idxs_transit = np.arange(ts_len)[int(ts_len // 2 - ts_len // config['num_durations']):int(
-    #     ts_len // 2 + ts_len // config['num_durations'])]
-    # min_val = min(timeseries['flux'][1][idxs_transit])
-    # range_timeseries = [min_val, timeseries_med + std_range]
-    # ax.set_ylim(range_timeseries)
+
     ax.set_title('Flux')
 
     # left_idx = np.where(timeseries['Flux'][0] > -local_view_time_interval)[0][0]

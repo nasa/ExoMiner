@@ -1,27 +1,16 @@
 # Run job for average ensemble based on a set of trained models.
-# Args:
-# $1: Models' root directory
-# $2: File path to configuration yaml file for the run
-# $3: Path to output directory
 
-# External arguments
-#MODELS_DIR="$1"
-#CONFIG_FP="$2"
-#OUTPUT_DIR="$3"
+# Path to the codebase root directory
+export PYTHONPATH=
 
-#source "$HOME"/.bashrc
-#source "$HOME"/.zshrc
-#conda activate exoplnt_dl_tf2_13
-export PYTHONPATH=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase
-MODELS_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959
-CONFIG_FP=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959/model1/config_run.yaml
-ENSEMBLE_MODEL_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959/ensemble_avg_model/
+MODELS_DIR=
+CONFIG_FP=
+ENSEMBLE_MODEL_DIR=
 
 CREATE_ENSEMBLE_MODEL_SCRIPT_FP=$PYTHONPATH/models/create_ensemble_avg_model.py
 EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate_model.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
 
-#ENSEMBLE_MODEL_DIR="$OUTPUT_DIR"/ensemble_model
 mkdir -p "$ENSEMBLE_MODEL_DIR"
 LOG_FP="$ENSEMBLE_MODEL_DIR"/run_ensemble_model.log
 ENSEMBLE_MODEL_FP="$ENSEMBLE_MODEL_DIR"/ensemble_avg_model.keras

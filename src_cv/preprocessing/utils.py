@@ -26,7 +26,7 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_t
     if log_fp:
         # set up logger
         logger = logging.getLogger(name=f'log_fold_{fold_i}')
-        logger_handler = logging.FileHandler(filename=log_fp,  # dest_tfrec_dir.parent / f'create_tfrecord_fold_{fold_i}.log',
+        logger_handler = logging.FileHandler(filename=log_fp,
                                              mode='w')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         logger.setLevel(logging.INFO)
@@ -116,5 +116,5 @@ def create_table_shard_example_location(tfrec_dir):
 
 if __name__ == '__main__':
 
-    tfrec_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_koi_fpflagec')
+    tfrec_dir = Path('')
     create_table_shard_example_location(tfrec_dir)

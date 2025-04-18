@@ -15,10 +15,10 @@ GNU_PARALLEL_INDEX="$1"
 source "$HOME"/.bashrc
 
 # activate conda environment
-conda activate exoplnt_dl_tf2_13
+conda activate env_name
 
 # set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
+export PYTHONPATH=
 
 HPO_PY_SCRIPT=$PYTHONPATH/src_hpo/run_hpo.py
 

@@ -5,12 +5,12 @@ predict_parallel: false
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_simdata_predict_realdata_11-3-2023_1341
+  experiment_dir:
   # TFRecord directory with the CV folds
-  tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_updated_stellar_ruwe_confirmedkois_adddiffimg_perimg_normdiffimg_dataset_split-normalized_by_simdata
+  tfrec_dir:
   # list of models' file paths to be evaluated and used to run inference
   models_filepaths:
-    - /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simulateddata_for_simulateddata_11-2-2023_1547/ensemble_avg_model.keras
+    - null
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
@@ -22,26 +22,13 @@ data_fields: # scalar data from TFRecords to add to ranking table
   uid: 'string'
   target_id: 'int_scalar'
   tce_plnt_num: 'int_scalar'
-  #  'oi': 'float_scalar'
   label: 'string'
-#  label_id: 'int_scalar'
-#  odd_even_flag: 'string'
-#  sec_flag: 'string'
-#  centroid_flag: 'string'
-#  not_transit_like_flag: 'string'
-  #  'TESS Disposition': 'string'
   tce_period: 'float_scalar'
   tce_duration: 'float_scalar'
   tce_time0bk: 'float_scalar'
-#  'transit_depth': 'float_scalar'
-#  tce_depth: 'float_scalar'
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
-#  'sigma_oot_odd': 'float_scalar'
-#  'sigma_it_odd': 'float_scalar'
-#  'sigma_oot_even': 'float_scalar'
-#  'sigma_it_even': 'float_scalar'
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -138,10 +125,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 # maps features' names to features names expected by the model
 feature_map: null
 #  feature_name: feature_name_model
-#  global_centr_view_adjscl_std_noclip: global_centr_view_std_noclip
-#  local_centr_view_adjscl_std_noclip: local_centr_view_std_noclip
-#  tce_dikco_msky_adjscl_norm: tce_dikco_msky_norm
-#  tce_dikco_msky_err_adjscl_shifted_norm: tce_dikco_msky_err_norm
+
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -157,21 +141,7 @@ training:
   #  ce_weights: null
   filter_data: null  # deprecated; useless
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-#    '0': 68.5
-#    '1': 0.5
-  #    PC: 1.0
-  #    AFP: 0.5
-  #    NTP: 1.0
-  # charles was using these weights
-#  PC: 0.0002921
-#  AFP: 0.0002229
-#  NTP: 2.967e-05
-#  T-NTP: 2.967e-05
-#  T-EB: 0.0002229
-#  T-KP: 0.0002921
-#  T-FP: 0.0002229
-#  T-CP: 0.0002921
-#  T-FA: 0.0002229
+
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
 
@@ -219,19 +189,7 @@ label_map:  # maps label to a label id
 #  BEB: 0
 #  APC: 0
 #  O: 0
-  # for Hongbo's/Andres data sets
-  # Kepler
-#  K-PC: 1
-#  K-AFP: 0
-#  K-AFP2: 0
-#  K-NTP: 0
-  # TESS
-#  T-KP: 1
-#  T-CP: 1
-#  T-FP: 0
-#  T-FA: 0
-#  T-EB: 0
-#  T-NTP: 0
+
   # Kepler Simulated
 #  INJ1: 1
 #  INJ2: 0

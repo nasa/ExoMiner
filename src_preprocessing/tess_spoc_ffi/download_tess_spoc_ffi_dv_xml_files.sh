@@ -1,12 +1,12 @@
 # Download xml files using curl statements in sh files.
 
 # directory with sh files
-TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh_xml_only
+TARGET_SH_DIR=
 # destination directory for xml files
-DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/
+DEST_DIR=
 # set permissions and group if needed
 CHANGE_PERMISSIONS_AND_GROUP=false
-GROUP=ar-gg-ti-tess-dsg
+GROUP=
 
 # create directory for completed sh scripts
 COMPLETED_DIR=$TARGET_SH_DIR/completed

@@ -384,7 +384,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 if __name__ == '__main__':
 
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_normalize_data.yaml')
+    path_to_yaml = Path('src_preprocessing/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
