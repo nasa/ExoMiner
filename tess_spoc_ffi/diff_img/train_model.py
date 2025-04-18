@@ -3,9 +3,8 @@ Train a model.
 """
 
 # 3rd party
-from tensorflow.keras.utils import plot_model, custom_object_scope
+from tensorflow.keras.utils import plot_model  # , custom_object_scope
 from tensorflow.keras import callbacks
-from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
 import yaml
@@ -14,37 +13,11 @@ import logging
 # from functools import partial
 
 # local
-from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
-from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
-from models.utils_models import compile_model
-from models import models_keras
-# from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
-from models.models_keras import Time2Vec, SplitLayer
-
-
-def freeze_layers(model, layers_to_train_fp):
-    """ Freeze layers in a model whose name is in `layers_to_be_frozen`.
-
-    :param model: TF Keras model, model with layers to be frozen
-    :param layers_to_train_fp: Path, file path to yaml with list of names of layers to be trainable
-
-    :return: TF Keras model, model with frozen layers
-    """
-
-    with open(layers_to_train_fp, 'r') as file:
-        layers_to_train_lst = yaml.unsafe_load(file)
-
-    # TODO: experimenting
-    layers_to_train_lst = [layer.name for layer in model.layers]
-    print(f'Layers to be trained: {layers_to_train_lst}')
-
-    for layer in model.layers:
-        # if layer.name not in layers_to_train_lst:
-        # TODO: experimenting
-        if layer.name not in layers_to_train_lst:
-            layer.trainable = False
-
-    return model
+from tess_spoc_ffi.diff_img.utils_dataio import InputFn, set_tf_data_type_for_features
+from tess_spoc_ffi.diff_img.utils_metrics import get_metrics, get_metrics_multiclass, get_metrics_regression
+from tess_spoc_ffi.diff_img.utils_models import compile_model
+from tess_spoc_ffi.diff_img.models_keras import ExoMinerDiffImg
+from tess_spoc_ffi.diff_img.utils_train import filter_examples_tfrecord_unknown_location
 
 
 def train_model(config, model_dir, logger=None):
@@ -60,14 +33,7 @@ def train_model(config, model_dir, logger=None):
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
-    if config['model_fp']:  # load pre-existing model
-        print(f'Loading model from {config["model_fp"]}')
-        custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
-        with custom_object_scope(custom_objects):
-            model = load_model(filepath=config['model_fp'], compile=False)
-    else:
-        base_model = getattr(models_keras, config['model_architecture'])
-        model = base_model(config, config['features_set']).kerasModel
+    model = ExoMinerDiffImg(config, config['features_set']).kerasModel
 
     if config['plot_model']:
         # save plot of model
@@ -84,15 +50,17 @@ def train_model(config, model_dir, logger=None):
         model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     # setup metrics to be monitored
-    if config['config']['multi_class']:
-        metrics_list = get_metrics_multiclass(label_map=config['label_map'])
+    if config['task'] == 'regression':
+        metrics_list = get_metrics_regression()
+    elif config['task'] == 'classification':
+        if config['config']['multi_class']:
+            metrics_list = get_metrics_multiclass(label_map=config['label_map'])
+        else:
+            metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
+                                       num_thresholds=config['metrics']['num_thr'])
     else:
-        metrics_list = get_metrics(clf_threshold=config['metrics']['clf_thr'],
-                                   num_thresholds=config['metrics']['num_thr'])
-
-    if config['trainable_layers_fp']:  # freeze layers
-        print(f'Freezing layers based on file: {config["trainable_layers_fp"]}')
-        model = freeze_layers(model, config['trainable_layers_fp'])
+        raise ValueError(f'Task type not implemented: {config["task"]} | only `classification` or `regression` are '
+                         f'valid at this point.')
 
     # compile model - set optimizer, loss and metrics
     model = compile_model(model, config, metrics_list)
@@ -111,6 +79,8 @@ def train_model(config, model_dir, logger=None):
         feature_map=config['feature_map'],
         shuffle_buffer_size=config['training']['shuffle_buffer_size'],
         label_field_name=config['label_field_name'],
+        # filter_fn=filter_examples_tfrecord_unknown_location,
+
     )
     if 'val' in config['datasets']:
         val_input_fn = InputFn(
@@ -122,7 +92,7 @@ def train_model(config, model_dir, logger=None):
             multiclass=config['config']['multi_class'],
             feature_map=config['feature_map'],
             label_field_name=config['label_field_name'],
-            # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type=1),
+            # filter_fn=filter_examples_tfrecord_unknown_location,
         )
     else:
         val_input_fn = None
@@ -189,10 +159,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_dir_fp = Path(args.model_dir)
-    config_fp = Path(args.config_fp)
 
-    with(open(args.config_fp, 'r')) as file:
+    # model_dir_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/diff_img/original_diff_img_branch_8-14-2025_1541')
+    # model_dir_fp.mkdir(exist_ok=True, parents=True)
+    # config_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/tess_spoc_ffi/diff_img/config_cv_train.yaml')
+
+    with open(args.config_fp, 'r') as file:
         train_config = yaml.unsafe_load(file)
+
+    # cv_iterations_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_1-3-2025_1157_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_1-6-2025_1132/tfrecords/eval_with_2mindata_transferlearning/cv_2min_ffi_combined/cv_iterations.yaml')
+    # with open(cv_iterations_fp, 'r') as f:
+    #     cv_iterations = yaml.unsafe_load(f)
+    # train_config['datasets_fps'] = cv_iterations[0]
 
     # set up logger
     train_config['logger'] = logging.getLogger(name=f'train_model')

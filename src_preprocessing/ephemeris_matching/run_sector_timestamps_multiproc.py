@@ -14,11 +14,11 @@ from src_preprocessing.ephemeris_matching.get_start_end_timestamps_sector_runs i
 if __name__ == '__main__':
 
     # directory used to save start/end timestamps target tables for each sector run
-    res_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_2min_start_end_timestamps_tics_lc_s1-s80_9-12-2024_1128')
+    res_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tess_spoc_2min_start_end_timestamps_tics_lc_s36-s72_4-17-2024_1421')
     res_dir.mkdir(exist_ok=True)
     # lightcurve root directory for the target data of interest from where to get the timestamps
-    lc_root_dir = Path('/data5/tess_project/Data/tess_spoc_2min_data/lc/fits_files')
-    n_procs = 12  # number of parallel processes to spawn
+    lc_root_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
+    n_procs = 36  # number of parallel processes to spawn
 
     # 2min data
     sector_dirs_fps = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]
@@ -38,6 +38,6 @@ if __name__ == '__main__':
     # aggregate tables into a single table
     target_sector_run_timestamps_all = \
         pd.concat([pd.read_csv(fp)
-                   for fp in res_dir.iterdir()], axis=0).to_csv(res_dir.parent / f'{res_dir.name}.csv', index=False)
+                   for fp in res_dir.iterdir()], axis=0).to_csv(res_dir / f'{res_dir.name}.csv', index=False)
 
     print('Finished.')

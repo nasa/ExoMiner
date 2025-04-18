@@ -33,7 +33,7 @@ if __name__ == '__main__':
     match_thr = 0.75  # set matching threshold
     print(f'Set matching threshold to {match_thr}.')
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_exofop_tois_7-11-2024_1101')
+    matching_root_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_2min_s1-s88_prsaebs_3-28-2025_0951')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
 
     # # sequential processing
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     #     matched_signals.append(solve_matches(tbl_fp, match_thr))
 
     # parallel processing
-    n_procs = 12  # number of parallel processes
+    n_procs = 36  # number of parallel processes
     pool = multiprocessing.Pool(processes=n_procs)
     # number of jobs; one per match table
     jobs = [(match_tbl_fp, match_thr) for match_tbl_fp in match_dir.iterdir()]

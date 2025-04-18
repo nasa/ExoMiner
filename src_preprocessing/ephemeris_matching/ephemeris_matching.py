@@ -194,7 +194,7 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
             # compute correlation coefficient
             for tce_i, tce in tces_in_tic_sectorun.iterrows():
                 for obj_i, obj in objects_in_tic.iterrows():
-                    # obj['duration'] = tce['duration']
+                    obj['duration'] = tce['duration']
                     corr_coef_mat[tce_i, obj_i] = \
                         match_transit_signals(tce, obj, sampling_interval, tstart, tend,
                                               plot_signals,

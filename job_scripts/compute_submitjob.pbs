@@ -23,3 +23,18 @@
 # PBS -W group_list=a1509
 #PBS -W group_list=s2857
 #PBS -m bea
+
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+# non-GH conda
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
+# GH conda (aarch64)
+# module load miniconda3/gh2
+# source activate exoplnt_dl_gh
+
+# set path to codebase root directory
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+# python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/search_neighbors/map_location_neighbors_to_pixel_frame.py
+python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/extracting/extract_data_from_tess_dv_xml.py

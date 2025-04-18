@@ -2,7 +2,7 @@
 exp_dir: null
 
 # table with start and end timestamps per TIC for different sectors
-sector_timestamps_tbl_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc.csv
+sector_timestamps_tbl_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s72_4-17-2024_1421/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s72_4-17-2024_1421.csv
 
 # plot probability of binary pulse time series
 plot_prob: 0.0001
@@ -11,7 +11,7 @@ plot_prob: 0.0001
 sampling_interval: 0.00139  # ~ 2/60/24
 
 # table of signals of interest (usually TCEs)
-tbl_a_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/mat_files/preprocessing_tables/tess_spocffi_tces_dv_s56-s69_09-27-2024_1658/tess_spocffi_tces_dv_s56-s69_09-27-2024_1658_ruwe_ticstellar_features_adjusted_label.csv
+tbl_a_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label_features_adjusted.csv
 
 # table of signals to be matched to those in table A (usually objects with dispositions)
 tbl_b_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/hlsp_tess-ebs_tess_lcf-ffi_s0001-s0026_tess_v1.0_cat_processed.csv
