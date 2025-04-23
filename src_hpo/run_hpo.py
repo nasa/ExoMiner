@@ -19,7 +19,6 @@ import argparse
 # local
 from src_hpo.worker_hpo_keras import TransitClassifier, get_configspace
 from src_hpo.utils_hpo import analyze_results
-# from old.utils import is_yamlble
 
 
 def run_main(hpo_config):
@@ -168,9 +167,9 @@ if __name__ == '__main__':
     # set HPO run name
     config['study'] = config['paths']['experiment_dir'].name
 
-    # set TFRecords for training, validation, and test from yaml file
+    # set TFRecords for training, and test from yaml file
     with open(config['paths']['datasets_fps'], 'r') as file:
-        config['datasets_fps'] = yaml.unsafe_load(file)[0]
+        config['datasets_fps'] = yaml.unsafe_load(file)
 
     if config['worker_id'] == 0:
         np.save(config['paths']['experiment_dir'] / 'hpo_run_config.npy', config)

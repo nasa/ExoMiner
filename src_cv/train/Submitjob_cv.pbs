@@ -37,6 +37,17 @@ RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_
 OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_2valfolds_3-6-2025_1027
 mkdir -p $OUTPUT_DIR
 
+# create main output job file
+JOB_FP=$OUTPUT_DIR/output_job.txt
+
+# copy PBS script
+PBS_SCRIPT_FP=$(realpath $0)
+cp $PBS_SCRIPT_FP $JOB_FP
+
+# copy codebase git commit hash
+COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
+echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
+
 N_CV_ITERS=5  # number of CV folds/iterations
 N_MODELS_PER_CV_ITER=10  # number of models to train per CV iteration
 

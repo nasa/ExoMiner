@@ -31,27 +31,32 @@ from src_preprocessing.ephemeris_matching.resolve_matchings import solve_matches
 if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
+    n_procs = 36  # number of parallel processes
+    # directory with ephemeris matching results
+    matching_root_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_prsaebs_4-17-2025_2110')
+
+    print(f'Resolving matches for {str(matching_root_dir)}')
+
     print(f'Set matching threshold to {match_thr}.')
-    # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_2min_s1-s88_prsaebs_3-28-2025_0951')
+
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
 
-    # # sequential processing
-    # matched_signals = []
-    # for tbl_fp in match_dir.iterdir():
-    #     matched_signals.append(solve_matches(tbl_fp, match_thr))
-
-    # parallel processing
-    n_procs = 36  # number of parallel processes
-    pool = multiprocessing.Pool(processes=n_procs)
     # number of jobs; one per match table
     jobs = [(match_tbl_fp, match_thr) for match_tbl_fp in match_dir.iterdir()]
+
+    # parallel processing
+    pool = multiprocessing.Pool(processes=n_procs)
     async_results = [pool.apply_async(solve_matches, job) for job in jobs]
     pool.close()
     pool.join()
-
     # aggregate match results into a single file
     matched_signals = pd.concat([async_result.get() for async_result in async_results], axis=0)
+
+    # # sequential processing
+    # matched_signals = []
+    # for tbl_fp in jobs:
+    #     matched_signals.append(solve_matches(tbl_fp, match_thr))
+
     print(f'Found {len(matched_signals)} signals with a match.')
 
     matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)

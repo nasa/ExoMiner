@@ -6,24 +6,40 @@
 #PBS -l select=1:ncpus=128:model=rom_ait
 # PBS -l select=10:ncpus=40:model=cas_ait
 # PBS -q debug
-# PBS -q long
-#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
+#PBS -q long
+# PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
+# PBS -l place=free:excl
+# PBS -q dsg_gpu@pbspl4
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
-#PBS -W group_list=a1509
-# PBS -W group_list=s2857
+# PBS -W group_list=a1509
+#PBS -W group_list=s2857
 #PBS -m bea
 
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
+
+# set path to codebase root directory
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/test_tfrecords_tess_spoc_2min_s1-s67_9-11-2024_0033/
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-21-2025_1408
 mkdir -p $OUTPUT_DIR
 
-PBS_SCRIPT_FP=$(realpath $0)
-LC_PREPROCESSING_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/lc_preprocessing
+# create main output job file
+JOB_FP=$OUTPUT_DIR/output_job.txt
 
-cp $PBS_SCRIPT_FP $OUTPUT_DIR/pbs_job.txt
+# copy PBS script
+PBS_SCRIPT_FP=$(realpath $0)
+cp $PBS_SCRIPT_FP $JOB_FP
+
+# copy codebase git commit hash
+COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
+echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
+
+LC_PREPROCESSING_DIR="$PYTHONPATH"/src_preprocessing/lc_preprocessing/
 
 # script file path
 SCRIPT_FP=$LC_PREPROCESSING_DIR/generate_input_records.py

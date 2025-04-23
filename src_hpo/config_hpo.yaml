@@ -31,7 +31,8 @@ max_num_model_params: 5.0e6  # maximum number of parameters in sampled models
 draw_plots: true  # draw loss and metric curves for trained models
 
 # set general architecture of the model based on implementations under models.models_keras.py
-model_architecture: ExoMiner_JointLocalFlux
+model_architecture: ExoMinerDiffImg  # ExoMinerJointLocalFlux
+task: classification  # either 'classification' or 'regression'
 
 config:
   # branches used in ExoMiner

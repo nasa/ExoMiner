@@ -3,7 +3,6 @@ Light curve data preprocessing module.
 """
 
 # 3rd party
-import os
 import numpy as np
 import tensorflow as tf
 from astropy.stats import mad_std
@@ -12,9 +11,7 @@ import logging
 
 # local
 from src_preprocessing.lc_preprocessing import utils_visualization, kepler_io, tess_io
-from src_preprocessing.light_curve import util
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.third_party.kepler_spline import kepler_spline
 from src_preprocessing.lc_preprocessing.utils_centroid_preprocessing import (kepler_transform_pxcoordinates_mod13,
                                                                              compute_centroid_distance,
                                                                              correct_centroid_using_transit_depth)
@@ -988,96 +985,6 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     return time_centroid, centroid_dist
 
 
-def centroidFDL_preprocessing(all_time, all_centroids, add_info, gap_time, tce, config, plot_preprocessing_tce):
-    """ Preprocess the centroid time series following FDL preprocessing pipeline [1].
-
-     :param all_time: list of NumPy arrays, timestamps
-     :param all_centroids: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to a list of
-     NumPy arrays for the respective centroid coordinate time series
-     :param add_info: dictionary, additional information such as quarters and modules
-     :param gap_time: list of NumPy arrays, gapped timestamps
-     :param tce: pandas Series, TCE parameters
-     :param config: dict, preprocessing parameters
-     :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
-     :return:
-         time: NumPy array, timestamps for preprocessed centroid time series
-         centroid_dist: NumPy array, preprocessed centroid time series according to FDL
-
-     [1] Ansdell, Megan, et al. "Scientific Domain Knowledge Improves Exoplanet Transit Classification with Deep
-     Learning." The Astrophysical Journal Letters 869.1 (2018): L7.
-     """
-
-    time_arrs, centroid_dict = [np.array(el) for el in all_time], \
-        {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()}
-
-    time_arrs, centroid_dict['x'], centroid_dict['y'] = remove_non_finite_values([time_arrs,
-                                                                                  centroid_dict['x'],
-                                                                                  centroid_dict['y']])
-
-    time_arrs, centroid_dict, add_info = util.split(time_arrs, centroid_dict,
-                                                    gap_width=config['gapWidth'],
-                                                    centroid=True,
-                                                    add_info=add_info)
-
-    if config['satellite'] == 'kepler' and add_info['quarter'][0] == 13:
-        centroid_dict = kepler_transform_pxcoordinates_mod13(centroid_dict, add_info)
-
-    first_transit_time_all = [find_first_epoch_after_this_time(tce['tce_time0bk'], tce['tce_period'], time[0])
-                              for time in time_arrs]
-
-    if 'tce_maxmesd' in tce:
-        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], np.abs(tce['tce_maxmesd']),
-                              tce['tce_period'])
-    else:
-        duration_gapped = min((1 + 2 * config['tr_dur_f']) * tce['tce_duration'], tce['tce_period'])
-
-    binary_time_all = [create_binary_time_series(time, first_transit_time, duration_gapped, tce['tce_period'])
-                       for first_transit_time, time in zip(first_transit_time_all, time_arrs)]
-
-    all_centroids_lininterp = lininterp_transits(centroid_dict, binary_time_all, centroid=True)
-
-    spline_centroid = {coord: kepler_spline.fit_kepler_spline(time_arrs,
-                                                              all_centroids_lininterp[coord],
-                                                              verbose=False)[0] for coord in all_centroids_lininterp}
-
-    finite_i_centroid = [np.logical_and(np.isfinite(spline_centroid['x'][i]), np.isfinite(spline_centroid['y'][i]))
-                         for i in range(len(spline_centroid['x']))]
-
-    # all_centroids = {coord: [all_centroids[coord][i][finite_i_centroid[i]] /
-    #                          spline_centroid[coord][i][finite_i_centroid[i]]
-    #                          for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
-    #                  for coord in all_centroids}
-    centroid_dict = {coord: [centroid_dict[coord][i][finite_i_centroid[i]] -
-                             spline_centroid[coord][i][finite_i_centroid[i]]
-                             for i in range(len(spline_centroid[coord])) if len(finite_i_centroid[i] > 0)]
-                     for coord in centroid_dict}
-
-    time_arrs = [time_arrs[i][finite_i_centroid[i]] for i in range(len(time_arrs)) if len(finite_i_centroid[i]) > 0]
-
-    all_centroid_dist = [np.sqrt(np.square(centroid_dict['x'][i]) + np.square(centroid_dict['y'][i]))
-                         for i in range(len(centroid_dict['x']))]
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(time_arrs,
-                                                all_centroid_dist,
-                                                None,
-                                                None,
-                                                tce,
-                                                config,
-                                                os.path.join(config['output_dir'], 'plots'),
-                                                f'6_distcentrfdl_aug{tce["augmentation_idx"]}',
-                                                pxcoordinates=True)
-
-    # impute the time series with Gaussian noise based on global estimates of median and std
-    if config['gap_imputed']:
-        time_arrs, all_centroid_dist = imputing_gaps(time_arrs, all_centroid_dist, gap_time)
-
-    time = np.concatenate(time_arrs)
-    centroid_dist = np.concatenate(all_centroid_dist)
-
-    return time, centroid_dist
-
-
 def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     """ Detrends different time series (e.g., detrending) such as flux and centroid motion.
 
@@ -1085,7 +992,7 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
       data: dictionary containing raw lc data
       config: dict, holds preprocessing parameters
       tce: Pandas Series, row of the TCE table for the TCE that is being processed; it contains data such as the
-      ephemerides
+        ephemerides
       plot_preprocessing_tce: bool, if True plots figures for several steps in the preprocessing pipeline
 
     Returns:

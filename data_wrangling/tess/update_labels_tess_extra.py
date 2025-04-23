@@ -1,5 +1,5 @@
 """
-Update labels for TESS SPOC TCEs using ephemeris matching and other results against a set of catalogs of objects with
+Update labels for TESS SPOC TCEs using ephemeris matching results against a set of catalogs of objects with
 dispositions.
 
 Priority rules are followed to come up with the most comprehensive and clean set of labels possible.
@@ -11,7 +11,9 @@ from pathlib import Path
 
 #%% Load TCE table
 
-tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label_features_adjusted.csv')
+tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s88_3-27-2025_1316.csv')
+toi_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_toilists_4-17-2025_1515_processed_ephem_matching.csv')
+match_toi_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_2min_s1-s88_exofoptois_4-17-2025_1523/matched_signals_thr0.75.csv')
 
 # load TCE table
 tce_tbl = pd.read_csv(tce_tbl_fp)
@@ -50,12 +52,9 @@ drop_columns = [
     'sg_gaia_ruwe',
     'sg_comments',
 ]
-tce_tbl = tce_tbl.drop(columns=drop_columns, errors='ignore')
+tce_tbl = tce_tbl.drop(columns=drop_columns)
 
 #%% Add dispositions from ExoFOP TOI catalog based on ephemeris matching
-
-toi_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/exofop_toilists_4-17-2025_1515_processed_ephem_matching.csv')
-match_toi_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_exofoptois_4-17-2025_1601/matched_signals_thr0.75.csv')
 
 # load TCE-ExoFOP TOI matching table
 match_tbl = pd.read_csv(match_toi_tbl_fp)
@@ -92,45 +91,76 @@ tce_tbl = tce_tbl.merge(toi_tbl, on='matched_toiexofop', how='left', validate='m
 print(f'TCE TFOP WG disposition counts after ExoFOP TOI matching:\n{tce_tbl["TFOPWG Disposition"].value_counts()}')
 print(f'TCE TESS disposition counts after ExoFOP TOI matching:\n{tce_tbl["TESS Disposition"].value_counts()}')
 
-#%% Add dispositions from Prsa's EB based on ephemeris matching
+# #%% Add dispositions from Astronet QLP TCEs based on ephemeris matching
+#
+# # load TCE-Astronet QLP matching table
+# match_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/ephemeris_matching/tces_spoc_dv_2mindata_s1-s67_astronetqlptces_1-24-2024_0949/matched_signals_thr0.75_relaxedmatching.csv')
+# # define columns that want to be added to the TCE table
+# toi_cols = [
+#     'uid',
+#     'label',
+# ]
+# # load Astronet QLP TCE table used in matching with TCEs
+# toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/astronet/astronet_training_processed.csv')
+#
+# match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_astronet-qlp_tce', 'match_corr_coef': 'match_corr_coef_astronet-qlp_tce'})
+# # merge matching results to TCE table
+# tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
+#
+# toi_tbl = toi_tbl[toi_cols].rename(columns={'uid': 'matched_astronet-qlp_tce', 'label': 'label_astronet-qlp'})
+#
+# # merge tce table with toi table based on matching
+# tce_tbl = tce_tbl.merge(toi_tbl, on='matched_astronet-qlp_tce', how='left', validate='many_to_one')
+#
+# print(f'TCE disposition counts after Astronet QLP matching:\n{tce_tbl["label_astronet-qlp"].value_counts()}')
 
-prsa_ebs_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/hlsp_tess-ebs_tess_lcf-ffi_s0001-s0026_tess_v1.0_cat_processed.csv')
-match_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_prsaebs_4-17-2025_2110/matched_signals_thr0.75.csv')
+#%% Add dispositions from Villanova's EB based on ephemeris matching
 
-# load TCE-Prsa's EBs matching table
-match_tbl = pd.read_csv(match_tbl_fp)
-match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_villanova_ebs',
-                                      'match_corr_coef': 'match_corr_coef_villanova_ebs'})
-# merge matching results to TCE table
-tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
-
+# load TCE-Villanova's EBs matching table
+match_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_2min_s1-s88_prsaebs_4-17-2025_2056/matched_signals_thr0.75.csv')
 # define columns that want to be added to the TCE table
-prsa_eb_tbl_cols = [
+toi_cols = [
     'uid',
 ]
 # load Villanova's EBs table used in matching with TCEs
-prsa_ebs_tbl = pd.read_csv(prsa_ebs_tbl_fp, usecols=prsa_eb_tbl_cols)
-prsa_ebs_tbl = prsa_ebs_tbl.rename(columns={'uid': 'matched_villanova_ebs'})
-# merge tce table with toi table based on matching
-tce_tbl = tce_tbl.merge(prsa_ebs_tbl, on='matched_villanova_ebs', how='left', validate='many_to_one')
+toi_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/hlsp_tess-ebs_tess_lcf-ffi_s0001-s0026_tess_v1.0_cat_processed.csv')
 
-print(f'TCEs matched to Prsa\'s EBs:\n{(~tce_tbl["matched_villanova_ebs"].isna()).sum()}')
+match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_villanova_ebs', 'match_corr_coef': 'match_corr_coef_villanova_ebs'})
+# merge matching results to TCE table
+tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
+
+toi_tbl = toi_tbl[toi_cols].rename(columns={'uid': 'matched_villanova_ebs'})
+
+# merge tce table with toi table based on matching
+tce_tbl = tce_tbl.merge(toi_tbl, on='matched_villanova_ebs', how='left', validate='many_to_one')
+
+print(f'TCE disposition counts after Villanova\'s EBs matching:\n{(~tce_tbl["matched_villanova_ebs"].isna()).sum()}')
+
+# #%% Add dispositions from TSO-SPOC EBs
+#
+# tso_spoc_ebs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/eb_catalogs/eb_tso/spocEBs_processed.csv')
+#
+# tce_tbl['in_tso_spoc_ebs'] = 'no'
+# tce_tbl.loc[tce_tbl['uid'].isin(tso_spoc_ebs['uid']), 'in_tso_spoc_ebs'] = 'yes'
+
 
 #%% Add dispositions from TEC flux triage
 
-tec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tec_fluxtriage_4-15-2025_1330.csv')
-
+tec_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tec/tec_tbl_fluxtriage_s1-s41_10-4-2023.csv')
 tec_cols = [
     'uid',
     'tec_fluxtriage_pass',
     'tec_fluxtriage_comment',
 ]
-tec_tbl = pd.read_csv(tec_tbl_fp, usecols=tec_cols)
 
 # merge matching results to TCE table
 tce_tbl = tce_tbl.merge(tec_tbl[tec_cols], on='uid', how='left', validate='one_to_one')
 
-print(f'Number of TCEs found in TEC flux triage: {(~tce_tbl["tec_fluxtriage_pass"]).isna().sum()}')
+# #%% Add dispositions from TEC flux triage
+#
+# match_tbl = pd.read_csv('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_multisector_s56-s69_spoc2minNTPs_11-25-2024_1503/matched_signals_thr0.75.csv')
+# match_tbl = match_tbl.rename(columns={'signal_a': 'uid', 'signal_b': 'matched_tecntps', 'match_corr_coef': 'match_corr_coef_tecntps'})
+# tce_tbl = tce_tbl.merge(match_tbl, on='uid', how='left', validate='one_to_one')
 
 #%% Set labels of TCEs according to priority rules
 
@@ -155,7 +185,17 @@ tce_tbl.loc[idxs_matched_villanovaebs, 'label'] = 'EB'
 tce_tbl.loc[idxs_matched_villanovaebs, 'matched_object'] = (
     tce_tbl.loc)[idxs_matched_villanovaebs, 'matched_villanova_ebs']
 
-# 3) create NTPs based on TEC flux triage; don't include TCEs detected as secondaries of other TCEs
+# # 3) TSO SPOC EBs
+# tce_tbl.loc[(tce_tbl['in_tso_spoc_ebs'] == 'yes') & (tce_tbl['label'] == 'UNK'), ['label_source']] = 'TSO SPOC EBs'
+# tce_tbl.loc[tce_tbl['label_source'] == 'TSO SPOC EBs', 'label'] = 'EB'
+
+# # 4) Astronet QLP TCEs; only those dispositioned as 'J' and 'B'
+# idxs_matched_astronetqlp = (~tce_tbl['matched_astronet-qlp_tce'].isna()) & (tce_tbl['label'] == 'UNK') & (tce_tbl['label_astronet-qlp'].isin(['J', 'B']))
+# tce_tbl.loc[idxs_matched_astronetqlp, ['label_source']] = 'Astronet QLP'
+# tce_tbl.loc[idxs_matched_astronetqlp, 'label'] = tce_tbl.loc[idxs_matched_astronetqlp, 'label_astronet-qlp']
+# tce_tbl.loc[idxs_matched_astronetqlp, 'matched_object'] = tce_tbl.loc[idxs_matched_astronetqlp, 'matched_villanova_ebs']
+
+# 5) create NTPs based on TEC flux triage; don't include TCEs detected as secondaries of other TCEs
 
 # for TESS SPOC 2-min TCEs
 idxs_matched_tec_ntps = ((tce_tbl['tec_fluxtriage_pass'] == 0) &
@@ -176,25 +216,14 @@ tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &
 
 #%% add SG1 dispositions
 
-sg1_toi_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/sg1/sg1_tois_4-21-2025_1118.csv')
-
-sg1_toi_cols = [
-    'TOI',
-    'Master Disposition',
-    'Phot Disposition',
-    'Spec Disposition',
-    'Comments',
-    'SG2 Notes',
-]
-sg1_toi_tbl = pd.read_csv(sg1_toi_tbl_fp, usecols=sg1_toi_cols)
-sg1_toi_tbl.rename(columns={'Master Disposition': 'sg1_master_disp', 'TOI': 'matched_object',
-                            'Phot Disposition': 'sg1_phot_disp', 'Spec Disposition': 'sg1_spec_disp',
-                            'Comments': 'sg1_comments', 'SG2 Notes': 'sg2_notes'}, inplace=True,
+sg1_toi_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/sg1/sg1_tois_4-21-2025_1118.csv')
+sg1_toi_tbl.rename(columns={'Master Disposition': 'sg1_master_disp', 'TOI': 'matched_object'}, inplace=True,
                    errors='raise')
-sg1_toi_tbl['matched_object'] = sg1_toi_tbl['matched_object'].astype('str')
-sg1_toi_tbl.drop_duplicates('matched_object', inplace=True)
 
+sg1_toi_tbl['matched_object'] = sg1_toi_tbl['matched_object'].astype('str')
 tce_tbl['matched_object'] = tce_tbl['matched_object'].astype('str')
+
+sg1_toi_tbl.drop_duplicates('matched_object', inplace=True)
 
 tce_tbl = tce_tbl.merge(sg1_toi_tbl[['matched_object', 'sg1_master_disp']], how='left', on='matched_object',
                         validate='many_to_one')

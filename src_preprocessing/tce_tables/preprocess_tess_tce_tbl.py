@@ -15,10 +15,10 @@ import pandas as pd
 import numpy as np
 
 # local
-from src_preprocessing.tess_spoc_ffi.xml_tbls_rename_cols_add_uid import rename_dv_xml_fields
+from src_preprocessing.tce_tables.xml_tbls_rename_cols_add_uid import rename_dv_xml_fields
 from src_preprocessing.stellar_parameters.update_tess_stellar_parameters_tce_tbl import updated_stellar_parameters_with_tic8
 from src_preprocessing.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
-from src_preprocessing.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
+from src_preprocessing.tce_tables.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
 
 # set TCE table filepath
 tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014.csv')

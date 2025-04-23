@@ -38,6 +38,80 @@ def set_tf_data_type_for_features(features_set):
     return features_set
 
 
+def prepare_augment_example_online(serialized_example, online_preproc_params):
+    """ Prepare parameters for online data augmentation to apply consistently across multiple features of the example.
+
+        Args:
+            serialized_example: tf serialized example, example features in TFRecord dataset
+            online_preproc_params: dict, parameters for online data augmentation
+
+        Returns: tuple of online augmentation parameters
+    """
+
+    # Randomly reverse time series features with probability reverse_time_series_prob.
+    should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
+
+    # bin shifting
+    bin_shift = [-5, 5]
+    shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
+                              dtype=tf.dtypes.int32, name='randuniform')
+
+    # get oot indices for Gaussian noise augmentation added to oot indices
+    tce_ephem = tf.io.parse_single_example(serialized=serialized_example,
+                                           features={'tce_period': tf.io.FixedLenFeature([], tf.float32),
+                                                     'tce_duration': tf.io.FixedLenFeature([], tf.float32)})
+
+    # boolean tensor for oot indices for global view
+    idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(online_preproc_params['num_bins_global'],
+                                                                tce_ephem['tce_duration'],
+                                                                tce_ephem['tce_period'])
+    # boolean tensor for oot indices for local view
+    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(online_preproc_params['num_bins_local'],
+                                                              online_preproc_params['num_transit_dur'])
+
+    return should_reverse, shift, idxs_nontransitcadences_glob, idxs_nontransitcadences_loc
+
+
+def augment_example_online(feature_example, should_reverse, shift, idxs_nontransitcadences_glob,
+                           idxs_nontransitcadences_loc):
+    """ Perform online augmentation across multiple features of the example.
+
+        Args:
+            feature_example: NumPy array, deserialized feature for example in TFRecord dataset
+            should_rever: bool, if True, feature is reversed on x-axis
+            shift: int, how many timesteps to shift
+            idxs_nontransitcadences_glob: NumPy array, non-transit timesteps in global view
+            idxs_nontransitcadences_loc: NumPy array, non-transit timesteps in local view
+
+        Returns: feature_example after being transformed for augmentation
+    """
+
+    # add white gaussian noise
+    if 'global' in feature_name:
+        oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_glob)
+    else:
+        oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_loc)
+
+    # # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
+    # oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
+    # # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
+    # # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
+    # #                       name='oot_median')
+
+    # oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
+
+    # value = add_whitegaussiannoise(value, oot_median, oot_std)
+
+    # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
+    #                                parsed_features[feature_name + '_stdoot'])
+
+    # invert phase
+    feature_example = phase_inversion(feature_example, should_reverse)
+
+    # phase shift some bins
+    feature_example = phase_shift(feature_example, shift)
+
+    return
 
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
     """ Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
@@ -141,6 +215,8 @@ class InputFnv2(object):
                 tuple, feature and label tensors
             """
 
+            include_labels = self.mode in ['TRAIN', 'EVAL']
+
             # get features names, shapes and data types to be extracted from the TFRecords
             data_fields = {}
             for feature_name, feature_info in self.features_set.items():
@@ -157,6 +233,7 @@ class InputFnv2(object):
                 label_field = {self.label_field_name: tf.io.FixedLenFeature([], tf.string)}
                 parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
 
+            # set example weight
             if self.category_weights is not None and self.mode == 'TRAIN':
                 category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
                     keys=list(self.category_weights.keys()),
@@ -169,37 +246,16 @@ class InputFnv2(object):
             elif self.sample_weights and self.mode == 'TRAIN':
                 sample_weight_field = {'sample_weight': tf.io.FixedLenFeature([], tf.float32)}
                 example_weight = tf.io.parse_single_example(serialized=serialized_example, features=sample_weight_field)
+            else:
+                example_weight = None
 
-            # prepare data augmentation
-            if self.data_augmentation:
-                # Randomly reverse time series features with probability reverse_time_series_prob.
-                should_reverse = tf.less(x=tf.random.uniform([], minval=0, maxval=1), y=0.5, name="should_reverse")
-
-                # bin shifting
-                bin_shift = [-5, 5]
-                shift = tf.random.uniform(shape=(), minval=bin_shift[0], maxval=bin_shift[1],
-                                          dtype=tf.dtypes.int32, name='randuniform')
-
-                # get oot indices for Gaussian noise augmentation added to oot indices
-                tce_ephem = tf.io.parse_single_example(serialized=serialized_example,
-                                                       features={'tce_period': tf.io.FixedLenFeature([], tf.float32),
-                                                                 'tce_duration': tf.io.FixedLenFeature([], tf.float32)})
-
-                # boolean tensor for oot indices for global view
-                idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(self.online_preproc_params['num_bins_global'],
-                                                                            tce_ephem['tce_duration'],
-                                                                            tce_ephem['tce_period'])
-                # boolean tensor for oot indices for local view
-                idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(self.online_preproc_params['num_bins_local'],
-                                                                          self.online_preproc_params['num_transit_dur'])
-
-            # map label to integer value
+            # map label to label id
             label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
             if include_labels:
                 # map label to integer
                 label_id = label_to_id.lookup(parsed_label[self.label_field_name])
 
-                # Ensure that the label_id is non negative to verify a successful hash map lookup.
+                # ensure that the label_id is non-negative to verify a successful hash map lookup.
                 assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
                                                ["Unknown label string:", parsed_label[self.label_field_name]],
                                                name='assert_non-negativity')
@@ -210,65 +266,49 @@ class InputFnv2(object):
             if self.multiclass:
                 label_id = tf.one_hot(label_id, self.n_classes)
 
+            # prepare data augmentation
+            if self.data_augmentation:
+                should_reverse, shift, idxs_nontransitcadences_glob, idxs_nontransitcadences_loc = (
+                    prepare_augment_example_online(serialized_example, self.online_preproc_params))
+
             # initialize feature output
             output = {}
-            for feature_name, value in parsed_features.items():
+            for feature_name, feature_value in parsed_features.items():
 
                 feature_info = self.features_set[feature_name]
                 if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # parse tensors
-                    value = tf.io.parse_tensor(serialized=value[0], out_type=self.features_set[feature_name]['dtype'])
-                    value = tf.reshape(value, self.features_set[feature_name]['dim'])
+                    feature_value = tf.io.parse_tensor(serialized=feature_value[0],
+                                                       out_type=self.features_set[feature_name]['dtype'])
+                    feature_value = tf.reshape(feature_value, self.features_set[feature_name]['dim'])
 
-                # data augmentation for time series features
+                # data augmentation for flux time series features
                 if 'view' in feature_name and self.data_augmentation:
-
-                    # with tf.variable_scope('input_data/data_augmentation'):
-
-                    # add white gaussian noise
-                    if 'global' in feature_name:
-                        oot_values = tf.boolean_mask(value, idxs_nontransitcadences_glob)
-                    else:
-                        oot_values = tf.boolean_mask(value, idxs_nontransitcadences_loc)
-
-                    # # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
-                    # oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
-                    # # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
-                    # # oot_median = tf.slice(oot_values_sorted, oot_values_sorted.shape[0] // 2, (1,),
-                    # #                       name='oot_median')
-
-                    # oot_std = tf.math.reduce_std(oot_values, axis=0, name='oot_std')
-
-                    # value = add_whitegaussiannoise(value, oot_median, oot_std)
-
-                    # value = add_whitegaussiannoise(value, parsed_features[feature_name + '_meanoot'],
-                    #                                parsed_features[feature_name + '_stdoot'])
-
-                    # invert phase
-                    value = phase_inversion(value, should_reverse)
-
-                    # phase shift some bins
-                    value = phase_shift(value, shift)
-
+                    feature_value = augment_example_online(feature_value,
+                                                   should_reverse,
+                                                   shift,
+                                                   idxs_nontransitcadences_glob,
+                                                   idxs_nontransitcadences_loc
+                                                   )
                 if feature_name in list(self.feature_map.keys()):
-                    output[self.feature_map[feature_name]] = value
+                    output[self.feature_map[feature_name]] = feature_value
                 else:
-                    output[feature_name] = value
+                    output[feature_name] = feature_value
 
-            # FIXME: should it return just output when in PREDICT mode? Would have to change predict.py yielding part
-            if (self.category_weights is not None or self.sample_weights) and self.mode == 'TRAIN':
-                return output, label_id, example_weight
+            if example_weight:
+                output_example_parser = output, label_id, example_weight
             else:
-                return output, label_id
+                output_example_parser = output, label_id
 
-        # Create a HashTable mapping label strings to integer ids.
-        table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
-                                                                values=list(self.label_map.values()),
-                                                                key_dtype=tf.string,
-                                                                value_dtype=tf.int32)
+            return output_example_parser
 
+        # create a hash table mapping label to integer label ids.
+        table_initializer = tf.lookup.KeyValueTensorInitializer(
+            keys=list(self.label_map.keys()),
+            values=list(self.label_map.values()),
+            key_dtype=tf.string,
+            value_dtype=tf.int32
+        )
         label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
-
-        include_labels = self.mode in ['TRAIN', 'EVAL']
 
         if isinstance(self.file_paths, str):
             file_patterns = self.file_paths.split(",")
@@ -352,7 +392,7 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     # instantiate list of labels
     label_vec = []
 
-    # iterate throught the TFRecords files
+    # iterate through the TFRecords files
     for file in filenames:
 
         tfrecord_dataset = tf.data.TFRecordDataset(file)
@@ -370,7 +410,7 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     # count instances for each class
     label_counts = [label_vec.count(label_id) for label_id in label_ids]
 
-    # give more weight to classes with less instances
+    # give more weight to classes with fewer instances
     ce_weights = [max(label_counts) / max(count_i, 1e-7) for count_i in label_counts]
 
     if verbose:
@@ -425,27 +465,20 @@ def get_data_from_tfrecord(tfrecord, data_fields):
     return data
 
 
-def get_data_from_tfrecords(tfrecords, data_fields, label_map=None, filt=None, coupled=False):
+def get_data_from_tfrecords(tfrecords, data_fields):
     """ Extract data from a set of tfrecord files.
 
     :param tfrecords: list of tfrecords filepaths.
     :param data_fields: list of data fields to be extracted from the tfrecords.
-    :param label_map: dict, map between class name and integer value
-    :param filt: dict, containing as keys the elements of data_fields or a subset, which are used to filter the
-    examples. For 'label', 'kepid' and 'tce_n' the values should be a list; for the other data_fields, it should be a
-    two element list that defines the interval of acceptable values
-    :param coupled: bool, if True filter examples based on their KeplerID + TCE number (joint)
+
     :return:
         data: dict, each key value pair is a list of values for a specific data field
     """
 
     data = {field: [] for field in data_fields}
 
-    if filt is not None:
-        data['selected_idxs'] = []
-
     for tfrecord in tfrecords:
-        data_aux = get_data_from_tfrecord(tfrecord, data_fields, label_map=label_map, filt=filt, coupled=coupled)
+        data_aux = get_data_from_tfrecord(tfrecord, data_fields)
         for field in data_aux:
             data[field].extend(data_aux[field])
 

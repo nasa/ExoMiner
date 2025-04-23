@@ -460,7 +460,8 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
             data[uid]['quality_metric'].append(q_metric_s)
 
             # get sector id
-            data[uid]['image_number'].append(int(img_res_s.attrib['sector']))
+            sector = int(img_res_s.attrib['sector'])
+            data[uid]['image_number'].append(sector)
 
             # get difference image pixel data
             img_px_data = [el for el in img_res_s if 'differenceImagePixelData' in el.tag]
@@ -533,7 +534,7 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
                     neighbors_coords, neighbors_mags, delta_mag = None, None, None
 
                 plot_diff_img_data(diff_imgs,
-                                   plot_dir / f'tic_{uid}.png',
+                                   plot_dir / f'tic_{uid}_sector_{sector}.png',
                                    target_coords=(tic_centroid_ref_dict['col']['value'],
                                                   tic_centroid_ref_dict['row']['value'])
                                    if tic_centroid_ref_dict['col']['uncertainty'] != -1 else None,

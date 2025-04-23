@@ -6,11 +6,6 @@
 # $4: File path to configuration yaml file for the preprocessing run
 # $5: Total number of jobs
 
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
-
-source "$HOME"/.bashrc
-conda activate exoplnt_dl_tf2_13
-
 LOG_DIR=$2/preprocessing_logs
 mkdir -p "$LOG_DIR"
 LOG_FP="$LOG_DIR"/preprocessing_$1.log

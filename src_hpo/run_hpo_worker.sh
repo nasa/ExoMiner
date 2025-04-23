@@ -11,19 +11,10 @@ CONFIG_FP="$2"
 N_GPUS_PER_NODE="$4"
 GNU_PARALLEL_INDEX="$1"
 
-# initialize conda
-source "$HOME"/.bashrc
-
-# activate conda environment
-conda activate exoplnt_dl_tf2_13
-
-# set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase
-
 HPO_PY_SCRIPT=$PYTHONPATH/src_hpo/run_hpo.py
 
 # set CV iteration ID
-#WORKER_ID=$(($GNU_PARALLEL_INDEX + $N_GPUS_PER_NODE))
+# WORKER_ID=$(($GNU_PARALLEL_INDEX + $N_GPUS_PER_NODE))
 WORKER_ID=$GNU_PARALLEL_INDEX
 
 LOG_WORKER="$OUTPUT_DIR"/worker_"$WORKER_ID"_stdout.log
@@ -50,4 +41,4 @@ done
 
 echo "GPU $GPU_ID is available. Resuming HPO worker iteration." >> "$LOG_WORKER"
 
-python $HPO_PY_SCRIPT --config_file="$CONFIG_FP" --output_dir="$OUTPUT_DIR" --worker_id="$WORKER_ID" &>> "$LOG_WORKER"
+python "$HPO_PY_SCRIPT" --config_file="$CONFIG_FP" --output_dir="$OUTPUT_DIR" --worker_id="$WORKER_ID" &>> "$LOG_WORKER"

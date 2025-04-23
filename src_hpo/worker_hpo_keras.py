@@ -12,7 +12,7 @@ import copy
 import logging
 import shutil
 import multiprocessing
-# import traceback
+import traceback
 
 # local
 from src.train.train_model import train_model
@@ -88,10 +88,7 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
                         f'epochs.')
 
         model_i_config = copy.deepcopy(config)
-        # choose random fold from the training set to use as validation set for this model
-        # rng = np.random.default_rng(seed=config['rnd_seed'] + model_i)
-        # model_i_config['datasets_fps']['val'] = [rng.choice([fp for fp in config['datasets_fps']['train']])]
-        # model_i_config['datasets_fps']['train'].remove(model_i_config['datasets_fps']['val'][0])
+
         # train single model for this configuration
         train_model(model_i_config, model_dir, logger=logger)
 
@@ -113,8 +110,7 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
     if verbose:
         logger.info(f'[worker_{worker_id_custom},config{config_id}] Started evaluating ensemble.')
     ensemble_model_config = copy.deepcopy(config)
-    # # no evaluation on the validation set since each model in the ensemble gets a random training fold as validation set
-    # ensemble_model_config['datasets'].remove('val')
+
     evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=logger)
     # res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
 
@@ -152,7 +148,8 @@ def wrapper_evaluate_config_on_budget(worker_id, config_id, run_config, budget):
     except Exception as error:  # return infinite HPO loss if there is any error during configuration evaluation
         with open(run_config['paths']['config_dir'] /
                   f'run_config_exception_budget_{budget}epochs.txt', "w") as excl_file:
-            excl_file.write(str(error))
+            excl_file.write(f'Error: {error}\n')
+            traceback.print_exc(file=excl_file)
         logger.info('Error when evaluating configuration on budget.')
 
     # rename results to add budget to the filename
