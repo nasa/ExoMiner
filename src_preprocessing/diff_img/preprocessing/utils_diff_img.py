@@ -55,7 +55,11 @@ def check_for_missing_values_in_preproc_diff_data(data):
                 return missing_value_found
         else:
             for k2, v2 in v.items():
+                if k2 == 'neighbors_imgs' and v2[0] is None: # neighbors data is not used
+                    continue
+
                 missing_value_found = np.isnan(v2).sum() > 0
+
                 if missing_value_found:
                     return missing_value_found
 
@@ -295,7 +299,9 @@ def fill_missing_values_nearest_neighbors(img, window):
     img_conv = convolve2d(img_fill, window, mode='same', boundary='fill', fillvalue=0)
 
     # normalize convolution values by valid pixel count
-    img_conv /= valid_px_arr_conv
+    valid_idxs = valid_px_arr_conv != 0
+    img_conv[valid_idxs] = img_conv[valid_idxs] / valid_px_arr_conv[valid_idxs]
+    img_conv[~valid_idxs] = np.nan
 
     # fill missing values with convolution values
     img_fill[idxs_nan] = img_conv[idxs_nan]

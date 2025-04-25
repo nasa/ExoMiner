@@ -18,13 +18,14 @@ from src_preprocessing.tf_util import example_util
 logger = logging.getLogger(__name__)
 
 
-def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir):
+def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir, diff_img_data):
     """ Write difference image data to a set of TFRecord files under filepaths in `src_tfrec_fps` to a new dataset in
     `dest_tfrec_dir`.
 
         Args:
             src_tfrec_fps: list of Path objects, source TFRecord filepaths
             dest_tfrec_dir: Path, destination TFRecord
+            diff_img_data: dict, preprocessed difference image data
 
         Returns: examples_not_found_df, pandas DataFrame with examples with no difference image data found
 
@@ -46,7 +47,7 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir):
 
         dest_tfrec_fp = dest_tfrec_dir / src_tfrec_fp.name
 
-        examples_not_found_df = write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger)
+        examples_not_found_df = write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, diff_img_data, logger)
 
         examples_not_found_df_lst.append(examples_not_found_df)
 
@@ -55,13 +56,14 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir):
     return examples_not_found_df
 
 
-def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, logger=None):
+def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, diff_img_data, logger=None):
     """ Write difference image data to a TFRecord file under filepath `src_tfrec_fp` to a new dataset in
         `dest_tfrec_dir`.
 
         Args:
             src_tfrec_fp: Path, source TFRecord filepath
-            dest_tfrec_dir: Path, destination TFRecord
+            dest_tfrec_fp: Path, destination TFRecord
+            diff_img_data: dict, preprocessed difference image data
             logger: logger
 
         Returns: examples_not_found_df pandas DataFrame with examples with no difference image data found
@@ -175,7 +177,7 @@ if __name__ == '__main__':
     # parallel processing
     src_tfrec_fps_jobs = np.array_split(src_tfrec_fps, n_jobs)
     pool = multiprocessing.Pool(processes=n_procs)
-    jobs = [(src_tfrec_fps_job, dest_tfrec_dir)
+    jobs = [(src_tfrec_fps_job, dest_tfrec_dir, diff_img_data)
             for src_tfrec_fps_job in src_tfrec_fps_jobs]
     async_results = [pool.apply_async(write_diff_img_data_to_tfrec_files, job) for job in jobs]
     pool.close()

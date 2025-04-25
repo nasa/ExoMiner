@@ -80,8 +80,6 @@ def main():
                         filemode='a',
                         )
 
-    logger.info(f'Process shard {config["process_i"]} ({config["n_shards"]} total shards)')
-
     # make directory for exclusion logs
     config['exclusion_logs_dir'] = config['output_dir'] / 'exclusion_logs'
     config['exclusion_logs_dir'].mkdir(exist_ok=True)
@@ -102,6 +100,8 @@ def main():
             yaml.dump(json_dict, preproc_run_file)
 
     if config['using_mpi']:  # using some sort of external library for parallelization
+
+        logger.info(f'Process shard {config["process_i"]} ({config["n_shards"]} total shards)')
 
         node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
         shard_filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'

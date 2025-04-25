@@ -594,12 +594,14 @@ def process_tce(tce, table, config):
     tce = sample_ephemerides(tce, config)
 
     # get cadence, flux and centroid data for the tce
+    logger.info(f'[{tce["uid"]}] Reading light curve data for target {tce["target_id"]}.')
     data = read_light_curve(tce, config)
     if data is None:
         raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
 
     # update target position in FITS file with that from the TCE table
     if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
+        logger.info(f'[{tce["uid"]}] Using targets\' RA and Dec coordinates from the TCE table.')
         data['target_position'] = [tce['ra'], tce['dec']]
     config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
 
@@ -646,6 +648,7 @@ def process_tce(tce, table, config):
     #     add_info = {'sectors': data['sectors']}
 
     # find transits for all detected TCEs in the target
+    logger.info(f'[{tce["uid"]}] Finding transits for all detected TCEs in target.')
     target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table,
                                                                      data['all_time'],
                                                                      config['duration_gapped_primary'],
@@ -678,6 +681,7 @@ def process_tce(tce, table, config):
 
     # gap cadences belonging to the transits of other TCEs in the same target star
     if config['gapped']:
+        logger.info(f'[{tce["uid"]}] Gap in-transit cadences from other TCEs in target {tce["target_id"]}.')
         data_to_be_gapped = {ts_name: ts_data for ts_name, ts_data in data.items()
                              if ts_name in ['all_flux', 'all_centroids']}
         # if config['get_momentum_dump']:
@@ -689,6 +693,7 @@ def process_tce(tce, table, config):
         data.update(data_gapped)
 
     # compute lc periodogram
+    logger.info(f'[{tce["uid"]}] Computing periodogram data for TCE...')
     pgram_data = lc_periodogram_pipeline(
         config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
         config['smooth_filter_type'], config['smooth_filter_w_f'],
@@ -698,12 +703,15 @@ def process_tce(tce, table, config):
         plot_preprocessing_tce=plot_preprocessing_tce)
 
     # detrend the flux and centroid time series
+    logger.info(f'[{tce["uid"]}] Preprocessing light curve data for TCE...')
     detrended_data = process_light_curve(data, config, tce, plot_preprocessing_tce)
 
     # phase fold detrended data using detected orbital period
+    logger.info(f'[{tce["uid"]}] Phase-folding time series for using TCE\'s orbital period found in TCE table...')
     phase_folded_data = phase_fold_timeseries(detrended_data, config, tce, plot_preprocessing_tce)
 
     # bin phase folded data and generate TCE example based on the preprocessed data
+    logger.info(f'[{tce["uid"]}] Generating features for TCE based on preprocessed light curve data...')
     example_tce = generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_preprocessing_tce)
 
     return example_tce
@@ -762,7 +770,7 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                                                                    config['sg_break_tolerance']
                                                                    )
 
-        logger.info(f'[{tce["uid"]}] SG detrending model flux data info\n{models_info_df}. Chosen polynomial order: '
+        logger.info(f'[{tce["uid"]}] SG detrending model flux data info. Chosen polynomial order: '
                     f'{models_info_df.index[0]}')
 
         flux_lininterp = None
@@ -874,7 +882,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                                                         config['sg_break_tolerance'],
                                                                                         )
 
-            logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info\n{models_info_df}. '
+            logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info. '
                         f'Chosen polynomial order: {models_info_df.index[0]}')
 
         else:

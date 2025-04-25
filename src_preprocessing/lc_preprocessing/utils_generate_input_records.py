@@ -21,10 +21,10 @@ def process_file_shard(tce_table, file_name, eph_table, config):
     """ Processes a single file shard.
 
     Args:
-    tce_table: Pandas DataFrame, containing the TCEs in the shard.
-    file_name: The output TFRecord file.
-    eph_table: Pandas DataFrame, containing all TCEs in the dataset.
-    config: dict, with preprocessing parameters.
+        tce_table: Pandas DataFrame, containing the TCEs in the shard.
+        file_name: The output TFRecord file.
+        eph_table: Pandas DataFrame, containing all TCEs in the dataset.
+        config: dict, with preprocessing parameters.
     """
 
     if not config['using_mpi']:
@@ -159,10 +159,7 @@ def get_tce_table(config):
     tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
-    # FIXME: this is temporary!!
-    # if 'sector_run' in tce_table:
-    #     logger.info('Excluding TCEs from sector run S68')
-    #     tce_table = tce_table.loc[tce_table['sector_run'] != '68']
+
     # FIXME: add wst_depth_err to the Kepler Q1-Q17 DR25 TCE table
     if 'wst_depth_err' not in tce_table:
         logger.info('Adding `wst_depth_err` to the TCE table. Setting value to all TCEs as -1')

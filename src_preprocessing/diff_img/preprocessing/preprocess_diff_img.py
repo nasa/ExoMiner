@@ -70,7 +70,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
         target_mag: float, target magnitude
         exclude_neighbor_objs_outside: bool, if True and `neighbor_data` is not None, neighboring objects that are
             outside the target mask are ignored when creating the neighbors image
-        proc_id: int, process id
+        proc_id: str, process id
         log: logger
 
     Returns:
@@ -130,7 +130,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # update target position in resized image
     target_pos_col = (target_pos_col - crop_min_col + pad_col) * size_f_w + (size_f_w - 1) * 0.5
     target_pos_row = (target_pos_row - crop_min_row + pad_row) * size_f_h + (size_f_h - 1) * 0.5
-    if neighbor_data:
+    if neighbor_data is not None:
         for neighbor_id, neighbor_id_data in neighbor_data.items():
             neighbor_data[neighbor_id]['col_px'] = ((neighbor_id_data['col_px'] - crop_min_col + pad_col) * size_f_w +
                                                     (size_f_w - 1) * 0.5)
@@ -152,7 +152,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
             target_pos_col = target_pos_col + center_col_offset
             target_pos_row = target_pos_row + center_row_offset
 
-            if neighbor_data:
+            if neighbor_data is not None:
                 for neighbor_id, neighbor_id_data in neighbor_data.items():
                     neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] + center_col_offset
                     neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] + center_row_offset
@@ -168,7 +168,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     target_pos_col -= crop_size_col_offset
     target_pos_row -= crop_size_row_offset
 
-    if neighbor_data:
+    if neighbor_data is not None:
         for neighbor_id, neighbor_id_data in neighbor_data.items():
             neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] - crop_size_col_offset
             neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] - crop_size_row_offset
@@ -183,7 +183,7 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # create target image
     target_img = create_target_image(size_h * size_f_h, size_w * size_f_w, target_pos_col, target_pos_row)
 
-    if neighbor_data:
+    if neighbor_data is not None:
         neighbors_img = create_neighbors_img(neighbor_data, diff_img.shape, target_mag, exclude_neighbor_objs_outside)
     else:
         neighbors_img = None
@@ -192,13 +192,13 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
             (target_col_disc, target_row_disc), neighbors_img)
 
 
-def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upscale_f, final_size, mission_name,
+def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale_f, final_size, mission_name,
                              save_dir, exclude_neighbor_objs_outside=True, log=None, plot_prob=0):
     """ Preprocessing pipeline for difference image data for a set of TCEs.
 
     Args:
-        diff_img_data_dict: dict, each item is the difference image data for a given TCE. The TCE is identified by the
-            string key. The value is a dictionary that contains six items:
+        diff_img_data_fp: Path, to NumPy file with a dictionary. Each item is the difference image data for a given TCE.
+            The TCE is identified by the string key. The value is a dictionary that contains six items:
             - 'target_ref_centroid' is a list of dictionaries that contain the value and uncertainty for the reference
             coordinates of the target star in the pixel domain in each observed sector;
             - 'image_data' is a list of NumPy array (n_rows, n_cols, n_imgs, 2) that contains the in-transit,
@@ -216,28 +216,36 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
             (final_size['x'] * upscale_f['x'], final_size['y'] * upscale_f['y'])
         final_size: dict, image size before resizing (final_size['x'], final_size['y'])
         mission_name: str, mission from where the difference image data is from. Either `kepler` or `tess`
-        save_dir: Path, destination directory for preprocessed data
+        save_dir: Path, destination  directory for preprocessed data
         exclude_neighbor_objs_outside: bool, if True and `neighbor_data` is not None, neighboring objects that are
             outside the target mask are ignored when creating the neighbors image
         log: logger
         plot_prob: float, probability to plot preprocessing results
 
     Returns:
-            preprocessing_dict, dict with preprocessed data
-            tces_info_tbl, pandas DataFrame with information on the preprocessing run
+
     """
 
-    proc_id = os.getpid()  # get process id
+    save_dir.mkdir(exist_ok=True)
+
+    if config['plot_prob'] > 0:
+        (save_dir / 'plot_examples').mkdir(exist_ok=True)
 
     if log is None:
         # set up logger for the process
-        log = logging.getLogger(name=f'preprocess_{proc_id}')
-        logger_handler = logging.FileHandler(filename=save_dir / f'preprocess_{proc_id}.log', mode='w')
+        log = logging.getLogger(name=f'preprocess_{diff_img_data_fp.stem}')
+        logger_handler = logging.FileHandler(filename=save_dir / f'preprocess_{diff_img_data_fp.stem}.log', mode='w')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         log.setLevel(logging.INFO)
         logger_handler.setFormatter(logger_formatter)
         log.addHandler(logger_handler)
-        log.info(f'[{proc_id}] Starting preprocessing...')
+        log.info(f'[{diff_img_data_fp.name}] Starting preprocessing...')
+
+    # load difference image data
+    log.info(f'Loading difference image data from {str(diff_img_data_fp)}')
+    diff_img_data_dict = np.load(diff_img_data_fp, allow_pickle=True).item()
+
+    log.info(f'Number of TCEs to preprocess: {len(diff_img_data_dict)}')
 
     if mission_name == 'kepler':
         prefix = 'quarter'
@@ -277,7 +285,7 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
         n_max_imgs_avail = len(diff_img_data_dict[tce_uid]['image_number'])
 
         if tce_i % 500 == 0:
-            log.info(f'[{proc_id}] Preprocessed {tce_i + 1} examples out of {len(diff_img_data_dict)}.')
+            log.info(f'[{diff_img_data_fp.stem}] Preprocessed {tce_i + 1} example(s) out of {len(diff_img_data_dict)}.')
 
         # # checking if TCE is in a saturated target; do not preprocess data for these cases
         #     continue
@@ -307,7 +315,7 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
 
         if n_valid_imgs == 0:  # if no valid quarters/sectors
 
-            log.info(f'[{proc_id}] No valid images for {tce_uid}. Setting data to placeholder value.')
+            log.info(f'[{diff_img_data_fp.stem}] No valid images for {tce_uid}. Setting data to placeholder value.')
 
             # update data using placeholder values
             missing_data_placeholder = set_data_example_to_placeholder_values(final_size['x'] * upscale_f['x'],
@@ -374,7 +382,7 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
                         target_mag=target_mag,
                         exclude_neighbor_objs_outside=exclude_neighbor_objs_outside,
                         log=log,
-                        proc_id=proc_id
+                        proc_id=diff_img_data_fp.stem
                     )
                 )
 
@@ -444,8 +452,8 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
         missing_value_found = check_for_missing_values_in_preproc_diff_data(preprocessing_dict[tce_uid])
 
         if missing_value_found:
-            log.info(f'[{proc_id}] At least one data array contained missing values for {tce_uid}. Setting data to '
-                     f'placeholder value.')
+            log.info(f'[{diff_img_data_fp.stem}] At least one data array contained missing values for {tce_uid}. '
+                     f'Setting data to placeholder value.')
 
             tces_info_dict[f'sampled_{prefix}s_missingvalues'][tce_i] = 'yes'
 
@@ -457,9 +465,12 @@ def preprocess_diff_img_tces(diff_img_data_dict, number_of_imgs_to_sample, upsca
 
     tces_info_df = pd.DataFrame(tces_info_dict)
 
-    log.info(f'[{proc_id}] Finished preprocessing difference image data for {len(diff_img_data_dict)} examples.')
+    log.info(f'Saving preprocessed data to {save_dir / "diffimg_preprocess.npy"}...')
+    tces_info_df.to_csv(save_dir / 'info_tces.csv', index=False)
+    np.save(save_dir / "diffimg_preprocess.npy", diff_img_data_dict)
 
-    return preprocessing_dict, tces_info_df
+    log.info(f'[{diff_img_data_fp.stem}] Finished preprocessing difference image data for {len(diff_img_data_dict)} '
+             f'examples.')
 
 
 if __name__ == '__main__':
@@ -467,64 +478,54 @@ if __name__ == '__main__':
     # used in job arrays
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
-                        default='/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+                        default='/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
     args = parser.parse_args()
 
     # load yaml file with run setup
     with(open(args.config_fp, 'r')) as file:
         config = yaml.safe_load(file)
 
-    # mission; either `tess` or `kepler`
-    mission = config['mission']
+    diff_img_data_dir = Path(config['diff_img_data_dir'])
 
-    # destination file path to preprocessed data
-    dest_dir = Path(config['dest_dir'])
-    dest_dir.mkdir(exist_ok=True)
-    # save run setup into a yaml file
-    with open(dest_dir / 'run_params.yaml', 'w') as setup_file:
-        yaml.dump(config, setup_file, sort_keys=False)
-    if config['plot_prob'] > 0:
-        (dest_dir / 'plot_examples').mkdir(exist_ok=True)
+    dest_root_dir = Path(config['dest_root_dir'])
+
+    # list of file paths to DV NumPy files for the sector runs to be preprocessed
+    diff_img_data_fps = list(diff_img_data_dir.glob('*.npy'))
+
+    dest_root_dir.mkdir(exist_ok=True)
 
     # set up logger
-    logger = logging.getLogger(name=f'preprocess')
-    logger_handler = logging.FileHandler(filename=dest_dir / f'preprocess.log', mode='w')
+    logger = logging.getLogger(name=f'preprocess_main')
+    logger_handler = logging.FileHandler(filename=dest_root_dir / f'preprocess_main.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
     logger.info(f'Starting preprocessing...')
 
-    # load difference image data
-    logger.info(f'Loading difference image data from {config["diff_img_data_fp"]}')
-    diff_img_data = np.load(config['diff_img_data_fp'], allow_pickle=True).item()
-    # diff_img_data = {k: v for k, v in diff_img_data.items() if k == '11709244-2'}
+    logger.info(f'Found {len(diff_img_data_fps)} NumPy files with extracted difference image.')
 
-    logger.info(f'Number of TCEs to preprocess: {len(diff_img_data)}')
+    # parallelize work; split by NumPy files
+    config['n_jobs'] = len(diff_img_data_fps)
+    config['n_processes'] = min(config['n_processes'], config['n_jobs'])
 
-    # parallelize work; split by TCEs
-    n_processes = config['n_processes']
-    n_jobs = config['n_jobs']
-    tces_ids = np.array_split(np.array(list(diff_img_data.keys())), n_jobs)
-    pool = multiprocessing.Pool(processes=n_processes)
-    jobs = [({tce_id: tce_diff_data for tce_id, tce_diff_data in diff_img_data.items() if tce_id in tces_ids_job},
-             config['num_sampled_imgs'], config['upscale_f'], config['final_size'],
-             mission, dest_dir, config['exclude_neighbor_objs_outside'], logger, config['plot_prob'])
-            for job_i, tces_ids_job in enumerate(tces_ids)]
+    # save run setup into a yaml file
+    with open(dest_root_dir / 'run_params.yaml', 'w') as setup_file:
+        yaml.dump(config, setup_file, sort_keys=False)
+
+    jobs = [(diff_img_data_fp, config['num_sampled_imgs'], config['upscale_f'], config['final_size'],
+             config['mission'], dest_root_dir / diff_img_data_fp.stem, config['exclude_neighbor_objs_outside'], None,
+             config['plot_prob'])
+            for diff_img_data_fp in diff_img_data_fps]
+
+    # parallel
+    pool = multiprocessing.Pool(processes=config['n_processes'])
     async_results = [pool.apply_async(preprocess_diff_img_tces, job) for job in jobs]
     pool.close()
     pool.join()
 
-    diff_img_data = {}
-    tces_info_df = []
-    for async_result in async_results:
-        job_res = async_result.get()
-        tces_info_df.append(job_res[1])
-        diff_img_data.update(job_res[0])
-    tces_info_df = pd.concat(tces_info_df, axis=0, ignore_index=True)
+    # # sequential
+    # for job in jobs:
+    #     preprocess_diff_img_tces(*job)
 
-    logger.info(f'Saving preprocessed data to {dest_dir / "diffimg_preprocess.npy"}...')
-    tces_info_df.to_csv(dest_dir / 'info_tces.csv', index=False)
-    np.save(dest_dir / "diffimg_preprocess.npy", diff_img_data)
-
-    logger.info(f'Finished.')
+    logger.info('Finished preprocessing difference image data from NumPy files with extracted data from DV xml files.')

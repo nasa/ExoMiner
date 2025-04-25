@@ -76,4 +76,4 @@ if __name__ == '__main__':
     #     print('Starting job')
     #     get_data_from_tess_dv_xml_multiproc(*job)
 
-    logger.info('Finished preprocessing.')
+    logger.info('Finished extracting difference image data from DV xml files.')
