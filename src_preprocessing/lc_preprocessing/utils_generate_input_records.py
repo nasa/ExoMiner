@@ -61,6 +61,8 @@ def process_file_shard(tce_table, file_name, eph_table, config):
             logger.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name} '
                         f'({num_processed}/{shard_size})...')
 
+            preproc_tce_time = int(datetime.datetime.now().strftime("%s"))
+
             # preprocess TCE and add it to the TFRecord
             for example_i in range(config['num_examples_per_tce']):
 
@@ -76,7 +78,13 @@ def process_file_shard(tce_table, file_name, eph_table, config):
                         config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
                         error)
 
+                    preproc_tce_time = (int(datetime.datetime.now().strftime("%s")) - preproc_tce_time) / 60
+                    logger.info(f'Spent {preproc_tce_time} minutes preprocessing TCE {tce["uid"]}.')
+
                     continue
+
+                preproc_tce_time = (int(datetime.datetime.now().strftime("%s")) - preproc_tce_time) / 60
+                logger.info(f'Spent {preproc_tce_time} minutes preprocessing TCE {tce["uid"]}.')
 
                 if example is not None:
                     example, example_stats = example
@@ -167,8 +175,13 @@ def get_tce_table(config):
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)
-    # preprocess_tce_table = preprocess_tce_table.loc[preprocess_tce_table['uid'].isin(['16284697-1-S51'])]
-    # preprocess_tce_table = preprocess_tce_table.sample(n=100, replace=False, random_state=config['random_seed'])
+    # filter_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709/shards_tbl.csv')
+    # filter_tbl = pd.concat([
+    #     filter_tbl,
+    #                         pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_2ndrun/shards_tbl.csv'),
+    #                         ], axis=0, ignore_index=True)
+    # # filter TCE table in real-time
+    # preprocess_tce_table = preprocess_tce_table.loc[~preprocess_tce_table['uid'].isin(filter_tbl['uid'])]
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
     if config['using_mpi']:

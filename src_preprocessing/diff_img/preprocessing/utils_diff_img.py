@@ -574,7 +574,7 @@ def create_neighbors_img(neighbor_data, img_shape, target_mag, exclude_objs_outs
 
     n_neighbors = len(neighbor_data)
     if n_neighbors == 0:
-        return np.zeros(img_shape + (n_neighbors,), dtype='float')
+        return np.zeros(img_shape, dtype='float')
 
     # initialize with all infinity values
     neighbor_img = np.inf * np.ones(img_shape + (n_neighbors,), dtype='float')

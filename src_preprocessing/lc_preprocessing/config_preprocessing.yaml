@@ -20,9 +20,6 @@ shuffle_seed: 24
 
 satellite: tess  # 'kepler' or 'tess'
 
-## skips target IDs that are not in the FITS files
-#omit_missing: true
-
 # plot figures for different preprocessing steps
 plot_figures: true
 plot_prob: 0.001  # 0.1

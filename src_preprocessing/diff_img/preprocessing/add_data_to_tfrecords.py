@@ -18,6 +18,9 @@ from src_preprocessing.tf_util import example_util
 logger = logging.getLogger(__name__)
 
 
+IMGS_FIELDS = ['diff_imgs', 'oot_imgs', 'target_imgs', 'snr_imgs', 'neighbors_imgs']
+
+
 def write_diff_img_data_to_tfrec_files(src_tfrec_fps, dest_tfrec_dir, diff_img_data):
     """ Write difference image data to a set of TFRecord files under filepaths in `src_tfrec_fps` to a new dataset in
     `dest_tfrec_dir`.
@@ -100,7 +103,11 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, diff_img_data
 
             # add difference features
             for suffix_str in ['', '_tc']:
-                for img_name in ['diff_imgs', 'oot_imgs', 'target_imgs']:
+                for img_name in IMGS_FIELDS:
+                    if img_name not in diff_img_data[example_uid]['images']:
+                        raise ValueError(f'Image {img_name} not found in the difference image data for TCE '
+                                         f'{example_uid}. Check `IMGS_FIELDS` and adapt the variable accordingly.\n'
+                                         f'Found images: {diff_img_data[example_uid]["images"].keys()}.')
                     img_data = np.array(diff_img_data[example_uid]['images'][f'{img_name}{suffix_str}'])
                     example_util.set_tensor_feature(example, f'{img_name}{suffix_str}', img_data)
 
@@ -127,11 +134,11 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    n_procs = 36
+    n_procs = 12
     n_jobs = 108
 
     # %% set file paths
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg')
     src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
 
     # # Kepler - single NumPy file
@@ -141,14 +148,8 @@ if __name__ == '__main__':
     # TESS - one NumPy file per sector run
     # aggregate all dictionaries
     # might be memory intensive as number of sector runs increases...
-    diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/preprocessed_data')
+    diff_img_data_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/ffi/dv/diff_img/preprocessed_data/s36-s72_4-27-2025_2028')
     diff_img_data = {}
-
-    # # get file paths to directories with difference image data in NumPy files
-    # sector_dirs = [fp for fp in diff_img_data_dir.iterdir() if fp.is_dir() and 'sector' in fp.name]
-    # for fp in sector_dirs:
-    #     diff_img_data_sector_run = np.load(fp / 'diffimg_preprocess.npy', allow_pickle=True).item()
-    #     diff_img_data.update(diff_img_data_sector_run)
 
     # get file paths to difference image NumPy files for the needed sector runs
     diff_img_fps = list(diff_img_data_dir.rglob('*.npy'))
@@ -158,7 +159,7 @@ if __name__ == '__main__':
         diff_img_data_sector_run = np.load(fp, allow_pickle=True).item()
         diff_img_data.update(diff_img_data_sector_run)
 
-    dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_adddiffimg'
+    dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_diffimg'
     dest_tfrec_dir.mkdir(exist_ok=True)
 
     # set logger
