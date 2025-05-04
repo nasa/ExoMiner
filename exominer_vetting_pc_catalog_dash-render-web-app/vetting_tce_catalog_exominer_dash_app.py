@@ -12,9 +12,9 @@ from datetime import datetime
 from PIL import Image
 
 EXPORT_CSV_FILENAME_PREFIX = 'exominer_vetting_tess-spoc-2-min-s1s67'
-TABLE_FP = '/data/exominer_vetting_tess-spoc-2-min-s1s67_dashtable_dvm-url_scoregt0.1.csv'
+TABLE_FP = 'data/exominer_vetting_tess-spoc-2-min-s1s67_dashtable_dvm-url_scoregt0.1.csv'
 
-exominer_logo_pil_image= Image.open('/others/images/exominer_logo.png')
+exominer_logo_pil_image= Image.open('others/images/exominer_logo.png')
 
 df = pd.read_csv(TABLE_FP, usecols=[
     'TIC ID',
