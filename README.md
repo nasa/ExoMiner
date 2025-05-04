@@ -1,6 +1,6 @@
 # ExoMiner
 
-<p align="center" style="color:red; font-size:18px;"><strong>The repository will be updated with tutorials [in progress]</strong></p>
+<p align="center"><font color="red" size="4"><strong>[IN PROGRESS]: The repository will be updated with tutorials</strong></font></p>
 
 [//]: # (<div style="text-align:center;font-size:20px">)
 
