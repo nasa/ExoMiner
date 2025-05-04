@@ -1,5 +1,7 @@
 # ExoMiner
 
+<p align="center" style="color:red; font-size:18px;"><strong>The repository will be updated with tutorials [in progress]</strong></p>
+
 [//]: # (<div style="text-align:center;font-size:20px">)
 
 [//]: # (<span style="color:red">[Release Date: TBD]</span>)
