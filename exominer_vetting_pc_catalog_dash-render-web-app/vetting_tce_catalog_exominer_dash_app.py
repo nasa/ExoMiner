@@ -13,9 +13,12 @@ from PIL import Image
 
 EXPORT_CSV_FILENAME_PREFIX = 'exominer_vetting_tess-spoc-2-min-s1s67'
 TABLE_FP = 'data/exominer_vetting_tess-spoc-2-min-s1s67_dashtable_dvm-url_scoregt0.1.csv'
+APP_TITLE = 'ExoMiner Vetting - TESS SPOC TCES 2-min S1-67'
 
+# load ExoMiner logo
 exominer_logo_pil_image= Image.open('others/images/exominer_logo.png')
 
+# read predictions csv table
 df = pd.read_csv(TABLE_FP, usecols=[
     'TIC ID',
     'Sector Run',
@@ -30,8 +33,11 @@ df = pd.read_csv(TABLE_FP, usecols=[
     'DV mini-report URL',
 ])
 
+# create web app
 app = dash.Dash(__name__)
-server = app.server
+app.title = f"{APP_TITLE}"  # Set the tab name
+
+server = app.server  # needed for deployment in server
 
 # set properties of different columns
 cols_properties = {
@@ -53,6 +59,7 @@ for col in df.columns:
     col_datatable.update(cols_properties[col])
     cols_datatable.append(col_datatable)
 
+# define tooltips header
 tooltips = {
     # 'TCE ID': 'TCE ID in the format {TIC ID}-{SPOC TCE Planet Number}-S{Sector Run ID}',
     'TIC ID': 'TIC ID of target star',
@@ -72,6 +79,7 @@ tooltips = {
     'DV mini-report URL': 'Link to download target SPOC DV mini-report from MAST'
 }
 
+# structure html layout
 app.layout = html.Div([
     html.H1([
         html.Img(src=exominer_logo_pil_image, style={"height": "100px", "vertical-align": "middle"}),
@@ -174,6 +182,13 @@ app.layout = html.Div([
      ]
 )
 def update_table(sector_run_filter):
+    """
+    Update the table data based on the filter input. Can do regex filtering.
+    Args:
+        sector_run_filter (str): Filter value for the Sector Run column.
+    Returns:
+        list: Filtered data for the table.
+    """
 
     filtered_df = df
 
@@ -191,6 +206,15 @@ def update_table(sector_run_filter):
 
 )
 def export_table_as_csv(n_clicks, virtual_data):
+    """
+    Export the table as a CSV file when the button is clicked.
+    Args:
+        n_clicks (int): Number of clicks on the button.
+        virtual_data (list): Data from the table.
+    Returns:
+        dcc.send_data_frame: CSV file to be downloaded.
+    """
+
 
     if n_clicks:
         virtual_data_df = pd.DataFrame.from_dict(virtual_data)
