@@ -14,9 +14,10 @@ from PIL import Image
 EXPORT_CSV_FILENAME_PREFIX = 'exominer_vetting_tess-spoc-2-min-s1s67'
 TABLE_FP = 'data/exominer_vetting_tess-spoc-2-min-s1s67_dashtable_dvm-url_scoregt0.1.csv'
 APP_TITLE = 'ExoMiner Vetting - TESS SPOC TCES 2-min S1-67'
+EXOMINER_LOGO_IMG_FP = 'others/images/exominer_logo.png'
 
 # load ExoMiner logo
-exominer_logo_pil_image= Image.open('others/images/exominer_logo.png')
+exominer_logo_pil_image= Image.open(EXOMINER_LOGO_IMG_FP)
 
 # read predictions csv table
 df = pd.read_csv(TABLE_FP, usecols=[
@@ -36,6 +37,7 @@ df = pd.read_csv(TABLE_FP, usecols=[
 # create web app
 app = dash.Dash(__name__)
 app.title = f"{APP_TITLE}"  # Set the tab name
+app._favicon = 'exominer_logo.png'  # Set the favicon
 
 server = app.server  # needed for deployment in server
 
