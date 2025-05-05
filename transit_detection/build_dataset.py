@@ -21,6 +21,7 @@ import sys
 from transit_detection.utils_flux_processing import (
     extract_flux_windows_for_tce,
     build_transit_mask_for_lightcurve,
+    build_secondary_transit_mask_for_lightcurve,
     plot_detrended_flux_time_series_sg,
 )
 from transit_detection.utils_difference_img_processing import (
@@ -50,7 +51,9 @@ def process_target_sector_run(
     n_durations_window,
     frac_valid_cadences_in_window_thr,
     frac_valid_cadences_it_thr,
+    maxmes_threshold,
     buffer_time,
+    transit_mask_buffer,
     gap_width,
     resampled_num_points,
     rnd_seed,
@@ -134,6 +137,8 @@ def process_target_sector_run(
                         "tce_time0bk": tce_data["tce_time0bk"],
                         "tce_period": tce_data["tce_period"],
                         "tce_duration": tce_data["tce_duration"],
+                        "tce_maxmes": tce_data["tce_maxmes"],
+                        "tce_maxmesd": tce_data["tce_maxmesd"],
                     }
                 )
 
@@ -141,6 +146,7 @@ def process_target_sector_run(
             for sector, lcf in zip(found_sectors, lcfs):
 
                 in_transit_mask = []
+                secondary_in_transit_mask = []
 
                 data_for_tce_sector = {
                     "sector": sector,
@@ -179,8 +185,26 @@ def process_target_sector_run(
 
                 raw_time, raw_flux = lcf.time.value, lcf.flux.value
 
+                # Mask for all points that can possibly be included in an in transit flux window + buffer
                 in_transit_mask = build_transit_mask_for_lightcurve(
-                    time=raw_time, tce_list=target_sector_run_tce_data
+                    time=raw_time,
+                    tce_list=target_sector_run_tce_data,
+                    transit_mask_buffer=transit_mask_buffer,
+                    n_durations_window=n_durations_window,
+                )
+
+                # Mask for weak secondary transits
+                secondary_in_transit_mask = build_secondary_transit_mask_for_lightcurve(
+                    time=raw_time,
+                    tce_list=target_sector_run_tce_data,
+                    transit_mask_buffer=transit_mask_buffer,
+                    n_durations_window=n_durations_window,
+                    maxmes_threshold=maxmes_threshold,
+                )
+
+                # Combine weak secondary points
+                in_transit_mask = np.logical_or(
+                    in_transit_mask, secondary_in_transit_mask
                 )
 
                 time, flux, trend = detrend_flux_using_sg_filter(
@@ -232,6 +256,8 @@ def process_target_sector_run(
                     tce_time0bk = tce_data["tce_time0bk"]
                     period_days = tce_data["tce_period"]
                     tce_duration = tce_data["tce_duration"]
+                    # tce_maxmes = tce_data["tce_maxmes"]
+                    # tce_maxmesd = tce_data["tce_maxmesd"]
 
                     # extract flux time series windows
                     try:
@@ -486,7 +512,9 @@ def process_target_sector_run(
     tfrec_dir = data_dir / "tfrecords"
     tfrec_dir.mkdir(exist_ok=True, parents=True)
 
-    tfrec_fp = tfrec_dir / f"shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
+    tfrec_fp = (
+        tfrec_dir / f"raw_shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
+    )
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
         for data_for_tce in chunk_data:
@@ -502,7 +530,9 @@ def process_target_sector_run(
     dataset_logger.info("Creating auxiliary table to TFRecord dataset.")
     data_tbl = write_data_to_auxiliary_tbl(chunk_data, tfrec_fp)
     data_tbl.to_csv(
-        tfrec_dir / f"data_tbl_chunk-{str(chunk_num).zfill(4)}.csv", index=False
+        tfrec_dir
+        / f"data_tbl_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.csv",
+        index=False,
     )
     dataset_logger.info(f"Dataset chunk {chunk_num} build completed!")
 
@@ -515,7 +545,7 @@ if __name__ == "__main__":
     log_dir.mkdir(parents=True, exist_ok=True)
 
     data_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024"
+        "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025"
     )
 
     # create dataset directory
@@ -545,12 +575,15 @@ if __name__ == "__main__":
     n_durations_window = 5  # number of transit durations in each extracted window
     frac_valid_cadences_in_window_thr = 0.85
     frac_valid_cadences_it_thr = 0.85
+
+    maxmes_threshold = 7.1
     # sampling_rate = 2  # min/cadence
     buffer_time = (
         30  # in minutes, between in-transit cadences and out-of-transit cadences
     )
     # oot_buffer_ncadences = int(buffer_time / sampling_rate)
     # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
+    transit_mask_buffer = 1.5  # number of transit durations to use as a buffer for in transit mask points.
     gap_width = 0.75
     resampled_num_points = 100  # number of points in the window after resampling
 
@@ -590,7 +623,9 @@ if __name__ == "__main__":
         n_durations_window=n_durations_window,
         frac_valid_cadences_in_window_thr=frac_valid_cadences_in_window_thr,
         frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
+        maxmes_threshold=maxmes_threshold,
         buffer_time=buffer_time,
+        transit_mask_buffer=transit_mask_buffer,
         gap_width=gap_width,
         resampled_num_points=resampled_num_points,
         rnd_seed=rnd_seed,
