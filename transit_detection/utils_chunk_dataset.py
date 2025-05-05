@@ -1,29 +1,31 @@
 from pathlib import Path
+import glob
 
-def build_chunk_mask(chunks_to_process, chunked_dataset_dir):
+
+def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
     """
     Builds mask to exclude chunks that have been successfully processed for an iteration of dataset building
     """
-
+    chunked_dataset_dir = Path(chunked_dataset_dir)
     chunk_mask = [0] * len(chunks_to_process)
 
     if not any(chunked_dataset_dir.iterdir()):
-        print('Directory is empty')
+        print("Directory is empty")
         return chunk_mask
 
-    shard_prefix = 'test_shard_0001-'
-    aux_tbl_prefix = 'data_tbl_chunk-'
-    
-    for chunk_i, chunk in enumerate(chunks_to_process):
+    for chunk_i, chunk in enumerate(chunks_to_process, start=1):
         try:
-            chunk_shard_path = list(chunked_dataset_dir.rglob(f"*{shard_prefix}{str(chunk_i + 1).zfill(4)}"))[0]
-            chunk_aux_tbl_path = list(chunked_dataset_dir.rglob(f"*{aux_tbl_prefix}{str(chunk_i + 1).zfill(4)}.csv"))[0]
+            shard_pattern = f"raw_shard_{str(chunk_i).zfill(4)}-????"
+            chunk_shard_fp = glob.glob(str(chunked_dataset_dir / shard_pattern))
 
-            if chunk_shard_path.exists() and chunk_aux_tbl_path.exists():
-                chunk_mask[chunk_i + 1] = 1
-            
+            aux_pattern = f"data_tbl_{str(chunk_i).zfill(4)}-????.csv"
+            chunk_aux_tbl_path = glob.glob(str(chunked_dataset_dir / aux_pattern))
+
+            if Path(chunk_shard_fp).exists() and chunk_aux_tbl_path.exists():
+                chunk_mask[chunk_i] = 1
+
         except:
-            #chunk not found
+            # chunk not found
             continue
 
     return chunk_mask
