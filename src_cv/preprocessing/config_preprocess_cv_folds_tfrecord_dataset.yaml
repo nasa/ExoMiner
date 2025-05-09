@@ -25,8 +25,6 @@ compute_norm_stats_params:
   num_bins_loc: 31  # number of bins for local view
   num_bins_glob: 301  # number of bins for global view
 
-  timeSeriesFDLList:  null  # set to null to not compute normalization statistics and normalize FDL centroid
-
   centroidList:  # set to null to not compute normalization statistics and normalize centroid
     - 'global_centr_view'
     - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
@@ -345,6 +343,7 @@ compute_norm_stats_params:
       replace_value: null
       standardize: true
 
+    # scalars created from the data by the preprocessing pipeline
     # flux periodogram
     pgram_max_power:
       clip_factor: 20
@@ -412,7 +411,6 @@ compute_norm_stats_params:
       replace_value: null
       standardize: true
 
-    # scalars created from the data by the preprocessing pipeline
     # centroid
     centroid_offset_distance_to_target_global_stat_abs_max:
       clip_factor: 20
