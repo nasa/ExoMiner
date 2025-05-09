@@ -18,7 +18,7 @@ import argparse
 import logging
 
 # local
-from src_preprocessing.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
+from src_preprocessing.tce_tables.ephemeris_matching.utils_ephemeris_matching import create_binary_time_series, \
     find_first_epoch_after_this_time
 
 logger = logging.getLogger(__name__)

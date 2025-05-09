@@ -16,8 +16,8 @@ import numpy as np
 
 # local
 from src_preprocessing.tce_tables.xml_tbls_rename_cols_add_uid import rename_dv_xml_fields
-from src_preprocessing.stellar_parameters.update_tess_stellar_parameters_tce_tbl import updated_stellar_parameters_with_tic8
-from src_preprocessing.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
+from src_preprocessing.tce_tables.stellar_parameters.update_tess_stellar_parameters_tce_tbl import updated_stellar_parameters_with_tic8
+from src_preprocessing.tce_tables.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
 from src_preprocessing.tce_tables.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
 
 # set TCE table filepath

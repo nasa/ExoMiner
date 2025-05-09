@@ -306,7 +306,7 @@ training:
 #    PC: 1.0
 #    AFP: 1.0
 #    NTP: 1.0
-  shuffle_buffer_size: 29000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 5000 # should be larger than size of the training set to allow perfect sampling
 
 label_field_name: label  # label  # name of the label field in the TFRecord that is going to be used as the label
 

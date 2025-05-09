@@ -72,26 +72,25 @@ def prepare_augment_example_online(serialized_example, online_preproc_params):
     return should_reverse, shift, idxs_nontransitcadences_glob, idxs_nontransitcadences_loc
 
 
-def augment_example_online(feature_example, should_reverse, shift, idxs_nontransitcadences_glob,
-                           idxs_nontransitcadences_loc):
+def augment_example_online(feature_example, should_reverse, shift):
     """ Perform online augmentation across multiple features of the example.
 
         Args:
             feature_example: NumPy array, deserialized feature for example in TFRecord dataset
-            should_rever: bool, if True, feature is reversed on x-axis
+            should_reverse: bool, if True, feature is reversed on x-axis
             shift: int, how many timesteps to shift
-            idxs_nontransitcadences_glob: NumPy array, non-transit timesteps in global view
-            idxs_nontransitcadences_loc: NumPy array, non-transit timesteps in local view
+            # idxs_nontransitcadences_glob: NumPy array, non-transit timesteps in global view
+            # idxs_nontransitcadences_loc: NumPy array, non-transit timesteps in local view
 
         Returns: feature_example after being transformed for augmentation
     """
 
-    # add white gaussian noise
-    if 'global' in feature_name:
-        oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_glob)
-    else:
-        oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_loc)
-
+    # # add white gaussian noise
+    # if 'global' in feature_name:
+    #     oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_glob)
+    # else:
+    #     oot_values = tf.boolean_mask(feature_example, idxs_nontransitcadences_loc)
+    #
     # # oot_median = tf.math.reduce_mean(oot_values, axis=0, name='oot_mean')
     # oot_median = tfp.stats.percentile(oot_values, 50, axis=0, name='oot_median')
     # # oot_values_sorted = tf.sort(oot_values, axis=0, direction='ASCENDING', name='oot_sorted')
@@ -111,7 +110,7 @@ def augment_example_online(feature_example, should_reverse, shift, idxs_nontrans
     # phase shift some bins
     feature_example = phase_shift(feature_example, shift)
 
-    return
+    return feature_example
 
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
     """ Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
@@ -283,12 +282,7 @@ class InputFnv2(object):
 
                 # data augmentation for flux time series features
                 if 'view' in feature_name and self.data_augmentation:
-                    feature_value = augment_example_online(feature_value,
-                                                   should_reverse,
-                                                   shift,
-                                                   idxs_nontransitcadences_glob,
-                                                   idxs_nontransitcadences_loc
-                                                   )
+                    feature_value = augment_example_online(feature_value, should_reverse, shift)
                 if feature_name in list(self.feature_map.keys()):
                     output[self.feature_map[feature_name]] = feature_value
                 else:

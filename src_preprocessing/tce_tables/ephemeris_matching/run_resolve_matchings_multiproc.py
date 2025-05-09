@@ -26,7 +26,7 @@ from pathlib import Path
 import multiprocessing
 
 # local
-from src_preprocessing.ephemeris_matching.resolve_matchings import solve_matches
+from src_preprocessing.tce_tables.ephemeris_matching.resolve_matchings import solve_matches
 
 if __name__ == '__main__':
 

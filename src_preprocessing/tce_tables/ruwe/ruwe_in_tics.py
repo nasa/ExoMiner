@@ -14,7 +14,7 @@ import logging
 from astroquery.mast import Catalogs
 
 # local
-from src_preprocessing.ruwe.query_gaia import query_gaia
+from src_preprocessing.tce_tables.ruwe.query_gaia import query_gaia
 
 GAIA_DR = 'gaiadr2'  # chosen Gaia data release
 

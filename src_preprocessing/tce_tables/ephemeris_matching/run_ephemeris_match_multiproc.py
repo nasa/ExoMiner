@@ -27,7 +27,7 @@ import yaml
 import logging
 
 # local
-from src_preprocessing.ephemeris_matching.ephemeris_matching import match_transit_signals_in_target
+from src_preprocessing.tce_tables.ephemeris_matching.ephemeris_matching import match_transit_signals_in_target
 
 logger = logging.getLogger(__name__)
 
