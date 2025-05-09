@@ -1,0 +1,20 @@
+# source TFRecord dataset directory
+src_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_bdslabels
+# table that contains the order of the examples in the TFRecord files in the source directory
+shards_tbl_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_bdslabels/shards_tbl.csv
+# destination directory
+dest_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023
+# directory with tables used to split the examples into different sets (train, validation, test, predict, ...)
+split_tbls_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023
+# defines which tables are used and the prefix of the TFRecord shards; e.g., if train split table is loaded, it will
+# put all examples from that table that can find in the shards in the source TFRecord dataset into shards starting with
+# the prefix `train-shard`
+datasets:
+  - train
+#  - val
+  - test
+#  - predict
+omit_missing: false  # skip missing TCEs in the TFRecords that exist in the dataset tables
+n_processes: 36  # number of processes used to create the new TFRecord dataset
+n_examples_per_shard: 300  # number of examples in each shard in the new TFRecord dataset; min(n_examples_per_shard, n_total_examples)
+verbose: true

@@ -54,6 +54,7 @@ config:
     local_unfolded_flux:
       views:
         - unfolded_local_flux_view_fluxnorm
+        - unfolded_local_flux_view_fluxnorm_var
       scalars:   # null
         - tce_num_transits_obs_norm
         - tce_num_transits_norm
@@ -165,11 +166,15 @@ config:
 
   diff_img_branch: # null
     imgs:
-      - diff_imgs_std_trainset
-      - oot_imgs_std_trainset
+#      - diff_imgs_std_trainset
+#      - oot_imgs_std_trainset
       #       - diff_imgs_stdnorm
       #       - oot_imgs_stdnorm
-      - target_imgs
+#      - target_imgs
+      - diff_imgs_tc_std_trainset
+      - oot_imgs_tc_std_trainset
+      - snr_imgs_tc_std_trainset
+      - neighbors_imgs_tc_std_trainset
     imgs_scalars:
       - quality
     scalars:
@@ -284,6 +289,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm_var: { 'dim': [ 20, 31 ], 'dtype': float }
 #  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
   tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -373,16 +379,16 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
   target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
 
-  quality: { 'dim': [ 5, 1], 'dtype': float }
+  quality: { 'dim': [ 5, ], 'dtype': float }
   #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
 
-  # momentum dump
-  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+#  # momentum dump
+#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }

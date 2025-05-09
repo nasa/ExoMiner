@@ -1,0 +1,353 @@
+# set general architecture of the model based on implementations under models.models_keras.py
+model_architecture: ExoMinerJointLocalFlux
+
+features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+
+#  label: { 'dim': [ 1, ], 'dtype': string }
+#  obs_type: { 'dim': [1, ], 'dtype': string }
+
+  # unfolded flux
+  unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm_var: { 'dim': [ 20, 31 ], 'dtype': float }
+#  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
+  tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # flux
+  global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
+  global_flux_view_fluxnorm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+  flux_global_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  flux_local_stat_abs_min: { 'dim': [ 1, ], 'dtype': float }
+
+  # odd-even flux related features
+  local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_flux_even_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  flux_even_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
+  flux_odd_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
+#  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
+###    odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+###    even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
+###  odd_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
+###  even_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # centroid related features
+##  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
+  local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_centr_view_std_noclip_var: { 'dim': [ 31, 1 ], 'dtype': float }
+#  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # secondary related features
+##  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
+  local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_weak_secondary_view_selfnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
+###  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
+  tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
+##  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # other diagnostic parameters
+  tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_robstat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_model_chisq_norm: { 'dim': [ 1, ], 'dtype': float }
+
+ # bootstrap fa prob
+  boot_fap_norm: { 'dim': [ 1, ], 'dtype': float }
+
+ # ghost
+  tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
+ #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
+
+  # rolling band
+#  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
+
+ # stellar parameters
+  tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_steff_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smet_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  # mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
+
+ # tce parameters
+  tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # difference image
+#  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  #  diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  #  oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  # ExoMiner++
+#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+
+  quality: { 'dim': [ 5, ], 'dtype': float }
+  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
+
+#  # momentum dump
+#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+
+  # flux trend
+  flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
+  flux_trend_global_norm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+  flux_trend_global_stat_min_norm: { 'dim': [ 1, ], 'dtype': float }
+  flux_trend_global_stat_max_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # flux periodogram
+  pgram_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
+  pgram_tpm_smooth_norm: { 'dim': [ 674, 1 ], 'dtype': float }
+  pgram_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
+  pgram_tpm_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
+
+  # mission flag
+  # mission: { 'dim': [ 1, ], 'dtype': float }
+
+# maps features' names to features names expected by the model
+feature_map: null
+#  feature_name: feature_name_model
+
+
+config:
+  # branches used in architecture - warning: dependent on model architecture
+  # branches with scalars have the option not to add scalars by setting `scalars` field to null
+  # comment a branch to not use it
+  conv_branches:  # null
+
+    local_unfolded_flux:
+      views:
+        - unfolded_local_flux_view_fluxnorm
+        - unfolded_local_flux_view_fluxnorm_var
+      scalars:   # null
+        - tce_num_transits_obs_norm
+        - tce_num_transits_norm
+        # - mission
+
+    global_flux:
+      views:
+        - global_flux_view_fluxnorm
+        - global_flux_view_fluxnorm_var
+      scalars:
+         - flux_global_stat_abs_min_norm
+
+    local_flux:
+      views:
+        - local_flux_view_fluxnorm
+        - local_flux_view_fluxnorm_var
+      scalars: # null
+#        - transit_depth_norm
+#        - tce_depth_norm
+        - flux_local_stat_abs_min
+         # - mission
+
+    local_weak_secondary:
+      views:
+#        - local_weak_secondary_view_fluxnorm
+        - local_weak_secondary_view_selfnorm
+        - local_weak_secondary_view_selfnorm_var
+      #         - local_weak_secondary_view_max_flux-wks_norm
+      scalars:
+        - tce_ptemp_stat_norm
+        - tce_albedo_stat_norm
+        - tce_maxmes_norm
+        - flux_weak_secondary_local_stat_abs_min_norm
+#        - wst_depth_norm
+#        - tce_prad_norm
+        # - mission
+
+    local_centroid:
+      views:
+        - local_centr_view_std_noclip
+        - local_centr_view_std_noclip_var
+      scalars:  # null
+#       - tce_fwm_stat_norm  # kepler only
+#       - mag_cat_norm
+        - mag_shift_norm
+        # - mission
+
+    local_odd_even:
+      views:
+        - local_flux_odd_view_fluxnorm
+        - local_flux_odd_view_fluxnorm_var
+        - local_flux_even_view_fluxnorm
+        - local_flux_even_view_fluxnorm_var
+      scalars:
+        - flux_odd_local_stat_abs_min_norm
+        - flux_even_local_stat_abs_min_norm
+#        # - mission
+##        - odd_se_oot_norm
+##        - even_se_oot_norm
+
+#    momentum_dump:
+#      views:
+#        - local_momentum_dump_view
+#        - local_momentum_dump_view_var
+#      scalars: null
+
+    flux_trend:
+      views:
+        - flux_trend_global_norm
+        - flux_trend_global_norm_var
+      scalars:
+        - flux_trend_global_stat_max_norm
+        - flux_trend_global_stat_min_norm
+
+    flux_periodogram:
+      views:
+        - pgram_smooth_norm
+        - pgram_tpm_smooth_norm
+      scalars:
+        - pgram_smooth_max_power_norm
+        - pgram_tpm_smooth_max_power_norm
+
+#        # - mission
+  scalar_branches: # null
+    stellar:
+      - tce_sdens_norm
+      - tce_steff_norm
+      - tce_smet_norm
+      - tce_slogg_norm
+      - tce_smass_norm
+      - tce_sradius_norm
+      - ruwe_norm
+#      # - mission
+
+    dv_tce_fit:
+      - boot_fap_norm
+      - tce_cap_stat_norm
+      - tce_hap_stat_norm
+      ##      - tce_cap_hap_stat_diff_norm
+      ##      - tce_rb_tcount0n_norm  # kepler only
+      ##      - tce_prad_norm
+      - tce_period_norm
+      - tce_max_mult_ev_norm
+      - tce_max_sngle_ev_norm
+      - tce_robstat_norm
+      - tce_model_chisq_norm
+      - tce_prad_norm
+#      # - mission
+
+  diff_img_branch: # null
+    imgs:
+#      - diff_imgs_std_trainset
+#      - oot_imgs_std_trainset
+      #       - diff_imgs_stdnorm
+      #       - oot_imgs_stdnorm
+#      - target_imgs
+      - diff_imgs_tc_std_trainset
+      - oot_imgs_tc_std_trainset
+      - snr_imgs_tc_std_trainset
+      - neighbors_imgs_tc_std_trainset
+    imgs_scalars:
+      - quality
+    scalars:
+      - mag_shift_norm
+      - tce_dikco_msky_norm
+      - tce_dikco_msky_err_norm
+      #       - tce_dicco_msky_norm
+      #       - tce_dicco_msky_err_norm
+      # - tce_dikco_msky_rat_norm
+      # - mission
+
+  transformer_branches: null
+    ##      global:
+    ##        - unfolded_global_flux_view_fluxnorm
+    #    local:
+    #      - unfolded_local_flux_view_fluxnorm
+
+  # global flux branch hyperparameters ----
+  global_flux_num_conv_blocks: 2
+  global_flux_num_conv_ls_per_block: 5
+  global_flux_init_power_num_conv_filters: 3
+  global_flux_kernel_size: 5
+  global_flux_pool_size: 8
+
+#  # global flux trend branch hyperparameters ----
+#  flux_trend_num_conv_blocks: 2
+#  flux_trend_num_conv_ls_per_block: 5
+#  flux_trend_init_power_num_conv_filters: 3
+#  flux_trend_kernel_size: 5
+#  flux_trend_pool_size: 8
+
+  # local centroid branch hyperparameters ----
+  local_centroid_num_conv_blocks: 2
+  local_centroid_num_conv_ls_per_block: 5
+  local_centroid_init_power_num_conv_filters: 3
+  local_centroid_kernel_size: 5
+  local_centroid_pool_size: 8
+
+  # periodogram branch hyperparameters ------
+  flux_periodogram_num_conv_blocks: 2
+  flux_periodogram_num_conv_ls_per_block: 5
+  flux_periodogram_init_power_num_conv_filters: 3
+  flux_periodogram_kernel_size: 5
+  flux_periodogram_pool_size: 8
+
+  # local fluxes branch hyperparameters ------
+  local_fluxes_num_conv_blocks: 2
+  local_fluxes_num_conv_ls_per_block: 5
+  local_fluxes_init_power_num_conv_filters: 3
+  local_fluxes_kernel_size: 5
+  local_fluxes_pool_size: 8
+
+  # difference image branch hyperparameters -----
+  diff_img_num_conv_blocks: 2
+  diff_img_num_conv_ls_per_block: 5
+  diff_img_init_power_num_conv_filters: 3
+  diff_img_kernel_size: 5
+  diff_img_pool_size: 8
+  diff_img_conv_scalar_num_filters: 3
+
+  # unfolded local flux hyperparameters ----
+  local_unfolded_flux_num_filters_stats: 4
+
+  # fc block hyperparameters
+  clf_head_fc_neurons: 512
+  clf_head_fc_dropout_rate: 0.021491238286347598
+  clf_head_num_fc_layers: 4
+  clf_head_fc_decay_rate: null  # for l2-regularization
+
+  # shared hyperparameters --------
+  non_lin_fn: prelu
+  weight_initializer: null
+  kernel_stride: 1
+  pool_stride: 1
+
+  branch_num_fc_units: 3
+  branch_dropout_rate_fc: 0.1211390996398814
+
+  batch_norm_after_conv_layers: true
+  use_attention_after_conv_layers: false
+  use_skip_connection_conv_block: true
+#  use_attention_before_classification_head: true
+  use_cross_attention_before_classification_head: true
+#  cross_attention_before_classification_head_n_heads: 2
+  cross_attention_before_classification_head_max_key_dim: 3
+
+  multi_class: false
+  force_softmax: false

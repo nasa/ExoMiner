@@ -14,8 +14,7 @@ import logging
 
 # local
 from src_preprocessing.lc_preprocessing.utils_generate_input_records import get_tce_table
-# from old.utils import is_yamlble
-from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shards_table
+from src_preprocessing.utils_manipulate_tfrecords import create_shards_table
 from src_preprocessing.lc_preprocessing.utils_generate_input_records import process_file_shard, create_shards
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import is_pfe
 

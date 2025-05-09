@@ -28,13 +28,70 @@ import numpy as np
 import yaml
 
 # local
-from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import create_shard
-# from old.utils import is_yamlble
+from src_preprocessing.utils_manipulate_tfrecords import create_shard
+
+
+def create_datasets_fps_yaml(tfrec_dir, datasets):
+    """ Create yaml with list of TFRecord shards filepaths for each dataset in `datasets`. Assumes that shards have
+    prefix {dataset}-shard- where dataset is an element of datasets (e.g. 'train', 'val', 'test', 'predict').
+
+    Args:
+        tfrec_dir: Path, TFRecord dataset directory
+        datasets: list, datasets
+
+    Returns:
+    """
+
+    datasets_fps_dict = {dataset: list(tfrec_dir.glob(f'{dataset}-shard*')) for dataset in datasets}
+
+    with open(tfrec_dir / 'datasets_fps.yaml', 'w') as yml_file:
+        yaml.dump(datasets_fps_dict, yml_file)
+
+
+def count_examples_new_tfrecord_dataset(tfrec_fps, datasets_tbls):
+    """ Count examples in new TFRecord dataset. Guarantee that all examples were copied.
+
+    Args:
+        tfrec_fps: list, filepaths for TFRecord dataset
+        datasets_tbls: dict, with pandas DataFrame tables for each dataset
+
+    Returns: list of examples in each dataset
+    """
+
+    countExamples = []  # total number of examples
+    for tfrec_fp in tfrec_fps:
+
+        dataset = tfrec_fp.stem.split('-')[0]
+
+        countExamplesShard = 0
+
+        # iterate through the source shard
+        tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_fp))
+
+        for string_record in tfrecord_dataset.as_numpy_iterator():
+
+            example = tf.train.Example()
+            example.ParseFromString(string_record)
+
+            example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+
+            foundTce = datasets_tbls[dataset].loc[datasets_tbls[dataset]['uid'] == example_uid]
+
+            if len(foundTce) == 0:
+                raise ValueError(f'Example {example_uid} not found in the dataset tables.')
+
+            countExamplesShard += 1
+        countExamples.append(countExamplesShard)
+
+    return countExamples
+
 
 if __name__ == '__main__':
 
+    tf.config.set_visible_devices([], 'GPU')
+
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/split_tfrecord_train-test/config_create_new_tfrecords.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -94,8 +151,8 @@ if __name__ == '__main__':
         checkNumTcesInDatasets[shardTuple[0].split('-')[0]] += len(shardTuple[1])
     print(checkNumTcesInDatasets)
 
-    pool = multiprocessing.Pool(processes=config['nProcesses'])
-    jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omitMissing'], config['verbose'])
+    pool = multiprocessing.Pool(processes=config['n_processes'])
+    jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omit_missing'], config['verbose'])
             for shardTuple in shardTuples]
     async_results = [pool.apply_async(create_shard, job) for job in jobs]
     pool.close()
@@ -106,34 +163,18 @@ if __name__ == '__main__':
 
     # check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
     # TFRecords
-    tfrecFiles = [file for file in destTfrecDir.iterdir() if 'shard' in file.stem]
-    countExamples = []  # total number of examples
-    for tfrecFile in tfrecFiles:
-
-        dataset = tfrecFile.stem.split('-')[0]
-
-        countExamplesShard = 0
-
-        # iterate through the source shard
-        tfrecord_dataset = tf.data.TFRecordDataset(str(tfrecFile))
-
-        for string_record in tfrecord_dataset.as_numpy_iterator():
-
-            example = tf.train.Example()
-            example.ParseFromString(string_record)
-
-            example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
-
-            foundTce = datasetTbl[dataset].loc[datasetTbl[dataset]['uid'] == example_uid]
-
-            if len(foundTce) == 0:
-                raise ValueError(f'Example {example_uid} not found in the dataset tables.')
-
-            countExamplesShard += 1
-        countExamples.append(countExamplesShard)
-
+    dest_tfrec_fps = list(destTfrecDir.glob('*-shard-*'))
+    _ = count_examples_new_tfrecord_dataset(dest_tfrec_fps, datasetTbl)
     print(f'Finished checking for examples in the dataset tables that are missing from the TFRecord shards.')
 
-    json_dict = {key: val for key, val in config.items()}  #  if is_yamlble(val)}
+    print('Create yaml file with datasets filepaths')
+    json_dict = {key: val for key, val in config.items()}
     with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
         yaml.dump(json_dict, preproc_run_file)
+
+    # config = {'datasets':['train', 'test']}
+    # destTfrecDir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized')
+    print(f'Creating yaml file with datasets filepaths...')
+    create_datasets_fps_yaml(destTfrecDir, config['datasets'])
+
+    print('Done.')

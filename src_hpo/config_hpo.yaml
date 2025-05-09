@@ -3,15 +3,15 @@ rnd_seed: 42
 paths:
   experiment_dir: null
   # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
-  datasets_fps: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/Kepler/Q1-Q17_DR25/tfrecords_kepler_q1q17dr25_9-30-2024_1730_data/cv_tfrecords_kepler_spoc_q1q17dr25_10-3-2024_1227_tcedikcorat/tfrecords/eval_normalized/cv_iterations.yaml
-  prev_run_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/hpo_run_keplerq1q17dr25_11-22-2024_1703  # warm-start using previous HPO run
+  datasets_fps: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized/datasets_fps.yaml
+  prev_run_dir: null  # warm-start using previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
 # Hyperband parameters ----
 # if minimum and maximum budgets are set to the same value, then BOHB becomes BO (Bayesian optimization)
-min_budget: 6  # 6  # budget in this case is number of epochs a given configuration is evaluated on
-max_budget: 50  # 50
-n_iterations: 300
+min_budget: 10  # 6  # budget in this case is number of epochs a given configuration is evaluated on
+max_budget: 100  # 50
+n_iterations: 200
 eta: 2  # downsampling rate, must be greater or equal to 2
 # BOHB and BO parameters ----
 bohb_params:
@@ -31,7 +31,7 @@ max_num_model_params: 5.0e6  # maximum number of parameters in sampled models
 draw_plots: true  # draw loss and metric curves for trained models
 
 # set general architecture of the model based on implementations under models.models_keras.py
-model_architecture: ExoMinerDiffImg  # ExoMinerJointLocalFlux
+model_architecture: ExoMinerJointLocalFlux  # ExoMinerDiffImg  # ExoMinerJointLocalFlux
 task: classification  # either 'classification' or 'regression'
 
 config:
@@ -43,8 +43,9 @@ config:
     local_unfolded_flux:
       views:
         - unfolded_local_flux_view_fluxnorm
+        - unfolded_local_flux_view_fluxnorm_var
       scalars:   # null
-#        - tce_num_transits_obs_norm
+        - tce_num_transits_obs_norm
         - tce_num_transits_norm
         # - mission
 
@@ -103,11 +104,11 @@ config:
 ##        - odd_se_oot_norm
 ##        - even_se_oot_norm
 
-    momentum_dump:
-      views:
-        - local_momentum_dump_view
-        - local_momentum_dump_view_var
-      scalars: null
+#    momentum_dump:
+#      views:
+#        - local_momentum_dump_view
+#        - local_momentum_dump_view_var
+#      scalars: null
 
     flux_trend:
       views:
@@ -143,6 +144,7 @@ config:
       - tce_hap_stat_norm
       ##      - tce_cap_hap_stat_diff_norm
       ##      - tce_rb_tcount0n_norm  # kepler only
+      ##      - tce_prad_norm
       - tce_period_norm
       - tce_max_mult_ev_norm
       - tce_max_sngle_ev_norm
@@ -153,11 +155,15 @@ config:
 
   diff_img_branch: # null
     imgs:
-      - diff_imgs_std_trainset
-      - oot_imgs_std_trainset
+#      - diff_imgs_std_trainset
+#      - oot_imgs_std_trainset
       #       - diff_imgs_stdnorm
       #       - oot_imgs_stdnorm
-      - target_imgs
+#      - target_imgs
+      - diff_imgs_tc_std_trainset
+      - oot_imgs_tc_std_trainset
+      - snr_imgs_tc_std_trainset
+      - neighbors_imgs_tc_std_trainset
     imgs_scalars:
       - quality
     scalars:
@@ -166,51 +172,16 @@ config:
       - tce_dikco_msky_err_norm
       #       - tce_dicco_msky_norm
       #       - tce_dicco_msky_err_norm
+      # - tce_dikco_msky_rat_norm
       # - mission
 
-  transformer_branches: null
-    ##      global:
-    ##        - unfolded_global_flux_view_fluxnorm
-    #    local:
-    #      - unfolded_local_flux_view_fluxnorm
 
-  # global branch hyperparameters ----
-  num_glob_conv_blocks: 3
-  glob_conv_ls_per_block: 5
-  init_glob_conv_filters: 3
-  kernel_size_glob: 5
-  pool_size_glob: 8
-
-  # local branch hyperparameters ------
-  num_loc_conv_blocks: 2
-  loc_conv_ls_per_block: 1
-  init_loc_conv_filters: 2
-  kernel_size_loc: 6
-  pool_size_loc: 4
-
-  # periodogram branch hyperparameters -----
-  num_pgram_conv_blocks: 1
-  pgram_conv_ls_per_block: 6
-  init_pgram_conv_filters: 5
-  kernel_size_pgram: 6
-  pool_size_pgram: 4
-
-  # difference image hyperparameters ---------
-  num_diffimg_conv_blocks: 4
-  diffimg_conv_ls_per_block: 4
-  init_diffimg_conv_filters: 1
-  kernel_size_diffimg: 3  # (1, k, k)
-  pool_size_diffimg: 2  # (1, k, k)
-  num_fc_diff_units: 12
+  # FIXED HYPERPARAMETERS ---------
 
   # shared conv hyperparameters ----
-  num_fc_conv_units: 6
-  dropout_rate_fc_conv: 0.1211390996398814
+
 
   # fc block hyperparameters
-  init_fc_neurons: 32
-  dropout_rate: 0.021491238286347598
-  num_fc_layers: 1
   decay_rate: null  # for l2-regularization
 
   # shared hyperparameters --------
@@ -218,45 +189,27 @@ config:
   weight_initializer: null
   kernel_stride: 1
   pool_stride: 1
+  clf_head_fc_decay_rate: null
+  use_attention_after_conv_layers: false
+  cross_attention_before_classification_head_max_key_dim: 3
 
   # optimization hyperparameters ------
-  optimizer: 'Adam'
+  optimizer: 'AdamW'  # SGD, Adam, AdamW
   #  'lr': 1.0e-5
-#  batch_size: 64  # used in field training; deprecated
+#    batch_size: 64  # used in field training; deprecated
   force_softmax: false
   #  use_kepler_ce: false
 
   # loss hyperparameters
   multi_class: false  # switch to multiclass classification
 
-  # other hyperparameters -----
-  batch_norm: false  # apply batch norm before FC block to all concatenated output features extracted from the branches
-
-  # transformer hyperparameters ---------
-  # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
-  use_transformer: false  # set to true when using N-d data (N>1)
-  num_transformer_blocks: 2
-  head_size: 256
-  num_heads: 4
-  ff_dim: 4
-  dropout_rate_transformer: 0.03
-  # can either be bin_average_pooling, phase_average_pooling, or flat, or time distributed
-  # output will be [301/31], [20], and [20 * 301/31] respectively
-  # if time_encoding = true, shape of bin_average_pooling and flat increase by a factor of 3
-  transformer_output: 'flat'
-  time_encoding: true
-  # transformer head
-  global-num_units_transformer_fc_layers: [ 4 ]
-  local-num_units_transformer_fc_layers: [ 4 ]
-  dropout_rate_trans_fc: 0.03
-
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
-#  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm_var: { 'dim': [ 20, 31 ], 'dtype': float }
   tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # flux
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -266,35 +219,23 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   flux_local_stat_abs_min: { 'dim': [ 1, ], 'dtype': float }
-#  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
-#  # odd-even flux related features
+  # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   flux_even_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
   flux_odd_local_stat_abs_min_norm: {'dim': [1,], 'dtype': float}
-#  tce_bin_oedp_stat_norm: {'dim': [1,], 'dtype': float}
-###    odd_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
-###    even_std_oot_bin_norm: {'dim': [1,], 'dtype': float}
-###  odd_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
-###  even_se_oot_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # centroid related features
-##  global_centr_view_std_noclip: { 'dim': [ 301, 1 ], 'dtype': float }
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   local_centr_view_std_noclip_var: { 'dim': [ 31, 1 ], 'dtype': float }
-#  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # secondary related features
-##  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
   local_weak_secondary_view_selfnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_weak_secondary_view_selfnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
-###  local_weak_secondary_view_max_flux-wks_norm: { 'dim': [ 31, 1 ], 'dtype': float }
   tce_maxmes_norm: { 'dim': [ 1, ], 'dtype': float }
-##  wst_depth_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -311,10 +252,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
  # ghost
   tce_cap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_hap_stat_norm: { 'dim': [ 1, ], 'dtype': float }
- #    tce_cap_hap_stat_diff_norm: {'dim': [1,], 'dtype': float}
-
-  # rolling band
-#  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
 
  # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -323,9 +260,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
-  # mag_norm: { 'dim': [ 1, ], 'dtype': float }
-  # mag_cat: { 'dim': [ 1, ], 'dtype': int }
-  # mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
   ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
   mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
@@ -334,20 +268,14 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#   diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#   oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  quality: { 'dim': [ 5, 1], 'dtype': float }
-  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+
+  quality: { 'dim': [ 5, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-
-  # momentum dump
-  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -361,9 +289,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   pgram_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
   pgram_tpm_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
 
-  # mission flag
-  # mission: { 'dim': [ 1, ], 'dtype': float }
-
 # maps features' names to features names expected by the model
 feature_map: null
 #  feature_name: feature_name_model
@@ -375,7 +300,7 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
   opt_metric: auc_pr
-  batch_size: 32
+  batch_size: 64
   ce_weights: null
   category_weights: null
 #    PC: 1.0
@@ -383,10 +308,10 @@ training:
 #    NTP: 1.0
   shuffle_buffer_size: 29000  # should be larger than size of the training set to allow perfect sampling
 
-label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
+label_field_name: label  # label  # name of the label field in the TFRecord that is going to be used as the label
 
 evaluation:
-  batch_size: 32
+  batch_size: 64
 inference:
   batch_size: 32
 
@@ -411,18 +336,16 @@ callbacks:
 
 label_map:
   # Kepler
-  PC: 1
-  AFP: 0
-  NTP: 0
-  # TESS
-#  KP: 1
-#  CP: 1
-#  FP: 0
-#  EB: 0
+#  PC: 1
+#  AFP: 0
 #  NTP: 0
-#  NEB: 0
-#  NPC: 0
-#  BD: 0
+  # TESS
+  KP: 1
+  CP: 1
+  FP: 0
+  EB: 0
+  NTP: 0
+  BD: 0
 
 metrics:
   'clf_thr': 0.5  # classification threshold
@@ -476,158 +399,187 @@ configuration_space:
     #      type: categorical
     #      parameters: [ 'relu', 'prelu' ]
 
-    # local branch hyperparameters ----------
-    num_loc_conv_blocks:
+    # local fluxes branch hyperparameters ----------
+    local_fluxes_num_conv_blocks:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 5
         default_value: 2
-    loc_conv_ls_per_block:
+    local_fluxes_num_conv_ls_per_block:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    init_loc_conv_filters:
+    local_fluxes_init_power_num_conv_filters:
       type: uniform_integer
       parameters:
         lower: 2
         upper: 6
         default_value: 4
-    kernel_size_loc:
+    local_fluxes_kernel_size:
+      type: categorical
+      parameters: [1, 3, 5, 7]
+    local_fluxes_pool_size:
+      type: categorical
+      parameters: [ 2, 4, 8]
+
+    # local centroid branch hyperparameters ----------
+    local_centroid_num_conv_blocks:
       type: uniform_integer
       parameters:
         lower: 1
-        upper: 8
+        upper: 5
         default_value: 2
-    pool_size_loc:
+    local_centroid_num_conv_ls_per_block:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+    local_centroid_init_power_num_conv_filters:
+      type: uniform_integer
+      parameters:
+        lower: 2
+        upper: 6
+        default_value: 4
+    local_centroid_kernel_size:
       type: categorical
-      parameters: [ 2, 4, 8, 16 ]
+      parameters: [1, 3, 5, 7]
+    local_centroid_pool_size:
+      type: categorical
+      parameters: [ 2, 4, 8]
 
-    # global branch hyperparameters ------
-    num_glob_conv_blocks:
+    # global flux + trend branch hyperparameters ------
+    global_flux_num_conv_blocks:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 5
         default_value: 3
-    glob_conv_ls_per_block:
+    global_flux_num_conv_ls_per_block:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    init_glob_conv_filters:
+    global_flux_init_power_num_conv_filters:
       type: uniform_integer
       parameters:
         lower: 2
         upper: 6
         default_value: 4
-    kernel_size_glob:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 8
-        default_value: 2
-    pool_size_glob:
+    global_flux_kernel_size:
       type: categorical
-      parameters: [2, 4, 8, 16]
+      parameters: [1, 3, 5, 7]
+    global_flux_pool_size:
+      type: categorical
+      parameters: [4, 8, 16]
 
     # periodogram branch hyperparameters -----
-    num_pgram_conv_blocks:
+    flux_periodogram_num_conv_blocks:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 5
         default_value: 3
-    pgram_conv_ls_per_block:
+    flux_periodogram_num_conv_ls_per_block:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    init_pgram_conv_filters:
+    flux_periodogram_init_power_num_conv_filters:
       type: uniform_integer
       parameters:
         lower: 2
         upper: 6
         default_value: 4
-    kernel_size_pgram:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 8
-        default_value: 2
-    pool_size_pgram:
+    flux_periodogram_kernel_size:
       type: categorical
-      parameters: [ 2, 4, 8, 16 ]
+      parameters: [1, 3, 5, 7]
+    flux_periodogram_pool_size:
+      type: categorical
+      parameters: [4, 8, 16]
 
     # difference image branch hyperparameters -----
-    num_diffimg_conv_blocks:
+    diff_img_num_conv_blocks:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 5
         default_value: 3
-    diffimg_conv_ls_per_block:
+    diff_img_num_conv_ls_per_block:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    init_diffimg_conv_filters:
+    diff_img_init_power_num_conv_filters:
       type: uniform_integer
       parameters:
         lower: 2
         upper: 6
         default_value: 4
-    kernel_size_diffimg:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 8
-        default_value: 2
-    pool_size_diffimg:
+    diff_img_kernel_size:
       type: categorical
-      parameters: [ 2, 4, 8, 16 ]
-    num_fc_diff_units:
+      parameters: [1, 3, 5, 7]
+    diff_img_pool_size:
       type: categorical
-      parameters: [ 4, 8, 16 ]
+      parameters: [ 2, 4, 8, 16]
+    diff_img_conv_scalar_num_filters:
+      type: categorical
+      parameters: [ 1, 2, 3]
 
-    # shared conv hyperparameters ----
-    dropout_rate_fc_conv:
+    # unfolded local flux hyperparameters ----
+    local_unfolded_flux_num_filters_stats:
+      type: categorical
+      parameters: [ 1, 2, 3]
+
+    # shared branch hyperparameters ----
+    branch_dropout_rate_fc:
       type: uniform_float
       parameters:
         lower: 1.0e-3
         upper: 2.0e-1
         default_value: 0.2
         log: true
-    num_fc_conv_units:
+    branch_num_fc_units:
       type: uniform_integer
       parameters:
-        lower: 1
+        lower: 3
         upper: 8
-        default_value: 8
+        default_value: 5
+    batch_norm_after_conv_layers:
+      type: categorical
+      parameters: [true, false]
+    use_skip_connection_conv_block:
+      type: categorical
+      parameters: [true, false]
 
-    # fc block hyperparameters --------
-    num_fc_layers:
+    # before classification head hyperparameters ------
+    use_cross_attention_before_classification_head:
+      type: categorical
+      parameters: [true, false]
+
+    # classification head hyperparameters --------
+    clf_head_num_fc_layers:
       type: uniform_integer
       parameters:
         lower: 1
-        upper: 4
+        upper: 3
         default_value: 2
-    init_fc_neurons:
+    clf_head_fc_neurons:
       type: categorical
-      parameters: [ 32, 64, 128, 256, 512 ]
-    dropout_rate:
+      parameters: [ 8, 16, 32, 64 ]
+    clf_head_fc_dropout_rate:
       type: uniform_float
       parameters:
         lower: 1.0e-3
         upper: 2.0e-1
         default_value: 0.2
         log: true
-
 
   conditions: {}  # replace by empty dictionary `{}` if not using any condition
 #    sgd_momentum:
