@@ -87,17 +87,42 @@ def compile_model(model, config, metrics_list, train=True):
     # set optimizer
     if train:
         if config['config']['optimizer'] == 'Adam':
-            model_optimizer = optimizers.Adam(learning_rate=config['config']['lr'],
+            model_optimizer = optimizers.Adam(
+                learning_rate=config['config']['lr'],
                                               beta_1=0.9,
                                               beta_2=0.999,
                                               epsilon=1e-8,
                                               amsgrad=False,
-                                              name='Adam')
-        else:  # SGD
-            model_optimizer = optimizers.SGD(learning_rate=config['config']['lr'],
+                                              name='Adam'
+                                              )
+        elif config['config']['optimizer'] == 'AdamW':
+            model_optimizer = optimizers.AdamW(
+                learning_rate=config['config']['lr'],
+                weight_decay=0.004,
+                beta_1=0.9,
+                beta_2=0.999,
+                epsilon=1e-7,
+                amsgrad=False,
+                clipnorm=None,
+                clipvalue=None,
+                global_clipnorm=None,
+                use_ema=False,
+                ema_momentum=0.99,
+                ema_overwrite_frequency=None,
+                jit_compile=True,
+                name="AdamW",
+            )
+        elif config['config']['optimizer'] == 'SGD':
+            model_optimizer = optimizers.SGD(
+                learning_rate=config['config']['lr'],
                                              momentum=config['config']['sgd_momentum'],
                                              nesterov=False,
-                                             name='SGD')
+                                             name='SGD'
+            )
+
+        else:
+            raise ValueError(f'Optimizer {config["config"]["optimizer"]} is not supported. Choose among Adam, AdamW, '
+                             f'and SGD.')
 
     # compile model with chosen optimizer, loss and monitored metrics
     if train:

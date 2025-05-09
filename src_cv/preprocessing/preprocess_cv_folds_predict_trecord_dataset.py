@@ -12,7 +12,7 @@ import multiprocessing
 from pathlib import Path
 
 # local
-from src_preprocessing.normalize_data_tfrecords import normalize_examples
+from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples
 
 
 def create_cv_iteration_dataset(cv_fold_fp, run_params):

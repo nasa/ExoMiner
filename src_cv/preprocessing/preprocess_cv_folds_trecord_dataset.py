@@ -13,8 +13,8 @@ import multiprocessing
 from pathlib import Path
 
 # local
-from src_preprocessing.compute_normalization_stats_tfrecords import compute_normalization_stats
-from src_preprocessing.normalize_data_tfrecords import normalize_examples
+from src_preprocessing.normalize_tfrecord_dataset.compute_normalization_stats_tfrecords import compute_normalization_stats
+from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples
 
 
 def create_cv_iteration_dataset(data_shards_fps, run_params):

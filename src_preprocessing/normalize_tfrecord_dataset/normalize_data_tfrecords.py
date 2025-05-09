@@ -17,70 +17,10 @@ import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.lc_preprocessing.utils_preprocessing import get_out_of_transit_idxs_glob, get_out_of_transit_idxs_loc
+from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
+                                                                    get_out_of_transit_idxs_loc)
 from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util.example_util import get_feature
-
-
-def normalize_fdl_centroid(example, normStatsFDLCentroid, auxParams, idxs_nontransitcadences_loc):
-    """ Normalize FDL centroid for example.
-
-    :param example: serialized example
-    :param normStatsFDLCentroid: dict, normalization statistics and respective normalization protocol
-    :param auxParams: dict, auxiliary parameters needed for normalization
-    :param idxs_nontransitcadences_loc: NumPy array, list with out-of-transit indices for the local views
-    :return:
-        norm_centr_fdl_feat: dict, normalized FDL centroid views for the example
-    """
-
-    # get out-of-transit indices for the global views
-    transitDuration = example.features.feature['tce_duration'].float_list.value[0]
-    orbitalPeriod = example.features.feature['tce_period'].float_list.value[0]
-    idxs_nontransitcadences_glob = get_out_of_transit_idxs_glob(auxParams['num_bins_glob'],
-                                                                transitDuration,
-                                                                orbitalPeriod)
-    # compute oot global and local flux views std
-    glob_flux_view_std = \
-        np.std(
-            np.array(example.features.feature['global_'
-                                              'flux_view_'
-                                              'fluxnorm'].float_list.value)[idxs_nontransitcadences_glob],
-            ddof=1)
-    loc_flux_view_std = \
-        np.std(
-            np.array(
-                example.features.feature['local_'
-                                         'flux_view_'
-                                         'fluxnorm'].float_list.value)[idxs_nontransitcadences_loc], ddof=1)
-
-    # center and normalize FDL centroid time series
-    glob_centr_fdl_view = np.array(example.features.feature['global_centr_fdl_view'].float_list.value)
-    assert normStatsFDLCentroid['global_centr_fdl_view']['oot_std'] > 0
-    glob_centr_fdl_view_norm = \
-        centering_and_normalization(glob_centr_fdl_view,
-                                    normStatsFDLCentroid['global_centr_fdl_view']['oot_median'],
-                                    normStatsFDLCentroid['global_centr_fdl_view']['oot_std']
-                                    )
-    std_oot_glob = np.std(glob_centr_fdl_view_norm[idxs_nontransitcadences_glob], ddof=1)
-    assert std_oot_glob > 0
-    glob_centr_fdl_view_norm *= glob_flux_view_std / std_oot_glob
-    loc_centr_fdl_view = np.array(example.features.feature['local_centr_fdl_view'].float_list.value)
-    assert normStatsFDLCentroid['local_centr_fdl_view']['oot_std'] > 0
-    loc_centr_fdl_view_norm = \
-        centering_and_normalization(loc_centr_fdl_view,
-                                    normStatsFDLCentroid['local_centr_fdl_view']['oot_median'],
-                                    normStatsFDLCentroid['local_centr_fdl_view']['oot_std']
-                                    )
-    std_oot_loc = np.std(loc_centr_fdl_view_norm[idxs_nontransitcadences_loc], ddof=1)
-    assert std_oot_loc > 0
-    loc_centr_fdl_view_norm *= loc_flux_view_std / std_oot_loc
-
-    norm_centr_fdl_feat = {
-        'local_centr_fdl_view_norm': loc_centr_fdl_view_norm,
-        'global_centr_fdl_view_norm': glob_centr_fdl_view_norm,
-    }
-
-    return norm_centr_fdl_feat
 
 
 def normalize_scalar_parameters(example, normStatsScalars, epsilon=1e-32):
@@ -244,14 +184,14 @@ def normalize_centroid(example, normStatsCentroid):
     return norm_centroid_feat
 
 
-def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10, imgs_dims=(5, 33, 33)):
+def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=1e-10):
     """ Normalize the difference image features for the example.
 
     Args:
         example: serialized example
         normStatsDiff_img: dict, normalization statistics for the centroid views
-        zero_division_eps: float, term added to denominator to avoid division by zero in normalization processes
         imgs_dims: tuple with the dimensions of the images features.
+        zero_division_eps: float, term added to denominator to avoid division by zero in normalization processes
 
     Returns: norm_diff_img_feat, dict with normalized difference image features for the example
     """
@@ -259,75 +199,87 @@ def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10, imgs
     # initialize dictionary to store the normalized features
     norm_diff_img_feat = {}
 
-    # read non-normalized difference image features for example
-    diff_imgs = tf.reshape(tf.io.parse_tensor(example.features.feature['diff_imgs'].bytes_list.value[0], tf.float32),
-                           imgs_dims).numpy()
-    oot_imgs = tf.reshape(tf.io.parse_tensor(example.features.feature['oot_imgs'].bytes_list.value[0], tf.float32),
-                          imgs_dims).numpy()
+    target_centered_prefix_feature_lst = ['', '_tc']
 
-    # min-max normalization
-    diff_imgs_minmaxn = np.array(diff_imgs)
-    oot_imgs_minmaxn = np.array(oot_imgs)
+    for target_centered_prefix_feature in target_centered_prefix_feature_lst:
 
-    # # set NaNs to zero for diff img
-    # diff_imgs_opt2[np.isnan(diff_imgs_opt2)] = 0
-    #
-    # # set NaNs to -1 for oot img
-    # oot_imgs_opt2[np.isnan(oot_imgs_opt2)] = -1
+        data_example = {}
 
-    # x_n = (x - min(x)) / (max(x) - min(x))
-    diff_imgs_minmaxn = ((diff_imgs_minmaxn - normStatsDiff_img['diff_imgs']['min']) /
-                         (normStatsDiff_img['diff_imgs']['max'] - normStatsDiff_img['diff_imgs']['min'] +
-                          zero_division_eps))
-    oot_imgs_minmaxn = ((oot_imgs_minmaxn - normStatsDiff_img['oot_imgs']['min']) /
-                        (normStatsDiff_img['oot_imgs']['max'] - normStatsDiff_img['oot_imgs']['min'] +
-                         zero_division_eps))
+        # read non-normalized difference image features for example
+        if f'diff_imgs{target_centered_prefix_feature}' in example.features.feature:
+            data_example[f'diff_imgs{target_centered_prefix_feature}'] = tf.reshape(tf.io.parse_tensor(
+                example.features.feature[f'diff_imgs{target_centered_prefix_feature}'].bytes_list.value[0], tf.float32),
+                imgs_dims).numpy()
+        if f'oot_imgs{target_centered_prefix_feature}' in example.features.feature:
+            data_example[f'oot_imgs{target_centered_prefix_feature}'] = tf.reshape(tf.io.parse_tensor(
+                example.features.feature[f'oot_imgs{target_centered_prefix_feature}'].bytes_list.value[0], tf.float32),
+                              imgs_dims).numpy()
+        if f'snr_imgs{target_centered_prefix_feature}' in example.features.feature:
+            data_example[f'snr_imgs{target_centered_prefix_feature}'] = tf.reshape(tf.io.parse_tensor(
+                example.features.feature[f'snr_imgs{target_centered_prefix_feature}'].bytes_list.value[0], tf.float32),
+                              imgs_dims).numpy()
+        if f'neighbors_imgs{target_centered_prefix_feature}' in example.features.feature:
+            data_example[f'neighbors_imgs{target_centered_prefix_feature}'] = tf.reshape(tf.io.parse_tensor(
+                example.features.feature[f'neighbors_imgs{target_centered_prefix_feature}'].bytes_list.value[0],
+                tf.float32), imgs_dims).numpy()
 
-    norm_diff_img_feat.update({'diff_imgs_minmaxnorm_trainset': diff_imgs_minmaxn,
-                               'oot_imgs_minmaxnorm_trainset': oot_imgs_minmaxn})
 
-    # standardization
-    diff_imgs_std = np.array(diff_imgs)
-    oot_imgs_std = np.array(oot_imgs)
+        # min-max normalization
+        # x_n = (x - min(x)) / (max(x) - min(x))
+        for img_type, img_data in data_example.items():
 
-    # # set NaNs to zero for diff img
-    # diff_imgs_opt4[np.isnan(diff_imgs_opt4)] = 0
-    #
-    # # set missing values to 25th quantile for oot images
-    # quantile_oot_img = np.nanquantile(oot_imgs_opt4, normStatsDiff_img['oot_img']['quantile_oot'], axis=(1, 2))
-    # for img_i, img in enumerate(oot_imgs_opt4):
-    #     # when all values are missing, quantile chosen will also be NaN
-    #     if np.isnan(quantile_oot_img[img_i]):
-    #         img[np.isnan(img)] = -1
-    #     else:
-    #         img[np.isnan(img)] = quantile_oot_img[img_i]
+            img_data_minmaxn = np.array(img_data)
+            img_data_minmaxn =  ((img_data_minmaxn - normStatsDiff_img[img_type]['min']) /
+                                 (normStatsDiff_img[img_type]['max'] - normStatsDiff_img[img_type]['min'] +
+                                  zero_division_eps))
 
-    # x_n = (x - med(x)) / (std(x) + eps)
-    diff_imgs_std = ((diff_imgs_std - normStatsDiff_img['diff_imgs']['median']) /
-                     (normStatsDiff_img['diff_imgs']['std'] + zero_division_eps))
+            norm_diff_img_feat[f'{img_type}_minmaxnorm_trainset'] = img_data_minmaxn
 
-    oot_imgs_std = ((oot_imgs_std - normStatsDiff_img['oot_imgs']['median']) /
-                    (normStatsDiff_img['oot_imgs']['std'] + zero_division_eps))
+        # diff_imgs_minmaxn = np.array(diff_imgs)
+        # oot_imgs_minmaxn = np.array(oot_imgs)
+        #
+        # diff_imgs_minmaxn = ((diff_imgs_minmaxn - normStatsDiff_img['diff_imgs']['min']) /
+        #                      (normStatsDiff_img['diff_imgs']['max'] - normStatsDiff_img['diff_imgs']['min'] +
+        #                       zero_division_eps))
+        # oot_imgs_minmaxn = ((oot_imgs_minmaxn - normStatsDiff_img['oot_imgs']['min']) /
+        #                     (normStatsDiff_img['oot_imgs']['max'] - normStatsDiff_img['oot_imgs']['min'] +
+        #                      zero_division_eps))
+        #
+        # norm_diff_img_feat.update({'diff_imgs_minmaxnorm_trainset': diff_imgs_minmaxn,
+        #                            'oot_imgs_minmaxnorm_trainset': oot_imgs_minmaxn})
 
-    norm_diff_img_feat.update({'diff_imgs_std_trainset': diff_imgs_std,
-                               'oot_imgs_std_trainset': oot_imgs_std})
+        # standardization
+        # x_n = (x - med(x)) / (std(x) + eps)
+        for img_type, img_data in data_example.items():
+            img_data_std = np.array(img_data)
+            img_data_std = ((img_data_std - normStatsDiff_img[img_type]['median']) /
+                            (normStatsDiff_img[img_type]['std'] + zero_division_eps))
+
+            norm_diff_img_feat[f'{img_type}_std_trainset'] = img_data_std
+
+        # diff_imgs_std = np.array(diff_imgs)
+        # oot_imgs_std = np.array(oot_imgs)
+        #
+        # diff_imgs_std = ((diff_imgs_std - normStatsDiff_img['diff_imgs']['median']) /
+        #                  (normStatsDiff_img['diff_imgs']['std'] + zero_division_eps))
+        #
+        # oot_imgs_std = ((oot_imgs_std - normStatsDiff_img['oot_imgs']['median']) /
+        #                 (normStatsDiff_img['oot_imgs']['std'] + zero_division_eps))
+        #
+        # norm_diff_img_feat.update({'diff_imgs_std_trainset': diff_imgs_std,
+        #                            'oot_imgs_std_trainset': oot_imgs_std})
 
     return norm_diff_img_feat
 
 
-def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
+def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
     """ Normalize examples in TFRecords.
 
     :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
     :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
     :param normStats: dict, normalization statistics used for normalizing the data
-    :param auxParams: dict, auxiliary parameters needed for normalization
     :return:
     """
-
-    # get out-of-transit indices for the local views
-    idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(auxParams['num_bins_loc'],
-                                                              auxParams['nr_transit_durations'])  # same for all TCEs
 
     with tf.io.TFRecordWriter(str(destTfrecDir / srcTfrecFile.name)) as writer:
 
@@ -346,14 +298,6 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
                 norm_scalar_feat = normalize_scalar_parameters(example, normStats['scalar_params'])
                 normalizedFeatures.update(norm_scalar_feat)
 
-            # normalize FDL centroid time series
-            if 'fdl_centroid' in normStats:
-                norm_centr_fdl_feat = normalize_fdl_centroid(example,
-                                                             normStats['fdl_centroid'],
-                                                             auxParams,
-                                                             idxs_nontransitcadences_loc)
-                normalizedFeatures.update(norm_centr_fdl_feat)
-
             # normalize centroid time series
             if 'centroid' in normStats:
                 norm_centr_feat = normalize_centroid(example, normStats['centroid'])
@@ -361,7 +305,7 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 
             # normalize diff img and oot img
             if 'diff_img' in normStats:
-                norm_diff_img_feat = normalize_diff_img(example, normStats['diff_img'])
+                norm_diff_img_feat = normalize_diff_img(example, normStats['diff_img'], config['diff_img_data_shape'])
                 normalizedFeatures.update(norm_diff_img_feat)
 
             for normalizedFeature in normalizedFeatures:
@@ -383,8 +327,10 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, auxParams):
 
 if __name__ == '__main__':
 
+    tf.config.set_visible_devices([], 'GPU')
+
     # get the configuration parameters
-    path_to_yaml = Path('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src_preprocessing/config_normalize_data.yaml')
+    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
@@ -401,15 +347,16 @@ if __name__ == '__main__':
         yaml.dump(config, file, sort_keys=False)
 
     # get source TFRecords file paths to be normalized
-    srcTfrecFiles = [file for file in srcTfrecDir.iterdir() if 'shard' in file.stem and file.suffix != '.csv']
+    srcTfrecFiles = list(srcTfrecDir.glob('*-shard-*'))
 
     # load normalization statistics; the keys in each sub-dictionary define which statistics are normalized
     normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
     pool = multiprocessing.Pool(processes=config['nProcesses'])
-    jobs = [(destTfrecDir, file, normStats, config['auxParams']) for file in srcTfrecFiles]
+    jobs = [(destTfrecDir, file, normStats) for file in srcTfrecFiles]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
+    pool.join()
 
     for async_result in async_results:
         async_result.get()
