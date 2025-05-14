@@ -85,8 +85,9 @@ tooltips = {
 app.layout = html.Div([
     html.H1([
         html.Img(src=exominer_logo_pil_image, style={"height": "100px", "vertical-align": "middle"}),
-        " ExoMiner Vetting Catalog for TESS SPOC 2-min TCEs S1-S67 | ", 
-        html.A("Paper", href='https://arxiv.org/abs/2502.09790', target="_blank")],
+        " ExoMiner Vetting Catalog for TESS SPOC 2-min TCEs S1-S67", 
+        # html.A("Paper", href='https://arxiv.org/abs/2502.09790', target="_blank")
+    ],
         style={
             'color': '#79a4b5',
             'fontSize': '30px',
@@ -101,7 +102,20 @@ app.layout = html.Div([
         },
 
 ),
-    html.H2("Results from 1/16/2025 10:14am | Last web app update: 3/5/2025 10:47am | Excluded TCEs with scores < 0.1",
+    html.H2(["If you make use of this catalog for vetting or validation studies, please acknowledge our contribution by citing ", html.A("ExoMiner's TESS 2-min paper (2025)", href='https://arxiv.org/abs/2502.09790', target="_blank")],
+            style={
+                'color': '#79a4b5',
+                'fontSize': '15px',
+                'fontWeight': 'bold',
+                'textAlign': 'left',
+                'marginBottom': '1px',
+                'backgroundColor': '#f9f9f9',
+                'padding': '2px',
+                'borderRadius': '2px',
+                'boxShadow': '0 2px 1px rgba(0, 0, 0, 0.1)',
+                'fontFamily': 'Arial',
+            }, ),
+    html.H2("Results from 1/16/2025 10:14am | Last web app update: 5/14/2025 1:55pm | Excluded TCEs with scores < 0.1",
             style={
                 'color': '#79a4b5',
                 'fontSize': '15px',
