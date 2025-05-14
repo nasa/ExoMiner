@@ -398,7 +398,7 @@ def center_images_to_target_pixel_location(diff_img, oot_img, snr_img, target_po
         # target_pos_col_tcenter = target_pos_col
     else:
         pad_len_w = [diff_img.shape[1] - 2 * target_pos_pixel_col - 1, 0]
-        col_offset = pad_len_w[1]
+        col_offset = pad_len_w[0]
         # target_pos_col_tcenter = target_pos_col + pad_len_w[1]
 
     # pad images by extending edges

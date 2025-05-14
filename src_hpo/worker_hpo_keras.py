@@ -294,8 +294,8 @@ class TransitClassifier(Worker):
 
         :param res_ensemble: dict, keys are loss and metrics on the different datasets for the ensemble
         :param res_models: dict, keys are loss and metrics on the training, validation and test set (for every epoch,
-        except for the test set. Each metric/loss has a dictionary with 3 keys: 'central tendency', 'all scores' and
-        'deviation'
+            except for the test set). Each metric/loss has a dictionary with 3 keys: 'central tendency', 'all scores'
+            and 'deviation'
         :param config_id: tuple, configuration ID
         :param budget: float, budget (number of epochs)
         :param plot_fp: Path, filepath to plot
@@ -309,35 +309,39 @@ class TransitClassifier(Worker):
         epochs = np.arange(budget)
 
         # plot loss and optimization metric as function of the epoch number
-        f, ax = plt.subplots(1, 2)
+        f, ax = plt.subplots(1, 2, figsize=(12, 8))
         for model_i, (_, res_model_i) in enumerate(res_models.items()):
             ax[0].plot(epochs, res_model_i['loss'], color='b', alpha=alpha,
                        label=None if model_i != 0 else 'Train Single Model')
-            # ax[0].plot(epochs, res_model_i['test_loss'], color='m', linestyle='dashed', alpha=alpha,
-            #            label=None if model_i != 0 else 'Test Single Model')
+            if 'val_loss' in res_model_i:
+                ax[0].plot(epochs, res_model_i['val_loss'], color='#FFA500', linestyle='--', alpha=alpha,
+                           label=None if model_i != 0 else 'Validation Single Model')
+
         ax[0].scatter(epochs[-1], res_ensemble['train_loss'], s=8, label='Train Ensemble', color='r')
         ax[0].scatter(epochs[-1], res_ensemble['test_loss'], s=8, c='k', label='Test Ensemble')
         ax[0].set_xlim(left=epochs[0], right=epochs[-1] + 1)
         # ax[0].set_ylim(bottom=0)
         ax[0].set_xlabel('Epoch Number')
-        ax[0].set_ylabel('Loss')
-        ax[0].set_title(f'Train/Test {res_ensemble["train_loss"]:.4f}/{res_ensemble["test_loss"]:.4f}')
+        ax[0].set_ylabel('Model Loss')
+        ax[0].set_title(f'Ensemble\nTrain/Test {res_ensemble["train_loss"]:.4f}/{res_ensemble["test_loss"]:.4f}')
         ax[0].legend()  # loc="upper right")
         ax[0].grid(True)
 
         for model_i, (_, res_model_i) in enumerate(res_models.items()):
             ax[1].plot(epochs, res_model_i[self.hpo_loss], color='b', alpha=alpha,
                        label=None if model_i != 0 else 'Train Single Model')
-            # ax[1].plot(epochs, res_model_i[f'test_{self.hpo_loss}'], color='m', linestyle='dashed', alpha=alpha,
-            #            label=None if model_i != 0 else 'Test Single Model')
+            if f'val_{self.hpo_loss}' in res_model_i:
+                ax[0].plot(epochs, res_model_i[f'test_{self.hpo_loss}'], color='#FFA500', linestyle='--', alpha=alpha,
+                           label=None if model_i != 0 else 'Validation Single Model')
+
         ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], s=8, label='Train Ensemble', color='r')
         ax[1].scatter(epochs[-1], res_ensemble[f'test_{self.hpo_loss}'], s=8, label='Test Ensemble', c='k')
         ax[1].set_xlim(left=epochs[0], right=epochs[-1] + 1)
         # ax[1].set_ylim([0.0, 1.05])
         ax[1].grid(True)
         ax[1].set_xlabel('Epoch Number')
-        ax[1].set_ylabel(self.hpo_loss)
-        ax[1].set_title(f'Train/Test '
+        ax[1].set_ylabel(f'HPO loss ({self.hpo_loss})')
+        ax[1].set_title(f'Ensemble\nTrain/Test '
                         f'{res_ensemble[f"train_{self.hpo_loss}"]:.4f}/{res_ensemble[f"test_{self.hpo_loss}"]:.4f}')
         ax[1].legend()  # loc="lower right")
         f.suptitle(f'Config {config_id} | Budget = {budget} epochs')

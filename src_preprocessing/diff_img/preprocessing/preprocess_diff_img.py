@@ -104,9 +104,10 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     diff_img, oot_img, snr_img, crop_min_col, crop_min_row = crop_images_to_valid_size(diff_img, oot_img, snr_img)
 
     # fill out missing values by using nearest neighbors with same weight
-    diff_img = fill_missing_values_nearest_neighbors(diff_img, np.ones((3, 3)))
-    oot_img = fill_missing_values_nearest_neighbors(oot_img, np.ones((3, 3)))
-    snr_img = fill_missing_values_nearest_neighbors(snr_img, np.ones((3, 3)))
+    fill_missing_filter = np.ones((3, 3))
+    diff_img = fill_missing_values_nearest_neighbors(diff_img, fill_missing_filter)
+    oot_img = fill_missing_values_nearest_neighbors(oot_img, fill_missing_filter)
+    snr_img = fill_missing_values_nearest_neighbors(snr_img, fill_missing_filter)
 
     # deal with pixels for which the padding window was all missing values
     idxs_nan = np.isnan(diff_img)
@@ -123,19 +124,23 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # pad image by extending edges
     diff_img, oot_img, snr_img, pad_col, pad_row = pad_images_by_extending_edges(diff_img, oot_img, snr_img,
                                                                                  half_height, half_width)
+    # update target position in padded image
+    target_pos_col = target_pos_col - crop_min_col + pad_col
+    target_pos_row = target_pos_row - crop_min_row + pad_row
+    if neighbor_data is not None:
+        for neighbor_id, neighbor_id_data in neighbor_data.items():
+            neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] - crop_min_col + pad_col
+            neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] - crop_min_row + pad_row
 
     # resize image using nearest neighbor interpolation to `size_f_h` * `size_f_w` times the target dimension
     diff_img, oot_img, snr_img = resize_images_by_resampling(diff_img, oot_img, snr_img, size_f_h, size_f_w)
-
     # update target position in resized image
-    target_pos_col = (target_pos_col - crop_min_col + pad_col) * size_f_w + (size_f_w - 1) * 0.5
-    target_pos_row = (target_pos_row - crop_min_row + pad_row) * size_f_h + (size_f_h - 1) * 0.5
+    target_pos_col = target_pos_col * size_f_w + (size_f_w - 1) * 0.5
+    target_pos_row = target_pos_row * size_f_h + (size_f_h - 1) * 0.5
     if neighbor_data is not None:
         for neighbor_id, neighbor_id_data in neighbor_data.items():
-            neighbor_data[neighbor_id]['col_px'] = ((neighbor_id_data['col_px'] - crop_min_col + pad_col) * size_f_w +
-                                                    (size_f_w - 1) * 0.5)
-            neighbor_data[neighbor_id]['row_px'] = ((neighbor_id_data['row_px'] - crop_min_row + pad_row) * size_f_h +
-                                                    (size_f_h - 1) * 0.5)
+            neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] * size_f_w + (size_f_w - 1) * 0.5
+            neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] * size_f_h + (size_f_h - 1) * 0.5
 
     if center_target:
         if np.isnan(target_pos_col_input):  # target location not available
@@ -147,11 +152,9 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
         else:
             diff_img, oot_img, snr_img, center_col_offset, center_row_offset = (center_images_to_target_pixel_location(
                 diff_img, oot_img, snr_img, target_pos_col, target_pos_row))
-
             # update target location after centering on target
             target_pos_col = target_pos_col + center_col_offset
             target_pos_row = target_pos_row + center_row_offset
-
             if neighbor_data is not None:
                 for neighbor_id, neighbor_id_data in neighbor_data.items():
                     neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] + center_col_offset
@@ -164,10 +167,9 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
                                                                                                  size_h * size_f_h,
                                                                                                  size_w * size_f_w)
 
-    # update target pixel position
+    # update target pixel position after cropping image
     target_pos_col -= crop_size_col_offset
     target_pos_row -= crop_size_row_offset
-
     if neighbor_data is not None:
         for neighbor_id, neighbor_id_data in neighbor_data.items():
             neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] - crop_size_col_offset
@@ -234,7 +236,7 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
     if log is None:
         # set up logger for the process
         log = logging.getLogger(name=f'preprocess_{diff_img_data_fp.stem}')
-        logger_handler = logging.FileHandler(filename=save_dir / f'preprocess_{diff_img_data_fp.stem}.log', mode='w')
+        logger_handler = logging.FileHandler(filename=save_dir / f'preprocess_{diff_img_data_fp.stem}.log', mode='a')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         log.setLevel(logging.INFO)
         logger_handler.setFormatter(logger_formatter)
@@ -278,9 +280,6 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
         preprocessing_dict[tce_uid] = initialize_data_example_with_missing_values(final_size['x'] * upscale_f['x'],
                                                                                   final_size['y'] * upscale_f['y'],
                                                                                   number_of_imgs_to_sample)
-
-    # make a new dictionary for the preprocessed data
-    for tce_i, tce_uid in enumerate(preprocessing_dict):
 
         n_max_imgs_avail = len(diff_img_data_dict[tce_uid]['image_number'])
 
@@ -467,9 +466,9 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
 
     log.info(f'Saving preprocessed data to {save_dir / "diffimg_preprocess.npy"}...')
     tces_info_df.to_csv(save_dir / 'info_tces.csv', index=False)
-    np.save(save_dir / "diffimg_preprocess.npy", diff_img_data_dict)
+    np.save(save_dir / "diffimg_preprocess.npy", preprocessing_dict)
 
-    log.info(f'[{diff_img_data_fp.stem}] Finished preprocessing difference image data for {len(diff_img_data_dict)} '
+    log.info(f'[{diff_img_data_fp.stem}] Finished preprocessing difference image data for {len(preprocessing_dict)} '
              f'examples.')
 
 
@@ -482,7 +481,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # load yaml file with run setup
-    with(open(args.config_fp, 'r')) as file:
+    with open(args.config_fp, 'r') as file:
         config = yaml.safe_load(file)
 
     diff_img_data_dir = Path(config['diff_img_data_dir'])
@@ -496,7 +495,7 @@ if __name__ == '__main__':
 
     # set up logger
     logger = logging.getLogger(name=f'preprocess_main')
-    logger_handler = logging.FileHandler(filename=dest_root_dir / f'preprocess_main.log', mode='w')
+    logger_handler = logging.FileHandler(filename=dest_root_dir / f'preprocess_main.log', mode='a')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
