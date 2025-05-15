@@ -54,10 +54,6 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_d
         logger.info(f'Iterating through Difference Image data NumPy file {diff_img_data_fp} '
                     f'({diff_img_data_i + 1}/{len(diff_img_data_fps)})...')
 
-        # dest_tfrec_fp = dest_tfrec_dir / src_tfrec_fp.name
-        # dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.stem}'
-
-        # examples_not_found_df = write_diff_img_data_to_tfrec_file(src_tfrec_fp, dest_tfrec_fp, diff_img_data, logger)
         examples_added_df = write_diff_img_data_to_tfrec_file(src_tfrec_dir,
                                                               dest_tfrec_dir,
                                                               diff_img_data_fp,
@@ -226,8 +222,7 @@ if __name__ == '__main__':
 
     # get filepaths to difference image data NumPy files
     diff_img_fps = list(src_diff_img_fp.rglob('*.npy'))
-    # #TODO remove
-    # diff_img_fps = [fp for fp in diff_img_fps if fp.parent.name in ['tess_diffimg_multisector_s0001-s0069', 'tess_diffimg_multisector_s0014-s0078']]
+
     # set number of jobs to number of files
     n_jobs = min(n_jobs, len(diff_img_fps))
 

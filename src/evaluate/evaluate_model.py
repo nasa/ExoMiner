@@ -118,7 +118,8 @@ def evaluate_model(config, model_path, res_dir, logger=None):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
+                        default=None)
     parser.add_argument('--model_fp', type=str, help='Model file path.', default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     args = parser.parse_args()
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     config_fp = Path(args.config_fp)
     output_dir = Path(args.output_dir)
 
-    with(open(args.config_fp, 'r')) as file:
+    with open(config_fp, 'r') as file:
         eval_config = yaml.unsafe_load(file)
 
     # set up logger

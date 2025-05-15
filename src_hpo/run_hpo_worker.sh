@@ -11,6 +11,16 @@ CONFIG_FP="$2"
 N_GPUS_PER_NODE="$4"
 GNU_PARALLEL_INDEX="$1"
 
+source /usr/share/modules/init/bash
+
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
+
+# set path to codebase root directory
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
 HPO_PY_SCRIPT=$PYTHONPATH/src_hpo/run_hpo.py
 
 # set CV iteration ID

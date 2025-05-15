@@ -285,7 +285,8 @@ config:
   global_flux_num_conv_ls_per_block: 5
   global_flux_init_power_num_conv_filters: 3
   global_flux_kernel_size: 5
-  global_flux_pool_size: 8
+  global_flux_kernel_stride: 2
+#  global_flux_pool_size: 8
 
 #  # global flux trend branch hyperparameters ----
 #  flux_trend_num_conv_blocks: 2
@@ -294,33 +295,36 @@ config:
 #  flux_trend_kernel_size: 5
 #  flux_trend_pool_size: 8
 
-  # local centroid branch hyperparameters ----
-  local_centroid_num_conv_blocks: 2
-  local_centroid_num_conv_ls_per_block: 5
-  local_centroid_init_power_num_conv_filters: 3
-  local_centroid_kernel_size: 5
-  local_centroid_pool_size: 8
+#  # local centroid branch hyperparameters ----
+#  local_centroid_num_conv_blocks: 2
+#  local_centroid_num_conv_ls_per_block: 5
+#  local_centroid_init_power_num_conv_filters: 3
+#  local_centroid_kernel_size: 5
+#  local_centroid_pool_size: 8
 
   # periodogram branch hyperparameters ------
   flux_periodogram_num_conv_blocks: 2
   flux_periodogram_num_conv_ls_per_block: 5
   flux_periodogram_init_power_num_conv_filters: 3
   flux_periodogram_kernel_size: 5
-  flux_periodogram_pool_size: 8
+  flux_periodogram_kernel_stride: 2
+#  flux_periodogram_pool_size: 8
 
   # local fluxes branch hyperparameters ------
   local_fluxes_num_conv_blocks: 2
   local_fluxes_num_conv_ls_per_block: 5
   local_fluxes_init_power_num_conv_filters: 3
   local_fluxes_kernel_size: 5
-  local_fluxes_pool_size: 8
+  local_fluxes_kernel_stride: 2
+#  local_fluxes_pool_size: 8
 
   # difference image branch hyperparameters -----
   diff_img_num_conv_blocks: 2
   diff_img_num_conv_ls_per_block: 5
   diff_img_init_power_num_conv_filters: 3
   diff_img_kernel_size: 5
-  diff_img_pool_size: 8
+  diff_img_kernel_stride: 2
+#  diff_img_pool_size: 8
   diff_img_conv_scalar_num_filters: 3
 
   # unfolded local flux hyperparameters ----
@@ -335,8 +339,8 @@ config:
   # shared hyperparameters --------
   non_lin_fn: prelu
   weight_initializer: null
-  kernel_stride: 1
-  pool_stride: 1
+#  kernel_stride: 1
+#  pool_stride: 1
 
   branch_num_fc_units: 3
   branch_dropout_rate_fc: 0.1211390996398814

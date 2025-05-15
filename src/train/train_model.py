@@ -147,7 +147,8 @@ def train_model(config, model_dir, logger=None):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
+                        default=None)
     parser.add_argument('--model_dir', type=str, help='Output directory', default=None)
     args = parser.parse_args()
 

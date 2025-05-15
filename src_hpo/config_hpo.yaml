@@ -194,7 +194,8 @@ config:
   cross_attention_before_classification_head_max_key_dim: 3
 
   # optimization hyperparameters ------
-  optimizer: 'AdamW'  # SGD, Adam, AdamW
+#  optimizer: 'AdamW'  # SGD, Adam, AdamW
+  sgd_momentum: 0
   #  'lr': 1.0e-5
 #    batch_size: 64  # used in field training; deprecated
   force_softmax: false
@@ -316,15 +317,15 @@ inference:
   batch_size: 32
 
 callbacks:
-  train: null
-#    early_stopping: null
-#      monitor: val_auc_pr  # which metric to monitor for early stopping
-#      min_delta: 0
-#      patience: 20
-#      verbose: 1
-#      mode: max  # maximize/minimize monitored metric in early stopping
-#      baseline: null
-#      restore_best_weights: true
+  train:   # null
+    early_stopping:   # null
+      monitor: val_auc_pr  # which metric to monitor for early stopping
+      min_delta: 0
+      patience: 50
+      verbose: 1
+      mode: max  # maximize/minimize monitored metric in early stopping
+      baseline: null
+      restore_best_weights: true
 #    tensorboard: null
 #      histogram_freq: 1
 #      write_graph: true
@@ -362,7 +363,7 @@ verbose_model: 2  # for fit, eval, predict functions
 verbose: true  # general
 
 configuration_space:
-  hyperparameters: # hyperparameters to be optimized (they will overwrite hyperparameters set in config
+  hyperparameters: # hyperparameters to be optimized (they will overwrite hyperparameters set in config)
 
     # optimization hyperparameters -------------------
     lr: # name (should match name expected in model function)
@@ -372,9 +373,9 @@ configuration_space:
         upper: 1.0e-1
         default_value: 1e-2
         log: true
-#    optimizer:
-#      type: categorical
-#      parameters: [ 'Adam', 'SGD' ]
+    optimizer:
+      type: categorical
+      parameters: [ 'Adam', 'SGD', 'AdamW' ]
 #    sgd_momentum:
 #      type: uniform_float
 #      parameters:
@@ -399,7 +400,7 @@ configuration_space:
     #      type: categorical
     #      parameters: [ 'relu', 'prelu' ]
 
-    # local fluxes branch hyperparameters ----------
+    # local fluxes+centroid branch hyperparameters ----------
     local_fluxes_num_conv_blocks:
       type: uniform_integer
       parameters:
@@ -421,35 +422,41 @@ configuration_space:
     local_fluxes_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    local_fluxes_pool_size:
-      type: categorical
-      parameters: [ 2, 4, 8]
-
-    # local centroid branch hyperparameters ----------
-    local_centroid_num_conv_blocks:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 5
-        default_value: 2
-    local_centroid_num_conv_ls_per_block:
+    local_fluxes_kernel_stride:
       type: uniform_integer
       parameters:
         lower: 1
         upper: 3
         default_value: 1
-    local_centroid_init_power_num_conv_filters:
-      type: uniform_integer
-      parameters:
-        lower: 2
-        upper: 6
-        default_value: 4
-    local_centroid_kernel_size:
-      type: categorical
-      parameters: [1, 3, 5, 7]
-    local_centroid_pool_size:
-      type: categorical
-      parameters: [ 2, 4, 8]
+#    local_fluxes_pool_size:
+#      type: categorical
+#      parameters: [ 2, 4, 8]
+
+#    # local centroid branch hyperparameters ----------
+#    local_centroid_num_conv_blocks:
+#      type: uniform_integer
+#      parameters:
+#        lower: 1
+#        upper: 5
+#        default_value: 2
+#    local_centroid_num_conv_ls_per_block:
+#      type: uniform_integer
+#      parameters:
+#        lower: 1
+#        upper: 3
+#        default_value: 1
+#    local_centroid_init_power_num_conv_filters:
+#      type: uniform_integer
+#      parameters:
+#        lower: 2
+#        upper: 6
+#        default_value: 4
+#    local_centroid_kernel_size:
+#      type: categorical
+#      parameters: [1, 3, 5, 7]
+#    local_centroid_pool_size:
+#      type: categorical
+#      parameters: [ 2, 4, 8]
 
     # global flux + trend branch hyperparameters ------
     global_flux_num_conv_blocks:
@@ -473,9 +480,15 @@ configuration_space:
     global_flux_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    global_flux_pool_size:
-      type: categorical
-      parameters: [4, 8, 16]
+    global_flux_kernel_stride:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+#    global_flux_pool_size:
+#      type: categorical
+#      parameters: [4, 8, 16]
 
     # periodogram branch hyperparameters -----
     flux_periodogram_num_conv_blocks:
@@ -499,9 +512,15 @@ configuration_space:
     flux_periodogram_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    flux_periodogram_pool_size:
-      type: categorical
-      parameters: [4, 8, 16]
+    flux_periodogram_kernel_stride:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+#    flux_periodogram_pool_size:
+#      type: categorical
+#      parameters: [4, 8, 16]
 
     # difference image branch hyperparameters -----
     diff_img_num_conv_blocks:
@@ -525,9 +544,15 @@ configuration_space:
     diff_img_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    diff_img_pool_size:
-      type: categorical
-      parameters: [ 2, 4, 8, 16]
+    diff_img_kernel_stride:
+      type: uniform_integer
+      parameters:
+        lower: 1
+        upper: 3
+        default_value: 1
+#    diff_img_pool_size:
+#      type: categorical
+#      parameters: [ 2, 4, 8, 16]
     diff_img_conv_scalar_num_filters:
       type: categorical
       parameters: [ 1, 2, 3]
@@ -572,7 +597,7 @@ configuration_space:
         default_value: 2
     clf_head_fc_neurons:
       type: categorical
-      parameters: [ 8, 16, 32, 64 ]
+      parameters: [ 8, 16, 32, 64, 128 ]
     clf_head_fc_dropout_rate:
       type: uniform_float
       parameters:

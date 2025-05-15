@@ -1321,14 +1321,6 @@ class ExoMinerJointLocalFlux(object):
 
         """
 
-        # config_mapper = {
-        #              'blocks': 'num_loc_conv_blocks',
-        #              'pool_size': 'pool_size_loc',
-        #              'kernel_size': 'kernel_size_loc',
-        #              'init_conv_filters': 'init_loc_conv_filters',
-        #              'conv_ls_per_block': 'loc_conv_ls_per_block'
-        #                  }
-
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
             else 'glorot_uniform'
 
@@ -1350,9 +1342,9 @@ class ExoMinerJointLocalFlux(object):
         # get init parameters for given view
         n_blocks = self.config['local_fluxes_num_conv_blocks']
         kernel_size = (1, self.config['local_fluxes_kernel_size'])
-        pool_size = (1, self.config['local_fluxes_pool_size'])
-        kernel_stride = (1, self.config['kernel_stride'])
-        pool_stride = (1, self.config['pool_stride'])
+        # pool_size = (1, self.config['local_fluxes_pool_size'])
+        kernel_stride = (1, self.config['local_fluxes_kernel_stride'])
+        # pool_stride = (1, self.config['pool_stride'])
         init_conv_filters = self.config['local_fluxes_init_power_num_conv_filters']
         conv_ls_per_block = self.config['local_fluxes_num_conv_ls_per_block']
 
@@ -1362,18 +1354,20 @@ class ExoMinerJointLocalFlux(object):
 
             num_filters = 2 ** (init_conv_filters + conv_block_i)
 
-            # set convolution layer parameters from config
-            conv_kwargs = {'filters': num_filters,
-                           'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,
-                           'strides': kernel_stride,
-                           'padding': 'same'
-                           }
-            pool_kwargs = {'pool_size': pool_size,
-                           'strides': pool_stride
-                           }
+            # pool_kwargs = {'pool_size': pool_size,
+            #                'strides': pool_stride
+            #                }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional layers for the block
+
+                # set convolution layer parameters from config
+                conv_kwargs = {'filters': num_filters,
+                               'kernel_initializer': weight_initializer,
+                               'kernel_size': kernel_size,
+                               'strides': kernel_stride if seq_conv_block_i == 0 else (1, 1),
+                               'padding': 'same'
+                               }
+
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -1440,7 +1434,7 @@ class ExoMinerJointLocalFlux(object):
                                 filters=net.shape[-1],
                                 kernel_size=1,
                                 padding='same',
-                                strides=1,
+                                strides=kernel_stride,
                                 dilation_rate=1,
                                 activation=None,
                                 use_bias=True,
@@ -1456,8 +1450,8 @@ class ExoMinerJointLocalFlux(object):
                         net = tf.keras.layers.Add(
                             name=f'unfolded_flux_skip_connection_{conv_block_i}')([net, input_conv_block])
 
-            net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
-                                               name='unfolded_flux_maxpooling_{}'.format(conv_block_i))(net)
+            # net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
+            #                                    name='unfolded_flux_maxpooling_{}'.format(conv_block_i))(net)
 
         net = process_extracted_conv_features_unfolded_flux(
                                                              net,
@@ -1535,43 +1529,6 @@ class ExoMinerJointLocalFlux(object):
             'flux_periodogram',
         ]
 
-        # config_mapper = {'blocks': {
-        #     'global_flux': 'num_glob_conv_blocks',
-        #     'flux_trend': 'num_glob_conv_blocks',
-        #     'local_centroid': 'num_loc_conv_blocks',
-        #     'momentum_dump': 'num_loc_conv_blocks',
-        #     'flux_periodogram': 'num_pgram_conv_blocks',
-        # },
-        #     'pool_size': {
-        #         'global_flux': 'pool_size_glob',
-        #         'flux_trend': 'pool_size_glob',
-        #         'local_centroid': 'pool_size_loc',
-        #         'momentum_dump': 'pool_size_loc',
-        #         'flux_periodogram': 'pool_size_pgram',
-        #     },
-        #     'kernel_size': {
-        #         'global_flux': 'kernel_size_glob',
-        #         'flux_trend': 'kernel_size_glob',
-        #         'local_centroid': 'kernel_size_loc',
-        #         'momentum_dump': 'kernel_size_loc',
-        #         'flux_periodogram': 'kernel_size_pgram',
-        #     },
-        #     'conv_ls_per_block': {
-        #         'global_flux': 'glob_conv_ls_per_block',
-        #         'flux_trend': 'glob_conv_ls_per_block',
-        #         'local_centroid': 'loc_conv_ls_per_block',
-        #         'momentum_dump': 'loc_conv_ls_per_block',
-        #         'flux_periodogram': 'pgram_conv_ls_per_block',
-        #     },
-        #     'init_conv_filters': {
-        #         'global_flux': 'init_glob_conv_filters',
-        #         'flux_trend': 'init_glob_conv_filters',
-        #         'local_centroid': 'init_loc_conv_filters',
-        #         'momentum_dump': 'init_loc_conv_filters',
-        #         'flux_periodogram': 'init_pgram_conv_filters',
-        #     }
-        # }
-
         weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
             else 'glorot_uniform'
 
@@ -1593,13 +1550,15 @@ class ExoMinerJointLocalFlux(object):
             # get init parameters for the given view
             if branch == 'flux_trend':
                 branch_name_config = 'global_flux'  # uses same hyperparameters as global flux branch
+            elif branch == 'local_centroid':
+                branch_name_config = 'local_fluxes'  # uses same hyperparameters as local centroid branch
             else:
                 branch_name_config = branch
             n_blocks = self.config[f'{branch_name_config}_num_conv_blocks']
             kernel_size = self.config[f'{branch_name_config}_kernel_size']
-            pool_size = self.config[f'{branch_name_config}_pool_size']
-            kernel_stride = self.config['kernel_stride']
-            pool_stride = self.config['pool_stride']
+            # pool_size = self.config[f'{branch_name_config}_pool_size']
+            kernel_stride = self.config[f'{branch_name_config}_kernel_stride']
+            # pool_stride = self.config['pool_stride']
             conv_ls_per_block = self.config[f'{branch_name_config}_num_conv_ls_per_block']
             init_conv_filters = self.config[f'{branch_name_config}_init_power_num_conv_filters']
 
@@ -1610,19 +1569,21 @@ class ExoMinerJointLocalFlux(object):
 
                 num_filters = 2 ** (init_conv_filters + conv_block_i)
 
-                # set convolution layer parameters from config
-                conv_kwargs = {'filters': num_filters,
-                               'kernel_initializer': weight_initializer,
-                               'kernel_size': kernel_size,
-                               'strides': kernel_stride,
-                               'padding': 'same'
-                               }
-                pool_kwargs = {
-                    'pool_size': pool_size,
-                    'strides': pool_stride
-                }
+                # pool_kwargs = {
+                #     'pool_size': pool_size,
+                #     'strides': pool_stride
+                # }
 
                 for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
+
+                    # set convolution layer parameters from config
+                    conv_kwargs = {'filters': num_filters,
+                                   'kernel_initializer': weight_initializer,
+                                   'kernel_size': kernel_size,
+                                   'strides': kernel_stride if seq_conv_block_i == 0 else 1,
+                                   'padding': 'same'
+                                   }
+
                     net = tf.keras.layers.Conv1D(dilation_rate=1,
                                                  activation=None,
                                                  use_bias=True,
@@ -1690,7 +1651,7 @@ class ExoMinerJointLocalFlux(object):
                                     filters=net.shape[-1],
                                     kernel_size=1,
                                     padding='same',
-                                    strides=1,
+                                    strides=kernel_stride,
                                     dilation_rate=1,
                                     activation=None,
                                     use_bias=True,
@@ -1705,9 +1666,9 @@ class ExoMinerJointLocalFlux(object):
                             net = tf.keras.layers.Add(
                                 name=f'{branch}_skip_connection_{conv_block_i}')([net, input_conv_block])
 
-                if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
-                    net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
-                                                       name='{}_maxpooling_{}'.format(branch, conv_block_i))(net)
+                # if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+                #     net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
+                #                                        name='{}_maxpooling_{}'.format(branch, conv_block_i))(net)
 
             net = tf.keras.layers.GlobalAveragePooling1D(name=f'{branch}_global_max_pooling')(net)
 
@@ -1785,23 +1746,6 @@ class ExoMinerJointLocalFlux(object):
             'local_unfolded_flux': self.inputs['unfolded_local_flux_view_fluxnorm'].shape[1],
         }
         odd_even_branch_name = 'local_odd_even'  # specific to odd and even branch
-        # config_mapper = {'blocks': {
-        #     'local_view': 'num_loc_conv_blocks',
-        # },
-        #     'pool_size': {
-        #         'global_view': 'pool_size_glob',
-        #         'local_view': 'pool_size_loc',
-        #     },
-        #     'kernel_size': {
-        #         'local_view': 'kernel_size_loc',
-        #     },
-        #     'conv_ls_per_block': {
-        #         'local_view': 'loc_conv_ls_per_block',
-        #     },
-        #     'init_conv_filters': {
-        #         'local_view': 'init_loc_conv_filters',
-        #     }
-        # }
 
         weight_initializer = tf.keras.initializers.he_normal() \
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
@@ -1817,9 +1761,9 @@ class ExoMinerJointLocalFlux(object):
         # get init parameters for the given view
         n_blocks = self.config['local_fluxes_num_conv_blocks']
         kernel_size = (1, self.config['local_fluxes_kernel_size'])
-        pool_size = (1, self.config['local_fluxes_pool_size'])
-        kernel_stride = (self.config['kernel_stride'], self.config['kernel_stride'])
-        pool_stride = (self.config['pool_stride'], self.config['pool_stride'])
+        # pool_size = (1, self.config['local_fluxes_pool_size'])
+        kernel_stride = (1, self.config['local_fluxes_kernel_stride'])
+        # pool_stride = (self.config['pool_stride'], self.config['pool_stride'])
         conv_ls_per_block = self.config['local_fluxes_num_conv_ls_per_block']
         init_conv_filters = self.config['local_fluxes_init_power_num_conv_filters']
 
@@ -1829,19 +1773,21 @@ class ExoMinerJointLocalFlux(object):
 
             num_filters = 2 ** (init_conv_filters + conv_block_i)
 
-            # set convolution layer parameters from config
-            conv_kwargs = {'filters': num_filters,
-                           'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,
-                           'strides': kernel_stride,
-                           'padding': 'same'
-                           }
-            pool_kwargs = {
-                'pool_size': pool_size,
-                'strides': pool_stride
-            }
+            # pool_kwargs = {
+            #     'pool_size': pool_size,
+            #     'strides': pool_stride
+            # }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
+
+                # set convolution layer parameters from config
+                conv_kwargs = {'filters': num_filters,
+                               'kernel_initializer': weight_initializer,
+                               'kernel_size': kernel_size,
+                               'strides': kernel_stride if seq_conv_block_i == 0 else (1, 1),
+                               'padding': 'same'
+                               }
+
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -1908,7 +1854,7 @@ class ExoMinerJointLocalFlux(object):
                                 filters=net.shape[-1],
                                 kernel_size=1,
                                 padding='same',
-                                strides=1,
+                                strides=kernel_stride,
                                 dilation_rate=1,
                                 activation=None,
                                 use_bias=True,
@@ -1923,9 +1869,9 @@ class ExoMinerJointLocalFlux(object):
                         net = tf.keras.layers.Add(
                             name=f'local_fluxes_skip_connection_{conv_block_i}')([net, input_conv_block])
 
-            if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
-                net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
-                                                   name='local_fluxes_maxpooling_{}'.format(conv_block_i))(net)
+            # if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+            #     net = tf.keras.layers.MaxPooling2D(**pool_kwargs,
+            #                                        name='local_fluxes_maxpooling_{}'.format(conv_block_i))(net)
 
         # split up extracted features for each local transit view (flux, secondary, and odd-even)
         net = SplitLayer(net.shape[1], axis=1, name='local_fluxes_split')(net)
@@ -2024,9 +1970,9 @@ class ExoMinerJointLocalFlux(object):
         # get number of conv blocks, layers per block, and kernel and pool sizes for the branch
         n_blocks = self.config['diff_img_num_conv_blocks']
         kernel_size = (1, self.config['diff_img_kernel_size'], self.config['diff_img_kernel_size'])
-        pool_size = (1, self.config['diff_img_pool_size'], self.config['diff_img_pool_size'])
-        kernel_stride = (1, self.config['kernel_stride'], self.config['kernel_stride'])
-        pool_stride = (1, self.config['pool_stride'], self.config['pool_stride'])
+        # pool_size = (1, self.config['diff_img_pool_size'], self.config['diff_img_pool_size'])
+        kernel_stride = (1, self.config['diff_img_kernel_stride'], self.config['diff_img_kernel_stride'])
+        # pool_stride = (1, self.config['pool_stride'], self.config['pool_stride'])
         n_layers_per_block = self.config['diff_img_num_conv_ls_per_block']
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
@@ -2035,19 +1981,20 @@ class ExoMinerJointLocalFlux(object):
 
             num_filters = 2 ** (self.config['diff_img_init_power_num_conv_filters'] + conv_block_i)
 
-            # set convolution layer parameters from config
-            conv_kwargs = {'filters': num_filters,
-                           'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,
-                           'strides': kernel_stride,
-                           'padding': 'same'
-                           }
-            pool_kwargs = {
-                'pool_size': pool_size,
-                'strides': pool_stride
-            }
+            # pool_kwargs = {
+            #     'pool_size': pool_size,
+            #     'strides': pool_stride
+            # }
 
             for seq_conv_block_i in range(n_layers_per_block):  # create convolutional block
+
+                # set convolution layer parameters from config
+                conv_kwargs = {'filters': num_filters,
+                               'kernel_initializer': weight_initializer,
+                               'kernel_size': kernel_size,
+                               'strides': kernel_stride if seq_conv_block_i == 0 else (1, 1, 1),
+                               'padding': 'same'
+                               }
 
                 net = tf.keras.layers.Conv3D(dilation_rate=1,
                                              activation=None,
@@ -2115,7 +2062,7 @@ class ExoMinerJointLocalFlux(object):
                                             filters=net.shape[-1],
                                             kernel_size=1,
                                             padding='same',
-                                            strides=1,
+                                            strides=kernel_stride,
                                             dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -2130,9 +2077,9 @@ class ExoMinerJointLocalFlux(object):
                         net = tf.keras.layers.Add(
                             name=f'diff_imgs_skip_connection_{conv_block_i}')([net, input_conv_block])
 
-            if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
-                net = tf.keras.layers.MaxPooling3D(**pool_kwargs,
-                                                   name=f'diff_imgs_maxpooling_{conv_block_i}')(net)
+            # if conv_block_i != n_blocks - 1:  # do not add maxpooling layer before global maxpooling layer
+            #     net = tf.keras.layers.MaxPooling3D(**pool_kwargs,
+            #                                        name=f'diff_imgs_maxpooling_{conv_block_i}')(net)
 
         # split extracted features for each sector/quarter
         diff_imgs_split = SplitLayer(net.shape[1], 1, name='diff_imgs_split_extracted_features')(net)
@@ -2162,17 +2109,25 @@ class ExoMinerJointLocalFlux(object):
 
             # get quality metric values for the images
             qmetrics_inputs = self.inputs['quality']
-            # repeat them to get same dimension of extracted feature maps
-            qmetrics_inputs = tf.keras.layers.RepeatVector(n=input_conv_block.shape[2],
-                                                           name='diff_imgs_repeat_qmetrics')(qmetrics_inputs)
-            # reshape to match same shape as extracted feature maps
-            qmetrics_inputs = tf.keras.layers.Permute((2, 1), name='diff_imgs_permute_qmetrics')(qmetrics_inputs)
-            # expand dims to match
-            qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1,),
-                                                      name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
 
-            input_conv_block = tf.keras.layers.Multiply(name='diff_imgs_qmetrics_mult')([input_conv_block,
-                                                                                         qmetrics_inputs])
+            # # option 1: multiply extracted features by quality metrics
+            # # repeat them to get same dimension of extracted feature maps
+            # qmetrics_inputs = tf.keras.layers.RepeatVector(n=input_conv_block.shape[2],
+            #                                                name='diff_imgs_repeat_qmetrics')(qmetrics_inputs)
+            # # reshape to match same shape as extracted feature maps
+            # qmetrics_inputs = tf.keras.layers.Permute((2, 1), name='diff_imgs_permute_qmetrics')(qmetrics_inputs)
+            # # expand dims to match
+            # qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1,),
+            #                                           name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
+            #
+            # input_conv_block = tf.keras.layers.Multiply(name='diff_imgs_qmetrics_mult')([input_conv_block,
+            #                                                                              qmetrics_inputs])
+
+            # option 2: concatenate quality metric features
+            qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1, 1),
+                                                      name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
+            input_conv_block = tf.keras.layers.Concatenate(axis=2, name='diff_imgs_qmetrics_concat')([input_conv_block,
+                                                                                                      qmetrics_inputs])
 
         #     scalar_inputs = [self.inputs[feature_name]
         #                      if 'pixel' not in feature_name else self.inputs[feature_name]
@@ -2190,7 +2145,7 @@ class ExoMinerJointLocalFlux(object):
 
         # compress features from image and scalar sector data into a set of features
         net = tf.keras.layers.Conv2D(filters=self.config['diff_img_conv_scalar_num_filters'],
-                                     kernel_size=(1, net.shape[2]),
+                                     kernel_size=(1, input_conv_block.shape[2]),
                                      strides=(1, 1),
                                      padding='valid',
                                      kernel_initializer=weight_initializer,
@@ -2244,29 +2199,29 @@ class ExoMinerJointLocalFlux(object):
                                         shared_axes=[1],
                                         name='diff_imgs_convfc_prelu')(net)
 
-        # add skip connection of branch inputs
-        if self.config['use_skip_connection_conv_block']:
-            # apply conv to have same number of channels as extracted feature map
-            if input_conv_block.shape[-1] != net.shape[-1]:
-                input_conv_block = tf.keras.layers.Conv2D(
-                    filters=net.shape[-1],
-                    kernel_size=1,
-                    padding='same',
-                    strides=1,
-                    dilation_rate=1,
-                    activation=None,
-                    use_bias=True,
-                    bias_initializer='zeros',
-                    kernel_regularizer=None,
-                    bias_regularizer=None,
-                    activity_regularizer=None,
-                    kernel_constraint=None,
-                    bias_constraint=None,
-                    name=f'diff_imgs_convfc_input',
-                )(input_conv_block)
-
-            net = tf.keras.layers.Add(
-                name=f'diff_imgs_convfc_skip_connection')([net, input_conv_block])
+        # # add skip connection of branch inputs
+        # if self.config['use_skip_connection_conv_block']:
+        #     # apply conv to have same number of channels as extracted feature map
+        #     if input_conv_block.shape[-1] != net.shape[-1]:
+        #         input_conv_block = tf.keras.layers.Conv2D(
+        #             filters=net.shape[-1],
+        #             kernel_size=1,
+        #             padding='same',
+        #             strides=1,
+        #             dilation_rate=1,
+        #             activation=None,
+        #             use_bias=True,
+        #             bias_initializer='zeros',
+        #             kernel_regularizer=None,
+        #             bias_regularizer=None,
+        #             activity_regularizer=None,
+        #             kernel_constraint=None,
+        #             bias_constraint=None,
+        #             name=f'diff_imgs_convfc_input',
+        #         )(input_conv_block)
+        #
+        #     net = tf.keras.layers.Add(
+        #         name=f'diff_imgs_convfc_skip_connection')([net, input_conv_block])
 
         net = tf.keras.layers.Flatten(data_format='channels_last', name='diff_imgs_flatten_convfc')(net)
 
