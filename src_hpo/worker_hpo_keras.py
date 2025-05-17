@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 import copy
 import logging
 import shutil
-import multiprocessing
+# import multiprocessing
 import traceback
+import sys
+from contextlib import contextmanager
 
 # local
 from src.train.train_model import train_model
@@ -22,6 +24,41 @@ from models import models_keras
 from src.utils.utils_dataio import set_tf_data_type_for_features
 
 plt.switch_backend('agg')
+
+class StreamToLogger:
+    """ Wrapper for Python logger. """
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+
+    def write(self, message):
+        message = message.strip()
+        if message:
+            self.logger.log(self.level, message)
+
+    def flush(self):
+        pass
+
+
+@contextmanager
+def redirect_stdout_stderr_to_logger(logger):
+    """ Redirects stdout and stderr to Python logger.
+
+    :param logger: logger
+
+    :return:
+    """
+
+    stdout_logger = StreamToLogger(logger, logging.INFO)
+    stderr_logger = StreamToLogger(logger, logging.ERROR)
+
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = stdout_logger, stderr_logger
+
+    try:
+        yield
+    finally:
+        sys.stdout, sys.stderr = old_stdout, old_stderr
 
 
 def check_model_size(config):
@@ -90,6 +127,11 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
         model_i_config = copy.deepcopy(config)
 
         # train single model for this configuration
+        # TODO remove?
+        if 'val' not in model_i_config['datasets']:
+            logger.info('VALIDATION SET IS SET TO TEST SET TO ALLOW FOR EARLY STOPPING!!!')
+            model_i_config['datasets'].append('val')
+            model_i_config['datasets_fps']['val'] = model_i_config['datasets_fps']['test']
         train_model(model_i_config, model_dir, logger=logger)
 
     models_fps = [fp / 'model.keras'
@@ -112,7 +154,6 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
     ensemble_model_config = copy.deepcopy(config)
 
     evaluate_model(ensemble_model_config, evaluate_model_fp, config['paths']['config_dir'], logger=logger)
-    # res_eval = np.load(config['paths']['config_dir'] / 'res_eval.npy', allow_pickle=True).item()
 
 
 def wrapper_evaluate_config_on_budget(worker_id, config_id, run_config, budget):
@@ -138,13 +179,14 @@ def wrapper_evaluate_config_on_budget(worker_id, config_id, run_config, budget):
     logger.info('Running evaluating configuration on budget...')
 
     try:
-        evaluate_config_on_budget(
-            worker_id,
-            config_id,
-            run_config,
-            run_config['verbose'],
-            logger
-        )
+        with redirect_stdout_stderr_to_logger(logger):
+            evaluate_config_on_budget(
+                worker_id,
+                config_id,
+                run_config,
+                run_config['verbose'],
+                logger
+            )
     except Exception as error:  # return infinite HPO loss if there is any error during configuration evaluation
         with open(run_config['paths']['config_dir'] /
                   f'run_config_exception_budget_{budget}epochs.txt', "w") as excl_file:
@@ -231,15 +273,21 @@ class TransitClassifier(Worker):
 
         logger.info(f'Sampled configuration {config_id} to be evaluated on budget {budget} epochs:\n {config}')
 
-        p = multiprocessing.Process(target=wrapper_evaluate_config_on_budget,
-                                    args=(self.worker_id_custom,
-                                          config_id,
-                                          run_config,
-                                          budget
-                                          )
-                                    )
-        p.start()
-        p.join()
+        wrapper_evaluate_config_on_budget(
+            self.worker_id_custom,
+            config_id,
+            run_config,
+            budget
+        )
+        # p = multiprocessing.Process(target=wrapper_evaluate_config_on_budget,
+        #                             args=(self.worker_id_custom,
+        #                                   config_id,
+        #                                   run_config,
+        #                                   budget
+        #                                   )
+        #                             )
+        # p.start()
+        # p.join()
 
         res_ensemble_fp = run_config['paths']['config_dir'] / f'res_eval_budget_{budget}epochs.npy'
         if res_ensemble_fp.exists():
@@ -331,7 +379,7 @@ class TransitClassifier(Worker):
             ax[1].plot(epochs, res_model_i[self.hpo_loss], color='b', alpha=alpha,
                        label=None if model_i != 0 else 'Train Single Model')
             if f'val_{self.hpo_loss}' in res_model_i:
-                ax[0].plot(epochs, res_model_i[f'test_{self.hpo_loss}'], color='#FFA500', linestyle='--', alpha=alpha,
+                ax[1].plot(epochs, res_model_i[f'val_{self.hpo_loss}'], color='#FFA500', linestyle='--', alpha=alpha,
                            label=None if model_i != 0 else 'Validation Single Model')
 
         ax[1].scatter(epochs[-1], res_ensemble[f'train_{self.hpo_loss}'], s=8, label='Train Ensemble', color='r')

@@ -70,10 +70,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
   target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
 
-  quality: { 'dim': [ 5, ], 'dtype': float }
+  quality: { 'dim': [ 5, 1], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-
 
   # momentum dump
   local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -274,3 +273,7 @@ config:
 
   multi_class: false
   force_softmax: false
+
+  optimizer: Adam
+  lr: 4.176171931455995e-05
+

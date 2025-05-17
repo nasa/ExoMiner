@@ -1,49 +1,66 @@
 # Run train, eval experiment in parallel (multiple models run at the same time) on a single node with multiple GPUs and
 # using a combination of GNU parallel and job array; option for multi-node setup.
 #PBS -S /bin/bash
-#PBS -N train_exoplanet
-#PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=200g:model=sky_gpu
+#PBS -N train_exominerplusplus
+#PBS -l walltime=72:00:00
+# DSG_GPU V100 -------
+# PBS -l select=1:ncpus=36:ngpus=4:mem=200g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplanet_mgpus_singlenode.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplanet_mgpus_singlenode.err
+# PBS -l place=free:excl
+# PBS -q dsg_gpu@pbspl4
+# GH --------
+#PBS -lselect=3:ncpus=72:model=gh200:mem=480g
+#PBS -q dsggh_gpu@pbs05a
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exominerplusplus.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exominerplusplus.err
 #PBS -W group_list=a1509
 #PBS -m bea
-#PBS -J 0-2
+# PBS -J 0-2
+
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+# non-GH nodes
+# module load miniconda3/v4
+# source activate exoplnt_dl_tf2_13
+# GH nodes
+module load miniconda3/gh2
+source activate exoplnt_dl_gh
+
+# path to codebase root directory
+export PYTHONPATH=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # config file path
-CONFIG_FP=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/config_train.yaml
+CONFIG_FP=$PYTHONPATH/src/train/config_train.yaml
 # job script for running the Python application
-RUN_SH_SCRIPT=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase/src/run_train_iter.sh
+RUN_SH_SCRIPT=$PYTHONPATH/src/train/run_train_iter.sh
+
 # output directory
-OUTPUT_DIR=
-# path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/train_exominerplusplus_tess-spoc-2min-s1-s88_targetsnotsharedffi_5-16-2025_1516/
 
 N_MODELS=10  # total number of models to be trained
 
 # number of GPUs to be used by this job array
-N_GPUS_TOTAL=4
+N_GPUS_TOTAL=1
 
 # number of total jobs per job in job array
-NUM_TOTAL_JOBS=$((1 * 4))
+NUM_TOTAL_JOBS=3  # $((1 * 4))
 # number of jobs run simultaneously
-NUM_JOBS_PARALLEL=2
+NUM_JOBS_PARALLEL=1
 
-source "$HOME"/.bashrc
-#source "$HOME"/.zshrc
+# create main output job file
+JOB_FP=$OUTPUT_DIR/output_job.txt
 
-#conda activate exoplnt_dl
-conda activate exoplnt_dl_tf2_13
+# copy PBS script
+PBS_SCRIPT_FP=$(realpath $0)
+cp $PBS_SCRIPT_FP $JOB_FP
+
+# copy codebase git commit hash
+COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
+echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 
 mkdir -p $OUTPUT_DIR
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
-
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
 # testing multi-node setup...
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
-
-#TODO: copy pbs script
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"

@@ -1,8 +1,8 @@
-# TESS-SPOC 2-min Preprocessing: LC and DV XML data
+# TESS-SPOC 2-min Preprocessing: LC and DV xml data, and TCE tables
 
 This file contains step-by-step instructions on how to get data from the lightcurve (LC) FITS files and Data Validation 
-(DV) XML files for TESS SPOC 2-min sector runs. All the referred scripts are part  of the module 
-`src_preprocessing/tess_spoc_2min`.
+(DV) XML files for TESS SPOC 2-min sector runs, and the corresponding DV TCE tables. All the referred scripts are part 
+of the module `src_preprocessing/tess_spoc_2min`.
 
 ## Get LC data
 

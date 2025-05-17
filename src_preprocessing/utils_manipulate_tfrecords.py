@@ -137,7 +137,7 @@ def create_shards_table(srcTfrecDir):
 
 
 def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
-    """ Create table with examples from the TFRecords with scalar features/attributes defined in `data_fields`.
+    """ Create table with examples from the TFRecord file with scalar features/attributes defined in `data_fields`.
 
     Args:
         tfrec_fp: Path, TFRecord file path
@@ -200,34 +200,60 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
             shutil.copy(src_tfrec_fp, dest_tfrec_dir / f'{src_tfrec_fp.name}_{src_tfrecs_suffix}')
 
 
+def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_tfrec_files=False, verbose=True):
+    """ Create table with examples from the TFRecord file with scalar features/attributes defined in `data_fields`.
+
+        Args:
+            tfrec_fps: list of Paths, TFRecord shards filepaths
+            data_fields: dict, 'data_field_name': 'data_type'
+            delete_corrupted_tfrec_files: bool, if True it will delete corrupted TFRecord files
+            verbose: bool, verbose
+
+        Returns: pandas DataFrame, TFRecord dataset csv file
+    """
+
+    tfrec_tbls = []
+    for fp in tfrec_fps:
+        print(f'Iterating over {fp}...')
+
+        try:
+            tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
+
+        except Exception as e:
+            print(f'Failed to read {fp}.\n {e}')
+            if delete_corrupted_tfrec_files:
+                print(f'Deleting {fp}...')
+                fp.unlink()
+                (fp.parent / f'{fp.name}.csv').unlink()
+
+    # concatenate tables for all TFRecord shards
+    if len(tfrec_fps) > 1:
+        tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
+    else:
+        tfrec_tbl = tfrec_tbls[0]
+
+    return tfrec_tbl
+
+
 if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_bdslabels')
-    tfrec_fps = [fp for fp in tfrec_dir.iterdir() if fp.name.startswith('shard') and fp.suffix != '.csv']
-    data_fields = {
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared')
+    # get filepaths for TFRecord shards
+    tfrec_fps = list(tfrec_dir.glob('shard-*'))
+    data_fields = {  # extra data fields that you want to see in the table
         'uid': 'str',
         'target_id': 'int',
         'tce_plnt_num': 'int',
         'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
     }
-    tfrec_tbls = []
-    for fp in tfrec_fps:
-        # print(f'Iterating over {fp}...')
-        try:
-            tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
-        except Exception as e:
-            print(f'Failed to read {fp}.\n {e}')
-            # print(f'Deleting {fp}...')
-            # fp.unlink()
-            # (fp.parent / f'{fp.name}.csv').unlink()
+    delete_corrupted_tfrec_files = False
+    verbose = True
 
-    if len(tfrec_fps) > 1:
-        tfrec_tbl = pd.concat(tfrec_tbls, axis=0)
-    else:
-        tfrec_tbl = tfrec_tbls[0]
-
+    tfrec_tbl = create_table_for_tfrecord_dataset(tfrec_fps, data_fields,
+                                                  delete_corrupted_tfrec_files=delete_corrupted_tfrec_files,
+                                                  verbose=verbose)
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)

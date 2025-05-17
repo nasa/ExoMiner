@@ -6,9 +6,9 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  datasets_fps_yaml: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized/cv_iterations.yaml
+  datasets_fps_yaml: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared_train-test-split_5-16-2025_1157_normalized/datasets_fps.yaml
 #  # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-#  hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
+  hpo_dir: null
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
@@ -17,10 +17,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   uid: 'string'
   target_id: 'int_scalar'
   tce_plnt_num: 'int_scalar'
-
   label: 'string'
-#  label_id: 'int_scalar'
-
   tce_period: 'float_scalar'
   tce_duration: 'float_scalar'
   tce_time0bk: 'float_scalar'
@@ -82,11 +79,11 @@ config:
       scalars:
         - flux_odd_local_stat_abs_min_norm
         - flux_even_local_stat_abs_min_norm
-    momentum_dump:
-      views:
-        - local_momentum_dump_view
-        - local_momentum_dump_view_var
-      scalars: null
+#    momentum_dump:
+#      views:
+#        - local_momentum_dump_view
+#        - local_momentum_dump_view_var
+#      scalars: null
     flux_trend:
       views:
         - flux_trend_global_norm
@@ -122,75 +119,84 @@ config:
   transformer_branches: null
   diff_img_branch:
     imgs:
-      - diff_imgs_std_trainset
-      - oot_imgs_std_trainset
-      - target_imgs
+#      - diff_imgs_std_trainset
+#      - oot_imgs_std_trainset
+#      - target_imgs
+      - diff_imgs_tc_std_trainset
+      - oot_imgs_tc_std_trainset
+      - snr_imgs_tc_std_trainset
+      - neighbors_imgs_tc_std_trainset
     imgs_scalars:
       - quality
     scalars:
       - mag_shift_norm
 
-  # transformer hyperparameters ---------
-  #if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
-  use_transformer: false  # set to true when using N-d data (N>1)
-  num_transformer_blocks: 2
-  head_size: 256
-  num_heads: 4
-  ff_dim: 4
-  dropout_rate_transformer: 0.03
-  #can either be bin_average_pooling, phase_average_pooling, or flat, or time distributed
-  # output will be [301/31], [20], and [20 * 301/31] respectively
-  # if time_encoding = true, shape of bin_average_pooling and flat increase by a factor of 3
-  transformer_output: 'flat'
-  #  concat_stats_to: folded-local #none #folded-local, unfolded-local, none
-  time_encoding: true
-  #  trans_pooling: none #max, avg, none
-  #  trans_pool_size: 8
-  #  trans_stride_size: 1
-  #transformer head
-  #num_units_fc_layers: [16, 8]
-  global-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 256, 64, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8] #[128, 32, 8]
-  local-num_units_transformer_fc_layers: [ 4 ] #[16, 16, 8 , 4] #[ 64, 32, 16, 4 ] #[512, 128, 32, 8 ] #[16, 12, 8]
-
-  dropout_rate_trans_fc: 0.03
-  non_lin_fn: prelu
-  pool_stride: 1
-  kernel_stride: 1
-  weight_initializer: null
-  conv_ls_per_block: 3
-  dropout_rate: 0.021491238286347598
-  dropout_rate_fc_conv: 0.1211390996398814
-  init_conv_filters: 3
-  init_fc_neurons: 512
-  kernel_size_glob: 5
-  kernel_size_loc: 6
-  num_fc_conv_units: 3
-  num_fc_layers: 4
+  # global branch hyperparameters ----
   num_glob_conv_blocks: 2
-  num_loc_conv_blocks: 2
-  pool_size_glob: 8
-  pool_size_loc: 4
-  kernel_size_unfolded: 6
-  kernel_size_centr: 5
-  pool_size_unfolded: 4
-  pool_size_centr: 4
-  num_unfolded_conv_blocks: 2
-  num_centr_conv_blocks: 2
-  init_loc_conv_filters: 3
+  glob_conv_ls_per_block: 5
   init_glob_conv_filters: 3
-  init_unfolded_conv_filters: 3
-  init_centr_conv_filters: 3
-  loc_conv_ls_per_block: 3
-  glob_conv_ls_per_block: 3
-  unfolded_conv_ls_per_block: 3
+  kernel_size_glob: 5
+  pool_size_glob: 8
+
+  # local branch hyperparameters ------
+  num_loc_conv_blocks: 2
+  loc_conv_ls_per_block: 1
+  init_loc_conv_filters: 2
+  kernel_size_loc: 6
+  pool_size_loc: 4
+
+  # periodogram branch hyperparameters -----
+  num_pgram_conv_blocks: 2
+  pgram_conv_ls_per_block: 1
+  init_pgram_conv_filters: 2
+  kernel_size_pgram: 6
+  pool_size_pgram: 4
+
+  # difference image hyperparameters ---------
+  num_diffimg_conv_blocks: 3
+  diffimg_conv_ls_per_block: 3
+  init_diffimg_conv_filters: 2
+  kernel_size_diffimg: 3  # (1, k , k)
+  pool_size_diffimg: 2  # (1, k, k)
+  num_fc_diff_units: 3
+
+  # unfolded local flux hyperparameters ----
+  n_conv_filter_unfolded_stats: 4
+
+  # shared conv hyperparameters ----
+  num_fc_conv_units: 3
+  dropout_rate_fc_conv: 0.1211390996398814
+
+  # fc block hyperparameters
+  init_fc_neurons: 512
+  dropout_rate: 0.021491238286347598
+  num_fc_layers: 4
+  decay_rate: null  # for l2-regularization
+
+  # shared hyperparameters --------
+  non_lin_fn: prelu
+  weight_initializer: null
+  kernel_stride: 1
+  pool_stride: 1
+
+  # legacy ExoMiner++ hyperparameters -----
+  num_centr_conv_blocks: 2
+  kernel_size_centr: 5
+  pool_size_centr: 4
   centr_conv_ls_per_block: 3
-  
-  optimizer: 'Adam'
-  lr: 4.176171931455995e-05
+  init_centr_conv_filters: 3
+  num_unfolded_conv_blocks: 2
+  kernel_size_unfolded: 6
+  pool_size_unfolded: 4
+  init_unfolded_conv_filters: 3
+  unfolded_conv_ls_per_block: 3
+  conv_ls_per_block: 3
+
+  multi_class: false
   force_softmax: false
-  decay_rate: null
-  batch_norm: false
-  multi_class: false  # switch to multiclass classification
+
+  optimizer: Adam
+  lr: 4.176171931455995e-05
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -257,17 +263,21 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  diff_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  oot_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  snr_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  neighbors_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
 
   quality: { 'dim': [ 5, 1], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
 
-  # momentum dump
-  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+#  # momentum dump
+#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -291,16 +301,13 @@ training:
     'num_bins_global': 301
     'num_bins_local': 31
     'num_transit_dur': 5
-#  n_models: 2  # number of models in the ensemble
-  n_epochs: 100  # number of epochs used to train each model
+  n_epochs: 300  # number of epochs used to train each model
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   filter_data: null  # deprecated; useless
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-#    '0': 68.5
-#    '1': 0.5
   sample_weights: false  # use sample weights defined in the data set
-  shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 5000  # should be larger than size of the training set to allow perfect sampling
 
 label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
@@ -311,14 +318,14 @@ inference:
 
 callbacks:
   train:
-#    early_stopping:
-#      monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
-#      min_delta: 0
-#      patience: 20
-#      verbose: 1
-#      mode: max  # maximize/minimize monitored metric in early stopping
-#      baseline: null
-#      restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
+    early_stopping:
+      monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+      min_delta: 0
+      patience: 20
+      verbose: 1
+      mode: max  # maximize/minimize monitored metric in early stopping
+      baseline: null
+      restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
     tensorboard:
       histogram_freq: 1
       write_graph: true
@@ -339,8 +346,8 @@ label_map:  # maps label to a label id
   FP: 0
   EB: 0
   NTP: 0
-  NEB: 0
-  NPC: 0
+#  NEB: 0
+#  NPC: 0
   BD: 0
   # Kepler Sim
 #  INJ1: 1

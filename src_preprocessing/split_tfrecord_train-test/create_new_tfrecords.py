@@ -31,23 +31,6 @@ import yaml
 from src_preprocessing.utils_manipulate_tfrecords import create_shard
 
 
-def create_datasets_fps_yaml(tfrec_dir, datasets):
-    """ Create yaml with list of TFRecord shards filepaths for each dataset in `datasets`. Assumes that shards have
-    prefix {dataset}-shard- where dataset is an element of datasets (e.g. 'train', 'val', 'test', 'predict').
-
-    Args:
-        tfrec_dir: Path, TFRecord dataset directory
-        datasets: list, datasets
-
-    Returns:
-    """
-
-    datasets_fps_dict = {dataset: list(tfrec_dir.glob(f'{dataset}-shard*')) for dataset in datasets}
-
-    with open(tfrec_dir / 'datasets_fps.yaml', 'w') as yml_file:
-        yaml.dump(datasets_fps_dict, yml_file)
-
-
 def count_examples_new_tfrecord_dataset(tfrec_fps, datasets_tbls):
     """ Count examples in new TFRecord dataset. Guarantee that all examples were copied.
 
@@ -93,7 +76,7 @@ if __name__ == '__main__':
     # get the configuration parameters
     path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/split_tfrecord_train-test/config_create_new_tfrecords.yaml')
 
-    with(open(path_to_yaml, 'r')) as file:
+    with open(path_to_yaml, 'r') as file:
         config = yaml.safe_load(file)
 
     # source TFRecord directory
@@ -171,10 +154,5 @@ if __name__ == '__main__':
     json_dict = {key: val for key, val in config.items()}
     with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
         yaml.dump(json_dict, preproc_run_file)
-
-    # config = {'datasets':['train', 'test']}
-    # destTfrecDir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized')
-    print(f'Creating yaml file with datasets filepaths...')
-    create_datasets_fps_yaml(destTfrecDir, config['datasets'])
 
     print('Done.')

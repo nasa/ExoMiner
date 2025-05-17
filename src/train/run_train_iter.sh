@@ -15,6 +15,21 @@ GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
 N_MODELS="$6"
 
+# source /usr/share/modules/init/bash  # for non-GH nodes
+source /usr/share/Modules/init/bash  # for GH nodes
+
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+# non-GH nodes
+# module load miniconda3/v4
+# source activate exoplnt_dl_tf2_13
+# GH nodes
+module load miniconda3/gh2
+source activate exoplnt_dl_gh
+
+# path to codebase root directory
+export PYTHONPATH=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
 # Paths
 SETUP_RUN_FP=$PYTHONPATH/src/train/setup_train.py
 TRAIN_MODEL_SCRIPT_FP=$PYTHONPATH/src/train/train_model.py
@@ -37,7 +52,7 @@ echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_MAIN"
 
 # setup run
 echo "Setting up config file for model $MODEL_I out of $N_MODELS models..." >> "$LOG_FP_MAIN"
-python "$SETUP_RUN_FP" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR"
+python "$SETUP_RUN_FP" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" &> "$LOG_FP_MAIN"
 
 # get config yaml filepath
 MODEL_CONFIG_FP=$MODEL_DIR/config_run.yaml

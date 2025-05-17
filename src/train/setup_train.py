@@ -1,6 +1,5 @@
 """
 Run setup for training iteration.
-- Load model's hyperparameters from an HPO run.
 """
 
 # 3rd party
@@ -14,11 +13,19 @@ from src_hpo.utils_hpo import load_hpo_config
 
 
 def run_setup_for_train_iter(run_dir, config):
+    """ Setup configuration parameters for training model.
+
+    :param run_dir: str, experiment directory
+    :param config: dict, configuration parameters
+
+    :return:
+    """
 
     # load model hyperparameters from HPO run; overwrites the one in the yaml file
-    hpo_dir = Path(config['paths']['hpo_dir'])
-    config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
-    config['config'].update(config_hpo_chosen)
+    if config['paths']['hpo_dir']:
+        hpo_dir = Path(config['paths']['hpo_dir'])
+        config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
+        config['config'].update(config_hpo_chosen)
 
     # load data sets file paths from yaml file
     with open(config['paths']['datasets_fps_yaml'], 'r') as file:
@@ -29,9 +36,6 @@ def run_setup_for_train_iter(run_dir, config):
     # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML
     np.save(run_dir / 'config.npy', config)
 
-    # save the YAML file with the HPO configuration that was used
-    with open(run_dir / 'hpo_config.yaml', 'w') as hpo_config_file:
-        yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
     # save model's architecture and hyperparameters used
     with open(run_dir / 'model_config.yaml', 'w') as file:
         yaml.dump(config['config'], file, sort_keys=False)
@@ -47,7 +51,7 @@ if __name__ == "__main__":
     output_dir_fp = Path(args.output_dir)
     config_fp = Path(args.config_fp)
 
-    with(open(args.config_fp, 'r')) as config_file:
+    with open(args.config_fp, 'r') as config_file:
         run_config = yaml.safe_load(config_file)
 
     run_setup_for_train_iter(output_dir_fp, run_config)
