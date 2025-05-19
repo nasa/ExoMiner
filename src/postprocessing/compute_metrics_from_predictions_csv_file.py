@@ -145,23 +145,11 @@ if __name__ == '__main__':
         #  'PC': 1,
         # 'AFP': 0,
         # 'NTP': 0,
-        # Kepler Sim
-        # 'INJ1': 1,
-        # # # 'Not INJ1': 0,
-        # 'INJ2': 0,
-        # 'INJ3': 0,
-        # 'INV': 0,
-        # 'SCR1': 0,
-        # 'SCR2': 0,
-        # # 'SCR3': 0,
         # TESS
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        # 'B': 0,
         'FP': 0,
-        # 'J': 0,
-        # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
         'NTP': 0,
@@ -170,16 +158,15 @@ if __name__ == '__main__':
     num_thresholds = 1000
     clf_threshold = 0.5
     top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
-    # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
     multiclass = False
     multiclass_target_score = None
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/Users/msaragoc/Downloads/ensemble_ranked_predictions_testset 2.csv")
+    predictions_tbl_fp = Path(f"")
     # save path
-    save_fp = Path(f"/Users/msaragoc/Downloads//metrics_prev2.csv")
+    save_fp = Path(f"")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
 

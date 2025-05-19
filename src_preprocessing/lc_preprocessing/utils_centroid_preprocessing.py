@@ -322,25 +322,4 @@ def compute_centroid_distance(centroid_dict, target_position, delta_dec=None):
         all_centroid_dist = np.sqrt(np.square((centroid_dict['x'] - target_position[0]) * delta_dec)
                                     + np.square(centroid_dict['y'] - target_position[1]))
 
-    # if px_coordinates:
-    #     # TODO: map target position from celestial coordinates to CCD frame
-    #     # compute the euclidean distance of the corrected centroid time series to the target star position
-    #     all_centroid_dist = np.sqrt(np.square(centroid_dict['x'] - target_position[0])
-    #                                 + np.square(centroid_dict['y'] - target_position[1]))
-    # else:
-    #     # compute the angular distance of the corrected centroid time series to the target star position
-    #     # all_centroid_dist = [np.sqrt(np.square((centroid_dict['x'][i] - target_position[0])) +
-    #     #                              np.square(centroid_dict['y'][i] - target_position[1]))
-    #     #                      for i in range(len(centroid_dict['x']))]
-    #     all_centroid_dist = np.sqrt(np.square((centroid_dict['x'] - target_position[0])) + np.square(centroid_dict['y'] - target_position[1]))
-    #
-    # # # get the across quarter average oot estimate using only finite and oot values
-    # # avg_centroid_oot_dist_global = np.median(np.concatenate([all_centroid_dist[i][oot_idxs[i]]
-    # #                                                          for i in range(len(all_centroid_dist))]))
-    # # spline_centroid_dist = kepler_spline.fit_kepler_spline(time_arrs, all_centroid_dist, verbose=False)[0]
-    # # # center the offset centroid distance to the across quarter average oot estimate
-    # # all_centroid_dist = [all_centroid_dist[i] / np.median(all_centroid_dist[i][oot_idxs[i]]) *
-    # #                      avg_centroid_oot_dist_global
-    # #                      for i in range(len(all_centroid_dist))]
-
     return all_centroid_dist

@@ -26,11 +26,7 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
 # set CV iteration ID
 CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
-# CV_ITER=$GNU_PARALLEL_INDEX
-#if [ $CV_ITER -ge "$7" ]
-#then
-#  echo "CV iteration $CV_ITER is above total number of iterations ($7). Ending process."
-#fi
+
 
 CV_ITER_DIR="$CV_DIR"/cv_iter_$CV_ITER
 mkdir -p "$CV_ITER_DIR"

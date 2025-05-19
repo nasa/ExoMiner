@@ -154,9 +154,9 @@ def updated_stellar_parameters_with_tic8(tce_tbl, res_dir):
 if __name__ == '__main__':
 
     # set results directory for TIC-8 query
-    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tic_stellar')
+    res_dir = Path('')
     # set filepath to TCE table
-    tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945_uid.csv')
+    tce_tbl_fp = Path('')
 
     res_dir.mkdir(exist_ok=True)
 

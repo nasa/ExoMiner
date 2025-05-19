@@ -550,57 +550,6 @@ def map_target_subpixel_location_to_discrete_grid(target_pos_col, target_pos_row
     return target_col_disc, target_row_disc
 
 
-def create_neighbors_img(neighbor_data, img_shape, target_mag, exclude_objs_outside=True):
-    """ Creates neighbors image based on the location and magnitude of neighbor objects in `neighbor_data`. The neighbor
-    image is set to zero for pixels with no neighbors. The pixels with neighbors are set to the relative magnitude of
-    the brightest neighbor to the target star.
-
-    Args:
-        neighbor_data: dict, each key is the ID of a neighbor that maps to a dictionary with the keys 'col_px',
-        'row_px' and 'Tmag' that map to the column pixel, row pixel, and magnitude, respectively, of the neighbor object
-        img_shape: tuple, desired image shape
-        target_mag: float, target magnitude
-        exclude_objs_outside: bool, if True objects that fall outside the image are not considered
-
-    Returns:
-        neighbor_img: NumPy array, neighbor image [`img_shape`]
-    """
-
-    if exclude_objs_outside:
-        neighbor_data = {neighbor_id: neighbor_id_data
-                         for neighbor_id, neighbor_id_data in neighbor_data.items()
-                         if 0 <= neighbor_id_data['col_px'] < img_shape[1]
-                         and 0 <= neighbor_id_data['row_px'] < img_shape[0]}
-
-    n_neighbors = len(neighbor_data)
-    if n_neighbors == 0:
-        return np.zeros(img_shape, dtype='float')
-
-    # initialize with all infinity values
-    neighbor_img = np.inf * np.ones(img_shape + (n_neighbors,), dtype='float')
-
-    # sort neighbors from brightest to dimmest
-    neighbor_data = dict(sorted(neighbor_data.items(), key=lambda item: item[1]['Tmag']))
-
-    # # get minimum and maximum magnitudes for all neighbors including target star
-    # min_mag, max_mag = min(target_mag, next(iter(neighbor_data.items()))), max(target_mag, list(neighbor_data.items())[-1])
-    # delta_mag = max_mag - min_mag
-
-    # compute relative neighbor-to-target magnitude ratio for each neighbor
-    for neighbor_i, neighbor_id in enumerate(neighbor_data):
-        neighbor_row, neighbor_col = (int(neighbor_data[neighbor_id]['row_px']),
-                                      int(neighbor_data[neighbor_id]['col_px']))
-        neighbor_img[neighbor_row, neighbor_col, neighbor_i] = target_mag / neighbor_data[neighbor_id]['Tmag']
-
-    # in each pixel, choose only the brightest target
-    neighbor_img = np.min(neighbor_img, axis=-1)
-
-    # set pixels with no neighbors to zero (TMag = 0)
-    neighbor_img[~np.isfinite(neighbor_img)] = 0
-
-    return neighbor_img
-
-
 def plot_diff_img_data(diff_imgs, target_coords, save_fp, neighbors_img=None, logscale=True):
     """ Plot difference image data for TCE in a given quarter/sector.
 

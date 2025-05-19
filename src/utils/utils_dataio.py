@@ -373,7 +373,6 @@ def get_ce_weights(label_map, tfrec_dir, datasets=['train'], label_fieldname='la
     :param verbose: bool
     :return:
         ce_weights: list, weight for each class (class 0, class 1, ...)
-        TODO: ce_weights should be a dictionary
     """
 
     # get labels ids
@@ -532,6 +531,6 @@ def get_out_of_transit_idxs_glob(num_bins_glob, transit_duration, orbital_period
 
 if __name__ == '__main__':
 
-    tfrec_fp = '/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/shard-0001'
+    tfrec_fp = ''
     data_fields = ['label']
     tfrec_data = get_data_from_tfrecord(tfrec_fp, data_fields)

@@ -7,7 +7,7 @@ import numpy as np
 
 #%% Read TCE table
 
-tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/simulated_data/dvOutputMatrix_allruns_renamed_updtstellar.csv')
+tce_tbl_fp = Path('')
 tce_tbl = pd.read_csv(tce_tbl_fp)
 
 #%%

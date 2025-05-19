@@ -1,7 +1,7 @@
 # Create new sh script with curl commands only for xml files.
 
-TARGET_SH_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/s81-s88_dv_sh/dv_xml/
-DEST_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/s81-s88_dv_sh/dv_xml_only/
+TARGET_SH_DIR=
+DEST_DIR=
 
 mkdir -p "$TARGET_SH_DIR"/completed
 
@@ -15,5 +15,5 @@ do
 done
 
 # set permissions and group when in ranokau
-chgrp -R ar-gg-ti-tess-dsg $DEST_DIR
+chgrp -R UNIX_GROUP_NAME $DEST_DIR
 chmod -R 770 $DEST_DIR

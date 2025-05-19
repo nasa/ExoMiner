@@ -19,6 +19,3 @@ on the provided datasets.
 running inference.
 - [`utils`](utils): utility functions that are shared by the other submodules.
 - [`run_ensemble.sh`](run_ensemble.sh): script that evaluates an ensemble of models and runs inference on a dataset.
-- [`create_yaml_file_with_dataset_split.py`](create_yaml_file_with_dataset_splits.py): script used to create a YAMl 
-file that contains the filepaths for the TFRecord shards to be used for a given dataset (e.g., 'train' -->
-['/path/to/shard-0000-of-0003', ...], 'val' --> ...).

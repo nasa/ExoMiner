@@ -13,16 +13,13 @@ from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_t
 if __name__ == '__main__':
 
     # DV XML file path
-    dv_xml_root_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs')
-    single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]  #  and fp.stem in ['s0036']]  # , 's0057', 's0056', 's0055']]  # [dv_xml_root_fp / 'single-sector' / 's0051']
-    multi_sector_runs = [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]  #  and fp.stem == 'multisector_s0014-s0086']
+    dv_xml_root_fp = Path('')
+    single_sector_runs = [fp for fp in (dv_xml_root_fp / 'single-sector').iterdir() if fp.is_dir()]
+    multi_sector_runs = [fp for fp in (dv_xml_root_fp / 'multi-sector').iterdir() if fp.is_dir()]
     dv_xml_runs = list(single_sector_runs) + list(multi_sector_runs)
 
-    # directory with neighbors information
-    neighbors_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess_spoc_2min_s1-s88_search_radius_arcsec_168.0_tpf_wcs_4-3-2025_1233')
-
     # run directory
-    run_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/extracted_data/s1-s88_4-118-2025_1002')
+    run_dir = Path('')
     plot_prob = 0.0001  # plot probability
     n_processes = 88  # number of processes used to parallelize extraction
 
@@ -59,7 +56,7 @@ if __name__ == '__main__':
     for dv_xml_run in dv_xml_runs:
         logger.info(f'Run {str(dv_xml_run)}')
 
-    jobs = [(dv_xml_run, data_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i)
+    jobs = [(dv_xml_run, data_dir, plot_dir, plot_prob, log_dir, job_i)
             for job_i, dv_xml_run in enumerate(dv_xml_runs)]
     n_jobs = len(jobs)
     logger.info(f'Setting {len(jobs)} jobs.')

@@ -14,11 +14,11 @@ from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_k
 if __name__ == '__main__':
 
     # DV XML file path
-    dv_xml_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/kplr20160128150956_dv.xml')
+    dv_xml_fp = Path('kplr20160128150956_dv.xml')
     # TCE table file path
-    tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/kepler/q1-q17_dr25/11-17-2021_1243/q1_q17_dr25_tce_3-6-2023_1734.csv')
+    tce_tbl_fp = Path('')
     # run directory
-    run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/fits_files/kepler/q1_q17_dr25/dv/preprocessing/11-14-2023_1027')
+    run_dir = Path('')
 
     # create run directory
     run_dir.mkdir(exist_ok=True, parents=True)

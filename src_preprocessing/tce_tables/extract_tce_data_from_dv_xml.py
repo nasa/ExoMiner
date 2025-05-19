@@ -388,7 +388,7 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
 if __name__ == "__main__":
 
     # output file path to csv with extracted data
-    new_tce_tbls_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_tces_dv_s36-s72_s56s69_3-21-2025_1010/')
+    new_tce_tbls_dir = Path('')
     new_tce_tbls_dir.mkdir(exist_ok=True)
 
     logs_dir = new_tce_tbls_dir / 'logs'
@@ -397,9 +397,9 @@ if __name__ == "__main__":
     dv_xml_tbl_fp = new_tce_tbls_dir / f'{new_tce_tbls_dir.name}.csv'
 
     # get file paths to DV xml files
-    dv_xml_sector_runs_root_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
-    dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]  #  if sector_run_dir.name in [f'sector_{sector_run}' for sector_run in range(69, 88 + 1)]]
-    dv_xml_sector_runs_dirs_lst += [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]  #  if sector_run_dir.name in [f'multisector_{sector_run}' for sector_run in ['s0014-s0078', 's0002-s0072', 's0001-s0069', 's0014-s0078']]]
+    dv_xml_sector_runs_root_dir = Path('')
+    dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]
+    dv_xml_sector_runs_dirs_lst += [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]
 
     print(f'Choosing sectors {dv_xml_sector_runs_dirs_lst}.')
 

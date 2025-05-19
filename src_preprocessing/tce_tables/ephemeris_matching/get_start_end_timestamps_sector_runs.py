@@ -70,9 +70,9 @@ def get_start_end_timestamps_tics_sector_runs(sector_dirs, save_dir):
 if __name__ == '__main__':
 
     # directory used to save start/end timestamps target tables for each sector run
-    res_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s69_7-9-2024_1044')
+    res_dir = Path('')
     # lightcurve root directory for the target data of interest from where to get the timestamps
-    lc_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files/')
+    lc_root_dir = Path('')
 
     # 2min data
     # sector_dirs = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]

@@ -15,20 +15,14 @@ GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
 N_MODELS="$6"
 
-# source /usr/share/modules/init/bash  # for non-GH nodes
-source /usr/share/Modules/init/bash  # for GH nodes
+# if needed
+source /path/to/bash
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-# non-GH nodes
-# module load miniconda3/v4
-# source activate exoplnt_dl_tf2_13
-# GH nodes
-module load miniconda3/gh2
 source activate exoplnt_dl_gh
 
 # path to codebase root directory
-export PYTHONPATH=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # Paths
 SETUP_RUN_FP=$PYTHONPATH/src/train/setup_train.py

@@ -40,12 +40,6 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
 
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
 
-    # split training folds into training and validation sets by randomly selecting one of the folds as the validation
-    # set
-    # if run_params['val_from_train']:
-    #     data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    #     data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
-
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
@@ -102,10 +96,6 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     pool.close()
     for async_result in async_results:
         async_result.get()
-
-    # # compute sample weights
-    # if run_params['training']['sample_weights']:
-    #     compute_sample_weights(data_shards_fps_norm, run_params)
 
 
 def create_cv_dataset(config):

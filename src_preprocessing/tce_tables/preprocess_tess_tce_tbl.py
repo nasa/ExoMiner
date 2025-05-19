@@ -21,7 +21,7 @@ from src_preprocessing.tce_tables.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
 from src_preprocessing.tce_tables.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
 
 # set TCE table filepath
-tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014.csv')
+tce_tbl_fp = Path('')
 
 # set results directory
 res_dir = tce_tbl_fp.parent

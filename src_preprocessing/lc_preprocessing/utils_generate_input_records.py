@@ -168,7 +168,6 @@ def get_tce_table(config):
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
 
-    # FIXME: add wst_depth_err to the Kepler Q1-Q17 DR25 TCE table
     if 'wst_depth_err' not in tce_table:
         logger.info('Adding `wst_depth_err` to the TCE table. Setting value to all TCEs as -1')
         tce_table['wst_depth_err'] = -1

@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     match_thr = 0.75  # set matching threshold
     # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_2min_s1-s68_7-9-2024_1704')
+    matching_root_dir = Path('')
     match_dir = matching_root_dir / 'sector_run_tic_tbls'
     matched_signals = []
     for tbl_fp in match_dir.iterdir():  # iterate through sector run match tables.

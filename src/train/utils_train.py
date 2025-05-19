@@ -269,38 +269,7 @@ def filter_examples_tfrecord_obs_type(parsed_features, label_id, obs_type):
 
     """
 
-    # vocabulary = {'ffi': 0, '2min': 1}
-    #
-    # # table = tf.lookup.StaticHashTable(
-    # #     initializer=tf.lookup.KeyValueTensorInitializer(
-    # #         keys=list(vocabulary.keys()),
-    # #         values=list(vocabulary.values()),
-    # #         key_dtype=tf.string,
-    # #         value_dtype=tf.int32)
-    # #     )
-    # table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(vocabulary.keys()),
-    #                                                         values=list(vocabulary.values()),
-    #                                                         key_dtype=tf.string,
-    #                                                         value_dtype=tf.int32)
-    # obs_type_mapping = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
-    # encoding_obs_type = vocabulary[obs_type]  # obs_type_mapping.lookup(obs_type)
-
-
-    # table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
-    #                                                             values=list(self.label_map.values()),
-    #                                                             key_dtype=tf.string,
-    #                                                             value_dtype=tf.int32)
-    # label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
-    # label_id = label_to_id.lookup(parsed_label[self.label_field_name])
-    #
-
-    # encoding_obs_type = table.lookup(vocabulary[obs_type])
-
-    # return tf.squeeze(parsed_features['obs_type'] == obs_type)
     return tf.squeeze(parsed_features['obs_type_int'] == obs_type)
-    # return tf.squeeze(parsed_features['tce_period_norm'] >= 0)
-    # return tf.squeeze(tf.equal(parsed_features['obs_type'], encoding_obs_type))
-    # return tf.reduce_any(tf.equal(parsed_features['obs_type'], encoding_obs_type))
 
 
 def filter_examples_tfrecord_label(parsed_features, label_id, label):

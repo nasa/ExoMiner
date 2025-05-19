@@ -33,7 +33,7 @@ if __name__ == '__main__':
     match_thr = 0.75  # set matching threshold
     n_procs = 36  # number of parallel processes
     # directory with ephemeris matching results
-    matching_root_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_prsaebs_4-17-2025_2110')
+    matching_root_dir = Path('')
 
     print(f'Resolving matches for {str(matching_root_dir)}')
 

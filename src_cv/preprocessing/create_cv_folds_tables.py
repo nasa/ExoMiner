@@ -8,20 +8,15 @@ import pandas as pd
 
 # %% set up CV experiment variables
 
-data_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347')
+data_dir = Path(f'/path/to/cv_tables/dir')
 
 rnd_seed = 24
 n_folds_eval = 5  # which is also the number of shards
 n_folds_predict = 100
-dataset_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/shards_tbl.csv')
+dataset_tbl_fp = Path('/path/to/source/tfrec/shards_tbl.csv')
 # unlabeled cats TCEs become part of the predict set; not evaluation
 unlabeled_cats = [
-    # # Kepler
-    # 'UNK',
-    # TESS
     'UNK',
-    # 'PC',
-    # 'APC',
 ]
 
 #%% prepare the shards for CV by splitting the TCE table into shards (n folds)
@@ -75,15 +70,6 @@ working_tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
 # tce_tbl = tce_tbl.sample(frac=1, random_state=rnd_seed).reset_index(drop=True)
 
 working_tce_tbl.to_csv(shard_tbls_root_dir / f'labeled_dataset_tbl_shuffled.csv', index=False)
-
-# # define test set for paper dataset as one of the folds
-# test_set_tbl = pd.read_csv(dataset_tbls_dir / 'testset.csv')
-# test_set_tbl['tceid'] = test_set_tbl[['target_id', 'tce_plnt_num']].apply(
-#     lambda x: '{}-{}'.format(x['target_id'], x['tce_plnt_num']), axis=1)
-# fold_tce_tbl = tce_tbl.loc[tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
-# fold_tce_tbl.to_csv(shard_tbls_dir / f'{tce_tbl_fp.stem}_fold9.csv', index=False)
-# n_folds -= 1
-# tce_tbl = tce_tbl.loc[~tce_tbl['tceid'].isin(test_set_tbl['tceid'])]
 
 # split TCE table into n fold tables (all TCEs from the same target star should be in the same table)
 logger.info(f'Split TCE table into {n_folds_eval} fold TCE tables...')

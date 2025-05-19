@@ -10,25 +10,25 @@ import logging
 import tensorflow as tf
 
 # local
-from src_cv.old.utils_cv import create_shard_fold, create_table_shard_example_location
+from src_cv.preprocessing.utils import create_shard_fold, create_table_shard_example_location
 
 if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
     # CV destination data directory
-    dest_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347')
+    dest_dir = Path('path/to/dest/cv/dir')
     # TFRecord source directory
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/')
+    src_tfrec_dir = Path('/path/to/src/tfrec/dir')
     # table that maps a TCE to a given TFRecord file in the source TFRecords
-    src_tfrec_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055/shards_tbl.csv')
+    src_tfrec_tbl_fp = Path('/path/to/src/tfrec/dir/shards_tbl.csv')
     n_processes = 128
     # directory with the TCE tables for each fold in the labeled data set
-    labeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347/shard_tables/eval')  # dest_dir / 'shard_tables' / 'eval'
+    labeled_shard_tbls_dir = Path('/path/to/cv/iter/tables/eval/labeled')
     # destination directory for the TFRecords for all CV folds in the labeled data set
     labeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'eval'
     # directory with the TCE tables for each fold for the unlabeled data set
-    unlabeled_shard_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1347/shard_tables/predict')  # dest_dir / 'shard_tables' / 'predict'
+    unlabeled_shard_tbls_dir = Path('/path/to/cv/iter/tables/predict/unlabeled')
     # destination directory for the TFRecords for all CV folds in the unlabeled data set
     unlabeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'predict'
     log_dir = dest_dir / 'create_cv_folds_logs'
@@ -80,9 +80,6 @@ if __name__ == '__main__':
         unlabeled_shard_tbls_fps = sorted(list(unlabeled_shard_tbls_dir.iterdir()))
 
         logger.info('Creating shards for examples for prediction...')
-
-        # tce_tbl_noteval_fp = Path(dest_dir / f'examples_noteval.csv')
-        # create_shard_fold(tce_tbl_noteval_fp, dest_tfrec_dir_noteval, -1, src_tfrec_dir, src_tfrec_tbl, True)
 
         n_processes_used = min(n_processes, len(unlabeled_shard_tbls_fps))
         pool = multiprocessing.Pool(processes=n_processes_used)

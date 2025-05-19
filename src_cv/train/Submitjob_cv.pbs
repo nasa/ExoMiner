@@ -1,38 +1,16 @@
 # Run CV experiment in parallel (multiple iterations at the same time) on a single GPU node with multiple GPUs and
 # using a combination of GNU parallel and job array
-#PBS -S /bin/bash
-#PBS -N cv_exoplanet
-#PBS -l walltime=72:00:00
-# DSG_GPU V100 nodes
-#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
-# Cabeus A100 GPU nodes
-# PBS -l select=1:ncpus=16:mem=128g:ngpus=1:model=mil_a100
-# PBS -l place=scatter:shared
-# PBS -q p_gpu_normal@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exoplnt_mgpus_singlenode.err
-#PBS -W group_list=a1509
-# PBS -W group_list=s2857
-#PBS -m bea
-#PBS -J 0-1
-
-# PBS_ARRAY_INDEX=0
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-module load miniconda3/v4
 source activate exoplnt_dl_tf2_13
 
 # set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # config file path
-CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/config_cv_train.yaml
+CONFIG_FP=codebase/src_cv/train/config_cv_train.yaml
 # job script for running the Python application
-RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/run_cv_iter_modular.sh
+RUN_SH_SCRIPT=codebase/src_cv/train/run_cv_iter_modular.sh
 # output directory
 OUTPUT_DIR=
 mkdir -p $OUTPUT_DIR

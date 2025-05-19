@@ -11,6 +11,7 @@ Create yaml CV iteration files for CV experiments.
 import yaml
 from pathlib import Path
 import numpy as np
+import re
 
 
 def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21):
@@ -19,7 +20,7 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21):
     Args:
         data_dir: Path, CV dataset directory
         datasets: list, datasets to create for each CV iteration. Must contain at least 'train' and 'test'. If 'val' is
-            present, then a random fold from the is chosen as validation fold from the training set folds.
+            present, then a random fold from the training is chosen as validation fold from the training set folds.
 
     Returns:
 
@@ -93,6 +94,33 @@ def create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterati
 
     with open(data_dir / 'cv_iterations.yaml', 'w') as file:
         yaml.dump(cv_iters, file, sort_keys=False)
+
+
+def create_cv_iterations_yaml_update_root_dir(src_fp, dest_fp, dest_root_dir):
+    """ Create CV dataset folds yaml file based on a source CV dataset folds yaml file. This is useful when running a
+    new CV experiment using a CV dataset that was built in a different system/directory than the current copy.
+
+    Args:
+        src_fp: Path, source CV dataset folds yaml file
+        dest_fp: Path, destination CV dataset folds yaml file
+        dest_root_dir: Path, destination root directory for CV dataset
+
+    Returns:
+
+    """
+
+    with open(src_fp, 'r') as file:
+        cv_config = yaml.unsafe_load(file)
+
+    new_cv_config = []
+    for cv_iter in cv_config:
+        new_cv_iter = {dataset: [dest_root_dir / str(dataset_fp)[re.search(r'cv_iter_[0-9]',
+                                                                           str(dataset_fp)).start():]
+                                 for dataset_fp in dataset_fps] for dataset, dataset_fps in cv_iter.items()}
+        new_cv_config.append(new_cv_iter)
+
+    with open(dest_fp, 'w') as config_file:
+        yaml.dump(new_cv_config, config_file)
 
 
 if __name__ == "__main__":

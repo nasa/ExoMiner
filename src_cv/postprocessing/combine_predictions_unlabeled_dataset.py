@@ -76,7 +76,7 @@ def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir):
 
 if __name__ == '__main__':
 
-    cv_pred_run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_2min/toi_2095/s14-s86/cv_predict_tess-spoc-2min_s14-s86_toi-2095_4-10-2025_1212')
+    cv_pred_run_dir = Path('')
 
     ranking_tbl_cv = aggregate_cv_fold_predictions(cv_pred_run_dir)
 

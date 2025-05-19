@@ -238,8 +238,7 @@ if __name__ == '__main__':
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        # TODO set to append
-                        filemode='a',
+                        filemode='w',
                         )
 
     logger.info(f'`IMGS_FIELDS`: {IMGS_FIELDS}.')

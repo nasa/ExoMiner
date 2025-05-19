@@ -6,14 +6,13 @@ output_dir: null
 # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file paths
 # for each training, validation and test set folds combination (i.e., {'train': ['/path/to/TFRec_file_x', ...],
 # 'test': ['/path/to/TFRec_file_y', ...]}
-cv_folds_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval/cv_iterations.yaml
+cv_folds_fp: /path/to/cv_iterations.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 
 compute_norm_stats_params:
 
   precomputed:  null
-#    fdl_centroid:
 #    centroid:
 #    diff_img:
 
@@ -27,7 +26,7 @@ compute_norm_stats_params:
 
   centroidList:  # set to null to not compute normalization statistics and normalize centroid
     - 'global_centr_view'
-    - 'local_centr_view'  # , 'global_centr_view_adjscl', 'local_centr_view_adjscl']
+    - 'local_centr_view'
 
   diff_imgList:  # null
     - 'diff_imgs'

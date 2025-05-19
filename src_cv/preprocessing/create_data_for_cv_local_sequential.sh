@@ -1,9 +1,9 @@
 # Conduct preprocessing run that creates a TFRecord dataset for CV.
 
-export PYTHONPATH=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase
+export PYTHONPATH=codebase
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/Users/msaragoc/Downloads/normalize_data_test/cv_bds_planets_keplerq1q17dr25_tess_data_7-10-2024_0951/tfrecords/eval_normalized
+OUTPUT_DIR=
 mkdir -p $OUTPUT_DIR
 
 # script file path

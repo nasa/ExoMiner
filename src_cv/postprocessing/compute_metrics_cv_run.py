@@ -16,7 +16,7 @@ clf_threshold = 0.5  # classification threshold used to compute accuracy, precis
 multiclass = False  # multiclass or bin class?
 target_score = 'score_AFP'  # get auc_pr metrics for different class labels
 class_name = 'label_id'
-cat_name = 'label'  # 'obs_type'  # 'label'
+cat_name = 'label'
 
 cats = {
     # data set (since each data set might contain different populations of examples)
@@ -30,24 +30,11 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        # 'B': 0,
         'FP': 0,
-        # 'J': 0,
-        # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
-        # # TESS 2-min vs FFI
-        # '2min': 0,
-        # 'ffi': 1,
-        # Kepler Simulated
-        # 'INJ1': 1,
-        # 'INJ2': 0,
-        # 'INJ3': 0,
-        # 'SCR1': 0,
-        # 'SCR2': 0,
-        # 'INV': 0,
     },
     'val': {
         # Kepler
@@ -59,24 +46,11 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        # 'B': 0,
         'FP': 0,
-        # 'J': 0,
-        # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
-        # # TESS 2-min vs FFI
-        # '2min': 0,
-        # 'ffi': 1,
-        # Kepler Simulated
-        # 'INJ1': 1,
-        # 'INJ2': 0,
-        # 'INJ3': 0,
-        # 'SCR1': 0,
-        # 'SCR2': 0,
-        # 'INV': 0,
     },
     'test': {
         # Kepler
@@ -88,35 +62,18 @@ cats = {
         'KP': 1,
         'CP': 1,
         'EB': 0,
-        # 'B': 0,
         'FP': 0,
-        # 'J': 0,
-        # 'FA': 0,
         'NEB': 0,
         'NPC': 0,
         'NTP': 0,
         'BD': 0,
-        # # TESS 2-min vs FFI
-        # '2min': 0,
-        # 'ffi': 1,
-        # Kepler Simulated
-        # 'INJ1': 1,
-        # 'INJ2': 0,
-        # 'INJ3': 0,
-        # 'SCR1': 0,
-        # 'SCR2': 0,
-        # 'INV': 0,
     },
 }
 # mapping of category/disposition to label id
 # cats = None
 class_ids = [0, 1]  # should match unique label ids in 'cats'
 top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
-# top_k_vals = {
-#     'train': [50, 100, 250, 500, 1000, 2000],  # , 2500]
-#     'val': [25, 50, 100, 200],
-#     'test': [25, 50, 100, 200],
-#               }
+
 datasets = [
     'train',
     'val',
@@ -136,11 +93,11 @@ metrics_lst += [f'precision_at_{k_val}' for k_val in top_k_vals]
 metrics_lst += [f'recall_class_{class_id}' for class_id in class_ids]
 metrics_lst += [f'n_{class_id}' for class_id in class_ids]
 
-results_sub_dir = 'ensemble_model'  # 'ensemble_model'  # 'models/model0'  # 'ensemble_model'
+results_sub_dir = 'ensemble_model'
 
 # cv experiment directories
 cv_run_dirs = [
-    Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_patience50ffi_exominernew_4-11-2025_1255'),
+    Path(''),
 ]
 for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 

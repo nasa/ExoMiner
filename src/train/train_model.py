@@ -10,14 +10,12 @@ import argparse
 import yaml
 from pathlib import Path
 import logging
-# from functools import partial
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models import models_keras
-# from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
 
 
 def train_model(config, model_dir, logger=None):
@@ -86,7 +84,6 @@ def train_model(config, model_dir, logger=None):
             multiclass=config['config']['multi_class'],
             feature_map=config['feature_map'],
             label_field_name=config['label_field_name'],
-            # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type='ffi'),
         )
     else:
         val_input_fn = None
@@ -105,9 +102,6 @@ def train_model(config, model_dir, logger=None):
                     logger.info(f'Callback {callback_name} not implemented for training. Skipping this callback.')
 
     config['callbacks_list']['train'] += [
-        # ComputePerformanceAfterFilteringLabel(config, model_dir / 'train_cats_monitoring', filter_examples_tfrecord_label),
-        # ComputePerformanceOnFFIand2min(config, model_dir / 'train_obs_type_monitoring',
-        #                                filter_examples_tfrecord_obs_type),
     ]
 
     # fit the model to the training data

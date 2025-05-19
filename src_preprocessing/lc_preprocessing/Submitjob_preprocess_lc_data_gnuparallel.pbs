@@ -1,28 +1,11 @@
 # Conduct preprocessing run that creates a TFRecord dataset; uses GNU parallel to generate multiple processes, each one
 # conducting the preprocessing of a subset of the examples.
-#PBS -S /bin/bash
-#PBS -N preprocessing_data_exoplanet
-#PBS -l walltime=72:00:00
-#PBS -l select=1:ncpus=128:model=rom_ait
-# PBS -l select=10:ncpus=40:model=cas_ait
-# PBS -q debug
-#PBS -q long
-# PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
-# PBS -l place=free:excl
-# PBS -q dsg_gpu@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel.err
-# PBS -W group_list=a1509
-#PBS -W group_list=s2857
-#PBS -m bea
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-module load miniconda3/v4
 source activate exoplnt_dl_tf2_13
 
 # set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # create output directory for preprocessing results
 OUTPUT_DIR=null

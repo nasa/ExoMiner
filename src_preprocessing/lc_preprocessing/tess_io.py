@@ -176,7 +176,6 @@ def read_tess_light_curve(filenames,
                     data['target_position'] = [hdu_list["PRIMARY"].header["RA_OBJ"],
                                                hdu_list["PRIMARY"].header["DEC_OBJ"]]
 
-                # TODO: convert target position from RA and Dec to local CCD pixel coordinates
                 if not centroid_radec:
                     pass
 

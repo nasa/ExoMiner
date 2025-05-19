@@ -12,7 +12,6 @@ from src_preprocessing.third_party.kepler_spline import kepler_spline
 from src_preprocessing.light_curve import util
 
 
-# TODO: make optional for interpolating across transits
 def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
     """ Detrend timeseries by fitting a spline to a version of the timeseries with linear interpolation performed across
     the transits.
@@ -93,7 +92,7 @@ def detrend_flux_using_spline(flux_arrs, time_arrs, intransit_cadences, config):
 
     # remove median from trend (by time splits)
     dt = np.diff(time)
-    # FIXME set factor to a parameter
+
     cut = np.where(dt > 5 * np.nanmedian(dt))[0] + 1
     low = np.append([0], cut)
     high = np.append(cut, len(time))

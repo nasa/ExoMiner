@@ -46,11 +46,9 @@ def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i, num_val_folds
                 num_val_folds_actual -= 1
                 num_val_folds_actual = max(0, num_val_folds_actual)
 
-            config['datasets_fps']['val'] = list(rng.choice([fp for fp in config['datasets_fps']['train'] if
-                                                             '_kepler' not in fp.name], num_val_folds_actual,
+            config['datasets_fps']['val'] = list(rng.choice(config['datasets_fps']['train'],
+                                                            num_val_folds_actual,
                                                             replace=False))
-            # choose all TESS train CV folds to be the validation set
-            # config['datasets_fps']['val'] = [fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)]
 
             # exclude validation folds from training set
             config['datasets_fps']['train'] = [fp for fp in config['datasets_fps']['train'] if

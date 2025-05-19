@@ -1,27 +1,7 @@
 # Run CV predict experiment in parallel (multiple iterations at the same time) on a single GPU node with multiple GPUs
 # and using a combination of GNU parallel and job array
-#PBS -S /bin/bash
-#PBS -N cv_predict_exoplanet
-#PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=scatter:excl
-#PBS -q dsg_gpu@pbspl4
-# non-GPU nodes
-# PBS -l select=1:ncpus=40:model=cas_ait
-# PBS -q debug
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_predict_exoplnt_mgpus_singlenode.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_predict_exoplnt_mgpus_singlenode.err
-#PBS -W group_list=a1509
-# PBS -W group_list=s2857
-#PBS -m bea
-#PBS -J 0-2
-
-# PBS_ARRAY_INDEX=0
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-module load miniconda3/v4
 source activate exoplnt_dl_tf2_13
 
 # set path to codebase root directory

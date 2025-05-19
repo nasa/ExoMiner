@@ -432,7 +432,6 @@ def read_kepler_light_curve(filenames,
             if len(data['target_position']) == 0:
                 data['target_position'] = [kepid_coord1, kepid_coord2]
 
-            # TODO: convert target position from RA and Dec to local CCD pixel coordinates
             if not centroid_radec:
                 pass
 

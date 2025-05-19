@@ -145,7 +145,7 @@ def rename_dv_xml_fields(tce_tbl):
 if __name__ == '__main__':
 
     # directory with TCE tables with extracted data from the DV xml files
-    src_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945.csv')
+    src_tbl_fp = Path('')
 
     tce_tbl = pd.read_csv(src_tbl_fp)
 

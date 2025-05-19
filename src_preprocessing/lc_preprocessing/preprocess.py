@@ -641,12 +641,6 @@ def process_tce(tce, table, config):
         config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'])  # [f'{config["satellite"]}'])
         config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
 
-    # # TODO: use this?
-    # if config['satellite'] == 'kepler':
-    #     add_info = {'quarter': data['quarter'], 'module': data['module']}
-    # else:
-    #     add_info = {'sectors': data['sectors']}
-
     # find transits for all detected TCEs in the target
     logger.info(f'[{tce["uid"]}] Finding transits for all detected TCEs in target.')
     target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table,
@@ -915,50 +909,11 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                            config['delta_dec'],
                                            )
 
-        # for coord, centroid_coord_data in detrended_centroid_dict.items():
-        #     utils_visualization.plot_residual(time_centroid,
-        #                                       centroid_coord_data['residual'],
-        #                                       tce,
-        #                                       config['plot_dir'],
-        #                                       f'3_residual_centroid{coord}_aug{tce["augmentation_idx"]}',
-        #                                       )
-
-    # # set outliers to zero using Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
-    # q25_75 = {'x': {'q25': np.percentile(np.concatenate(centroid_dict['x']), 25),
-    #                 'q75': np.percentile(np.concatenate(centroid_dict['x']), 75)},
-    #           'y': {'q25': np.percentile(np.concatenate(centroid_dict['y']), 25),
-    #                 'q75': np.percentile(np.concatenate(centroid_dict['y']), 75)}
-    #           }
-    # iqr = {'x': q25_75['x']['q75'] - q25_75['x']['q25'],
-    #        'y': q25_75['y']['q75'] - q25_75['y']['q25']}
-    # outlier_thr = 1.5
-    # for coord in centroid_dict:
-    #     for i in range(len(centroid_dict[coord])):
-    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] > q25_75[coord]['q75'] + outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-    #         centroid_dict[coord][i][np.where(centroid_dict[coord][i] < q25_75[coord]['q25'] - outlier_thr * iqr[coord])] = avg_centroid_oot[coord]
-
-    # avg_centroid_oot = {coord: np.median(np.concatenate(centroid_dict[coord])) for coord in centroid_dict}
-
-    # compute the new average oot after the spline fitting and normalization
-    # TODO: how to compute the average oot? mean, median, other...
-    # if plot_preprocessing_tce:
-    #     utils_visualization.plot_centroids_it_oot(time_arrs,
-    #                                               binary_time_all,
-    #                                               centroid_dict,
-    #                                               avg_centroid_oot,
-    #                                               target_position,
-    #                                               tce, config,
-    #                                               os.path.join(config['output_dir'], 'plots'),
-    #                                               f'4_centroidtimeseries_it-ot-target_aug{tce["augmentation_idx"]}',
-    #                                               target_center=True)
-
     transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
     corrected_centroids = correct_centroid_using_transit_depth(detrended_centroid_dict['x']['detrended'],
                                                                detrended_centroid_dict['y']['detrended'],
                                                                transit_depth,
                                                                avg_centroid_oot)
-    # corrected_centroids = {'x': detrended_centroid_dict['x']['detrended'],
-    #                        'y': detrended_centroid_dict['y']['detrended']}
 
     if plot_preprocessing_tce:
         utils_visualization.plot_corrected_centroids(time_centroid,
@@ -1007,7 +962,6 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
       detrended_data: dict, containing detrended data for different time series
     """
 
-    # FIXME: what is this for
     if config['satellite'] == 'kepler':
         add_info_centr = {'quarter': data['quarter'], 'module': data['module']}
     else:

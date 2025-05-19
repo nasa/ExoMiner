@@ -56,9 +56,6 @@ def create_binary_time_series(epoch, duration, period, tStart, tEnd, samplingInt
     # Code is ported from Jeff's Matlab ephemeris matching code
     """
 
-    # sampleTimes = np.linspace(tStart / samplingInterval, tEnd / samplingInterval, (tEnd - tStart) / samplingInterval,
-    #
-    #                           endpoint=True)
     sampleTimes = np.linspace(tStart / samplingInterval, tEnd / samplingInterval,
                               int((tEnd - tStart) / samplingInterval),
                               endpoint=True)
@@ -84,7 +81,6 @@ def create_binary_time_series(epoch, duration, period, tStart, tEnd, samplingInt
 
     # initialize binary time series - points with 1's belong to the transit
     binary_time_series = np.zeros(len(sampleTimes), dtype='uint8')
-    # binary_time_series = np.zeros(len(time), dtype='bool')
 
     # set to 1 the in-transit timestamps
     for sTransit, eTransit in zip(startTransitTimes, endTransitTimes):
@@ -92,6 +88,5 @@ def create_binary_time_series(epoch, duration, period, tStart, tEnd, samplingInt
         transit_idxs = np.where(sampleTimes >= sTransit)[0]
         transit_idxs = np.intersect1d(transit_idxs, np.where(sampleTimes < eTransit)[0])
         binary_time_series[transit_idxs] = 1
-        # binary_time_series[transit_idxs] = True
 
     return binary_time_series

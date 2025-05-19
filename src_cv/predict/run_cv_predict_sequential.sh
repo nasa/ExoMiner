@@ -1,11 +1,10 @@
 # Run CV predict experiment sequentially.
 
 # activate conda environment
-source "$HOME"/.bashrc
 conda activate exoplnt_dl_tf2_13
 
 # export path to root of codebase
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # file paths to Python scripts
 export SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/setup_cv_iter.py
@@ -24,13 +23,13 @@ CONFIG_PREPROCESS_FP=$PYTHONPATH/src_cv/create_cv_dataset/config_preprocess_cv_f
 CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/utils/create_cv_folds_yaml_from_dir.py
 
 # output directory
-OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_9-26-2024_1623_predict_unks/
+OUTPUT_DIR=
 # directory used to store preprocessed data
 export DATA_DIR="$OUTPUT_DIR"data
 mkdir -p "$DATA_DIR"
 
 # root directory for model file paths
-MODELS_CV_ROOT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/cv_tess-spoc-2min_s1-s67_9-26-2024_1623/
+MODELS_CV_ROOT_DIR=
 
 # number of CV iterations to run
 N_CV_ITERS=10

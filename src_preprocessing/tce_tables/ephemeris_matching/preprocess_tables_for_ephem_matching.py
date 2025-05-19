@@ -9,7 +9,7 @@ import numpy as np
 
 #%% ExoFOP TOI catalog
 
-tbl_fp = Path('//msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/9-12-2024')
+tbl_fp = Path('/')
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns
@@ -31,7 +31,7 @@ tbl.to_csv(tbl_fp.parent / f'{tbl_fp.stem}_processed_ephem_matching.csv', index=
 
 #%% SG1 TOI catalog
 
-tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/sg1_toi_list/9-12-2024/sg1_toi_list_current_tess_targets.csv', dtype={'Tc_BTJD': np.float64})
+tbl_fp = Path('', dtype={'Tc_BTJD': np.float64})
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns

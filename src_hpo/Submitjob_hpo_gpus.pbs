@@ -1,29 +1,12 @@
 # Conduct HPO run multi-GPU and multi-node; using MPIEXEC to evaluate multiple configurations (one per GPU) at the same
 # time.
-#PBS -S /bin/bash
-#PBS -N hpo_exoplanet
-#PBS -l walltime=72:00:00
-#PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# PBS -l select=2:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
-# place the chunk wherever it is possible for the requested resources; share resources with other people
-#PBS -l place=free:excl
-#PBS -q dsg_gpu@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_hpo_mgpus.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_hpo_mgpus.err
-#PBS -W group_list=a1509
-#PBS -m bea
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-# non-GH conda
-module load miniconda3/v4
 source activate exoplnt_dl_tf2_13
-# GH conda (aarch64)
-# module load miniconda3/gh2
 # source activate exoplnt_dl_gh
 
 # set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # config file path
 CONFIG_FP=$PYTHONPATH/src_hpo/config_hpo.yaml

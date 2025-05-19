@@ -42,14 +42,6 @@ def perimage_normalization_diffimg(example, zero_division_eps, features):
         feature_min_per_img = np.nanmin(feature_data_example_minmaxn, axis=(1, 2), keepdims=True)
         feature_max_per_img = np.nanmax(feature_data_example_minmaxn, axis=(1, 2), keepdims=True)
 
-        # # set missing values to zero for difference images
-        # if feature_name == 'diff_imgs':
-        #     feature_data_example_opt1[np.isnan(feature_data_example_opt1)] = 0
-        #
-        # # set missing values to -1 for oot images
-        # if feature_name == 'oot_imgs':
-        #     feature_data_example_opt1[np.isnan(feature_data_example_opt1)] = -1
-
         # perform min-max normalization
         # img_n = (img - min(img)) / (max(img) - min(img) + zero_division_eps)
         feature_data_example_minmaxn = ((feature_data_example_minmaxn - feature_min_per_img) /
@@ -63,21 +55,6 @@ def perimage_normalization_diffimg(example, zero_division_eps, features):
         feature_median_per_img = np.nanmedian(feature_data_example_std, axis=(1, 2), keepdims=True)
         feature_madstd_per_img = \
             np.expand_dims(mad_std(feature_data_example_std, axis=(1, 2), ignore_nan=True), axis=(1, 2))
-
-        # # set missing values to zero for difference images
-        # if feature_name == 'diff_imgs':
-        #     feature_data_example_std[np.isnan(feature_data_example_opt3)] = 0
-        #
-        # # set missing values to 25th quantile for oot images
-        # if feature_name == 'oot_imgs':
-        #     quantile_oot_img = np.nanquantile(feature_data_example_opt3, q_oot, axis=(1, 2))
-        #
-        #     for img_i, img in enumerate(feature_data_example_opt3):
-        #         # when all values are missing, quantile chosen will also be NaN
-        #         if np.isnan(quantile_oot_img[img_i]):
-        #             img[np.isnan(img)] = -1
-        #         else:
-        #             img[np.isnan(img)] = quantile_oot_img[img_i]
 
         # perform standardization
         # img_n = (img - med(img)) / (mad_std(img) + zero_division_eps)
@@ -135,10 +112,9 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_data/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_11-25-2024_1055_adddiffimg')
+    src_tfrec_dir = Path('')
     dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_perimgnormdiffimg'
     zero_division_eps = 1e-10  # term added to denominator to avoid division by zero
-    # q_oot = 0.25  # set quantile used to fill missing values in oot images
     features = {
         'diff_imgs': (5, 33, 33),  # feature dimension
         'oot_imgs': (5, 33, 33),

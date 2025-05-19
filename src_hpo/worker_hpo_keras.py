@@ -127,11 +127,6 @@ def evaluate_config_on_budget(worker_id_custom, config_id, config, verbose, logg
         model_i_config = copy.deepcopy(config)
 
         # train single model for this configuration
-        # TODO remove?
-        if 'val' not in model_i_config['datasets']:
-            logger.info('VALIDATION SET IS SET TO TEST SET TO ALLOW FOR EARLY STOPPING!!!')
-            model_i_config['datasets'].append('val')
-            model_i_config['datasets_fps']['val'] = model_i_config['datasets_fps']['test']
         train_model(model_i_config, model_dir, logger=logger)
 
     models_fps = [fp / 'model.keras'

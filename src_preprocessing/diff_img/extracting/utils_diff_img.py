@@ -164,7 +164,6 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
             logger.info(f'[{proc_id}] Getting difference image data for TCE KIC {uid}... ({n_tces_added}/{n_tces} '
                         f'TCEs)')
 
-            # TODO: test this
             kmag = float([el for el in root if 'keplerMag' in el.tag][0].attrib['value'])
 
             data[uid] = {
@@ -345,12 +344,11 @@ def get_neighbors_for_target_in_sector(sectors_obs, neighbors_dir, tic_id, secto
     return neighbors_lst
 
 
-def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir, plot_prob, logger, proc_id=-1):
+def get_data_from_tess_dv_xml(dv_xml_fp, sector_run_id, plot_dir, plot_prob, logger, proc_id=-1):
     """ Extract difference image data from the TESS target DV XML file for the set of TCEs detected in that star for
     that TESS SPOC sector run.
 
     :param dv_xml_fp: Path, filepath to DV XML file.
-    :param neighbors_dir: Path, path to directory containing target neighbors data
     :param sector_run_id: str, sector run ID
     :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
@@ -367,10 +365,6 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
         - 'image_number' is a list that contains the integer sector number of the corresponding sequence of difference
         image data extracted for the TCE.
         - 'mag' is the target's magnitude.
-        - 'neighbor_data' is a list that, for each sector, contains a dictionary where each key is the TIC ID of
-        neighboring objects that maps to a dictionary with the column 'col_px' and row 'row_px' coordinates of these
-        objects in the CCD pixel frame of the target star along with the corresponding magnitude 'TMag' and distance to
-        the target in arcseconds 'dst_arcsec'.
     """
 
     data = {}
@@ -389,14 +383,6 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     planet_res_lst = [el for el in root if 'planetResults' in el.tag]
 
     n_sectors_expected = root.attrib['sectorsObserved'].count('1')
-    sectors_obs = [i for i, char in enumerate(root.attrib['sectorsObserved']) if char == '1']
-
-    # get neighboring stars
-    if neighbors_dir:
-        logger.info(f'{proc_id}] [Sector run {sector_run_id}] Getting neighbors information for target {tic_id} in '
-                    f'sectors {sectors_obs}...')
-        neighbors_lst = get_neighbors_for_target_in_sector(sectors_obs, neighbors_dir, tic_id, sector_run_id, proc_id,
-                                                           logger)
 
     n_tces = len(planet_res_lst)
     tce_i = 0
@@ -406,24 +392,6 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
 
         uid = f'{root.attrib["ticId"]}-{planet_res.attrib["planetNumber"]}-S{sector_run_id}'
 
-        if neighbors_dir:
-            # filter neighbors based on transit depth - could these objects cause the observed transit depth?
-            tce_depth = max(0,
-                            float(planet_res.find(
-                                './/dv:modelParameter[@name="transitDepthPpm"]',
-                                {'dv': 'http://www.nasa.gov/2018/TESS/DV'}).attrib['value'])) + 1
-            tce_depth /= 1e6
-            delta_mag = tmag - np.log10(tce_depth) * 2.5
-            tce_neighbors_lst = []
-            for neighbors_sector in neighbors_lst:
-                tce_neighbors_sector = {}
-                for neighbor_id, neighbor_data in neighbors_sector.iterrows():
-                    if np.isnan(neighbor_data['row_px']) or np.isnan(neighbor_data['col_px']):
-                        continue
-                    if neighbor_data['Tmag'] <= delta_mag:
-                        tce_neighbors_sector.update({neighbor_id: dict(neighbor_data)})
-                tce_neighbors_lst.append(tce_neighbors_sector)
-
         data[uid] = {
             'target_ref_centroid': [],
             'image_data': [],
@@ -431,8 +399,6 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
             'image_number': [],
             'quality_metric': [],
         }
-        if neighbors_dir:
-            data[uid]['neighbor_data'] = tce_neighbors_lst
 
         logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Getting difference image data for TCE TIC '
                     f'{uid} ({tce_i}/{n_tces} TCEs)...')
@@ -517,21 +483,10 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
                             for k, v in tic_centroid_ref_row.items()}
                 }
 
-            # # center neighboring stars location to origin pixel
-            # for neighbor_id, neighbor_data in data[uid]['neighbor_data'][sector_i].items():
-            #     neighbor_data['col_px'] -= min_col - 1
-            #     neighbor_data['row_px'] -= min_row
-
             # plot difference image
             if np.random.uniform() <= plot_prob:
 
-                if neighbors_dir:
-                    neighbors_coords = [(neighbor_data['col_px'], neighbor_data['row_px'])
-                                        for _, neighbor_data in data[uid]['neighbor_data'][sector_i].items()]
-                    neighbors_mags = [neighbor_data['Tmag']
-                                      for _, neighbor_data in tce_neighbors_lst[sector_i].items()]
-                else:
-                    neighbors_coords, neighbors_mags, delta_mag = None, None, None
+                neighbors_coords, neighbors_mags, delta_mag = None, None, None
 
                 plot_diff_img_data(diff_imgs,
                                    plot_dir / f'tic_{uid}_sector_{sector}.png',
@@ -552,13 +507,12 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i):
+def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, plot_dir, plot_prob, log_dir, job_i):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
     :param dv_xml_run: Path, path to sector run with DV XML files.
     :param save_dir: Path, save directory
-    :param neighbors_dir: Path, path to directory containing target neighbors data
     :param plot_dir: Path, plot directory
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param log_dir: Path, log directory
@@ -583,7 +537,6 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
 
     # get filepaths to xml files
     dv_xml_run_fps = list(dv_xml_run.rglob(f"*.xml"))
-    # dv_xml_run_fps = list(dv_xml_run.rglob(f"*279251669*.xml"))
 
     # get sector run ID from filename
     s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
@@ -604,7 +557,6 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
         try:
             # check if there are results for more than one processing run for this TIC and sector run
             tic_id = re.findall('\d{16}', dv_xml_fp.name)[0]  # get tic id from filename
-            # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
             tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id}*')]
             if len(tic_drs) > 1:
                 curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
@@ -617,7 +569,7 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
                                 f'... ({target_i}/{n_targets} targets)')
                     continue
 
-            data_dv_xml = get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir, plot_prob,
+            data_dv_xml = get_data_from_tess_dv_xml(dv_xml_fp, sector_run_id, plot_dir, plot_prob,
                                                     logger, proc_id)
             data.update(data_dv_xml)
         except Exception as e:

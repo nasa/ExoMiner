@@ -66,7 +66,7 @@ def preprocess_parameters_tess_tce_table(tce_tbl):
 
 if __name__ == '__main__':
 
-    tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945_uid_tic8stellar_ruwe.csv')
+    tce_tbl_fp = Path('')
 
     # load TCE table
     tce_tbl = pd.read_csv(tce_tbl_fp)

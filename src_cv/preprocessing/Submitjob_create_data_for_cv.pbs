@@ -1,39 +1,14 @@
 # Conduct preprocessing run that creates a TFRecord dataset for CV; uses GNU parallel to generate multiple processes,
 # each one conducting the preprocessing of a subset of the examples.
-#PBS -S /bin/bash
-#PBS -N preprocess_data_cv_exoplanet
-#PBS -l walltime=12:00:00
-# non-GPU nodes ----
-# PBS -l select=1:ncpus=10:model=rom_ait
-# PBS -q debug
-# DSG V100 GPU nodes ----
-# PBS -l select=1:ncpus=10:mem=360g:model=sky_gpu
-# PBS -l place=free:excl
-# PBS -q dsg_gpu@pbspl4
-# GH nodes ----
-#PBS -lselect=1:ncpus=72:model=gra_h100:mem=480g
-#PBS -q alpha_test
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_preprocess_data_cv.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_preprocess_data_cv.err
-# PBS -W group_list=a1509
-# PBS -W group_list=s2857
-#PBS -m bea
 
 # initialize conda and activate conda environment
-module use -a /swbuild/analytix/tools/modulefiles
-# GH nodes ---
-# module load miniconda3/gh2
-# source activate exoplnt_dl_gh
-# other nodes ----
-# source "$HOME"/.bashrc
-module load miniconda3/v4
 source activate exoplnt_dl_tf2_13
 
 # set path to codebase root directory
-export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+export PYTHONPATH=codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_1-3-2025_1157_data/cv_tfrecords_tess_spoc_ffi_s36-s72_multisector_s56-s69_1-6-2025_1132/tfrecords/eval_with_2mindata_transferlearning/cv_ffi
+OUTPUT_DIR=
 mkdir -p $OUTPUT_DIR
 
 # script file path
