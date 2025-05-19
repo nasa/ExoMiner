@@ -30,7 +30,7 @@ CONFIG_FP=$PYTHONPATH/src_hpo/config_hpo.yaml
 # job script for running the Python application
 RUN_SH_SCRIPT=$PYTHONPATH/src_hpo/run_hpo_worker.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_paper/hpo_runs/test_hporun_diffimgbranch_tcedikcomsky_sigma_pseudolabel_tessspoc_2mins1-s67_ffis36-s72_4-22-2025_1153
+OUTPUT_DIR=
 mkdir -p $OUTPUT_DIR
 
 # create main output job file

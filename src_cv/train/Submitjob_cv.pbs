@@ -34,7 +34,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/c
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/run_cv_iter_modular.sh
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_2valfolds_3-6-2025_1027
+OUTPUT_DIR=
 mkdir -p $OUTPUT_DIR
 
 # create main output job file

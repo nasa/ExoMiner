@@ -17,8 +17,6 @@ import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
-                                                                    get_out_of_transit_idxs_loc)
 from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util.example_util import get_feature
 
@@ -38,12 +36,8 @@ def normalize_scalar_parameters(example, normStatsScalars, epsilon=1e-32):
     # normalize scalar parameters
     for scalarParam in normStatsScalars:
         # get the scalar value from the example
-        # TODO: no need to have the data type in the config yaml file
+
         scalarParamVal = np.array(get_feature(example, scalarParam))
-        # if normStatsScalars[scalarParam]['info']['dtype'] == 'int':
-        #     scalarParamVal = np.array(example.features.feature[scalarParam].int64_list.value)
-        # elif normStatsScalars[scalarParam]['info']['dtype'] == 'float':
-        #     scalarParamVal = np.array(example.features.feature[scalarParam].float_list.value)
 
         replace_flag = False
         # check if there is a placeholder for missing value

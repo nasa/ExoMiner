@@ -3,7 +3,7 @@ rnd_seed: 42
 paths:
   experiment_dir: null
   # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
-  datasets_fps: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized/datasets_fps.yaml
+  datasets_fps: null
   prev_run_dir: null  # warm-start using previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -31,7 +31,7 @@ max_num_model_params: 5.0e6  # maximum number of parameters in sampled models
 draw_plots: true  # draw loss and metric curves for trained models
 
 # set general architecture of the model based on implementations under models.models_keras.py
-model_architecture: ExoMinerJointLocalFlux  # ExoMinerDiffImg  # ExoMinerJointLocalFlux
+model_architecture: ExoMinerPlusPlus
 task: classification  # either 'classification' or 'regression'
 
 config:
@@ -47,7 +47,6 @@ config:
       scalars:   # null
         - tce_num_transits_obs_norm
         - tce_num_transits_norm
-        # - mission
 
     global_flux:
       views:
@@ -61,10 +60,8 @@ config:
         - local_flux_view_fluxnorm
         - local_flux_view_fluxnorm_var
       scalars: # null
-#        - transit_depth_norm
 #        - tce_depth_norm
         - flux_local_stat_abs_min
-         # - mission
 
     local_weak_secondary:
       views:
@@ -79,7 +76,6 @@ config:
         - flux_weak_secondary_local_stat_abs_min_norm
 #        - wst_depth_norm
 #        - tce_prad_norm
-        # - mission
 
     local_centroid:
       views:
@@ -89,7 +85,6 @@ config:
 #       - tce_fwm_stat_norm  # kepler only
 #       - mag_cat_norm
         - mag_shift_norm
-        # - mission
 
     local_odd_even:
       views:
@@ -100,15 +95,12 @@ config:
       scalars:
         - flux_odd_local_stat_abs_min_norm
         - flux_even_local_stat_abs_min_norm
-#        # - mission
-##        - odd_se_oot_norm
-##        - even_se_oot_norm
 
-#    momentum_dump:
-#      views:
-#        - local_momentum_dump_view
-#        - local_momentum_dump_view_var
-#      scalars: null
+    momentum_dump:
+      views:
+        - local_momentum_dump_view
+        - local_momentum_dump_view_var
+      scalars: null
 
     flux_trend:
       views:
@@ -126,7 +118,6 @@ config:
         - pgram_smooth_max_power_norm
         - pgram_tpm_smooth_max_power_norm
 
-#        # - mission
   scalar_branches: # null
     stellar:
       - tce_sdens_norm
@@ -136,7 +127,6 @@ config:
       - tce_smass_norm
       - tce_sradius_norm
       - ruwe_norm
-#      # - mission
 
     dv_tce_fit:
       - boot_fap_norm
@@ -151,19 +141,12 @@ config:
       - tce_robstat_norm
       - tce_model_chisq_norm
       - tce_prad_norm
-#      # - mission
 
   diff_img_branch: # null
     imgs:
-#      - diff_imgs_std_trainset
-#      - oot_imgs_std_trainset
-      #       - diff_imgs_stdnorm
-      #       - oot_imgs_stdnorm
-#      - target_imgs
-      - diff_imgs_tc_std_trainset
-      - oot_imgs_tc_std_trainset
-      - snr_imgs_tc_std_trainset
-      - neighbors_imgs_tc_std_trainset
+      - diff_imgs_std_trainset
+      - oot_imgs_std_trainset
+      - target_imgs
     imgs_scalars:
       - quality
     scalars:
@@ -173,7 +156,6 @@ config:
       #       - tce_dicco_msky_norm
       #       - tce_dicco_msky_err_norm
       # - tce_dikco_msky_rat_norm
-      # - mission
 
 
   # FIXED HYPERPARAMETERS ---------
@@ -190,16 +172,12 @@ config:
   kernel_stride: 1
   pool_stride: 1
   clf_head_fc_decay_rate: null
-  use_attention_after_conv_layers: false
-  cross_attention_before_classification_head_max_key_dim: 3
 
   # optimization hyperparameters ------
 #  optimizer: 'AdamW'  # SGD, Adam, AdamW
   sgd_momentum: 0
   #  'lr': 1.0e-5
-#    batch_size: 64  # used in field training; deprecated
   force_softmax: false
-  #  use_kepler_ce: false
 
   # loss hyperparameters
   multi_class: false  # switch to multiclass classification
@@ -269,10 +247,10 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-  diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  diff_imgs_std_trainset: { 'dim': [ 33, 33, 3 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 33, 33, 3 ], 'dtype': float }
+  snr_imgs_std_trainset: { 'dim': [ 33, 33, 3 ], 'dtype': float }
+  targets_imgs: { 'dim': [ 33, 33, 3 ], 'dtype': float }
 
   quality: { 'dim': [ 5, ], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -304,9 +282,6 @@ training:
   batch_size: 64
   ce_weights: null
   category_weights: null
-#    PC: 1.0
-#    AFP: 1.0
-#    NTP: 1.0
   shuffle_buffer_size: 5000 # should be larger than size of the training set to allow perfect sampling
 
 label_field_name: label  # label  # name of the label field in the TFRecord that is going to be used as the label
@@ -375,7 +350,7 @@ configuration_space:
         log: true
     optimizer:
       type: categorical
-      parameters: [ 'Adam', 'SGD', 'AdamW' ]
+      parameters: [ 'Adam', 'SGD' ]
 #    sgd_momentum:
 #      type: uniform_float
 #      parameters:
@@ -422,41 +397,9 @@ configuration_space:
     local_fluxes_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    local_fluxes_kernel_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 3
-        default_value: 1
-#    local_fluxes_pool_size:
-#      type: categorical
-#      parameters: [ 2, 4, 8]
-
-#    # local centroid branch hyperparameters ----------
-#    local_centroid_num_conv_blocks:
-#      type: uniform_integer
-#      parameters:
-#        lower: 1
-#        upper: 5
-#        default_value: 2
-#    local_centroid_num_conv_ls_per_block:
-#      type: uniform_integer
-#      parameters:
-#        lower: 1
-#        upper: 3
-#        default_value: 1
-#    local_centroid_init_power_num_conv_filters:
-#      type: uniform_integer
-#      parameters:
-#        lower: 2
-#        upper: 6
-#        default_value: 4
-#    local_centroid_kernel_size:
-#      type: categorical
-#      parameters: [1, 3, 5, 7]
-#    local_centroid_pool_size:
-#      type: categorical
-#      parameters: [ 2, 4, 8]
+    local_fluxes_pool_size:
+      type: categorical
+      parameters: [ 2, 4, 8]
 
     # global flux + trend branch hyperparameters ------
     global_flux_num_conv_blocks:
@@ -480,15 +423,9 @@ configuration_space:
     global_flux_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    global_flux_kernel_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 3
-        default_value: 1
-#    global_flux_pool_size:
-#      type: categorical
-#      parameters: [4, 8, 16]
+    global_flux_pool_size:
+      type: categorical
+      parameters: [4, 8, 16]
 
     # periodogram branch hyperparameters -----
     flux_periodogram_num_conv_blocks:
@@ -512,15 +449,9 @@ configuration_space:
     flux_periodogram_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    flux_periodogram_kernel_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 3
-        default_value: 1
-#    flux_periodogram_pool_size:
-#      type: categorical
-#      parameters: [4, 8, 16]
+    flux_periodogram_pool_size:
+      type: categorical
+      parameters: [4, 8, 16]
 
     # difference image branch hyperparameters -----
     diff_img_num_conv_blocks:
@@ -544,15 +475,9 @@ configuration_space:
     diff_img_kernel_size:
       type: categorical
       parameters: [1, 3, 5, 7]
-    diff_img_kernel_stride:
-      type: uniform_integer
-      parameters:
-        lower: 1
-        upper: 3
-        default_value: 1
-#    diff_img_pool_size:
-#      type: categorical
-#      parameters: [ 2, 4, 8, 16]
+    diff_img_pool_size:
+      type: categorical
+      parameters: [ 2, 4, 8, 16]
     diff_img_conv_scalar_num_filters:
       type: categorical
       parameters: [ 1, 2, 3]
@@ -576,17 +501,6 @@ configuration_space:
         lower: 3
         upper: 8
         default_value: 5
-    batch_norm_after_conv_layers:
-      type: categorical
-      parameters: [true, false]
-    use_skip_connection_conv_block:
-      type: categorical
-      parameters: [true, false]
-
-    # before classification head hyperparameters ------
-    use_cross_attention_before_classification_head:
-      type: categorical
-      parameters: [true, false]
 
     # classification head hyperparameters --------
     clf_head_num_fc_layers:

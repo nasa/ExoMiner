@@ -56,9 +56,9 @@ def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
 if __name__ == '__main__':
 
     # saving directory
-    dest_tfrec_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023')
+    dest_tfrec_dir = Path(f'/path/to/dest/tfrecord')
     # shards table for your source TFRecord dataset
-    shards_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_bdslabels/shards_tbl.csv')
+    shards_tbl_fp = Path('/path/shards_tbl.csv')
     rnd_seed = 24  # random seed
     # split ratio
     dataset_splits = {

@@ -195,18 +195,18 @@ if __name__ == '__main__':
     # Set up paths
 
     # directory with lc sh files
-    src_lc_sh_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/all_targets')
+    src_lc_sh_dir = Path('/path/to/lc_dir')
     # destination directory to save new lc sh files after removing curl statements for targets without DV results
-    dest_lc_sh_dir = Path(f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_targets_4-16-2025_1014')
+    dest_lc_sh_dir = Path(f'/path/to/dest/lc_dir')
     # ffi or 2-min idiosyncrasies
     data_collection_mode = '2min'  # `2min` or `ffi`
     # root directory in which lightcurve files are downloaded to; checks lc files already downloaded and not corrupted
     # - those are excluded; set to None for no verification
-    lc_dir_fp = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
+    lc_dir_fp = Path('/path/to/lc_dir_res')
     # parallelize using multiprocessing
     n_processes = 10  # set to None for sequential
     # target table with 'sector' and 'target_id' columns
-    tce_tbl = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s88_3-27-2025_1316.csv',
+    tce_tbl = pd.read_csv('/path/to/tce_table.csv',
                           usecols=['target_id', 'sectors_observed'])
     target_tbl = create_target_sector_table_from_tce_table(tce_tbl)
 

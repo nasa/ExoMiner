@@ -240,7 +240,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared')
+    tfrec_dir = Path('/path/to/tfrec/dataset')
     # get filepaths for TFRecord shards
     tfrec_fps = list(tfrec_dir.glob('shard-*'))
     data_fields = {  # extra data fields that you want to see in the table

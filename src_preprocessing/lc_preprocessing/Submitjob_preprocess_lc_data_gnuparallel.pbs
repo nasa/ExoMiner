@@ -25,7 +25,7 @@ source activate exoplnt_dl_tf2_13
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-21-2025_1408
+OUTPUT_DIR=null
 mkdir -p $OUTPUT_DIR
 
 # create main output job file

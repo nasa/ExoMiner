@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label.csv
+input_tce_csv_file: null
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc
+lc_data_dir: null
 
 using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
@@ -90,15 +90,6 @@ outlier_removal: true
 outlier_removal_sigma: 20
 outlier_removal_fill: false
 
-## pixel length # (not used)
-#tess_px_scale: 21  # arcsec
-#kepler_px_scale: 3.98  # arcsec
-
-#sampling_rate_h: # (not used) number of cadences sampled per hour; Kepler (2); TESS 2-min (30); TESS FFI (varied!)
-#  kepler: 2
-#  tess: 6  # 2-min: 30; ffi-200s: 18, ffi-10min: 6... varied!
-#tess_to_kepler_sampling_ratio: 3  # 2-min: 15; ffi-200s: 9, ffi-10min: 3... varied!
-
 # lc periodogram
 p_min_tce : 0.2  # in days, shortest period to measure
 k_harmonics: 5  # shortest period is multiplied by `k_harmonics` to give max freq 1 / p_min_tce * k_harmonics
@@ -112,7 +103,6 @@ scalar_params: [
   # 'tce_period',
   # 'tce_duration',
   # 'tce_time0bk',
-#  'transit_depth',
   'tce_depth',
   'tce_max_mult_ev',
   'tce_max_sngle_ev',

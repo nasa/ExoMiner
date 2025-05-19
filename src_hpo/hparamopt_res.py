@@ -15,7 +15,7 @@ from src_hpo.utils_hpo import logged_results_to_HBS_result
 #%% Load results from a HPO study
 
 # HPO run directory
-hpo_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/hpo_configs/hpo_run_keplerq1q17dr25_11-22-2024_1703')
+hpo_dir = Path('/path/to/hpo')
 # set to True if the optimizer is model based
 model_based_optimizer = True
 # set to True if the study trains multiple models for each configuration evaluated

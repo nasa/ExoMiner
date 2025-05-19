@@ -38,13 +38,17 @@ def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i, num_val_folds
             rng = np.random.default_rng(seed=config['rnd_seed'] + cv_iter)
             num_val_folds_actual = min(num_val_folds, num_train_folds)
             if num_val_folds_actual < num_val_folds:
-                print(f'Number of validation folds requested {num_val_folds} is different than number of validation folds set: {num_val_folds_actual}')
+                print(f'Number of validation folds requested {num_val_folds} is different than number of '
+                      f'validation folds set: {num_val_folds_actual}')
             if num_val_folds_actual == num_train_folds:
-                print(f'Number of validation folds was set to number of training folds ({num_train_folds}). Setting number of validation folds to {num_val_folds_actual - 1}')
+                print(f'Number of validation folds was set to number of training folds ({num_train_folds}). '
+                      f'Setting number of validation folds to {num_val_folds_actual - 1}')
                 num_val_folds_actual -= 1
                 num_val_folds_actual = max(0, num_val_folds_actual)
 
-            config['datasets_fps']['val'] = list(rng.choice([fp for fp in config['datasets_fps']['train'] if '_kepler' not in fp.name], num_val_folds_actual, replace=False))
+            config['datasets_fps']['val'] = list(rng.choice([fp for fp in config['datasets_fps']['train'] if
+                                                             '_kepler' not in fp.name], num_val_folds_actual,
+                                                            replace=False))
             # choose all TESS train CV folds to be the validation set
             # config['datasets_fps']['val'] = [fp for fp in config['datasets_fps']['train'] if 'tfrecords_kepler_q1q17dr25_' not in str(fp)]
 
