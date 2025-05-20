@@ -106,7 +106,7 @@ app.layout = html.Div([
 ),
     html.H2(["If you make use of this catalog for vetting, validation or other studies, please acknowledge our "
              "contribution by citing ", html.A("ExoMiner's TESS 2-min paper (2025)",
-                                               href='https://arxiv.org/abs/2502.09790', target="_blank")],
+                                               href='https://doi.org/10.48550/arXiv.2502.09790', target="_blank")],
             style={
                 'color': '#79a4b5',
                 'fontSize': '15px',
@@ -134,7 +134,7 @@ app.layout = html.Div([
                 'fontFamily': 'Arial',
             }, ),
     html.H2(["Full dataset and additional data can be found in Zenodo: ",
-             html.A("here", href='https://zenodo.org/records/15466293', target="_blank")],
+             html.A("here", href='https://doi.org/10.5281/zenodo.15466292', target="_blank")],
             style={
                 'color': '#79a4b5',
                 'fontSize': '15px',
