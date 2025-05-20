@@ -42,10 +42,10 @@ def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
         if dataset_i == len(dataset_splits) - 1:
             last_target_idx = n_targets
         else:
-            last_target_idx = int(n_targets * dataset_frac)
+            last_target_idx = start_target_idx + int(n_targets * dataset_frac)
 
         targets_datasets_split[dataset] = target_id_lst[start_target_idx:last_target_idx]
-        curr_idx = start_target_idx + last_target_idx
+        curr_idx = last_target_idx
 
     datasets_tbls = {dataset: tce_tbl.loc[tce_tbl['target_id'].isin(targets_datasets_split[dataset])]
                      for dataset in dataset_splits}

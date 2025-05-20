@@ -229,19 +229,6 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
 
             norm_diff_img_feat[f'{img_type}_minmaxnorm_trainset'] = img_data_minmaxn
 
-        # diff_imgs_minmaxn = np.array(diff_imgs)
-        # oot_imgs_minmaxn = np.array(oot_imgs)
-        #
-        # diff_imgs_minmaxn = ((diff_imgs_minmaxn - normStatsDiff_img['diff_imgs']['min']) /
-        #                      (normStatsDiff_img['diff_imgs']['max'] - normStatsDiff_img['diff_imgs']['min'] +
-        #                       zero_division_eps))
-        # oot_imgs_minmaxn = ((oot_imgs_minmaxn - normStatsDiff_img['oot_imgs']['min']) /
-        #                     (normStatsDiff_img['oot_imgs']['max'] - normStatsDiff_img['oot_imgs']['min'] +
-        #                      zero_division_eps))
-        #
-        # norm_diff_img_feat.update({'diff_imgs_minmaxnorm_trainset': diff_imgs_minmaxn,
-        #                            'oot_imgs_minmaxnorm_trainset': oot_imgs_minmaxn})
-
         # standardization
         # x_n = (x - med(x)) / (std(x) + eps)
         for img_type, img_data in data_example.items():
@@ -250,18 +237,6 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
                             (normStatsDiff_img[img_type]['std'] + zero_division_eps))
 
             norm_diff_img_feat[f'{img_type}_std_trainset'] = img_data_std
-
-        # diff_imgs_std = np.array(diff_imgs)
-        # oot_imgs_std = np.array(oot_imgs)
-        #
-        # diff_imgs_std = ((diff_imgs_std - normStatsDiff_img['diff_imgs']['median']) /
-        #                  (normStatsDiff_img['diff_imgs']['std'] + zero_division_eps))
-        #
-        # oot_imgs_std = ((oot_imgs_std - normStatsDiff_img['oot_imgs']['median']) /
-        #                 (normStatsDiff_img['oot_imgs']['std'] + zero_division_eps))
-        #
-        # norm_diff_img_feat.update({'diff_imgs_std_trainset': diff_imgs_std,
-        #                            'oot_imgs_std_trainset': oot_imgs_std})
 
     return norm_diff_img_feat
 
@@ -324,7 +299,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
+    path_to_yaml = Path('codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
 
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)

@@ -60,9 +60,9 @@ Models currently implemented in [`models`](models):
 For more detailed information see the following publications:
 - ExoMiner on Kepler Data ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://iopscience.iop/articl/10.3847/1538-4357/ac4399/), published 2022 February 17 in the Astrophysical Journal, Volume 926, Number 2.
 - ExoMiner with Multiplicity Boost for Kepler ["Multiplicity Boost of Transit Signal Classifiers: Validation of 69 New Exoplanets using the Multiplicity Boost of ExoMiner"](https://iopscience.iop.org/article/10.3847/1538-3881/acd344/), published 2023 June 26 in the Astronomical Journal, Volume 166, Number 1.
-- ExoMiner for TESS Data ["ExoMiner++ on TESS with Transfer Learning from Kepler: Transit Classification and Vetting Catalog for 2-min Data"](https://arxiv.org/pdf/2502.09790) [**under review for ApJ**]
-  - **Data repository on Zenodo**: [here]()
-  - **Interactive tetting catalog**: [here](http://exominer-vetter-tess-pc-catalog.onrender.com/)
+- ExoMiner for TESS 2-min Data ["ExoMiner++ on TESS with Transfer Learning from Kepler: Transit Classification and Vetting Catalog for 2-min Data"](https://arxiv.org/pdf/2502.09790) [**under review for ApJ**]
+  - **Data repository on Zenodo**: [here](https://zenodo.org/records/15466293)
+  - **Interactive vetting catalog**: [here](http://exominer-vetter-tess-pc-catalog.onrender.com/)
 
 ## Credits
 

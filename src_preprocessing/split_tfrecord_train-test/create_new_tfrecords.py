@@ -74,7 +74,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/split_tfrecord_train-test/config_create_new_tfrecords.yaml')
+    path_to_yaml = Path('codebase/src_preprocessing/split_tfrecord_train-test/config_create_new_tfrecords.yaml')
 
     with open(path_to_yaml, 'r') as file:
         config = yaml.safe_load(file)
