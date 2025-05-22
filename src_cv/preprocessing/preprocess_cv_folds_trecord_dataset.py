@@ -90,7 +90,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
                          f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
+    jobs = [(run_params['norm_data_dir'], file, norm_stats)
             for file in np.concatenate(list(data_shards_fps_eval.values()))]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
