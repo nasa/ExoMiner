@@ -42,7 +42,7 @@ def create_cv_iteration_dataset(cv_fold_fp, run_params):
                          f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['cv_iter_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
+    jobs = [(run_params['cv_iter_dir'], file, norm_stats)
             for file in config['src_tfrec_fps']]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
