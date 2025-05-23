@@ -56,13 +56,13 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    n_procs = 36  # number of processes for parallel processing
+    n_procs = 72  # number of processes for parallel processing
     parallel_processing = True
     # set directories
-    src_data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg')
-    dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared')
+    src_data_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg')
+    dest_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsshared')
     # get shards table for FFI data
-    ffi_shards_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_diffimg/shards_tbl.csv')
+    ffi_shards_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg/shards_tbl.csv')
 
     # load FFI shards table
     ffi_shards_tbl = pd.read_csv(ffi_shards_tbl_fp)
@@ -73,9 +73,10 @@ if __name__ == '__main__':
     dest_dir.mkdir(exist_ok=True)
 
     # filter 2-min shards table for TCEs whose targets are not shared with FFI TCEs and that are labeled (i.e., != UNK)
-    target_2min_shards_tbl = src_2min_shards_tbl.loc[
-        ~src_2min_shards_tbl['target_id'].isin(ffi_shards_tbl['target_id'])]
-    target_2min_shards_tbl = target_2min_shards_tbl.loc[target_2min_shards_tbl['label'] != 'UNK']
+    # target_2min_shards_tbl = src_2min_shards_tbl.loc[
+    #     ~src_2min_shards_tbl['target_id'].isin(ffi_shards_tbl['target_id'])]
+    # target_2min_shards_tbl = target_2min_shards_tbl.loc[target_2min_shards_tbl['label'] != 'UNK']
+    target_2min_shards_tbl = src_2min_shards_tbl.loc[src_2min_shards_tbl['target_id'].isin(ffi_shards_tbl['target_id'])]
     print(f'Copying {len(target_2min_shards_tbl)} examples to {dest_dir}.')
 
     src_data_shards_fps = list(src_data_dir.glob('shard-*'))

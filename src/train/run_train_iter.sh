@@ -39,6 +39,12 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 # set model id based on received indexes
 MODEL_I=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
 
+# Check if MODEL_I is greater than or equal to N_MODELS
+if [ "$MODEL_I" -ge "$N_MODELS" ]; then
+    echo "Stopping script: model ID ($MODEL_I) is greater than or equal to total number of models ($N_MODELS)."
+    exit 0
+fi
+
 MODEL_DIR="$MODELS_DIR"/model$MODEL_I
 mkdir -p "$MODEL_DIR"
 

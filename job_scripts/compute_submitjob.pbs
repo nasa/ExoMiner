@@ -14,12 +14,8 @@
 # PBS -l select=1:ncpus=40:model=cas_ait
 # PBS -l select=1:ncpus=128:model=rom_ait
 # PBS -q long
-# Early Access Grace Hopper nodes
-# PBS -lselect=1:ncpus=16:model=gra_h100:mem=400g
-# PBS -q alpha_test
-# PBS -A ARMD
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/preprocess_diff_img_tess_spoc_2min.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/preprocess_diff_img_tess_spoc_2min.err
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/data_analysis.out
+#PBS -e /home6/msaragqoc/jobs/Kepler-TESS_exoplanet/data_analysis.err
 #PBS -W group_list=a1509
 # PBS -W group_list=s2857
 #PBS -m bea

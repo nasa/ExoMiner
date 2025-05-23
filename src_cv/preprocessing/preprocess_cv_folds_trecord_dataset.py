@@ -72,9 +72,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
 
     else:
         norm_stats = {}
-        if run_params['compute_norm_stats_params']['timeSeriesFDLList'] is not None:
-            norm_stats.update({'fdl_centroid': np.load(run_params['norm_dir'] /
-                                                       'train_fdlcentroid_norm_stats.npy', allow_pickle=True).item()})
+
         if run_params['compute_norm_stats_params']['centroidList'] is not None:
             norm_stats.update({'centroid': np.load(run_params['norm_dir'] /
                                                    'train_centroid_norm_stats.npy', allow_pickle=True).item()})
@@ -96,7 +94,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
                          f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
+    jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params)
             for file in np.concatenate(list(data_shards_fps_eval.values()))]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()

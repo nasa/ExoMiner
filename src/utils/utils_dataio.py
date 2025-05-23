@@ -288,7 +288,7 @@ class InputFnv2(object):
                 else:
                     output[feature_name] = feature_value
 
-            if example_weight:
+            if self.category_weights is not None and self.mode == 'TRAIN':
                 output_example_parser = output, label_id, example_weight
             else:
                 output_example_parser = output, label_id

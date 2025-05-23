@@ -195,8 +195,14 @@ config:
   multi_class: false
   force_softmax: false
 
+  # optimizer parameters
   optimizer: Adam
   lr: 4.176171931455995e-05
+  # loss
+  loss: crossentropy  # crossentropy, focal_crossentropy
+  focal_loss_gamma: 2.0
+  focal_loss_alpha: 0.96
+  focal_class_balancing: false
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -208,7 +214,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # flux
   global_flux_view_fluxnorm: { 'dim': [ 301, 1 ], 'dtype': float }
-  global_flux_view_fluxnorm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+#  global_flux_view_fluxnorm_var: { 'dim': [ 301, 1 ], 'dtype': float }
   flux_global_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
 
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -263,13 +269,13 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  diff_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-  oot_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-  snr_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-  neighbors_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  diff_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  oot_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  snr_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  neighbors_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
 
   quality: { 'dim': [ 5, 1], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -321,7 +327,7 @@ callbacks:
     early_stopping:
       monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
-      patience: 20
+      patience: 50
       verbose: 1
       mode: max  # maximize/minimize monitored metric in early stopping
       baseline: null

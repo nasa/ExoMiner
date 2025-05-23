@@ -10,7 +10,7 @@ import logging
 import tensorflow as tf
 
 # local
-from src_cv.old.utils_cv import create_shard_fold, create_table_shard_example_location
+from src_cv.preprocessing.utils import create_shard_fold, create_table_shard_example_location
 
 if __name__ == '__main__':
 

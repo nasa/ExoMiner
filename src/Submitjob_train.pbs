@@ -64,3 +64,7 @@ mkdir -p $OUTPUT_DIR
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
 # testing multi-node setup...
 seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
+
+# create average ensemble model with trained models and evaluate ensemble
+EVAL_ENSEMBLE_SCRIPT=$PYTHONPATH/src/run_ensemble.sh
+$EVAL_ENSEMBLE_SCRIPT $OUTPUT_DIR $OUTPUT_DIR/model0/config_run.yaml $OUTPUT_DIR/ensemble_avg_model/

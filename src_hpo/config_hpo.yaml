@@ -3,7 +3,7 @@ rnd_seed: 42
 paths:
   experiment_dir: null
   # dictionary containing keys 'train', 'val', and 'test' that map to a list of TFRecord filepaths
-  datasets_fps: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized/datasets_fps.yaml
+  datasets_fps: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared_train-test-split_5-16-2025_1157_normalized/datasets_fps.yaml
   prev_run_dir: null  # warm-start using previous HPO run
 
 optimizer: bohb  # types of hyperparameter optimizers available: 'random_search', 'bohb'
@@ -180,7 +180,6 @@ config:
 
   # shared conv hyperparameters ----
 
-
   # fc block hyperparameters
   decay_rate: null  # for l2-regularization
 
@@ -197,12 +196,15 @@ config:
 #  optimizer: 'AdamW'  # SGD, Adam, AdamW
   sgd_momentum: 0
   #  'lr': 1.0e-5
-#    batch_size: 64  # used in field training; deprecated
   force_softmax: false
   #  use_kepler_ce: false
+  multi_class: false  # switch to multiclass classification
 
   # loss hyperparameters
-  multi_class: false  # switch to multiclass classification
+  loss: focal_crossentropy  # crossentropy, focal_crossentropy
+  focal_loss_gamma: 2.0
+  focal_loss_alpha: 0.96
+  focal_class_balancing: false
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -303,10 +305,16 @@ training:
   opt_metric: auc_pr
   batch_size: 64
   ce_weights: null
-  category_weights: null
-#    PC: 1.0
-#    AFP: 1.0
-#    NTP: 1.0
+  category_weights:  null
+    # non-planet: 6278 -> 0.52
+    # planet: 253 -> 12.91
+#    KP: 44.23  # 12.91
+#    CP: 62.20  # 12.91
+#    FP: 35.49 # 0.52
+#    NTP: 1.14  # 0.52
+#    EB: 18.29  # 0.52
+#    BD: 1632.75  # 0.52
+
   shuffle_buffer_size: 5000 # should be larger than size of the training set to allow perfect sampling
 
 label_field_name: label  # label  # name of the label field in the TFRecord that is going to be used as the label
@@ -321,7 +329,7 @@ callbacks:
     early_stopping:   # null
       monitor: val_auc_pr  # which metric to monitor for early stopping
       min_delta: 0
-      patience: 50
+      patience: 100
       verbose: 1
       mode: max  # maximize/minimize monitored metric in early stopping
       baseline: null

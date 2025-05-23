@@ -272,12 +272,13 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
     return norm_diff_img_feat
 
 
-def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
+def normalize_examples(destTfrecDir, srcTfrecFile, normStats, config):
     """ Normalize examples in TFRecords.
 
     :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
     :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
     :param normStats: dict, normalization statistics used for normalizing the data
+    :param config: dict, configuration parameters for the normalized data
     :return:
     """
 
@@ -353,7 +354,7 @@ if __name__ == '__main__':
     normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
     pool = multiprocessing.Pool(processes=config['nProcesses'])
-    jobs = [(destTfrecDir, file, normStats) for file in srcTfrecFiles]
+    jobs = [(destTfrecDir, file, normStats, config) for file in srcTfrecFiles]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()
     pool.join()

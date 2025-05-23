@@ -42,10 +42,10 @@ def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
         if dataset_i == len(dataset_splits) - 1:
             last_target_idx = n_targets
         else:
-            last_target_idx = int(n_targets * dataset_frac)
+            last_target_idx = start_target_idx + int(n_targets * dataset_frac)
 
         targets_datasets_split[dataset] = target_id_lst[start_target_idx:last_target_idx]
-        curr_idx = start_target_idx + last_target_idx
+        curr_idx = last_target_idx
 
     datasets_tbls = {dataset: tce_tbl.loc[tce_tbl['target_id'].isin(targets_datasets_split[dataset])]
                      for dataset in dataset_splits}
@@ -56,19 +56,19 @@ def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
 if __name__ == '__main__':
 
     # saving directory
-    dest_tfrec_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023')
+    dest_tfrec_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_train-test-split_5-20-2025_1112')
     # shards table for your source TFRecord dataset
-    shards_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_bdslabels/shards_tbl.csv')
+    shards_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg/shards_tbl.csv')
     rnd_seed = 24  # random seed
     # split ratio
     dataset_splits = {
         'train': 0.8,
-        # 'val': 0.1,
-        'test': 0.2
+        'val': 0.1,
+        'test': 0.1,
     }
     # TCEs with these labels are put into the predict set
     cat_unlabeled_tces = [
-        # 'UNK',
+        'UNK',
     ]
 
     # create dataset tables
