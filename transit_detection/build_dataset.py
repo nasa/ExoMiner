@@ -15,7 +15,9 @@ from functools import partial
 from copy import deepcopy
 import logging
 import os
+import psutil
 import sys
+import traceback
 
 # local
 from transit_detection.utils_flux_processing import (
@@ -53,7 +55,7 @@ def process_target_sector_run(
     frac_valid_cadences_it_thr,
     maxmes_threshold,
     buffer_time,
-    transit_mask_buffer,
+    n_durations_buffer,
     gap_width,
     resampled_num_points,
     rnd_seed,
@@ -65,13 +67,22 @@ def process_target_sector_run(
     data_dir,
 ):
     # set logger for each process
-    logger = logging.getLogger(f"worker_chunk_{str(chunk_num).zfill(4)}")
+    logger = logging.getLogger(
+        f"worker_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
+    )
     logger.setLevel(logging.INFO)
 
-    log_path = Path(log_dir) / f"process_log_chunk_{str(chunk_num).zfill(4)}.log"
+    log_path = (
+        Path(log_dir)
+        / f"process_log_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.log"
+    )
     file_handler = logging.FileHandler(log_path)
     logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
     file_handler.setFormatter(logger_formatter)
+
+    logger.info(
+        f"PID_BEGIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+    )
 
     # handle lingering handlers
     if logger.hasHandlers():
@@ -189,7 +200,8 @@ def process_target_sector_run(
                 in_transit_mask = build_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
-                    transit_mask_buffer=transit_mask_buffer,
+                    buffer_time=buffer_time,
+                    n_durations_buffer=n_durations_buffer,
                     n_durations_window=n_durations_window,
                 )
 
@@ -197,17 +209,18 @@ def process_target_sector_run(
                 secondary_in_transit_mask = build_secondary_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
-                    transit_mask_buffer=transit_mask_buffer,
+                    buffer_time=buffer_time,
+                    n_durations_buffer=n_durations_buffer,
                     n_durations_window=n_durations_window,
                     maxmes_threshold=maxmes_threshold,
                 )
-
+                # In-transit mask defines points that cannot act as center-points for oot window
                 # Combine weak secondary points
                 in_transit_mask = np.logical_or(
                     in_transit_mask, secondary_in_transit_mask
                 )
 
-                time, flux, trend = detrend_flux_using_sg_filter(
+                time, flux, trend, _ = detrend_flux_using_sg_filter(
                     lc=lcf,
                     mask_in_transit=in_transit_mask,
                     win_len=int(1.2 * 24 * 30),
@@ -289,7 +302,7 @@ def process_target_sector_run(
                         )
                     except ValueError as error:
                         logger.warning(
-                            f"ERROR: Extracting flux windows - {error.args[0]}"
+                            f"ERROR: Extracting flux windows - {error.args[0]} w/ traceback: {traceback.print_exc()}"
                         )
                         continue
 
@@ -363,7 +376,9 @@ def process_target_sector_run(
                                 plot_dir=plot_dir_tce_transit_diff_img_data,
                             )
                         except ValueError as error:
-                            logger.warning(error.args[0])
+                            logger.warning(
+                                f"{error.args[0]} w/ traceback: {traceback.print_exc()}"
+                            )
                             # logger.warning(f'no difference image data computed for midtransit point {midtransit_point_window}, '
                             #             f'skipping this window')
                             excl_idxs_it_ts.append(window_i)
@@ -426,7 +441,9 @@ def process_target_sector_run(
                                 plot_dir=plot_dir_tce_oottransit_diff_img_data,
                             )
                         except ValueError as error:
-                            logger.warning(error.args[0])
+                            logger.warning(
+                                f"{error.args[0]} w/ traceback: {traceback.print_exc()}"
+                            )
                             # logger.warning(f'no difference image data computed for out-of-transit point {midoot_point_window}, '
                             #             f'skipping this window')
                             excl_idxs_oot_ts.append(window_i)
@@ -456,7 +473,7 @@ def process_target_sector_run(
                         np.array(midoot_points_windows_arr), excl_idxs_oot_ts, axis=0
                     )
 
-                    # add data for TCE for a given sector run
+                    # add data for TCE for a given sector
                     data_for_tce_sector["transit_examples"][
                         "flux"
                     ] = resampled_flux_it_windows_arr
@@ -493,15 +510,21 @@ def process_target_sector_run(
             print(
                 f"ERROR processing chunk: {chunk_num} with target: {target}, sector run: {sector_run} - {e}"
             )
+            logger.error(f"Traceback: {traceback.print_exc()}")
             continue
-
+    logger.info(
+        f"PID_END {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+    )
     logger.info(f"{chunk_num}) Processing for all target, sector_run pairs complete.")
     logger.info(f"{chunk_num}) Beginning dataset logging")
 
     # write data to TFRecord dataset
     dataset_logger = logging.getLogger("DatasetLogger")
     dataset_logger.setLevel(logging.INFO)
-    log_path = Path(log_dir) / f"dataset_build_chunk_{str(chunk_num).zfill(4)}.log"
+    log_path = (
+        Path(log_dir)
+        / f"dataset_build_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.log"
+    )
     file_handler = logging.FileHandler(log_path)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
     file_handler.setFormatter(formatter)
@@ -513,10 +536,14 @@ def process_target_sector_run(
     tfrec_dir.mkdir(exist_ok=True, parents=True)
 
     tfrec_fp = (
-        tfrec_dir / f"raw_shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
+        tfrec_dir
+        / f"raw_shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.tfrecord"
     )
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
+        logger.info(
+            f"PID_WRITE {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        )
         for data_for_tce in chunk_data:
             dataset_logger.info(
                 f"Adding data for TCE {data_for_tce['tce_uid']} to the TFRecord file {tfrec_fp.name}..."
@@ -539,7 +566,7 @@ def process_target_sector_run(
 
 if __name__ == "__main__":
     # file paths
-    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging")
+    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/build_dataset_v2")
 
     # create log directory
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -583,7 +610,7 @@ if __name__ == "__main__":
     )
     # oot_buffer_ncadences = int(buffer_time / sampling_rate)
     # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
-    transit_mask_buffer = 1.5  # number of transit durations to use as a buffer for in transit mask points.
+    n_durations_buffer = 1.5  # number of transit durations to use as a buffer for in transit mask points.
     gap_width = 0.75
     resampled_num_points = 100  # number of points in the window after resampling
 
@@ -625,7 +652,7 @@ if __name__ == "__main__":
         frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
         maxmes_threshold=maxmes_threshold,
         buffer_time=buffer_time,
-        transit_mask_buffer=transit_mask_buffer,
+        n_durations_buffer=n_durations_buffer,
         gap_width=gap_width,
         resampled_num_points=resampled_num_points,
         rnd_seed=rnd_seed,
@@ -637,10 +664,12 @@ if __name__ == "__main__":
         data_dir=data_dir,
     )
 
-    # using N-2 = 126
-    pool = multiprocessing.Pool(
-        processes=126, maxtasksperchild=1
-    )  # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
+    # OLD: using N-2 = 126
+
+    # each requires much RAM, each runs faster with less processes
+    # pool = multiprocessing.Pool(
+    #     processes=1, maxtasksperchild=1 #TODO: Update to 126
+    # )  # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
 
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [
@@ -684,16 +713,19 @@ if __name__ == "__main__":
     logger.info(
         f"Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed."
     )
-
-    for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-        if processed_chunk_mask[chunk_num - 1] == 0:
-            print(f"Processing chunk {chunk_num}")
-            logger.info(f"Processing chunk {chunk_num}.")
-            pool.apply_async(
-                partial_func, args=(job_chunk, chunk_num, len(chunked_jobs))
-            )
-        else:
-            logger.info(f"Skipping processing for chunk {chunk_num}.")
-
-    pool.close()
-    pool.join()
+    # Using 100 processes
+    with multiprocessing.Pool(processes=100, maxtasksperchild=1) as pool:
+        for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
+            if processed_chunk_mask[chunk_num - 1] == 0:
+                print(f"Processing chunk {chunk_num} with multiprocessing pool.")
+                logger.info(f"Processing chunk {chunk_num} with multiprocessing pool.")
+                pool.apply_async(
+                    partial_func, args=(job_chunk, chunk_num, len(chunked_jobs))
+                )
+            else:
+                logger.info(f"Skipping processing for chunk {chunk_num}.")
+        (
+            f"PID_MAIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        )
+        pool.close()
+        pool.join()
