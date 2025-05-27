@@ -153,23 +153,23 @@ if __name__ == "__main__":
 
     # src directory containing training set tfrecords
     train_set_tfrec_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/train"
+        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split/tfrecords/train"
     )
 
     # src directory containing set aux_tbls
     src_aux_tbl_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split/tfrecords/aux_tbls"
+        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split/tfrecords/aux_tbls"
     )
 
     # TRUE RUNS
     # destination directory for computed training stats
     dest_stats_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v4/"
+        "/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_05-04-2025_split/"
     )
 
     # destination directory for logging
     log_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_logs_v4"
+        "/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_05-04-2025_logs"
     )
 
     # # TESTING
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     start = time.time()
 
     # using N-2 = 126 as tested working value
-    pool = multiprocessing.Pool(processes=126)
+    pool = multiprocessing.Pool(processes=100)
 
     # jobs = [str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)] # chunk 1 to chunk 8611
     jobs = [
@@ -220,10 +220,13 @@ if __name__ == "__main__":
 
     results = []
     for shard_num in jobs:
-        shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611"
+        shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611.tfrecord"
         aux_tbl_fp = src_aux_tbl_dir / f"shards_tbl_{shard_num}-8611.csv"
-        shard_pixels = pool.apply_async(partial_func, args=[shard_fp, aux_tbl_fp]).get()
-        results.append(shard_pixels)  # add flattened images to it
+        if shard_fp.exists():
+            shard_pixels = pool.apply_async(
+                partial_func, args=[shard_fp, aux_tbl_fp]
+            ).get()
+            results.append(shard_pixels)  # add flattened images to it
 
     logger.info(f"Succesfully finished retrieving pixels for {len(results)} shards.")
 

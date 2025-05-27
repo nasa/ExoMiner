@@ -45,7 +45,7 @@ def normalize_flux(flux_window):
 
     one_td_minimum = np.min(
         med_centered_flux[center - half_td : center + half_td]
-    )  # Minmum value 1 transit duration around center
+    )  # Minmum value +- hald td around center
 
     # zero division eps term added to denominator to avoid division by zero
     norm_flux_window = med_centered_flux / (abs(one_td_minimum) + 1e-12)
@@ -110,6 +110,7 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
                         src_norm_stats_dir / f"train_set_{img_feature}_stats.npy",
                         allow_pickle=True,
                     ).item()
+                    print(f"Using norm stats: {norm_stats}")
 
                     img_feature_set_med, img_feature_set_std = (
                         norm_stats["median"],
@@ -146,19 +147,20 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
 if __name__ == "__main__":
 
     # Define split name when processing multiple split directories
-    SPLIT_NAME = "train"  # TODO: normalize train, test
+    SPLIT_NAME = "test"  # TODO: normalize train, test, val
+    print(f"Beginning processing for {SPLIT_NAME} set")
 
     # Define logging directory
     log_dir = Path(
-        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_v3/{SPLIT_NAME}_set"
-    )  # TODO: train, test
+        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_05-04-2025/{SPLIT_NAME}_set"
+    )
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # # Define source dataset directory & dest dataset directory with same structure + norm suffix
     src_dataset_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split"
+        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split"
     )
-    dest_dataset_dir = src_dataset_dir.parent / (str(src_dataset_dir.name) + "_norm_v3")
+    dest_dataset_dir = src_dataset_dir.parent / (str(src_dataset_dir.name) + "_norm")
 
     # Define source/destination tfrec directory based on src dataset + split_name specification
     src_tfrec_dir = src_dataset_dir / "tfrecords" / SPLIT_NAME
@@ -168,12 +170,12 @@ if __name__ == "__main__":
 
     # Define destination norm stats directory for the split
     src_norm_stats_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_11-25-2024_split_v4"
+        "/nobackupp27/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_05-04-2025_split"
     )
     src_norm_stats_dir.mkdir(parents=True, exist_ok=True)
 
     # Define pool for multiprocessing
-    pool = multiprocessing.Pool(processes=126)  # TODO: move up processes
+    pool = multiprocessing.Pool(processes=60)
 
     # Setup logger for overseeing parallelized processes
     logger = logging.getLogger(f"norm_logger_{SPLIT_NAME}")
@@ -186,7 +188,7 @@ if __name__ == "__main__":
     logger.addHandler(file_handler)
 
     # Create list of shard_nums to process from 1 to NUM_SHARDS bound
-    shards_to_process = [shard_num for shard_num in range(7486, 8611 + 1)]
+    shards_to_process = [shard_num for shard_num in range(0, 8611 + 1)]
 
     results = []
 
@@ -194,21 +196,29 @@ if __name__ == "__main__":
     for shard_num in shards_to_process:
         logger.info(f"Processing chunk {shard_num}.")
         print((f"Processing chunk {shard_num}."))
+        try:
+            # define title in {SHARD_PREFIX}_{SHARD_NUM}-{NUM_SHARDS} format ex) test_shard_XXXX-8611 format
+            SHARD_TITLE = (
+                SPLIT_NAME
+                + "_shard_"
+                + str(shard_num).zfill(4)
+                + "-"
+                + str(8611).zfill(4)
+                + ".tfrecord"
+            )
 
-        # define title in {SHARD_PREFIX}_{SHARD_NUM}-{NUM_SHARDS} format ex) test_shard_XXXX-8611 format
-        SHARD_TITLE = (
-            SPLIT_NAME + "_shard_" + str(shard_num).zfill(4) + "-" + str(8611).zfill(4)
-        )
+            # define src tfrec to process and dest tfrec to write to
+            src_tfrec_fp = src_tfrec_dir / SHARD_TITLE
+            dest_tfrec_fp = dest_tfrec_dir / ("norm_" + SHARD_TITLE)
 
-        # define src tfrec to process and dest tfrec to write to
-        src_tfrec_fp = src_tfrec_dir / SHARD_TITLE
-        dest_tfrec_fp = dest_tfrec_dir / ("norm_" + SHARD_TITLE)
-
-        result = pool.apply_async(
-            normalize_and_write_shard,
-            args=(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir),
-        )
-        results.append(result.get())
+            result = pool.apply_async(
+                normalize_and_write_shard,
+                args=(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir),
+            )
+            results.append(result.get())
+        except:
+            print(f"ERROR Processing chunk {shard_num}")
+            continue
 
     pool.close()
     pool.join()

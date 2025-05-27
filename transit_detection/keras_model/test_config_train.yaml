@@ -112,14 +112,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   diff_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
   snr_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
 
-model_inputs: # For defining which features from feature set to use as input to model
-  - flux_norm
-  - target_img
-  - oot_img_stdnorm
-  - diff_img_stdnorm
-  - snr_img_stdnorm
-
-
 # maps features' names to features names expected by the model
 feature_map: null
 
@@ -127,15 +119,12 @@ training:
   data_augmentation: false  # perform online data augmentation
   online_preprocessing_params: null # online data augmentation parameters - not used for transit detection
 #  n_models: 2  # number of models in the ensemble
-  n_epochs: 300  # TODO: determine number of epochs? # number of epochs used to train each model
+  n_epochs: 1  # TODO: determine number of epochs? # number of epochs used to train each model
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   #  ce_weights: null
   filter_data: null  # deprecated; useless
-  category_weights: null # category weights used in weighted loss; set to null for non-weighted loss
-    # '0': 0.15
-    # '1': 0.85
-
+  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
 
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
@@ -153,23 +142,23 @@ callbacks:
   early_stopping:
     monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
     min_delta: 0
-    patience: 50
+    patience: 300
     verbose: 1
     mode: max  # maximize/minimize monitored metric in early stopping
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
-    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/test_keras_model_inputs/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch
     delete_checkpoint: true # Overwrite previous model @ each save_freq
   model_checkpoint:
-    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/model_checkpoints/model_epoch_{epoch:03d}.keras"
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/test_keras_model_inputs/model_checkpoints/model_epoch_{epoch:03d}.keras"
     save_freq: 'epoch'
     save_weights_only: false
     save_best_only: false
     verbose: 1
   csv_logger:
-    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/training_metrics_log.csv"
+    filename: "/nobackupp27/jochoa4/work_dir/job_runs/test_keras_model_inputs/training_metrics_log.csv"
     append: true # If training paused
 
 
@@ -183,16 +172,17 @@ callbacks:
     embeddings_freq: 0
 
 label_map: # maps label to a label id
-  '0': 0
-  '1': 1
+  0.0: 0
+  1.0: 1
 
-labels: ['0', '1']
+labels: [0, 1]
 
 datasets_fps: # TODO: update fps
-  # train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3_20_percent_str_label/tfrecords/train/norm_train_shard_????-????
-  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/train/norm_train_shard_????-????.tfrecord
-  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/val/norm_val_shard_????-????.tfrecord
-  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/norm_test_shard_????-????.tfrecord
+  # train: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0001
+  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/train/norm_train_shard_0???-????
+  # val: /Users/jochoa4/Desktop/test_tfrecord/test_shard_updated_0001-0013
+  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/val/norm_val_shard_0???-????
+  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3/tfrecords/test/norm_test_shard_0???-????
 
 datasets:
   - train

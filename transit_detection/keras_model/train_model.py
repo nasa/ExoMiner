@@ -120,9 +120,9 @@ def train_model(config, model_dir, logger=None):
         initial_epoch=0,
         steps_per_epoch=None,
         validation_steps=None,
-        max_queue_size=10,  # does not matter when using input function with tf.data API
-        workers=1,  # same
-        use_multiprocessing=False,  # same
+        # max_queue_size=10,  # does not matter when using input function with tf.data API
+        # workers=1,  # same
+        # use_multiprocessing=False,  # same
     )
 
     if logger is None:
@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
     # output directory
     model_dir_fp = Path(
-        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_norm_v1/"
+        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/"  # v3 using str labels
     )
     model_dir_fp.mkdir(parents=True, exist_ok=True)
 

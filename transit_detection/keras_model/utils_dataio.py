@@ -164,12 +164,11 @@ class InputFnv2(object):
             # get labels if in TRAIN or EVAL mode
             if include_labels:
                 label_field = {
-                    self.label_field_name: tf.io.FixedLenFeature([], tf.float32)
+                    self.label_field_name: tf.io.FixedLenFeature([], tf.string)
                 }
                 parsed_label = tf.io.parse_single_example(
                     serialized=serialized_example, features=label_field
                 )
-
             if self.category_weights is not None and self.mode == "TRAIN":
                 category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
                     keys=list(self.category_weights.keys()),
@@ -184,6 +183,8 @@ class InputFnv2(object):
                 example_weight = label_to_weight.lookup(
                     parsed_label[self.label_field_name]
                 )
+                print(f"Giving weight {example_weight} to label {label_to_weight}")
+
             elif self.sample_weights and self.mode == "TRAIN":
                 sample_weight_field = {
                     "sample_weight": tf.io.FixedLenFeature([], tf.float32)
@@ -234,15 +235,18 @@ class InputFnv2(object):
 
             # map label to integer value
             label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
+            
             if include_labels:
                 # map label to integer
-                label_id = parsed_label[
-                    self.label_field_name
-                ]  # label_to_id.lookup(parsed_label[self.label_field_name])
+                # label_id = parsed_label[
+                #     self.label_field_name
+                # ] 
+                label_id = label_to_id.lookup(parsed_label[self.label_field_name])
+
                 # print(f"label_id: {(label_id)}, {type(label_id)}")
                 # Ensure that the label_id is non negative to verify a successful hash map lookup.
                 assert_known_label = tf.Assert(
-                    tf.greater_equal(label_id, tf.cast(0, dtype=tf.float32)),
+                    tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
                     ["Unknown label string:", parsed_label[self.label_field_name]],
                     name="assert_non-negativity",
                 )
@@ -320,12 +324,12 @@ class InputFnv2(object):
 
         # Create a HashTable mapping label strings to integer ids.
 
-        # table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
-        #                                                         values=list(self.label_map.values()),
-        #                                                         key_dtype=tf.string,
-        #                                                         value_dtype=tf.int32)
+        table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
+                                                                values=list(self.label_map.values()),
+                                                                key_dtype=tf.string,
+                                                                value_dtype=tf.int32)
 
-        # label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
+        label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
 
         include_labels = self.mode in ["TRAIN", "EVAL"]
 

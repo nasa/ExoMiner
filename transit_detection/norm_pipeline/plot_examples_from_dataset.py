@@ -14,77 +14,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LogNorm
 
 import glob
-
-
-def plot_diff_img_data(
-    diff_img, oot_img, snr_img, target_img, save_fp, label="", logscale=True
-):
-    """Plot difference image data for TCE in a given quarter/sector.
-
-    Args:
-        diff_img: NumPy array, difference image
-        oot_img: NumPy array, out-of-transit image
-        snr_img: NumPy array, SNR image
-        target_img: NumPy array, target location image
-        target_coords: dict, target location 'x' and 'y'
-        qmetric: float, quality metric
-        img_num: str, quarter/sector run
-        uid: str, TCE ID
-        save_fp: Path, file path to saved plot
-        logscale: bool, if True images color is set to log scale
-
-    Returns:
-
-    """
-
-    target_coords = {"x": diff_img.shape[1] / 2, "y": diff_img.shape[0] / 2}
-
-    f, ax = plt.subplots(2, 2, figsize=(16, 8))
-    # diff img
-    im = ax[0, 0].imshow(diff_img, norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[0, 0])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[0, 0].scatter(
-        target_coords["y"], target_coords["x"], marker="x", color="r", label="Target"
-    )
-    ax[0, 0].set_ylabel("Row")
-    ax[0, 0].set_xlabel("Col")
-    ax[0, 0].legend()
-    ax[0, 0].set_title(f"{label} Difference Flux (e-/cadence)")
-    # oot img
-    im = ax[0, 1].imshow(oot_img, norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[0, 1])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[0, 1].scatter(
-        target_coords["y"], target_coords["x"], marker="x", color="r", label="Target"
-    )
-    ax[0, 1].set_ylabel("Row")
-    ax[0, 1].set_xlabel("Col")
-    ax[0, 1].legend()
-    ax[0, 1].set_title("Out-of-Transit Flux (e-/cadence)")
-    # target img
-    ax[1, 0].imshow(target_img)
-    ax[1, 0].set_ylabel("Row")
-    ax[1, 0].set_xlabel("Col")
-    ax[1, 0].set_title("Target Position")
-    # snr img
-    im = ax[1, 1].imshow(snr_img, norm=LogNorm() if logscale else None)
-    divider = make_axes_locatable(ax[1, 1])
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax)
-    ax[1, 1].scatter(
-        target_coords["y"], target_coords["x"], marker="x", color="r", label="Target"
-    )
-    ax[1, 1].set_ylabel("Row")
-    ax[1, 1].set_xlabel("Col")
-    ax[1, 1].legend()
-    ax[1, 1].set_title("Difference SNR")
-
-    f.tight_layout()
-    f.savefig(save_fp)
-    plt.close()
+import random
+import traceback
 
 
 def plot_flux_and_diff_img_data(
@@ -115,7 +46,7 @@ def plot_flux_and_diff_img_data(
 
     """
     label = "In Transit" if label == 1.0 else "Out of Transit"
-    snr = str(round(snr, 2))
+    snr = str(round(snr, 2)) if snr else None
     it_idx = np.argmax(target_img)
     row, col = np.unravel_index(
         it_idx, target_img.shape
@@ -128,8 +59,10 @@ def plot_flux_and_diff_img_data(
 
     ax = fig.add_subplot(gs[0, :])
     time = np.linspace(0, 100, 100)
-    ax.plot(time, flux_curve, "b-", linewidth=2, marker="o", markersize=3, alpha=0.6)
-    ax.set_title(f"{label} Flux Curve w/ midpoint {round(midpoint,2)} Over Time")
+    ax.plot(time, flux_curve, linestyle="None", marker="o", markersize=3, alpha=0.6)
+    ax.set_title(
+        f"{label} Flux Curve w/ midpoint {round(midpoint,2) if midpoint else None} Over Time"
+    )
     ax.set_xlabel("Time")
     ax.set_ylabel("Flux value") if not norm else ax.set_ylabel("Normalized Flux value")
 
@@ -194,8 +127,13 @@ def plot_flux_and_diff_img_data(
     )
 
     plt.tight_layout()
-    plt.savefig(save_fp)
-    plt.close()
+    try:
+        plt.savefig(save_fp)
+        plt.close()
+
+        print(f"Plotted to {save_fp}")
+    except Exception as e:
+        print(f"ERROR plotting: {e}")
 
 
 def get_diff_imgs_from_shard(
@@ -232,28 +170,72 @@ def get_diff_imgs_from_shard(
     return diff_imgs
 
 
-def get_flux_curves_from_shard(
-    dest_tfrec_fp: Path, flux_feature_key: str = "flux"
-) -> list[np.array]:
-    flux_curves = []
+def get_random_examples(tfrec_fp, example_num=10):
+    # dataset = tf.data.TFRecordDataset(tfrec_fp)
+    # dataset = dataset.shuffle(buffer_size=buffer_size)
+    # dataset = dataset.map(parse_fn)
+    # return next(iter(dataset))
+    raw_dataset = tf.data.TFRecordDataset(tfrec_fp)
+    total_examples = sum(1 for _ in raw_dataset)
 
-    # Load source dataset
-    src_tfrecord_dataset = tf.data.TFRecordDataset(dest_tfrec_fp)
+    print(f"Found {total_examples} in shard")
+    if total_examples == 0:
+        print(f"Plotting no examples for {tfrec_fp}")
+        return []
 
-    for string_record in src_tfrecord_dataset.as_numpy_iterator():
+    random_indices = sorted(random.sample(range(total_examples), example_num))
+    print(f"Using random_indices: {random_indices}")
 
-        example = tf.train.Example()
+    # Reinitialize dataset, consumed during first iteration
+    raw_dataset = tf.data.TFRecordDataset(tfrec_fp)
 
-        example.ParseFromString(string_record)
+    examples = []
+    idx_iter = iter(random_indices)
+    current_target = next(idx_iter, None)
 
-        # normalize flux window
-        example_flux_feature = example.features.feature[
-            flux_feature_key
-        ].float_list.value
+    for i, example in enumerate(raw_dataset):
+        if i == current_target:
+            examples.append(example)
+            current_target = next(idx_iter, None)
+        if current_target is None:  # Exhausted Random Indices iter
+            break
 
-        flux_curves.append(example_flux_feature)
+    # if total_examples == 0:
+    #     return None
+    # rand_index = random.randint(0, total_examples - 1)
+    # return next(iter(tf.data.TFRecordDataset(tfrec_fp).skip(rand_index)))
+    return examples
 
-    return flux_curves
+
+# def parse_fn(example_proto):
+#     feature_description = {
+#         'diff_img': tf.io.FixedLenFeature([], tf.)
+#     }
+#     return tf.io.parse_single_example(example_proto, feature_description)
+
+
+# def get_flux_curves_from_shard(
+#     dest_tfrec_fp: Path, flux_feature_key: str = "flux"
+# ) -> list[np.array]:
+#     flux_curves = []
+
+#     # Load source dataset
+#     src_tfrecord_dataset = tf.data.TFRecordDataset(dest_tfrec_fp)
+
+#     for string_record in src_tfrecord_dataset.as_numpy_iterator():
+
+#         example = tf.train.Example()
+
+#         example.ParseFromString(string_record)
+
+#         # normalize flux window
+#         example_flux_feature = example.features.feature[
+#             flux_feature_key
+#         ].float_list.value
+
+#         flux_curves.append(example_flux_feature)
+
+#     return flux_curves
 
 
 def plot_examples_from_shard_inorder(
@@ -261,123 +243,164 @@ def plot_examples_from_shard_inorder(
 ) -> None:
     raw_dataset = tf.data.TFRecordDataset([tfrec_fp])
 
-    norm_flux_window = []
-    norm_diff_imgs = []
+    try:
+        print(f"Processing {tfrec_fp}")
 
-    unnorm_flux_window = []
-    unnorm_diff_imgs = []
+        norm_flux_window = []
+        norm_diff_imgs = []
+        unnorm_flux_window = []
 
-    label = None
-    disposition = None
-    uid = None
-    period = None
-    snr = None
-    timestamp = None
+        unnorm_diff_imgs = []
 
-    for example_i, raw_record in enumerate(raw_dataset.take(num_examples), start=1):
-        example = tf.train.Example()
-        example.ParseFromString(raw_record.numpy())
+        label = None
+        disposition = None
+        uid = None
+        period = None
+        snr = None
+        timestamp = None
 
-        # Get flux_window
-        norm_flux_window = example.features.feature["flux"].float_list.value
-        unnorm_flux_window = example.features.feature["flux_norm"].float_list.value
+        # random_raw_record = get_random_example(tfrec_fp=tfrec_fp)
+        random_raw_records = get_random_examples(tfrec_fp=tfrec_fp)
 
-        for img_feature in ["diff_img", "oot_img", "snr_img", "target_img"]:
-            example_img_feature = tf.reshape(
-                tf.io.parse_tensor(
-                    example.features.feature[img_feature].bytes_list.value[0],
-                    tf.float32,
-                ),
-                (33, 33),
-            ).numpy()
-            norm_diff_imgs.append(example_img_feature)
+        if random_raw_records != []:
+            for random_raw_record in random_raw_records:
 
-        for img_feature in [
-            "diff_img_stdnorm",
-            "oot_img_stdnorm",
-            "snr_img_stdnorm",
-            "target_img",
-        ]:
+                print(f"Successfully got random_raw_record from {tfrec_fp}")
+                # for example_i, raw_record in enumerate(raw_dataset.take(num_examples), start=1):
+                example = tf.train.Example()
+                example.ParseFromString(random_raw_record.numpy())
 
-            example_img_feature = tf.reshape(
-                tf.io.parse_tensor(
-                    example.features.feature[img_feature].bytes_list.value[0],
-                    tf.float32,
-                ),
-                (33, 33),
-            ).numpy()
-            norm_diff_imgs.append(example_img_feature)
+                # Get flux_window
+                norm_flux_window = example.features.feature[
+                    "flux_norm"
+                ].float_list.value
+                unnorm_flux_window = example.features.feature["flux"].float_list.value
 
-        label = example.features.feature["label"].float_list.value[0]
+                for img_feature in ["diff_img", "oot_img", "snr_img", "target_img"]:
+                    example_img_feature = tf.reshape(
+                        tf.io.parse_tensor(
+                            example.features.feature[img_feature].bytes_list.value[0],
+                            tf.float32,
+                        ),
+                        (33, 33),
+                    ).numpy()
+                    unnorm_diff_imgs.append(example_img_feature)
 
-        disposition = (
-            example.features.feature["disposition"].bytes_list.value[0].decode("utf-8")
-        )
-        uid = example.features.feature["uid"].bytes_list.value[0].decode("utf-8")
-        period = example.features.feature["tce_period"].float_list.value[0]
-        snr = example.features.feature["tce_model_snr"].float_list.value[0]
-        timestamp = example.features.feature["t"].float_list.value[0]
+                for img_feature in [
+                    "diff_img_stdnorm",
+                    "oot_img_stdnorm",
+                    "snr_img_stdnorm",
+                    "target_img",
+                ]:
 
-        unnorm_save_dir = Path(plot_dir) / disposition
-        norm_save_dir = Path(plot_dir) / disposition
+                    example_img_feature = tf.reshape(
+                        tf.io.parse_tensor(
+                            example.features.feature[img_feature].bytes_list.value[0],
+                            tf.float32,
+                        ),
+                        (33, 33),
+                    ).numpy()
+                    norm_diff_imgs.append(example_img_feature)
 
-        unnorm_save_dir.mkdir(parents=True)
-        norm_save_dir.mkdir(parents=True)
+                label = (
+                    example.features.feature["label"]
+                    .bytes_list.value[0]
+                    .decode("utf-8")
+                )
 
-        unnorm_save_fp = (
-            unnorm_save_dir / "RAW_" + str(label) + "_" + str(Path(tfrec_fp).name)
-        )
-        norm_save_fp = (
-            norm_save_dir / "NORM_" + str(label) + "_" + str(Path(tfrec_fp).name)
-        )
+                disposition = (
+                    example.features.feature["disposition"]
+                    .bytes_list.value[0]
+                    .decode("utf-8")
+                )
+                uid = (
+                    example.features.feature["uid"].bytes_list.value[0].decode("utf-8")
+                )
+                period = example.features.feature["tce_period"].float_list.value[0]
+                snr = example.features.feature["tce_model_snr"].float_list.value[0]
+                timestamp = example.features.feature["t"].float_list.value[0]
 
-        # Plot Raw Data
-        plot_flux_and_diff_img_data(
-            flux_curve=unnorm_flux_window,
-            diff_img=unnorm_diff_imgs[0],
-            oot_img=unnorm_diff_imgs[1],
-            snr_img=unnorm_diff_imgs[2],
-            target_img=unnorm_diff_imgs[3],
-            save_fp=unnorm_save_fp,
-            norm=False,
-            snr=snr,
-            midpoint=timestamp,
-        )
+                unnorm_save_dir = Path(plot_dir) / disposition / str(uid)
+                norm_save_dir = Path(plot_dir) / disposition / str(uid)
 
-        # Plot Norm Data
-        plot_flux_and_diff_img_data(
-            flux_curve=norm_flux_window,
-            diff_img=norm_diff_imgs[0],
-            oot_img=norm_diff_imgs[1],
-            snr_img=norm_diff_imgs[2],
-            target_img=norm_diff_imgs[3],
-            save_fp=norm_save_fp,
-            norm=True,
-            snr=snr,
-            midpoint=timestamp,
-        )
+                unnorm_save_dir.mkdir(parents=True, exist_ok=True)
+                norm_save_dir.mkdir(parents=True, exist_ok=True)
+
+                unnorm_save_fp = unnorm_save_dir / (
+                    "RAW_" + str(label) + "_" + str(Path(tfrec_fp).name) + ".png"
+                )
+                norm_save_fp = norm_save_dir / (
+                    "NORM_" + str(label) + "_" + str(Path(tfrec_fp).name) + ".png"
+                )
+
+                # Plot Raw Data
+                plot_flux_and_diff_img_data(
+                    flux_curve=unnorm_flux_window,
+                    diff_img=unnorm_diff_imgs[0],
+                    oot_img=unnorm_diff_imgs[1],
+                    snr_img=unnorm_diff_imgs[2],
+                    target_img=unnorm_diff_imgs[3],
+                    save_fp=unnorm_save_fp,
+                    norm=False,
+                    snr=snr,
+                    midpoint=timestamp,
+                )
+
+                # Plot Norm Data
+                plot_flux_and_diff_img_data(
+                    flux_curve=norm_flux_window,
+                    diff_img=norm_diff_imgs[0],
+                    oot_img=norm_diff_imgs[1],
+                    snr_img=norm_diff_imgs[2],
+                    target_img=norm_diff_imgs[3],
+                    save_fp=norm_save_fp,
+                    norm=True,
+                    snr=snr,
+                    midpoint=timestamp,
+                )
+                print(
+                    f"Finished plotting norm data to {norm_save_fp} and raw data to {unnorm_save_fp}\n"
+                )
+        else:
+            print(f"Could not extract random example from {tfrec_fp}")
+    except Exception as e:
+        print(f"ERROR with example: {e}, tb: {traceback.print_exc()}")
 
 
 if __name__ == "__main__":
+    random.seed(42)
 
     plot_dir = Path(
-        f"/nobackupp27/jochoa4/work_dir/data/plots/plot_dataset_v4_raw_vs_norm/"
+        f"/nobackupp27/jochoa4/work_dir/data/plots/plot_dataset_examples_05-04-2025_split_norm/"
     )
     plot_dir.mkdir(parents=True, exist_ok=True)
 
-    for split in ["train", "test", "val"]:
+    print(f"Processing splits: ")
 
-        tfrec_pattern = "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm/tfrecords/{split}/norm_{split}_shard_*-*"
+    for split in ["train", "test", "val"]:
+        print(f"Processing split {split}")
+
+        tfrec_pattern = f"/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/{split}/norm_{split}_shard_00??-????.tfrecord"
+        print(f"Using pattern: {tfrec_pattern}")
 
         tfrec_fps = glob.glob(tfrec_pattern)
+        print(f"Found fps: {len(tfrec_fps)}")
+
         """
         get all tfrec_fps
         select 1 example per shard (take first is fine for now) (print type so you can filter after)
         plot 
         
         """
+        split_plot_dir = plot_dir / f"{split}"
+        split_plot_dir.mkdir(parents=True, exist_ok=True)
 
         for tfrec_fp in tfrec_fps:
-            plot_examples_from_shard_inorder(
-                tfrec_fp=tfrec_fp, plot_dir=plot_dir, num_examples=1
-            )
+            try: 
+                print(f"Processing tfrec_fp: {tfrec_fp}")
+                plot_examples_from_shard_inorder(
+                    tfrec_fp=tfrec_fp, plot_dir=split_plot_dir, num_examples=1
+                )
+            except Exception as e:
+                print(f"ERROR: {e}")
+                continue
