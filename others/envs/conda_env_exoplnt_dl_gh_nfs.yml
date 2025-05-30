@@ -1,4 +1,4 @@
-name: exoplnt_dl_gh
+name: exoplnt_dl_gh_nfs
 channels:
   - pyviz
   - https://repo.anaconda.cloud/repo/main
@@ -26,7 +26,6 @@ dependencies:
   - async-lru=2.0.4=pyhd8ed1ab_1
   - attr=2.5.1=h4e544f5_1
   - attrs=25.1.0=pyh71513ae_0
-  - autograd=1.5=py312hd43f75c_0
   - aws-c-auth=0.8.1=hb7ec8d5_0
   - aws-c-cal=0.8.1=h740c5af_3
   - aws-c-common=0.10.6=h86ecc28_0
@@ -60,11 +59,11 @@ dependencies:
   - brotli-python=1.1.0=py312h6f74592_2
   - bzip2=1.0.8=h68df207_7
   - c-ares=1.34.4=h86ecc28_0
-  - ca-certificates=2025.2.25=hd43f75c_0
+  - ca-certificates=2025.1.31=hcefe29a_0
   - cached-property=1.5.2=hd8ed1ab_1
   - cached_property=1.5.2=pyha770c72_1
   - cairo=1.18.2=h83712da_1
-  - certifi=2025.1.31=py312hd43f75c_0
+  - certifi=2025.1.31=pyhd8ed1ab_0
   - cffi=1.17.1=py312hac81daf_0
   - charset-normalizer=3.4.1=pyhd8ed1ab_0
   - click=8.1.8=pyh707e725_0
@@ -75,10 +74,6 @@ dependencies:
   - configspace=0.4.21=py312h0d09708_1
   - contourpy=1.3.1=py312h451a7dd_0
   - cpython=3.12.9=py312hd8ed1ab_0
-  - cryptography=44.0.1=py312h4f760a9_0
-  - cuda-cudart=12.4.127=h7d4d7f0_0
-  - cuda-cudart_linux-aarch64=12.4.127=h7d4d7f0_0
-  - cuda-version=12.4=hbda6634_3
   - cycler=0.12.1=pyhd8ed1ab_1
   - cyrus-sasl=2.1.27=hf6b2984_7
   - cython=0.29.37=py312h2aa54b4_0
@@ -95,7 +90,6 @@ dependencies:
   - exceptiongroup=1.2.2=pyhd8ed1ab_1
   - executing=2.1.0=pyhd8ed1ab_1
   - expat=2.6.4=h5ad3122_0
-  - fbpca=1.0=pyhd8ed1ab_1
   - folium=0.19.4=pyhd8ed1ab_0
   - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
   - font-ttf-inconsolata=3.000=h77eed37_0
@@ -110,8 +104,6 @@ dependencies:
   - freexl=2.0.0=h82fd2cb_2
   - frozenlist=1.5.0=py312hcc812fe_1
   - fsspec=2025.2.0=pyhd8ed1ab_0
-  - future=1.0.0=py312hd43f75c_0
-  - gast=0.4.0=pyh9f0ad1d_0
   - gdal=3.10.2=py312hdbc5cb1_0
   - geopandas=1.0.1=pyhd8ed1ab_3
   - geopandas-base=1.0.1=pyha770c72_3
@@ -144,7 +136,6 @@ dependencies:
   - ipython=8.32.0=pyh907856f_0
   - ipywidgets=8.1.5=pyhd8ed1ab_1
   - isoduration=20.11.0=pyhd8ed1ab_1
-  - jaraco.classes=3.2.1=pyhd3eb1b0_0
   - jedi=0.19.2=pyhd8ed1ab_1
   - jinja2=3.1.5=pyhd8ed1ab_0
   - jmespath=1.0.1=pyhd8ed1ab_1
@@ -261,14 +252,12 @@ dependencies:
   - libxml2=2.13.6=h2e0c361_0
   - libxslt=1.1.39=h1cc9640_0
   - libzlib=1.3.1=h86ecc28_2
-  - lightkurve=2.5.0=pyhd8ed1ab_1
   - linkify-it-py=2.0.3=pyhd8ed1ab_1
   - locket=1.0.0=pyhd8ed1ab_0
   - lz4=4.3.3=py312h7dcfcaa_2
   - lz4-c=1.10.0=h5ad3122_1
   - lzo=2.10=h31becfc_1001
   - mapclassify=2.8.1=pyhd8ed1ab_1
-  - markdown=3.6=pyhd8ed1ab_0
   - markdown-it-py=3.0.0=pyhd8ed1ab_1
   - markupsafe=3.0.2=py312h74ce7d3_1
   - matplotlib=3.10.0=py312h8025657_0
@@ -276,7 +265,6 @@ dependencies:
   - matplotlib-inline=0.1.7=pyhd8ed1ab_1
   - mdit-py-plugins=0.4.2=pyhd8ed1ab_1
   - mdurl=0.1.2=pyhd8ed1ab_1
-  - memoization=0.4.0=pyhd8ed1ab_2
   - minizip=4.0.7=he2fa2e2_3
   - mistune=3.1.2=pyhd8ed1ab_0
   - mpc=1.3.1=h783934e_1
@@ -292,7 +280,6 @@ dependencies:
   - nbclient=0.10.2=pyhd8ed1ab_0
   - nbconvert-core=7.16.6=pyh29332c3_0
   - nbformat=5.10.4=pyhd8ed1ab_1
-  - nccl=2.25.1.1=h712af05_0
   - ncurses=6.5=ha32ae93_3
   - nest-asyncio=1.6.0=pyhd8ed1ab_1
   - netifaces=0.11.0=py312hb2c0f52_3
@@ -300,8 +287,6 @@ dependencies:
   - nlohmann_json=3.11.3=h0a1ffab_1
   - nltk=3.9.1=pyhd8ed1ab_1
   - notebook-shim=0.2.4=pyhd8ed1ab_1
-  - numpy=1.26.4=py312h470d778_0
-  - oktopus=0.1.2=pyhecae5ae_1
   - openjpeg=2.5.3=h3f56577_0
   - openldap=2.6.9=h30c48ee_0
   - openmpi=5.0.7=hfa72985_100
@@ -353,7 +338,6 @@ dependencies:
   - python_abi=3.12=5_cp312
   - pytz=2024.1=pyhd8ed1ab_0
   - pyviz_comms=3.0.0=py_0
-  - pyvo=1.6.1=pyhd8ed1ab_0
   - pyyaml=6.0.2=py312hcc812fe_2
   - pyzmq=26.2.1=py312h2427ae1_0
   - qhull=2020.2=h70be974_5
@@ -372,10 +356,8 @@ dependencies:
   - s3fs=2025.2.0=pyhd8ed1ab_0
   - scikit-learn=1.6.1=py312h2605d20_0
   - scipy=1.15.2=py312hb5459e8_0
-  - secretstorage=3.3.3=py312h8025657_3
   - send2trash=1.8.3=pyh0d859eb_1
   - serpent=1.41=pyhd8ed1ab_0
-  - setuptools=75.8.0=pyhff2d567_0
   - shapely=2.0.7=py312h737c3e5_0
   - six=1.17.0=pyhd8ed1ab_0
   - snappy=1.2.1=hd4fb6f5_1
@@ -406,7 +388,6 @@ dependencies:
   - uc-micro-py=1.0.3=pyhd8ed1ab_1
   - ucc=1.3.0=h5c79265_4
   - ucx=1.18.0=h0fd4fdb_1
-  - uncertainties=3.2.2=pyhd8ed1ab_2
   - unicodedata2=16.0.0=py312hb2c0f52_0
   - uri-template=1.3.0=pyhd8ed1ab_1
   - uriparser=0.9.8=h0a1ffab_0
@@ -454,10 +435,14 @@ dependencies:
   - zstd=1.5.6=h02f22dd_0
   - pip:
       - absl-py==2.1.0
-      - astroquery==0.4.9
+      - astroquery==0.4.10
       - astunparse==1.6.3
+      - cryptography==45.0.2
+      - fbpca==1.0
       - flatbuffers==25.2.10
+      - gast==0.6.0
       - google-pasta==0.2.0
+      - graphviz==0.20.3
       - grpcio==1.70.0
       - jaraco-classes==3.4.0
       - jaraco-context==6.0.1
@@ -466,19 +451,29 @@ dependencies:
       - keras==3.8.0
       - keyring==25.6.0
       - libclang==18.1.1
+      - lightkurve==2.5.1
+      - markdown==3.7
+      - memoization==0.4.0
       - ml-dtypes==0.4.1
-      - more-itertools==10.6.0
+      - more-itertools==10.7.0
       - namex==0.0.8
+      - numpy==2.0.2
       - nvidia-cublas-cu12==12.8.3.14
       - nvidia-cudnn-cu12==9.7.1.26
       - opt-einsum==3.4.0
       - optree==0.14.0
       - protobuf==5.29.3
       - pydl==1.0.1
-      - pydot==3.0.4
+      - pydot==4.0.0
+      - pyvo==1.6.2
       - rich==13.9.4
+      - secretstorage==3.3.3
+      - setuptools==75.8.0
       - tensorboard==2.18.0
       - tensorboard-data-server==0.7.2
       - tensorflow-forgrace==2.18.0
       - termcolor==2.5.0
+      - tf-keras==2.18.0
+      - uncertainties==3.2.3
       - werkzeug==3.1.3
+prefix: /nobackupnfs1/msaragoc/conda_envs/exoplnt_dl_gh_nfs

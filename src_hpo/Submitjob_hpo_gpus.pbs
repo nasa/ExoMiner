@@ -47,11 +47,11 @@ echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 # number of GPUs per node
 N_GPUS_TOTAL=4
 
-# number of total jobs per job in job array
-NUM_TOTAL_JOBS=4
-# number of jobs run simultaneously
+# number of total jobs per node
+NUM_TOTAL_JOBS=8
+# number of jobs run simultaneously in the same node
 NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL -u --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL -u --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL"

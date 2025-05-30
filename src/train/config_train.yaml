@@ -7,8 +7,9 @@ paths:
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
   datasets_fps_yaml: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared_train-test-split_5-16-2025_1157_normalized/datasets_fps.yaml
-#  # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
-  hpo_dir: null
+##  # HPO run configuration directory; get configurations from an HPO run; set to null to not use any
+#  hpo_dir: null
+  model_config_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
@@ -29,180 +30,167 @@ data_fields: # scalar data from TFRecords to add to ranking table
 # set general architecture of the model based on implementations under models.models_keras.py
 model_architecture: ExoMinerPlusPlus
 
-config:
-  # branches used in ExoMiner
-  # branches with scalars have the option not to add scalars by setting `scalars` field to null
-  # comment a branch to not use it
-  conv_branches:
-    local_unfolded_flux:
-      views:
-        - unfolded_local_flux_view_fluxnorm
-      scalars:
-        - tce_num_transits_obs_norm
-        - tce_num_transits_norm
-    global_flux:
-      views:
-        - global_flux_view_fluxnorm
-        - global_flux_view_fluxnorm_var
-      scalars:
-        - flux_global_stat_abs_min_norm
-    local_flux:
-      views:
-        - local_flux_view_fluxnorm
-        - local_flux_view_fluxnorm_var
-      scalars:
-        - flux_local_stat_abs_min
-    local_weak_secondary:
-      views:
-        - local_weak_secondary_view_selfnorm
-        - local_weak_secondary_view_selfnorm_var
-      scalars:
-        - tce_ptemp_stat_norm
-        - tce_albedo_stat_norm
-        - tce_maxmes_norm
-        - flux_weak_secondary_local_stat_abs_min_norm
-    local_centroid:
-      views:
-        - local_centr_view_std_noclip
-        - local_centr_view_std_noclip_var
-      scalars:
-        - tce_dikco_msky_norm
-        - tce_dikco_msky_err_norm
-        - ruwe_norm
-        - mag_shift_norm
-    local_odd_even:
-      views:
-        - local_flux_odd_view_fluxnorm
-        - local_flux_odd_view_fluxnorm_var
-        - local_flux_even_view_fluxnorm
-        - local_flux_even_view_fluxnorm_var
-      scalars:
-        - flux_odd_local_stat_abs_min_norm
-        - flux_even_local_stat_abs_min_norm
-#    momentum_dump:
+#config:
+#  # branches used in ExoMiner
+#  # branches with scalars have the option not to add scalars by setting `scalars` field to null
+#  # comment a branch to not use it
+#  conv_branches:
+#    local_unfolded_flux:
 #      views:
-#        - local_momentum_dump_view
-#        - local_momentum_dump_view_var
-#      scalars: null
-    flux_trend:
-      views:
-        - flux_trend_global_norm
-        - flux_trend_global_norm_var
-      scalars:
-        - flux_trend_global_stat_max_norm
-        - flux_trend_global_stat_min_norm
-    flux_periodogram:
-      views:
-        - pgram_smooth_norm
-        - pgram_tpm_smooth_norm
-      scalars:
-        - pgram_smooth_max_power_norm
-        - pgram_tpm_smooth_max_power_norm
-  scalar_branches:
-    stellar:
-      - tce_sdens_norm
-      - tce_steff_norm
-      - tce_smet_norm
-      - tce_slogg_norm
-      - tce_smass_norm
-      - tce_sradius_norm
-    dv_tce_fit:
-      - boot_fap_norm
-      - tce_cap_stat_norm
-      - tce_hap_stat_norm
-      - tce_period_norm
-      - tce_max_mult_ev_norm
-      - tce_max_sngle_ev_norm
-      - tce_robstat_norm
-      - tce_model_chisq_norm
-      - tce_prad_norm
-  transformer_branches: null
-  diff_img_branch:
-    imgs:
-#      - diff_imgs_std_trainset
-#      - oot_imgs_std_trainset
-#      - target_imgs
-      - diff_imgs_tc_std_trainset
-      - oot_imgs_tc_std_trainset
-      - snr_imgs_tc_std_trainset
-      - neighbors_imgs_tc_std_trainset
-    imgs_scalars:
-      - quality
-    scalars:
-      - mag_shift_norm
-
-  # global branch hyperparameters ----
-  num_glob_conv_blocks: 2
-  glob_conv_ls_per_block: 5
-  init_glob_conv_filters: 3
-  kernel_size_glob: 5
-  pool_size_glob: 8
-
-  # local branch hyperparameters ------
-  num_loc_conv_blocks: 2
-  loc_conv_ls_per_block: 1
-  init_loc_conv_filters: 2
-  kernel_size_loc: 6
-  pool_size_loc: 4
-
-  # periodogram branch hyperparameters -----
-  num_pgram_conv_blocks: 2
-  pgram_conv_ls_per_block: 1
-  init_pgram_conv_filters: 2
-  kernel_size_pgram: 6
-  pool_size_pgram: 4
-
-  # difference image hyperparameters ---------
-  num_diffimg_conv_blocks: 3
-  diffimg_conv_ls_per_block: 3
-  init_diffimg_conv_filters: 2
-  kernel_size_diffimg: 3  # (1, k , k)
-  pool_size_diffimg: 2  # (1, k, k)
-  num_fc_diff_units: 3
-
-  # unfolded local flux hyperparameters ----
-  n_conv_filter_unfolded_stats: 4
-
-  # shared conv hyperparameters ----
-  num_fc_conv_units: 3
-  dropout_rate_fc_conv: 0.1211390996398814
-
-  # fc block hyperparameters
-  init_fc_neurons: 512
-  dropout_rate: 0.021491238286347598
-  num_fc_layers: 4
-  decay_rate: null  # for l2-regularization
-
-  # shared hyperparameters --------
-  non_lin_fn: prelu
-  weight_initializer: null
-  kernel_stride: 1
-  pool_stride: 1
-
-  # legacy ExoMiner++ hyperparameters -----
-  num_centr_conv_blocks: 2
-  kernel_size_centr: 5
-  pool_size_centr: 4
-  centr_conv_ls_per_block: 3
-  init_centr_conv_filters: 3
-  num_unfolded_conv_blocks: 2
-  kernel_size_unfolded: 6
-  pool_size_unfolded: 4
-  init_unfolded_conv_filters: 3
-  unfolded_conv_ls_per_block: 3
-  conv_ls_per_block: 3
-
-  multi_class: false
-  force_softmax: false
-
-  # optimizer parameters
-  optimizer: Adam
-  lr: 4.176171931455995e-05
-  # loss
-  loss: crossentropy  # crossentropy, focal_crossentropy
-  focal_loss_gamma: 2.0
-  focal_loss_alpha: 0.96
-  focal_class_balancing: false
+#        - unfolded_local_flux_view_fluxnorm
+#      scalars:
+#        - tce_num_transits_obs_norm
+#        - tce_num_transits_norm
+#    global_flux:
+#      views:
+#        - global_flux_view_fluxnorm
+#        - global_flux_view_fluxnorm_var
+#      scalars:
+#        - flux_global_stat_abs_min_norm
+#    local_flux:
+#      views:
+#        - local_flux_view_fluxnorm
+#        - local_flux_view_fluxnorm_var
+#      scalars:
+#        - flux_local_stat_abs_min
+#    local_weak_secondary:
+#      views:
+#        - local_weak_secondary_view_selfnorm
+#        - local_weak_secondary_view_selfnorm_var
+#      scalars:
+#        - tce_ptemp_stat_norm
+#        - tce_albedo_stat_norm
+#        - tce_maxmes_norm
+#        - flux_weak_secondary_local_stat_abs_min_norm
+#    local_centroid:
+#      views:
+#        - local_centr_view_std_noclip
+#        - local_centr_view_std_noclip_var
+#      scalars:
+#        - tce_dikco_msky_norm
+#        - tce_dikco_msky_err_norm
+#        - ruwe_norm
+#        - mag_shift_norm
+#    local_odd_even:
+#      views:
+#        - local_flux_odd_view_fluxnorm
+#        - local_flux_odd_view_fluxnorm_var
+#        - local_flux_even_view_fluxnorm
+#        - local_flux_even_view_fluxnorm_var
+#      scalars:
+#        - flux_odd_local_stat_abs_min_norm
+#        - flux_even_local_stat_abs_min_norm
+##    momentum_dump:
+##      views:
+##        - local_momentum_dump_view
+##        - local_momentum_dump_view_var
+##      scalars: null
+#    flux_trend:
+#      views:
+#        - flux_trend_global_norm
+#        - flux_trend_global_norm_var
+#      scalars:
+#        - flux_trend_global_stat_max_norm
+#        - flux_trend_global_stat_min_norm
+#    flux_periodogram:
+#      views:
+#        - pgram_smooth_norm
+#        - pgram_tpm_smooth_norm
+#      scalars:
+#        - pgram_smooth_max_power_norm
+#        - pgram_tpm_smooth_max_power_norm
+#  scalar_branches:
+#    stellar:
+#      - tce_sdens_norm
+#      - tce_steff_norm
+#      - tce_smet_norm
+#      - tce_slogg_norm
+#      - tce_smass_norm
+#      - tce_sradius_norm
+#    dv_tce_fit:
+#      - boot_fap_norm
+#      - tce_cap_stat_norm
+#      - tce_hap_stat_norm
+#      - tce_period_norm
+#      - tce_max_mult_ev_norm
+#      - tce_max_sngle_ev_norm
+#      - tce_robstat_norm
+#      - tce_model_chisq_norm
+#      - tce_prad_norm
+#  transformer_branches: null
+#  diff_img_branch:
+#    imgs:
+##      - diff_imgs_std_trainset
+##      - oot_imgs_std_trainset
+##      - target_imgs
+#      - diff_imgs_tc_std_trainset
+#      - oot_imgs_tc_std_trainset
+#      - snr_imgs_tc_std_trainset
+#      - neighbors_imgs_tc_std_trainset
+#    imgs_scalars:
+#      - quality
+#    scalars:
+#      - mag_shift_norm
+#
+#  # global branch hyperparameters ----
+#  num_glob_conv_blocks: 2
+#  glob_conv_ls_per_block: 5
+#  init_glob_conv_filters: 3
+#  kernel_size_glob: 5
+#  pool_size_glob: 8
+#
+#  # local branch hyperparameters ------
+#  num_loc_conv_blocks: 2
+#  loc_conv_ls_per_block: 1
+#  init_loc_conv_filters: 2
+#  kernel_size_loc: 6
+#  pool_size_loc: 4
+#
+#  # periodogram branch hyperparameters -----
+#  num_pgram_conv_blocks: 2
+#  pgram_conv_ls_per_block: 1
+#  init_pgram_conv_filters: 2
+#  kernel_size_pgram: 6
+#  pool_size_pgram: 4
+#
+#  # difference image hyperparameters ---------
+#  num_diffimg_conv_blocks: 3
+#  diffimg_conv_ls_per_block: 3
+#  init_diffimg_conv_filters: 2
+#  kernel_size_diffimg: 3  # (1, k , k)
+#  pool_size_diffimg: 2  # (1, k, k)
+#  num_fc_diff_units: 3
+#
+#  # unfolded local flux hyperparameters ----
+#  n_conv_filter_unfolded_stats: 4
+#
+#  # shared conv hyperparameters ----
+#  num_fc_conv_units: 3
+#  dropout_rate_fc_conv: 0.1211390996398814
+#
+#  # fc block hyperparameters
+#  init_fc_neurons: 512
+#  dropout_rate: 0.021491238286347598
+#  num_fc_layers: 4
+#  decay_rate: null  # for l2-regularization
+#
+#  # shared hyperparameters --------
+#  non_lin_fn: prelu
+#  weight_initializer: null
+#  kernel_stride: 1
+#  pool_stride: 1
+#
+#  multi_class: false
+#  force_softmax: false
+#
+#  # optimizer parameters
+#  optimizer: Adam
+#  lr: 4.176171931455995e-05
+#  # loss
+#  loss: crossentropy  # crossentropy, focal_crossentropy
+#  focal_loss_gamma: 2.0
+#  focal_loss_alpha: 0.96
+#  focal_class_balancing: false
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -311,7 +299,15 @@ training:
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32
   filter_data: null  # deprecated; useless
-  category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
+  category_weights:   null  # category weights used in weighted loss; set to null for non-weighted loss
+    # non-planet: 6278 -> 0.52
+    # planet: 253 -> 12.91
+#    KP: 12.91  # 44.23  # 12.91 (N_total / [2 * N_class])
+#    CP: 12.91  # 62.20  # 12.91
+#    FP: 0.52  # 35.49 # 0.52
+#    NTP: 0.52  # 1.14  # 0.52
+#    EB: 0.52  # 18.29  # 0.52
+#    BD: 0.52  # 1632.75  # 0.52
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 5000  # should be larger than size of the training set to allow perfect sampling
 

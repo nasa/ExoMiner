@@ -314,4 +314,3 @@ dependencies:
       - typing-extensions==4.5.0
       - werkzeug==3.0.0
       - wrapt==1.14.1
-prefix: /Users/msaragoc/miniconda3/envs/exoplnt_dl

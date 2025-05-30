@@ -55,8 +55,9 @@ class StdLayer(Layer):
         super(StdLayer, self).__init__(**kwargs)
         self.axis = axis
 
-    def call(self, inputs):
-        """
+    # @tf.function(jit_compile=True)
+    def _std_fn(self, inputs):
+        """ Computes standard deviation from inputs.
 
             Args:
                 inputs: list of TF Keras tensors of same shape
@@ -72,6 +73,23 @@ class StdLayer(Layer):
         mean = tf.reduce_mean(stacked, axis=self.axis, keepdims=False)
         variance = tf.reduce_mean(tf.square(stacked - tf.expand_dims(mean, axis=self.axis)), axis=self.axis)
         std = tf.sqrt(variance)
+
+        return std
+
+    def call(self, inputs, training=None, mask=None):
+        """ Call the custom standard deviation layer.
+
+            Args:
+                inputs: list of TF Keras tensors of same shape
+                training: if True, behaves differently for training (not needed for this type of layer - added for
+                    compatibility)
+                mask: if not None, then specifies which inputs should be ignored (not needed for this type of layer -
+                    added for compatibility)
+
+            Returns: TF Keras tensor with same shape of `inputs` with std values
+        """
+
+        std = self._std_fn(inputs)
 
         return std
 
@@ -95,8 +113,9 @@ class SplitLayer(Layer):
         self.num_or_size_splits = num_or_size_splits
         self.axis = axis
 
-    def call(self, inputs):
-        """ Calls the custom split layer.
+    # @tf.function(jit_compile=True)
+    def _split_fn(self, inputs):
+        """ Splits the inputs.
 
         Args:
             inputs: TF Keras layer, input to be split
@@ -106,8 +125,24 @@ class SplitLayer(Layer):
             resulting from splitting value.
 
         """
-
         return tf.split(inputs, num_or_size_splits=self.num_or_size_splits, axis=self.axis)
+
+    def call(self, inputs, training=None, mask=None):
+        """ Calls the custom split layer.
+
+        Args:
+            inputs: TF Keras layer, input to be split
+            training: if True, behaves differently for training (not needed for this type of layer - added for
+                compatibility)
+            mask: if not None, then specifies which inputs should be ignored (not needed for this type of layer -
+                added for compatibility)
+
+        Returns: if num_or_size_splits is an int returns a list of num_or_size_splits Tensor objects; if
+            num_or_size_splits is a 1-D list for 1-D Tensor returns num_or_size_splits.get_shape[0] Tensor objects
+            resulting from splitting value.
+        """
+
+        return self._split_fn(inputs)
 
 
 def cross_attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1):

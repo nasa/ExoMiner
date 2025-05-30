@@ -4,12 +4,12 @@
 #PBS -N train_exominerplusplus
 #PBS -l walltime=72:00:00
 # DSG_GPU V100 -------
-# PBS -l select=1:ncpus=36:ngpus=4:mem=200g:model=sky_gpu
+# PBS -l select=1:ncpus=36:ngpus=4:mem=360g:model=sky_gpu
 # place the chunk wherever it is possible for the requested resources; share resources with other people
 # PBS -l place=free:excl
 # PBS -q dsg_gpu@pbspl4
 # GH --------
-#PBS -lselect=3:ncpus=72:model=gh200:mem=480g
+#PBS -lselect=1:ncpus=72:ngpus=1:model=gh200
 #PBS -q dsggh_gpu@pbs05a
 #PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exominerplusplus.out
 #PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_train_exominerplusplus.err
@@ -24,7 +24,11 @@ module use -a /swbuild/analytix/tools/modulefiles
 # source activate exoplnt_dl_tf2_13
 # GH nodes
 module load miniconda3/gh2
-source activate exoplnt_dl_gh
+source activate exoplnt_dl_gh_nfs
+
+# PBS_ARRAY_INDEX=0
+export TMPDIR=/var/tmp/pbs.34282.pbs05a.gh.nas.nasa.gov
+mkdir -p "$TMPDIR"
 
 # path to codebase root directory
 export PYTHONPATH=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
@@ -61,9 +65,9 @@ echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 mkdir -p $OUTPUT_DIR
 
 # run with GNU parallel
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
 # testing multi-node setup...
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_MODELS"
 
 # create average ensemble model with trained models and evaluate ensemble
 EVAL_ENSEMBLE_SCRIPT=$PYTHONPATH/src/run_ensemble.sh

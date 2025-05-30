@@ -31,20 +31,19 @@ def run_setup_for_cv_iter(cv_iter, cv_iter_dir, config, model_i=0):
     # add TFRecord data set file paths for this CV iteration to config yaml file
     config = add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i)
 
-    # load model hyperparameters from HPO run; overwrites the one in the yaml file
-    if 'hpo_dir' in config['paths']:
-        hpo_dir = Path(config['paths']['hpo_dir'])
-        config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
-        config['config'].update(config_hpo_chosen)
-
-        # save the YAML file with the HPO configuration that was used
-        with open(cv_iter_dir / 'hpo_config.yaml', 'w') as hpo_config_file:
-            yaml.dump(config_hpo_chosen, hpo_config_file, sort_keys=False)
+    # # load model hyperparameters from HPO run; overwrites the one in the yaml file
+    # if 'hpo_dir' in config['paths']:
+    #     hpo_dir = Path(config['paths']['hpo_dir'])
+    #     config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
+    #     config['config'].update(config_hpo_chosen)
+    with open(config['paths']['model_config_fp'], 'r') as model_config_f:
+        model_config = yaml.unsafe_load(model_config_f)
+        config.update(model_config)
 
     with open(cv_iter_dir / 'config_cv.yaml', 'w') as file:
         yaml.dump(config, file, sort_keys=False)
-    # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML
-    np.save(cv_iter_dir / 'config.npy', config)
+    # # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML
+    # np.save(cv_iter_dir / 'config.npy', config)
 
     # save model's architecture and hyperparameters used
     with open(cv_iter_dir / 'model_config.yaml', 'w') as file:

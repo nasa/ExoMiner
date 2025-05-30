@@ -120,7 +120,7 @@ def compile_model(model, config, metrics_list, train=True):
                 use_ema=False,
                 ema_momentum=0.99,
                 ema_overwrite_frequency=None,
-                jit_compile=True,
+                # jit_compile=True,
                 name="AdamW",
             )
         elif config['config']['optimizer'] == 'SGD':
