@@ -4,28 +4,26 @@ rank: 0
 # new data set directory; results are saved here
 output_dir:  null
 # source TFRecord directory to be normalized
-src_tfrec_dir:  /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/predict/
+src_tfrec_dir:  /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/predict/
 # list of file paths to the CV iterations folder with the normalization statistics to be used
 # to normalize the data in the source TFRecord directory
 # (i.e., ['/path/to/cv_iter_x/norm_stats/', 'path/to/cv_iter_y/norm_stats',...])
 cv_folds_fps:
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_0/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_1/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_2/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_3/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_4/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_5/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_6/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_7/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_8/norm_stats/
-  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_data/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159/tfrecords/eval_normalized_with_kepler_trainset/cv_iter_9/norm_stats/
+  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/eval_normalized/cv_iter_0/norm_stats/
+  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/eval_normalized/cv_iter_1/norm_stats/
+  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/eval_normalized/cv_iter_2/norm_stats/
+  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/eval_normalized/cv_iter_3/norm_stats/
+  - /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/eval_normalized/cv_iter_4/norm_stats/
 
 diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are stored as encoded strings
 
 norm_stats:
-  scalar_params: train_scalarparam_norm_stats.npy
-  centroid: train_centroid_norm_stats.npy
-  diff_img: train_diffimg_norm_stats.npy
+#  scalar_params: train_scalarparam_norm_stats.npy
+#  centroid: train_centroid_norm_stats.npy
+#  diff_img: train_diffimg_norm_stats.npy
+  scalar_params: train_scalarparam_norm_stats.yaml
+  centroid: train_centroid_norm_stats.yaml
+  diff_img: train_diffimg_norm_stats.yaml
 
 norm_examples_params:
   # SET TO 1 WHEN RUNNING ON THE HECC

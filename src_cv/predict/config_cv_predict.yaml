@@ -6,45 +6,36 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_tic10837041.1_s30_4-8-2024_1233_addplaceholderfeature/cv_iters_fps.yaml
+  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/predict/cv_iterations.yaml
   # path to root directory with ensemble models created in a CV experiment
   models_cv_root_dir: null
+  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_exominernew_focal-loss-alpha0.98-gamma2_tess-spoc-ffi-s36-s72_6-2-2025_1725/cv_iter_0/ensemble_model/model_config.yaml
 
 data_fields: # scalar data from TFRecords to add to ranking table
   uid: 'string'
   target_id: 'int_scalar'
   tce_plnt_num: 'int_scalar'
-  #  'oi': 'float_scalar'
   label: 'string'
-#  label_id: 'int_scalar'
-#  odd_even_flag: 'string'
-#  sec_flag: 'string'
-#  centroid_flag: 'string'
-#  not_transit_like_flag: 'string'
-  #  'TESS Disposition': 'string'
   tce_period: 'float_scalar'
   tce_duration: 'float_scalar'
   tce_time0bk: 'float_scalar'
-#  'transit_depth': 'float_scalar'
-#  tce_depth: 'float_scalar'
+  tce_depth: 'float_scalar'
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
-#  'sigma_oot_odd': 'float_scalar'
-#  'sigma_it_odd': 'float_scalar'
-#  'sigma_oot_even': 'float_scalar'
-#  'sigma_it_even': 'float_scalar'
+  tce_model_snr: 'float_scalar'
 
-config:
-  # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
-  use_transformer: false
-  multi_class: false  # switch to multiclass classification
+#config:
+#  # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
+#  use_transformer: false
+#  multi_class: false  # switch to multiclass classification
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
-#  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
+  unfolded_local_flux_view_fluxnorm_var: { 'dim': [ 20, 31 ], 'dtype': float }
+#  #  unfolded_global_flux_view_fluxnorm: { 'dim': [ 20, 301 ], 'dtype': float }
   tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
 
@@ -56,10 +47,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   flux_local_stat_abs_min: { 'dim': [ 1, ], 'dtype': float }
-#  transit_depth_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
-#  # odd-even flux related features
+  # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -77,15 +66,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   local_centr_view_std_noclip_var: { 'dim': [ 31, 1 ], 'dtype': float }
 #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-##  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-#  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # secondary related features
 ##  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
@@ -97,7 +77,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
-#
+
   # other diagnostic parameters
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -114,7 +94,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # rolling band
 #  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
 
  # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -123,27 +102,43 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  # mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
  # tce parameters
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-#  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  quality: { 'dim': [ 5, 1], 'dtype': float }
+#  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  #  diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  #  oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  # ExoMiner++
+#  diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+#  target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
 
-  # momentum dump
-  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  quality: { 'dim': [ 5, ], 'dtype': float }
+#  quality: { 'dim': [ 5, 1], 'dtype': float }  # exominer++
+  #  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
+  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
+  # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
 
-#   flux trend unfolded
-#  flux_trend_global_unfolded_norm: { 'dim': [ 301, 1 ], 'dtype': float }
-#  flux_trend_global_unfolded_norm_var: { 'dim': [ 301, 1 ], 'dtype': float }
+#  # momentum dump
+#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -204,6 +199,7 @@ label_map:  # maps label to a label id
   NPC: 0
   BD: 0
   NTP: 0
+  UNK: 0
   # Kepler Sim
 #  INJ1: 1
 #  INJ2: 0

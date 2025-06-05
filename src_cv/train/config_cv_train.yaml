@@ -38,174 +38,6 @@ data_fields: # scalar data from TFRecords to add to ranking table
 # set general architecture of the model based on implementations under models.models_keras.py
 model_architecture: ExoMinerJointLocalFlux  # ExoMinerPlusPlus  # ExoMinerJointLocalFlux  # ExoMinerPlusPlus
 
-#config:
-#  # branches used in ExoMiner
-#  # branches with scalars have the option not to add scalars by setting `scalars` field to null
-#  # comment a branch to not use it
-#  conv_branches:  # null
-#
-#    local_unfolded_flux:
-#      views:
-#        - unfolded_local_flux_view_fluxnorm
-#        - unfolded_local_flux_view_fluxnorm_var
-#      scalars:   # null
-#        - tce_num_transits_obs_norm
-#        - tce_num_transits_norm
-#        # - mission
-#
-#    global_flux:
-#      views:
-#        - global_flux_view_fluxnorm
-#        - global_flux_view_fluxnorm_var
-#      scalars:
-#         - flux_global_stat_abs_min_norm
-#
-#    local_flux:
-#      views:
-#        - local_flux_view_fluxnorm
-#        - local_flux_view_fluxnorm_var
-#      scalars: # null
-##        - tce_depth_norm
-#        - flux_local_stat_abs_min
-#         # - mission
-#
-#    local_weak_secondary:
-#      views:
-##        - local_weak_secondary_view_fluxnorm
-#        - local_weak_secondary_view_selfnorm
-#        - local_weak_secondary_view_selfnorm_var
-#      #         - local_weak_secondary_view_max_flux-wks_norm
-#      scalars:
-#        - tce_ptemp_stat_norm
-#        - tce_albedo_stat_norm
-#        - tce_maxmes_norm
-#        - flux_weak_secondary_local_stat_abs_min_norm
-##        - wst_depth_norm
-##        - tce_prad_norm
-#        # - mission
-#
-#    local_centroid:
-#      views:
-#        - local_centr_view_std_noclip
-#        - local_centr_view_std_noclip_var
-#      scalars:  # null
-##       - tce_fwm_stat_norm  # kepler only
-##       - mag_cat_norm
-#        - mag_shift_norm
-#        # - mission
-#
-#    local_odd_even:
-#      views:
-#        - local_flux_odd_view_fluxnorm
-#        - local_flux_odd_view_fluxnorm_var
-#        - local_flux_even_view_fluxnorm
-#        - local_flux_even_view_fluxnorm_var
-#      scalars:
-#        - flux_odd_local_stat_abs_min_norm
-#        - flux_even_local_stat_abs_min_norm
-##        # - mission
-###        - odd_se_oot_norm
-###        - even_se_oot_norm
-#
-#    momentum_dump:
-#      views:
-#        - local_momentum_dump_view
-#        - local_momentum_dump_view_var
-#      scalars: null
-#
-#    flux_trend:
-#      views:
-#        - flux_trend_global_norm
-#        - flux_trend_global_norm_var
-#      scalars:
-#        - flux_trend_global_stat_max_norm
-#        - flux_trend_global_stat_min_norm
-#
-#    flux_periodogram:
-#      views:
-#        - pgram_smooth_norm
-#        - pgram_tpm_smooth_norm
-#      scalars:
-#        - pgram_smooth_max_power_norm
-#        - pgram_tpm_smooth_max_power_norm
-#
-##        # - mission
-#  scalar_branches: # null
-#    stellar:
-#      - tce_sdens_norm
-#      - tce_steff_norm
-#      - tce_smet_norm
-#      - tce_slogg_norm
-#      - tce_smass_norm
-#      - tce_sradius_norm
-#      - ruwe_norm
-##      # - mission
-#
-#    dv_tce_fit:
-#      - boot_fap_norm
-#      - tce_cap_stat_norm
-#      - tce_hap_stat_norm
-#      ##      - tce_cap_hap_stat_diff_norm
-#      ##      - tce_rb_tcount0n_norm  # kepler only
-#      ##      - tce_prad_norm
-#      - tce_period_norm
-#      - tce_max_mult_ev_norm
-#      - tce_max_sngle_ev_norm
-#      - tce_robstat_norm
-#      - tce_model_chisq_norm
-#      - tce_prad_norm
-##      # - mission
-#
-#  diff_img_branch: # null
-#    imgs:
-##      - diff_imgs_std_trainset
-##      - oot_imgs_std_trainset
-##      #       - diff_imgs_stdnorm
-##      #       - oot_imgs_stdnorm
-##      - target_imgs
-#      - diff_imgs_tc_std_trainset
-#      - oot_imgs_tc_std_trainset
-#      - snr_imgs_tc_std_trainset
-#      - neighbors_imgs_tc_std_trainset
-#    imgs_scalars:
-#      - quality
-#    scalars:
-#      - mag_shift_norm
-#      - tce_dikco_msky_norm
-#      - tce_dikco_msky_err_norm
-#      #       - tce_dicco_msky_norm
-#      #       - tce_dicco_msky_err_norm
-#      # - tce_dikco_msky_rat_norm
-#      # - mission
-
-#  # FIXED HYPERPARAMETERS ---------
-#
-#  # shared conv hyperparameters ----
-#
-#  # classification head hyperparameters
-#  clf_head_fc_decay_rate: null  # for l2-regularization
-#
-#  # shared hyperparameters --------
-#  non_lin_fn: prelu
-#  weight_initializer: null
-#  kernel_stride: 1
-#  pool_stride: 1
-#  use_attention_after_conv_layers: false
-#  cross_attention_before_classification_head_max_key_dim: 3
-#
-#  # optimization hyperparameters ------
-##  optimizer: 'AdamW'  # SGD, Adam, AdamW
-#  sgd_momentum: 0
-#  #  'lr': 1.0e-5
-#  force_softmax: false
-#  multi_class: false  # switch to multiclass classification
-#
-#  # loss hyperparameters
-#  loss: crossentropy  # crossentropy, focal_crossentropy
-#  focal_loss_gamma: 2.0
-#  focal_loss_alpha: 0.96
-#  focal_class_balancing: false
-
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
   # unfolded flux
@@ -302,7 +134,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
   oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
   snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+#  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
 
   quality: { 'dim': [ 5, ], 'dtype': float }
 #  quality: { 'dim': [ 5, 1], 'dtype': float }  # exominer++
@@ -312,9 +144,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
 
-  # momentum dump
-  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+#  # momentum dump
+#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }

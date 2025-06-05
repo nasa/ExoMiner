@@ -329,7 +329,3 @@ dependencies:
       - urllib3==1.26.19
       - werkzeug==2.3.7
       - wrapt==1.15.0
-variables:
-  LD_LIBRARY_PATH: /nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib:/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/python3.11/site-packages/nvidia/cudnn/lib:/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/python3.11/site-packages/nvidia/cublas/lib:/var/lib:/usr/lib:/shift/lib:/PBS_old2/lib:/PBS_old/lib:/PBS/lib:/var/lib:/usr/lib:/shift/lib:/PBS_old2/lib:/PBS_old/lib:/PBS/lib:/var/lib:/usr/lib:/shift/lib:/PBS_old2/lib:/PBS_old/lib:/PBS/lib:/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/python3.11/site-packages/nvidia/cudnn/lib:/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/python3.11/site-packages/nvidia/cublas/lib::/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib:/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/python3.11/site-packages/nvidia/cudnn/lib
-  XLA_FLAGS: --xla_gpu_cuda_data_dir=/nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13/lib/
-prefix: /nobackup/msaragoc/work_dir/tools/python_envs/exoplnt_dl_tf2_13

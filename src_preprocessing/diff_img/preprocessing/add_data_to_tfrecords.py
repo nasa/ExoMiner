@@ -157,9 +157,7 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
                 example.ParseFromString(string_record)
 
                 example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
-                # TODO remove
-                # example_uid = '-'.join(['S' + el[1:].lstrip('0') if el_i == 2 else el[1:].lstrip('0') if el_i == 3 else el for el_i, el in enumerate(example_uid.split('-'))])
-                example_label = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+                example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
                 if example_uid != tce_uid:
                     raise ValueError(f'TCE ID {example_uid} found in TFRecord dataset does not match expected ID: '
@@ -200,11 +198,11 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     parallel_processing = True
-    n_procs = 36
+    n_procs = 72
     n_jobs = 200
     # mission = 'tess'  # either 'tess' or 'kepler'
     # set source TFRecord directory
-    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels')
+    src_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_fixeduids')
     # table that has information on the location of examples across shards in TFRecord dataset directory
     shards_tbl_fp = src_tfrec_dir / 'shards_tbl.csv'
     # directory with NumPy files with difference image data to be added to the examples in the TFRecord dataset
@@ -216,11 +214,6 @@ if __name__ == '__main__':
 
     # load shards table
     shards_tbl = pd.read_csv(shards_tbl_fp)
-    # TODO remove
-    # shards_tbl_corr = shards_tbl.loc[shards_tbl['sector_run'].isin(['1-69', '14-78'])]
-    # shards_tbl_good = shards_tbl.loc[~shards_tbl['sector_run'].isin(['1-69', '14-78'])]
-    # shards_tbl_corr['uid'] = shards_tbl_corr.apply(lambda x: '-'.join(['S' + el[1:].lstrip('0') if el_i == 2 else el[1:].lstrip('0') if el_i == 3 else el for el_i, el in enumerate(x['uid'].split('-'))]), axis=1)
-    # shards_tbl = pd.concat([shards_tbl_good, shards_tbl_corr], axis=0, ignore_index=True)
 
     # get filepaths to difference image data NumPy files
     diff_img_fps = list(src_diff_img_fp.rglob('*.npy'))

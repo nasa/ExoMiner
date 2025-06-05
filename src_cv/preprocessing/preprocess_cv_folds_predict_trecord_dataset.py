@@ -10,6 +10,7 @@ import logging
 import argparse
 import multiprocessing
 from pathlib import Path
+import pandas as pd
 
 # local
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples
@@ -31,8 +32,14 @@ def create_cv_iteration_dataset(cv_fold_fp, run_params):
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
 
     # load normalization statistics
-    norm_stats = {feature_grp: np.load(Path(cv_fold_fp) / norm_stats_fn, allow_pickle=True).item()
-                  for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
+    # norm_stats = {feature_grp: np.load(Path(cv_fold_fp) / norm_stats_fn, allow_pickle=True).item()
+    #               for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
+    # norm_stats = {feature_grp: pd.read_csv(Path(cv_fold_fp) / norm_stats_fn).iloc[0].to_dict()
+    #               for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
+    norm_stats = {}
+    for feature_grp, norm_stats_fn in run_params['norm_stats'].items():
+        with open(Path(cv_fold_fp) / norm_stats_fn, 'r') as f:
+            norm_stats[feature_grp] = yaml.safe_load(f)
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:
@@ -42,7 +49,7 @@ def create_cv_iteration_dataset(cv_fold_fp, run_params):
                          f'statistics were loaded.')
 
     pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['cv_iter_dir'], file, norm_stats, run_params['norm_examples_params']['aux_params'])
+    jobs = [(run_params['cv_iter_dir'], file, norm_stats, run_params)
             for file in config['src_tfrec_fps']]
     async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
     pool.close()

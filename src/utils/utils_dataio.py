@@ -423,8 +423,8 @@ class InputFnv2(object):
         # interleave TFRecord files for parallel loading
         dataset = filename_dataset.interleave(
             lambda x: tf.data.TFRecordDataset(x, buffer_size=self.tfrecord_read_buffer_size * 1024 * 1024),  # x MB buffer size
-            cycle_length=tf.data.AUTOTUNE,
-            num_parallel_calls=tf.data.AUTOTUNE
+            cycle_length=tf.data.AUTOTUNE if self.mode != 'PREDICT' else 1,
+            num_parallel_calls=tf.data.AUTOTUNE if self.mode != 'PREDICT' else 1
         )
 
         # shuffle the examples in the dataset if training

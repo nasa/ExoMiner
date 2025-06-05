@@ -17,8 +17,6 @@ import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
-from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
-                                                                    get_out_of_transit_idxs_loc)
 from src_preprocessing.lc_preprocessing.preprocess import centering_and_normalization
 from src_preprocessing.tf_util.example_util import get_feature
 
@@ -196,6 +194,8 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
     Returns: norm_diff_img_feat, dict with normalized difference image features for the example
     """
 
+    MAX_MAG = 25
+
     # initialize dictionary to store the normalized features
     norm_diff_img_feat = {}
 
@@ -228,6 +228,9 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
         # x_n = (x - min(x)) / (max(x) - min(x))
         for img_type, img_data in data_example.items():
 
+            if 'neighbors_imgs' in img_type:
+                continue
+
             img_data_minmaxn = np.array(img_data)
             img_data_minmaxn =  ((img_data_minmaxn - normStatsDiff_img[img_type]['min']) /
                                  (normStatsDiff_img[img_type]['max'] - normStatsDiff_img[img_type]['min'] +
@@ -235,39 +238,30 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
 
             norm_diff_img_feat[f'{img_type}_minmaxnorm_trainset'] = img_data_minmaxn
 
-        # diff_imgs_minmaxn = np.array(diff_imgs)
-        # oot_imgs_minmaxn = np.array(oot_imgs)
-        #
-        # diff_imgs_minmaxn = ((diff_imgs_minmaxn - normStatsDiff_img['diff_imgs']['min']) /
-        #                      (normStatsDiff_img['diff_imgs']['max'] - normStatsDiff_img['diff_imgs']['min'] +
-        #                       zero_division_eps))
-        # oot_imgs_minmaxn = ((oot_imgs_minmaxn - normStatsDiff_img['oot_imgs']['min']) /
-        #                     (normStatsDiff_img['oot_imgs']['max'] - normStatsDiff_img['oot_imgs']['min'] +
-        #                      zero_division_eps))
-        #
-        # norm_diff_img_feat.update({'diff_imgs_minmaxnorm_trainset': diff_imgs_minmaxn,
-        #                            'oot_imgs_minmaxnorm_trainset': oot_imgs_minmaxn})
-
         # standardization
         # x_n = (x - med(x)) / (std(x) + eps)
         for img_type, img_data in data_example.items():
+
+#             if 'neighbors_imgs' in img_type:
+#                continue
+
             img_data_std = np.array(img_data)
             img_data_std = ((img_data_std - normStatsDiff_img[img_type]['median']) /
                             (normStatsDiff_img[img_type]['std'] + zero_division_eps))
 
             norm_diff_img_feat[f'{img_type}_std_trainset'] = img_data_std
 
-        # diff_imgs_std = np.array(diff_imgs)
-        # oot_imgs_std = np.array(oot_imgs)
-        #
-        # diff_imgs_std = ((diff_imgs_std - normStatsDiff_img['diff_imgs']['median']) /
-        #                  (normStatsDiff_img['diff_imgs']['std'] + zero_division_eps))
-        #
-        # oot_imgs_std = ((oot_imgs_std - normStatsDiff_img['oot_imgs']['median']) /
-        #                 (normStatsDiff_img['oot_imgs']['std'] + zero_division_eps))
-        #
-        # norm_diff_img_feat.update({'diff_imgs_std_trainset': diff_imgs_std,
-        #                            'oot_imgs_std_trainset': oot_imgs_std})
+        # fixed min-max normalization
+        # x_n = (x - min_val) / (max_val - min_val)
+        for img_type, img_data in data_example.items():
+
+            if 'neighbors_imgs' not in img_type:
+                continue
+
+            img_data_minmaxn_fixed = np.array(img_data)
+            img_data_minmaxn_fixed =  img_data_minmaxn_fixed / MAX_MAG
+
+            norm_diff_img_feat[f'{img_type}_fixed_min_max_norm'] = img_data_minmaxn_fixed
 
     return norm_diff_img_feat
 
