@@ -10,12 +10,12 @@ def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
     chunk_mask = [0] * len(chunks_to_process)
 
     if not any(chunked_dataset_dir.iterdir()):
-        print("Directory is empty")
+        # "Directory is empty"
         return chunk_mask
 
     for chunk_i, chunk in enumerate(chunks_to_process, start=1):
         try:
-            shard_pattern = f"raw_shard_{str(chunk_i).zfill(4)}-????"
+            shard_pattern = f"raw_shard_{str(chunk_i).zfill(4)}-????.tfrecord"
             chunk_shard_fp = glob.glob(str(chunked_dataset_dir / shard_pattern))
 
             aux_pattern = f"data_tbl_{str(chunk_i).zfill(4)}-????.csv"
@@ -23,7 +23,6 @@ def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
 
             if Path(chunk_shard_fp).exists() and chunk_aux_tbl_path.exists():
                 chunk_mask[chunk_i] = 1
-
         except:
             # chunk not found
             continue

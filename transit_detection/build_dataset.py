@@ -18,6 +18,7 @@ import os
 import psutil
 import sys
 import traceback
+import yaml
 
 # local
 from transit_detection.utils_flux_processing import (
@@ -34,7 +35,7 @@ from transit_detection.utils_build_dataset import (
     write_data_to_auxiliary_tbl,
 )
 from transit_detection.utils_local_fits_processing import (
-    search_and_read_tess_lightcurve,
+    search_and_read_tess_lightcurvefile,
     search_and_read_tess_targetpixelfile,
 )
 from src_preprocessing.lc_preprocessing.detrend_timeseries import (
@@ -48,15 +49,16 @@ def process_target_sector_run(
     chunked_target_sector_run_data,
     chunk_num,
     num_chunks,
-    lc_dir,
+    lcf_dir,
     tpf_dir,
     n_durations_window,
+    ex_it_mask_n_durations_window,
+    sg_it_mask_n_durations_window,
+    weak_sec_mask_maxmes_thr,
     frac_valid_cadences_in_window_thr,
     frac_valid_cadences_it_thr,
-    maxmes_threshold,
     buffer_time,
-    n_durations_buffer,
-    gap_width,
+    # gap_width,
     resampled_num_points,
     rnd_seed,
     size_img,
@@ -77,12 +79,8 @@ def process_target_sector_run(
         / f"process_log_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.log"
     )
     file_handler = logging.FileHandler(log_path)
-    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
+    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(logger_formatter)
-
-    logger.info(
-        f"PID_BEGIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
-    )
 
     # handle lingering handlers
     if logger.hasHandlers():
@@ -90,6 +88,10 @@ def process_target_sector_run(
 
     logger.addHandler(file_handler)
     logger.info(f"Beginning data processing for chunk {chunk_num}.")
+
+    logger.info(
+        f"PID_BEGIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+    )
 
     chunk_data = []
 
@@ -127,8 +129,8 @@ def process_target_sector_run(
                 sector_run_arr = [int(sector_run)]
 
             # find light curve data for target, sector_run pair
-            found_sectors, lcfs = search_and_read_tess_lightcurve(
-                target=target, sectors=sector_run_arr, lc_dir=lc_dir
+            found_sectors, lcfs = search_and_read_tess_lightcurvefile(
+                target=target, sectors=sector_run_arr, lcf_dir=lcf_dir
             )
 
             if len(found_sectors) == 0:
@@ -155,9 +157,6 @@ def process_target_sector_run(
 
             # for given sector in sector_run
             for sector, lcf in zip(found_sectors, lcfs):
-
-                in_transit_mask = []
-                secondary_in_transit_mask = []
 
                 data_for_tce_sector = {
                     "sector": sector,
@@ -191,38 +190,61 @@ def process_target_sector_run(
                     plot_dir_target_sector_run_sector = None
 
                 lcf = lk.LightCurve(
-                    {"time": lcf.time.value, "flux": np.array(lcf.flux.value)}
+                    {"time": np.array(lcf.time.value), "flux": np.array(lcf.flux.value)}
                 )  # np array accounts for masked flux
 
                 raw_time, raw_flux = lcf.time.value, lcf.flux.value
 
+                in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+                primary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+                secondary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+
                 # Mask for all points that can possibly be included in an in transit flux window + buffer
-                in_transit_mask = build_transit_mask_for_lightcurve(
+                primary_in_transit_mask = build_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
-                    buffer_time=buffer_time,
-                    n_durations_buffer=n_durations_buffer,
-                    n_durations_window=n_durations_window,
+                    n_durations_window=ex_it_mask_n_durations_window,
                 )
 
                 # Mask for weak secondary transits
                 secondary_in_transit_mask = build_secondary_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
-                    buffer_time=buffer_time,
-                    n_durations_buffer=n_durations_buffer,
-                    n_durations_window=n_durations_window,
-                    maxmes_threshold=maxmes_threshold,
+                    n_durations_window=ex_it_mask_n_durations_window,
+                    maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
+
                 # In-transit mask defines points that cannot act as center-points for oot window
-                # Combine weak secondary points
                 in_transit_mask = np.logical_or(
-                    in_transit_mask, secondary_in_transit_mask
+                    primary_in_transit_mask, secondary_in_transit_mask
+                )
+
+                sg_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+                sg_primary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+                sg_secondary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
+
+                sg_primary_in_transit_mask = build_transit_mask_for_lightcurve(
+                    time=raw_time,
+                    tce_list=target_sector_run_tce_data,
+                    n_durations_window=sg_it_mask_n_durations_window,
+                )
+
+                sg_secondary_in_transit_mask = (
+                    build_secondary_transit_mask_for_lightcurve(
+                        time=raw_time,
+                        tce_list=target_sector_run_tce_data,
+                        n_durations_window=sg_it_mask_n_durations_window,
+                        maxmes_threshold=weak_sec_mask_maxmes_thr,
+                    )
+                )
+
+                sg_in_transit_mask = np.logical_or(
+                    sg_primary_in_transit_mask, sg_secondary_in_transit_mask
                 )
 
                 time, flux, trend, _ = detrend_flux_using_sg_filter(
                     lc=lcf,
-                    mask_in_transit=in_transit_mask,
+                    mask_in_transit=sg_in_transit_mask,
                     win_len=int(1.2 * 24 * 30),
                     sigma=5,
                     max_poly_order=6,
@@ -287,8 +309,8 @@ def process_target_sector_run(
                             period_days,
                             tce_duration,
                             n_durations_window,
-                            gap_width,
-                            buffer_time,
+                            # gap_width,
+                            # buffer_time,
                             frac_valid_cadences_in_window_thr,
                             frac_valid_cadences_it_thr,
                             resampled_num_points,
@@ -512,6 +534,7 @@ def process_target_sector_run(
             )
             logger.error(f"Traceback: {traceback.print_exc()}")
             continue
+
     logger.info(
         f"PID_END {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
     )
@@ -565,111 +588,100 @@ def process_target_sector_run(
 
 
 if __name__ == "__main__":
-    # file paths
-    log_dir = Path("/nobackup/jochoa4/work_dir/data/logging/build_dataset_v2")
-
-    # create log directory
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    data_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025"
+    # YAML configuration
+    config_fp = Path(
+        "/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/config_build_dataset.yaml"
     )
 
-    # create dataset directory
-    data_dir.mkdir(exist_ok=True, parents=True)
+    with open(config_fp, "r") as file:
+        config = yaml.unsafe_load(file)
 
-    # set light curve data directory
-    lc_dir = Path(
-        "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc"
-    )
-    # set target pixel file data directory
-    tpf_dir = Path("/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/")
-    # TCE table
-    tce_tbl = pd.read_csv(
-        "/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv"
-    )
+    # SETUP
+
+    # 1) paths
+    path_config = config["setup"]["paths"]
+    
+    log_dir = Path(path_config["log_dir"])
+    log_dir.mkdir(parents=True, exist_ok=True)  # create log dir
+
+    data_dir = Path(path_config["data_dir"])
+    data_dir.mkdir(exist_ok=True, parents=True)  # create dataset dir
+
+    lcf_dir = Path(path_config["lcf_dir"])  # set lcf data dir
+    tpf_dir = Path(path_config["tpf_dir"])  # set tpf data dir
+
+    plot_dir = path_config["plot_dir"]
+    if plot_dir:
+        plot_dir = Path(plot_dir)
+        plot_dir = data_dir / 'plots'
+        plot_dir.mkdir(exist_ok=True, parents=True)
+
+    tce_tbl = pd.read_csv(path_config["tce_tbl_fp"])
+
+    # 2) tce table
+    tce_tbl_config = config["setup"]["tce_tbl"]
 
     tce_tbl = tce_tbl.loc[
-        tce_tbl["label"].isin(["EB", "KP", "CP", "NTP", "NEB", "NPC"])
-    ]  # filter for relevant labels
-
+        tce_tbl["label"].isin(
+            tce_tbl_config["keep_dispositions"]
+        )
+    ]  # filter for relevant dispositions
+        
     tce_tbl.rename(
         columns={"label": "disposition", "label_source": "disposition_source"},
         inplace=True,
-    )
+    )  # rename tce_tbl columns
 
-    # dataset hyperparameters
-    n_durations_window = 5  # number of transit durations in each extracted window
-    frac_valid_cadences_in_window_thr = 0.85
-    frac_valid_cadences_it_thr = 0.85
+    # 3) dataset preprocessing parameters
+    dataset_config = config["setup"]["dataset_preproc_params"]
 
-    maxmes_threshold = 7.1
-    # sampling_rate = 2  # min/cadence
-    buffer_time = (
-        30  # in minutes, between in-transit cadences and out-of-transit cadences
-    )
-    # oot_buffer_ncadences = int(buffer_time / sampling_rate)
-    # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
-    n_durations_buffer = 1.5  # number of transit durations to use as a buffer for in transit mask points.
-    gap_width = 0.75
-    resampled_num_points = 100  # number of points in the window after resampling
+    n_durations_window = dataset_config["n_durations_window"]
+    ex_it_mask_n_durations_window = dataset_config["ex_it_mask_n_durations_window"]
+    sg_it_mask_n_durations_window = dataset_config["sg_it_mask_n_durations_window"]
+    weak_sec_mask_maxmes_thr = dataset_config["weak_sec_mask_maxmes_thr"]
 
-    rnd_seed = 42
-    # difference image data parameters
-    size_img = [11, 11]  # resize images to this size
-    f_size = [
-        3,
-        3,
+    frac_valid_cadences_in_window_thr = dataset_config["frac_valid_cadences_in_window_thr"]
+    frac_valid_cadences_it_thr = dataset_config["frac_valid_cadences_it_thr"]
+
+    buffer_time = dataset_config["buffer_time"]
+    resampled_num_points = dataset_config["resampled_num_points"] # number of points in the window after resampling
+    rnd_seed = dataset_config["rnd_seed"]
+
+    size_img = dataset_config["size_img"]  # resize images to this size
+    f_size = dataset_config[
+        "f_size"
     ]  # enlarge `size_img` by these factors; final dimensions are f_size * size_img
-    center_target = False  # center target in images
+    center_target = dataset_config["center_target"]  # center target in images
 
-    # create plot dir
-    # plot_dir = data_dir / 'plots'
-    # plot_dir.mkdir(exist_ok=True, parents=True)
-    plot_dir = None
-
-    # # Used for testing on tce subset
-    # tces_lst = [
-    #     '68577662-1-S43',  # KP
-    #     '394112898-1-S40',  # UNK, EB?
-    #     '261136679-1-S13',  # CP
-    #     '336767770-1-S17',  # NTP
-    #     '352289014-1-S13',  # NTP
-    #     '298734307-1-S14-60',  # multisector example
-    # ]
-
-    # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
-
-    job_log_dir = log_dir / "job_logs"
-    job_log_dir.mkdir(parents=True, exist_ok=True)
-
+    # # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
+    # # TODO: remove
+    # if config["setup"]["test_mode"]:
+    #     test_config = config["mode"]["test"]
+    #     for t, sr in test_config["target_sector_runs"]:
+    #         continue
+    
     partial_func = partial(
         process_target_sector_run,
-        lc_dir=lc_dir,
+        lcf_dir=lcf_dir,
         tpf_dir=tpf_dir,
         n_durations_window=n_durations_window,
+        ex_it_mask_n_durations_window=ex_it_mask_n_durations_window,
+        sg_it_mask_n_durations_window=sg_it_mask_n_durations_window,
+        weak_sec_mask_maxmes_thr=weak_sec_mask_maxmes_thr,
         frac_valid_cadences_in_window_thr=frac_valid_cadences_in_window_thr,
         frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
-        maxmes_threshold=maxmes_threshold,
         buffer_time=buffer_time,
-        n_durations_buffer=n_durations_buffer,
-        gap_width=gap_width,
         resampled_num_points=resampled_num_points,
         rnd_seed=rnd_seed,
         size_img=deepcopy(size_img),
         f_size=deepcopy(f_size),
         center_target=center_target,
         plot_dir=plot_dir,
-        log_dir=job_log_dir,
+        log_dir=log_dir,
         data_dir=data_dir,
     )
 
-    # OLD: using N-2 = 126
-
-    # each requires much RAM, each runs faster with less processes
-    # pool = multiprocessing.Pool(
-    #     processes=1, maxtasksperchild=1 #TODO: Update to 126
-    # )  # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
+    mp_config = config["setup"]["multiprocessing"]
 
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [
@@ -679,29 +691,30 @@ if __name__ == "__main__":
         )
     ]
 
-    job_chunk_size = 5
+    job_chunk_size = mp_config["job_chunk_size"]
     chunked_jobs = [
         jobs[i : i + job_chunk_size] for i in range(0, len(jobs), job_chunk_size)
     ]
 
-    validate_chunks = True
-    processed_chunk_mask = [0] * len(chunked_jobs)
+    validate_chunks = mp_config["validate_chunks"]
+    
 
     # log chunk validation
     logger = logging.getLogger(f"chunk_validation_logger")
     logger.setLevel(logging.INFO)
-
     log_path = Path(log_dir) / f"chunk_validation.log"
+
     file_handler = logging.FileHandler(log_path)
     logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
     file_handler.setFormatter(logger_formatter)
     logger.addHandler(file_handler)
 
+    
+    # print(f"Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}")
+    processed_chunk_mask = [0] * len(chunked_jobs)
     logger.info(
         f"Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}"
     )
-    print(f"Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}")
-
     if validate_chunks:
         # build chunk mask
         tfrec_dir = data_dir / "tfrecords"
@@ -713,19 +726,21 @@ if __name__ == "__main__":
     logger.info(
         f"Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed."
     )
-    # Using 100 processes
-    with multiprocessing.Pool(processes=100, maxtasksperchild=1) as pool:
-        for chunk_num, job_chunk in enumerate(chunked_jobs, start=1):
-            if processed_chunk_mask[chunk_num - 1] == 0:
-                print(f"Processing chunk {chunk_num} with multiprocessing pool.")
-                logger.info(f"Processing chunk {chunk_num} with multiprocessing pool.")
+
+    process_num = mp_config["process_num"]
+    # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
+    with multiprocessing.Pool(processes=process_num, maxtasksperchild=1) as pool:
+        for chunk_i, job_chunk in enumerate(chunked_jobs):
+            if processed_chunk_mask[chunk_i] == 0:
+                # print(f"Processing chunk {chunk_i + 1} with multiprocessing pool.")
+                logger.info(f"Processing chunk {chunk_i + 1} with multiprocessing pool.")
                 pool.apply_async(
-                    partial_func, args=(job_chunk, chunk_num, len(chunked_jobs))
+                    partial_func, args=(job_chunk, chunk_i + 1, len(chunked_jobs))
                 )
             else:
-                logger.info(f"Skipping processing for chunk {chunk_num}.")
-        (
-            f"PID_MAIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
-        )
+                logger.info(f"Skipping processing for chunk {chunk_i + 1}.")
+        # (
+        #     f"PID_MAIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        # )
         pool.close()
         pool.join()
