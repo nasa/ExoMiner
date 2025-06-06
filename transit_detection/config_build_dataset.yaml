@@ -1,66 +1,42 @@
 ---
-# mode:
-#   test: # test on subset of target, sector_run pairs
-#     target_sector_runs:
-#       - [198242678, "14-19"]
-#       - [30034081, "7"]
-#       - [309528896, "1-39"]
-#       - [260647166, "1-13"]
+modes:
+  test: # test on subset of target, sector_run pairs
+    target_sector_runs:
+      - [198242678, "14-19"]
+      - [30034081, "7"]
+      - [309528896, "1-39"]
+      - [260647166, "1-13"]
+  build: null # No additional changes
 setup:
-  # test_mode: null
+  mode: "test"
   paths: # fps/dirs
-    log_dir: "/nobackup/jochoa4/work_dir/data/logging/build_dataset_v3/job_logs/"
+    log_dir: "/nobackup/jochoa4/work_dir/data/logging/build_dataset_v3/"
     data_dir: "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025"
-    
     lcf_dir: "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc" # read lcfs from dir
     tpf_dir: "/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/" # read tpfs from dir
-    
     tce_tbl_fp: "/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv"
-
     plot_dir: null
-
-  logging:
-    blah: null
   tce_tbl:
     keep_dispositions: ["EB", "KP", "CP", "NTP", "NEB", "NPC"]
-  dataset: # dataset preproc parameters
+  multiprocessing:
+    job_chunk_size: 5 # number of (target, sector_runs) to process per job
+    validate_chunks: True
+    process_num: 64 #null => all available cores
+  dataset_preproc_params:
     n_durations_window: 5  # num of transit durations in each extracted window
     ex_it_mask_n_durations_window: 3  # num of tds to use for masking it points, for selecting OOT examples w/o overlap
     sg_it_mask_n_durations_window: 2  # num of tds to use for masking it points, for SG detrending
     weak_sec_mask_maxmes_thr: 7.1  # min maxmes threshold for masking weak secondary transits
-
     frac_valid_cadences_in_window_thr: 0.85
     frac_valid_cadences_it_thr: 0.85
     buffer_time: 30  # in mins, between it cadences and oot cadences (diff_img)
-
-    # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
-    gap_width: 0.75
+    # # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
+    # gap_width: 0.75
     resampled_num_points: 100  # number of points in the window after resampling
     rnd_seed: 42
-
     # difference image data parameters
     size_img: [11, 11]  # resize images to this size
     f_size: [3, 3] # enlarge `size_img` by these factors; final dimensions are f_size * size_img
     center_target: False  # center target in images
-
-preproc_params: # preprocessing params for building dataset
-  n_durations_window: 5  # num of transit durations in each extracted window
-  ex_it_mask_n_durations_window: 3  # num of tds to use for masking it points, for selecting OOT examples w/o overlap
-  sg_it_mask_n_durations_window: 2  # num of tds to use for masking it points, for SG detrending
-  weak_sec_mask_maxmes_thr: 7.1  # min maxmes threshold for masking weak secondary transits
-
-  frac_valid_cadences_in_window_thr: 0.85
-  frac_valid_cadences_it_thr: 0.85
-  buffer_time: 30  # in mins, between it cadences and oot cadences (diff_img)
-
-  # days used to split timeseries into smaller segments if interval between cadences is larger than gap_width
-  gap_width: 0.75
-  resampled_num_points: 100  # number of points in the window after resampling
-  rnd_seed: 42
-
-  # difference image data parameters
-  size_img: [11, 11]  # resize images to this size
-  f_size: [3, 3] # enlarge `size_img` by these factors; final dimensions are f_size * size_img
-  center_target: False  # center target in images
-  
     
+      

@@ -195,51 +195,18 @@ def process_target_sector_run(
 
                 raw_time, raw_flux = lcf.time.value, lcf.flux.value
 
-                in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-                primary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-                secondary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-
-                # Mask for all points that can possibly be included in an in transit flux window + buffer
-                primary_in_transit_mask = build_transit_mask_for_lightcurve(
-                    time=raw_time,
-                    tce_list=target_sector_run_tce_data,
-                    n_durations_window=ex_it_mask_n_durations_window,
-                )
-
-                # Mask for weak secondary transits
-                secondary_in_transit_mask = build_secondary_transit_mask_for_lightcurve(
+                in_transit_mask = build_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
                     n_durations_window=ex_it_mask_n_durations_window,
                     maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
 
-                # In-transit mask defines points that cannot act as center-points for oot window
-                in_transit_mask = np.logical_or(
-                    primary_in_transit_mask, secondary_in_transit_mask
-                )
-
-                sg_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-                sg_primary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-                sg_secondary_in_transit_mask = np.zeros(len(raw_time), dtype=bool)
-
-                sg_primary_in_transit_mask = build_transit_mask_for_lightcurve(
+                sg_in_transit_mask = build_transit_mask_for_lightcurve(
                     time=raw_time,
                     tce_list=target_sector_run_tce_data,
                     n_durations_window=sg_it_mask_n_durations_window,
-                )
-
-                sg_secondary_in_transit_mask = (
-                    build_secondary_transit_mask_for_lightcurve(
-                        time=raw_time,
-                        tce_list=target_sector_run_tce_data,
-                        n_durations_window=sg_it_mask_n_durations_window,
-                        maxmes_threshold=weak_sec_mask_maxmes_thr,
-                    )
-                )
-
-                sg_in_transit_mask = np.logical_or(
-                    sg_primary_in_transit_mask, sg_secondary_in_transit_mask
+                    maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
 
                 time, flux, trend, _ = detrend_flux_using_sg_filter(
@@ -600,7 +567,7 @@ if __name__ == "__main__":
 
     # 1) paths
     path_config = config["setup"]["paths"]
-    
+
     log_dir = Path(path_config["log_dir"])
     log_dir.mkdir(parents=True, exist_ok=True)  # create log dir
 
@@ -613,7 +580,7 @@ if __name__ == "__main__":
     plot_dir = path_config["plot_dir"]
     if plot_dir:
         plot_dir = Path(plot_dir)
-        plot_dir = data_dir / 'plots'
+        plot_dir = data_dir / "plots"
         plot_dir.mkdir(exist_ok=True, parents=True)
 
     tce_tbl = pd.read_csv(path_config["tce_tbl_fp"])
@@ -622,11 +589,18 @@ if __name__ == "__main__":
     tce_tbl_config = config["setup"]["tce_tbl"]
 
     tce_tbl = tce_tbl.loc[
-        tce_tbl["label"].isin(
-            tce_tbl_config["keep_dispositions"]
-        )
+        tce_tbl["label"].isin(tce_tbl_config["keep_dispositions"])
     ]  # filter for relevant dispositions
-        
+
+    # test on specific target, sector_runs
+    if config["setup"]["mode"] == "test":
+        test_config = config["modes"]["test"]
+        t_sr_groups = tce_tbl.groupby(["target_id", "sector_run"])
+        filtered_tce_tbl = pd.DataFrame([])
+        for t, sr in test_config["target_sector_runs"]:
+            tce_tbl_subset = pd.concat([tce_tbl_subset, t_sr_groups.get_group((t, sr))])
+        tce_tbl = filtered_tce_tbl
+
     tce_tbl.rename(
         columns={"label": "disposition", "label_source": "disposition_source"},
         inplace=True,
@@ -639,47 +613,22 @@ if __name__ == "__main__":
     ex_it_mask_n_durations_window = dataset_config["ex_it_mask_n_durations_window"]
     sg_it_mask_n_durations_window = dataset_config["sg_it_mask_n_durations_window"]
     weak_sec_mask_maxmes_thr = dataset_config["weak_sec_mask_maxmes_thr"]
-
-    frac_valid_cadences_in_window_thr = dataset_config["frac_valid_cadences_in_window_thr"]
+    frac_valid_cadences_in_window_thr = dataset_config[
+        "frac_valid_cadences_in_window_thr"
+    ]
     frac_valid_cadences_it_thr = dataset_config["frac_valid_cadences_it_thr"]
-
     buffer_time = dataset_config["buffer_time"]
-    resampled_num_points = dataset_config["resampled_num_points"] # number of points in the window after resampling
+    resampled_num_points = dataset_config[
+        "resampled_num_points"
+    ]  # number of points in the window after resampling
     rnd_seed = dataset_config["rnd_seed"]
-
     size_img = dataset_config["size_img"]  # resize images to this size
     f_size = dataset_config[
         "f_size"
     ]  # enlarge `size_img` by these factors; final dimensions are f_size * size_img
     center_target = dataset_config["center_target"]  # center target in images
 
-    # # tce_tbl = tce_tbl.loc[tce_tbl['uid'].isin(tces_lst)]
-    # # TODO: remove
-    # if config["setup"]["test_mode"]:
-    #     test_config = config["mode"]["test"]
-    #     for t, sr in test_config["target_sector_runs"]:
-    #         continue
-    
-    partial_func = partial(
-        process_target_sector_run,
-        lcf_dir=lcf_dir,
-        tpf_dir=tpf_dir,
-        n_durations_window=n_durations_window,
-        ex_it_mask_n_durations_window=ex_it_mask_n_durations_window,
-        sg_it_mask_n_durations_window=sg_it_mask_n_durations_window,
-        weak_sec_mask_maxmes_thr=weak_sec_mask_maxmes_thr,
-        frac_valid_cadences_in_window_thr=frac_valid_cadences_in_window_thr,
-        frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
-        buffer_time=buffer_time,
-        resampled_num_points=resampled_num_points,
-        rnd_seed=rnd_seed,
-        size_img=deepcopy(size_img),
-        f_size=deepcopy(f_size),
-        center_target=center_target,
-        plot_dir=plot_dir,
-        log_dir=log_dir,
-        data_dir=data_dir,
-    )
+    # 4) multiprocessing - job run
 
     mp_config = config["setup"]["multiprocessing"]
 
@@ -697,19 +646,17 @@ if __name__ == "__main__":
     ]
 
     validate_chunks = mp_config["validate_chunks"]
-    
 
     # log chunk validation
     logger = logging.getLogger(f"chunk_validation_logger")
     logger.setLevel(logging.INFO)
-    log_path = Path(log_dir) / f"chunk_validation.log"
+    log_path = log_dir / f"chunk_validation.log"
 
     file_handler = logging.FileHandler(log_path)
-    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
+    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(logger_formatter)
     logger.addHandler(file_handler)
 
-    
     # print(f"Processing a total of {len(chunked_jobs)} chunks of size {job_chunk_size}")
     processed_chunk_mask = [0] * len(chunked_jobs)
     logger.info(
@@ -727,15 +674,42 @@ if __name__ == "__main__":
         f"Skipping processing for {sum(processed_chunk_mask)} chunks that have already been processed."
     )
 
-    process_num = mp_config["process_num"]
+    job_log_dir = log_dir / "jobs"
+    job_log_dir.mkdir(parents=True, exist_ok=True)
+
+    # defines constant func args
+    partial_func = partial(
+        process_target_sector_run,
+        lcf_dir=lcf_dir,
+        tpf_dir=tpf_dir,
+        n_durations_window=n_durations_window,
+        ex_it_mask_n_durations_window=ex_it_mask_n_durations_window,
+        sg_it_mask_n_durations_window=sg_it_mask_n_durations_window,
+        weak_sec_mask_maxmes_thr=weak_sec_mask_maxmes_thr,
+        frac_valid_cadences_in_window_thr=frac_valid_cadences_in_window_thr,
+        frac_valid_cadences_it_thr=frac_valid_cadences_it_thr,
+        buffer_time=buffer_time,
+        resampled_num_points=resampled_num_points,
+        rnd_seed=rnd_seed,
+        size_img=deepcopy(size_img),
+        f_size=deepcopy(f_size),
+        center_target=center_target,
+        plot_dir=plot_dir,
+        log_dir=job_log_dir,
+        data_dir=data_dir,
+    )
+
+    num_processes = mp_config["num_processes"]
     # max tasks per child to manage memory leaks -> each worker restart after 1 task (100 pairs processed)
-    with multiprocessing.Pool(processes=process_num, maxtasksperchild=1) as pool:
-        for chunk_i, job_chunk in enumerate(chunked_jobs):
-            if processed_chunk_mask[chunk_i] == 0:
+    with multiprocessing.Pool(processes=num_processes, maxtasksperchild=1) as pool:
+        for chunk_i, job_chunk_data in enumerate(chunked_jobs):
+            if not processed_chunk_mask[chunk_i]:
                 # print(f"Processing chunk {chunk_i + 1} with multiprocessing pool.")
-                logger.info(f"Processing chunk {chunk_i + 1} with multiprocessing pool.")
+                logger.info(
+                    f"Processing chunk {chunk_i + 1} with multiprocessing pool."
+                )
                 pool.apply_async(
-                    partial_func, args=(job_chunk, chunk_i + 1, len(chunked_jobs))
+                    partial_func, args=(job_chunk_data, chunk_i + 1, len(chunked_jobs))
                 )
             else:
                 logger.info(f"Skipping processing for chunk {chunk_i + 1}.")

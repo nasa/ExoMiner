@@ -312,12 +312,11 @@ def extract_flux_windows_for_tce(
     if n_it_windows == 0:
         raise ValueError(f"No valid transit windows detected for tce: {tce_uid}")
 
-    
     # extend transit mask to only allow valid midoot points
     extended_transit_mask = extend_transit_mask_edges_by_half_window(
         time, transit_mask, n_durations_window, tce_duration
     )
-    
+
     # get oot candidates for oot windows, that do not fall on other transit events
     midoot_points_arr = time[(~extended_transit_mask) & (valid_idxs_data)]
     rng.shuffle(midoot_points_arr)
@@ -505,9 +504,60 @@ def build_transit_mask_for_lightcurve(
     time,
     tce_list,
     n_durations_window: int = 3,
+    maxmes_threshold: float = 7.1,
 ):
     """
-    Generates in transit mask for a given light curve time array based on a given list of TCEs. A mask the same size of the
+    Generates in transit mask mask, using both primary and potential weak secondary transit information, for a given light
+    curve time array based on a given list of TCEs. A mask the same size of the time value array is created for which given
+    elements are set to 'True' for in-transit timestamps and 'False' for out of transit ones, based on the orbital period,
+    epoch, and transit duration of the TCEs provided.
+
+    Args:
+        time: NumPy array, timestamps
+        tce_list: List, containing dict of ephemerides data for all tces used.
+        n_durations_window: int, number of td to use for window size mask per tce
+        maxmes_threshold: float, minimum maxmes score of tce to use weak secondary transits cadences in mask
+
+    Returns:
+        in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
+    """
+    in_transit_mask = np.zeros(len(time), dtype=bool)
+
+    for tce in tce_list:
+        epoch = tce["tce_time0bk"]
+        period = tce["tce_period"]
+        duration = tce["tce_duration"]
+        maxmes = tce["tce_maxmes"]
+        maxmesd = tce["tce_maxmesd"]
+
+        duration /= 24  # convert hours to days
+
+        # distance to nearest transit center
+        transit_proximity_days = ((time - epoch + (period / 2)) % period) - (period / 2)
+        in_transit_mask |= np.abs(transit_proximity_days) <= (
+            ((n_durations_window * duration) / 2)
+        )  # mask for primary transit
+
+        if maxmes > maxmes_threshold:
+            sec_epoch = epoch + maxmesd
+            # distance to nearest potential secondary transit center
+            sec_transit_proximity_days = (
+                (time - sec_epoch + (period / 2)) % period
+            ) - (period / 2)
+            in_transit_mask |= np.abs(sec_transit_proximity_days) <= (
+                ((n_durations_window * duration) / 2)
+            )  # mask for potential secondary transit
+
+    return in_transit_mask
+
+
+def build_primary_transit_mask_for_lightcurve(
+    time,
+    tce_list,
+    n_durations_window: int = 3,
+):
+    """
+    Generates primary in transit mask, for a given light curve time array based on a given list of TCEs. A mask the same size of the
     time value array is created for which given elements are set to 'True' for in-transit timestamps and 'False' for out of
     transit ones, based on the orbital period, epoch, and transit duration of the TCEs provided.
 
@@ -529,7 +579,7 @@ def build_transit_mask_for_lightcurve(
         duration /= 24  # convert hours to days
 
         # distance to nearest transit center (days)
-        transit_proximity_days = (time - epoch + period / 2) % period - period / 2
+        transit_proximity_days = ((time - epoch + (period / 2)) % period) - (period / 2)
         in_transit_mask |= np.abs(transit_proximity_days) <= (
             ((n_durations_window * duration) / 2)
         )
@@ -544,9 +594,10 @@ def build_secondary_transit_mask_for_lightcurve(
     maxmes_threshold: float = 7.1,
 ):
     """
-    Generates secondary in transit mask for a given light curve time array based on a given list of TCEs. A mask the same size of the
-    time value array is created for which given elements are set to 'True' for in-transit timestamps and 'False' for out of
-    transit ones, based on the orbital period, epoch, transit duration, and tce_maxmesd of the TCEs provided.
+    Generates weak secondary in transit mask for a given light curve time array based on a given list of TCEs, whose
+    tce_maxmes > provided maxmes_threshold. A mask the same size of the time value array is created for which given
+    elements are set to 'True' for potential in-transit timestamps and 'False' for out of transit ones, based on the
+    orbital period, epoch, transit duration, and tce_maxmesd of the TCEs provided.
 
     Args:
         time: NumPy array, timestamps
@@ -559,29 +610,28 @@ def build_secondary_transit_mask_for_lightcurve(
         in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
     """
 
-    in_transit_mask = np.zeros(len(time), dtype=bool)
+    sec_in_transit_mask = np.zeros(len(time), dtype=bool)
 
     for tce in tce_list:
         epoch = tce["tce_time0bk"]
         period = tce["tce_period"]
         duration = tce["tce_duration"]
-
         maxmes = tce["tce_maxmes"]
         maxmesd = tce["tce_maxmesd"]
 
         duration /= 24  # convert hours to days
 
         if maxmes > maxmes_threshold:
-            secondary_epoch = epoch + maxmesd
-            transit_proximity_days = (
-                time - secondary_epoch + period / 2
-            ) % period - period / 2
+            sec_epoch = epoch + maxmesd
+            sec_transit_proximity_days = (
+                (time - sec_epoch + (period / 2)) % period
+            ) - (period / 2)
 
-            in_transit_mask |= np.abs(transit_proximity_days) <= (
+            sec_in_transit_mask |= np.abs(sec_transit_proximity_days) <= (
                 ((n_durations_window * duration) / 2)
-            )  # transit mask buffer corresponds to points that cannot be within a oot flux window of n_durations size
+            )
 
-    return in_transit_mask
+    return sec_in_transit_mask
 
 
 def plot_detrended_flux_time_series_sg(
