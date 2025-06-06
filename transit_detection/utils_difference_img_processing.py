@@ -366,7 +366,7 @@ def extract_diff_img_data_from_window(tpf_path, t_stamp, tce_duration, buffer_oo
                                      plot_dir / f'{tce_uid}_window_t_{t_stamp:.3f}_extracted_diff_img_data.png',
                                      logscale=False)
 
-    (diff_img_processed, oot_img_processed, snr_img_processed, target_img, target_pos_col, target_pos_row, _, _) = (
+    (diff_img_processed, oot_img_processed, snr_img_processed, target_img, (target_pos_col, target_pos_row), _, _) = (
         preprocess_single_diff_img_data_for_example(
             diff_img=diff_img,
             oot_img=oot_img,
