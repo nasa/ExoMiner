@@ -1,12 +1,12 @@
 # Used to run interactive jobs
 #PBS -S /bin/bash
-#PBS -N norm_dataset_train_v3
-#PBS -l walltime=05:00:00
-#PBS -l select=1:ncpus=128:mpiprocs=128:model=rom_ait
-#PBS -q normal
-#PBS -o /nobackup/jochoa4/work_dir/data/logging/norm_dataset_train_v3.out
-#PBS -e /nobackup/jochoa4/work_dir/data/logging/norm_dataset_train_v3.err
-#PBS -W group_list=s2857
+#PBS -N plot_dataset_examples_05-04-2025_split_norm
+#PBS -l walltime=06:00:00
+#PBS -l select=1:ncpus=4:mem=128g:ngpus=1:model=rom_ait
+#PBS -q normal 
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/plot_dataset_examples_05-04-2025_split_norm.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/plot_dataset_examples_05-04-2025_split_norm.err
+#PBS -W group_list=a1509
 
 module use -a /swbuild/analytix/tools/modulefiles
 
@@ -18,4 +18,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 
 export PYTHONPATH=/nobackup/jochoa4/work_dir/exoplanet_dl
 
-python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/norm_pipeline/norm_tfrec_dataset_split.py  &> /nobackupp27/jochoa4/work_dir/data/logging/norm_dataset_train_v3.txt
+python3 /nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/norm_pipeline/plot_examples_from_dataset.py &> /nobackupp27/jochoa4/work_dir/data/logging/plot_dataset_examples_05-04-2025_split_norm.txt

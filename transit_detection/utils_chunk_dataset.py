@@ -6,7 +6,6 @@ def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
     """
     Builds mask to exclude chunks that have been successfully processed for an iteration of dataset building
     """
-    print(f"Building chunk mask using {chunked_dataset_dir} with {len(chunks_to_process)} chunks")
     chunked_dataset_dir = Path(chunked_dataset_dir)
     chunk_mask = [0] * len(chunks_to_process)
 
@@ -15,7 +14,7 @@ def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
         return chunk_mask
 
     if not any(chunked_dataset_dir.iterdir()):
-        print("Directory is empty")
+        # "Directory is empty"
         return chunk_mask
 
     for chunk_i, chunk in enumerate(chunks_to_process, start=0):
@@ -29,7 +28,6 @@ def build_chunk_mask(chunks_to_process: list, chunked_dataset_dir: Path):
 
             if chunk_shard_search and chunk_aux_tbl_search:
                 chunk_mask[chunk_i] = 1
-
         except:
             # chunk not found
             continue

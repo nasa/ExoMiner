@@ -24,7 +24,6 @@ def split_timeseries_on_time_gap(time, flux, gap_width):
         time: NumPy array, timestamps
         flux: NumPy array, flux time series
         gap_width: float, gap width in days. If two contiguous timestamps have a time gap width larger than the gap
-        width, the two arrays are split on that index.
 
     Returns:
         time_arr, list of NumPy arrays of timestamps after splitting based on `gap_width`
@@ -34,10 +33,40 @@ def split_timeseries_on_time_gap(time, flux, gap_width):
 
     time_diff = np.diff(time)
     idxs_split = np.where(time_diff >= gap_width)[0] + 1
-    idxs_split = np.where(time_diff >= gap_width)[0] + 1
     time_arr, flux_arr = np.split(time, idxs_split), np.split(flux, idxs_split)
 
     return time_arr, flux_arr
+
+
+def extend_transit_mask_edges_by_half_window(
+    time, transit_mask, n_durations_window, tce_duration
+):
+    """Extrend transit mask rising and falling edge values by a half window duration for selecting mid oot window points.
+
+    Args:
+        time: NumPy array, timestamps
+        transit_mask: NumPy array, a mask with True at idxs corresponding to timestamps that
+                        should not be overlapped by a window of n_durations.
+    Returns:
+        valid_midoot_point_mask: NumPy array, mask with True at idxs corresponding to timestamps for points which
+                            serve as valid mid oot points for a window of n_durations
+
+    """
+
+    extended_mask = np.copy(transit_mask).astype(bool)
+
+    eps = 2 / 1440  # Prevent float rounding error by additional cadence
+
+    transit_mask_diff = np.diff(transit_mask)
+    transit_edge_idxs = np.where(transit_mask_diff)[0] + 1
+    transit_edge_times = time[transit_edge_idxs]
+
+    for edge_time in transit_edge_times:
+        extended_mask |= (
+            time >= edge_time - (n_durations_window * tce_duration / 2) - eps
+        ) & (time <= edge_time + (n_durations_window * tce_duration / 2) + eps)
+
+    return extended_mask
 
 
 def detrend_flux_using_spline(time_arr, flux_arr, rng):
@@ -132,8 +161,6 @@ def extract_flux_windows_for_tce(
     period_days,
     tce_duration,
     n_durations_window,
-    gap_width,
-    buffer_time,
     frac_valid_cadences_in_window_thr,
     frac_valid_cadences_it_thr,
     resampled_num_points,
@@ -156,8 +183,6 @@ def extract_flux_windows_for_tce(
         period_days: float, orbital period in days
         tce_duration: float, transit duration in hours
         n_durations_window: int, number of transit durations in the extracted window.
-        gap_width: float, gap width in days between consecutive cadences to split arrays into sub-arrays
-        buffer_time: int, buffer in minutes between out-of-transit and in-transit cadences
         frac_valid_cadences_in_window_thr: float, fraction of valid cadences in window
         frac_valid_cadences_it_thr: float, fraction of valid in-transit cadences
         resampled_num_points: int, number of points to resample
@@ -172,29 +197,35 @@ def extract_flux_windows_for_tce(
         midoot_points_windows_arr, list with midtransit points for out-of-transit windows
     """
 
-    buffer_time /= 1440  # convert from minutes to days
     tce_duration /= 24  # convert from hours to days
 
-    # TODO: deal with NaNs; need to interpolate time?; impute cadences with missing values using what strategy?
-    # remove NaNs
-    valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
-    time, flux, transit_mask = (
-        time[valid_idxs_data],
-        flux[valid_idxs_data],
-        transit_mask[valid_idxs_data],
-    )
+    valid_time_idxs = np.isfinite(time)
+    valid_flux_idxs = np.isfinite(flux)
 
-    # split time series on gaps
-    time_arrs, flux_arrs = split_timeseries_on_time_gap(time, flux, gap_width)
-    if logger:
-        logger.info(
-            f"Time series split into {len(time_arrs)} arrays due to gap(s) in time."
+    valid_idxs_data = np.logical_and(valid_time_idxs, valid_flux_idxs)
+
+    if valid_time_idxs.sum() != len(time):
+        print(
+            f"WARNING: time series missing {len(time) - valid_time_idxs.sum()}/{len(time)} cadences"
         )
+    if np.isfinite([time[0], time[-1]]).sum() != 2:
+        print(
+            f"ERROR: time series missing, first and last values leading to undefined behavior."
+        )
+
+    n_it_windows = 0
+    n_oot_windows = 0
+
+    time_it_windows_arr, flux_it_windows_arr, midtransit_points_windows_arr = [], [], []
+    time_oot_windows_arr, flux_oot_windows_arr, midoot_points_windows_arr = [], [], []
+
+    # 1) Extract in-transit windows
 
     # find first midtransit point in the time array
     first_transit_time = find_first_epoch_after_this_time(
         tce_time0bk, period_days, time[0]
     )
+
     # compute all midtransit points in the time array
     midtransit_points_arr = np.array(
         [
@@ -202,6 +233,7 @@ def extract_flux_windows_for_tce(
             for phase_k in range(int(np.ceil((time[-1] - time[0]) / period_days)))
         ]
     )
+
     if logger:
         logger.info(f"Found {len(midtransit_points_arr)} midtransit points.")
 
@@ -212,22 +244,25 @@ def extract_flux_windows_for_tce(
     )
 
     # choose only those midtransit points whose windows fit completely inside the time array
-    valid_midtransit_points_arr = midtransit_points_arr[
-        np.logical_and(start_time_windows >= time[0], end_time_windows <= time[-1])
-    ]
+    valid_window_idxs = np.logical_and(
+        start_time_windows >= time[0], end_time_windows <= time[-1]
+    )
+
+    valid_midtransit_points = midtransit_points_arr[valid_window_idxs]
+    valid_start_time_windows = start_time_windows[valid_window_idxs]
+    valid_end_time_windows = end_time_windows[valid_window_idxs]
 
     if logger:
         logger.info(
-            f"Found {len(valid_midtransit_points_arr)} midtransit points whose windows fit completely inside the time "
-            f"array."
+            f"Found {len(valid_midtransit_points)} midtransit points whose windows fit completely inside the time array"
         )
 
+    # TODO: can pad time/flux/mask with nans in case we want to allow for frac valid idxs
     valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
 
     # extract transit windows
-    time_it_windows_arr, flux_it_windows_arr, midtransit_points_windows_arr = [], [], []
     for start_time_window, end_time_window, midtransit_point_window in zip(
-        start_time_windows, end_time_windows, valid_midtransit_points_arr
+        valid_start_time_windows, valid_end_time_windows, valid_midtransit_points
     ):
 
         # find indices in window
@@ -239,7 +274,7 @@ def extract_flux_windows_for_tce(
                 )
             continue
 
-        # find in-transit windows
+        # find in-transit indices of window
         idxs_it_window = np.logical_and(
             time >= midtransit_point_window - tce_duration / 2,
             time <= midtransit_point_window + tce_duration / 2,
@@ -252,17 +287,19 @@ def extract_flux_windows_for_tce(
                 )
             continue
 
-        # check for valid window and in-transit region
+        # check for valid window and in-transit region (+- 0.5td)
         valid_window_flag = (
             (idxs_window & valid_idxs_data).sum() / idxs_window.sum()
         ) > frac_valid_cadences_in_window_thr
+
         valid_it_window_flag = (
             (idxs_it_window & valid_idxs_data).sum() / idxs_it_window.sum()
         ) > frac_valid_cadences_it_thr
 
+        # NOTE: at this stage, nonfinite values have not been removed
         if valid_window_flag and valid_it_window_flag:
-            time_window = time[idxs_window]
-            flux_window = flux[idxs_window]
+            time_window = time[(idxs_window & valid_idxs_data)]
+            flux_window = flux[(idxs_window & valid_idxs_data)]
 
             time_it_windows_arr.append(time_window)
             flux_it_windows_arr.append(flux_window)
@@ -275,37 +312,37 @@ def extract_flux_windows_for_tce(
     if n_it_windows == 0:
         raise ValueError(f"No valid transit windows detected for tce: {tce_uid}")
 
-    # # get start and end timestamps for the windows that should be excluded from out-of-transit windows
-    # start_time_windows, end_time_windows = (
-    #     midtransit_points_arr
-    #     - (n_durations_window + 1) * tce_duration / 2
-    #     - buffer_time,
-    #     midtransit_points_arr
-    #     + (n_durations_window + 1) * tce_duration / 2
-    #     + buffer_time,
-    # )
+    # extend transit mask to only allow valid midoot points
+    extended_transit_mask = extend_transit_mask_edges_by_half_window(
+        time, transit_mask, n_durations_window, tce_duration
+    )
 
-    # # get oot candidates for oot windows, that do not fall on other transit events
-    # it_window_mask = np.zeros(len(time), dtype=bool)
-    # for start_time, end_time in zip(start_time_windows, end_time_windows):
-    #     it_window_mask |= np.logical_and(time >= start_time, time <= end_time)
-
-    oot_points_arr = time[~transit_mask]
+    # get oot candidates for oot windows, that do not fall on other transit events
+    midoot_points_arr = time[(~extended_transit_mask) & (valid_idxs_data)]
+    rng.shuffle(midoot_points_arr)
 
     if logger:
-        logger.info(f"Found {len(oot_points_arr)} out-of-transit points.")
+        logger.info(f"Found {len(midoot_points_arr)} out-of-transit points.")
 
-    rng.shuffle(oot_points_arr)
+    start_time_windows, end_time_windows = (
+        midoot_points_arr - n_durations_window * tce_duration / 2,
+        midoot_points_arr + n_durations_window * tce_duration / 2,
+    )
 
-    # extract oot windows
-    time_oot_windows_arr, flux_oot_windows_arr, midoot_points_windows_arr = [], [], []
-    for midoot_point in oot_points_arr:
+    # choose only those midtransit points whose windows fit completely inside the time array
+    valid_window_idxs = np.logical_and(
+        start_time_windows >= time[0], end_time_windows <= time[-1]
+    )
 
-        # find indices in window
-        start_time_window, end_time_window = (
-            midoot_point - n_durations_window * tce_duration / 2,
-            midoot_point + n_durations_window * tce_duration / 2,
-        )
+    valid_midoot_points = midtransit_points_arr[valid_window_idxs]
+    valid_start_time_windows = start_time_windows[valid_window_idxs]
+    valid_end_time_windows = end_time_windows[valid_window_idxs]
+
+    # extract out of transit windows
+    for start_time_window, end_time_window, midoot_point_window in zip(
+        valid_start_time_windows, valid_end_time_windows, valid_midoot_points
+    ):
+
         idxs_window = np.logical_and(time >= start_time_window, time <= end_time_window)
 
         if idxs_window.sum() == 0:
@@ -315,36 +352,36 @@ def extract_flux_windows_for_tce(
                 )
             continue
 
-        # check for valid window and in-transit region
+        # check for valid window
         valid_window_flag = (
             (idxs_window & valid_idxs_data).sum() / idxs_window.sum()
         ) > frac_valid_cadences_in_window_thr
 
         if valid_window_flag:
-            time_window = time[idxs_window]
-            flux_window = flux[idxs_window]
+            time_window = time[(idxs_window) & (valid_idxs_data)]
+            flux_window = flux[(idxs_window) & (valid_idxs_data)]
 
             time_oot_windows_arr.append(time_window)
             flux_oot_windows_arr.append(flux_window)
-            midoot_points_windows_arr.append(midoot_point)
+            midoot_points_windows_arr.append(midoot_point_window)
 
         if len(midoot_points_windows_arr) == n_it_windows:
             break
 
     n_oot_windows = len(time_oot_windows_arr)
+
     if logger:
         logger.info(f"Extracted {len(time_oot_windows_arr)} out-of-transit windows.")
 
     if n_oot_windows < n_it_windows:
         if logger:
             logger.warn(
-                f"Number of out-of-transit windows ({n_oot_windows}) is less than number of transit windows "
-                f"({n_it_windows})."
+                f"Number of out-of-transit windows: ({n_oot_windows}) is less than number of transit windows: ({n_it_windows})."
             )
-        warnings.warn(
-            f"Number of out-of-transit windows ({n_oot_windows}) is less than number of transit windows "
-            f"({n_it_windows})."
-        )
+        # warnings.warn(
+        #     f"Number of out-of-transit windows ({n_oot_windows}) is less than number of transit windows "
+        #     f"({n_it_windows})."
+        # )
 
     # plot transit and oot windows
     if plot_dir:
@@ -365,6 +402,7 @@ def extract_flux_windows_for_tce(
                 s=8,
                 label="Out-of-transit Windows" if transit_i == 0 else None,
             )
+
         ax.set_xlabel("Time - 2457000 [BTJD days]")
         ax.set_ylabel("Detrended Normalized Flux")
         ax.legend()
@@ -465,39 +503,86 @@ def plot_detrended_flux_time_series_sg(
 def build_transit_mask_for_lightcurve(
     time,
     tce_list,
-    buffer_time,
-    n_durations_buffer: float = 0,
-    n_durations_window: int = 5,
+    n_durations_window: int = 3,
+    maxmes_threshold: float = 7.1,
 ):
     """
-    Generates in transit mask for a given light curve time array based on a given list of TCEs. A mask the same size of the
+    Generates in transit mask mask, using both primary and potential weak secondary transit information, for a given light
+    curve time array based on a given list of TCEs. A mask the same size of the time value array is created for which given
+    elements are set to 'True' for in-transit timestamps and 'False' for out of transit ones, based on the orbital period,
+    epoch, and transit duration of the TCEs provided.
+
+    Args:
+        time: NumPy array, timestamps
+        tce_list: List, containing dict of ephemerides data for all tces used.
+        n_durations_window: int, number of td to use for window size mask per tce
+        maxmes_threshold: float, minimum maxmes score of tce to use weak secondary transits cadences in mask
+
+    Returns:
+        in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
+    """
+    in_transit_mask = np.zeros(len(time), dtype=bool)
+
+    for tce in tce_list:
+        epoch = tce["tce_time0bk"]
+        period = tce["tce_period"]
+        duration = tce["tce_duration"]
+        maxmes = tce["tce_maxmes"]
+        maxmesd = tce["tce_maxmesd"]
+
+        duration /= 24  # convert hours to days
+
+        # distance to nearest transit center
+        transit_proximity_days = ((time - epoch + (period / 2)) % period) - (period / 2)
+        in_transit_mask |= np.abs(transit_proximity_days) <= (
+            ((n_durations_window * duration) / 2)
+        )  # mask for primary transit
+
+        if maxmes > maxmes_threshold:
+            sec_epoch = epoch + maxmesd
+            # distance to nearest potential secondary transit center
+            sec_transit_proximity_days = (
+                (time - sec_epoch + (period / 2)) % period
+            ) - (period / 2)
+            in_transit_mask |= np.abs(sec_transit_proximity_days) <= (
+                ((n_durations_window * duration) / 2)
+            )  # mask for potential secondary transit
+
+    return in_transit_mask
+
+
+def build_primary_transit_mask_for_lightcurve(
+    time,
+    tce_list,
+    n_durations_window: int = 3,
+):
+    """
+    Generates primary in transit mask, for a given light curve time array based on a given list of TCEs. A mask the same size of the
     time value array is created for which given elements are set to 'True' for in-transit timestamps and 'False' for out of
     transit ones, based on the orbital period, epoch, and transit duration of the TCEs provided.
 
     Args:
         time: NumPy array, timestamps
         tce_list: List, containing dict of ephemerides data for all tces used.
-                            **Epoch should be the midpoint time for a transit
-        buffer_time: float, buffer in minutes
-        n_durations_buffer: float, buffer multiplier of durations used in addition to n_durations_window
-        n_durations_window: int, expected flux window size used for examples
+        n_durations_window: int, number of td to use for window size mask per tce
 
     Returns:
         in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
     """
-
     in_transit_mask = np.zeros(len(time), dtype=bool)
+
     for tce in tce_list:
         epoch = tce["tce_time0bk"]
         period = tce["tce_period"]
         duration = tce["tce_duration"]
 
-        buffer_time /= 1440  # convert minutes to days
         duration /= 24  # convert hours to days
 
-        in_transit_mask |= np.abs((time - epoch) % period) < (
-            duration * (n_durations_buffer + n_durations_window / 2) + buffer_time
-        )  # transit mask buffer corresponds to points that cannot be within a oot flux window of n_durations size
+        # distance to nearest transit center (days)
+        transit_proximity_days = ((time - epoch + (period / 2)) % period) - (period / 2)
+        in_transit_mask |= np.abs(transit_proximity_days) <= (
+            ((n_durations_window * duration) / 2)
+        )
 
     return in_transit_mask
 
@@ -505,47 +590,48 @@ def build_transit_mask_for_lightcurve(
 def build_secondary_transit_mask_for_lightcurve(
     time,
     tce_list,
-    buffer_time: float = 0,
-    n_durations_buffer: float = 0,
-    n_durations_window: int = 5,
+    n_durations_window: int = 3,
     maxmes_threshold: float = 7.1,
 ):
     """
-    Generates secondary in transit mask for a given light curve time array based on a given list of TCEs. A mask the same size of the
-    time value array is created for which given elements are set to 'True' for in-transit timestamps and 'False' for out of
-    transit ones, based on the orbital period, epoch, transit duration, and tce_maxmesd of the TCEs provided.
+    Generates weak secondary in transit mask for a given light curve time array based on a given list of TCEs, whose
+    tce_maxmes > provided maxmes_threshold. A mask the same size of the time value array is created for which given
+    elements are set to 'True' for potential in-transit timestamps and 'False' for out of transit ones, based on the
+    orbital period, epoch, transit duration, and tce_maxmesd of the TCEs provided.
 
     Args:
         time: NumPy array, timestamps
-        tce_list: List containing dict of ephemerides data for all tces used.
+        tce_list: List, containing dict of ephemerides data for all tces used.
                             **Epoch should be the midpoint time for a transit
-        buffer_time: float, buffer in minutes
-        n_durations_buffer: float, buffer multiplier of durations used in addition to n_durations_window
-        n_durations_window: int expected flux window size used for examples
-        maxmes_threshold: float representing the minimum maxmes score to consider weak secondary transits
+        n_durations_window: int, number of td to use for window size per tce
+        maxmes_threshold: float, minimum maxmes score of tce to consider weak secondary transits in mask
 
     Returns:
         in_transit_mask, NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
     """
 
-    in_transit_mask = np.zeros(len(time), dtype=bool)
+    sec_in_transit_mask = np.zeros(len(time), dtype=bool)
 
     for tce in tce_list:
         epoch = tce["tce_time0bk"]
         period = tce["tce_period"]
         duration = tce["tce_duration"]
-
         maxmes = tce["tce_maxmes"]
         maxmesd = tce["tce_maxmesd"]
 
         duration /= 24  # convert hours to days
-        if maxmes > maxmes_threshold:
-            secondary_epoch = epoch + maxmesd
-            in_transit_mask |= np.abs((time - secondary_epoch) % period) < (
-                duration * (n_durations_buffer + n_durations_window / 2) + buffer_time
-            )  # transit mask buffer corresponds to points that cannot be within a oot flux window of n_durations size
 
-    return in_transit_mask
+        if maxmes > maxmes_threshold:
+            sec_epoch = epoch + maxmesd
+            sec_transit_proximity_days = (
+                (time - sec_epoch + (period / 2)) % period
+            ) - (period / 2)
+
+            sec_in_transit_mask |= np.abs(sec_transit_proximity_days) <= (
+                ((n_durations_window * duration) / 2)
+            )
+
+    return sec_in_transit_mask
 
 
 def plot_detrended_flux_time_series_sg(
