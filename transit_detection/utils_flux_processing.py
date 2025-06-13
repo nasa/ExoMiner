@@ -236,23 +236,18 @@ def extract_flux_windows_for_tce(
     valid_time_idxs = np.isfinite(time)
     valid_flux_idxs = np.isfinite(flux)
 
-    # valid_idxs_data = np.logical_and(valid_time_idxs, valid_flux_idxs)
-    valid_idxs_data = ~cadence_mask
+    # invalid indices defined by cadence_mask rather than missing values, to keep track of interpolated
+    # idxs that may have real values, but we consider them invalid/low quality
 
-    if valid_time_idxs.sum() != len(time):
-        print(
-            f"WARNING: time series missing {len(time) - valid_time_idxs.sum()}/{len(time)} cadences"
-        )
-    if np.isfinite([time[0], time[-1]]).sum() != 2:
-        print(
-            f"ERROR: time series missing, first and last values leading to undefined behavior."
-        )
+    valid_idxs_data = ~cadence_mask
 
     n_it_windows = 0
     n_oot_windows = 0
 
     time_it_windows_arr, flux_it_windows_arr, midtransit_points_windows_arr = [], [], []
     time_oot_windows_arr, flux_oot_windows_arr, midoot_points_windows_arr = [], [], []
+
+    valid_idxs_it_windows_arr, valid_idxs_oot_windows_arr = [], []
 
     # extend transit mask to only allow valid midoot points
     extended_transit_mask = extend_transit_mask_edges_by_half_window(
@@ -274,6 +269,8 @@ def extract_flux_windows_for_tce(
         ]
     )
 
+    # okay so maybe we don't want it to overlap with a negative disp mask?
+    # and for oot examples, no overlap with any tce
     if disposition in ["NTP", "NEB", "NPC"]:
         exclude_idxs_mtp_arr = []
         for mtp_i, mtp_time in enumerate(midtransit_points_arr):
@@ -326,8 +323,8 @@ def extract_flux_windows_for_tce(
             f"Found {len(valid_midtransit_points)} midtransit points whose windows fit completely inside the time array."
         )
 
-    # TODO: can pad time/flux/mask with nans in case we want to allow for frac valid idxs
-    valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
+    # # TODO: can pad time/flux/mask with nans in case we want to allow for frac valid idxs
+    # valid_idxs_data = np.logical_and(np.isfinite(time), np.isfinite(flux))
 
     # extract transit windows
     for start_time_window, end_time_window, midtransit_point_window in zip(
@@ -366,27 +363,16 @@ def extract_flux_windows_for_tce(
             (idxs_it_window & valid_idxs_data).sum() / idxs_it_window.sum()
         ) > frac_valid_cadences_it_thr
 
-        frac_valid_cadences_in_window = (
-            idxs_window & valid_idxs_data
-        ).sum() / idxs_window.sum()
-        frac_valid_it_cadences = (
-            idxs_it_window & valid_idxs_data
-        ).sum() / idxs_it_window.sum()
-
-        logger.info(
-            f"frac_valid_cadences: @ {(start_time_window, midtransit_point_window, end_time_window)} = {frac_valid_cadences_in_window}"
-        )
-        logger.info(
-            f"frac_valid_it_cadences: @ {(start_time_window, midtransit_point_window, end_time_window)} = {frac_valid_it_cadences}"
-        )
-
         # NOTE: at this stage, nonfinite values have not been removed
         if valid_window_flag and valid_it_window_flag:
-            time_window = time[(idxs_window & valid_idxs_data)]
-            flux_window = flux[(idxs_window & valid_idxs_data)]
+            time_window = time[idxs_window]  # & valid_idxs_data)]
+            flux_window = flux[idxs_window]  # & valid_idxs_data)]
+            valid_window_cadences = valid_idxs_data[idxs_window]
 
             time_it_windows_arr.append(time_window)
             flux_it_windows_arr.append(flux_window)
+            valid_cadences_it_windows_arr.append(valid_window_cadences)
+
             midtransit_points_windows_arr.append(midtransit_point_window)
 
     n_it_windows = len(time_it_windows_arr)
@@ -439,11 +425,14 @@ def extract_flux_windows_for_tce(
         ) > frac_valid_cadences_in_window_thr
 
         if valid_window_flag:
-            time_window = time[(idxs_window) & (valid_idxs_data)]
-            flux_window = flux[(idxs_window) & (valid_idxs_data)]
+            time_window = time[idxs_window]  # & valid_idxs_data)]
+            flux_window = flux[idxs_window]  # & valid_idxs_data)]
+            valid_window_cadences = valid_idxs_data[idxs_window]
 
             time_oot_windows_arr.append(time_window)
             flux_oot_windows_arr.append(flux_window)
+            valid_cadences_oot_windows_arr.append(valid_window_cadences)
+
             midoot_points_windows_arr.append(midoot_point_window)
 
         if len(midoot_points_windows_arr) == n_it_windows:
