@@ -24,8 +24,8 @@ import yaml
 from transit_detection.utils_flux_processing import (
     extract_flux_windows_for_tce,
     build_transit_mask_for_lightcurve,
-    build_secondary_transit_mask_for_lightcurve,
     plot_detrended_flux_time_series_sg,
+    interpolate_missing_flux,
 )
 from transit_detection.utils_difference_img_processing import (
     extract_diff_img_data_from_window,
@@ -35,8 +35,9 @@ from transit_detection.utils_build_dataset import (
     write_data_to_auxiliary_tbl,
 )
 from transit_detection.utils_local_fits_processing import (
-    search_and_read_tess_lightcurvefile,
-    search_and_read_tess_targetpixelfile,
+    # search_and_read_tess_lcfs_with_astropy_table,
+    # search_and_read_tess_tpfs_with_lk,
+    search_and_read_lcfs_and_tpfs,
 )
 from src_preprocessing.lc_preprocessing.detrend_timeseries import (
     detrend_flux_using_sg_filter,
@@ -44,7 +45,6 @@ from src_preprocessing.lc_preprocessing.detrend_timeseries import (
 from transit_detection.utils_chunk_dataset import build_chunk_mask
 
 
-# %%
 def process_target_sector_run(
     chunked_target_sector_run_data,
     chunk_num,
@@ -68,54 +68,70 @@ def process_target_sector_run(
     log_dir,
     data_dir,
 ):
+
+    chunk_title = f"{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
+
     # set logger for each process
-    logger = logging.getLogger(
-        f"worker_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}"
-    )
+    log_name = f"process_{chunk_title}"
+    log_fp = Path(log_dir) / f"{log_name}.log"
+
+    logger = logging.getLogger(log_name)
     logger.setLevel(logging.INFO)
 
-    log_path = (
-        Path(log_dir)
-        / f"process_log_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.log"
+    file_handler = logging.FileHandler(log_fp)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     )
-    file_handler = logging.FileHandler(log_path)
-    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(logger_formatter)
 
-    # handle lingering handlers
     if logger.hasHandlers():
-        logger.handlers.clear()
-
+        logger.handlers.clear()  # handle lingering handlers
     logger.addHandler(file_handler)
-    logger.info(f"Beginning data processing for chunk {chunk_num}.")
 
+    logger.info(f"Beginning dataset build for chunk {chunk_num}.")
     logger.info(
-        f"PID_BEGIN {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        f"BEGIN_{log_name} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB mem"
     )
 
-    chunk_data = []
+    rng = np.random.default_rng(seed=rnd_seed)
 
-    for target, sector_run, sector_run_data in chunked_target_sector_run_data:
+    # store example data per tce in chunk
+    chunk_tce_example_data = []
+
+    for target, sector_run, t_sr_tce_data in chunked_target_sector_run_data:
         # process target, sector_run pair
         try:
-
-            sector_data_to_tfrec = []
-
-            rng = np.random.default_rng(seed=rnd_seed)
-
             logger.info(
-                f"Extracting and processing data for target: {target}, sector_run: {sector_run}"
+                f"Starting processing for target: {target}, sector_run: {sector_run}"
             )
 
-            if plot_dir:
-                plot_dir_target_sector_run = (
-                    plot_dir / f"target_{target}_sector_run_{sector_run}"
-                )
-                plot_dir_target_sector_run.mkdir(exist_ok=True, parents=True)
-            else:
-                plot_dir_target_sector_run = None
+            target_sector_run_tce_info = []
+            target_sector_run_tce_example_data = {}
 
-            target_sector_run_tce_data = []
+            for tce_i, tce_data in t_sr_tce_data.iterrows():
+                # add tce ephemerides info
+                target_sector_run_tce_info.append(
+                    {
+                        "disposition": tce_data["disposition"],
+                        "tce_time0bk": tce_data["tce_time0bk"],
+                        "tce_period": tce_data["tce_period"],
+                        "tce_duration": tce_data["tce_duration"],
+                        "tce_maxmes": tce_data["tce_maxmes"],
+                        "tce_maxmesd": tce_data["tce_maxmesd"],
+                    }
+                )
+                # add tce example data placeholder
+                target_sector_run_tce_example_data[tce_data["tce_uid"]] = {
+                    "tce_uid": tce_data["tce_uid"],
+                    "tce_info": tce_data,
+                    "sectors": [],
+                    "disposition": tce_data["disposition"],
+                }
+
+            if plot_dir:
+                t_sr_plot_dir = plot_dir / f"t_{target}_sr_{sector_run}"
+                t_sr_plot_dir.mkdir(exist_ok=True, parents=True)
+            else:
+                t_sr_plot_dir = None
 
             # get individual sector runs (needed for multisector runs)
             if "-" in sector_run:
@@ -129,140 +145,162 @@ def process_target_sector_run(
                 sector_run_arr = [int(sector_run)]
 
             # find light curve data for target, sector_run pair
-            found_sectors, lcfs = search_and_read_tess_lightcurvefile(
-                target=target, sectors=sector_run_arr, lcf_dir=lcf_dir
+            found_sectors, found_lcfs, found_tpfs = search_and_read_lcfs_and_tpfs(
+                target=target,
+                sectors=sector_run_arr,
+                lcf_dir=lcf_dir,
+                tpf_dir=tpf_dir,
+                # quality_bitmask="default",
             )
 
             if len(found_sectors) == 0:
-                # logger.warning(f'No light curve data for sector run {sector_run} and target {target}. Skipping this sector run.')
+                logger.warning(
+                    f"Skipping processing for t, sr: ({target}, {sector_run}). Found no lcf/tpf data "
+                )
                 continue
 
             logger.info(
-                f"Found {len(found_sectors)} sectors with light curve data for target, sector_run: {target}, {sector_run}."
+                f"Found {len(found_sectors)} sectors with light curve data for t, sr: ({target}, {sector_run})."
             )
 
-            for (
-                tce_i,
-                tce_data,
-            ) in sector_run_data.iterrows():  # get all tces in target, sector_run pair
-                target_sector_run_tce_data.append(
-                    {
-                        "tce_time0bk": tce_data["tce_time0bk"],
-                        "tce_period": tce_data["tce_period"],
-                        "tce_duration": tce_data["tce_duration"],
-                        "tce_maxmes": tce_data["tce_maxmes"],
-                        "tce_maxmesd": tce_data["tce_maxmesd"],
-                    }
+            # for given sector in sector_run
+            for sector, lcf, tpf in zip(found_sectors, found_lcfs, found_tpfs):
+
+                if t_sr_plot_dir:
+                    t_sr_s_plot_dir = t_sr_plot_dir / f"S{sector}"
+                    t_sr_s_plot_dir.mkdir(exist_ok=True, parents=True)
+                else:
+                    t_sr_s_plot_dir = None
+
+                # locally read lcfs w/ astropy table loading, have all timestamps included.
+                time, raw_flux = lcf.time.value, lcf.flux.value
+
+                # mask for missing/invalid cadences
+                cadence_mask = ~np.isfinite(raw_flux)
+
+                flux = interpolate_missing_flux(time, raw_flux)
+
+                # purely informational
+                real_it_mask = build_transit_mask_for_lightcurve(
+                    time=time,
+                    tce_list=[
+                        tce_info
+                        for tce_info in target_sector_run_tce_info
+                        if tce_info["disposition"] in ["EB", "CP", "KP", "NPC", "NEB"]
+                    ],
+                    n_durations_window=1,  # one td of true transits
+                    maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
 
-            # for given sector in sector_run
-            for sector, lcf in zip(found_sectors, lcfs):
-
-                data_for_tce_sector = {
-                    "sector": sector,
-                    "transit_examples": {
-                        "flux": [],
-                        "t": [],
-                        "it_img": [],
-                        "oot_img": [],
-                        "diff_img": [],
-                        "snr_img": [],
-                        "target_img": [],
-                        "target_pos": [],
-                    },
-                    "not_transit_examples": {
-                        "flux": [],
-                        "t": [],
-                        "it_img": [],
-                        "oot_img": [],
-                        "diff_img": [],
-                        "snr_img": [],
-                        "target_img": [],
-                        "target_pos": [],
-                    },
-                }
-                if plot_dir_target_sector_run:
-                    plot_dir_target_sector_run_sector = (
-                        plot_dir_target_sector_run / f"sector_{sector}"
-                    )
-                    plot_dir_target_sector_run_sector.mkdir(exist_ok=True, parents=True)
-                else:
-                    plot_dir_target_sector_run_sector = None
-
-                lcf = lk.LightCurve(
-                    {"time": np.array(lcf.time.value), "flux": np.array(lcf.flux.value)}
-                )  # np array accounts for masked flux
-
-                raw_time, raw_flux = lcf.time.value, lcf.flux.value
-
-                in_transit_mask = build_transit_mask_for_lightcurve(
-                    time=raw_time,
-                    tce_list=target_sector_run_tce_data,
+                # used for ensuring neg disp (NPC/NTP/NEB) it_windows do not overlap w/ pos disp it_windows
+                # because all neg disp it_windows receive a 0 label
+                ex_pos_disp_it_mask = build_transit_mask_for_lightcurve(
+                    time=time,
+                    tce_list=[
+                        tce_info
+                        for tce_info in target_sector_run_tce_info
+                        if tce_info["disposition"] in ["EB", "CP", "KP"]
+                    ],
                     n_durations_window=ex_it_mask_n_durations_window,
                     maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
 
-                sg_in_transit_mask = build_transit_mask_for_lightcurve(
-                    time=raw_time,
-                    tce_list=target_sector_run_tce_data,
+                # used for ensuring any disp oot_windows do not overlap w/ any disp it_windows
+                ex_all_disp_it_mask = build_transit_mask_for_lightcurve(
+                    time=time,
+                    tce_list=target_sector_run_tce_info,
+                    n_durations_window=ex_it_mask_n_durations_window,
+                    maxmes_threshold=weak_sec_mask_maxmes_thr,
+                )
+
+                sg_all_disp_it_mask = build_transit_mask_for_lightcurve(
+                    time=time,
+                    tce_list=target_sector_run_tce_info,
                     n_durations_window=sg_it_mask_n_durations_window,
                     maxmes_threshold=weak_sec_mask_maxmes_thr,
                 )
 
+                # sg_mask = sg_all_disp_it_mask #| cadence_mask
+
                 time, flux, trend, _ = detrend_flux_using_sg_filter(
                     lc=lcf,
-                    mask_in_transit=sg_in_transit_mask,
-                    win_len=int(1.2 * 24 * 30),
+                    mask_in_transit=sg_mask,
+                    win_len=int(1.2 * 24 * 30),  # 1.2 days,
                     sigma=5,
                     max_poly_order=6,
                     penalty_weight=1,
                     break_tolerance=5,
                 )
 
-                if plot_dir_target_sector_run_sector:
+                if t_sr_s_plot_dir:
                     plot_detrended_flux_time_series_sg(
-                        time=raw_time,
-                        flux=raw_flux,
+                        time=time,
+                        flux=flux,
                         detrend_time=time,
                         detrend_flux=flux,
                         trend=trend,
                         sector=sector,
-                        plot_dir=plot_dir_target_sector_run_sector,
+                        plot_dir=t_sr_s_plot_dir,
                     )
 
-                for tce_i, tce_data in sector_run_data.iterrows():
-
-                    data_for_tce = {
-                        "tce_uid": tce_data["uid"],
-                        "tce_info": tce_data,
-                        "sectors": [],
-                        "disposition": tce_data["disposition"],
+                for tce_i, tce_data in t_sr_tce_data.iterrows():
+                    sector_tce_example_data = {
+                        "sector": sector,
+                        "transit_examples": {
+                            "flux": [],
+                            "t": [],
+                            "it_img": [],
+                            "oot_img": [],
+                            "diff_img": [],
+                            "snr_img": [],
+                            "target_img": [],
+                            "target_pos": [],
+                        },
+                        "not_transit_examples": {
+                            "flux": [],
+                            "t": [],
+                            "it_img": [],
+                            "oot_img": [],
+                            "diff_img": [],
+                            "snr_img": [],
+                            "target_img": [],
+                            "target_pos": [],
+                        },
                     }
 
-                    # create directory for TCE plots
-                    if plot_dir_target_sector_run_sector:
-                        plot_dir_target_sector_run_sector_tce = (
-                            plot_dir_target_sector_run_sector / f'tce_{tce_data["uid"]}'
-                        )
-                        plot_dir_target_sector_run_sector_tce.mkdir(
-                            exist_ok=True, parents=True
-                        )
-                    else:
-                        plot_dir_target_sector_run_sector_tce = None
-
                     # get TCE unique id
-                    tic_id = tce_data["target_id"]
+                    tce_uid = tce_data["tce_uid"]
+                    # target_id = tce_data["target_id"]
                     sector_run = tce_data["sector_run"]
 
                     # ephemerides for TCE
                     tce_time0bk = tce_data["tce_time0bk"]
                     period_days = tce_data["tce_period"]
                     tce_duration = tce_data["tce_duration"]
-                    # tce_maxmes = tce_data["tce_maxmes"]
-                    # tce_maxmesd = tce_data["tce_maxmesd"]
+
+                    disposition = tce_data["disposition"]
+
+                    # data_for_tce = {
+                    #     "tce_uid": tce_data["uid"],
+                    #     "tce_info": tce_data,
+                    #     "sectors": [],
+                    #     "disposition": tce_data["disposition"],
+                    # }
+
+                    # create directory for TCE plots
+                    if t_sr_s_plot_dir:
+                        tce_ex_plot_dir = t_sr_s_plot_dir / f"tce_{tce_uid}"
+                        tce_ex_plot_dir.mkdir(exist_ok=True, parents=True)
+                    else:
+                        tce_ex_plot_dir = None
 
                     # extract flux time series windows
                     try:
+
+                        logger.info(
+                            f"Beginning LC window extraction in sector: {sector} for tce: {tce_uid}"
+                        )
+
                         (
                             resampled_flux_it_windows_arr,
                             resampled_flux_oot_windows_arr,
@@ -271,50 +309,54 @@ def process_target_sector_run(
                         ) = extract_flux_windows_for_tce(
                             time,
                             flux,
-                            in_transit_mask,
+                            ex_all_disp_it_mask,
+                            cadence_mask,
+                            tce_uid,
                             tce_time0bk,
-                            period_days,
                             tce_duration,
+                            period_days,
+                            disposition,
                             n_durations_window,
                             # gap_width,
                             # buffer_time,
                             frac_valid_cadences_in_window_thr,
                             frac_valid_cadences_it_thr,
                             resampled_num_points,
-                            tce_data["uid"],
                             rng,
-                            plot_dir_target_sector_run_sector_tce,
-                            logger=None,
+                            tce_ex_plot_dir,
+                            logger=logger,
                         )
                         logger.info(
-                            f"Extracted flux windows for sector: {sector} with tce: {tce_data['uid']} "
+                            f"Finished extracting flux windows for sector: {sector} with tce: {tce_uid} "
                         )
                     except ValueError as error:
                         logger.warning(
-                            f"ERROR: Extracting flux windows - {error.args[0]} w/ traceback: {traceback.print_exc()}"
+                            f"Could not extract flux window examples for sector: {sector} with tce: {tce_uid} - {error.args[0]} "
+                        )
+                        continue
+                    except Exception as e:
+                        logger.error(
+                            f"Unexpected exception of type {type(e)} while extracting flux windows for sector: {sector} with tce: {tce_uid}: {e}"
                         )
                         continue
 
-                    if plot_dir_target_sector_run_sector_tce:
-                        plot_dir_tce_diff_img_data = (
-                            plot_dir_target_sector_run_sector_tce / "diff_img_data"
-                        )
-                        plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
-                    else:
-                        plot_dir_tce_diff_img_data = None
+                    # if tce_ex_plot_dir:
+                    #     tce_diff_img_data_plot_dir = (
+                    #         tce_ex_plot_dir / "diff_img_data"
+                    #     )
+                    #     plot_dir_tce_diff_img_data.mkdir(exist_ok=True, parents=True)
+                    # else:
+                    #     plot_dir_tce_diff_img_data = None
 
-                    # find target pixel data for target
-                    found_sector, tpf = search_and_read_tess_targetpixelfile(
-                        target=target, sectors=sector, tpf_dir=tpf_dir
-                    )
-
-                    # if no target pixel
-                    if len(found_sector) == 0:
-                        # logger.warning(f'No target pixel data for sector {sector} and TIC {tic_id} in sector run {sector_run}. Skipping this sector.')
-                        continue
-
-                    # get tpf for sector
-                    tpf = tpf[0]
+                    # if plot_dir_tce_diff_img_data:
+                    #     plot_dir_tce_transit_diff_img_data = (
+                    #         plot_dir_tce_diff_img_data / "transit_imgs"
+                    #     )
+                    #     plot_dir_tce_transit_diff_img_data.mkdir(
+                    #         exist_ok=True, parents=True
+                    #     )
+                    # else:
+                    #     plot_dir_tce_transit_diff_img_data = None
 
                     # compute transit difference image data
                     it_diff_img_data = {
@@ -327,16 +369,6 @@ def process_target_sector_run(
                             "target_pos",
                         ]
                     }
-
-                    if plot_dir_tce_diff_img_data:
-                        plot_dir_tce_transit_diff_img_data = (
-                            plot_dir_tce_diff_img_data / "transit_imgs"
-                        )
-                        plot_dir_tce_transit_diff_img_data.mkdir(
-                            exist_ok=True, parents=True
-                        )
-                    else:
-                        plot_dir_tce_transit_diff_img_data = None
 
                     excl_idxs_it_ts = []
                     for window_i, midtransit_point_window in enumerate(
@@ -361,15 +393,19 @@ def process_target_sector_run(
                                 f_size,
                                 sector,
                                 center_target,
-                                tce_data["uid"],
-                                plot_dir=plot_dir_tce_transit_diff_img_data,
+                                tce_uid,
+                                plot_dir=None,
                             )
-                        except ValueError as error:
+                        except ValueError as ve:
                             logger.warning(
-                                f"{error.args[0]} w/ traceback: {traceback.print_exc()}"
+                                f"Skipping it_window for time {midtransit_point_window}, no difference image data computed: {ve.args[0]}"
                             )
-                            # logger.warning(f'no difference image data computed for midtransit point {midtransit_point_window}, '
-                            #             f'skipping this window')
+                            excl_idxs_it_ts.append(window_i)
+                            continue
+                        except Exception as e:
+                            logger.error(
+                                f"Skipping it_window for time {midtransit_point_window} due to unexpected exception of type: {type(e)}, while extracting flux windows for sector: {sector} with tce: {tce_uid}; {e}"
+                            )
                             excl_idxs_it_ts.append(window_i)
                             continue
 
@@ -380,6 +416,15 @@ def process_target_sector_run(
                         it_diff_img_data["target_pos"].append(
                             np.array([target_pos_col, target_pos_row])
                         )
+                    # if plot_dir_tce_diff_img_data:
+                    #     plot_dir_tce_oottransit_diff_img_data = (
+                    #         plot_dir_tce_diff_img_data / "oot_transit_imgs"
+                    #     )
+                    #     plot_dir_tce_oottransit_diff_img_data.mkdir(
+                    #         exist_ok=True, parents=True
+                    #     )
+                    # else:
+                    #     plot_dir_tce_oottransit_diff_img_data = None
 
                     # compute oot transit difference image data
                     oot_diff_img_data = {
@@ -392,16 +437,6 @@ def process_target_sector_run(
                             "target_pos",
                         ]
                     }
-
-                    if plot_dir_tce_diff_img_data:
-                        plot_dir_tce_oottransit_diff_img_data = (
-                            plot_dir_tce_diff_img_data / "oot_transit_imgs"
-                        )
-                        plot_dir_tce_oottransit_diff_img_data.mkdir(
-                            exist_ok=True, parents=True
-                        )
-                    else:
-                        plot_dir_tce_oottransit_diff_img_data = None
 
                     excl_idxs_oot_ts = []
                     for window_i, midoot_point_window in enumerate(
@@ -426,15 +461,19 @@ def process_target_sector_run(
                                 f_size,
                                 sector,
                                 center_target,
-                                tce_data["uid"],
-                                plot_dir=plot_dir_tce_oottransit_diff_img_data,
+                                tce_uid,
+                                plot_dir=None,
                             )
-                        except ValueError as error:
+                        except ValueError as ve:
                             logger.warning(
-                                f"{error.args[0]} w/ traceback: {traceback.print_exc()}"
+                                f"Skipping oot_window for time {midoot_point_window}, no difference image data computed: {ve.args[0]}"
                             )
-                            # logger.warning(f'no difference image data computed for out-of-transit point {midoot_point_window}, '
-                            #             f'skipping this window')
+                            excl_idxs_oot_ts.append(window_i)
+                            continue
+                        except Exception as e:
+                            logger.error(
+                                f"Skipping oot_window for time {midoot_point_window} due to unexpected exception of type: {type(e)}, while extracting flux windows for sector: {sector} with tce: {tce_uid}; {e}"
+                            )
                             excl_idxs_oot_ts.append(window_i)
                             continue
 
@@ -445,6 +484,13 @@ def process_target_sector_run(
                         oot_diff_img_data["target_pos"].append(
                             np.array([target_pos_col, target_pos_row])
                         )
+
+                    logger.info(
+                        f"Excluding ({len(excl_idxs_it_ts)}/{len(midtransit_points_windows_arr)}) it_window examples w/ no diff_img data."
+                    )
+                    logger.info(
+                        f"Excluding ({len(excl_idxs_oot_ts)}/{len(midoot_points_windows_arr)}) oot_window examples w/ no diff_img data."
+                    )
 
                     # exclude examples for timestamps with no difference image data
                     resampled_flux_it_windows_arr = np.delete(
@@ -463,101 +509,103 @@ def process_target_sector_run(
                     )
 
                     # add data for TCE for a given sector
-                    data_for_tce_sector["transit_examples"][
+                    sector_tce_example_data["transit_examples"][
                         "flux"
                     ] = resampled_flux_it_windows_arr
-                    data_for_tce_sector["transit_examples"][
+                    sector_tce_example_data["transit_examples"][
                         "t"
                     ] = midtransit_points_windows_arr
-                    data_for_tce_sector["transit_examples"].update(it_diff_img_data)
-                    data_for_tce_sector["not_transit_examples"][
+                    sector_tce_example_data["transit_examples"].update(it_diff_img_data)
+                    sector_tce_example_data["not_transit_examples"][
                         "flux"
                     ] = resampled_flux_oot_windows_arr
-                    data_for_tce_sector["not_transit_examples"][
+                    sector_tce_example_data["not_transit_examples"][
                         "t"
                     ] = midoot_points_windows_arr
-                    data_for_tce_sector["not_transit_examples"].update(
+                    sector_tce_example_data["not_transit_examples"].update(
                         oot_diff_img_data
                     )
 
-                    data_for_tce["sectors"].append(data_for_tce_sector)
+                    # data_for_tce["sectors"].append(data_for_tce_sector)
+                    target_sector_run_tce_example_data[tce_uid]["sectors"].append(
+                        sector_tce_example_data
+                    )
 
-                sector_data_to_tfrec.append(data_for_tce)
+                # sector_data_to_tfrec.append(data_for_tce)
 
             logger.info(
                 f"{chunk_num}) Processing for target: {target}, sector_run: {sector_run} complete."
             )
-            print(
-                f"{chunk_num}) Processing for target: {target}, sector_run: {sector_run} complete."
-            )
-            chunk_data.extend(sector_data_to_tfrec)
+
+            chunk_tce_example_data.extend(target_sector_run_tce_example_data.values())
 
         except Exception as e:
             logger.error(
-                f"Error processing target: {target}, sector run: {sector_run} - {e}"
+                f"Skipping (t, sr): ({target}, {sector_run}) due to unexpected exception of type {type(e)}: {e}"
             )
-            print(
-                f"ERROR processing chunk: {chunk_num} with target: {target}, sector run: {sector_run} - {e}"
-            )
-            logger.error(f"Traceback: {traceback.print_exc()}")
             continue
 
     logger.info(
         f"PID_END {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
     )
-    logger.info(f"{chunk_num}) Processing for all target, sector_run pairs complete.")
-    logger.info(f"{chunk_num}) Beginning dataset logging")
+    logger.info(
+        f"Finished extracting examples for all (t, sr) pairs in {chunk_title} successfully."
+    )
+
+    logger.info(f"Beginning dataset construction from extracted examples.")
 
     # write data to TFRecord dataset
-    dataset_logger = logging.getLogger("DatasetLogger")
-    dataset_logger.setLevel(logging.INFO)
-    log_path = (
-        Path(log_dir)
-        / f"dataset_build_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.log"
-    )
-    file_handler = logging.FileHandler(log_path)
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s- %(message)s")
-    file_handler.setFormatter(formatter)
-    dataset_logger.addHandler(file_handler)
+    dataset_log_name = f"dataset_build_{chunk_title}"
+    dataset_log_fp = Path(log_dir) / f"{dataset_log_name}.log"
 
-    dataset_logger.info(f"Write data to TFRecords for chunk: {chunk_num}.")
+    dataset_logger = logging.getLogger(dataset_log_name)
+    dataset_logger.setLevel(logging.INFO)
+
+    file_handler = logging.FileHandler(dataset_log_fp)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+
+    dataset_logger.addHandler(file_handler)
 
     tfrec_dir = data_dir / "tfrecords"
     tfrec_dir.mkdir(exist_ok=True, parents=True)
 
-    tfrec_fp = (
-        tfrec_dir
-        / f"raw_shard_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.tfrecord"
-    )
+    tfrec_fp = tfrec_dir / f"raw_shard_{chunk_title}.tfrecord"
+
+    # for tce_example_data in chunk_tce_example_data:
+    #     print(f"tce_ex_keys: {tce_example_data.keys()}")
+    dataset_logger.info(f"Starting processing dataset chunk: {chunk_num}.")
 
     with tf.io.TFRecordWriter(str(tfrec_fp)) as writer:
-        logger.info(
-            f"PID_WRITE {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
-        )
-        for data_for_tce in chunk_data:
+        dataset_logger.info(f"Starting writing data to TFRecord: {tfrec_fp.name}.")
+        # logger.info(
+        #     f"PID_WRITE {os.getpid()} using {psutil.Process().memory_info().rss / 1024 ** 2:.2f} MB"
+        # )
+        for tce_example_data in chunk_tce_example_data:
             dataset_logger.info(
-                f"Adding data for TCE {data_for_tce['tce_uid']} to the TFRecord file {tfrec_fp.name}..."
+                f"Adding data for TCE {tce_example_data['tce_uid']} to TFRecord"
             )
-            examples_for_tce = serialize_set_examples_for_tce(data_for_tce)
+            examples_for_tce = serialize_set_examples_for_tce(tce_example_data)
 
             for example_for_tce in examples_for_tce:
                 writer.write(example_for_tce)
 
     # create auxiliary table
-    dataset_logger.info("Creating auxiliary table to TFRecord dataset.")
-    data_tbl = write_data_to_auxiliary_tbl(chunk_data, tfrec_fp)
-    data_tbl.to_csv(
-        tfrec_dir
-        / f"data_tbl_{str(chunk_num).zfill(4)}-{str(num_chunks).zfill(4)}.csv",
-        index=False,
+    dataset_logger.info(f"Creating auxillary data table for TFRecord: {tfrec_fp.name}.")
+
+    data_tbl = write_data_to_auxiliary_tbl(chunk_tce_example_data, tfrec_fp)
+    data_tbl.to_csv(tfrec_dir / f"data_tbl_{chunk_title}.csv", index=False)
+
+    dataset_logger.info(
+        f"Finished processing dataset chunk: {chunk_title} successfully."
     )
-    dataset_logger.info(f"Dataset chunk {chunk_num} build completed!")
 
 
 if __name__ == "__main__":
     # YAML configuration
     config_fp = Path(
-        "/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/config_build_dataset.yaml"
+        "/nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/config_build_dataset.yaml"
     )
 
     with open(config_fp, "r") as file:
@@ -579,7 +627,6 @@ if __name__ == "__main__":
 
     plot_dir = path_config["plot_dir"]
     if plot_dir:
-        plot_dir = Path(plot_dir)
         plot_dir = data_dir / "plots"
         plot_dir.mkdir(exist_ok=True, parents=True)
 
@@ -588,9 +635,8 @@ if __name__ == "__main__":
     # 2) tce table
     tce_tbl_config = config["setup"]["tce_tbl"]
 
-    tce_tbl = tce_tbl.loc[
-        tce_tbl["label"].isin(tce_tbl_config["keep_dispositions"])
-    ]  # filter for relevant dispositions
+    # filter for relevant dispositions
+    tce_tbl = tce_tbl.loc[tce_tbl["label"].isin(tce_tbl_config["keep_dispositions"])]
 
     # test on specific target, sector_runs
     if config["setup"]["mode"] == "test":
@@ -598,11 +644,17 @@ if __name__ == "__main__":
         t_sr_groups = tce_tbl.groupby(["target_id", "sector_run"])
         filtered_tce_tbl = pd.DataFrame([])
         for t, sr in test_config["target_sector_runs"]:
-            tce_tbl_subset = pd.concat([tce_tbl_subset, t_sr_groups.get_group((t, sr))])
+            filtered_tce_tbl = pd.concat(
+                [filtered_tce_tbl, t_sr_groups.get_group((t, sr))]
+            )
         tce_tbl = filtered_tce_tbl
 
     tce_tbl.rename(
-        columns={"label": "disposition", "label_source": "disposition_source"},
+        columns={
+            "label": "disposition",
+            "label_source": "disposition_source",
+            "uid": "tce_uid",
+        },
         inplace=True,
     )  # rename tce_tbl columns
 
@@ -634,8 +686,8 @@ if __name__ == "__main__":
 
     # grouped target, sector_run data is unique, so can use sector_run_data views for parallel operations
     jobs = [
-        (target, sector_run, sector_run_data)
-        for (target, sector_run), sector_run_data in tce_tbl.groupby(
+        (target, sector_run, t_sr_tce_data)
+        for (target, sector_run), t_sr_tce_data in tce_tbl.groupby(
             ["target_id", "sector_run"]
         )
     ]
