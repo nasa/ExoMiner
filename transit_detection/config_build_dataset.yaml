@@ -6,22 +6,23 @@ modes:
       - [30034081, "7"]
       - [309528896, "1-39"]
       - [260647166, "1-13"]
-  build: null # No additional changes
+    plot: True
+  build:
+    plot: False
 setup:
   mode: "test"
-  paths: # fps/dirs
-    log_dir: "/nobackup/jochoa4/work_dir/data/logging/build_dataset_v3/"
-    data_dir: "/nobackup/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025"
+  paths: # fps/dirs #TODO: remove test and remove plotdir
+    log_dir: "/nobackup/jochoa4/work_dir/data/logging/test_build_TESS_exoplanet_dataset_06-06-2025/"
+    data_dir: "/nobackup/jochoa4/work_dir/data/datasets/test_TESS_exoplanet_dataset_06-06-2025"
     lcf_dir: "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc" # read lcfs from dir
     tpf_dir: "/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/" # read tpfs from dir
     tce_tbl_fp: "/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv"
-    plot_dir: null
   tce_tbl:
     keep_dispositions: ["EB", "KP", "CP", "NTP", "NEB", "NPC"]
   multiprocessing:
     job_chunk_size: 5 # number of (target, sector_runs) to process per job
-    validate_chunks: True
-    process_num: 64 #null => all available cores
+    validate_chunks: False #TODO UPDATE
+    num_processes: null #null => all available cores
   dataset_preproc_params:
     n_durations_window: 5  # num of transit durations in each extracted window
     ex_it_mask_n_durations_window: 3  # num of tds to use for masking it points, for selecting OOT examples w/o overlap
