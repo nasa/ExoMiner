@@ -129,6 +129,32 @@ def detrend_flux_using_spline(time_arr, flux_arr, rng):
     return time_arr, detrended_flux_arr, spline_flux_arr, res_flux_arr
 
 
+def interpolate_missing_flux(time, flux):
+    """
+    Uses linear interpolation to fill missing flux values for cadences in between known values,
+    and extrapolation for edge values.
+    Args:
+        time: NumPy array, timestamps
+        flux: NumPy array, flux values
+
+    Returns:
+        filled_flux: NumPy array, flux with missing cadences populated
+    """
+    valid_flux_mask = np.isfinite(flux)
+
+    f = interp1d(
+        time[valid_flux_mask],
+        flux[valid_flux_mask],
+        kind="linear",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
+    )
+
+    filled_flux = f(time)
+
+    return filled_flux
+
+
 def resample_timeseries(time, flux, num_resampled_points):
     """
 
@@ -143,7 +169,11 @@ def resample_timeseries(time, flux, num_resampled_points):
     """
 
     f = interp1d(
-        time, flux, kind="nearest", bounds_error=False, fill_value="extrapolate"
+        time,
+        flux,
+        kind="nearest",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
     )
 
     resampled_time = np.linspace(time[0], time[-1], num=num_resampled_points)
@@ -157,14 +187,16 @@ def extract_flux_windows_for_tce(
     time,
     flux,
     transit_mask,
+    cadence_mask,
+    tce_uid,
     tce_time0bk,
-    period_days,
     tce_duration,
+    period_days,
+    disposition,
     n_durations_window,
     frac_valid_cadences_in_window_thr,
     frac_valid_cadences_it_thr,
     resampled_num_points,
-    tce_uid,
     rng,
     plot_dir=None,
     logger=None,
@@ -179,14 +211,16 @@ def extract_flux_windows_for_tce(
         time: NumPy array, timestamps
         flux: NumPy array, flux values
         transit_mask: NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
+        cadence_mask: NumPy array with boolean elements for invalid flux cadences (True) and valid (False).
+        tce_uid: str, TCE uid
         tce_time0bk: float,
-        period_days: float, orbital period in days
         tce_duration: float, transit duration in hours
+        period_days: float, orbital period in days
+        disposition: str, tce disposition
         n_durations_window: int, number of transit durations in the extracted window.
         frac_valid_cadences_in_window_thr: float, fraction of valid cadences in window
         frac_valid_cadences_it_thr: float, fraction of valid in-transit cadences
         resampled_num_points: int, number of points to resample
-        tce_uid: str, TCE uid
         rng: NumPy rng generator
         plot_dir: Path, plot directory; set to None to disable plotting
 
@@ -202,7 +236,8 @@ def extract_flux_windows_for_tce(
     valid_time_idxs = np.isfinite(time)
     valid_flux_idxs = np.isfinite(flux)
 
-    valid_idxs_data = np.logical_and(valid_time_idxs, valid_flux_idxs)
+    # valid_idxs_data = np.logical_and(valid_time_idxs, valid_flux_idxs)
+    valid_idxs_data = ~cadence_mask
 
     if valid_time_idxs.sum() != len(time):
         print(
@@ -219,6 +254,11 @@ def extract_flux_windows_for_tce(
     time_it_windows_arr, flux_it_windows_arr, midtransit_points_windows_arr = [], [], []
     time_oot_windows_arr, flux_oot_windows_arr, midoot_points_windows_arr = [], [], []
 
+    # extend transit mask to only allow valid midoot points
+    extended_transit_mask = extend_transit_mask_edges_by_half_window(
+        time, transit_mask, n_durations_window, tce_duration
+    )
+
     # 1) Extract in-transit windows
 
     # find first midtransit point in the time array
@@ -226,13 +266,42 @@ def extract_flux_windows_for_tce(
         tce_time0bk, period_days, time[0]
     )
 
-    # compute all midtransit points in the time array
+    # compute all midtransit points in the time array, (non-deterministic, ie exact value not in arr)
     midtransit_points_arr = np.array(
         [
             first_transit_time + phase_k * period_days
             for phase_k in range(int(np.ceil((time[-1] - time[0]) / period_days)))
         ]
     )
+
+    if disposition in ["NTP", "NEB", "NPC"]:
+        exclude_idxs_mtp_arr = []
+        for mtp_i, mtp_time in enumerate(midtransit_points_arr):
+            # find nearest timestamp to mtp
+            closest_time_idx = np.argmin(np.abs(time - mtp_time))
+            # if masked in transit, ie causes overlap w/ true transit window
+            if extended_transit_mask[closest_time_idx]:
+                exclude_idxs_mtp_arr.append(mtp_i)
+        if logger and (len(exclude_idxs_mtp_arr) > 0):
+            logger.info(
+                f"Excluding {len(exclude_idxs_mtp_arr)} / {len(midtransit_points_arr)} possible midtransit points for negative disposition tce: {tce_uid}"
+            )
+        # delete mtps that window overlap w/ true transit windows (as def'd by mask)
+        midtransit_points_arr = np.delete(
+            np.array(midtransit_points_arr), exclude_idxs_mtp_arr, axis=0
+        )
+
+    # tce_data = {
+    #     "tce_uid": tce_uid,
+    #     "time": time,
+    #     "flux": flux,
+    #     "transit_mask": transit_mask,
+    #     "tce_time0bk": tce_time0bk,
+    #     "period_days": period_days,
+    #     "tce_duration": tce_duration,
+    #     "n_durations_window": n_durations_window,
+    #     "midtransit_points_arr": midtransit_points_arr,
+    # }
 
     if logger:
         logger.info(f"Found {len(midtransit_points_arr)} midtransit points.")
@@ -254,7 +323,7 @@ def extract_flux_windows_for_tce(
 
     if logger:
         logger.info(
-            f"Found {len(valid_midtransit_points)} midtransit points whose windows fit completely inside the time array"
+            f"Found {len(valid_midtransit_points)} midtransit points whose windows fit completely inside the time array."
         )
 
     # TODO: can pad time/flux/mask with nans in case we want to allow for frac valid idxs
@@ -267,6 +336,7 @@ def extract_flux_windows_for_tce(
 
         # find indices in window
         idxs_window = np.logical_and(time >= start_time_window, time <= end_time_window)
+
         if idxs_window.sum() == 0:
             if logger:
                 logger.info(
@@ -296,6 +366,20 @@ def extract_flux_windows_for_tce(
             (idxs_it_window & valid_idxs_data).sum() / idxs_it_window.sum()
         ) > frac_valid_cadences_it_thr
 
+        frac_valid_cadences_in_window = (
+            idxs_window & valid_idxs_data
+        ).sum() / idxs_window.sum()
+        frac_valid_it_cadences = (
+            idxs_it_window & valid_idxs_data
+        ).sum() / idxs_it_window.sum()
+
+        logger.info(
+            f"frac_valid_cadences: @ {(start_time_window, midtransit_point_window, end_time_window)} = {frac_valid_cadences_in_window}"
+        )
+        logger.info(
+            f"frac_valid_it_cadences: @ {(start_time_window, midtransit_point_window, end_time_window)} = {frac_valid_it_cadences}"
+        )
+
         # NOTE: at this stage, nonfinite values have not been removed
         if valid_window_flag and valid_it_window_flag:
             time_window = time[(idxs_window & valid_idxs_data)]
@@ -306,19 +390,16 @@ def extract_flux_windows_for_tce(
             midtransit_points_windows_arr.append(midtransit_point_window)
 
     n_it_windows = len(time_it_windows_arr)
+
     if logger:
         logger.info(f"Extracted {n_it_windows} transit windows.")
 
     if n_it_windows == 0:
         raise ValueError(f"No valid transit windows detected for tce: {tce_uid}")
 
-    # extend transit mask to only allow valid midoot points
-    extended_transit_mask = extend_transit_mask_edges_by_half_window(
-        time, transit_mask, n_durations_window, tce_duration
-    )
-
     # get oot candidates for oot windows, that do not fall on other transit events
     midoot_points_arr = time[(~extended_transit_mask) & (valid_idxs_data)]
+
     rng.shuffle(midoot_points_arr)
 
     if logger:
@@ -334,7 +415,7 @@ def extract_flux_windows_for_tce(
         start_time_windows >= time[0], end_time_windows <= time[-1]
     )
 
-    valid_midoot_points = midtransit_points_arr[valid_window_idxs]
+    valid_midoot_points = midoot_points_arr[valid_window_idxs]
     valid_start_time_windows = start_time_windows[valid_window_idxs]
     valid_end_time_windows = end_time_windows[valid_window_idxs]
 
