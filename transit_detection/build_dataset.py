@@ -173,12 +173,15 @@ def process_target_sector_run(
                     t_sr_s_plot_dir = None
 
                 # locally read lcfs w/ astropy table loading, have all timestamps included.
-                time, raw_flux = lcf.time.value, lcf.flux.value
-
+                time, flux = lcf.time.value, lcf.flux.value
+                
                 # mask for missing/invalid cadences
-                cadence_mask = ~np.isfinite(raw_flux)
+                cadence_mask = ~np.isfinite(flux)
 
-                flux = interpolate_missing_flux(time, raw_flux)
+                flux = interpolate_missing_flux(time, flux)
+
+                # used for detrending
+                lcf = lk.LightCurve({"time": time, "flux": flux})
 
                 # purely informational
                 real_it_mask = build_transit_mask_for_lightcurve(
@@ -224,7 +227,7 @@ def process_target_sector_run(
 
                 time, flux, trend, _ = detrend_flux_using_sg_filter(
                     lc=lcf,
-                    mask_in_transit=sg_mask,
+                    mask_in_transit=sg_all_disp_it_mask,
                     win_len=int(1.2 * 24 * 30),  # 1.2 days,
                     sigma=5,
                     max_poly_order=6,
