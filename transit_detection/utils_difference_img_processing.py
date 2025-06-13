@@ -357,6 +357,7 @@ def extract_diff_img_data_from_window(tpf_path, t_stamp, tce_duration, buffer_oo
 
     # get target position in ccd pixel frame
     target_pos_px = convert_target_position_from_ra_dec_to_pixel(tpf_path, target_ra, target_dec)
+    target_pos_px = (target_pos_px[0].item(), target_pos_px[1].item())
 
     # plot difference image data
     diff_img_data = np.dstack((it_img, oot_img, diff_img, snr_img))
