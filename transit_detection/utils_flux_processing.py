@@ -8,6 +8,7 @@ from astropy.stats import mad_std
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import warnings
+from scipy.ndimage import gaussian_filter1d
 
 # local
 from src_preprocessing.third_party.kepler_spline import kepler_spline
@@ -132,13 +133,18 @@ def detrend_flux_using_spline(time_arr, flux_arr, rng):
 def interpolate_missing_flux(time, flux):
     """
     Uses linear interpolation to fill missing flux values for cadences in between known values,
-    and extrapolation for edge values.
+    and extrapolation for edge values. Builds cadence and quality mask based on flux with missing cadences.
+
     Args:
         time: NumPy array, timestamps
         flux: NumPy array, flux values
 
     Returns:
         filled_flux: NumPy array, flux with missing cadences populated
+        cadence_mask, NumPy boolean array corresponding to flux cadences that were interpolated.
+        quality_mask, NumPy array of floats (0 <= f <= 1) representing the quality of each cadence.
+                    cadences that were not interpolated receive a value of 1, and interpolated values
+                    receive a gaussian score using a sigma of 1.0.
     """
     valid_flux_mask = np.isfinite(flux)
 
@@ -150,9 +156,18 @@ def interpolate_missing_flux(time, flux):
         fill_value="extrapolate",  # assume_sorted=True
     )
 
-    filled_flux = f(time)
+    flux = f(time)
 
-    return filled_flux
+    cadence_mask = ~valid_flux_mask.astype(bool)
+
+    quality_mask = np.zeros_like(flux).astype(float)
+    quality_mask[valid_flux_mask] = 1.0
+
+    quality_mask[~valid_flux_mask] = gaussian_filter1d(
+        np.isfinite(flux).astype(float), sigma=1.0, mode="reflect"
+    )[~valid_flux_mask]
+
+    return flux, cadence_mask, quality_mask
 
 
 def resample_timeseries(time, flux, num_resampled_points):
@@ -183,10 +198,106 @@ def resample_timeseries(time, flux, num_resampled_points):
     return resampled_time, resampled_flux
 
 
+def resample_timeseries_and_masks(time, flux, masks, num_resampled_points):
+    """
+
+    Args:
+        time: NumPy array, timestamps
+        flux: NumPy array, flux values
+        masks: dict, with NumPy arr values, masks corresponding to timestamps
+        num_resampled_points: int, number of points to resample
+
+    Returns:
+        resampled_time: NumPy array, resampled timestamps
+        resampled_flux: NumPy array, resampled flux values
+        resampled_masks: dict, with NumPy arr values, resampled masks
+    """
+
+    f_flux = interp1d(
+        time,
+        flux,
+        kind="nearest",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
+    )
+
+    resampled_time = np.linspace(time[0], time[-1], num=num_resampled_points)
+
+    resampled_flux = f_flux(resampled_time)
+
+    resampled_masks = {}
+    for k, mask in masks.items():
+        f_mask = interp1d(
+            time,
+            mask,
+            kind="nearest",
+            bounds_error=False,
+            fill_value="extrapolate",  # assume_sorted=True
+        )
+        resampled_masks[k] = f_mask(resampled_time)
+
+    return resampled_time, resampled_flux, resampled_masks
+
+
+def resample_time_flux_quality_and_mask(
+    time, flux, flux_quality, mask, num_resampled_points
+):
+    """
+
+    Args:
+        time: NumPy array, timestamps
+        flux: NumPy array, flux values
+        flux_quality: NumPy array, flux quality values
+        mask: NumPy arr values, of mask corresponding to timestamps
+        num_resampled_points: int, number of points to resample
+
+    Returns:
+        resampled_time: NumPy array, resampled timestamps
+        resampled_flux: NumPy array, resampled flux values
+        resampled_flux_quality: NumPy array, resampled flux_quality values
+        resampled_mask: NumPy array, resampled mask
+    """
+
+    f_flux = interp1d(
+        time,
+        flux,
+        kind="nearest",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
+    )
+
+    resampled_time = np.linspace(time[0], time[-1], num=num_resampled_points)
+
+    resampled_flux = f_flux(resampled_time)
+
+    f_flux_quality = interp1d(
+        time,
+        flux_quality,
+        kind="nearest",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
+    )
+    resampled_flux_quality = f_flux_quality(resampled_time)
+
+    f_mask = interp1d(
+        time,
+        mask,
+        kind="nearest",
+        bounds_error=False,
+        fill_value="extrapolate",  # assume_sorted=True
+    )
+    resampled_mask = f_mask(resampled_time)
+
+    return resampled_time, resampled_flux, resampled_flux_quality, resampled_mask
+
+
 def extract_flux_windows_for_tce(
     time,
     flux,
-    transit_mask,
+    flux_quality,
+    true_it_mask,
+    pos_disp_it_mask,
+    all_disp_it_mask,
     cadence_mask,
     tce_uid,
     tce_time0bk,
@@ -210,8 +321,11 @@ def extract_flux_windows_for_tce(
     Args:
         time: NumPy array, timestamps
         flux: NumPy array, flux values
-        transit_mask: NumPy array with boolean elements for in-transit (True) and out-of-transit (False) timestamps.
-        cadence_mask: NumPy array with boolean elements for invalid flux cadences (True) and valid (False).
+        flux_quality: NumPy array, quality of flux values
+        true_it_mask: NumPy array, informational mask used to flag cadences from TRUE transit events (EB/CP/KP/NPC/NEB)
+        pos_disp_it_mask: NumPy array, mask for excluding in_transit_windows for (NTP/NEB/NPC) that overlap with marked cadences from positive dispositions.
+        all_disp_it_mask: NumPy array, mask for excluding oot_windows that overlap with marked cadences from any disposition.
+        cadence_mask: NumPy array, mask for values which were interpolated. Used for selecting windows based on frac_valid_cadences thresholds.
         tce_uid: str, TCE uid
         tce_time0bk: float,
         tce_duration: float, transit duration in hours
@@ -227,31 +341,45 @@ def extract_flux_windows_for_tce(
     Returns:
         resampled_flux_it_windows_arr, NumPy array with resampled flux for transit windows
         resampled_flux_oot_windows_arr, NumPy array with resampled flux for out-of-transit windows
+        resampled_flux_quality_it_windows_arr, NumPy array with resampled flux quality for transit windows
+        resampled_flux_quality_oot_windows_arr, NumPy array with resampled flux quality for out-of-transit windows
+        resampled_true_it_mask_it_windows_arr, NumPy array with resampled true transit cadences marked for transit windows
+        resampled_true_it_mask_oot_windows_arr, NumPy array with resampled true transit cadences marked for out-of-transit windows
         midtransit_points_windows_arr, list with midtransit points for transit windows
         midoot_points_windows_arr, list with midtransit points for out-of-transit windows
     """
 
     tce_duration /= 24  # convert from hours to days
 
-    valid_time_idxs = np.isfinite(time)
-    valid_flux_idxs = np.isfinite(flux)
-
     # invalid indices defined by cadence_mask rather than missing values, to keep track of interpolated
     # idxs that may have real values, but we consider them invalid/low quality
-
     valid_idxs_data = ~cadence_mask
 
     n_it_windows = 0
     n_oot_windows = 0
 
-    time_it_windows_arr, flux_it_windows_arr, midtransit_points_windows_arr = [], [], []
-    time_oot_windows_arr, flux_oot_windows_arr, midoot_points_windows_arr = [], [], []
+    (
+        time_it_windows_arr,
+        flux_it_windows_arr,
+        flux_quality_it_windows_arr,
+        true_it_mask_it_windows_arr,
+        midtransit_points_windows_arr,
+    ) = ([], [], [], [], [])
 
-    valid_idxs_it_windows_arr, valid_idxs_oot_windows_arr = [], []
+    (
+        time_oot_windows_arr,
+        flux_oot_windows_arr,
+        flux_quality_oot_windows_arr,
+        true_it_mask_oot_windows_arr,
+        midoot_points_windows_arr,
+    ) = ([], [], [], [], [])
 
-    # extend transit mask to only allow valid midoot points
-    extended_transit_mask = extend_transit_mask_edges_by_half_window(
-        time, transit_mask, n_durations_window, tce_duration
+    # extend transit masks to only allow valid window center points
+    pos_disp_it_window_mask = extend_transit_mask_edges_by_half_window(
+        time, pos_disp_it_mask, n_durations_window, tce_duration
+    )
+    all_disp_it_window_mask = extend_transit_mask_edges_by_half_window(
+        time, all_disp_it_mask, n_durations_window, tce_duration
     )
 
     # 1) Extract in-transit windows
@@ -269,36 +397,20 @@ def extract_flux_windows_for_tce(
         ]
     )
 
-    # okay so maybe we don't want it to overlap with a negative disp mask?
-    # and for oot examples, no overlap with any tce
+    # delete mtps for neg disps that significantly overlap w/ potential EB/CP/KP in_transit windows
     if disposition in ["NTP", "NEB", "NPC"]:
         exclude_idxs_mtp_arr = []
         for mtp_i, mtp_time in enumerate(midtransit_points_arr):
-            # find nearest timestamp to mtp
             closest_time_idx = np.argmin(np.abs(time - mtp_time))
-            # if masked in transit, ie causes overlap w/ true transit window
-            if extended_transit_mask[closest_time_idx]:
+            if pos_disp_it_window_mask[closest_time_idx]:
                 exclude_idxs_mtp_arr.append(mtp_i)
         if logger and (len(exclude_idxs_mtp_arr) > 0):
             logger.info(
                 f"Excluding {len(exclude_idxs_mtp_arr)} / {len(midtransit_points_arr)} possible midtransit points for negative disposition tce: {tce_uid}"
             )
-        # delete mtps that window overlap w/ true transit windows (as def'd by mask)
         midtransit_points_arr = np.delete(
             np.array(midtransit_points_arr), exclude_idxs_mtp_arr, axis=0
         )
-
-    # tce_data = {
-    #     "tce_uid": tce_uid,
-    #     "time": time,
-    #     "flux": flux,
-    #     "transit_mask": transit_mask,
-    #     "tce_time0bk": tce_time0bk,
-    #     "period_days": period_days,
-    #     "tce_duration": tce_duration,
-    #     "n_durations_window": n_durations_window,
-    #     "midtransit_points_arr": midtransit_points_arr,
-    # }
 
     if logger:
         logger.info(f"Found {len(midtransit_points_arr)} midtransit points.")
@@ -367,11 +479,14 @@ def extract_flux_windows_for_tce(
         if valid_window_flag and valid_it_window_flag:
             time_window = time[idxs_window]  # & valid_idxs_data)]
             flux_window = flux[idxs_window]  # & valid_idxs_data)]
-            valid_window_cadences = valid_idxs_data[idxs_window]
+            flux_quality_window = flux_quality[idxs_window]
+            true_it_mask_window = true_it_mask[idxs_window]
+            # masks_window = {k: mask[idxs_window] for k, mask in masks.items()}
 
             time_it_windows_arr.append(time_window)
             flux_it_windows_arr.append(flux_window)
-            valid_cadences_it_windows_arr.append(valid_window_cadences)
+            flux_quality_it_windows_arr.append(flux_quality_window)
+            true_it_mask_it_windows_arr.append(true_it_mask_window)
 
             midtransit_points_windows_arr.append(midtransit_point_window)
 
@@ -384,8 +499,7 @@ def extract_flux_windows_for_tce(
         raise ValueError(f"No valid transit windows detected for tce: {tce_uid}")
 
     # get oot candidates for oot windows, that do not fall on other transit events
-    midoot_points_arr = time[(~extended_transit_mask) & (valid_idxs_data)]
-
+    midoot_points_arr = time[~all_disp_it_window_mask]
     rng.shuffle(midoot_points_arr)
 
     if logger:
@@ -427,11 +541,14 @@ def extract_flux_windows_for_tce(
         if valid_window_flag:
             time_window = time[idxs_window]  # & valid_idxs_data)]
             flux_window = flux[idxs_window]  # & valid_idxs_data)]
-            valid_window_cadences = valid_idxs_data[idxs_window]
+            # masks_window = {k: mask[idxs_window] for k, mask in masks.items()}
+            flux_quality_window = flux_quality[idxs_window]
+            true_it_mask_window = true_it_mask[idxs_window]
 
             time_oot_windows_arr.append(time_window)
             flux_oot_windows_arr.append(flux_window)
-            valid_cadences_oot_windows_arr.append(valid_window_cadences)
+            flux_quality_oot_windows_arr.append(flux_quality_window)
+            true_it_mask_oot_windows_arr.append(true_it_mask_window)
 
             midoot_points_windows_arr.append(midoot_point_window)
 
@@ -481,24 +598,68 @@ def extract_flux_windows_for_tce(
         plt.close()
 
     # resample transit windows
-    resampled_time_it_windows_arr, resampled_flux_it_windows_arr = [], []
-    for time_window, flux_window in zip(time_it_windows_arr, flux_it_windows_arr):
-        resampled_time_window, resampled_flux_window = resample_timeseries(
-            time_window, flux_window, resampled_num_points
+    (
+        resampled_time_it_windows_arr,
+        resampled_flux_it_windows_arr,
+        resampled_flux_quality_it_windows_arr,
+        resampled_true_it_mask_it_windows_arr,
+    ) = ([], [], [])
+
+    for time_window, flux_window, flux_quality_window, true_it_mask_window in zip(
+        time_it_windows_arr,
+        flux_it_windows_arr,
+        flux_quality_it_windows_arr,
+        true_it_mask_it_windows_arr,
+    ):
+        (
+            resampled_time_window,
+            resampled_flux_window,
+            resampled_flux_quality_window,
+            resampled_true_it_mask_window,
+        ) = resample_time_flux_quality_and_mask(
+            time_window,
+            flux_window,
+            flux_quality_window,
+            true_it_mask_window,
+            resampled_num_points,
         )
 
         resampled_time_it_windows_arr.append(resampled_time_window)
         resampled_flux_it_windows_arr.append(resampled_flux_window)
+        resampled_flux_quality_it_windows_arr.append(resampled_flux_quality_window)
+        resampled_true_it_mask_it_windows_arr.append(resampled_true_it_mask_window)
 
     # resample out-of-transit windows
-    resampled_time_oot_windows_arr, resampled_flux_oot_windows_arr = [], []
-    for time_window, flux_window in zip(time_oot_windows_arr, flux_oot_windows_arr):
-        resampled_time_window, resampled_flux_window = resample_timeseries(
-            time_window, flux_window, resampled_num_points
+    (
+        resampled_time_oot_windows_arr,
+        resampled_flux_oot_windows_arr,
+        resampled_flux_quality_oot_windows_arr,
+        resampled_true_it_mask_oot_windows_arr,
+    ) = ([], [], [], [])
+
+    for time_window, flux_window, flux_quality_window, true_it_mask_window in zip(
+        time_oot_windows_arr,
+        flux_oot_windows_arr,
+        flux_quality_oot_windows_arr,
+        true_it_mask_oot_windows_arr,
+    ):
+        (
+            resampled_time_window,
+            resampled_flux_window,
+            resampled_flux_quality_window,
+            resampled_true_it_mask_window,
+        ) = resample_time_flux_quality_and_mask(
+            time_window,
+            flux_window,
+            flux_quality_window,
+            true_it_mask,
+            resampled_num_points,
         )
 
         resampled_time_oot_windows_arr.append(resampled_time_window)
         resampled_flux_oot_windows_arr.append(resampled_flux_window)
+        resampled_flux_quality_oot_windows_arr.append(resampled_flux_quality_window)
+        resampled_true_it_mask_oot_windows_arr.append(resampled_true_it_mask_window)
 
     if plot_dir:
         f, ax = plt.subplots(figsize=(12, 6))
@@ -529,6 +690,10 @@ def extract_flux_windows_for_tce(
     return (
         resampled_flux_it_windows_arr,
         resampled_flux_oot_windows_arr,
+        resampled_flux_quality_it_windows_arr,
+        resampled_flux_quality_oot_windows_arr,
+        resampled_true_it_mask_it_windows_arr,
+        resampled_true_it_mask_oot_windows_arr,
         midtransit_points_windows_arr,
         midoot_points_windows_arr,
     )

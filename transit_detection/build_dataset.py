@@ -174,17 +174,18 @@ def process_target_sector_run(
 
                 # locally read lcfs w/ astropy table loading, have all timestamps included.
                 time, flux = lcf.time.value, lcf.flux.value
-                
-                # mask for missing/invalid cadences
-                cadence_mask = ~np.isfinite(flux)
-
-                flux = interpolate_missing_flux(time, flux)
+                # masks for interpolated cadences
+                (
+                    flux,
+                    cadence_mask,
+                    flux_quality,
+                ) = interpolate_missing_flux(time, flux)
 
                 # used for detrending
                 lcf = lk.LightCurve({"time": time, "flux": flux})
 
                 # purely informational
-                real_it_mask = build_transit_mask_for_lightcurve(
+                true_it_mask = build_transit_mask_for_lightcurve(
                     time=time,
                     tce_list=[
                         tce_info
@@ -192,7 +193,7 @@ def process_target_sector_run(
                         if tce_info["disposition"] in ["EB", "CP", "KP", "NPC", "NEB"]
                     ],
                     n_durations_window=1,  # one td of true transits
-                    maxmes_threshold=weak_sec_mask_maxmes_thr,
+                    maxmes_threshold=np.inf,  # no secondary transits
                 )
 
                 # used for ensuring neg disp (NPC/NTP/NEB) it_windows do not overlap w/ pos disp it_windows
@@ -251,7 +252,9 @@ def process_target_sector_run(
                         "sector": sector,
                         "transit_examples": {
                             "flux": [],
+                            "flux_quality": [],
                             "t": [],
+                            "true_it_mask": [],
                             "it_img": [],
                             "oot_img": [],
                             "diff_img": [],
@@ -261,7 +264,9 @@ def process_target_sector_run(
                         },
                         "not_transit_examples": {
                             "flux": [],
+                            "flux_quality": [],
                             "t": [],
+                            "true_it_mask": [],
                             "it_img": [],
                             "oot_img": [],
                             "diff_img": [],
@@ -278,17 +283,10 @@ def process_target_sector_run(
 
                     # ephemerides for TCE
                     tce_time0bk = tce_data["tce_time0bk"]
-                    period_days = tce_data["tce_period"]
+                    tce_period = tce_data["tce_period"]
                     tce_duration = tce_data["tce_duration"]
 
                     disposition = tce_data["disposition"]
-
-                    # data_for_tce = {
-                    #     "tce_uid": tce_data["uid"],
-                    #     "tce_info": tce_data,
-                    #     "sectors": [],
-                    #     "disposition": tce_data["disposition"],
-                    # }
 
                     # create directory for TCE plots
                     if t_sr_s_plot_dir:
@@ -307,21 +305,26 @@ def process_target_sector_run(
                         (
                             resampled_flux_it_windows_arr,
                             resampled_flux_oot_windows_arr,
+                            resampled_flux_quality_it_windows_arr,
+                            resampled_flux_quality_oot_windows_arr,
+                            resampled_true_it_mask_it_windows_arr,
+                            resampled_true_it_mask_oot_windows_arr,
                             midtransit_points_windows_arr,
                             midoot_points_windows_arr,
                         ) = extract_flux_windows_for_tce(
                             time,
                             flux,
+                            flux_quality,
+                            true_it_mask,
+                            ex_pos_disp_it_mask,
                             ex_all_disp_it_mask,
                             cadence_mask,
                             tce_uid,
                             tce_time0bk,
                             tce_duration,
-                            period_days,
+                            tce_period,
                             disposition,
                             n_durations_window,
-                            # gap_width,
-                            # buffer_time,
                             frac_valid_cadences_in_window_thr,
                             frac_valid_cadences_it_thr,
                             resampled_num_points,
@@ -496,14 +499,36 @@ def process_target_sector_run(
                     )
 
                     # exclude examples for timestamps with no difference image data
+                    # it windows
                     resampled_flux_it_windows_arr = np.delete(
                         np.array(resampled_flux_it_windows_arr), excl_idxs_it_ts, axis=0
+                    )
+                    resampled_flux_quality_it_windows_arr = np.delete(
+                        np.array(resampled_flux_quality_it_windows_arr),
+                        excl_idxs_it_ts,
+                        axis=0,
+                    )
+                    resampled_true_it_mask_it_windows_arr = np.delete(
+                        np.array(resampled_true_it_mask_it_windows_arr),
+                        excl_idxs_it_ts,
+                        axis=0,
                     )
                     midtransit_points_windows_arr = np.delete(
                         np.array(midtransit_points_windows_arr), excl_idxs_it_ts, axis=0
                     )
+                    # oot windows
                     resampled_flux_oot_windows_arr = np.delete(
                         np.array(resampled_flux_oot_windows_arr),
+                        excl_idxs_oot_ts,
+                        axis=0,
+                    )
+                    resampled_flux_quality_oot_windows_arr = np.delete(
+                        np.array(resampled_flux_quality_oot_windows_arr),
+                        excl_idxs_oot_ts,
+                        axis=0,
+                    )
+                    resampled_true_it_mask_oot_windows_arr = np.delete(
+                        np.array(resampled_true_it_mask_oot_windows_arr),
                         excl_idxs_oot_ts,
                         axis=0,
                     )
@@ -512,16 +537,31 @@ def process_target_sector_run(
                     )
 
                     # add data for TCE for a given sector
+                    # it_window examples
                     sector_tce_example_data["transit_examples"][
                         "flux"
                     ] = resampled_flux_it_windows_arr
                     sector_tce_example_data["transit_examples"][
+                        "flux_quality"
+                    ] = resampled_flux_quality_it_windows_arr
+                    sector_tce_example_data["transit_examples"][
+                        "true_it_mask"
+                    ] = resampled_true_it_mask_it_windows_arr
+                    sector_tce_example_data["transit_examples"][
                         "t"
                     ] = midtransit_points_windows_arr
                     sector_tce_example_data["transit_examples"].update(it_diff_img_data)
+
+                    # oot_window examples
                     sector_tce_example_data["not_transit_examples"][
                         "flux"
                     ] = resampled_flux_oot_windows_arr
+                    sector_tce_example_data["not_transit_examples"][
+                        "flux_quality"
+                    ] = resampled_flux_quality_oot_windows_arr
+                    sector_tce_example_data["not_transit_examples"][
+                        "true_it_mask"
+                    ] = resampled_true_it_mask_oot_windows_arr
                     sector_tce_example_data["not_transit_examples"][
                         "t"
                     ] = midoot_points_windows_arr
@@ -529,17 +569,16 @@ def process_target_sector_run(
                         oot_diff_img_data
                     )
 
-                    # data_for_tce["sectors"].append(data_for_tce_sector)
+                    # add example data
                     target_sector_run_tce_example_data[tce_uid]["sectors"].append(
                         sector_tce_example_data
                     )
-
-                # sector_data_to_tfrec.append(data_for_tce)
 
             logger.info(
                 f"{chunk_num}) Processing for target: {target}, sector_run: {sector_run} complete."
             )
 
+            # add data for chunk of target, sector_runs
             chunk_tce_example_data.extend(target_sector_run_tce_example_data.values())
 
         except Exception as e:

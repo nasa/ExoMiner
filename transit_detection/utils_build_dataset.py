@@ -166,6 +166,13 @@ def serialize_set_examples_for_tce(data_for_tce):
                     ],
                 )
 
+                # set tce unique id
+                example_util.set_bytes_feature(
+                    example,
+                    "tce_uid",
+                    [f'{data_for_tce["tce_uid"]}'],
+                )
+
                 # set label
                 example_util.set_bytes_feature(
                     example,
@@ -200,9 +207,13 @@ def serialize_set_examples_for_tce(data_for_tce):
                 example_util.set_float_feature(
                     example, "t", [data_for_sector[example_type]["t"][example_i]]
                 )
-                example_util.set_float_feature(
-                    example, "flux", data_for_sector[example_type]["flux"][example_i]
-                )
+
+                for feature_name in ["flux", "flux_quality", "true_it_mask"]:
+                    example_util.set_float_feature(
+                        example,
+                        feature_name,
+                        data_for_sector[example_type][feature_name][example_i],
+                    )
 
                 for feature_name in ["oot_img", "diff_img", "snr_img", "target_img"]:
                     example_util.set_tensor_feature(
