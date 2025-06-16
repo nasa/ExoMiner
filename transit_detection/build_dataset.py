@@ -654,6 +654,7 @@ if __name__ == "__main__":
         config = yaml.unsafe_load(file)
 
     # SETUP
+    mode = config["setup"]["mode"]
 
     # 1) paths
     path_config = config["setup"]["paths"]
@@ -667,12 +668,13 @@ if __name__ == "__main__":
     lcf_dir = Path(path_config["lcf_dir"])  # set lcf data dir
     tpf_dir = Path(path_config["tpf_dir"])  # set tpf data dir
 
-    plot_dir = path_config["plot_dir"]
-    if plot_dir:
-        plot_dir = data_dir / "plots"
-        plot_dir.mkdir(exist_ok=True, parents=True)
-
     tce_tbl = pd.read_csv(path_config["tce_tbl_fp"])
+
+    plot_dir = None
+    if mode in config["modes"]:
+        if config["modes"][mode]["plot"]:
+            plot_dir = data_dir / "plots"
+            plot_dir.mkdir(exist_ok=True, parents=True)
 
     # 2) tce table
     tce_tbl_config = config["setup"]["tce_tbl"]
@@ -681,7 +683,7 @@ if __name__ == "__main__":
     tce_tbl = tce_tbl.loc[tce_tbl["label"].isin(tce_tbl_config["keep_dispositions"])]
 
     # test on specific target, sector_runs
-    if config["setup"]["mode"] == "test":
+    if mode == "test":
         test_config = config["modes"]["test"]
         t_sr_groups = tce_tbl.groupby(["target_id", "sector_run"])
         filtered_tce_tbl = pd.DataFrame([])
