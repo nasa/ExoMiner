@@ -6,14 +6,14 @@ modes:
       - [30034081, "7"]
       - [309528896, "1-39"]
       - [260647166, "1-13"]
-    plot: True
+    plot: False
   build:
     plot: False
 setup:
   mode: "test"
   paths: # fps/dirs #TODO: remove test and remove plotdir
-    log_dir: "/nobackup/jochoa4/work_dir/data/logging/test_build_TESS_exoplanet_dataset_06-06-2025/"
-    data_dir: "/nobackup/jochoa4/work_dir/data/datasets/test_TESS_exoplanet_dataset_06-06-2025"
+    log_dir: "/nobackup/jochoa4/work_dir/data/logging/test_build_TESS_exoplanet_dataset_06-16-2025/"
+    data_dir: "/nobackup/jochoa4/work_dir/data/datasets/test_TESS_exoplanet_dataset_06-16-2025"
     lcf_dir: "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc" # read lcfs from dir
     tpf_dir: "/nobackup/jochoa4/TESS/fits_files/spoc_2min/tp/" # read tpfs from dir
     tce_tbl_fp: "/nobackup/jochoa4/work_dir/data/tables/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks.csv"
