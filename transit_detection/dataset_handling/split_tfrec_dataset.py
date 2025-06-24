@@ -104,10 +104,6 @@ def process_shard(
             "disposition_source": "str",
         }
 
-        print(f"examples in train_set: {train_count}")
-        print(f"examples in val_set: {val_count}")
-        print(f"examples in test_set: {test_count}")
-
         if train_count > 0:
             tfrec_tbls.append(
                 create_table_with_tfrecord_examples(train_tfrec_fp, data_fields)
@@ -171,18 +167,18 @@ def get_merged_aux_tbl_df(aux_tbl_dir: Path, aux_tbl_pattern: str) -> pd.DataFra
 if __name__ == "__main__":
     # src directory for raw tfrecord shards
     src_tfrec_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025/tfrecords"
+        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_06-20-2025/tfrecords"
     )
 
     # destination directory for tfrecord shard splits
     dest_tfrec_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split/tfrecords"
+        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_06-20-2025_split/tfrecords"
     )
     dest_tfrec_dir.mkdir(parents=True, exist_ok=True)
 
     # destination directory for logging
     log_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/logging/split_dataset_TESS_exoplanet_dataset_05-04-2025"
+        "/nobackupp27/jochoa4/work_dir/data/logging/split_TESS_exoplanet_dataset_06-20-2025"
     )
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -205,9 +201,7 @@ if __name__ == "__main__":
     print(f"Finished DataFrame")
 
     # get unique targets from aux tbl
-    unique_targets = aux_tbl[
-        "target_id"
-    ].unique()  # TODO: update with targets found in auxillary table
+    unique_targets = aux_tbl["target_id"].unique()
 
     # shuffle targets
     shuffled_targets = np.random.permutation(unique_targets)
@@ -232,10 +226,6 @@ if __name__ == "__main__":
     val_targets = set(shuffled_targets[num_train : num_train + num_val])
     test_targets = set(shuffled_targets[num_train + num_val :])
 
-    print(f"Using {len(train_targets)} targets in training set")
-    print(f"Using {len(val_targets)} targets in validation set")
-    print(f"Using {len(test_targets)} targets in test set")
-
     logger.info(f"Using {len(train_targets)} targets in training set")
     logger.info(f"Using {len(val_targets)} targets in validation set")
     logger.info(f"Using {len(test_targets)} targets in test set")
@@ -254,7 +244,6 @@ if __name__ == "__main__":
     np.save(target_npy_path, dataset_targets)
 
     logger.info(f"Saving targets to: {target_npy_path}")
-    print(f"Saving targets to: {target_npy_path}")
 
     # define partial func to predefine default values for directories and target sets
     partial_func = partial(
@@ -268,14 +257,13 @@ if __name__ == "__main__":
     )
     start = time.time()
     # using N-2 = 126 as tested working value
-    pool = multiprocessing.Pool(processes=1)
+    pool = multiprocessing.Pool(processes=16, maxtasksperchild=1)
 
     jobs = [shard_num for shard_num in range(1, 8611 + 1)]  # chunk 1 to chunk 8611
 
     logger.info(
         f"Beginning processing {len(jobs)} chunks from range {jobs[0]} to {jobs[-1]}"
     )
-    print(f"Beginning processing {len(jobs)} chunks from range {jobs[0]} to {jobs[-1]}")
 
     results = []
     for shard_num in jobs:
@@ -288,6 +276,4 @@ if __name__ == "__main__":
     pool.join()
 
     end = time.time()
-    print(
-        f"Finished processing train val test split using in {end - start} seconds"
-    )
+    print(f"Finished processing train val test split using in {end - start} seconds")
