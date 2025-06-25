@@ -6,7 +6,7 @@ from tensorflow import keras
 from tensorflow.keras import regularizers
 import numpy as np
 import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Layer, Lambda
 
 # local
 from models.utils_models import create_inputs
@@ -159,9 +159,9 @@ def cross_attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rat
      """
 
     # apply multi-head self-attention
-    attn_output = tf.keras.layers.MultiHeadAttention(num_heads=num_heads,
+    attn_output, attn_scores = tf.keras.layers.MultiHeadAttention(num_heads=num_heads,
                                                      key_dim=key_dim,
-                                                     name='cross_att_multihead')(query, key_value)
+                                                     name='cross_att_multihead')(query, key_value, return_attention_scores=True)
     attn_output = tf.keras.layers.Dropout(dropout_rate, name='cross_att_dropout')(attn_output)
     # add residual
     out1 = tf.keras.layers.Add(name='cross_att_skip_add_residual')([query, attn_output])
@@ -175,8 +175,11 @@ def cross_attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rat
 
     out2 = tf.keras.layers.Reshape((np.prod(out2.shape[1:]),), name='cross_att_output_reshape')(out2)
     # out2 = tf.keras.layers.GlobalAveragePooling1D(name='cross_att_global_average_pool')(out2)
+    
+    mean_attn = Lambda(lambda x: tf.reduce_mean(x, axis=1), name='mean_attn')(attn_scores)
+    mean_attn_normalized = Lambda(lambda x: x / tf.reduce_sum(x, axis=-1, keepdims=True), name='normalized_mean_attn')(mean_attn)
 
-    return out2
+    return out2, mean_attn_normalized
 
 
 class ExoMinerMLP(object):
@@ -1287,9 +1290,9 @@ class ExoMinerJointLocalFlux(object):
         self.inputs = create_inputs(self.features, config['feature_map'])
 
         # build the model
-        self.outputs = self.build()
-
-        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
+        self.outputs, self.attn_scores_normalized = self.build()
+        
+        self.kerasModel = keras.Model(inputs=self.inputs, outputs=[self.outputs, self.attn_scores_normalized])
 
     def prepare_joint_local_flux_inputs(self, conv_branches):
         """ Prepares local flux inputs to be processed by the same convolutional branch.
@@ -2136,8 +2139,8 @@ class ExoMinerJointLocalFlux(object):
 
         # concatenate global max pooling features for all sectors/quarters
         net = tf.keras.layers.Concatenate(axis=1, name=f'diff_imgs_global_max_pooling_concat')(diff_imgs_global_max_res)
-        input_conv_block = tf.keras.layers.Reshape(net[1:].shape[1:] + (1,),
-                                                   name='diff_imgs_global_max_pooling_expand_dims')(net)
+        input_conv_block = tf.keras.layers.Reshape(net.shape[1:] + (1,),
+                                                name='diff_imgs_global_max_pooling_expand_dims')(net)
 
         # add per-image scalar features
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
@@ -2392,7 +2395,7 @@ class ExoMinerJointLocalFlux(object):
                                     self.config['cross_attention_before_classification_head_max_key_dim'])
             cross_att_n_heads = branches_concat.shape[-1] // cross_att_key_dim
 
-            net = cross_attention_block(branches_concat,
+            net, mean_attn = cross_attention_block(branches_concat,
                                         branches_concat,
                                         num_heads=cross_att_n_heads,
                                         key_dim=cross_att_key_dim,
@@ -2401,7 +2404,7 @@ class ExoMinerJointLocalFlux(object):
         else:  # simple concatenation of outputs from convolutional branches
             net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_lst)
 
-        return net
+        return net, mean_attn if self.config['use_cross_attention_before_classification_head'] else None
 
     def build_fc_block(self, net):
         """ Builds the FC block after the convolutional branches.
@@ -2481,7 +2484,7 @@ class ExoMinerJointLocalFlux(object):
             branches_net.update(self.build_diff_img_branch())
 
         # merge branches
-        net = self.connect_segments(branches_net)
+        net, mean_attn = self.connect_segments(branches_net)
 
         # create FC layers
         net = self.build_fc_block(net)
@@ -2494,7 +2497,7 @@ class ExoMinerJointLocalFlux(object):
         else:
             output = tf.keras.layers.Activation(tf.nn.softmax, name='softmax')(logits)
 
-        return output
+        return output, mean_attn
 
 
 class ExoMinerPlusPlus(object):

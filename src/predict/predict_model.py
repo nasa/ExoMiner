@@ -100,7 +100,6 @@ def predict_model(config, model_path, res_dir, logger=None):
             data_df.sort_values(by='score', ascending=False, inplace=True)
         data_df.to_csv(res_dir / f'ranked_predictions_{dataset}set.csv', index=False)
 
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()

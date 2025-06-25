@@ -11,10 +11,10 @@ from src.utils.utils_dataio import set_tf_data_type_for_features
 from models import models_keras
 
 # load file with features and model config
-yaml_config_fp = '/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/model_config.yaml'
+yaml_config_fp = '/Users/amittal6/Desktop/exoplanet_dl/models/model_config.yaml'
 model_fn = 'model_exominer_tess-spoc-ffi_unfolded_flux_joint_5-8-2025_1311'
-model_plot_fp = f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/{model_fn}_plot.png'
-model_summary_fp = f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/{model_fn}_summary.txt'
+model_plot_fp = f'/Users/amittal6/Desktop/{model_fn}_plot.png'
+model_summary_fp = f'/Users/amittal6/Desktop/exoplanet_dl/{model_fn}_summary.txt'
 
 with open(yaml_config_fp, 'r') as file:
     config = yaml.unsafe_load(file)
@@ -30,10 +30,10 @@ with open(model_summary_fp, 'w') as f:
     model.summary(print_fn=lambda x: f.write(x + '\n'))
 
 # plot model architecture
-plot_model(model,
-   to_file=model_plot_fp,
-   show_shapes=True,
-   show_layer_names=True,
-   rankdir='TB',
-   expand_nested=False,
-   dpi=48)
+# plot_model(model,
+#    to_file=model_plot_fp,
+#    show_shapes=True,
+#    show_layer_names=True,
+#    rankdir='TB',
+#    expand_nested=False,
+#    dpi=48)

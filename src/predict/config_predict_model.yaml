@@ -3,14 +3,18 @@ rank: null
 # set to true to run multiple models in parallel (one per GPU); only useful when number of GPUs > 1
 predict_parallel: false
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
+datasets: [test]
+
+datasets_fps:
+  test: /nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_train-test-split_5-20-2025_1112_normalized/test-shard-00003-of-00011
 paths:
   # experiment directory; results are saved here
-  experiment_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_trained_simdata_predict_realdata_11-3-2023_1341
+  experiment_dir: /home7/amittal6/new_dir
   # TFRecord directory with the CV folds
-  tfrec_dir: /Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/kepler/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_data/tfrecordskeplerq1q17dr25-dv_g301-l31_5tr_spline_nongapped_all_features_phases_7-20-2022_1237_updated_stellar_ruwe_confirmedkois_adddiffimg_perimg_normdiffimg_dataset_split-normalized_by_simdata
+  # tfrec_dir: /nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_train-test-split_5-20-2025_1112_normalized/test-shard-00000-of-00011
   # list of models' file paths to be evaluated and used to run inference
   models_filepaths:
-    - /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/kepler_simulated_data_exominer/exominer_train_kepler_simulateddata_for_simulateddata_11-2-2023_1547/ensemble_avg_model.keras
+    - /home7/amittal6/exoplanet_dl/pretrained_model/model.keras
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
 
