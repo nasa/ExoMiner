@@ -1,0 +1,36 @@
+---
+setup:
+  modes: 
+    mode: "build"
+    mode_params:
+      test:
+        params:
+          recompute_plots: False # If plots exist, they are reused when this is False
+          recompute_index: False # If index exists, it is reused when this is False
+      build:
+        params:
+          recompute_plots: False # If plots exist, they are reused when this is False
+          recompute_index: False # If index exists, it is reused when this is False
+  data:
+    paths:
+      build_dataset_config_fp: "/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/config_build_dataset.yaml"
+      tfrec_dir: "/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_06-18-2025_test_group_raw" #"/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/"
+      storage_dir: "/Users/jochoa4/Desktop/test/apps/visualize_dataset_examples/storage/"
+    json:
+      index_fn: "index.json"
+      cache_fn: "cache.json"
+    plot:
+      title:
+    flask:
+      cache_config:
+        DEBUG: True
+        CACHE_TYPE : "SimpleCache"
+        CACHE_DEFAULT_TIMEOUT : 300
+dataset:
+  is_split: False
+  is_norm: False
+tfrecords:
+  patterns:
+    generic: "shard_????-????.tfrecord"
+    norm_prefix: "norm_"
+    split_prefixes: ["train_", "val_", "test_"]
