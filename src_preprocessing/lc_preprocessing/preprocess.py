@@ -23,7 +23,7 @@ from src_preprocessing.lc_preprocessing.utils_odd_even import create_odd_even_vi
 from src_preprocessing.lc_preprocessing.utils_preprocessing import (remove_non_finite_values,
                                                                     check_inputs_generate_example,
                                                                     remove_outliers,
-                                                                    lininterp_transits, check_inputs)
+                                                                    check_inputs)
 from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_spline, \
     detrend_flux_using_sg_filter
@@ -180,15 +180,18 @@ def read_light_curve(tce, config):
         sectors = range(s_sector, e_sector + 1)
 
         # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
-        if config['ffi_data']:
-            file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], tce.target_id, sectors)
+        if config['using_exominer_pipeline']:
+            file_names = tess_io.get_tess_light_curve_files(config['lc_data_dir'], tce.target_id, tce.sectors_observed)
         else:
-            file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
+            if config['ffi_data']:
+                file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], tce.target_id, sectors)
+            else:
+                file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
 
-        if not file_names:
+            if not file_names:
 
-            raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
-                                    f'TIC {tce.target_id}')
+                raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
+                                        f'TIC {tce.target_id}')
 
         fits_data, fits_files_not_read = tess_io.read_tess_light_curve(file_names,
                                                                        centroid_radec=not config['px_coordinates'],
@@ -699,7 +702,7 @@ def process_tce(tce, table, config):
         config['smooth_filter_type'], config['smooth_filter_w_f'],
         config['tr_dur_f'],
         tce, data['all_time'], data['all_flux'], data['all_flux_err'],
-        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png',
+        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png' if config['plot_figures'] else None,
         plot_preprocessing_tce=plot_preprocessing_tce)
 
     # detrend the flux and centroid time series

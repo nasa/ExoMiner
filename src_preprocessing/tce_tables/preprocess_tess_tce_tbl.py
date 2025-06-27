@@ -20,42 +20,61 @@ from src_preprocessing.tce_tables.stellar_parameters.update_tess_stellar_paramet
 from src_preprocessing.tce_tables.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
 from src_preprocessing.tce_tables.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
 
-# set TCE table filepath
-tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014.csv')
 
-# set results directory
-res_dir = tce_tbl_fp.parent
+def preprocess_tce_table(tce_tbl_fp, res_dir):
+    """ Preprocess TCE table.
 
-# load TCE table
-tce_tbl = pd.read_csv(tce_tbl_fp)
+    Args:
+        tce_tbl_fp: Path, filepath to TCE table
+        res_dir: Path, results directory
 
-# rename DV names
-tce_tbl_renamed_cols_uid = rename_dv_xml_fields(tce_tbl)
+    Returns: tce_tbl_preprocessed_params, pandas.DataFrame with preprocessed TCE table
 
-# set uid
-tce_tbl_renamed_cols_uid['uid'] = tce_tbl_renamed_cols_uid.apply(lambda x: '{}-{}-S{}'.format(x['target_id'],
-                                                                                              x['tce_plnt_num'],
-                                                                                              x['sector_run']),
-                                                axis=1)
-# move uid to become leftmost column
-tce_cols = ['uid'] + [col for col in tce_tbl_renamed_cols_uid.columns if col != 'uid']
-tce_tbl_renamed_cols_uid = tce_tbl_renamed_cols_uid[tce_cols]
+    """
 
-# updated stellar parameters using TIC-8
-res_dir_stellar = res_dir / 'stellar_tic8'
-res_dir_stellar.mkdir(exist_ok=True)
-tce_tbl_tic8stellar = updated_stellar_parameters_with_tic8(tce_tbl_renamed_cols_uid, res_dir_stellar)
+    # load TCE table
+    tce_tbl = pd.read_csv(tce_tbl_fp)
 
-# get RUWE values from Gaia DR2
-res_dir_ruwe = res_dir / 'ruwe'
-res_dir_ruwe.mkdir(exist_ok=True)
-tce_tbl_gaiadr2_ruwe = query_gaiadr_for_ruwe(tce_tbl_tic8stellar, res_dir_ruwe)
+    # rename DV names
+    tce_tbl_renamed_cols_uid = rename_dv_xml_fields(tce_tbl)
 
-# preprocess parameters in TCE table
-tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_gaiadr2_ruwe)
+    # set uid
+    tce_tbl_renamed_cols_uid['uid'] = tce_tbl_renamed_cols_uid.apply(lambda x: '{}-{}-S{}'.format(x['target_id'],
+                                                                                                  x['tce_plnt_num'],
+                                                                                                  x['sector_run']),
+                                                    axis=1)
+    # move uid to become leftmost column
+    tce_cols = ['uid'] + [col for col in tce_tbl_renamed_cols_uid.columns if col != 'uid']
+    tce_tbl_renamed_cols_uid = tce_tbl_renamed_cols_uid[tce_cols]
 
-# add dispositions
-tce_tbl_preprocessed_params.loc[:, 'label'] = 'UNK'
-tce_tbl_preprocessed_params.loc[:, 'label_source'] = np.nan
+    # updated stellar parameters using TIC-8
+    res_dir_stellar = res_dir / 'stellar_tic8'
+    res_dir_stellar.mkdir(exist_ok=True)
+    tce_tbl_tic8stellar = updated_stellar_parameters_with_tic8(tce_tbl_renamed_cols_uid, res_dir_stellar)
 
-tce_tbl_preprocessed_params.to_csv(res_dir / f'{tce_tbl_fp.stem}_stellartic8_ruwegaiadr2_preproc.csv', index=False)
+    # get RUWE values from Gaia DR2
+    res_dir_ruwe = res_dir / 'ruwe'
+    res_dir_ruwe.mkdir(exist_ok=True)
+    tce_tbl_gaiadr2_ruwe = query_gaiadr_for_ruwe(tce_tbl_tic8stellar, res_dir_ruwe)
+
+    # preprocess parameters in TCE table
+    tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_gaiadr2_ruwe)
+
+    # add dispositions
+    tce_tbl_preprocessed_params.loc[:, 'label'] = 'UNK'
+    tce_tbl_preprocessed_params.loc[:, 'label_source'] = np.nan
+
+    return tce_tbl_preprocessed_params
+
+
+if __name__ == "__main__":
+
+    # set TCE table filepath
+    tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014.csv')
+
+    # set results directory
+    res_dir = tce_tbl_fp.parent
+
+    tce_tbl_preprocessed_params = preprocess_tce_table(tce_tbl_fp, res_dir)
+
+    tce_tbl_preprocessed_params.to_csv(res_dir / f'{tce_tbl_fp.stem}_stellartic8_ruwegaiadr2_preproc.csv', index=False)

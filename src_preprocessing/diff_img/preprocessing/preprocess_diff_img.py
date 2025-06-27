@@ -26,7 +26,6 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import logging
-import os
 import multiprocessing
 import argparse
 import yaml
@@ -472,17 +471,26 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
              f'examples.')
 
 
-if __name__ == '__main__':
+def preprocess_diff_img_tces_main(config_fp, save_dir=None, diff_img_dir=None):
+    """ Wrapper to `preprocess_diff_img_tces()`.
 
-    # used in job arrays
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
-                        default='/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
-    args = parser.parse_args()
+    Args:
+        config_fp: str, path to config file
+        save_dir: str, path to directory where preprocessed difference image data will be saved
+        diff_img_dir: str, path to directory with extracted difference image data to be preprocessed
+
+    Returns:
+
+    """
 
     # load yaml file with run setup
-    with open(args.config_fp, 'r') as file:
+    with open(config_fp, 'r') as file:
         config = yaml.safe_load(file)
+
+    if save_dir is not None:
+        config['dest_root_dir'] = save_dir
+    if diff_img_dir is not None:
+        config['diff_img_data_dir'] = diff_img_dir
 
     diff_img_data_dir = Path(config['diff_img_data_dir'])
 
@@ -517,14 +525,26 @@ if __name__ == '__main__':
              config['plot_prob'])
             for diff_img_data_fp in diff_img_data_fps]
 
-    # parallel
-    pool = multiprocessing.Pool(processes=config['n_processes'])
-    async_results = [pool.apply_async(preprocess_diff_img_tces, job) for job in jobs]
-    pool.close()
-    pool.join()
-
-    # # sequential
-    # for job in jobs:
-    #     preprocess_diff_img_tces(*job)
+    if config['n_processes'] > 1:
+        # parallel
+        pool = multiprocessing.Pool(processes=config['n_processes'])
+        _ = [pool.apply_async(preprocess_diff_img_tces, job) for job in jobs]
+        pool.close()
+        pool.join()
+    else:
+        # sequential
+        for job in jobs:
+            preprocess_diff_img_tces(*job)
 
     logger.info('Finished preprocessing difference image data from NumPy files with extracted data from DV xml files.')
+
+
+if __name__ == '__main__':
+
+    # used in job arrays
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
+                        default='/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+    args = parser.parse_args()
+
+    preprocess_diff_img_tces_main(args.config_fp)

@@ -348,7 +348,7 @@ config:
   pool_stride: 1
   clf_head_fc_decay_rate: null
   use_attention_after_conv_layers: false
-  cross_attention_before_classification_head_max_key_dim: 3
+  attention_before_classification_head_max_key_dim: 3
   sgd_momentum: 0
   force_softmax: false
   multi_class: false
@@ -386,5 +386,5 @@ config:
   local_unfolded_flux_num_filters_stats: 1
   lr: 9.583891266070494e-05
   optimizer: AdamW
-  use_cross_attention_before_classification_head: true
+  use_attention_before_classification_head: true
   use_skip_connection_conv_block: true

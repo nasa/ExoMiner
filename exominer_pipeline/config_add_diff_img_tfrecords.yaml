@@ -1,0 +1,16 @@
+# set source TFRecord directory
+src_tfrec_dir: null
+# directory with NumPy files with difference image data to be added to the examples in the TFRecord dataset
+src_diff_img_fp: null
+parallel_processing: False
+n_processes: 1
+n_jobs: 1
+# number of examples per shard
+n_examples_shard: 300
+# images to add to the dataset
+imgs_fields:
+  - diff_imgs
+  - oot_imgs
+  - target_imgs
+  - snr_imgs
+#  - neighbors_imgs

@@ -320,15 +320,25 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats, config):
             writer.write(example.SerializeToString())
 
 
-if __name__ == '__main__':
+def normalize_examples_main(config_fp, src_tfrec_dir=None, dest_tfrec_dir=None):
+    """ Wrapper for `normalize_examples()`.
 
-    tf.config.set_visible_devices([], 'GPU')
+    Args:
+        config_fp: str, configuration parameters for data normalization
+        src_tfrec_dir: Path, source TFRecord directory for the data to be normalized
+        dest_tfrec_dir: Path, destination TFRecord directory for the normalized data
 
-    # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
+    Returns:
 
-    with(open(path_to_yaml, 'r')) as file:
+    """
+
+    with open(config_fp, 'r') as file:
         config = yaml.safe_load(file)
+
+    if src_tfrec_dir is not None:
+        config['srcTfrecDir'] = src_tfrec_dir
+    if dest_tfrec_dir is not None:
+        config['destTfrecDir'] = dest_tfrec_dir
 
     # source TFRecord directory
     srcTfrecDir = Path(config['srcTfrecDir'])
@@ -356,4 +366,12 @@ if __name__ == '__main__':
     for async_result in async_results:
         async_result.get()
 
-    print('Normalization finished.')
+
+if __name__ == '__main__':
+
+    tf.config.set_visible_devices([], 'GPU')
+
+    # get the configuration parameters
+    config_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
+
+    normalize_examples_main(config_fp, )

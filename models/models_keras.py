@@ -145,8 +145,8 @@ class SplitLayer(Layer):
         return self._split_fn(inputs)
 
 
-def cross_attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1):
-    """ Create cross-attention block.
+def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1):
+    """ Create attention block.
 
         Args:
              :param query: TF Keras tensor, query [batch_size, n_tokens, n_features]
@@ -155,7 +155,7 @@ def cross_attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rat
              :param key_dim: int, dimensionality of learned query and value vectors
              :param dropout_rate: float, dropout rate
 
-        Returns: output TF Keras tensor from cross-attention block
+        Returns: output TF Keras tensor from attention block
      """
 
     # apply multi-head self-attention
@@ -2381,7 +2381,7 @@ class ExoMinerJointLocalFlux(object):
         if len(branches_lst) == 1:  # only one convolutional branch output
             net = branches_lst[0]
 
-        elif self.config['use_cross_attention_before_classification_head']:  # perform multi-headed cross-attention
+        elif self.config['use_attention_before_classification_head']:  # perform multi-headed self-attention
 
             branches_lst = [tf.keras.layers.Reshape((1,) + branch.shape[1:],
                                                     name=f'reshape_for_cross_att_{branch.name.split("/")[0]}')(branch)
@@ -2389,10 +2389,10 @@ class ExoMinerJointLocalFlux(object):
             branches_concat = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_lst)
 
             cross_att_key_dim = min(branches_concat.shape[-1],
-                                    self.config['cross_attention_before_classification_head_max_key_dim'])
+                                    self.config['attention_before_classification_head_max_key_dim'])
             cross_att_n_heads = branches_concat.shape[-1] // cross_att_key_dim
 
-            net = cross_attention_block(branches_concat,
+            net = attention_block(branches_concat,
                                         branches_concat,
                                         num_heads=cross_att_n_heads,
                                         key_dim=cross_att_key_dim,

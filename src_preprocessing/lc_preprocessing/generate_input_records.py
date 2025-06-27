@@ -21,28 +21,36 @@ from src_preprocessing.lc_preprocessing.utils_preprocessing_io import is_pfe
 logger = logging.getLogger(__name__)
 
 
-def main():
+def preprocess_lc_data(config_fp, output_dir=None, lc_data_dir=None, tce_table_fp=None, rank=-1, n_runs=1):
+    """ Run preprocessing light curve data pipeline.
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--rank', type=int, help='Rank', default=-1)
-    parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
-    parser.add_argument('--output_dir', type=str,
-                        help='File path output directory for this preprocessing run',
-                        default=None)
-    parser.add_argument('--config_fp', type=str,
-                        help='File path to yaml config file for this preprocessing run',
-                        default='./config_preprocessing.yaml')
-    args = parser.parse_args()
+    Args:
+        config_fp: str, path to YAML config file
+        output_dir: str, path to output directory
+        lc_data_dir: str, path to light curve data directory
+        tce_table_fp: str, path to TCE table CSV file
+        rank: int, rank for process
+        n_runs: int, total number of jobs
+
+    Returns:
+
+    """
 
     # get the configuration parameters
-    path_to_yaml = Path(args.config_fp).resolve()
+    path_to_yaml = Path(config_fp).resolve()
     with(open(path_to_yaml, 'r')) as file:
         config = yaml.safe_load(file)
 
-    if args.output_dir is not None:
-        config['output_dir'] = Path(args.output_dir)
+    if output_dir is not None:
+        config['output_dir'] = Path(output_dir)
     else:
         config['output_dir'] = Path(config['output_dir'])
+
+    if lc_data_dir is not None:
+        config['lc_data_dir'] = lc_data_dir
+
+    if tce_table_fp is not None:
+        config['input_tce_csv_file'] = tce_table_fp
 
     # make the output directory if it doesn't already exist
     config['output_dir'].mkdir(exist_ok=True)
@@ -54,11 +62,11 @@ def main():
     # config['primary_buffer_time'] = (config['primary_buffer_nsamples'] /
     #                                  config['sampling_rate_h'][config['satellite']] / 24)
 
-    if config['using_mpi']:  # using some sort of external library for parallelization
-        if args.rank != -1:  # using parallel
-            config['process_i'] = args.rank
-            config['n_shards'] = args.n_runs
-            config['n_processes'] = args.n_runs
+    if config['external_parallelization']:  # using some sort of external library for parallelization
+        if rank != -1:  # using parallel
+            config['process_i'] = rank
+            config['n_shards'] = n_runs
+            config['n_processes'] = n_runs
         else:  # using mpi
             config['process_i'] = MPI.COMM_WORLD.rank
             config['n_shards'] = MPI.COMM_WORLD.size
@@ -98,11 +106,16 @@ def main():
         with open(config['output_dir'] / 'preprocessing_params.yaml', 'w') as preproc_run_file:
             yaml.dump(json_dict, preproc_run_file)
 
-    if config['using_mpi']:  # using some sort of external library for parallelization
+    if config['external_parallelization']:  # using some sort of external library for parallelization
 
         logger.info(f'Process shard {config["process_i"]} ({config["n_shards"]} total shards)')
 
-        node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
+        try:
+            node_id = socket.gethostbyname(socket.gethostname()).split('.')[-1]
+        except socket.error:
+            logger.info('Hostname could not be determined. Node ID set to zero.')
+            node_id = '0'
+
         shard_filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
         shard_fp = config['output_dir'] / shard_filename
 
@@ -138,4 +151,15 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rank', type=int, help='Rank', default=-1)
+    parser.add_argument('--n_runs', type=int, help='Total number of runs', default=-1)
+    parser.add_argument('--output_dir', type=str,
+                        help='File path output directory for this preprocessing run',
+                        default=None)
+    parser.add_argument('--config_fp', type=str,
+                        help='File path to yaml config file for this preprocessing run',
+                        default='./config_preprocessing.yaml')
+    args = parser.parse_args()
+
+    preprocess_lc_data(args.config, args.output_dir, args.rank, args.n_runs)

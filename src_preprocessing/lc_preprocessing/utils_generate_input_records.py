@@ -27,7 +27,7 @@ def process_file_shard(tce_table, file_name, eph_table, config):
         config: dict, with preprocessing parameters.
     """
 
-    if not config['using_mpi']:
+    if not config['external_parallelization']:
         config["process_i"] = multiprocessing.current_process().name
         logging.basicConfig(filename=config['output_dir'] / 'preprocessing_logs' /
                                      f'preprocessing_{config["process_i"]}.log',
@@ -184,7 +184,7 @@ def get_tce_table(config):
     # preprocess_tce_table = preprocess_tce_table.loc[~preprocess_tce_table['uid'].isin(filter_tbl['uid'])]
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
-    if config['using_mpi']:
+    if config['external_parallelization']:
         shards_tce_tables = np.array_split(preprocess_tce_table, config['n_processes'])
     else:
         shards_tce_tables = np.array_split(preprocess_tce_table, config['n_shards'])
