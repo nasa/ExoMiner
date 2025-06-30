@@ -38,8 +38,8 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
     run_config['job_dir'] = run_config['output_dir'] / f'job_{job_id}'
     run_config['job_dir'].mkdir(exist_ok=True)
 
-    run_config['log_dir'] = run_config['job_dir'] / 'logs'
-    run_config['log_dir'].mkdir(exist_ok=True)
+    # run_config['log_dir'] = run_config['job_dir'] / 'logs'
+    # run_config['log_dir'].mkdir(exist_ok=True)
 
     # download required data products - light curve FITS and DV XML files
     download_tess_spoc_data_products(tics_df, run_config['data_collection_mode'], run_config['job_dir'])
@@ -48,8 +48,10 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
     run_config['data_products_dir'] = run_config['job_dir'] / 'mastDownload' / folder_name
 
     # create TCE table from DV XML data
-    tce_tbl = create_tce_table(run_config['job_dir'], job_id, run_config['data_products_dir'])
-    tce_tbl_fp = run_config['job_dir'] / f'tess-spoc-dv_tces_{job_id}_processed.csv'
+    tce_tbl_dir = run_config['job_dir'] / 'tce_table'
+    tce_tbl_dir.mkdir(exist_ok=True)
+    tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'])
+    tce_tbl_fp = tce_tbl_dir / f'tess-spoc-dv_tces_{job_id}_processed.csv'
     tce_tbl.to_csv(tce_tbl_fp, index=False)
 
     # preprocess light curve data to create TFRecord dataset
@@ -63,13 +65,16 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
                                                   delete_corrupted_tfrec_files=False, verbose=True)
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
 
-    # extract and preprocess difference image data
-    get_data_from_tess_dv_xml_multiproc(run_config['data_products_dir'], run_config['job_dir'], neighbors_dir=None,
-                                        plot_dir=run_config['job_dir'], plot_prob=0, log_dir=run_config['job_dir'],
+    # extract difference image data
+    diff_img_dir = run_config['job_dir'] / 'diff_img_extracted'
+    diff_img_dir.mkdir(exist_ok=True)
+    get_data_from_tess_dv_xml_multiproc(run_config['data_products_dir'], diff_img_dir, neighbors_dir=None,
+                                        plot_dir=diff_img_dir, plot_prob=0, log_dir=diff_img_dir,
                                         job_i=job_id)
-    src_diff_img_dir = run_config['job_dir'] / 'data'
+    # preprocess difference image data
     preprocessed_diff_img_dir = run_config['job_dir'] / 'diff_img_preprocessed'
-    preprocess_diff_img_tces_main(run_config['diff_img_preprocessing_config_fp'], preprocessed_diff_img_dir, src_diff_img_dir)
+    preprocessed_diff_img_dir.mkdir(exist_ok=True)
+    preprocess_diff_img_tces_main(run_config['diff_img_preprocessing_config_fp'], preprocessed_diff_img_dir, diff_img_dir / 'data')
 
     # create new TFRecord dataset with added preprocessed difference image data to the already preprocessed light curve
     # data TFRecord dataset
