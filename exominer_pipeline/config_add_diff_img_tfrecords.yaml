@@ -12,5 +12,5 @@ imgs_fields:
   - diff_imgs
   - oot_imgs
   - target_imgs
-  - snr_imgs
+#  - snr_imgs
 #  - neighbors_imgs

@@ -6,10 +6,11 @@ destTfrecDir: null
 
 # normalization stats directory
 normStats:
-  scalar_params: /Users/msaragoc/Downloads/norm_stats/train_scalarparam_norm_stats.npy
-  centroid: /Users/msaragoc/Downloads/norm_stats/train_centroid_norm_stats.npy
-  diff_img: /Users/msaragoc/Downloads/norm_stats/train_diffimg_norm_stats.npy
+  scalar_params: /Users/msaragoc/Downloads/cv_tess-spoc-2min-s1-s67_tess-data-only_paper/norm_stats/train_scalarparam_norm_stats.npy
+  centroid: /Users/msaragoc/Downloads/cv_tess-spoc-2min-s1-s67_tess-data-only_paper/norm_stats/train_centroid_norm_stats.npy
+  diff_img: /Users/msaragoc/Downloads/cv_tess-spoc-2min-s1-s67_tess-data-only_paper/norm_stats/train_diffimg_norm_stats.npy
 
 nProcesses: 1  # number of processes in parallel
 
-diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are stored as encoded strings
+#diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are stored as encoded strings
+diff_img_data_shape: [5, 33, 33]  # set defined image size given that images are stored as encoded strings

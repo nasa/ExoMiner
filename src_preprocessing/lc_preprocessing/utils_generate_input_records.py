@@ -162,7 +162,8 @@ def get_tce_table(config):
         # 'toi_sectors': str,
         'Comments': str,
         'TESS Disposition': str,
-        'TFOPWG Disposition': str
+        'TFOPWG Disposition': str,
+        'sectors_observed': str,
     }
     tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
 

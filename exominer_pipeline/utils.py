@@ -3,7 +3,6 @@ Utility functions for running the ExoMiner pipeline.
 """
 
 # 3rd party
-import logging
 import yaml
 from pathlib import Path
 import multiprocessing as mp
@@ -12,16 +11,31 @@ from astroquery.mast import Observations
 from astropy.table import vstack
 import pandas as pd
 import re
+import sys
+import logging
 
 # local
 from src_preprocessing.tce_tables.preprocess_tess_tce_tbl import preprocess_tce_table
 from src_preprocessing.tce_tables.extract_tce_data_from_dv_xml import process_sector_run_of_dv_xmls
 from src.predict.predict_model import predict_model
 
-logger = logging.getLogger(__name__)
+
+# Redirect stdout
+class StreamToLogger:
+    def __init__(self, logger, level=logging.INFO):
+        self.logger = logger
+        self.level = level
+        self.buffer = ''
+
+    def write(self, message):
+        if message.strip() != '':
+            self.logger.log(self.level, message.strip())
+
+    def flush(self):
+        pass
 
 
-def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection_mode, num_processes):
+def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection_mode, num_processes, logger):
     """ Check command-line arguments.
 
     Args:
@@ -30,6 +44,7 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
         data_collection_mode: str, either '2min' or 'ffi'.
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
+        logger: logging.Logger object.
 
     Returns:
 
@@ -58,11 +73,12 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
         raise SystemExit(f"Number of processes is not an integer: {num_processes}")
 
 
-def check_config(run_config):
+def check_config(run_config, logger):
     """ Check validity of parameters in the configuration file.
 
     Args:
         run_config: dict, dictionary containing run parameters.
+        logger: logging.Logger object.
 
     Returns:
 
@@ -102,7 +118,7 @@ def check_config(run_config):
         raise SystemExit(f"Number of processes is not a positive integer: {run_config['num_processes']}")
 
 
-def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1):
+def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -110,6 +126,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, tic_
         config_fp: str, filepath to the configuration file for the run.
         tic_ids_fp: str, filepath to the TIC IDs file for the run.
         data_collection_mode: str, either '2min' or 'ffi'.
+        logger: logging.Logger object.
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
 
@@ -182,7 +199,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, tic_
     return run_config, tics_df
 
 
-def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir):
+def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, logger):
     """ Download light curve FITS files and DV XML data for the set of TIC IDs and sector runs provided in `tics_df` for
     the specified `data_collection_mode` mode.
 
@@ -193,11 +210,15 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir):
         data_collection_mode: str, either "2min" or "ffi" indicating the data collection mode from which TESS SPOC data
             products were generated
         data_dir: Path, directory to save downloaded data
+        logger: logger object
 
     Returns:
 
     """
 
+    sys.stdout = StreamToLogger(logger)
+
+    requested_products_lst, requested_products_manifest_lst = [], []
     for tic_i, tic_data in tics_df.iterrows():
 
         logger.info(f'Downloading light curve and DV XML data for TIC {tic_data["tic_id"]} in sector run '
@@ -259,17 +280,12 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir):
 
         # combine tables for products to be downloaded
         requested_products = vstack([lc_products, dv_xml_products])
-        requested_products.write(str(data_dir / f'requested_products_{tic_data["tic_id"]}{sector_run_patern}_'
-                                              f'{data_collection_mode}.csv'),
-                                 format='csv', overwrite=True)
+        requested_products_lst.append(requested_products)
 
         # download requested products
         requested_products_manifest = Observations.download_products(requested_products, download_dir=str(data_dir),
                                                                      mrp_only=False)
-        requested_products_manifest.write(
-            str(data_dir / f'manifest_requested_products_{tic_data["tic_id"]}{sector_run_patern}_'
-                         f'{data_collection_mode}.csv'),
-            format='csv', overwrite=True)
+        requested_products_manifest_lst.append(requested_products_manifest)
 
         if not all(requested_products_manifest['Status']):
             logger.error(f'Could not download all requested products for TIC {tic_data["tic_id"]} in sector run '
@@ -279,14 +295,26 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir):
         logger.info(f'Finished downloading light curve and DV XML data for TIC {tic_data["tic_id"]} in sector run '
                     f'{tic_data["sector_run"]} ({data_collection_mode} data)...')
 
+    requested_products = vstack(requested_products_lst)
+    requested_products.write(str(data_dir / f'requested_products_{data_collection_mode}.csv'),
+                             format='csv', overwrite=True)
+    requested_products_manifest = vstack(requested_products_manifest_lst)
+    requested_products_manifest.write(
+        str(data_dir / f'manifest_requested_products_{data_collection_mode}.csv'),
+        format='csv', overwrite=True)
 
-def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path):
+    # restore stdout
+    sys.stdout = sys.__stdout__
+
+
+def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logger: logging.Logger):
     """ Create TCE table using data from DV XML files.
 
     Args:
         res_dir: Path, results directory
         job_id: int, table ID
         dv_xml_products_dir: Path, directory containing DV XML files
+        logger: logging.Logger
 
     Returns: tce_tbl, pandas DataFrame containing TCEs to be processed and that were extracted from the DV XML files
 
@@ -294,19 +322,25 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path):
 
     dv_xml_tbl_fp = res_dir / f'tess-spoc-dv_tces_{job_id}.csv'
 
+    logs_dir = dv_xml_tbl_fp.parent / 'logs'
+    logs_dir.mkdir(exist_ok=True)
+
     process_sector_run_of_dv_xmls(dv_xml_products_dir, dv_xml_tbl_fp)
 
+    sys.stdout = StreamToLogger(logger)
     tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir)
+    sys.stdout = sys.__stdout__
 
     return tce_tbl
 
-def inference_pipeline(run_config, output_dir, tfrec_dir):
+def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
     """ Run inference pipeline.
 
     Args:
         run_config: dict, run configuration
         output_dir: Path, results directory
         tfrec_dir: Path, directory containing the TFRecord dataset
+        logger: logging.Logger object
 
     Returns:
 
@@ -315,7 +349,13 @@ def inference_pipeline(run_config, output_dir, tfrec_dir):
     with open(run_config['predict_config_fp'], 'r') as file:
         predict_config = yaml.unsafe_load(file)
 
-    predict_config['paths']['tfrec_dir'] = tfrec_dir
+    # predict_config['paths']['tfrec_dir'] = tfrec_dir
     # predict_config['paths']['experiment_dir'] = output_dir
+
+    tfrec_shards_fps = list(tfrec_dir.glob('shard-*'))
+
+    predict_config['datasets_fps'] = {
+        'predict' : tfrec_shards_fps
+    }
 
     predict_model(predict_config, run_config['model_fp'], output_dir, logger)

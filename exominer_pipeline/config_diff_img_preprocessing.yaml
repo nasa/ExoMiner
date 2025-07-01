@@ -9,8 +9,8 @@ final_size:  # final size for preprocessed images before resizing
   y: 11
 # upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
 upscale_f:
-  x: 5
-  y: 5
+  x: 3  # 5
+  y: 3  # 5
 # exclude neighbors that are outside the target mask
 exclude_neighbor_objs_outside: true
 n_processes: 1  # number of processes to run jobs in parallel

@@ -552,7 +552,8 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i):
+def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i,
+                                        check_existence_multiple_versions=False):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
@@ -563,6 +564,8 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
     :param plot_prob: float, probability to plot difference image for a given example ([0, 1])
     :param log_dir: Path, log directory
     :param job_i: int, job id
+    :param check_existence_multiple_versions: bool whether to check existence of multiple versions (different runs) of
+        DV
 
     :return:
     """
@@ -603,19 +606,20 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
                         f'{dv_xml_fp.name}.')
         try:
             # check if there are results for more than one processing run for this TIC and sector run
-            tic_id = re.findall('\d{16}', dv_xml_fp.name)[0]  # get tic id from filename
-            # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
-            tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id}*')]
-            if len(tic_drs) > 1:
-                curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
-                latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
-                                    for fp in dv_xml_run.glob(f'*{tic_id}*')])[-1]
-                if curr_dr != latest_dr:
-                    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] '
-                                f'Skipping {dv_xml_fp.name} for TIC {int(tic_id)} since there is '
-                                f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
-                                f'... ({target_i}/{n_targets} targets)')
-                    continue
+            if check_existence_multiple_versions:
+                tic_id = re.findall('\d{16}', dv_xml_fp.name)[0]  # get tic id from filename
+                # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
+                tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id}*')]
+                if len(tic_drs) > 1:
+                    curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])
+                    latest_dr = sorted([int(fp.stem.split('-')[-1][:-4])
+                                        for fp in dv_xml_run.glob(f'*{tic_id}*')])[-1]
+                    if curr_dr != latest_dr:
+                        logger.info(f'[{proc_id}] [Sector run {sector_run_id}] '
+                                    f'Skipping {dv_xml_fp.name} for TIC {int(tic_id)} since there is '
+                                    f'more recent processed results (current release {curr_dr}, latest release {latest_dr})'
+                                    f'... ({target_i}/{n_targets} targets)')
+                        continue
 
             data_dv_xml = get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir, plot_prob,
                                                     logger, proc_id)

@@ -32,7 +32,10 @@ def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
 
     """
 
-    sectors_observed = sorted([int(sector_observed) for sector_observed in sectors_observed.split('_')])
+    if '_' in sectors_observed:
+        sectors_observed = sorted([int(sector_observed) for sector_observed in sectors_observed.split('_')])
+    else:
+        sectors_observed = [int(sectors_observed)]
     sectors_observed = [str(sector_id).zfill(4) for sector_id in sectors_observed]
 
     ticid = str(ticid).zfill(16)

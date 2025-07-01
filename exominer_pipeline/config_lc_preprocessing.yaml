@@ -12,13 +12,13 @@ shuffle: false
 shuffle_seed: 24
 satellite: tess
 plot_figures: false
-plot_prob: 0.001
+plot_prob: 0
 num_bins_glob: 301
 num_bins_loc: 31
 bin_width_factor_loc: 0.16
 num_durations: 2.5
 dq_values_filter: null
-get_momentum_dump: false
+get_momentum_dump: true
 detrending_method: savitzky-golay
 sg_sigma: 5
 sg_max_poly_order: 8

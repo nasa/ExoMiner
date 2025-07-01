@@ -352,19 +352,25 @@ def normalize_examples_main(config_fp, src_tfrec_dir=None, dest_tfrec_dir=None):
         yaml.dump(config, file, sort_keys=False)
 
     # get source TFRecords file paths to be normalized
-    srcTfrecFiles = list(srcTfrecDir.glob('*-shard-*'))
+    srcTfrecFiles = list(srcTfrecDir.glob('*shard-*'))
+    srcTfrecFiles = [fp for fp in srcTfrecFiles if fp.suffix != '.csv']
 
     # load normalization statistics; the keys in each sub-dictionary define which statistics are normalized
     normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
-    pool = multiprocessing.Pool(processes=config['nProcesses'])
     jobs = [(destTfrecDir, file, normStats, config) for file in srcTfrecFiles]
-    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-    pool.close()
-    pool.join()
+    if config['nProcesses'] > 1:
+        pool = multiprocessing.Pool(processes=config['nProcesses'])
+        async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
+        pool.close()
+        pool.join()
 
-    for async_result in async_results:
-        async_result.get()
+        for async_result in async_results:
+            async_result.get()
+
+    else:
+        for job in jobs:
+            normalize_examples(*job)
 
 
 if __name__ == '__main__':

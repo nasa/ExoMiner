@@ -55,7 +55,7 @@ def check_for_missing_values_in_preproc_diff_data(data):
                 return missing_value_found
         else:
             for k2, v2 in v.items():
-                if k2 == 'neighbors_imgs' and v2[0] is None: # neighbors data is not used
+                if k2 in ['neighbors_imgs', 'neighbors_imgs_tc'] and v2[0] is None: # neighbors data is not used
                     continue
 
                 missing_value_found = np.isnan(v2).sum() > 0
@@ -121,13 +121,15 @@ def initialize_data_example_with_missing_values(size_h, size_w, number_of_imgs_t
     return initialized_data_dict
 
 
-def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sample):
+def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sample,
+                                           set_placeholder_neighbor_data=False):
     """ Sets data for a given example with placeholder values.
 
     Args:
         size_h: int, height
         size_w: int, width
         number_of_imgs_to_sample: int, number of images to create
+        set_placeholder_neighbor_data: bool, whether to set placeholder for neighbors images data
 
     Returns:
         dict, with placeholder data
@@ -147,8 +149,6 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
                          for _ in range(number_of_imgs_to_sample)],
             'target_imgs': [np.zeros((size_h, size_w), dtype='float')
                             for _ in range(number_of_imgs_to_sample)],
-            'neighbors_imgs': [np.zeros((size_h, size_w), dtype='float')
-                               for _ in range(number_of_imgs_to_sample)],
 
             'diff_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
                              for _ in range(number_of_imgs_to_sample)],
@@ -158,9 +158,6 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
                             for _ in range(number_of_imgs_to_sample)],
             'target_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
                                for _ in range(number_of_imgs_to_sample)],
-            'neighbors_imgs_tc': [np.zeros((size_h, size_w), dtype='float')
-                                  for _ in range(number_of_imgs_to_sample)],
-
         },
         'target_position': {
             'pixel_x': [half_height] * number_of_imgs_to_sample,
@@ -176,6 +173,11 @@ def set_data_example_to_placeholder_values(size_h, size_w, number_of_imgs_to_sam
         'images_numbers': [np.nan] * number_of_imgs_to_sample,
     }
 
+    if set_placeholder_neighbor_data:
+        data_placeholder['images']['neighbors_imgs'] = [np.zeros((size_h, size_w), dtype='float')
+                                        for _ in range(number_of_imgs_to_sample)]
+        data_placeholder['images']['neighbors_imgs_tc'] = [np.zeros((size_h, size_w), dtype='float')
+                                        for _ in range(number_of_imgs_to_sample)]
     # set target position to center of image
     for target_img_i in range(number_of_imgs_to_sample):
         data_placeholder['images']['target_imgs'][target_img_i][half_height, half_width] = 1

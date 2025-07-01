@@ -19,12 +19,13 @@ from src_preprocessing.tce_tables.ruwe.query_gaia import query_gaia
 GAIA_DR = 'gaiadr2'  # chosen Gaia data release
 
 
-def query_gaiadr_for_ruwe(tce_tbl, res_dir):
+def query_gaiadr_for_ruwe(tce_tbl, res_dir, plot=False):
     """ Query Gaia DR `GAIA_DR` catalog to extract RUWE values for TICs in TCE table in `tce_tbl`. `tce_tbl` must
     contain column 'target_id' which stores the TIC ID of the targets associated with the TCEs.
 
-    :param tce_tbl_fp: pandas DataFrame, TCE table
+    :param tce_tbl: pandas DataFrame, TCE table
     :param res_dir: Path, save directory for query results
+    :param plot: bool, if True, plot the histogram of RUWE values for the TICs
 
     :return: tce_tbl, pandas DataFrame of TCE table with RUWE values for TICs ('ruwe' column)
     """
@@ -87,20 +88,21 @@ def query_gaiadr_for_ruwe(tce_tbl, res_dir):
     ruwe_tbl.to_csv(res_dir / f'{output_fp.stem}_with_ticid.csv', index=False)
     logger.info(f'Number of TICs without RUWE value: {ruwe_tbl["ruwe"].isna().sum()} ouf of {len(ruwe_tbl)}')
 
-    # plot histogram of RUWE values
-    bins = np.linspace(0, 2, 100)  # np.logspace(0, 2, 100)
+    if plot:
+        # plot histogram of RUWE values
+        bins = np.linspace(0, 2, 100)  # np.logspace(0, 2, 100)
 
-    f, ax = plt.subplots()
-    ax.hist(ruwe_tbl['ruwe'], bins=bins, edgecolor='k')
-    ax.set_xlabel('RUWE')
-    ax.set_ylabel('Target counts')
-    # ax.legend()
-    ax.set_title(f'RUWE source: {GAIA_DR}')
-    ax.set_yscale('log')
-    ax.set_xlim([0, 2])
-    # ax.set_xscale('log')
-    # plt.show()
-    f.savefig(res_dir / 'hist_ruwe_tics.png')
+        f, ax = plt.subplots()
+        ax.hist(ruwe_tbl['ruwe'], bins=bins, edgecolor='k')
+        ax.set_xlabel('RUWE')
+        ax.set_ylabel('Target counts')
+        # ax.legend()
+        ax.set_title(f'RUWE source: {GAIA_DR}')
+        ax.set_yscale('log')
+        ax.set_xlim([0, 2])
+        # ax.set_xscale('log')
+        # plt.show()
+        f.savefig(res_dir / 'hist_ruwe_tics.png')
 
     tce_tbl = tce_tbl.merge(ruwe_tbl[['target_id', 'ruwe']], on='target_id', how='left', validate='many_to_one')
     logger.info(f'Number of TCEs without RUWE value: {tce_tbl["ruwe"].isna().sum()} ouf of {len(tce_tbl)}')

@@ -229,7 +229,7 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
 
     save_dir.mkdir(exist_ok=True)
 
-    if config['plot_prob'] > 0:
+    if plot_prob > 0:
         (save_dir / 'plot_examples').mkdir(exist_ok=True)
 
     if log is None:
@@ -316,15 +316,19 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
             log.info(f'[{diff_img_data_fp.stem}] No valid images for {tce_uid}. Setting data to placeholder value.')
 
             # update data using placeholder values
-            missing_data_placeholder = set_data_example_to_placeholder_values(final_size['x'] * upscale_f['x'],
-                                                                              final_size['y'] * upscale_f['y'],
-                                                                              number_of_imgs_to_sample)
+            missing_data_placeholder = set_data_example_to_placeholder_values(
+                final_size['x'] * upscale_f['x'],
+                final_size['y'] * upscale_f['y'],
+                number_of_imgs_to_sample,
+                'neighbor_data' in diff_img_data_dict[tce_uid]
+            )
             preprocessing_dict[tce_uid].update(missing_data_placeholder)
 
             continue
 
         # randomly sample valid quarters/sectors
         random_sample_imgs_idxs = sample_image_data(n_valid_imgs, valid_images_idxs, number_of_imgs_to_sample)
+        tces_info_dict[f'num_sampled_{prefix}s'][tce_i] = len(random_sample_imgs_idxs)
 
         # get quality metrics for sampled quarters/sector runs
         tces_info_dict[f'sampled_{prefix}s'][tce_i] = (
