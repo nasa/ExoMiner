@@ -135,6 +135,12 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
             dest_shard_suffix += 1
             dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{dest_shard_suffix}'
 
+    if len(examples_lst) > 0:
+        logger.info(f'Writing examples with difference image data to {dest_tfrec_fp}')
+        with tf.io.TFRecordWriter(str(dest_tfrec_fp)) as writer:
+            for example in examples_lst:
+                writer.write(example.SerializeToString())
+
     examples_added_df = pd.DataFrame(examples_added_dict)
 
     logger.info(f'Iterated over all TCEs in {diff_img_data_fp}. Added difference image data to '
@@ -216,7 +222,8 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
         config['src_diff_img_fp'] = Path(src_diff_img_fp)
 
     # get shard filepaths
-    src_tfrec_fps = [fp for fp in config['src_tfrec_dir'].iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
+    src_tfrec_fps = [fp for fp in config['src_tfrec_dir'].iterdir() if fp.name.startswith('shard-') and
+                     fp.suffix != '.csv']
 
     # table that has information on the location of examples across shards in TFRecord dataset directory
     shards_tbl_fp = config['src_tfrec_dir'] / 'shards_tbl.csv'

@@ -495,6 +495,13 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
         raise ValueError(f'Only found {n_phases_split} phase(s) for flux, need at least {config["min_n_phases"]} to '
                          f'create example.')
 
+    if n_phases_split == 0:  # replace by phase from phase-folding
+        phasefolded_timeseries['flux_unfolded'] = (
+            np.tile(phasefolded_timeseries['flux'][0], (config['n_max_phases'], 1)),
+            np.tile(phasefolded_timeseries['flux'][1], (config['n_max_phases'], 1)),
+            config['n_max_phases']
+        )
+
     # phase folding for flux trend time series to generate phases separately
     time_trend_split, flux_trend_split, n_phases_trend_split, _ = phase_split_light_curve(
         data['flux_time'],

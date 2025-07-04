@@ -124,26 +124,29 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         return {'job_id': job_id, 'success': False, 'error': e}
 
 
-def run_exominer_pipeline_jobs_parallel(jobs, num_processes):
+def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
     """ Run ExoMiner pipeline for a number of jobs.
 
     Args:
         jobs: list, jobs to run
         num_processes: int, number of processes to use
+        logger: logger object
 
     Returns:
 
     """
 
     pool = mp.Pool(processes=num_processes)
-    async_results = [pool.apply_async(run_exominer_pipeline, job) for job in jobs]
+    async_results = [pool.apply_async(run_exominer_pipeline, args=job) for job in jobs]
     pool.close()
     pool.join()
 
     for async_result in async_results:
         result_job = async_result.get()
         if not result_job['success']:
-            print(f'Error in job {result_job["job_id"]}: {result_job["error"]}')
+            logger.info(f'Error in job {result_job["job_id"]}: {result_job["error"]}')
+        else:
+            logger.info(f'Job {result_job["job_id"]} is complete.')
 
 def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=-1):
     """ Run ExoMiner pipeline.
@@ -197,7 +200,7 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.info(f'Split TIC IDs into {len(jobs)} jobs to be processed in parallel using {run_config["num_processes"]} '
                 f'process(es).')
     logger.info(f'Started running ExoMiner pipeline on {num_processes} processes for {len(jobs)} jobs...')
-    run_exominer_pipeline_jobs_parallel(jobs, run_config['num_processes'])
+    run_exominer_pipeline_jobs_parallel(jobs, run_config['num_processes'], logger)
 
     # aggregate predictions across jobs
     predictions_tbl_fp = output_dir / f'predictions_{output_dir.name}.csv'
@@ -206,7 +209,7 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.info(f'Found {len(predictions_tbls_fps)} job predictions files in {output_dir}.')
     predictions_tbl = pd.concat([pd.read_csv(fp) for fp in predictions_tbls_fps], axis=0, ignore_index=True)
     predictions_tbl.to_csv(predictions_tbl_fp, index=False)
-    logger.info('Saved predictions to {predictions_tbl_fp}.')
+    logger.info(f'Saved predictions to {predictions_tbl_fp}.')
 
     logger.info(f'Finished running ExoMiner pipeline.')
 

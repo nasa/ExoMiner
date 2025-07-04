@@ -34,7 +34,7 @@ spline_outlier_cut: 3
 gapWidth: 0.007
 n_max_phases: 20
 keep_odd_even_order: false
-min_n_phases: 1
+min_n_phases: 0
 frac_it_cadences_thr: 0.5
 phase_extend_method: copy_phases
 quarter_sampling: false
