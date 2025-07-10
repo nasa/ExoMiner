@@ -6,11 +6,11 @@ data_collection_mode: null
 # path to CSV file with TIC IDs to generate results for
 tic_ids_fp: null
 # number of processes to run application in parallel
-num_processes: 8
+num_processes: 1
 # number of jobs to split the TIC IDs through
 num_jobs: 1
 # path to configuration file used to preprocess light curve data into a TFRecord dataset
-lc_preprocessing_config_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/config_lc_preprocessing.yaml
+lc_preprocessing_config_fp: exominer_pipeline/config_lc_preprocessing.yaml
 # attributes to show for each example in the TFRecord dataset table
 data_fields_tfrec_tbl:
   uid: str
@@ -18,13 +18,14 @@ data_fields_tfrec_tbl:
   tce_plnt_num: int
   sector_run: str
 # path to configuration file used to preprocess difference image data
-diff_img_preprocessing_config_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/config_diff_img_preprocessing.yaml
+diff_img_preprocessing_config_fp: exominer_pipeline/config_diff_img_preprocessing.yaml
 # path to configuration file used to add difference image data to TFRecord dataset
-diff_img_add_tfrecord_dataset_config_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/config_add_diff_img_tfrecords.yaml
+diff_img_add_tfrecord_dataset_config_fp: exominer_pipeline/config_add_diff_img_tfrecords.yaml
 # path to configuration file used to normalize features in TFRecord dataset
-normalize_tfrec_data_config_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/config_normalize_data.yaml
+normalize_tfrec_data_config_fp: exominer_pipeline/config_normalize_data.yaml
 # path to ExoMiner TensorFlow Keras model used to generate predictions
-model_fp: /Users/msaragoc/Downloads/cv_tess-spoc-2min-s1-s67_tess-data-only_paper/cv_iter_0/models/model0/model.keras
+#model_fp: exominer_pipeline/data/model.keras
+model_fp: model/model.keras
 # path to configuration file used for running inference
-predict_config_fp: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/config_predict_model.yaml
+predict_config_fp: exominer_pipeline/config_predict_model.yaml
 pipeline_version: 1.0.0

@@ -216,7 +216,9 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='ExoMiner Pipeline: A tool for transit-signal vetting for the TESS '
+                                                 'Mission. For more information see NASA\'s GitHub repository at '
+                                                 'https://github.com/nasa/Exominer/tree/main')
 
     parser.add_argument('--config_fp', type=str, help='Filepath to YAML configuration file.',
                         default=None)

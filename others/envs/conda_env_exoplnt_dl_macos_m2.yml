@@ -1,9 +1,9 @@
 name: exoplnt_dl
-channels:
-  - conda-forge
-  - anaconda
-  - astropy
-  - defaults
+#channels:
+#  - conda-forge
+#  - anaconda
+#  - astropy
+#  - defaults
 dependencies:
   - aiofiles=22.1.0=py311hca03da5_0
   - aiosqlite=0.18.0=py311hca03da5_0

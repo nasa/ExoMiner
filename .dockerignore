@@ -7,4 +7,3 @@ local_scripts/
 **/old/
 .idea/
 others/conda_vulnerabilities_jake.txt
-/exominer_pipeline/data/
