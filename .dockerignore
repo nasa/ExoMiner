@@ -7,3 +7,9 @@ local_scripts/
 **/old/
 .idea/
 others/conda_vulnerabilities_jake.txt
+archived_experiments/
+data_wrangling/
+job_scripts/
+src_hpo/
+src_cv/
+transit_detection/

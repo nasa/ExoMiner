@@ -9,17 +9,17 @@ from pathlib import Path
 import numpy as np
 import multiprocessing as mp
 import pandas as pd
+import sys
 
 # local
 from exominer_pipeline.utils import (process_inputs, check_config, download_tess_spoc_data_products, create_tce_table,
-                                     inference_pipeline)
+                                     inference_pipeline, StreamToLogger)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preprocess_diff_img_tces_main
 from src_preprocessing.diff_img.preprocessing.add_data_to_tfrecords import write_diff_img_data_to_tfrec_files_main
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples_main
 from src_preprocessing.utils_manipulate_tfrecords import create_table_for_tfrecord_dataset
-
 
 def run_exominer_pipeline(run_config, tics_df, job_id):
     """ Run ExoMiner pipeline for a set of TIC IDs.
@@ -49,6 +49,9 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
     logger.info(f'[{job_id}] Starting run for {len(tics_df)} TIC IDs in job {job_id}...')
 
     try:
+
+        # sys.stdout = StreamToLogger(logger)
+
         # download required data products - light curve FITS and DV XML files
         logger.info(f'[{job_id}] Downloading data products for the requested TIC IDs...')
         download_tess_spoc_data_products(tics_df, run_config['data_collection_mode'], run_config['job_dir'], logger)
@@ -117,10 +120,17 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
 
         logger.info(f'[{job_id}] Finished run for job {job_id} for {len(tics_df)} TIC IDs.')
 
+        # # restore stdout
+        # sys.stdout = sys.__stdout__
+
         return {'job_id': job_id, 'success': True, 'error': None}
 
     except Exception as e:
         logger.error(f'[{job_id}] Error: {e}', exc_info=True)
+
+        # # restore stdout
+        # sys.stdout = sys.__stdout__
+
         return {'job_id': job_id, 'success': False, 'error': e}
 
 
@@ -176,6 +186,8 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.addHandler(logger_handler)
 
     logger.info(f'Started run for ExoMiner.')
+    print(f'Started run for ExoMiner: {output_dir.name}...')
+    print(f'Logging information to {output_dir.name}/run_main.log.')
 
     logger.info(f'Preparing inputs and adjusting configuration file...')
     run_config, tics_df = process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger,
@@ -192,6 +204,9 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.info(f'Found {len(tics_df)} TIC IDs. Saving TIC IDs to {str(tic_ids_fp)}...')
     tics_df.to_csv(tics_tbl_fp, index=False)
 
+    print(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using {run_config["num_processes"]} process(es)...')
+    print(f'The results for each job are saved into their own directories under {output_dir.name} following pattern job_{{job_id}}.')
+
     n_jobs = run_config['num_jobs'] if run_config['num_jobs'] != -1 else 1
     logger.info(f'Set number of jobs to {n_jobs}.')
     # split TIC IDs across jobs
@@ -199,10 +214,13 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     jobs = [(run_config, tics_job, job_id) for job_id, tics_job in enumerate(tics_df_jobs)]
     logger.info(f'Split TIC IDs into {len(jobs)} jobs to be processed in parallel using {run_config["num_processes"]} '
                 f'process(es).')
-    logger.info(f'Started running ExoMiner pipeline on {num_processes} processes for {len(jobs)} jobs...')
+    logger.info(f'Started running ExoMiner pipeline on {run_config["num_processes"]} process(es) for {len(jobs)} job(s)...')
     run_exominer_pipeline_jobs_parallel(jobs, run_config['num_processes'], logger)
 
+    print(f'Finished running ExoMiner pipeline on {run_config["num_processes"]} process(es) for {len(jobs)} job(s).')
+
     # aggregate predictions across jobs
+    print(f'Aggregating predictions across all jobs into a single table...')
     predictions_tbl_fp = output_dir / f'predictions_{output_dir.name}.csv'
     logger.info(f'Aggregating predictions into a single table in {predictions_tbl_fp}...')
     predictions_tbls_fps = list(Path(output_dir).rglob('ranked_predictions_predictset.csv'))
@@ -212,6 +230,7 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.info(f'Saved predictions to {predictions_tbl_fp}.')
 
     logger.info(f'Finished running ExoMiner pipeline.')
+    print(f'Finished running ExoMiner pipeline. Results saved to {output_dir.name}.')
 
 
 if __name__ == "__main__":

@@ -24,8 +24,8 @@ diff_img_add_tfrecord_dataset_config_fp: exominer_pipeline/config_add_diff_img_t
 # path to configuration file used to normalize features in TFRecord dataset
 normalize_tfrec_data_config_fp: exominer_pipeline/config_normalize_data.yaml
 # path to ExoMiner TensorFlow Keras model used to generate predictions
-#model_fp: exominer_pipeline/data/model.keras
-model_fp: model/model.keras
+model_fp: exominer_pipeline/data/model.keras
+# model_fp: /model/model.keras
 # path to configuration file used for running inference
 predict_config_fp: exominer_pipeline/config_predict_model.yaml
 pipeline_version: 1.0.0

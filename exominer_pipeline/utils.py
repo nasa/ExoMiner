@@ -333,6 +333,7 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
 
     return tce_tbl
 
+
 def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
     """ Run inference pipeline.
 
@@ -346,11 +347,10 @@ def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
 
     """
 
+    sys.stdout = StreamToLogger(logger)
+
     with open(run_config['predict_config_fp'], 'r') as file:
         predict_config = yaml.unsafe_load(file)
-
-    # predict_config['paths']['tfrec_dir'] = tfrec_dir
-    # predict_config['paths']['experiment_dir'] = output_dir
 
     tfrec_shards_fps = list(tfrec_dir.glob('shard-*'))
 
@@ -359,3 +359,6 @@ def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
     }
 
     predict_model(predict_config, run_config['model_fp'], output_dir, logger)
+
+    # restore stdout
+    sys.stdout = sys.__stdout__

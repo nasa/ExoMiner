@@ -1,25 +1,24 @@
+FROM continuumio/miniconda3 
+# FROM mambaorg/micromamba
 #FROM mambaorg/micromamba:2.3.0
-FROM continuumio/miniconda3
 # python:3.11.5
 
 LABEL org.opencontainers.image.description="This image contains the ExoMiner Pipeline application." \
       org.opencontainers.image.title="ExoMiner Pipeline" \
       org.opencontainers.image.version="1.0.0." \
       org.opencontainers.image.authors="Miguel Martinho <mig.js.martinho@gmail.com>, <miguel.martinho@nasa.gov>" \
-      org.opencontainers.image.source="https://github.com/nasa/Exominer/tree/main" \
+      org.opencontainers.image.source="https://github.com/migmartinho/exominer" \
       org.opencontainers.image.revision="" \
-      org.opencontainers.image.created="" \
-
-#      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.created="" 
 
 # set working directory
-WORKDIR=/app
+WORKDIR /app
 
 # set environment variable so Python recognizes modules in code repository
 ENV PYTHONPATH="/app"
 
 # accept token as build argument
-ARG ANACONDA_TOKEN
+# ARG ANACONDA_TOKEN
 #ENV ANACONDA_TOKEN=${ANACONDA_TOKEN}
 #ARG ANACONDA_USER
 
@@ -50,26 +49,43 @@ ARG ANACONDA_TOKEN
 #
 #ENV CONDARC=/root/.condarc
 
-ARG ANACONDA_TOKEN
-ENV ANACONDA_TOKEN=${ANACONDA_TOKEN}
+# ARG ANACONDA_TOKEN
+# ENV ANACONDA_TOKEN=${ANACONDA_TOKEN}
 
 # Set up authenticated channels
-RUN echo "channels:" > /root/.condarc && \
-    echo "  - https://${ANACONDA_TOKEN}@repo.anaconda.cloud/repo/main" >> /root/.condarc && \
-    echo "default_channels:" > /root/.condarc && \
-    echo "  - https://${ANACONDA_TOKEN}@repo.anaconda.cloud/repo/main" >> /root/.condarc && \
-    echo "channel_priority: strict" >> /root/.condarc
-ENV CONDARC=/root/.condarc
+# RUN echo "channels:" > /root/.condarc && \
+#     echo "  - https://${ANACONDA_TOKEN}@repo.anaconda.cloud/repo/main" >> /root/.condarc && \
+#     echo "default_channels:" > /root/.condarc && \
+#     echo "  - https://${ANACONDA_TOKEN}@repo.anaconda.cloud/repo/main" >> /root/.condarc && \
+#     echo "channel_priority: strict" >> /root/.condarc
+# ENV CONDARC=/root/.condarc
 
 #RUN conda config --remove-key default_channels &&  \
-RUN conda install --freeze-installed conda-token
-RUN conda token set $ANACONDA_TOKEN
-
-#RUN conda install anaconda::conda-token
-#RUN conda token set $ANACONDA_TOKEN
+# RUN conda install --freeze-installed conda-token
+# RUN conda token set $ANACONDA_TOKEN
 
 # copy Conda environment YAML file
-COPY exominer_pipeline/conda_env_exoplnt_dl.yml .
+COPY exominer_pipeline/conda_env_exoplnt_dl_new.yml conda_env_exoplnt_dl.yml
+
+# micromamba -------
+# RUN micromamba install mamba -n base -c conda-forge
+# # create the Conda environment using Mamba
+# # RUN micromamba create -n exoplnt_dl -f conda_env_exoplnt_dl.yml --yes
+# RUN mamba env create -n exoplnt_dl -f conda_env_exoplnt_dl.yml --yes
+# # Clean up Mamba and pip caches to reduce image size
+# RUN micromamba clean --all -f -y && \
+#     rm -rf /root/.cache/pip
+# RUN micromamba install mamba -n base -c conda-forge && \
+#     micromamba clean --all -f -y
+# # Activate the base environment and create the new environment using mamba
+# RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && mamba env create -n exoplnt_dl -f conda_env_exoplnt_dl.yml --yes"
+
+# miniconda ------
+RUN conda config --remove-key channels
+RUN conda config --add channels conda-forge
+# use the modified YAML to create the environment
+RUN conda env create -f conda_env_exoplnt_dl.yml --yes && \
+      conda clean --all -f -y
 
 #SHELL ["conda", "run", "-n", "exoplnt_dl", "/bin/bash", "-c"]
 
@@ -94,8 +110,9 @@ COPY exominer_pipeline/conda_env_exoplnt_dl.yml .
 #    cat tmp_channels.yml conda_env_exoplnt_dl.yml > conda_env_exoplnt_dl_with_channels.yml && \
 #    rm tmp_channels.yml
 
-# Use the modified YAML to create the environment
-RUN conda env create -f conda_env_exoplnt_dl.yml --yes
+# Clean up Conda and pip caches to reduce image size
+# RUN conda clean --all -f -y 
+# RUN rm -rf /root/.cache/pip
 
 # create environment using micromamba
 # RUN micromamba --verbose env create -f conda_env_exoplnt_dl.yml --yes --strict-channel-priority
@@ -118,14 +135,11 @@ RUN mkdir -p /model /data
 COPY exominer_pipeline/data/model.keras /model/
 
 # copy normalization statistics
-COPY exominer_pipeline/data/norm_stats /data/
-
-# this code always runs at the start of the image
-#ENTRYPOINT ["top", "-b"]
+COPY exominer_pipeline/data/norm_stats /data/norm_stats
 
 # set image to always run ExoMiner Pipeline
-#ENTRYPOINT ["python", "exominer_pipeline/run_pipeline.py"]
-#ENTRYPOINT ["micromamba", "run", "-n", "exoplnt_dl_tf2_13", "python", "exominer_pipeline/run_pipeline.py"]
+# ENTRYPOINT ["micromamba", "run", "--no-capture-output", "-n", "exoplnt_dl", "python", "exominer_pipeline/run_pipeline.py"]
+# ENTRYPOINT ["mamba", "run", "--no-capture-output", "-n", "exoplnt_dl", "python", "exominer_pipeline/run_pipeline.py"]
 ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "exoplnt_dl", "python", "exominer_pipeline/run_pipeline.py"]
 
 # show information about the arguments if no argument is provided
