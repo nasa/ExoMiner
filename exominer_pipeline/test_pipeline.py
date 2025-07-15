@@ -37,9 +37,13 @@ if __name__ == '__main__':
         data = {
             'tic_id': [
                 167526485,
+                167526485,
+                167526485,
             ],
             'sector_run': [
                 '6-6',
+                '7-7',
+                '1-39',
             ]
         }
     )
@@ -60,6 +64,7 @@ if __name__ == '__main__':
         tic_ids_fp=str(tics_tbl_fp),
         data_collection_mode=data_collection_mode,
         num_processes=num_processes,
+        num_jobs=1,
     )
     end_t = perf_counter()
     print(f'Elapsed time: {end_t - start_t:.2f} seconds.')

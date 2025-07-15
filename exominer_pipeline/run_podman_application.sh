@@ -6,7 +6,7 @@ tics_tbl_fp=$inputs_dir/tics_tbl.csv
 # file path to the configuration file for the ExoMiner Pipeline run
 config_fp=$inputs_dir/pipeline_run_config.yaml
 # name of the run
-exominer_pipeline_run=exominer_pipeline_run_7-10-2025_1925
+exominer_pipeline_run=exominer_pipeline_run_7-14-2025_1612
 # directory where the ExoMiner Pipeline run is saved
 exominer_pipeline_run_dir="/Users/miguelmartinho/Projects/test_exominer_devel/runs/$exominer_pipeline_run"
 
@@ -24,7 +24,10 @@ podman run \
   -v $exominer_pipeline_run_dir:/outputs:Z \
   exominer_pipeline \
   --tic_ids_fp=/inputs/tics_tbl.csv \
-  --output_dir=/outputs/$exominer_pipeline_run \
-  --config_fp=/inputs/pipeline_run_config.yaml
+  --output_dir=/outputs \
+  --config_fp=/inputs/pipeline_run_config.yaml \
+  --data_collection_mode="2min" \
+  --num_processes=1 \
+  --num_jobs=1 \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."

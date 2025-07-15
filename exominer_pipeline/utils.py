@@ -35,7 +35,7 @@ class StreamToLogger:
         pass
 
 
-def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection_mode, num_processes, logger):
+def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection_mode, num_processes, num_jobs, logger):
     """ Check command-line arguments.
 
     Args:
@@ -44,6 +44,7 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
         data_collection_mode: str, either '2min' or 'ffi'.
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
+        num_jobs: int, number of jobs to split the TIC IDs through.
         logger: logging.Logger object.
 
     Returns:
@@ -56,11 +57,11 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
         logger.error(f'Configuration file for the run does not exist: {str(config_fp)}')
         raise FileNotFoundError(f'Configuration file for the run does not exist: {str(config_fp)}')
 
-    # check if data collection mode is valid
-    if data_collection_mode not in ['2min', 'ffi']:
-        logger.info(f'Data collection mode "{data_collection_mode}" is not supported. Choose from "2min" '
-                    f'or "ffi".')
-        raise SystemExit("Invalid data collection mode. Choose from '2min' or 'ffi'.")
+    # # check if data collection mode is valid
+    # if data_collection_mode not in ['2min', 'ffi']:
+    #     logger.info(f'Data collection mode "{data_collection_mode}" is not supported. Choose from "2min" '
+    #                 f'or "ffi".')
+    #     raise SystemExit("Invalid data collection mode. Choose from '2min' or 'ffi'.")
 
     # check if at least a list of TIC IDs or a CSV file with TIC IDs was provided
     if tic_ids_fp is None and tic_ids is None:  # overwrite filepath in configuration file
@@ -72,6 +73,10 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
         logger.error(f'Number of processes is not an integer: {num_processes}')
         raise SystemExit(f"Number of processes is not an integer: {num_processes}")
 
+    # check if number of jobs is valid
+    if not isinstance(num_jobs, int):
+        logger.error(f'Number of jobs is not an integer: {num_jobs}')
+        raise SystemExit(f"Number of processes is not an integer: {num_jobs}")
 
 def check_config(run_config, logger):
     """ Check validity of parameters in the configuration file.
@@ -118,7 +123,7 @@ def check_config(run_config, logger):
         raise SystemExit(f"Number of processes is not a positive integer: {run_config['num_processes']}")
 
 
-def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1):
+def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1, num_jobs=1):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -129,6 +134,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         logger: logging.Logger object.
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
+        num_jobs: int, number of jobs to split the TIC IDs through.
 
     Returns:
         run_config: dict with parameters for running the ExoMiner pipeline.
@@ -146,10 +152,10 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     # overwrite configuration parameters with command-line counterparts
     if output_dir is not None:
         run_config['output_dir'] = output_dir
+
     if tic_ids_fp is not None:  # overwrite filepath in configuration file
         run_config['tic_ids_fp'] = tic_ids_fp
         tics_df = pd.read_csv(tic_ids_fp)
-        # tics_df.to_csv(tic_ids_fp, index=False)
 
     elif tic_ids is not None:
         tics_dict = {field: [] for field in ['tic_id', 'sector_run']}
@@ -165,13 +171,14 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
 
         tics_df = pd.DataFrame.from_dict(tics_dict)
 
-        tic_ids_fp = Path(output_dir / 'tic_ids.csv')
-        # tics_df.to_csv(tic_ids_fp, index=False)
+        tic_ids_fp = Path(output_dir / 'tics_tbl.csv')
         run_config['tic_ids_fp'] = str(tic_ids_fp)
 
     else:
         logger.error('Must specify either --tic_ids_fp or --tic_ids.')
         raise ValueError("Must specify either --tic_ids_fp or --tic_ids.")
+
+    tics_df.to_csv(tic_ids_fp, index=False)
 
     # overwrite number of processes using the command-line argument
     if num_processes != -1:
@@ -181,6 +188,10 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     logger.info(f'Found {num_cores} CPUs in this system. Number of cores requested: {run_config["num_processes"]}. '
                 f'Adjusting if needed...')
     run_config['num_processes'] = min(num_cores, run_config['num_processes'])
+
+    # overwrite number of jobs using the command-line argument
+    if num_jobs != -1:
+        run_config['num_jobs'] = num_jobs
 
     # overwrite data collection mode using the command-line argument
     if data_collection_mode is not None:

@@ -317,7 +317,7 @@ def process_xml(dv_xml_fp, logger):
     sector_run_str = re.search(r's\d{4}-s\d{4}', dv_xml_fp.name).group()
     s_sector, e_sector = sector_run_str.split('-')
     if s_sector == e_sector:  # single-sector run
-        tces_df['sector_run'] = str(s_sector[1:])
+        tces_df['sector_run'] = str(int(s_sector[1:]))
     else:   # multi-sector
         # tces_df['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
         tces_df['sector_run'] = f'{int(s_sector[1:])}-{int(e_sector[1:])}'
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     async_results = [pool.apply_async(process_sector_run_of_dv_xmls,
                                       (dv_xml_sector_run_dir,
                                        new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv'))
-                     for dv_xml_i, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
+                     for _, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
     pool.close()
     pool.join()
 

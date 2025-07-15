@@ -6,9 +6,11 @@ data_collection_mode: null
 # path to CSV file with TIC IDs to generate results for
 tic_ids_fp: null
 # number of processes to run application in parallel
-num_processes: 1
+num_processes: -1
 # number of jobs to split the TIC IDs through
-num_jobs: 1
+num_jobs: -1
+
+### FIXED RUN PARAMETERS ###
 # path to configuration file used to preprocess light curve data into a TFRecord dataset
 lc_preprocessing_config_fp: exominer_pipeline/config_lc_preprocessing.yaml
 # attributes to show for each example in the TFRecord dataset table
@@ -28,4 +30,3 @@ model_fp: exominer_pipeline/data/model.keras
 # model_fp: /model/model.keras
 # path to configuration file used for running inference
 predict_config_fp: exominer_pipeline/config_predict_model.yaml
-pipeline_version: 1.0.0

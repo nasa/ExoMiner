@@ -588,18 +588,18 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
     dv_xml_run_fps = list(dv_xml_run.rglob(f"*.xml"))
     # dv_xml_run_fps = list(dv_xml_run.rglob(f"*279251669*.xml"))
 
-    # get sector run ID from filename
-    s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_run_fps[0].stem)
-    s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
-    if s_sector != e_sector:  # multisector run
-        sector_run_id = f'{s_sector}-{e_sector}'
-    else:
-        sector_run_id = f'{s_sector}'
-
     n_targets = len(dv_xml_run_fps)
-    logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
+    logger.info(f'[{proc_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
 
     for target_i, dv_xml_fp in enumerate(dv_xml_run_fps):
+
+        # get sector run ID from filename
+        s_sector, e_sector = re.findall('-s[0-9]+', dv_xml_fp.stem)
+        s_sector, e_sector = int(s_sector[2:]), int(e_sector[2:])
+        if s_sector != e_sector:  # multisector run
+            sector_run_id = f'{s_sector}-{e_sector}'
+        else:
+            sector_run_id = f'{s_sector}'
 
         if target_i % 1000 == 0:
             logger.info(f'[{proc_id}] [Sector run {sector_run_id}] Iterating over TIC {target_i}/{n_targets} in '
