@@ -48,4 +48,7 @@ echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 # python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/search_neighbors/map_location_neighbors_to_pixel_frame.py
 # python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/extracting/extract_data_from_tess_dv_xml.py
 # python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/wrapper_preprocess_diff_img.py
-python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/preprocess_diff_img.py --config_fp=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml
+# python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/preprocess_diff_img.py --config_fp=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml
+# python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/diff_img/preprocessing/add_data_to_tfrecords.py
+# python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/utils_manipulate_tfrecords.py
+python /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/tess_spoc_ffi/create_tfrecord_dataset_hpo.py
