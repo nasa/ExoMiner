@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     # exp_run_dir = Path(f'/Users/msaragoc/Downloads/exominer_pipeline_run_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     # exp_run_dir = Path('/Users/msaragoc/Downloads/exominer_pipeline_run_20250701-130322/')
-    exp_run_dir = Path(f'/Users/miguelmartinho/Projects/test_exominer_devel/runs/exominer_pipeline_run_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     exp_run_dir.mkdir(parents=True, exist_ok=True)
 
     # # create CSV file with TICs
@@ -36,14 +36,18 @@ if __name__ == '__main__':
     tics_tbl = pd.DataFrame(
         data = {
             'tic_id': [
-                167526485,
-                167526485,
-                167526485,
+                # 167526485,
+                # 167526485,
+                # 167526485,
+                # 184240683,  # non-existing ffi
+                356473034,  # ffi
             ],
             'sector_run': [
-                '6-6',
-                '7-7',
-                '1-39',
+                # '6-6',
+                # '7-7',
+                # '1-39',
+                # '29-29',  # non-existing ffi
+                '60-60',
             ]
         }
     )
@@ -54,17 +58,18 @@ if __name__ == '__main__':
     tics_tbl.to_csv(tics_tbl_fp, index=False)
 
     pipeline_config_fp = 'exominer_pipeline/pipeline_run_config.yaml'
-    data_collection_mode = '2min'
+    data_collection_mode = 'ffi'
     num_processes = 1
+    num_jobs = 1
     start_t = perf_counter()
     print(f'OUTPUT DIRECTORY: {exp_run_dir}')
     run_exominer_pipeline_main(
-        config_fp=pipeline_config_fp,
+        # config_fp=pipeline_config_fp,
         output_dir=str(exp_run_dir),
         tic_ids_fp=str(tics_tbl_fp),
         data_collection_mode=data_collection_mode,
         num_processes=num_processes,
-        num_jobs=1,
+        num_jobs=num_jobs,
     )
     end_t = perf_counter()
     print(f'Elapsed time: {end_t - start_t:.2f} seconds.')

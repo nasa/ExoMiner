@@ -1,63 +1,38 @@
 # Running ExoMiner Pipeline
 
-After pulling the Podman image, you are ready to run the pipeline by running the script [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) in your terminal! The pipeline is fully parallelizable and can make use of multi-CPU cores machines. The TIC IDs are split evenly across a set of jobs defined by the user, meaning that all TCEs for a given TIC ID and sector run are processed in the same job. 
+After pulling the Podman image, you are ready to run the pipeline by running the script 
+[run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) in your terminal! The pipeline is fully 
+parallelizable and can make use of multi-CPU 
+cores machines. The TIC IDs are split evenly across a set of jobs defined by the user, meaning that all TCEs for a given
+TIC ID and sector run are processed in the same job. 
 
 ## Command-line arguments
-Before you run the pipeline, you have to set the filepaths to the command-line arguments. Run ```podman run exominer_pipeline --help``` for a detailed description on these inputs. The command-line arguments that have a corresponding argument in [pipeline_run_config.yaml](/exominer_pipeline/pipeline_run_config.yaml), if set, will overwrite the values in the YAML file. You can modify the command ```podman run``` to suit your use case (e.g., give TIC IDs as a comma-separated list instead of a CSV file).
-
-## YAML run configuration file
-
-The YAML file [pipeline_run_config.yaml](/exominer_pipeline/pipeline_run_config.yaml) is split into two parts: user-defined parameters at the top. Some of those parameters can be overwritten by setting the corresponding command-line argument; fixed run parameters that are internal to the ExoMiner pipeline and can be modified by more advanced users interested in accessing the application inside the Podman container and modifying the underlying code of the pipeline. 
-
-```yaml
-# path to output directory used to save results
-output_dir: null
-# process results either from TESS SPOC 2-min "2min" or FFI "ffi" data
-data_collection_mode: null
-# path to CSV file with TIC IDs to generate results for
-tic_ids_fp: null
-# number of processes to run application in parallel
-num_processes: 1
-# number of jobs to split the TIC IDs through
-num_jobs: 1
-
-### FIXED RUN PARAMETERS ###
-# path to configuration file used to preprocess light curve data into a TFRecord dataset
-lc_preprocessing_config_fp: exominer_pipeline/config_lc_preprocessing.yaml
-# attributes to show for each example in the TFRecord dataset table
-data_fields_tfrec_tbl:
-  uid: str
-  target_id: int
-  tce_plnt_num: int
-  sector_run: str
-# path to configuration file used to preprocess difference image data
-diff_img_preprocessing_config_fp: exominer_pipeline/config_diff_img_preprocessing.yaml
-# path to configuration file used to add difference image data to TFRecord dataset
-diff_img_add_tfrecord_dataset_config_fp: exominer_pipeline/config_add_diff_img_tfrecords.yaml
-# path to configuration file used to normalize features in TFRecord dataset
-normalize_tfrec_data_config_fp: exominer_pipeline/config_normalize_data.yaml
-# path to ExoMiner TensorFlow Keras model used to generate predictions
-model_fp: exominer_pipeline/data/model.keras
-# model_fp: /model/model.keras
-# path to configuration file used for running inference
-predict_config_fp: exominer_pipeline/config_predict_model.yaml
-```
+Before you run the pipeline, you have to set the filepaths to the command-line arguments. Run 
+```podman run exominer_pipeline --help``` for a detailed description on these inputs. 
+You can modify the command ```podman run``` to suit your use case (e.g., give TIC IDs as a comma-separated list instead 
+of a CSV file).
 
 ## Running the Podman container application
 
-The contents of `run_podman_application.sh` are displayed below.
+The contents of [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) are displayed below. To run 
+the podman image for the ExoMiner Pipeline, simply set the arguments for your use case in the shell script file and run 
+in your terminal `./path/to/run_podman_application.sh`.
 
 ```bash
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir="path/to/directory/with/saved/inputs"
+inputs_dir=path/to/directory/with/saved/inputs
 # file path to the TICs table
 tics_tbl_fp=$inputs_dir/tics_tbl.csv
-# file path to the configuration file for the ExoMiner Pipeline run
-config_fp=$inputs_dir/pipeline_run_config.yaml
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_{date, e.g. 7-10-2025_1925}
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir="/path/to/stored_runs/$exominer_pipeline_run"
+exominer_pipeline_run_dir=/path/to/stored_runs/$exominer_pipeline_run
+# data collection mode: either 2min or ffi
+data_collection_mode=2min
+# number of processes
+num_processes=1
+# number of jobs to split the TIC IDs
+num_jobs=1
 
 mkdir -p $exominer_pipeline_run_dir
 
@@ -65,7 +40,6 @@ echo "Started ExoMiner Pipeline run $exominer_pipeline_run..."
 echo "Running ExoMiner Pipeline with the following parameters:"
 echo "Inputs directory: $inputs_dir"
 echo "TICs table file: $tics_tbl_fp"
-echo "Configuration file: $config_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
@@ -73,18 +47,22 @@ podman run \
   -v $exominer_pipeline_run_dir:/outputs:Z \
   exominer_pipeline \
   --tic_ids_fp=/inputs/tics_tbl.csv \
-  --output_dir=/outputs/$exominer_pipeline_run \
-  --config_fp=/inputs/pipeline_run_config.yaml
+  --output_dir=/outputs \
+  --data_collection_mode=$data_collection_mode \
+  --num_processes=$num_processes \
+  --num_jobs=$num_jobs \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
-
 ```
 
 ## TIC IDs input
 
 You can provide a set of TIC IDs using two methods: 
-- create a CSV file with the columns "tic_id" and "sector_run" and set the variable [tics_tbl_fp](#running-the-podman-container-application) to its path.
--  set the variable [tic_ids](#running-the-podman-container-application) to a string in which the TIC IDs are separated by a comma. The following examples showcase the use of these two methods to generate results for the TCEs of TIC 167526485 in single-sector run S6 and multi-sector run S1-39.
+- create a CSV file with the columns "tic_id" and "sector_run" and set the variable 
+[tics_tbl_fp](#running-the-podman-container-application) to its path.
+-  set the variable [tic_ids](#running-the-podman-container-application) to a string in which the TIC IDs are 
+separated by a comma. The following examples showcase the use of these two methods to generate results for the TCEs of 
+TIC 167526485 in single-sector run S6 and multi-sector run S1-39.
 
 Example: CSV file
 
@@ -101,7 +79,9 @@ Example: comma-separated list
 
 ## Outputs
 
-The following diagram represents the hierarchy of the data output for a run of the ExoMiner Pipeline. In this example, the pipeline was run using one single job and the TESS SPOC TCEs were queried for the 2-min data. The structure was ordered from most recent file/folder to the oldest.
+The following diagram represents the hierarchy of the data output for a run of the ExoMiner Pipeline. In this example, 
+the pipeline was run using one single job and the TESS SPOC TCEs were queried for the 2-min data. The structure was 
+ordered from most recent file/folder to the oldest.
 
 ```code
 exominer_pipeline_run_{date}

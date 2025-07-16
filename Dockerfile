@@ -1,7 +1,4 @@
 FROM continuumio/miniconda3:25.3.1-1
-# FROM mambaorg/micromamba
-#FROM mambaorg/micromamba:2.3.0
-# python:3.11.5
 
 LABEL org.opencontainers.image.description="This image contains the ExoMiner Pipeline application." \
       org.opencontainers.image.title="ExoMiner Pipeline" \
@@ -52,7 +49,6 @@ COPY exominer_pipeline/${CONDA_ENV} conda_env_exoplnt_dl.yml
 RUN conda env create -f conda_env_exoplnt_dl.yml --yes && \
     conda clean --all -f -y && \
     rm -f ${CONDARC}
-#    rm -f /root/.condarc
 
 # copy application code
 COPY . .

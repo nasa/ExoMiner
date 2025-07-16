@@ -9,18 +9,19 @@ from pathlib import Path
 import numpy as np
 import multiprocessing as mp
 import pandas as pd
-import sys
 import yaml
 
 # local
 from exominer_pipeline.utils import (process_inputs, check_config, download_tess_spoc_data_products, create_tce_table,
-                                     inference_pipeline, StreamToLogger)
+                                     inference_pipeline)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preprocess_diff_img_tces_main
 from src_preprocessing.diff_img.preprocessing.add_data_to_tfrecords import write_diff_img_data_to_tfrec_files_main
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples_main
 from src_preprocessing.utils_manipulate_tfrecords import create_table_for_tfrecord_dataset
+
+CONFIG_FP = 'exominer_pipeline/pipeline_run_config.yaml'
 
 def run_exominer_pipeline(run_config, tics_df, job_id):
     """ Run ExoMiner pipeline for a set of TIC IDs.
@@ -159,16 +160,17 @@ def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
         else:
             logger.info(f'Job {result_job["job_id"]} is complete.')
 
-def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=-1, num_jobs=-1):
+def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=-1,
+                               num_jobs=-1):
     """ Run ExoMiner pipeline.
 
     Args:
-        config_fp: str, filepath to the configuration file for the run.
         output_dir: str, directory to save the output of the run.
         tic_ids_fp: str, filepath to the TIC IDs file for the run.
         data_collection_mode: str, either '2min' or 'ffi'.
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
+        num_jobs: int, number of jobs to run in parallel.
 
     Returns:
 
@@ -187,13 +189,15 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.addHandler(logger_handler)
 
     logger.info(f'Started run for ExoMiner.')
-    print('######################\nDocumentation can be found at: https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
-    logger.info('######################\nDocumentation can be found at: https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
+    print('######################\nDocumentation can be found at: '
+          'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
+    logger.info('######################\nDocumentation can be found at: '
+                'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
     print(f'Started run for ExoMiner: {output_dir.name}...')
     print(f'Logging information to {output_dir.name}/run_main.log.')
 
     logger.info(f'Preparing inputs and adjusting configuration file...')
-    run_config, tics_df = process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger,
+    run_config, tics_df = process_inputs(output_dir, CONFIG_FP, tic_ids_fp, data_collection_mode, logger,
                                          tic_ids=tic_ids, num_processes=num_processes, num_jobs=num_jobs)
     logger.info('Done.')
     
@@ -208,18 +212,23 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     with open(output_dir / 'pipeline_run_config.yaml', 'w') as f:
         yaml.dump(run_config, f, sort_keys=False)
 
-    print(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using {run_config["num_processes"]} process(es)...')
-    print(f'The results for each job are saved into their own directories under {output_dir.name} following pattern job_{{job_id}}.')
+    print(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using '
+          f'{run_config["num_processes"]} process(es)...')
+    print(f'The results for each job are saved into their own directories under {output_dir.name} '
+          f'following pattern job_{{job_id}}.')
 
     # split TIC IDs across jobs
     tics_df_jobs = np.array_split(tics_df, run_config['num_jobs'])
     jobs = [(run_config, tics_job, job_id) for job_id, tics_job in enumerate(tics_df_jobs)]
-    logger.info(f'Split TIC IDs into {run_config["num_jobs"]} jobs to be processed in parallel using {run_config["num_processes"]} '
+    logger.info(f'Split TIC IDs into {run_config["num_jobs"]} jobs to be processed in parallel using '
+                f'{run_config["num_processes"]} '
                 f'process(es).')
-    logger.info(f'Started running ExoMiner pipeline on {run_config["num_processes"]} process(es) for {run_config["num_jobs"]} job(s)...')
+    logger.info(f'Started running ExoMiner pipeline on {run_config["num_processes"]} process(es) for '
+                f'{run_config["num_jobs"]} job(s)...')
     run_exominer_pipeline_jobs_parallel(jobs, run_config['num_processes'], logger)
 
-    print(f'Finished running ExoMiner pipeline on {run_config["num_processes"]} process(es) for {run_config["num_jobs"]} job(s).')
+    print(f'Finished running ExoMiner pipeline on {run_config["num_processes"]} process(es) for '
+          f'{run_config["num_jobs"]} job(s).')
 
     # aggregate predictions across jobs
     print(f'Aggregating predictions across all jobs into a single table...')
@@ -241,13 +250,14 @@ if __name__ == "__main__":
                                                  'Mission. For more information see NASA\'s GitHub repository at '
                                                  'https://github.com/nasa/Exominer/tree/main/docs/index.md')
 
-    parser.add_argument('--config_fp', type=str, help='Filepath to YAML configuration file.',
-                        default=None)
+    # parser.add_argument('--config_fp', type=str, help='Filepath to YAML configuration file.',
+    #                     default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory the results are saved into.',
                         default=None)
     parser.add_argument('--tic_ids_fp', type=str, help='Filepath to CSV file containing the TIC IDs and '
                                                        'the corresponding sector run. Must include header with columns '
-                                                       '"tic_id" and "sector_run". Sector run should be provided as the '
+                                                       '"tic_id" and "sector_run". Sector run should be provided as '
+                                                       'the '
                                                        'start and end sectors of the run '
                                                        '({start_sector}-{end_sector}). If this argument is '
                                                        'set, it takes preference over argument '
@@ -260,10 +270,13 @@ if __name__ == "__main__":
                         default=None)
     parser.add_argument('--data_collection_mode', type=str, help='Either "2min" of "FFI" to process '
                                                                  'TESS SPOC 2-min or FFI TCE data. By default, it '
-                                                                 'is set to "None" to use the parameter defined in the YAML configuration file.',
+                                                                 'is set to "None" to use the parameter defined in the '
+                                                                 'YAML configuration file.',
                         default=None)
-    parser.add_argument('--num_processes', type=int, help='Number of processes to use for parallelization. '
-                                                          'Set to "-1" by default which means use the parameter defined '
+    parser.add_argument('--num_processes', type=int, help='Number of processes to use for '
+                                                          'parallelization. '
+                                                          'Set to "-1" by default which means use the parameter '
+                                                          'defined '
                                                           'in the YAML configuration file. If valid, it overwrites the'
                                                           'value set in the YAML configuration file.', default=-1)
     parser.add_argument('--num_jobs', type=int, help='Number of jobs to split the TIC IDs through. '
@@ -273,5 +286,5 @@ if __name__ == "__main__":
 
     parsed_args = parser.parse_args()
 
-    run_exominer_pipeline_main(parsed_args.config_fp, parsed_args.output_dir, parsed_args.tic_ids_fp,
+    run_exominer_pipeline_main(parsed_args.output_dir, parsed_args.tic_ids_fp,
                                parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes)
