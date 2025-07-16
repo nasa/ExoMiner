@@ -1,16 +1,10 @@
 name: exoplnt_dl
-# channels:
-#   - conda-forge
-#   # - defaults
-#   # - anaconda
-#   - https://repo.anaconda.com/pkgs/main
-#   # - https://repo.anaconda.com/pkgs/r
+
 dependencies:
   - aiofiles=22.1.0
   - aiosqlite=0.18.0
   - anyio=3.5.0
   - aom=3.6.0
-  # - appnope=0.1.2
   - appnope
   - argon2-cffi=21.3.0
   - argon2-cffi-bindings=21.2.0
@@ -292,7 +286,6 @@ dependencies:
       - ml-dtypes==0.2.0
       - more-itertools==10.1.0
       - netifaces==0.11.0
-      # - netifaces
       - numpy==1.24.3
       - oauthlib==3.2.2
       - opt-einsum==3.3.0
@@ -311,10 +304,7 @@ dependencies:
       - tensorboard-data-server==0.7.1
       - tensorflow-estimator==2.13.0
       - tensorflow-io-gcs-filesystem==0.34.0
-      # - tensorflow-macos==2.13.0
       - tensorflow==2.13.0
-      # - tensorflow-metal==1.1.0
-      # - tensorflow-probability==0.21.0
       - termcolor==2.3.0
       - typing-extensions==4.5.0
       - werkzeug==3.0.0

@@ -10,6 +10,7 @@ import numpy as np
 import multiprocessing as mp
 import pandas as pd
 import sys
+import yaml
 
 # local
 from exominer_pipeline.utils import (process_inputs, check_config, download_tess_spoc_data_products, create_tce_table,
@@ -205,7 +206,7 @@ def run_exominer_pipeline_main(config_fp, output_dir, tic_ids_fp, data_collectio
     logger.info('Done checking configuration file.')
 
     with open(output_dir / 'pipeline_run_config.yaml', 'w') as f:
-        run_config.dump(f, sorted=False)
+        yaml.dump(run_config, f, sort_keys=False)
 
     print(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using {run_config["num_processes"]} process(es)...')
     print(f'The results for each job are saved into their own directories under {output_dir.name} following pattern job_{{job_id}}.')
