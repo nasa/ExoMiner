@@ -5,6 +5,8 @@
     <img src="/others/images/exominer_logo.png" width="250" height="250" alt="Exominer Logo">
 </div>
 
+#### Written by [Miguel Martinho](https://migmartinho.github.io) (miguel.martinho@nasa.gov) | Last update: 5-19-2025
+
 ## Introduction
 
 This project's mission is to develop, test, and deploy automated machine learning-based methods to sift ('mine') through 
@@ -13,41 +15,36 @@ on potential transiting planet candidates.
 
 ### Current main goals
 
-The main goals of the `ExoMiner` pipeline are:
+The main goals of the `ExoMiner` project are:
 
 1. Perform classification of transit signals in Kepler and TESS data;
 2. Create vetted catalogs of Threshold Crossing Events (TCEs) for Kepler and TESS sector runs/cycles.
 3. Validate new exoplanets in Kepler and TESS.
 
-## Pipeline Overview
+## ExoMiner Pipeline [**NEW**]
 
-The pipeline consists of the following main blocks:
+The [ExoMiner Pipeline](/exominer_pipeline) is a fully integrated pipeline from TIC IDs to ExoMiner prediction scores 
+for the corresponding 
+TESS SPOC TCEs in 2-min/FFI data. This pipeline makes use of Podman as a container framework to provide a seamless 
+experience to the user - no need for setting up the code repository and install package dependencies! Simply get the 
+Podman image for your system's architecture using the [manifest](/docs/getting-started.md#pulling-the-image). See the 
+documentation in [here](/docs/index.md) to get started.
 
-1. Data wrangling: perform operations on the data products that are used to generate the datasets to train and evaluate
-   the models, and to run inference. This set of code involves tasks such as creating transit signal tables used to
-   preprocess the data, perform analysis of the data, and evaluate results and rankings produced by the models. Code
-   under `data_wrangling`.
-2. Data preprocessing: preprocess data products (e.g. light curve FITS files)
-   to generate a catalog of transit signal features to be used for training and evaluating models, and to run inference
-   on it. Code under `src_preprocessing`.
-3. Model training: train models on the preprocessed data.
-    1. Hyper-parameter optimization: find a set of optimized hyper-parameters by running Bayesian optimization (vanilla
-       or [BOHB](https://github.com/automl/HpBandSter)), or random search. Code under `src_hpo`.
-4. Model evaluation: evaluate model performance against a holdout test set or by K-fold CV. Code under `src`
-   and `src_cv`. Other additional experiments are shown below.
-    1. Label noise injection: add artificial label noise to the training set and study the impact on model performance
-       on a fixed test set. Code under `label_noise`.
-    2. Adjusting size of training set: selectively sample the training set and study the impact on model performance on
-       a fixed test set. Code under `size_training_set`.
-    3. Transfer learning to different datasets: perform transfer learning experiments to apply models across different
-       datasets (e.g. from Kepler to TESS). This includes analyzing impact of certain input features in the model
-       performance, and fine-tuning certain layers.
-    4. Explainability: design explainability studies that (1) help in improving and finding blindspots of the model,
-       and (2) provide interpretation for the researcher/SME on the model output.
-5. Inference: run trained models on a generated catalog of transit signals to generate a ranking that can be used for
-   vetoing transit signals or exoplanet validation. Code under `src`.
+## Repository Overview
 
-## Data
+The repository consists of the following main blocks:
+
+1. Data preprocessing: preprocess data products (e.g. light curve FITS files) to generate a catalog of transit signal 
+features to be used for training and evaluating models, and to run inference on it. Code under
+[src_preprocessing](/src_preprocessing).
+2. Model training/evaluation/prediction: train and evaluate models on the preprocessed data. Run inference on the data 
+using trained models. Code under [src](/src).
+3. Model evaluation using cross-validation under [src_cv](/src_cv).
+4. Hyperparameter Optimization: use code under [src_hpo](src_hpo) to run hyperparameter optimization experiments to 
+find an optimized architecture for a given task.
+5. Model Development: use code under [models](models) to access and modify ExoMiner architectures. 
+
+## Source Data
 
 All data used in this project are publicly available. Generally, the data used consist of:
 
@@ -60,7 +57,7 @@ All data used in this project are publicly available. Generally, the data used c
 
 ## Models
 
-Models currently implemented in `models`:
+Models currently implemented in [models](models/models_keras.py):
 
 1. `ExoMiner++` [**CURRENT**]: Improved architecture for TESS. Used in TESS paper (see [References](#references)).
 
@@ -91,7 +88,9 @@ Models currently implemented in `models`:
 For more detailed information see the following publications:
 - ExoMiner on Kepler Data ["ExoMiner: A Highly Accurate and Explainable Deep Learning Classifier that Validates 301 New Exoplanets"](https://iopscience.iop/articl/10.3847/1538-4357/ac4399/), published 2022 February 17 in the Astrophysical Journal, Volume 926, Number 2.
 - ExoMiner with Multiplicity Boost for Kepler ["Multiplicity Boost of Transit Signal Classifiers: Validation of 69 New Exoplanets using the Multiplicity Boost of ExoMiner"](https://iopscience.iop.org/article/10.3847/1538-3881/acd344/), published 2023 June 26 in the Astronomical Journal, Volume 166, Number 1.
-- ExoMiner for TESS Data ["ExoMiner++ on TESS with Transfer Learning from Kepler: Transit Classification and Vetting Catalog for 2-min Data"](https://arxiv.org/pdf/2502.09790) [**under review for ApJ**]
+- ExoMiner for TESS 2-min Data ["ExoMiner++: Enhanced Transit Classification and a New Vetting Catalog for 2-Minute TESS Data"](https://doi.org/10.48550/arXiv.2502.09790) [**under review for ApJ**]
+  - **Data repository on Zenodo**: [here](https://doi.org/10.5281/zenodo.15466292)
+  - **Interactive vetting catalog**: [here](http://exominer-vetter-tess-pc-catalog.onrender.com/)
 
 ## Credits
 
@@ -114,8 +113,6 @@ Research Center (NASA ARC).
   
 - Developers
   - Active Developers
-      - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification; Structured and Adversarial Training for Transit 
-    Classification Robustness)
       - Josue Ochoa<sup>7</sup> (Transit Detection)
     
   - Past Developers 
@@ -142,6 +139,8 @@ Research Center (NASA ARC).
       - Kunal Malhotra<sup>7</sup> (Transit Detection)
       - Eric Liang<sup>7</sup> (Transit Encoding)
       - Ujjawal Prasad<sup>8</sup> (Transit Detection)
+      - Adithya Giri<sup>7</sup> (Brown Dwarfs vs Planets Classification; Structured and Adversarial Training for Transit 
+       Classification Robustness)
 
 1 - NASA Ames Research Center (NASA ARC)\
 2 - Universities Space Research Association (USRA)\
@@ -190,7 +189,7 @@ Archive for Space Telescopes (MAST).
 
 ## Release Notes
 
-First release of ExoMiner (v1.0). Expected features to be added in subsequent releases:
+Second release of ExoMiner (v2.0). Expected features to be added in subsequent releases:
 - TBD.
 
 See the [NASA Open Source Agreement (NOSA)](others/licenses/nasa_open_source_agreement_ExoMiner-18792-1.pdf) for this software release.

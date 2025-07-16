@@ -270,21 +270,16 @@ if __name__ == "__main__":
                         default=None)
     parser.add_argument('--data_collection_mode', type=str, help='Either "2min" of "FFI" to process '
                                                                  'TESS SPOC 2-min or FFI TCE data. By default, it '
-                                                                 'is set to "None" to use the parameter defined in the '
-                                                                 'YAML configuration file.',
-                        default=None)
+                                                                 'is set to "2min".',
+                        default="2min")
     parser.add_argument('--num_processes', type=int, help='Number of processes to use for '
                                                           'parallelization. '
-                                                          'Set to "-1" by default which means use the parameter '
-                                                          'defined '
-                                                          'in the YAML configuration file. If valid, it overwrites the'
-                                                          'value set in the YAML configuration file.', default=-1)
+                                                          'Set to "1" by default.', default=-1)
     parser.add_argument('--num_jobs', type=int, help='Number of jobs to split the TIC IDs through. '
-                                                     'Set to "-1" by default which means use the parameter defined '
-                                                     'in the YAML configuration file. If valid, it overwrites the '
-                                                     'value set in the YAML configuration file.', default=-1)
+                                                     'Set to "1" by default.', default=1)
 
     parsed_args = parser.parse_args()
 
     run_exominer_pipeline_main(parsed_args.output_dir, parsed_args.tic_ids_fp,
-                               parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes)
+                               parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes,
+                               parsed_args.num_jobs)

@@ -2,12 +2,13 @@ FROM continuumio/miniconda3:25.3.1-1
 
 LABEL org.opencontainers.image.description="This image contains the ExoMiner Pipeline application." \
       org.opencontainers.image.title="ExoMiner Pipeline" \
-      org.opencontainers.image.version="1.0.0." \
+      org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.authors="Miguel Martinho <mig.js.martinho@gmail.com>, <miguel.martinho@nasa.gov>" \
       org.opencontainers.image.source="https://github.com/nasa/ExoMiner" \
       org.opencontainers.image.documentation="https://github.com/nasa/ExoMiner/tree/main/docs/index.md" \
+      org.opencontainers.image.exominer.model="ExoMiner++ (TESS SPOC 2-min S1-S67, Ensemble from CV Iteration 0) | DOI: https://doi.org/10.48550/arXiv.2502.09790" \
       org.opencontainers.image.revision="" \
-      org.opencontainers.image.created="" 
+      org.opencontainers.image.created=""
 
 # set working directory
 WORKDIR /app
