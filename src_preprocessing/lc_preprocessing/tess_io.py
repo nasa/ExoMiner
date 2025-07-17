@@ -24,7 +24,7 @@ def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
     """
 
     Args:
-        base_dir: Base directory containing TESS 2-min cadence data
+        base_dir: Base directory containing TESS light curve FITS files data
         ticid: ID of the TESS target star. It can be an int or a possibly zero-padded string
         sectors_observed: str, sectors observed separated by an underscore
 

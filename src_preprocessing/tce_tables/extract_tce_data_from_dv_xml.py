@@ -341,13 +341,14 @@ def process_xml(dv_xml_fp, logger):
     return tces_df
 
 
-def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
+def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp, filter_tics=None):
     """ Extracts TCE data from a set of DV xml files in a directory `dv_xml_sector_run_dir` into a table and returns
     the table as a pandas DataFrame.
 
     Args:
         dv_xml_sector_run_dir: Path, path to the sector run directory
         dv_xml_tbl_fp: Path, filepath used to save table with DV xml results
+        filter_tics: list of TIC IDs with sector run ID used to filter DV XML files; if None, no filtering is done
 
     Returns:
         dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files
@@ -364,6 +365,12 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
     logger.info(f'Starting run...')
 
     dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml'))
+    if filter_tics is not None:
+        dv_xml_fps = [
+            fp for fp in dv_xml_fps
+            if any(filter_tic in fp.name for filter_tic in filter_tics)
+        ]
+
     n_dv_xmls = len(dv_xml_fps)
     logger.info(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
 

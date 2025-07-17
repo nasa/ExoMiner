@@ -61,6 +61,8 @@ if __name__ == '__main__':
     data_collection_mode = 'ffi'
     num_processes = 1
     num_jobs = 1
+    download_spoc_data_products='true'
+    external_data_repository='/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_20250716-173819/job_0/mastDownload/HLSP'
     start_t = perf_counter()
     print(f'OUTPUT DIRECTORY: {exp_run_dir}')
     run_exominer_pipeline_main(
@@ -70,6 +72,8 @@ if __name__ == '__main__':
         data_collection_mode=data_collection_mode,
         num_processes=num_processes,
         num_jobs=num_jobs,
+        download_spoc_data_products=download_spoc_data_products,
+        external_data_repository=external_data_repository,
     )
     end_t = perf_counter()
     print(f'Elapsed time: {end_t - start_t:.2f} seconds.')

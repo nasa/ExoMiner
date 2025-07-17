@@ -20,8 +20,26 @@ from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preproc
 from src_preprocessing.diff_img.preprocessing.add_data_to_tfrecords import write_diff_img_data_to_tfrec_files_main
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples_main
 from src_preprocessing.utils_manipulate_tfrecords import create_table_for_tfrecord_dataset
+from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector_field
 
 CONFIG_FP = 'exominer_pipeline/pipeline_run_config.yaml'
+
+
+def create_tic_id_pattern(row, data_collection_mode):
+
+    tic_id = str(row['tic_id']).zfill(16)
+    start_sector, end_sector = row['sector_run'].split("-")
+    sector_id = f"s{start_sector.zfill(4)}-s{end_sector.zfill(4)}"
+
+    if data_collection_mode == 'ffi':
+        tic_id_pattern = f'{tic_id}-{sector_id}'
+    elif data_collection_mode == '2min':
+        tic_id_pattern = f'{sector_id}-{tic_id}'
+    else:
+        raise ValueError(f'Data collection mode must be either "ffi" or "2min": {data_collection_mode}')
+
+    return tic_id_pattern
+
 
 def run_exominer_pipeline(run_config, tics_df, job_id):
     """ Run ExoMiner pipeline for a set of TIC IDs.
@@ -54,19 +72,33 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
 
         # sys.stdout = StreamToLogger(logger)
 
-        # download required data products - light curve FITS and DV XML files
-        logger.info(f'[{job_id}] Downloading data products for the requested TIC IDs...')
-        download_tess_spoc_data_products(tics_df, run_config['data_collection_mode'], run_config['job_dir'], logger)
+        if run_config['external_data_repository'] == 'null':
+            # download required data products - light curve FITS and DV XML files
+            logger.info(f'[{job_id}] Downloading data products for the requested TIC IDs...')
+            download_tess_spoc_data_products(tics_df, run_config['data_collection_mode'], run_config['job_dir'], logger)
 
-        folder_name = 'HLSP' if run_config['data_collection_mode'] == 'ffi' else 'TESS'
-        run_config['data_products_dir'] = run_config['job_dir'] / 'mastDownload' / folder_name
+            folder_name = 'HLSP' if run_config['data_collection_mode'] == 'ffi' else 'TESS'
+            run_config['data_products_dir'] = run_config['job_dir'] / 'mastDownload' / folder_name
+        else:
+            logger.info(f'[{job_id}] Using external data repository...')
+            run_config['data_products_dir'] = Path(run_config['external_data_repository'])
 
         # create TCE table from DV XML data
         logger.info(f'[{job_id}] Creating TESS SPOC TCE table from DV XML files downloaded for the requested TIC '
                     f'IDs...')
         tce_tbl_dir = run_config['job_dir'] / 'tce_table'
         tce_tbl_dir.mkdir(exist_ok=True)
-        tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger)
+        if run_config['external_data_repository'] == 'null':
+            tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger)
+        else:
+            tics_pattern = (
+                tics_df.apply(lambda x: create_tic_id_pattern(x,
+                                                              data_collection_mode=run_config['data_collection_mode']),
+                              axis=1).to_list())
+
+            tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger,
+                                       filter_tics=tics_pattern)
+
         tce_tbl_fp = tce_tbl_dir / f'tess-spoc-dv_tces_{job_id}_processed.csv'
         tce_tbl.to_csv(tce_tbl_fp, index=False)
 
@@ -120,6 +152,16 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         prediction_dir.mkdir(exist_ok=True)
         inference_pipeline(run_config, prediction_dir, normalized_tfrec_dir, logger)
 
+        # download CSV table with URLs to DV reports for each TCE for the queried TICs in the MAST
+        if run_config['download_spoc_data_products']:
+            tce_uids_lst = tce_tbl['uid'].apply(correct_sector_field).to_list()
+            get_dv_dataproducts_list(tce_uids_lst,
+                                     ['DV TCE summary report', 'Full DV report', 'DV mini-report'],
+                                     run_config['job_dir'] , False, 'all',
+                                     spoc_ffi=run_config['data_collection_mode'] == 'ffi',
+                                     verbose=False,
+                                     csv_fp=run_config['job_dir'] / 'dv_reports.csv')
+
         logger.info(f'[{job_id}] Finished run for job {job_id} for {len(tics_df)} TIC IDs.')
 
         # # restore stdout
@@ -160,8 +202,8 @@ def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
         else:
             logger.info(f'Job {result_job["job_id"]} is complete.')
 
-def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=-1,
-                               num_jobs=-1):
+def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1,
+                               num_jobs=1, download_spoc_data_products='false', external_data_repository='null'):
     """ Run ExoMiner pipeline.
 
     Args:
@@ -171,6 +213,10 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
         num_jobs: int, number of jobs to run in parallel.
+        download_spoc_data_products: str, whether to create CSV file with URLs to SPOC data products for TCEs of
+            queried TICs.
+        external_data_repository: str, the external data repository to use for light curve FITS files and DV XML files
+            for queried TICs.
 
     Returns:
 
@@ -198,7 +244,9 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
 
     logger.info(f'Preparing inputs and adjusting configuration file...')
     run_config, tics_df = process_inputs(output_dir, CONFIG_FP, tic_ids_fp, data_collection_mode, logger,
-                                         tic_ids=tic_ids, num_processes=num_processes, num_jobs=num_jobs)
+                                         tic_ids=tic_ids, num_processes=num_processes, num_jobs=num_jobs,
+                                         download_spoc_data_products=download_spoc_data_products,
+                                         external_data_repository=external_data_repository)
     logger.info('Done.')
     
     # TODO: check structure of TIC IDs CSV file
@@ -240,6 +288,14 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     predictions_tbl.to_csv(predictions_tbl_fp, index=False)
     logger.info(f'Saved predictions to {predictions_tbl_fp}.')
 
+    print(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table...')
+    dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
+    logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
+                f'{dv_reports_tbl_fp}...')
+    dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
+    dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
+    dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)
+
     logger.info(f'Finished running ExoMiner pipeline.')
     print(f'Finished running ExoMiner pipeline. Results saved to {output_dir.name}.')
 
@@ -278,8 +334,23 @@ if __name__ == "__main__":
     parser.add_argument('--num_jobs', type=int, help='Number of jobs to split the TIC IDs through. '
                                                      'Set to "1" by default.', default=1)
 
+    parser.add_argument('--download_spoc_data_products', type=str, help='Set to "true" to download a CSV '
+                                                                        'file containing the URLs to the TESS SPOC DV '
+                                                                        'reports for the TCEs of the queried TICs in the '
+                                                                        'MAST.'
+                                                                        'Set to "false" by default.',
+                        default='false', choices=['true', 'false'])
+
+    parser.add_argument('--external_data_repository', type=str, help='Provide the path to a directory '
+                                                                     'containing the light curve FITS files and DV XML '
+                                                                     'files for the TIC IDs and sector runs that you '
+                                                                     'want to query. Otherwise, set to "null" so the '
+                                                                     'pipeline downloads the required files from the '
+                                                                     'MAST. Set to "null" by default.',
+                        default='null')
+
     parsed_args = parser.parse_args()
 
     run_exominer_pipeline_main(parsed_args.output_dir, parsed_args.tic_ids_fp,
                                parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes,
-                               parsed_args.num_jobs)
+                               parsed_args.num_jobs, parsed_args.download_spoc_data_products)

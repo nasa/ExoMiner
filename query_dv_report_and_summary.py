@@ -12,6 +12,18 @@ import os
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
 
+def correct_sector_field(x):
+
+    target_id, tce_id = x.split('-')[:2]
+
+    sector_id = x.split('-')[2:]
+    if len(sector_id) == 2:
+        return x
+    else:
+        sector_id = f'{sector_id[0]}-{sector_id[0][1:]}'
+        return f'{target_id}-{tce_id}-{sector_id}'
+
+
 def get_kic_dv_report_and_summary(kic, download_dir, verbose=False):
     """ Download DV reports and summaries available in the MAST for a given KIC.
 
@@ -85,7 +97,8 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
         product_tce_id = f's{s_sector}-s{e_sector}-{tic_id}-{tce_id}'
         product_target_id = f's{s_sector}-s{e_sector}-{tic_id}'
     else:
-        product_tce_id = f'{tic_id}-s{s_sector}-s{e_sector}*{tce_id}'
+        # product_tce_id = f'{tic_id}-s{s_sector}-s{e_sector}*{tce_id}'
+        product_tce_id = f'{tic_id}-s{s_sector}-s{e_sector}.*-{tce_id}'
         product_target_id = f'{tic_id}-s{s_sector}-s{e_sector}'
 
     #  get table of observations associated with this target
@@ -146,7 +159,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
             prod_dv_full = Observations.download_products(obs_products_filter, download_dir=download_dir)
             prods.append(prod_dv_full)
 
-    if 'Data validation mini report' in reports_to_get:  # TCERT reports
+    if 'Data validation mini report' in reports_to_get:  # DV mini-reports
 
         filtered_products_filenames = products_filenames.loc[products_filenames.str.contains(product_target_id,
                                                                                              regex=True)].to_list()
@@ -222,18 +235,9 @@ if __name__ == "__main__":
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
     # TESS
-    def _correct_sector_field(x):
-        target_id, tce_id = x.split('-')[:2]
-        sector_id = x.split('-')[2:]
-        if len(sector_id) == 2:
-            return x
-        else:
-            sector_id = f'{sector_id[0]}-{sector_id[0][1:]}'
-            return f'{target_id}-{tce_id}-{sector_id}'
-
     objs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv')
     objs = objs.loc[objs['sector_run'].isin(['14'])]
-    objs['uid'] = objs['uid'].apply(_correct_sector_field)
+    objs['uid'] = objs['uid'].apply(correct_sector_field)
     print(f'Found {len(objs)} events. Downloading DV reports...')
     objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
                        objs.groupby('sector_run')}

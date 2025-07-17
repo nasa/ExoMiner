@@ -16,11 +16,18 @@ of a CSV file).
 
 The contents of [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) are displayed below. To run 
 the podman image for the ExoMiner Pipeline, simply set the arguments for your use case in the shell script file and run 
-in your terminal `./path/to/run_podman_application.sh`.
+in your terminal `./path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
+IDs and sector runs found in the CSV file that the variable `tics_tbl_fp` points to in your system. The pipeline will 
+use TESS SPOC `2-min` data (see `data_collection_mode` variable) and `1` process will be used (no parallelization). The 
+TIC IDs are split across `2` jobs. The results will be saved into the filepath that `exominer_pipeline_run_dir` points 
+to. Furthermore, because `download_spoc_data_products` was set to `true`, a CSV file with the MAST URLs for the TESS 
+SPOC DV reports generated for the TCEs of the queried TIC IDs will be generated. Since `external_data_repository` was 
+set to `null`, the pipeline will download the light curve FITS and DV XML files for the queried TICs from the MAST. For 
+information on the structure of the input CSV file, see section [TIC IDs input](#tic-ids-input).
 
 ```bash
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir=path/to/directory/with/saved/inputs
+inputs_dir=/path/to/directory/with/saved/inputs
 # file path to the TICs table
 tics_tbl_fp=$inputs_dir/tics_tbl.csv
 # name of the run
@@ -32,7 +39,13 @@ data_collection_mode=2min
 # number of processes
 num_processes=1
 # number of jobs to split the TIC IDs
-num_jobs=1
+num_jobs=2
+# set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
+# queried TICs
+download_spoc_data_products=true
+# path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
+# want to query; set to "null" otherwise
+external_data_repository=null
 
 mkdir -p $exominer_pipeline_run_dir
 
@@ -45,12 +58,14 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 podman run \
   -v $inputs_dir:/inputs:Z \
   -v $exominer_pipeline_run_dir:/outputs:Z \
-  exominer_pipeline \
+   d8c467fe1966 \
   --tic_ids_fp=/inputs/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
   --num_jobs=$num_jobs \
+  --download_spoc_data_products=$download_spoc_data_products \
+  --external_data_repository=$external_data_repository \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
 ```
@@ -84,13 +99,15 @@ the pipeline was run using one single job and the TESS SPOC TCEs were queried fo
 ordered from most recent file/folder to the oldest.
 
 ```code
-exominer_pipeline_run_{date}
+exominer_pipeline_run_name
 ├── run_main.log
-├── predictions_outputs.csv
+├── dv_reports_all_jobs.csv [optional]
+├── predictions_{exominer_pipeline_run_name}.csv
 ├── pipeline_run_config.yaml
 ├── tics_tbl.csv
 └── job_0
     ├── run_0.log
+    ├── dv_reports.csv [optional]
     ├── predictions
     ├── tfrecord_data_diffimg_normalized
     ├── tfrecord_data_diffimg
@@ -106,11 +123,15 @@ exominer_pipeline_run_{date}
 **Content description**
 
 - `run_main.log`: main log file for the run.
+- `dv_reports_all_jobs.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 
+       TCE in all the queried TICs, the URLs for the TESS SPOC DV data reports found at the MAST.
 - `predictions_output.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
 - `pipeline_run_config.yaml`: YAML file that stores the run parameters.
 - `tics_tbl.csv`: CSV file containing the queried TIC IDs and sector runs.
 - `job_{job_id}`: directory containing the results for the TIC IDs and sector runs assigned to the job.
     - `run_{job_id}`: log file for the job.
+    - `dv_reports.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 
+       TCE in the queried TICs for this job, the URLs for the TESS SPOC DV data reports found at the MAST.
     - `predictions`: contains the CSV file, `ranked_predictions_predictset.csv`, with the predictions generated for the assigned TIC IDs and sector runs.
     - `tfrecord_data_diffimg_normalized`: TFRecord dataset with light curve and difference image data for the TCEs. Features have been normalized. It should include a TFRecord file name `shard-tess_diffimg_TESS_0` that contains the normalized data.
     - `tfrecord_data_diffimg`: TFRecord dataset with light curve and difference image data for the TCEs. It should include a TFRecord file name `shard-tess_diffimg_TESS_0` that contains the preprocessed light curve data and the difference image data.

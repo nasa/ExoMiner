@@ -96,6 +96,9 @@ def check_config(run_config, logger):
         'data_collection_mode',
         'tic_ids_fp',
         'num_processes',
+        'num_jobs',
+        'download_spoc_data_products',
+        'external_data_repository',
     ]
     for field in required_fields_in_config:
         if field not in run_config:
@@ -122,8 +125,23 @@ def check_config(run_config, logger):
         logger.error(f'Number of processes is not a positive integer: {run_config["num_processes"]}')
         raise SystemExit(f"Number of processes is not a positive integer: {run_config['num_processes']}")
 
+    if not (isinstance(run_config['num_jobs'], int) and run_config['num_jobs'] > 0):
+        logger.error(f'Number of jobs is not a positive integer: {run_config["num_jobs"]}')
+        raise SystemExit(f"Number of jobs is not a positive integer: {run_config['num_jobs']}")
 
-def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1, num_jobs=1):
+    # check if data collection mode is valid
+    if run_config['download_spoc_data_products'] not in  ['true', 'false']:
+        logger.info(f'Downloading SPOC DV mini-report variable "{run_config["data_collection_mode"]}" is not supported. '
+                    f'Choose from "true" or "false".')
+        raise SystemExit("Invalid SPOC DV mini-report flag. Choose from 'true' or 'false'.")
+
+    if run_config['external_data_repository'] != 'null' and not Path(run_config['external_data_repository']).exists():
+        logger.info(f'External data repository does not exist: {run_config["external_data_repository"]}.')
+        raise SystemExit(f'Invalid external data repository path: {run_config["external_data_repository"]}')
+
+
+def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
+                   num_jobs=1, download_spoc_data_products='false', external_data_repository='null'):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -135,6 +153,8 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         tic_ids: str, list of TIC IDs to process. Only used if `tic_ids_fp` is None.
         num_processes: int, number of processes to use.
         num_jobs: int, number of jobs to split the TIC IDs through.
+        download_spoc_data_products: str, whether to download a CSV file with URLs to the SPOC DV reports
+        external_data_repository: str, whether to use external data repository.
 
     Returns:
         run_config: dict with parameters for running the ExoMiner pipeline.
@@ -196,6 +216,14 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     # overwrite data collection mode using the command-line argument
     if data_collection_mode is not None:
         run_config['data_collection_mode'] = data_collection_mode
+
+    # overwrite download DV mini-report flag using the command-line argument
+    if download_spoc_data_products == 'true':
+        run_config['download_spoc_data_products'] = download_spoc_data_products
+
+    # overwrite data repository path using the command-line argument
+    if external_data_repository != 'null':
+        run_config['external_data_repository'] = external_data_repository
 
     # update parameters in auxiliary configuration files
     with open(run_config['lc_preprocessing_config_fp'], 'r') as f:
@@ -318,7 +346,8 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
     sys.stdout = sys.__stdout__
 
 
-def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logger: logging.Logger):
+def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logger: logging.Logger, filter_tics=None) \
+        -> pd.DataFrame:
     """ Create TCE table using data from DV XML files.
 
     Args:
@@ -326,6 +355,7 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
         job_id: int, table ID
         dv_xml_products_dir: Path, directory containing DV XML files
         logger: logging.Logger
+        filter_tics: list of TIC IDs with sector run ID used to filter DV XML files; if None, no filtering is done
 
     Returns: tce_tbl, pandas DataFrame containing TCEs to be processed and that were extracted from the DV XML files
 
@@ -336,7 +366,7 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
     logs_dir = dv_xml_tbl_fp.parent / 'logs'
     logs_dir.mkdir(exist_ok=True)
 
-    process_sector_run_of_dv_xmls(dv_xml_products_dir, dv_xml_tbl_fp)
+    process_sector_run_of_dv_xmls(dv_xml_products_dir, dv_xml_tbl_fp, filter_tics)
 
     sys.stdout = StreamToLogger(logger)
     tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir)
