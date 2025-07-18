@@ -32,4 +32,5 @@ A stable internet connection is also required to access the TESS repositories at
 ### More information on the image
 
 You can get detailed information on the Podman image by running the command 
-```podman images inspect exominer_pipeline```. Run ```podman image history exominer_pipeline``` to see the list of layers and commands that were used to create them. If you want to access the contents of the image, you can run the command ```podman run --entrypoint="" -it exominer_pipeline /bin/bash```.
+```podman images inspect exominer_pipeline```. Run ```podman image history exominer_pipeline``` to see the list of 
+layers and commands that were used to create it.
