@@ -49,6 +49,7 @@ COPY exominer_pipeline/${CONDA_ENV} conda_env_exoplnt_dl.yml
 # use the modified YAML to create the environment
 RUN conda env create -f conda_env_exoplnt_dl.yml --yes && \
     conda clean --all -f -y && \
+    pip cache purge && \
     rm -f ${CONDARC}
 
 # copy application code
