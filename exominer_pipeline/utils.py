@@ -135,13 +135,14 @@ def check_config(run_config, logger):
                     f'Choose from "true" or "false".')
         raise SystemExit("Invalid SPOC DV mini-report flag. Choose from 'true' or 'false'.")
 
-    if run_config['external_data_repository'] != 'null' and not Path(run_config['external_data_repository']).exists():
-        logger.info(f'External data repository does not exist: {run_config["external_data_repository"]}.')
-        raise SystemExit(f'Invalid external data repository path: {run_config["external_data_repository"]}')
+    if run_config['external_data_repository'] is not None:
+        if not Path(run_config['external_data_repository']).exists():
+            logger.info(f'External data repository does not exist: {run_config["external_data_repository"]}.')
+            raise SystemExit(f'Invalid external data repository path: {run_config["external_data_repository"]}')
 
 
 def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
-                   num_jobs=1, download_spoc_data_products='false', external_data_repository='null'):
+                   num_jobs=1, download_spoc_data_products='false', external_data_repository=None):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -222,7 +223,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         run_config['download_spoc_data_products'] = download_spoc_data_products
 
     # overwrite data repository path using the command-line argument
-    if external_data_repository != 'null':
+    if external_data_repository is not None:
         run_config['external_data_repository'] = external_data_repository
 
     # update parameters in auxiliary configuration files
@@ -334,6 +335,10 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
         logger.info(f'Finished downloading light curve and DV XML data for TIC {tic_data["tic_id"]} in sector run '
                     f'{tic_data["sector_run"]} ({data_collection_mode} data)...')
 
+    if len(requested_products_lst) == 0:
+        logger.error(f'No requested products found for queried TICs. Stopping job...')
+        raise ValueError('No requested products found for queried TICs. Stopping job...')
+
     requested_products = vstack(requested_products_lst)
     requested_products.write(str(data_dir / f'requested_products_{data_collection_mode}.csv'),
                              format='csv', overwrite=True)
@@ -366,7 +371,12 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
     logs_dir = dv_xml_tbl_fp.parent / 'logs'
     logs_dir.mkdir(exist_ok=True)
 
-    process_sector_run_of_dv_xmls(dv_xml_products_dir, dv_xml_tbl_fp, filter_tics)
+    try:
+        process_sector_run_of_dv_xmls(dv_xml_products_dir, dv_xml_tbl_fp, filter_tics)
+    except Exception as e:
+        raise ValueError(f'Error while extracting TCE(s) information from DV XMLs. Ensure that the DV XML files were '
+                         f'correctly downloaded for the queried TIC IDs and that the TIC ID is correct. Error:\n {e}')
+
 
     sys.stdout = StreamToLogger(logger)
     tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir)

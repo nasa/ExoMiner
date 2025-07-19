@@ -33,36 +33,38 @@ if __name__ == '__main__':
     # tics_tbl = tics_tbl.drop_duplicates(subset=['target_id', 'sector_run'])
     # tics_tbl = tics_tbl.rename(columns={'target_id': 'tic_id'})
 
-    tics_tbl = pd.DataFrame(
-        data = {
-            'tic_id': [
-                # 167526485,
-                # 167526485,
-                # 167526485,
-                # 184240683,  # non-existing ffi
-                356473034,  # ffi
-            ],
-            'sector_run': [
-                # '6-6',
-                # '7-7',
-                # '1-39',
-                # '29-29',  # non-existing ffi
-                '60-60',
-            ]
-        }
-    )
+    tics_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl.csv')
+
+    # tics_tbl = pd.DataFrame(
+    #     data = {
+    #         'tic_id': [
+    #             # 167526485,
+    #             # 167526485,
+    #             # 167526485,
+    #             # 184240683,  # non-existing ffi
+    #             356473034,  # ffi
+    #         ],
+    #         'sector_run': [
+    #             # '6-6',
+    #             # '7-7',
+    #             # '1-39',
+    #             # '29-29',  # non-existing ffi
+    #             '60-60',
+    #         ]
+    #     }
+    # )
     # pred_tbl_prev_exp = pd.read_csv('/Users/msaragoc/Downloads/exominer_pipeline_run_20250630-174917/predictions_exominer_pipeline_run_20250630-174917.csv')
     # tics_tbl = tics_tbl.loc[~tics_tbl['tic_id'].isin(pred_tbl_prev_exp['target_id'])]
 
     tics_tbl_fp = exp_run_dir / 'tics_tbl.csv'
     tics_tbl.to_csv(tics_tbl_fp, index=False)
 
-    pipeline_config_fp = 'exominer_pipeline/pipeline_run_config.yaml'
-    data_collection_mode = 'ffi'
+    # pipeline_config_fp = 'exominer_pipeline/pipeline_run_config.yaml'
+    data_collection_mode = '2min'
     num_processes = 1
     num_jobs = 1
     download_spoc_data_products='true'
-    external_data_repository='/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_20250716-173819/job_0/mastDownload/HLSP'
+    external_data_repository=None   # '/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_7-18-2025_1213/job_0/mastDownload'
     start_t = perf_counter()
     print(f'OUTPUT DIRECTORY: {exp_run_dir}')
     run_exominer_pipeline_main(

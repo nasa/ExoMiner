@@ -72,7 +72,7 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
 
         # sys.stdout = StreamToLogger(logger)
 
-        if run_config['external_data_repository'] == 'null':
+        if run_config['external_data_repository'] is None:
             # download required data products - light curve FITS and DV XML files
             logger.info(f'[{job_id}] Downloading data products for the requested TIC IDs...')
             download_tess_spoc_data_products(tics_df, run_config['data_collection_mode'], run_config['job_dir'], logger)
@@ -235,12 +235,12 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     logger.addHandler(logger_handler)
 
     logger.info(f'Started run for ExoMiner.')
-    print('######################\nDocumentation can be found at: '
+    print('\n######################\nDocumentation can be found at: '
           'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
-    logger.info('######################\nDocumentation can be found at: '
+    logger.info('\n######################\nDocumentation can be found at: '
                 'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
-    print(f'Started run for ExoMiner: {output_dir.name}...')
-    print(f'Logging information to {output_dir.name}/run_main.log.')
+    print(f'Started run for ExoMiner...')
+    print(f'Logging information to run_main.log.')
 
     logger.info(f'Preparing inputs and adjusting configuration file...')
     run_config, tics_df = process_inputs(output_dir, CONFIG_FP, tic_ids_fp, data_collection_mode, logger,
@@ -281,23 +281,30 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     # aggregate predictions across jobs
     print(f'Aggregating predictions across all jobs into a single table...')
     predictions_tbl_fp = output_dir / f'predictions_{output_dir.name}.csv'
-    logger.info(f'Aggregating predictions into a single table in {predictions_tbl_fp}...')
+    logger.info(f'Aggregating predictions into a single table in {predictions_tbl_fp.name}...')
     predictions_tbls_fps = list(Path(output_dir).rglob('ranked_predictions_predictset.csv'))
-    logger.info(f'Found {len(predictions_tbls_fps)} job predictions files in {output_dir}.')
-    predictions_tbl = pd.concat([pd.read_csv(fp) for fp in predictions_tbls_fps], axis=0, ignore_index=True)
-    predictions_tbl.to_csv(predictions_tbl_fp, index=False)
-    logger.info(f'Saved predictions to {predictions_tbl_fp}.')
+    logger.info(f'Found {len(predictions_tbls_fps)} job predictions files.')
+    if len(predictions_tbls_fps) > 0:
+        predictions_tbl = pd.concat([pd.read_csv(fp) for fp in predictions_tbls_fps], axis=0, ignore_index=True)
+        predictions_tbl.to_csv(predictions_tbl_fp, index=False)
+        logger.info(f'Saved predictions to {predictions_tbl_fp}.')
+    else:
+        logger.info(f'No predictions CSV file generated. See logs for more information.')
 
-    print(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table...')
-    dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
-    logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
-                f'{dv_reports_tbl_fp}...')
-    dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
-    dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
-    dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)
+    if download_spoc_data_products == 'true':
+        print(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table...')
+        dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
+        logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
+                    f'{dv_reports_tbl_fp}...')
+        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
+        if len(dv_reports_tbls_fps) > 0:
+            dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
+            dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)
+        else:
+            logger.info(f'No DV reports CSV file generated. See logs for more information.')
 
     logger.info(f'Finished running ExoMiner pipeline.')
-    print(f'Finished running ExoMiner pipeline. Results saved to {output_dir.name}.')
+    print(f'Finished running ExoMiner pipeline.')
 
 
 if __name__ == "__main__":
@@ -347,10 +354,11 @@ if __name__ == "__main__":
                                                                      'want to query. Otherwise, set to "null" so the '
                                                                      'pipeline downloads the required files from the '
                                                                      'MAST. Set to "null" by default.',
-                        default='null')
+                        default=None)
 
     parsed_args = parser.parse_args()
 
     run_exominer_pipeline_main(parsed_args.output_dir, parsed_args.tic_ids_fp,
                                parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes,
-                               parsed_args.num_jobs, parsed_args.download_spoc_data_products)
+                               parsed_args.num_jobs, parsed_args.download_spoc_data_products,
+                               parsed_args.external_data_repository)
