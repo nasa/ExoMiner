@@ -141,6 +141,76 @@ def check_config(run_config, logger):
             raise SystemExit(f'Invalid external data repository path: {run_config["external_data_repository"]}')
 
 
+def validate_tic_ids_csv_structure(tics_df, logger):
+    """
+    Validates the structure of the TIC IDs CSV file.
+    
+    Args:
+        tics_df: pandas.DataFrame with TIC IDs data
+        logger: logging.Logger object
+        
+    Returns:
+        bool: True if structure is valid, False otherwise
+        
+    Raises:
+        SystemExit: If critical structural issues are found
+    """
+    required_columns = ['tic_id', 'sector_run']
+    
+    # Check if required columns exist
+    missing_columns = [col for col in required_columns if col not in tics_df.columns]
+    if missing_columns:
+        logger.error(f'TIC IDs CSV file is missing required columns: {missing_columns}. '
+                    f'Required columns are: {required_columns}')
+        raise SystemExit(f'Invalid TIC IDs CSV structure. Missing columns: {missing_columns}')
+    
+    # Check for empty dataframe
+    if len(tics_df) == 0:
+        logger.error('TIC IDs CSV file is empty.')
+        raise SystemExit('TIC IDs CSV file contains no data.')
+    
+    validation_errors = []
+    
+    # Validate TIC IDs - should be numeric
+    invalid_tic_ids = []
+    for idx, tic_id in enumerate(tics_df['tic_id']):
+        try:
+            # Check if it can be converted to integer
+            int(str(tic_id).replace('.0', ''))  # Handle float representation of integers
+        except (ValueError, TypeError):
+            invalid_tic_ids.append(f"Row {idx + 1}: '{tic_id}'")
+    
+    if invalid_tic_ids:
+        validation_errors.append(f"Invalid TIC IDs found (must be numeric): {', '.join(invalid_tic_ids[:5])}")
+        if len(invalid_tic_ids) > 5:
+            validation_errors.append(f"... and {len(invalid_tic_ids) - 5} more invalid TIC IDs")
+    
+    # Validate sector_run format - should be like "6-6", "1-39", etc.
+    sector_run_pattern = re.compile(r'^\d+-\d+$')
+    invalid_sector_runs = []
+    for idx, sector_run in enumerate(tics_df['sector_run']):
+        if not sector_run_pattern.match(str(sector_run)):
+            invalid_sector_runs.append(f"Row {idx + 1}: '{sector_run}'")
+    
+    if invalid_sector_runs:
+        validation_errors.append(f"Invalid sector_run format found (must be 'X-Y' format): {', '.join(invalid_sector_runs[:5])}")
+        if len(invalid_sector_runs) > 5:
+            validation_errors.append(f"... and {len(invalid_sector_runs) - 5} more invalid sector_run entries")
+    
+    # Log validation results
+    if validation_errors:
+        logger.warning(f'TIC IDs CSV structure validation found {len(validation_errors)} issue(s):')
+        for error in validation_errors:
+            logger.warning(f'  - {error}')
+        logger.warning('Please check your TIC IDs CSV file format. Expected format:')
+        logger.warning('  - Column "tic_id": numeric TIC identifier (e.g., 167526485)')
+        logger.warning('  - Column "sector_run": sector range in format "X-Y" (e.g., "6-6", "1-39")')
+        return False
+    else:
+        logger.info(f'TIC IDs CSV structure validation passed. Found {len(tics_df)} valid entries.')
+        return True
+
+
 def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
                    num_jobs=1, download_spoc_data_products='false', external_data_repository=None):
     """ Process input arguments to prepare them for the run.
