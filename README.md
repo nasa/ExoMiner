@@ -63,12 +63,6 @@ Models currently implemented in [models](models/models_keras.py):
 
 ![ExoMiner++ architecture.](others/images/exominer_architecture_tess.png)
 
-[//]: # 2. `ExoMiner`Multi-branch Convolutional Neural Network (CNN) whose design is inspired in the different diagnostic
-[//]: #   tests used in the Data Validation (DV) module of the SPOC pipeline. Used in the Kepler paper and multiplicity boost 
-[//]: #    work for Kepler data (see [References](#references))
-[//]: #
-[//]: # ![ExoMiner architecture.](others/images/exominer_architecture_kepler.png)
-
 [//]: # (2. Astronet: see https://github.com/google-research/exoplanet-ml and Shallue, Christopher J., and Andrew Vanderburg. ")
 
 [//]: # (   Identifying exoplanets with deep learning: A five-planet resonant chain around kepler-80 and an eighth planet around)
