@@ -29,7 +29,8 @@ information on the structure of the input CSV file, see section [TIC IDs input](
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir=/path/to/directory/with/saved/inputs
 # file path to the TICs table
-tics_tbl_fp=$inputs_dir/tics_tbl.csv
+tics_tbl_fn=tics_tbl_filename.csv
+tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_{date, e.g. 7-10-2025_1925}
 # directory where the ExoMiner Pipeline run is saved
@@ -49,6 +50,16 @@ external_data_repository=null
 
 mkdir -p $exominer_pipeline_run_dir
 
+# set up volume mounts
+volume_mounts="-v $inputs_dir:/inputs:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+# conditionally add external_data_repository mount
+if [ "$external_data_repository" != "null" ]; then
+  volume_mounts="$volume_mounts -v $external_data_repository:/external_data_repository:Z"
+  external_data_repository_arg="--external_data_repository=/external_data_repository"
+else
+  external_data_repository_arg=""
+fi
+
 echo "Started ExoMiner Pipeline run $exominer_pipeline_run..."
 echo "Running ExoMiner Pipeline with the following parameters:"
 echo "Inputs directory: $inputs_dir"
@@ -56,16 +67,15 @@ echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
-  -v $inputs_dir:/inputs:Z \
-  -v $exominer_pipeline_run_dir:/outputs:Z \
+  ${volume_mounts} \
    ghcr.io/nasa/exominer  \
-  --tic_ids_fp=/inputs/tics_tbl.csv \
+  --tic_ids_fp=/inputs/$tics_tbl_fn \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
   --num_jobs=$num_jobs \
   --download_spoc_data_products=$download_spoc_data_products \
-  --external_data_repository=$external_data_repository \
+  $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
 ```
