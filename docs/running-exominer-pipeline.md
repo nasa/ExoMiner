@@ -8,7 +8,7 @@ TIC ID and sector run are processed in the same job.
 
 ## Command-line arguments
 Before you run the pipeline, you have to set the filepaths to the command-line arguments. Run 
-```podman run exominer_pipeline --help``` for a detailed description on these inputs. 
+```podman run ghcr.io/nasa/exominer --help``` for a detailed description on these inputs. 
 You can modify the command ```podman run``` to suit your use case (e.g., give TIC IDs as a comma-separated list instead 
 of a CSV file).
 
@@ -58,7 +58,7 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 podman run \
   -v $inputs_dir:/inputs:Z \
   -v $exominer_pipeline_run_dir:/outputs:Z \
-   d8c467fe1966 \
+   ghcr.io/nasa/exominer  \
   --tic_ids_fp=/inputs/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \

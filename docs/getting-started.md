@@ -1,7 +1,8 @@
 # Getting started
 
 This page provides instructions on setting up Podman, pulling the image for the ExoMiner Pipeline, and additional 
-prerequisites for running it. For those users that want to more flexiblity and control over the pipeline, they can download the code available on this [GitHub repository](https://github.com/nasa/Exominer/tree/main).
+prerequisites for running it. For those users that want to more flexibility and control over the pipeline, they can 
+download the code available on this [GitHub repository](https://github.com/nasa/Exominer/tree/main).
 
 ## Installing Podman
 
@@ -13,11 +14,11 @@ To use the ExoMiner Pipeline image you need to download and install [Podman](htt
 To pull the latest image of the ExoMiner Pipeline from the GitHub registry, run the following command:
 
 ```bash
-podman pull ghcr.io/migmartinho/exominer_pipeline:latest
+podman pull ghcr.io/nasa/exominer:latest
 ```
 
 Once you pull the image, you can find the image by running ```podman images```. It should output a list containing a 
-Podman image with name `ghcr.io/migmartinho/exominer_pipeline` under `REPOSITORY`.
+Podman image with name `ghcr.io/nasa/exominer:latest` under `REPOSITORY`.
 
 ## Additional prerequisites
 
@@ -32,5 +33,5 @@ A stable internet connection is also required to access the TESS repositories at
 ### More information on the image
 
 You can get detailed information on the Podman image by running the command 
-```podman images inspect exominer_pipeline```. Run ```podman image history exominer_pipeline``` to see the list of 
+```podman images inspect ghcr.io/nasa/exominer ```. Run ```podman image history ghcr.io/nasa/exominer ``` to see the list of 
 layers and commands that were used to create it.
