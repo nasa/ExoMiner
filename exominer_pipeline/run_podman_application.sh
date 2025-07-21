@@ -2,7 +2,8 @@
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fp=$inputs_dir/tics_tbl.csv
+tics_tbl_fn=tics_tbl.csv
+tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_7-19-2025_1304
 # directory where the ExoMiner Pipeline run is saved
@@ -40,13 +41,13 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-   localhost/exominer_pipeline:arm64  \
-  --tic_ids_fp=/inputs/tics_tbl.csv \
+   ghcr.io/nasa/exominer  \
+  --tic_ids_fp=/inputs/$tics_tbl_fn \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
   --num_jobs=$num_jobs \
   --download_spoc_data_products=$download_spoc_data_products \
-  $external_data_repository_arg
+  $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
