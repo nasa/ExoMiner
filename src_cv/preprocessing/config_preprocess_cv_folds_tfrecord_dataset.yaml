@@ -10,6 +10,8 @@ cv_folds_fp: /path/to/cv_iterations.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 
+diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are stored as encoded strings
+
 compute_norm_stats_params:
 
   precomputed:  null

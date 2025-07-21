@@ -8,10 +8,9 @@ paths:
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
   cv_folds: null
-  # HPO run configuration directory; get configurations from an HPO run; comment to not use any
-  hpo_dir: null
+  model_config_fp: null
 
-val_from_train: true  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
+val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 num_val_folds: 2  # assuming `val_from_train` is true, this variable sets the number of training folds used for validation
 
 generate_csv_pred: true  # generates a prediction ranking for each of the specified datasets
@@ -231,6 +230,9 @@ config:
   batch_norm: false  # apply batch norm before FC block to all concatenated output features extracted from the branches
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+
+#  label: { 'dim': [ 1, ], 'dtype': string }
+#  obs_type: { 'dim': [1, ], 'dtype': string }
 
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }

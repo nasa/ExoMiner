@@ -20,7 +20,8 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21):
     Args:
         data_dir: Path, CV dataset directory
         datasets: list, datasets to create for each CV iteration. Must contain at least 'train' and 'test'. If 'val' is
-            present, then a random fold from the training is chosen as validation fold from the training set folds.
+            present, then a random fold from the is chosen as validation fold from the training set folds.
+        rnd_seed: int, random seed
 
     Returns:
 

@@ -6,7 +6,7 @@ Create ensemble average model.
 import tensorflow as tf
 from tensorflow.keras.utils import custom_object_scope
 from pathlib import Path
-from keras.saving import load_model
+from tensorflow.keras.models import load_model
 import yaml
 import argparse
 
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     ensemble_model_fp = Path(args.ensemble_fp)
 
     # get models file paths
-    models_fps_lst = [fp / f'model.keras' for fp in models_dir_fp.iterdir()
-                      if fp.is_dir() and fp.name.startswith('model')]
+    models_fps_lst = list(models_dir_fp.rglob('model.keras'))
+    print(f'Found {len(models_fps_lst)} models for average ensemble.')
 
     # get features set
     config_fp = Path(args.config_fp)

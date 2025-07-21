@@ -12,16 +12,18 @@
 # `PREPROCESS_DATA` is also true
 
 # External arguments
-CV_DIR="$4"
-CONFIG_FP="$3"
-N_GPUS_PER_NODE="$5"
 GNU_PARALLEL_INDEX="$1"
 JOB_ARRAY_INDEX="$2"
-MODELS_CV_ROOT_DIR="$6"
-PREPROCESS_DATA="$7"
-CONFIG_PREPROCESS_FP="$8"
-DELETE_DATA_AFTER_INFERENCE="$9"
-CHECK_GPU=${10:-0}
+CONFIG_FP="$3"
+CV_DIR="$4"
+N_JOBS="$5"
+N_GPUS_PER_NODE="$6"
+MODELS_CV_ROOT_DIR="$7"
+N_CV_ITERS="$8"
+PREPROCESS_DATA="$9"
+CONFIG_PREPROCESS_FP="${10}"
+DELETE_DATA_AFTER_INFERENCE="${11}"
+CHECK_GPU=${12:-0}
 
 # set up Python scripts
 SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
@@ -30,14 +32,21 @@ CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/create_cv_folds_yaml_fro
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
 # set CV iteration id
-CV_ITER=$(($GNU_PARALLEL_INDEX + $JOB_ARRAY_INDEX * $N_GPUS_PER_NODE))
+CV_ITER=$((GNU_PARALLEL_INDEX + JOB_ARRAY_INDEX * N_JOBS))
+
+# Check if CV_ITER is greater than or equal to N_CV_ITERS
+if [ $CV_ITER -ge "$N_CV_ITERS" ]
+then
+  echo "CV iteration $CV_ITER is above total number of iterations ($N_CV_ITERS). Ending process."
+  exit 0
+fi
 
 # create directory for CV iteration
 CV_ITER_DIR="$CV_DIR"/cv_iter_$CV_ITER
 mkdir -p "$CV_ITER_DIR"
 
 # set main log file
-LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_run_"$GNU_PARALLEL_INDEX"_jobarray_"$JOB_ARRAY_INDEX".log
+LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_iter_"$CV_ITER"_run.log
 
 echo "Starting job $GNU_PARALLEL_INDEX in job array $JOB_ARRAY_INDEX for CV iteration $CV_ITER..." > "$LOG_FP_CV_ITER"
 

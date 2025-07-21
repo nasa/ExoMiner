@@ -1,3 +1,5 @@
+commit_id: 52a6d216389a6f2606173c2ad060242738e623fe
+
 # set general architecture of the model based on implementations under models.models_keras.py
 model_architecture: ExoMinerPlusPlus
 
@@ -5,7 +7,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # unfolded flux
   unfolded_local_flux_view_fluxnorm: { 'dim': [ 20, 31 ], 'dtype': float }
-  unfolded_local_flux_view_fluxnorm_var: { 'dim': [ 20, 31 ], 'dtype': float }
   tce_num_transits_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_num_transits_obs_norm: { 'dim': [ 1, ], 'dtype': float }
 
@@ -90,9 +91,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   pgram_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
   pgram_tpm_smooth_max_power_norm: { 'dim': [ 1, ], 'dtype': float }
 
-  # mission flag
-  # mission: { 'dim': [ 1, ], 'dtype': float }
-
 # maps features' names to features names expected by the model
 feature_map: null
 #  feature_name: feature_name_model
@@ -106,7 +104,6 @@ config:
     local_unfolded_flux:
       views:
         - unfolded_local_flux_view_fluxnorm
-        - unfolded_local_flux_view_fluxnorm_var
       scalars:
         - tce_num_transits_obs_norm
         - tce_num_transits_norm
@@ -195,7 +192,6 @@ config:
       - tce_model_chisq_norm
       - tce_prad_norm
 
-
   diff_img_branch:
     imgs:
       - diff_imgs_std_trainset
@@ -276,4 +272,3 @@ config:
 
   optimizer: Adam
   lr: 4.176171931455995e-05
-

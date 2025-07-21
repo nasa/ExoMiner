@@ -22,6 +22,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
+  tce_model_snr: 'float_scalar'
 
 config:
   # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
@@ -44,9 +45,8 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_flux_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
   flux_local_stat_abs_min: { 'dim': [ 1, ], 'dtype': float }
-#  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
-#  # odd-even flux related features
+  # odd-even flux related features
   local_flux_odd_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_even_view_fluxnorm: { 'dim': [ 31, 1 ], 'dtype': float }
   local_flux_odd_view_fluxnorm_var: { 'dim': [ 31, 1 ], 'dtype': float }
@@ -59,15 +59,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   local_centr_view_std_noclip: { 'dim': [ 31, 1 ], 'dtype': float }
   local_centr_view_std_noclip_var: { 'dim': [ 31, 1 ], 'dtype': float }
 #  tce_fwm_stat_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-#  tce_dicco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
-  tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #  mag_norm: { 'dim': [ 1, ], 'dtype': float }
-##  mag_cat: { 'dim': [ 1, ], 'dtype': int }
-#  mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
-  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
-  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # secondary related features
 ##  # local_weak_secondary_view_fluxnorm: {'dim': [31, 1], 'dtype': float}
@@ -79,7 +70,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_albedo_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_ptemp_stat_norm: { 'dim': [ 1, ], 'dtype': float }
   flux_weak_secondary_local_stat_abs_min_norm: { 'dim': [ 1, ], 'dtype': float }
-#
+
   # other diagnostic parameters
   tce_max_mult_ev_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_max_sngle_ev_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -96,7 +87,6 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
 
   # rolling band
 #  tce_rb_tcount0n_norm: { 'dim': [ 1, ], 'dtype': float }
-#  #    tce_rb_tcount0_norm: { 'dim': [1,], 'dtype': float}
 
  # stellar parameters
   tce_sdens_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -105,10 +95,16 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_slogg_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_smass_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_sradius_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_norm: { 'dim': [ 1, ], 'dtype': float }
+  # mag_cat: { 'dim': [ 1, ], 'dtype': int }
+  # mag_cat_norm: { 'dim': [ 1, ], 'dtype': float }
+  ruwe_norm: { 'dim': [ 1, ], 'dtype': float }
+  mag_shift_norm: { 'dim': [ 1, ], 'dtype': float }
 
  # tce parameters
   tce_prad_norm: { 'dim': [ 1, ], 'dtype': float }
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
+  #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
   diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }

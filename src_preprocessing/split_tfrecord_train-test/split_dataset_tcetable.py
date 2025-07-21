@@ -63,12 +63,12 @@ if __name__ == '__main__':
     # split ratio
     dataset_splits = {
         'train': 0.8,
-        # 'val': 0.1,
-        'test': 0.2
+        'val': 0.1,
+        'test': 0.1,
     }
     # TCEs with these labels are put into the predict set
     cat_unlabeled_tces = [
-        # 'UNK',
+        'UNK',
     ]
 
     # create dataset tables

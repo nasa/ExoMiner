@@ -11,85 +11,29 @@ import pandas as pd
 import logging
 import multiprocessing
 import os
+import yaml
 
 # local
 from src_preprocessing.tf_util import example_util
 
-logger = logging.getLogger(__name__)
 
-
-IMGS_FIELDS = [
-    'diff_imgs',
-    'oot_imgs',
-    'target_imgs',
-    'snr_imgs',
-]
-
-
-def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fps, shards_tbl,
-                                       n_examples_shard=300):
-    """ Write difference image data to a set of TFRecord files under `src_tfrec_dir` to a new dataset in
-    `dest_tfrec_dir`.
-
-        Args:
-            src_tfrec_dir: Path, source TFRecord
-            dest_tfrec_dir: Path, destination TFRecord
-            diff_img_data_fps: list, list of Path objects for the NumPy files containing preprocessed image data
-            shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
-                'example_i_tfrec' for the source shards in `src_tfrec_dir`
-            n_examples_shard: int, number of examples per shard
-
-        Returns: examples_found_df, pandas DataFrame with the examples that were added to the new TFRecord dataset
-
-    """
-
-    pid = os.getpid()
-    logging.basicConfig(filename=dest_tfrec_dir / 'logs' / f'write_diff_img_data_tfrec_{pid}.log',
-                        level=logging.INFO,
-                        format='%(asctime)s - %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='w',
-                        force=True
-                        )
-
-    # examples_not_found_df_lst = []
-    examples_found_df_lst = []
-    for diff_img_data_i, diff_img_data_fp in enumerate(diff_img_data_fps):
-
-        logger.info(f'Iterating through Difference Image data NumPy file {diff_img_data_fp} '
-                    f'({diff_img_data_i + 1}/{len(diff_img_data_fps)})...')
-
-        examples_added_df = write_diff_img_data_to_tfrec_file(src_tfrec_dir,
-                                                              dest_tfrec_dir,
-                                                              diff_img_data_fp,
-                                                              shards_tbl,
-                                                              n_examples_shard,
-                                                              logger)
-
-        # examples_not_found_df_lst.append(examples_not_found_df)
-        examples_found_df_lst.append(examples_added_df)
-
-    examples_found_df = pd.concat(examples_found_df_lst, axis=0, ignore_index=True)
-
-    return examples_found_df
-
-
-def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data):
+def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
     """ Add  difference image data to an example in a TFRecord file.
 
         Args:
             example: TFRecord example
             tce_diff_img_data: dict, difference image data
+            imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
 
         Returns: example, with added difference image data
     """
 
     # add difference features
     for suffix_str in ['', '_tc']:
-        for img_name in IMGS_FIELDS:
+        for img_name in imgs_fields:
             if img_name not in tce_diff_img_data['images']:
                 raise ValueError(f'Image {img_name} not found in the difference image data. '
-                                 f'Check `IMGS_FIELDS` and adapt the variable accordingly.\n'
+                                 f'Check `imgs_fields` in YAML configuration file and adapt the variable accordingly.\n'
                                  f'Found images: {tce_diff_img_data["images"].keys()}.')
             img_data = np.array(tce_diff_img_data['images'][f'{img_name}{suffix_str}'])
             example_util.set_tensor_feature(example, f'{img_name}{suffix_str}', img_data)
@@ -108,8 +52,8 @@ def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data):
 
     return example
 
-def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fp, shards_tbl, n_examples_shard=300,
-                                      logger=None):
+def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fp, shards_tbl, imgs_fields,
+                                      n_examples_shard=300, logger=None):
     """ Write preprocessed difference image data in NumPy file `diff_im_data_fp` to TFRecord files under directory
         `src_tfrec_dir` to a new dataset in `dest_tfrec_dir`.
 
@@ -119,6 +63,7 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
             diff_img_data_fp: Path, filepath to preprocessed difference image data
             shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
                 'example_i_tfrec' for the source shards in `src_tfrec_dir`
+            imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
             n_examples_shard: int, number of examples per shard
             logger: logger
 
@@ -162,13 +107,13 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
                 example.ParseFromString(string_record)
 
                 example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
-                example_label = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
+                example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
 
                 if example_uid != tce_uid:
                     raise ValueError(f'TCE ID {example_uid} found in TFRecord dataset does not match expected ID: '
                                      f'{tce_uid}.')
                 try:
-                    example_with_diffimg_data = add_diff_img_data_to_tfrec_example(example, tce_diff_img_data)
+                    example_with_diffimg_data = add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields)
                     examples_lst.append(example_with_diffimg_data)
                     examples_added_dict['uid'].append(example_uid)
                     examples_added_dict['label'].append(example_label)
@@ -190,6 +135,12 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
             dest_shard_suffix += 1
             dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{dest_shard_suffix}'
 
+    if len(examples_lst) > 0:
+        logger.info(f'Writing examples with difference image data to {dest_tfrec_fp}')
+        with tf.io.TFRecordWriter(str(dest_tfrec_fp)) as writer:
+            for example in examples_lst:
+                writer.write(example.SerializeToString())
+
     examples_added_df = pd.DataFrame(examples_added_dict)
 
     logger.info(f'Iterated over all TCEs in {diff_img_data_fp}. Added difference image data to '
@@ -197,63 +148,126 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
 
     return examples_added_df
 
+def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fps, shards_tbl, imgs_fields,
+                                       n_examples_shard=300):
+    """ Write difference image data to a set of TFRecord files under `src_tfrec_dir` to a new dataset in
+    `dest_tfrec_dir`.
 
-if __name__ == '__main__':
+        Args:
+            src_tfrec_dir: Path, source TFRecord
+            dest_tfrec_dir: Path, destination TFRecord
+            diff_img_data_fps: list, list of Path objects for the NumPy files containing preprocessed image data
+            shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
+                'example_i_tfrec' for the source shards in `src_tfrec_dir`
+            imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
+            n_examples_shard: int, number of examples per shard
 
-    tf.config.set_visible_devices([], 'GPU')
+        Returns: examples_found_df, pandas DataFrame with the examples that were added to the new TFRecord dataset
 
-    parallel_processing = True
-    n_procs = 2
-    n_jobs = 2
-    # mission = 'tess'  # either 'tess' or 'kepler'
-    # set source TFRecord directory
-    src_tfrec_dir = Path('null')
-    # table that has information on the location of examples across shards in TFRecord dataset directory
-    shards_tbl_fp = src_tfrec_dir / 'shards_tbl.csv'
-    # directory with NumPy files with difference image data to be added to the examples in the TFRecord dataset
-    src_diff_img_fp = Path('null')
-    n_examples_shard = 300  # number of examples per shard in destination TFRecord dataset
+    """
+
+    pid = os.getpid()
+
+    logger = logging.getLogger(name=f'add_diff_img_data_to_tfrec_files_{pid}')
+    logger_handler = logging.FileHandler(filename=dest_tfrec_dir / 'logs' /
+                                                  f'add_diff_img_data_to_tfrec_files_{pid}.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Started adding difference image data to TFRecord dataset...')
+
+    # examples_not_found_df_lst = []
+    examples_found_df_lst = []
+    for diff_img_data_i, diff_img_data_fp in enumerate(diff_img_data_fps):
+
+        logger.info(f'Iterating through Difference Image data NumPy file {diff_img_data_fp} '
+                    f'({diff_img_data_i + 1}/{len(diff_img_data_fps)})...')
+
+        examples_added_df = write_diff_img_data_to_tfrec_file(src_tfrec_dir,
+                                                              dest_tfrec_dir,
+                                                              diff_img_data_fp,
+                                                              shards_tbl,
+                                                              imgs_fields,
+                                                              n_examples_shard,
+                                                              logger=logger,
+                                                              )
+
+        # examples_not_found_df_lst.append(examples_not_found_df)
+        examples_found_df_lst.append(examples_added_df)
+
+    examples_found_df = pd.concat(examples_found_df_lst, axis=0, ignore_index=True)
+
+    return examples_found_df
+
+
+def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_diff_img_fp=None):
+    """ Wrapper for `write_diff_img_data_to_tfrec_files()`.
+
+    Args:
+        config_fp: str, path to config file
+        src_tfrec_dir: str, path to source TFRecord directory
+        src_diff_img_fp: str, path to source difference image directory
+
+    Returns:
+
+    """
+
+    with open(config_fp, 'r') as file:
+        config = yaml.unsafe_load(file)
+
+    if src_tfrec_dir is not None:
+        config['src_tfrec_dir'] = Path(src_tfrec_dir)
+    if src_diff_img_fp is not None:
+        config['src_diff_img_fp'] = Path(src_diff_img_fp)
 
     # get shard filepaths
-    src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and fp.suffix != '.csv']
+    src_tfrec_fps = [fp for fp in config['src_tfrec_dir'].iterdir() if fp.name.startswith('shard-') and
+                     fp.suffix != '.csv']
+
+    # table that has information on the location of examples across shards in TFRecord dataset directory
+    shards_tbl_fp = config['src_tfrec_dir'] / 'shards_tbl.csv'
 
     # load shards table
     shards_tbl = pd.read_csv(shards_tbl_fp)
 
     # get filepaths to difference image data NumPy files
-    diff_img_fps = list(src_diff_img_fp.rglob('*.npy'))
+    diff_img_fps = list(config['src_diff_img_fp'].rglob('*.npy'))
 
     # set number of jobs to number of files
-    n_jobs = min(n_jobs, len(diff_img_fps))
+    n_jobs = min(config['n_jobs'], len(diff_img_fps))
 
     # create destination directory
-    dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_diffimg'
+    dest_tfrec_dir = config['src_tfrec_dir'].parent / f'{config["src_tfrec_dir"].name}_diffimg'
     dest_tfrec_dir.mkdir(exist_ok=True)
 
     # set logger
     log_dir = dest_tfrec_dir / 'logs'
     log_dir.mkdir(exist_ok=True)
     # create logger
-    logging.basicConfig(filename=log_dir / f'write_diff_img_data_to_tfrecs_main.log',
-                        level=logging.INFO,
-                        format='%(asctime)s - %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='w',
-                        )
+    logger = logging.getLogger(name='add_diff_img_data_to_tfrec_files_main')
+    logger_handler = logging.FileHandler(filename=log_dir / 'add_diff_img_data_to_tfrec_files_main.log', mode='w')
+    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+    logger.info(f'Started adding difference image data to TFRecord dataset...')
 
-    logger.info(f'`IMGS_FIELDS`: {IMGS_FIELDS}.')
+    logger.info(f'`Images to be added from preprocessed difference image to TFRecord dataset`: '
+                f'{config["imgs_fields"]}.')
 
     logger.info(f'Found {len(src_tfrec_fps)} source TFRecord files.')
     logger.info(f'Found {len(diff_img_fps)} difference image NumPy files.')
 
     # split shards across jobs
     src_diff_img_fps_jobs = np.array_split(diff_img_fps, n_jobs)
-    jobs = [(src_tfrec_dir, dest_tfrec_dir, src_diff_img_fps_job, shards_tbl, n_examples_shard)
+    jobs = [(src_tfrec_dir, dest_tfrec_dir, src_diff_img_fps_job, shards_tbl, config['imgs_fields'],
+             config['n_examples_shard'])
             for src_diff_img_fps_job in src_diff_img_fps_jobs]
 
     # parallel processing
-    if parallel_processing:
-        pool = multiprocessing.Pool(processes=n_procs)
+    if config['parallel_processing']:
+        pool = multiprocessing.Pool(processes=config['n_processes'])
         async_results = [pool.apply_async(write_diff_img_data_to_tfrec_files, job) for job in jobs]
         pool.close()
         pool.join()
@@ -270,6 +284,16 @@ if __name__ == '__main__':
     examples_not_found_df = shards_tbl.loc[~shards_tbl['uid'].isin(examples_found_df['uid'])]
     examples_not_found_df.to_csv(dest_tfrec_dir / 'examples_without_diffimg_data.csv', index=False)
     logger.info(f'Number of examples without difference image data: {len(examples_not_found_df)}.')
-    logger.info(f'{examples_not_found_df["label"].value_counts()}')
+    if 'label' in examples_not_found_df:
+        logger.info(f'{examples_not_found_df["label"].value_counts()}')
 
     logger.info('Finished adding difference image data to TFRecords.')
+
+
+if __name__ == '__main__':
+
+    tf.config.set_visible_devices([], 'GPU')
+
+    config_fp = '/path/to/codebase/src_preprocessing/diff_img/preprocessing/config_add_diff_img_tfrecords.yaml'
+
+    write_diff_img_data_to_tfrec_files_main(config_fp)

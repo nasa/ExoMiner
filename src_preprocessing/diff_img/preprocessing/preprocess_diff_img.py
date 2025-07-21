@@ -26,14 +26,13 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import logging
-import os
 import multiprocessing
 import argparse
 import yaml
 
 # local
 from src_preprocessing.diff_img.preprocessing.utils_diff_img import (
-    plot_diff_img_data, map_target_subpixel_location_to_discrete_grid,
+    plot_diff_img_data, create_neighbors_img, map_target_subpixel_location_to_discrete_grid,
     set_negative_value_oot_pixels, fill_missing_values_nearest_neighbors, center_images_to_target_pixel_location,
     crop_images_to_size, crop_images_to_valid_size, set_data_example_to_placeholder_values,
     check_for_missing_values_in_preproc_diff_data, sample_image_data, initialize_data_example_with_missing_values,
@@ -44,6 +43,7 @@ CENTER_OPTIONS = ['target_not_centered', 'target_centered']
 
 def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, target_pos_col, target_pos_row, size_h,
                                                 size_w, size_f_h, size_f_w, img_n, tce_uid, prefix, center_target=True,
+                                                neighbor_data=None, target_mag=None, exclude_neighbor_objs_outside=True,
                                                 log=None, proc_id=-1):
     """ Preprocesses the difference image data for a single example.
 
@@ -62,6 +62,13 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
             for TESS, '{tic_id}-{tce_planet_number}-S{sector_run}'
         prefix: str, 'q' or 's' for Kepler or TESS, respectively
         center_target: bool, if True the images are centered in the target pixel by padding through edge extension
+        neighbor_data: list, for each sector, contains a dictionary where each key is the TIC ID of
+            neighboring objects that maps to a dictionary with the column 'col_px' and row 'row_px' coordinates of these
+            objects in the CCD pixel frame of the target star along with the corresponding magnitude 'TMag' and distance
+            to the target in arcseconds 'dst_arcsec'.
+        target_mag: float, target magnitude
+        exclude_neighbor_objs_outside: bool, if True and `neighbor_data` is not None, neighboring objects that are
+            outside the target mask are ignored when creating the neighbors image
         proc_id: str, process id
         log: logger
 
@@ -119,12 +126,20 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # update target position in padded image
     target_pos_col = target_pos_col - crop_min_col + pad_col
     target_pos_row = target_pos_row - crop_min_row + pad_row
+    if neighbor_data is not None:
+        for neighbor_id, neighbor_id_data in neighbor_data.items():
+            neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] - crop_min_col + pad_col
+            neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] - crop_min_row + pad_row
 
     # resize image using nearest neighbor interpolation to `size_f_h` * `size_f_w` times the target dimension
     diff_img, oot_img, snr_img = resize_images_by_resampling(diff_img, oot_img, snr_img, size_f_h, size_f_w)
     # update target position in resized image
     target_pos_col = target_pos_col * size_f_w + (size_f_w - 1) * 0.5
     target_pos_row = target_pos_row * size_f_h + (size_f_h - 1) * 0.5
+    if neighbor_data is not None:
+        for neighbor_id, neighbor_id_data in neighbor_data.items():
+            neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] * size_f_w + (size_f_w - 1) * 0.5
+            neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] * size_f_h + (size_f_h - 1) * 0.5
 
     if center_target:
         if np.isnan(target_pos_col_input):  # target location not available
@@ -139,6 +154,10 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
             # update target location after centering on target
             target_pos_col = target_pos_col + center_col_offset
             target_pos_row = target_pos_row + center_row_offset
+            if neighbor_data is not None:
+                for neighbor_id, neighbor_id_data in neighbor_data.items():
+                    neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] + center_col_offset
+                    neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] + center_row_offset
 
     # crop images to target dimension if they are larger
     diff_img, oot_img, snr_img, crop_size_col_offset, crop_size_row_offset = crop_images_to_size(diff_img,
@@ -150,6 +169,10 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # update target pixel position after cropping image
     target_pos_col -= crop_size_col_offset
     target_pos_row -= crop_size_row_offset
+    if neighbor_data is not None:
+        for neighbor_id, neighbor_id_data in neighbor_data.items():
+            neighbor_data[neighbor_id]['col_px'] = neighbor_id_data['col_px'] - crop_size_col_offset
+            neighbor_data[neighbor_id]['row_px'] = neighbor_id_data['row_px'] - crop_size_row_offset
 
     # check if target pixel location is inside the image
     if (target_pos_col < 0 or target_pos_row < 0 or target_pos_col >= diff_img.shape[0] or
@@ -161,14 +184,17 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # create target image
     target_img = create_target_image(size_h * size_f_h, size_w * size_f_w, target_pos_col, target_pos_row)
 
-    neighbors_img = None
+    if neighbor_data is not None:
+        neighbors_img = create_neighbors_img(neighbor_data, diff_img.shape, target_mag, exclude_neighbor_objs_outside)
+    else:
+        neighbors_img = None
 
     return (diff_img, oot_img, snr_img, target_img, (target_pos_col, target_pos_row),
             (target_col_disc, target_row_disc), neighbors_img)
 
 
 def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale_f, final_size, mission_name,
-                             save_dir, log=None, plot_prob=0):
+                             save_dir, exclude_neighbor_objs_outside=True, log=None, plot_prob=0):
     """ Preprocessing pipeline for difference image data for a set of TCEs.
 
     Args:
@@ -192,6 +218,8 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
         final_size: dict, image size before resizing (final_size['x'], final_size['y'])
         mission_name: str, mission from where the difference image data is from. Either `kepler` or `tess`
         save_dir: Path, destination  directory for preprocessed data
+        exclude_neighbor_objs_outside: bool, if True and `neighbor_data` is not None, neighboring objects that are
+            outside the target mask are ignored when creating the neighbors image
         log: logger
         plot_prob: float, probability to plot preprocessing results
 
@@ -201,7 +229,7 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
 
     save_dir.mkdir(exist_ok=True)
 
-    if config['plot_prob'] > 0:
+    if plot_prob > 0:
         (save_dir / 'plot_examples').mkdir(exist_ok=True)
 
     if log is None:
@@ -281,15 +309,19 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
             log.info(f'[{diff_img_data_fp.stem}] No valid images for {tce_uid}. Setting data to placeholder value.')
 
             # update data using placeholder values
-            missing_data_placeholder = set_data_example_to_placeholder_values(final_size['x'] * upscale_f['x'],
-                                                                              final_size['y'] * upscale_f['y'],
-                                                                              number_of_imgs_to_sample)
+            missing_data_placeholder = set_data_example_to_placeholder_values(
+                final_size['x'] * upscale_f['x'],
+                final_size['y'] * upscale_f['y'],
+                number_of_imgs_to_sample,
+                'neighbor_data' in diff_img_data_dict[tce_uid]
+            )
             preprocessing_dict[tce_uid].update(missing_data_placeholder)
 
             continue
 
         # randomly sample valid quarters/sectors
         random_sample_imgs_idxs = sample_image_data(n_valid_imgs, valid_images_idxs, number_of_imgs_to_sample)
+        tces_info_dict[f'num_sampled_{prefix}s'][tce_i] = len(random_sample_imgs_idxs)
 
         # get quality metrics for sampled quarters/sector runs
         tces_info_dict[f'sampled_{prefix}s'][tce_i] = (
@@ -318,6 +350,12 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
                     target_pos_row = (
                         float(diff_img_data_dict[tce_uid]['target_ref_centroid'][sampled_img_idx]['row']['value']))
                 image_number = diff_img_data_dict[tce_uid]['image_number'][sampled_img_idx]
+                target_mag = diff_img_data_dict[tce_uid]['mag']
+                if 'neighbor_data' in diff_img_data_dict[tce_uid]:
+                    neighbors_data = {neighbor_id: dict(neighbor_data) for neighbor_id, neighbor_data
+                                      in diff_img_data_dict[tce_uid]['neighbor_data'][sampled_img_idx].items()}
+                else:
+                    neighbors_data = None
 
                 (diff_img_preproc, oot_img_preproc, snr_img_preproc, target_img, target_pos, target_pos_disc,
                  neighbors_img) = (
@@ -335,6 +373,9 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
                         tce_uid,
                         prefix,
                         center_target=option == 'target_centered',
+                        neighbor_data=neighbors_data,
+                        target_mag=target_mag,
+                        exclude_neighbor_objs_outside=exclude_neighbor_objs_outside,
                         log=log,
                         proc_id=diff_img_data_fp.stem
                     )
@@ -427,17 +468,26 @@ def preprocess_diff_img_tces(diff_img_data_fp, number_of_imgs_to_sample, upscale
              f'examples.')
 
 
-if __name__ == '__main__':
+def preprocess_diff_img_tces_main(config_fp, save_dir=None, diff_img_dir=None):
+    """ Wrapper to `preprocess_diff_img_tces()`.
 
-    # used in job arrays
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
-                        default='codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
-    args = parser.parse_args()
+    Args:
+        config_fp: str, path to config file
+        save_dir: str, path to directory where preprocessed difference image data will be saved
+        diff_img_dir: str, path to directory with extracted difference image data to be preprocessed
+
+    Returns:
+
+    """
 
     # load yaml file with run setup
-    with open(args.config_fp, 'r') as file:
+    with open(config_fp, 'r') as file:
         config = yaml.safe_load(file)
+
+    if save_dir is not None:
+        config['dest_root_dir'] = save_dir
+    if diff_img_dir is not None:
+        config['diff_img_data_dir'] = diff_img_dir
 
     diff_img_data_dir = Path(config['diff_img_data_dir'])
 
@@ -468,18 +518,30 @@ if __name__ == '__main__':
         yaml.dump(config, setup_file, sort_keys=False)
 
     jobs = [(diff_img_data_fp, config['num_sampled_imgs'], config['upscale_f'], config['final_size'],
-             config['mission'], dest_root_dir / diff_img_data_fp.stem, None,
+             config['mission'], dest_root_dir / diff_img_data_fp.stem, config['exclude_neighbor_objs_outside'], None,
              config['plot_prob'])
             for diff_img_data_fp in diff_img_data_fps]
 
-    # parallel
-    pool = multiprocessing.Pool(processes=config['n_processes'])
-    async_results = [pool.apply_async(preprocess_diff_img_tces, job) for job in jobs]
-    pool.close()
-    pool.join()
-
-    # # sequential
-    # for job in jobs:
-    #     preprocess_diff_img_tces(*job)
+    if config['n_processes'] > 1:
+        # parallel
+        pool = multiprocessing.Pool(processes=config['n_processes'])
+        _ = [pool.apply_async(preprocess_diff_img_tces, job) for job in jobs]
+        pool.close()
+        pool.join()
+    else:
+        # sequential
+        for job in jobs:
+            preprocess_diff_img_tces(*job)
 
     logger.info('Finished preprocessing difference image data from NumPy files with extracted data from DV xml files.')
+
+
+if __name__ == '__main__':
+
+    # used in job arrays
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='Configuration file with processing parameters.',
+                        default='/path/to/codebase/src_preprocessing/diff_img/preprocessing/config_preprocessing.yaml')
+    args = parser.parse_args()
+
+    preprocess_diff_img_tces_main(args.config_fp)

@@ -36,7 +36,6 @@ def normalize_scalar_parameters(example, normStatsScalars, epsilon=1e-32):
     # normalize scalar parameters
     for scalarParam in normStatsScalars:
         # get the scalar value from the example
-
         scalarParamVal = np.array(get_feature(example, scalarParam))
 
         replace_flag = False
@@ -148,13 +147,6 @@ def normalize_centroid(example, normStatsCentroid):
                                'local_centr_view_std_noclip': loc_centr_view_std_noclip,
                                'local_centr_view_std_noclip_var': loc_centr_view_std_noclip_var})
 
-    # # 3) center each centroid individually using their median and divide by the standard deviation of the
-    # # training set
-    # glob_centr_view_medind_std = glob_centr_view - np.median(glob_centr_view)
-    # glob_centr_view_medind_std /= normStatsCentroid['global_centr_view']['std']
-    # loc_centr_view_medind_std = loc_centr_view - np.median(loc_centr_view)
-    # loc_centr_view_medind_std /= normStatsCentroid['local_centr_view']['std']
-
     # 4) normalize adjusted scale centroid for TESS
     if 'global_centr_view_adjscl_median' in normStatsCentroid:
         glob_centr_view_adjscl = np.array(example.features.feature['global_centr_view_adjscl'].float_list.value)
@@ -190,6 +182,8 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
     Returns: norm_diff_img_feat, dict with normalized difference image features for the example
     """
 
+    MAX_MAG = 25
+
     # initialize dictionary to store the normalized features
     norm_diff_img_feat = {}
 
@@ -222,6 +216,9 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
         # x_n = (x - min(x)) / (max(x) - min(x))
         for img_type, img_data in data_example.items():
 
+            if 'neighbors_imgs' in img_type:
+                continue
+
             img_data_minmaxn = np.array(img_data)
             img_data_minmaxn =  ((img_data_minmaxn - normStatsDiff_img[img_type]['min']) /
                                  (normStatsDiff_img[img_type]['max'] - normStatsDiff_img[img_type]['min'] +
@@ -238,15 +235,28 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
 
             norm_diff_img_feat[f'{img_type}_std_trainset'] = img_data_std
 
+        # fixed min-max normalization
+        # x_n = (x - min_val) / (max_val - min_val)
+        for img_type, img_data in data_example.items():
+
+            if 'neighbors_imgs' not in img_type:
+                continue
+
+            img_data_minmaxn_fixed = np.array(img_data)
+            img_data_minmaxn_fixed =  img_data_minmaxn_fixed / MAX_MAG
+
+            norm_diff_img_feat[f'{img_type}_fixed_min_max_norm'] = img_data_minmaxn_fixed
+
     return norm_diff_img_feat
 
 
-def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
+def normalize_examples(destTfrecDir, srcTfrecFile, normStats, config):
     """ Normalize examples in TFRecords.
 
     :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
     :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
     :param normStats: dict, normalization statistics used for normalizing the data
+    :param config: dict, configuration parameters for the normalized data
     :return:
     """
 
@@ -294,15 +304,25 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
             writer.write(example.SerializeToString())
 
 
-if __name__ == '__main__':
+def normalize_examples_main(config_fp, src_tfrec_dir=None, dest_tfrec_dir=None):
+    """ Wrapper for `normalize_examples()`.
 
-    tf.config.set_visible_devices([], 'GPU')
+    Args:
+        config_fp: str, configuration parameters for data normalization
+        src_tfrec_dir: Path, source TFRecord directory for the data to be normalized
+        dest_tfrec_dir: Path, destination TFRecord directory for the normalized data
 
-    # get the configuration parameters
-    path_to_yaml = Path('codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
+    Returns:
 
-    with(open(path_to_yaml, 'r')) as file:
+    """
+
+    with open(config_fp, 'r') as file:
         config = yaml.safe_load(file)
+
+    if src_tfrec_dir is not None:
+        config['srcTfrecDir'] = src_tfrec_dir
+    if dest_tfrec_dir is not None:
+        config['destTfrecDir'] = dest_tfrec_dir
 
     # source TFRecord directory
     srcTfrecDir = Path(config['srcTfrecDir'])
@@ -316,18 +336,32 @@ if __name__ == '__main__':
         yaml.dump(config, file, sort_keys=False)
 
     # get source TFRecords file paths to be normalized
-    srcTfrecFiles = list(srcTfrecDir.glob('*-shard-*'))
+    srcTfrecFiles = list(srcTfrecDir.glob('*shard-*'))
+    srcTfrecFiles = [fp for fp in srcTfrecFiles if fp.suffix != '.csv']
 
     # load normalization statistics; the keys in each sub-dictionary define which statistics are normalized
     normStats = {param: np.load(stats_fp, allow_pickle=True).item() for param, stats_fp in config['normStats'].items()}
 
-    pool = multiprocessing.Pool(processes=config['nProcesses'])
-    jobs = [(destTfrecDir, file, normStats) for file in srcTfrecFiles]
-    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-    pool.close()
-    pool.join()
+    jobs = [(destTfrecDir, file, normStats, config) for file in srcTfrecFiles]
+    if config['nProcesses'] > 1:
+        pool = multiprocessing.Pool(processes=config['nProcesses'])
+        async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
+        pool.close()
+        pool.join()
 
-    for async_result in async_results:
-        async_result.get()
+        for async_result in async_results:
+            async_result.get()
 
-    print('Normalization finished.')
+    else:
+        for job in jobs:
+            normalize_examples(*job)
+
+
+if __name__ == '__main__':
+
+    tf.config.set_visible_devices([], 'GPU')
+
+    # get the configuration parameters
+    config_fp = Path('/path/to/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
+
+    normalize_examples_main(config_fp, )

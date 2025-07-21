@@ -5,26 +5,27 @@
 # $3: Path to output directory
 
 # External arguments
-#MODELS_DIR="$1"
-#CONFIG_FP="$2"
-#OUTPUT_DIR="$3"
+MODELS_DIR="$1"
+CONFIG_FP="$2"
+OUTPUT_DIR="$3"
 
 #source "$HOME"/.bashrc
 #source "$HOME"/.zshrc
 #conda activate exoplnt_dl_tf2_13
-export PYTHONPATH=/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/codebase
-MODELS_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959
-CONFIG_FP=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959/model1/config_run.yaml
-ENSEMBLE_MODEL_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/test_train_eval_test_bds_vs_planets_7-2-2024_0959/ensemble_avg_model/
+
+export PYTHONPATH=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+#MODELS_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/train_exominerplusplus_weightedsubclasses_tess-spoc-2min-s1-s88_complete_dataset_v100_5-21-2025_1346/
+#CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/train_exominerplusplus_oldfeatures_tess-spoc-2min-s1-s88_complete_dataset_v100_5-21-2025_1116/model1/config_run.yaml
+#OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/train_exominerplusplus_oldfeatures_tess-spoc-2min-s1-s88_complete_dataset_v100_5-21-2025_1116/ensemble_avg_model/
 
 CREATE_ENSEMBLE_MODEL_SCRIPT_FP=$PYTHONPATH/models/create_ensemble_avg_model.py
-EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate_model.py
-PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict_model.py
+EVAL_MODEL_SCRIPT_FP=$PYTHONPATH/src/evaluate/evaluate_model.py
+PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 
-#ENSEMBLE_MODEL_DIR="$OUTPUT_DIR"/ensemble_model
-mkdir -p "$ENSEMBLE_MODEL_DIR"
-LOG_FP="$ENSEMBLE_MODEL_DIR"/run_ensemble_model.log
-ENSEMBLE_MODEL_FP="$ENSEMBLE_MODEL_DIR"/ensemble_avg_model.keras
+mkdir -p "$OUTPUT_DIR"
+LOG_FP="$OUTPUT_DIR"/run_ensemble_model.log
+ENSEMBLE_MODEL_FP="$OUTPUT_DIR"/ensemble_avg_model.keras
 
 echo "Creating ensemble model in $ENSEMBLE_MODEL_FP for models in $MODELS_DIR..." >> "$LOG_FP"
 
@@ -37,8 +38,8 @@ echo "Created ensemble model in $ENSEMBLE_MODEL_FP for models in $MODELS_DIR." >
 echo "Started evaluating ensemble model..." >> "$LOG_FP"
 
 # evaluate and predict with ensemble model
-LOG_FP_EVAL_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/eval_ensemble_model.log
-python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &>> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
+LOG_FP_EVAL_ENSEMBLE_MODEL="$OUTPUT_DIR"/eval_ensemble_model.log
+python "$EVAL_MODEL_SCRIPT_FP" --config_fp="$CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$OUTPUT_DIR" &>> "$LOG_FP_EVAL_ENSEMBLE_MODEL"
 
 echo "Evaluated ensemble model." >> "$LOG_FP"
 
@@ -46,7 +47,7 @@ echo "Evaluated ensemble model." >> "$LOG_FP"
 echo "Started running inference with ensemble model..." >> "$LOG_FP"
 
 # evaluate and predict with ensemble model
-LOG_FP_PREDICT_ENSEMBLE_MODEL="$ENSEMBLE_MODEL_DIR"/predict_ensemble_model.log
-python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &>> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
+LOG_FP_PREDICT_ENSEMBLE_MODEL="$OUTPUT_DIR"/predict_ensemble_model.log
+python "$PREDICT_MODEL_SCRIPT_FP" --config_fp="$CONFIG_FP" --model_fp="$ENSEMBLE_MODEL_FP" --output_dir="$OUTPUT_DIR" &>> "$LOG_FP_PREDICT_ENSEMBLE_MODEL"
 
 echo "Ran inference with ensemble model." >> "$LOG_FP"

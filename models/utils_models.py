@@ -81,7 +81,19 @@ def compile_model(model, config, metrics_list, train=True):
         model_loss = losses.CategoricalCrossentropy(from_logits=False, name='categorical_crossentropy')
 
     else:
-        model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
+        if config['config']['loss'] == 'focal_crossentropy':
+            model_loss = losses.BinaryFocalCrossentropy(
+                apply_class_balancing=config['config']['focal_class_balancing'],
+                alpha=config['config']['focal_loss_alpha'],
+                gamma=config['config']['focal_loss_gamma'],
+                from_logits=False,
+                label_smoothing=0.0,
+                axis=-1,
+                reduction='sum_over_batch_size',
+                name='binary_focal_crossentropy'
+            )
+        elif config['config']['loss'] == 'crossentropy':
+            model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
 
     # set optimizer
     if train:
@@ -108,7 +120,7 @@ def compile_model(model, config, metrics_list, train=True):
                 use_ema=False,
                 ema_momentum=0.99,
                 ema_overwrite_frequency=None,
-                jit_compile=True,
+                # jit_compile=True,
                 name="AdamW",
             )
         elif config['config']['optimizer'] == 'SGD':

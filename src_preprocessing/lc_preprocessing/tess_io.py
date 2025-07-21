@@ -9,6 +9,7 @@ from astropy import wcs
 from astropy.io import fits
 from tensorflow.io import gfile
 from pathlib import Path
+import re
 
 # local
 from src_preprocessing.light_curve import util
@@ -17,6 +18,41 @@ from src_preprocessing.light_curve import util
 
 MOMENTUM_DUMP_VALUE = 32  # momentum dump value in the DQ array
 MAX_BIT = 12  # max number of bits in the DQ array
+
+
+def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
+    """
+
+    Args:
+        base_dir: Base directory containing TESS light curve FITS files data
+        ticid: ID of the TESS target star. It can be an int or a possibly zero-padded string
+        sectors_observed: str, sectors observed separated by an underscore
+
+    Returns: a list of filepaths to the light curve FITS files for a given TIC and set of observed sectors
+
+    """
+
+    if '_' in sectors_observed:
+        sectors_observed = sorted([int(sector_observed) for sector_observed in sectors_observed.split('_')])
+    else:
+        sectors_observed = [int(sectors_observed)]
+    sectors_observed = [str(sector_id).zfill(4) for sector_id in sectors_observed]
+
+    ticid = str(ticid).zfill(16)
+
+    # get all light curves FITS files in the directory for TIC ID
+    target_lc_fits_fps = list(base_dir.rglob(f'*{ticid}*lc.fits'))
+
+    filtered_lc_paths = []
+    for sector_observed in sectors_observed:
+        pattern = re.compile(rf"-s{sector_observed}")
+        matches = [p for p in target_lc_fits_fps if pattern.search(str(p))]
+        filtered_lc_paths.extend(matches)
+
+    # pattern = re.compile(rf"-s({'|'.join(sectors_observed)})")
+    # filtered_lc_paths = [p for p in target_lc_fits_fps if pattern.search(str(p))]
+
+    return  filtered_lc_paths
 
 
 def tess_filenames(base_dir, ticid, sectors):

@@ -84,7 +84,6 @@ def evaluate_model(config, model_path, res_dir, logger=None):
                                 mode='EVAL',
                                 label_map=config['label_map'],
                                 features_set=config['features_set'],
-                                online_preproc_params=None,
                                 multiclass=config['config']['multi_class'],
                                 feature_map=config['feature_map'],
                                 label_field_name=config['label_field_name'],
@@ -97,11 +96,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
 
         # evaluate model in the given dataset
         res_eval = model.evaluate(x=eval_input_fn(),
-                                  y=None,
-                                  batch_size=None,
                                   verbose=config['verbose_model'],
-                                  sample_weight=None,
-                                  steps=None,
                                   callbacks=callbacks_list if dataset == 'train' else None,
                                   )
 

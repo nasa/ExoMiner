@@ -68,13 +68,13 @@ def phase_split_light_curve(time, timeseries, period, t0, duration, n_max_phases
       n_max_phases: positive integer; maximum number of phases
       keep_odd_even_order: bool; if True, phases are extracted preserving odd/even alternating structure.
       it_cadences_per_thr: float, threshold for number of in-transit cadences per phase for classifying a phase as
-      valid.
+        valid.
       num_cadences_per_h: float, number of cadences sampled per hour in the time series.
       extend_method: str, method used to deal with examples with less than `n_max_phases`. If 'zero_padding', baseline
-      phases (i.e., filled with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
+        phases (i.e., filled with ones) are added; if 'copy_phases', phases are copied starting from the beginning.
       quarter_timestamps: dict, each value is a list. The key is the quarter id and the value is a list with the
-      start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
-      sampling takes into account transits from different quarters.
+        start and end timestamps for the given quarter obtained from the FITS file. If this variable is not `None`, then
+        sampling takes into account transits from different quarters.
       seed: integer, rng seed
       remove_outliers_params: dict, outlier removal parameters
 

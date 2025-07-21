@@ -4,12 +4,11 @@
 import os
 import tensorflow as tf
 import numpy as np
-# import tensorflow_probability as tfp
 import traceback
 import pandas as pd
 
 # local
-from src.train.data_augmentation import phase_shift, phase_inversion, add_whitegaussiannoise
+from src.train.data_augmentation import phase_shift, phase_inversion
 from src_preprocessing.tf_util.example_util import get_feature
 
 
@@ -146,7 +145,8 @@ class InputFnv2(object):
     def __init__(self, file_paths, batch_size, mode, label_map, features_set, data_augmentation=False,
                  online_preproc_params=None, category_weights=None, sample_weights=False,
                  multiclass=False, shuffle_buffer_size=None, shuffle_seed=24, prefetch_buffer_nsamples=256,
-                 feature_map=None, label_field_name='label', filter_fn=None):
+                 feature_map=None, label_field_name='label', filter_fn=None, cache_enabled=False,
+                 tfrecord_read_buffer_size=64):
         """Initializes the input function.
 
         :param file_paths: str, File pattern matching input TFRecord files, e.g. "/tmp/train-?????-of-00100". May also
@@ -170,34 +170,138 @@ class InputFnv2(object):
         :param shuffle_seed: int, shuffle seed
         :param prefetch_buffer_nsamples: int, number of samples which when divided by the batch size gives the number of
             batches prefetched
-        :feature_map: dict, mapping of label to label id
+        :feature_map: dict, mapping of feature name to a new name
         :label_field_name: str, name for label stored in the TFRecord files
         :filter_fn: function, used to filter data in the TFRecord files
+        :cache_enabled: bool, if True the dataset is cached (dataset needs to fit in memory)
+        :tfrecord_read_buffer_size: int, size of read buffer for TFRecord dataset in MB
 
         :return:
         """
 
         self.file_paths = file_paths
+
         self.mode = mode
-        self.batch_size = batch_size
+        self.batch_size = tf.constant(batch_size, dtype=tf.int64)  # batch_size
         self.label_map = label_map
         self.n_classes = len(np.unique(list(label_map.values())))
         self.features_set = features_set
+
         self.data_augmentation = data_augmentation and self.mode == 'TRAIN'
         self.online_preproc_params = online_preproc_params
         self.label_field_name = label_field_name
 
         self.shuffle_buffer_size = shuffle_buffer_size
         self.shuffle_seed = shuffle_seed
-        self.prefetch_buffer_size = int(prefetch_buffer_nsamples / self.batch_size)
+        self.prefetch_buffer_size = max(1, int(prefetch_buffer_nsamples / batch_size))
 
         self.filter_fn = filter_fn
 
+        self.cache_enabled = cache_enabled
+        self.tfrecord_read_buffer_size = tfrecord_read_buffer_size
+
         self.category_weights = category_weights
         self.sample_weights = sample_weights
+
         self.multiclass = multiclass
 
-        self.feature_map = feature_map if feature_map is not None else {}
+        self.feature_map = feature_map
+
+        # build the lookup table once during init
+        self.label_to_id = self._build_label_to_id_table(label_map)
+
+        self.label_field = {self.label_field_name: tf.io.FixedLenFeature([], tf.string)}
+
+        if category_weights is not None and self.mode == 'TRAIN':
+            self.label_to_weight = self._build_label_to_weight(category_weights)
+        else:
+            self.label_to_weight = None
+
+        if sample_weights and self.mode == 'TRAIN':
+            self.sample_weight_field = {'sample_weight': tf.io.FixedLenFeature([], tf.float32)}
+        else:
+            self.sample_weight_field = None
+
+        # get features names, shapes and data types to be extracted from the TFRecords
+        self.data_fields = self._prepare_data_fields()
+
+        self.include_labels = self.mode in ['TRAIN', 'EVAL']
+
+        if feature_map is not None:
+            self.feature_map_table = self._build_feature_map_table()
+        else:
+            self.feature_map_table = None
+
+    def _build_feature_map_table(self):
+        """ Builds a feature map table.
+
+        :return:
+            a static hash table that maps feature names to new names
+        """
+
+        keys = tf.constant(list(self.feature_map.keys()), dtype=tf.string)
+        values = tf.constant(list(self.feature_map.values()), dtype=tf.string)
+        initializer = tf.lookup.KeyValueTensorInitializer(keys, values)
+        feature_map_table = tf.lookup.StaticHashTable(initializer,
+                                                      default_value=tf.constant("", dtype=tf.string))
+
+        return feature_map_table
+
+    def _prepare_data_fields(self):
+        """ Builds data fields dictionary based on requested features set dimensions and data types.
+
+            Args:
+
+            Returns: dictionary of data fields with expected dimensions and data types
+        """
+
+        data_fields = {}
+        for feature_name, feature_info in self.features_set.items():
+            if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # N-D feature, N > 1
+                data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
+            else:
+                data_fields[feature_name] = tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
+
+        return data_fields
+
+    @staticmethod
+    def _build_label_to_id_table(label_map):
+        """ Builds hash table that maps label to label ID.
+
+            Args:
+                label_map: dict, mapping from label to label id
+            Returns: TF lookup static hash table for labels to label IDs
+
+        """
+
+        with tf.init_scope():
+            initializer = tf.lookup.KeyValueTensorInitializer(
+                keys=list(label_map.keys()),
+                values=list(label_map.values()),
+                key_dtype=tf.string,
+                value_dtype=tf.int32
+            )
+            return tf.lookup.StaticHashTable(initializer, default_value=-1)
+
+    @staticmethod
+    def _build_label_to_weight(category_weights):
+        """ Builds hash table that maps label to label ID.
+
+            Args:
+                category_weights: dict, mapping from label to label weight
+
+            Returns: TF lookup static hash table for labels to weights
+        """
+
+        category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
+            keys=list(category_weights.keys()),
+            values=list(category_weights.values()),
+            key_dtype=tf.string,
+            value_dtype=tf.float32)
+
+        label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
+
+        return label_to_weight
 
     def __call__(self):
         """ Builds the input pipeline.
@@ -214,56 +318,44 @@ class InputFnv2(object):
                 tuple, feature and label tensors
             """
 
-            include_labels = self.mode in ['TRAIN', 'EVAL']
-
-            # get features names, shapes and data types to be extracted from the TFRecords
-            data_fields = {}
-            for feature_name, feature_info in self.features_set.items():
-                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # N-D feature, N > 1
-                    data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
-                else:
-                    data_fields[feature_name] = tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
-
             # parse the features
-            parsed_features = tf.io.parse_single_example(serialized=serialized_example, features=data_fields)
+            parsed_features_ex = tf.io.parse_single_example(serialized=serialized_example, features=self.data_fields)
+            # parse tensors from strings to arrays with the correct shape
+            def parse_and_reshape(feature_name):
+                feature_info = self.features_set[feature_name]
+                feature_value = parsed_features_ex[feature_name]
+                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
+                    tensor = tf.io.parse_tensor(feature_value[0], out_type=feature_info['dtype'])
+                    return tf.reshape(tensor, feature_info['dim'])
+                else:
+                    return feature_value
+
+            feature_names = list(parsed_features_ex.keys())
+            parsed_features = {name: parse_and_reshape(name) for name in feature_names}
 
             # get labels if in TRAIN or EVAL mode
-            if include_labels:
-                label_field = {self.label_field_name: tf.io.FixedLenFeature([], tf.string)}
-                parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=label_field)
+            if self.include_labels:
+                parsed_label = tf.io.parse_single_example(serialized=serialized_example, features=self.label_field)
 
             # set example weight
-            if self.category_weights is not None and self.mode == 'TRAIN':
-                category_weight_table_initializer = tf.lookup.KeyValueTensorInitializer(
-                    keys=list(self.category_weights.keys()),
-                    values=list(self.category_weights.values()),
-                    key_dtype=tf.string,
-                    value_dtype=tf.float32)
-
-                label_to_weight = tf.lookup.StaticHashTable(category_weight_table_initializer, default_value=1)
-                example_weight = label_to_weight.lookup(parsed_label[self.label_field_name])
+            if self.category_weights is not None and self.mode == 'TRAIN' and self.include_labels:
+                example_weight = self.label_to_weight.lookup(parsed_label[self.label_field_name])
             elif self.sample_weights and self.mode == 'TRAIN':
-                sample_weight_field = {'sample_weight': tf.io.FixedLenFeature([], tf.float32)}
-                example_weight = tf.io.parse_single_example(serialized=serialized_example, features=sample_weight_field)
+                example_weight = tf.io.parse_single_example(serialized=serialized_example,
+                                                            features=self.sample_weight_field)
             else:
                 example_weight = None
 
             # map label to label id
-            label_id = tf.cast(0, dtype=tf.int32, name='cast_label_to_int32')
-            if include_labels:
+            if self.include_labels:
+
                 # map label to integer
-                label_id = label_to_id.lookup(parsed_label[self.label_field_name])
+                label_id = self.label_to_id.lookup(parsed_label[self.label_field_name])
 
-                # ensure that the label_id is non-negative to verify a successful hash map lookup.
-                assert_known_label = tf.Assert(tf.greater_equal(label_id, tf.cast(0, dtype=tf.int32)),
-                                               ["Unknown label string:", parsed_label[self.label_field_name]],
-                                               name='assert_non-negativity')
+                tf.debugging.assert_greater_equal(label_id, 0, message="Invalid label")
 
-                with tf.control_dependencies([assert_known_label]):
-                    label_id = tf.identity(label_id)
-
-            if self.multiclass:
-                label_id = tf.one_hot(label_id, self.n_classes)
+                if self.multiclass:
+                    label_id = tf.one_hot(label_id, self.n_classes)
 
             # prepare data augmentation
             if self.data_augmentation:
@@ -274,35 +366,34 @@ class InputFnv2(object):
             output = {}
             for feature_name, feature_value in parsed_features.items():
 
-                feature_info = self.features_set[feature_name]
-                if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # parse tensors
-                    feature_value = tf.io.parse_tensor(serialized=feature_value[0],
-                                                       out_type=self.features_set[feature_name]['dtype'])
-                    feature_value = tf.reshape(feature_value, self.features_set[feature_name]['dim'])
+                feature_name_tensor = tf.constant(feature_name)
 
                 # data augmentation for flux time series features
-                if 'view' in feature_name and self.data_augmentation:
-                    feature_value = augment_example_online(feature_value, should_reverse, shift)
-                if feature_name in list(self.feature_map.keys()):
-                    output[self.feature_map[feature_name]] = feature_value
+                if self.data_augmentation:
+                    should_augment = tf.strings.regex_full_match(feature_name_tensor, ".*view.*")
+                    feature_value = tf.cond(
+                        should_augment,
+                        lambda: augment_example_online(feature_value, should_reverse, shift),
+                        lambda: feature_value
+                    )
+
+                # # update feature name
+                if self.feature_map is not None:
+                    remapped_name = self.feature_map_table.lookup(feature_name_tensor)
+                    use_original = tf.equal(remapped_name, "")
+                    final_name = tf.cond(use_original, lambda: feature_name_tensor, lambda: remapped_name)
+                    output[final_name.numpy().decode()] = feature_value
                 else:
                     output[feature_name] = feature_value
 
-            if example_weight:
-                output_example_parser = output, label_id, example_weight
+            # return output for example
+            if self.include_labels:
+                if example_weight is not None:
+                    return output, label_id, example_weight
+                else:
+                    return output, label_id
             else:
-                output_example_parser = output, label_id
-
-            return output_example_parser
-
-        # create a hash table mapping label to integer label ids.
-        table_initializer = tf.lookup.KeyValueTensorInitializer(
-            keys=list(self.label_map.keys()),
-            values=list(self.label_map.values()),
-            key_dtype=tf.string,
-            value_dtype=tf.int32
-        )
-        label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
+                return output
 
         if isinstance(self.file_paths, str):
             file_patterns = self.file_paths.split(",")
@@ -323,12 +414,18 @@ class InputFnv2(object):
             filename_dataset = filename_dataset.shuffle(buffer_size=len(filenames), seed=self.shuffle_seed)
 
         # map a TFRecordDataset object to each tfrecord filepath
-        dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
+        # dataset = filename_dataset.flat_map(tf.data.TFRecordDataset)
+        # interleave TFRecord files for parallel loading
+        dataset = filename_dataset.interleave(
+            lambda x: tf.data.TFRecordDataset(x, buffer_size=self.tfrecord_read_buffer_size * 1024 * 1024),  # x MB buffer size
+            cycle_length=tf.data.AUTOTUNE if self.mode != 'PREDICT' else 1,
+            num_parallel_calls=tf.data.AUTOTUNE if self.mode != 'PREDICT' else 1
+        )
 
         # shuffle the examples in the dataset if training
         if self.mode == 'TRAIN':
-            if 'eval_with_2mindata_transferlearning' in filenames[0]:
-                self.shuffle_buffer_size = 1000
+            # if 'eval_with_2mindata_transferlearning' in filenames[0]:
+            #     self.shuffle_buffer_size = 1000
             # else:
             #     if not self.shuffle_buffer_size:
             #         self.shuffle_buffer_size = dataset.reduce(0, lambda x, _: x + 1).numpy()
@@ -350,9 +447,12 @@ class InputFnv2(object):
         if self.filter_fn:  # use filter function to filter parsed examples in the TFRecord dataset
             dataset = dataset.filter(self.filter_fn)
 
+        if self.cache_enabled:  # any shuffle done before is fixed
+            dataset = dataset.cache()
+
         # creates batches by combining consecutive elements
-        # dataset = dataset.batch(self.batch_size)
-        dataset = dataset.batch(self.batch_size, deterministic=True if self.mode == 'PREDICT' else False,
+        dataset = dataset.batch(self.batch_size,
+                                deterministic=True if self.mode == 'PREDICT' else False,
                                 num_parallel_calls=tf.data.AUTOTUNE)
 
         # prefetches batches determined by the buffer size chosen

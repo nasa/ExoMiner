@@ -200,7 +200,8 @@ def merge_tfrecord_datasets(dest_tfrec_dir, src_tfrecs):
             shutil.copy(src_tfrec_fp, dest_tfrec_dir / f'{src_tfrec_fp.name}_{src_tfrecs_suffix}')
 
 
-def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_tfrec_files=False, verbose=True):
+def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_tfrec_files=False, verbose=True,
+                                      logger=None):
     """ Create table with examples from the TFRecord file with scalar features/attributes defined in `data_fields`.
 
         Args:
@@ -214,15 +215,25 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
 
     tfrec_tbls = []
     for fp in tfrec_fps:
-        print(f'Iterating over {fp}...')
+        if verbose:
+            if logger:
+                logger.info(f'Iterating over {fp}...')
+            else:
+                print(f'Iterating over {fp}...')
 
         try:
             tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
 
         except Exception as e:
-            print(f'Failed to read {fp}.\n {e}')
+            if logger:
+                logger.info(f'Failed to read {fp}.\n {e}')
+            else:
+                print(f'Failed to read {fp}.\n {e}')
             if delete_corrupted_tfrec_files:
-                print(f'Deleting {fp}...')
+                if logger:
+                    logger.info(f'Deleting corrupted {fp}...')
+                else:
+                    print(f'Deleting {fp}...')
                 fp.unlink()
                 (fp.parent / f'{fp.name}.csv').unlink()
 

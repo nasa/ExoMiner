@@ -15,6 +15,7 @@ import shutil
 import traceback
 import sys
 from contextlib import contextmanager
+import yaml
 
 # local
 from src.train.train_model import train_model
@@ -231,8 +232,8 @@ class TransitClassifier(Worker):
         :param config: sampled configuration
         :param budget: int, budget (number of epochs to train the configuration sampled)
         :param working_directory: str, a name of a directory that is unique to this configuration. Use this to store
-        intermediate results on lower budgets that can be reused later for a larger budget (for iterative algorithms,
-        for example).
+            intermediate results on lower budgets that can be reused later for a larger budget (for iterative
+            algorithms, for example).
         :param args: tuple, other args
         :param kwargs: dict, other args
 
@@ -267,6 +268,10 @@ class TransitClassifier(Worker):
         logger.addHandler(logger_handler)
 
         logger.info(f'Sampled configuration {config_id} to be evaluated on budget {budget} epochs:\n {config}')
+
+        # save configuration
+        with open(run_config['paths']['config_dir'] / 'model_config.yaml', 'w') as config_file:
+            yaml.dump(run_config['config'], config_file)
 
         wrapper_evaluate_config_on_budget(
             self.worker_id_custom,

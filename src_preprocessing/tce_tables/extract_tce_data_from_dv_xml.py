@@ -317,7 +317,7 @@ def process_xml(dv_xml_fp, logger):
     sector_run_str = re.search(r's\d{4}-s\d{4}', dv_xml_fp.name).group()
     s_sector, e_sector = sector_run_str.split('-')
     if s_sector == e_sector:  # single-sector run
-        tces_df['sector_run'] = str(s_sector[1:])
+        tces_df['sector_run'] = str(int(s_sector[1:]))
     else:   # multi-sector
         # tces_df['sector_run'] = f'{str(s_sector[1:])}-{str(e_sector[1:])}'
         tces_df['sector_run'] = f'{int(s_sector[1:])}-{int(e_sector[1:])}'
@@ -341,13 +341,14 @@ def process_xml(dv_xml_fp, logger):
     return tces_df
 
 
-def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
+def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp, filter_tics=None):
     """ Extracts TCE data from a set of DV xml files in a directory `dv_xml_sector_run_dir` into a table and returns
     the table as a pandas DataFrame.
 
     Args:
         dv_xml_sector_run_dir: Path, path to the sector run directory
         dv_xml_tbl_fp: Path, filepath used to save table with DV xml results
+        filter_tics: list of TIC IDs with sector run ID used to filter DV XML files; if None, no filtering is done
 
     Returns:
         dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files
@@ -364,6 +365,12 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp):
     logger.info(f'Starting run...')
 
     dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml'))
+    if filter_tics is not None:
+        dv_xml_fps = [
+            fp for fp in dv_xml_fps
+            if any(filter_tic in fp.name for filter_tic in filter_tics)
+        ]
+
     n_dv_xmls = len(dv_xml_fps)
     logger.info(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
 
@@ -415,7 +422,7 @@ if __name__ == "__main__":
     async_results = [pool.apply_async(process_sector_run_of_dv_xmls,
                                       (dv_xml_sector_run_dir,
                                        new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv'))
-                     for dv_xml_i, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
+                     for _, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
     pool.close()
     pool.join()
 

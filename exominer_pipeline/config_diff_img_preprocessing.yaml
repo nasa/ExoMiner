@@ -1,0 +1,17 @@
+# results directory for processed data
+dest_root_dir: null
+# file path to directory with difference image data NumPy files
+diff_img_data_dir: null
+mission: tess  # either 'kepler' or 'tess'
+num_sampled_imgs: 5  # number of sampled quarters/sector runs
+final_size:  # final size for preprocessed images before resizing
+  x: 11
+  y: 11
+# upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
+upscale_f:
+  x: 3  # 5
+  y: 3  # 5
+# exclude neighbors that are outside the target mask
+exclude_neighbor_objs_outside: true
+n_processes: 1  # number of processes to run jobs in parallel
+plot_prob: 0  # probability to plot preprocessing results for each example

@@ -18,6 +18,15 @@ from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
 
 
 def predict_model(config, model_path, res_dir, logger=None):
+    """ Run inference with a model.
+
+    :param config: dict, training run parameters
+    :param model_path: Path, file path to trained model
+    :param res_dir: Path, output directory
+    :param logger: logger
+
+    :return:
+    """
 
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
@@ -70,10 +79,7 @@ def predict_model(config, model_path, res_dir, logger=None):
 
         scores[dataset] = model.predict(
             predict_input_fn(),
-            batch_size=None,
             verbose=config['verbose_model'],
-            steps=None,
-            callbacks=None,
         )
 
     # add predictions to the data dict
