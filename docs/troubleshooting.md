@@ -36,7 +36,7 @@ If none of the points [above](#errors-while-running-the-pipeline) resolved your 
 pipeline failed. Check the results produced at the several steps in the run, including available logs, to find the point 
 of failure. For assistance, you can open/search for issues in the 
 [GitHub repository](https://github.com/nasa/ExoMiner/issues). You can also contact the 
-[developers](https://github.com/nasa/ExoMiner). If you would like to share information about the run, please submit 
+[developers](../README.md#contacts). If you would like to share information about the run, please submit 
 the run folder as a compressed file (include the inputs used). Be sure to exclude large files, such as the light curve 
 FITS files and the DV XML files, and include the logs. **Keep your pipeline up-to-date by checking newer versions of 
 the pipeline! You can watch the repository to keep track of all new activity including updates.**
