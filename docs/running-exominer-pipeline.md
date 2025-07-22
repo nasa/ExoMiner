@@ -16,7 +16,7 @@ of a CSV file).
 
 The contents of [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) are displayed below. To run 
 the podman image for the ExoMiner Pipeline, simply set the arguments for your use case in the shell script file and run 
-in your terminal `./path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
+in your terminal `/path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
 IDs and sector runs found in the CSV file that the variable `tics_tbl_fp` points to in your system. The pipeline will 
 use TESS SPOC `2-min` data (see `data_collection_mode` variable) and `1` process will be used (no parallelization). The 
 TIC IDs are split across `2` jobs. The results will be saved into the filepath that `exominer_pipeline_run_dir` points 
