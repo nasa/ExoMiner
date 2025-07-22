@@ -23,7 +23,7 @@ and the Gaia servers to download the RUWE for the queried TIC IDs. See if there 
 [manifest file](/docs/running-exominer-pipeline.md#outputs) that were not downloaded successfully.
 - Incorrect input format: the TIC IDs and sector runs are provided in a way that does not follow the expected format. 
 We detail the structure of the inputs in [running-exominer-pipeline.md](/docs/running-exominer-pipeline.md).
-- Missing data or non-existing TIC ID: the data are not available for a given TIC ID and sector run in the MAST. It 
+- Missing data or non-existent TIC ID: the data are not available for a given TIC ID and sector run in the MAST. It 
 might happen that the data are still not available at the MAST, the TESS SPOC pipeline was not run for that case, or 
 the TIC ID was not observed for that sector run and/or data collection mode (i.e., 2-min or FFI data). One way to check 
 that is to see whether the expected target light curve FITS files and DV XML files were downloaded. If the naming 
