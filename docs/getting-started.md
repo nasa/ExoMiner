@@ -26,9 +26,9 @@ The following file can be found in the [exominer_pipeline](/exominer_pipeline/) 
 an interface between the user and the pipeline:
 
 - [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh): this is the main script that you can run to use the podman image of the ExoMiner 
-pipeline. It is a wrapper file for `podman run`.
+pipeline. It is a wrapper script for `podman run`.
 
-A stable internet connection is also required to access the TESS repositories at the MAST and Gaia DR2 data.
+A stable internet connection is also required to access the TESS repositories at the MAST, and TIC-v8 and Gaia DR2 catalogs.
 
 ### More information on the image
 
