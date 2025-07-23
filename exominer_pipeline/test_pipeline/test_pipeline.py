@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     # exp_run_dir = Path(f'/Users/msaragoc/Downloads/exominer_pipeline_run_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     # exp_run_dir = Path('/Users/msaragoc/Downloads/exominer_pipeline_run_20250701-130322/')
-    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_test-tic-tbl_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     exp_run_dir.mkdir(parents=True, exist_ok=True)
 
     # # create CSV file with TICs
@@ -33,26 +33,28 @@ if __name__ == '__main__':
     # tics_tbl = tics_tbl.drop_duplicates(subset=['target_id', 'sector_run'])
     # tics_tbl = tics_tbl.rename(columns={'target_id': 'tic_id'})
 
-    tics_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl.csv')
+    # tics_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl.csv')
 
-    # tics_tbl = pd.DataFrame(
-    #     data = {
-    #         'tic_id': [
-    #             # 167526485,
-    #             # 167526485,
-    #             # 167526485,
-    #             # 184240683,  # non-existing ffi
-    #             356473034,  # ffi
-    #         ],
-    #         'sector_run': [
-    #             # '6-6',
-    #             # '7-7',
-    #             # '1-39',
-    #             # '29-29',  # non-existing ffi
-    #             '60-60',
-    #         ]
-    #     }
-    # )
+    import numpy as np
+    tics_tbl = pd.DataFrame(
+        data = {
+            'tic_id': [
+                # np.nan,
+                167526485,
+                # 167526485,
+                # 167526485,
+                # 184240683,  # non-existing ffi
+                # 356473034,  # ffi
+            ],
+            'sector_run': [
+                '6-6',
+                # '7-7',
+                # '1-39',
+                # '29-29',  # non-existing ffi
+                # '60-60',
+            ]
+        }
+    )
     # pred_tbl_prev_exp = pd.read_csv('/Users/msaragoc/Downloads/exominer_pipeline_run_20250630-174917/predictions_exominer_pipeline_run_20250630-174917.csv')
     # tics_tbl = tics_tbl.loc[~tics_tbl['tic_id'].isin(pred_tbl_prev_exp['target_id'])]
 

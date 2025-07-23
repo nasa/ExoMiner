@@ -155,6 +155,7 @@ def validate_tic_ids_csv_structure(tics_df, logger):
     Raises:
         SystemExit: If critical structural issues are found
     """
+
     required_columns = ['tic_id', 'sector_run']
     
     # Check if required columns exist
@@ -171,13 +172,10 @@ def validate_tic_ids_csv_structure(tics_df, logger):
     
     validation_errors = []
     
-    # Validate TIC IDs - should be numeric
+    # Validate TIC IDs - should be numeric and positive
     invalid_tic_ids = []
     for idx, tic_id in enumerate(tics_df['tic_id']):
-        try:
-            # Check if it can be converted to integer
-            int(str(tic_id).replace('.0', ''))  # Handle float representation of integers
-        except (ValueError, TypeError):
+        if not (isinstance(tic_id, int) and tic_id > 0):
             invalid_tic_ids.append(f"Row {idx + 1}: '{tic_id}'")
     
     if invalid_tic_ids:
@@ -186,14 +184,16 @@ def validate_tic_ids_csv_structure(tics_df, logger):
             validation_errors.append(f"... and {len(invalid_tic_ids) - 5} more invalid TIC IDs")
     
     # Validate sector_run format - should be like "6-6", "1-39", etc.
-    sector_run_pattern = re.compile(r'^\d+-\d+$')
+    sector_run_pattern = re.compile(r'^[1-9]\d{0,2}-[1-9]\d{0,2}$')
+
     invalid_sector_runs = []
     for idx, sector_run in enumerate(tics_df['sector_run']):
         if not sector_run_pattern.match(str(sector_run)):
             invalid_sector_runs.append(f"Row {idx + 1}: '{sector_run}'")
     
     if invalid_sector_runs:
-        validation_errors.append(f"Invalid sector_run format found (must be 'X-Y' format): {', '.join(invalid_sector_runs[:5])}")
+        validation_errors.append(f"Invalid sector_run format found (must be 'X-Y' format without leading zeros): "
+                                 f"{', '.join(invalid_sector_runs[:5])}")
         if len(invalid_sector_runs) > 5:
             validation_errors.append(f"... and {len(invalid_sector_runs) - 5} more invalid sector_run entries")
     

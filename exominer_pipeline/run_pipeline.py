@@ -252,10 +252,15 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     
     # Validate structure of TIC IDs CSV file
     logger.info('Validating TIC IDs CSV file structure...')
-    validate_tic_ids_csv_structure(tics_df, logger)
-    logger.info('TIC IDs CSV file structure validation completed.')
-    
-    logger.info(f'Found {len(tics_df)} TIC IDs. Saving TIC IDs to {str(tic_ids_fp)}...')
+    validate_tic_ids_flag = validate_tic_ids_csv_structure(tics_df, logger)
+    if not validate_tic_ids_flag:
+        raise SystemExit('TIC IDs CSV file structure validation failed.')
+    else:
+        logger.info('TIC IDs CSV file structure validation completed.')
+
+    output_tics_tbl_fp = output_dir / 'tics_tbl.csv'
+    tics_df.to_csv(output_tics_tbl_fp, index=False)
+    logger.info(f'Found {len(tics_df)} TIC IDs. Saving TIC IDs to {str(output_tics_tbl_fp.name)}...')
 
     logger.info(f'Checking validity of configuration file...')
     check_config(run_config, logger)
