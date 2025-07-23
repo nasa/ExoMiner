@@ -32,7 +32,7 @@ import yaml
 
 # local
 from src_preprocessing.diff_img.preprocessing.utils_diff_img import (
-    plot_diff_img_data, create_neighbors_img, map_target_subpixel_location_to_discrete_grid,
+    plot_diff_img_data, map_target_subpixel_location_to_discrete_grid,
     set_negative_value_oot_pixels, fill_missing_values_nearest_neighbors, center_images_to_target_pixel_location,
     crop_images_to_size, crop_images_to_valid_size, set_data_example_to_placeholder_values,
     check_for_missing_values_in_preproc_diff_data, sample_image_data, initialize_data_example_with_missing_values,
@@ -184,10 +184,10 @@ def preprocess_single_diff_img_data_for_example(diff_img, oot_img, snr_img, targ
     # create target image
     target_img = create_target_image(size_h * size_f_h, size_w * size_f_w, target_pos_col, target_pos_row)
 
-    if neighbor_data is not None:
-        neighbors_img = create_neighbors_img(neighbor_data, diff_img.shape, target_mag, exclude_neighbor_objs_outside)
-    else:
-        neighbors_img = None
+    # if neighbor_data is not None:
+    #     neighbors_img = create_neighbors_img(neighbor_data, diff_img.shape, target_mag, exclude_neighbor_objs_outside)
+    # else:
+    neighbors_img = None
 
     return (diff_img, oot_img, snr_img, target_img, (target_pos_col, target_pos_row),
             (target_col_disc, target_row_disc), neighbors_img)
