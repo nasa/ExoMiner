@@ -29,7 +29,8 @@ information on the structure of the input CSV file, see section [TIC IDs input](
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir=/path/to/directory/with/saved/inputs
 # file path to the TICs table
-tics_tbl_fp=$inputs_dir/tics_tbl.csv
+tics_tbl_fn=tics_tbl_filename.csv
+tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_{date, e.g. 7-10-2025_1925}
 # directory where the ExoMiner Pipeline run is saved
@@ -58,8 +59,8 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 podman run \
   -v $inputs_dir:/inputs:Z \
   -v $exominer_pipeline_run_dir:/outputs:Z \
-   d8c467fe1966 \
-  --tic_ids_fp=/inputs/tics_tbl.csv \
+  ghcr.io/nasa/exominer  \
+  --tic_ids_fp=/inputs/$tics_tbl_fn \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
@@ -141,4 +142,34 @@ exominer_pipeline_run_name
     - `tce_table`: contains data used to create a table of TESS SPOC TCEs detected for the assigned TIC IDs and sector runs. The final preprocessed table is `tess-spoc-dv_tces_0_processed.csv`. Additional results include querying Gaia DR2 for RUWE values, and TICv8 for updated stellar parameters.
     - `manifest_requested_products_2min.csv`: CSV file that includes information on the location of the downloaded files from the MAST and whether the download was successful. The "2min" suffix means that 2-min data was downloaded.
     - `requested_products_2min.csv`: CSV file that shows all data products that are requested for download (light curves FITS files and DV XML files) from the MAST.
-    - `mastDownload`: includes the light curve FITS files and DV XML files downloaded from the MAST for the assigned TIC IDs and sector runs. If the download is successful, each target should have a directory with a DV XML file related to the corresponding sector run, and a set of one or more folders related to the sectors the target was observed, each one containing the corresponding light curve FITS file.  
+    - `mastDownload`: includes the light curve FITS files and DV XML files downloaded from the MAST for the assigned TIC IDs and sector runs. If the download is successful, each target should have a directory with a DV XML file related to the corresponding sector run, and a set of one or more folders related to the sectors the target was observed, each one containing the corresponding light curve FITS file.
+
+## Running the pipeline without Podman
+
+If you do not want to use the Podman image, you can also run the ExoMiner Pipeline as a Python application. This method 
+requires an initial setup step:
+1. Clone the GitHub repository. 
+2. Install the required package dependencies. 
+
+You can get the required package dependencies by installing a package manager and environment 
+management system such as Conda, and then use it to build an environment with all the packages and Python modules 
+required to run the pipeline. Depending on the architecture of your system, you can use 
+[conda_env_exoplnt_dl_amd64.yml](../exominer_pipeline/conda_env_exoplnt_dl_amd64.yml) or 
+[conda_env_exoplnt_dl_arm64.yml](../exominer_pipeline/conda_env_exoplnt_dl_arm64.yml) to replicate a Conda environment 
+that can be used to run this pipeline. Run command `conda env create -f /path/to/conda_env.yml` to create the 
+environment, and then `conda activate exoplnt_dl` to activate it.
+
+After going through the setup, you can run the pipeline using the shell script 
+[run_pipeline.sh](../exominer_pipeline/run_pipeline.sh) that wraps around the Python script [run_pipeline.py](../exominer_pipeline/run_pipeline.py), or 
+simply run this Python script.
+- Running shell script (set variables accordingly):
+```bash
+/path/to/run_pipeline.sh -i $INPUTS_DIR -t $TICS_TBL_FN -r $RUN_DIR -m $DATA_COLLECTION_MODE -p $NUM_PROCESSES 
+-j $NUM_JOBS -d $DOWNLOAD_SPOC_DATA_PRODUCTS -e $EXTERNAL_DATA_REPOSITORY -s $PIPELINE_PYTHON_FP
+```
+
+- Running Python script (set variables accordingly):
+```bash
+python /path/to/run_pipeline.py --output_dir $INPUTS_DIR --tic_ids_fp $TICS_TBL_FP --data_collection_mode $DATA_COLLECTION_MODE --num_processes $NUM_PROCESSES 
+--num_jobs $NUM_JOBS --download_spoc_data_products $DOWNLOAD_SPOC_DATA_PRODUCTS -external_data_repository $EXTERNAL_DATA_REPOSITORY
+```

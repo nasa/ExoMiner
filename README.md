@@ -5,7 +5,7 @@
     <img src="/others/images/exominer_logo.png" width="250" height="250" alt="Exominer Logo">
 </div>
 
-#### Written by [Miguel Martinho](https://migmartinho.github.io) (miguel.martinho@nasa.gov) | Last update: 5-19-2025
+#### Written by [Miguel Martinho](https://migmartinho.github.io) (miguel.martinho@nasa.gov)
 
 ## Introduction
 
@@ -29,6 +29,9 @@ TESS SPOC TCEs in 2-min/FFI data. This pipeline makes use of Podman as a contain
 experience to the user - no need for setting up the code repository and install package dependencies! Simply get the 
 Podman image for your system's architecture using the [manifest](/docs/getting-started.md#pulling-the-image). See the 
 documentation in [here](/docs/index.md) to get started.
+
+For those interested in running the pipeline without resorting to Podman, see 
+[Running the pipeline without Podman](/docs/running-exominer-pipeline.md#running-the-pipeline-without-podman).
 
 ## Repository Overview
 

@@ -1,0 +1,61 @@
+# Submit a job to the PBS scheduler to run the ExoMiner Pipeline.
+#PBS -S /bin/bash
+#PBS -N exominer_pipeline_run
+#PBS -l walltime=72:00:00
+# PBS -l select=4:ncpus=128:model=rom_ait
+# PBS -l select=1:ncpus=40:model=cas_ait
+# PBS -q long
+#PBS -l select=1:ncpus=36:mem=360g:model=sky_gpu
+#PBS -l place=free:excl
+#PBS -q dsg_gpu@pbspl4
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exominer_pipeline_run.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exominer_pipeline_run.err
+#PBS -W group_list=a1509
+# PBS -W group_list=s2857
+#PBS -m bea
+
+# initialize conda and activate conda environment
+module use -a /swbuild/analytix/tools/modulefiles
+module load miniconda3/v4
+source activate exoplnt_dl_tf2_13
+
+# set path to codebase root directory
+export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
+
+# directory where the ExoMiner Pipeline run is saved
+RUN_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline_run_7-21-2025_1432
+# directory where the inputs for the ExoMiner Pipeline are stored
+INPUTS_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs
+# file path to the TICs table
+TICS_TBL_FN=tics_tbl_356473034_S60.csv
+# data collection mode: either 2min or ffi
+DATA_COLLECTION_MODE=ffi
+# number of processes
+NUM_PROCESSES=1
+# number of jobs to split the TIC IDs
+NUM_JOBS=1
+# set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
+# queried TICs
+DOWNLOAD_SPOC_DATA_PRODUCTS=true
+# path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
+# want to query; set to "null" otherwise
+EXTERNAL_DATA_REPOSITORY=null
+# pipeline shell script filepath
+PIPELINE_SH_FP=/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/run_pipeline.sh
+# pipeline python script filepath
+PIPELINE_PYTHON_FP=/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/run_pipeline.py
+
+mkdir -p $RUN_DIR
+
+# create main output job file
+JOB_FP=$RUN_DIR/output_job.txt
+
+# copy PBS script
+PBS_SCRIPT_FP=$(realpath "$0")
+cp "$PBS_SCRIPT_FP" $JOB_FP
+
+# copy codebase git commit hash
+COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
+echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
+
+$PIPELINE_SH_FP -i $INPUTS_DIR -t $TICS_TBL_FN -r $RUN_DIR -m $DATA_COLLECTION_MODE -p $NUM_PROCESSES -j $NUM_JOBS -d $DOWNLOAD_SPOC_DATA_PRODUCTS -e $EXTERNAL_DATA_REPOSITORY -s $PIPELINE_PYTHON_FP

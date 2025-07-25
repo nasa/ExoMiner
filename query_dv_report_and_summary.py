@@ -55,20 +55,23 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     sector run, or TCE.
 
     :param example_id: str, example identifier. Must follow format {tic_id}-{tce_id}-S{start_sector}-{end_sector}. To
-    not condition on a specific field, use `X` as placeholder. E.g. {tic_id}-X-S{start_sector}-{end_sector}.
+        not condition on a specific field, use `X` as placeholder. E.g. {tic_id}-X-S{start_sector}-{end_sector}.
     :param download_dir: str, download directory
     :param download_products: bool, if True products are downloaded
     :param reports: str, choose which reports to get.
         'dv_summary': downloads only TCE DV summary reports.
         'dv_report': downloads only full DV reports.
-        'dv_mini_report': downloads only TCERT reports.
-        'all': downloads DV and TCERT reports.
+        'dv_mini_report': downloads only mini-reports.
+        'all': downloads all DV reports.
     :param spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
     :param verbose: bool, verbose
     :return:
         prods, list of astropy Tables with path/URL to downloaded products
         uris, list of data products URIs
     """
+
+    prods = []
+    uris = {'DV TCE summary report': [], 'Full DV report': [], 'DV mini-report': []}
 
     if verbose:
         print(f'Started run for example {example_id}...')
@@ -110,13 +113,13 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     if verbose:
         print(f'Number of observations queried: {len(obs_table)}')
 
+    if len(obs_table) == 0:
+        return prods, uris
+
     # get list of products available for this target's observations
     obs_products = Observations.get_product_list(obs_table)
 
     products_filenames = obs_products.to_pandas()['productFilename']
-
-    prods = []
-    uris = {'DV TCE summary report': '', 'Full DV report': '', 'DV mini-report': ''}
 
     if 'TCE summary report' in reports_to_get:  # TCE DV summary reports
 
@@ -133,10 +136,10 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
         if download_products:
             prod_tce = Observations.download_products(obs_products_filter, download_dir=download_dir)
             prods.append(prod_tce)
-        try:
-            uris['DV TCE summary report'] = obs_products_filter['dataURI'].tolist()[0]
-        except:
-            print(f'No DV TCE summary report found for {example_id}')
+        if len(obs_products_filter) > 0:
+            uris['DV TCE summary report'] = obs_products_filter['dataURI'].tolist()
+        else:
+            print(f'No DV TCE summary report found for {example_id}.')
 
     if 'full data validation report' in reports_to_get:  # DV full reports
 
@@ -149,10 +152,10 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
                                                            description='full data validation report'
                                                            if not spoc_ffi else 'Informational PDF',
                                                            productFilename=filtered_products_filenames)
-        try:
-            uris['Full DV report'] = obs_products_filter['dataURI'].tolist()[0]
-        except:
-            print(f'No DV full report found for {example_id}')
+        if len(obs_products_filter) > 0:
+            uris['Full DV report'] = obs_products_filter['dataURI'].tolist()
+        else:
+            print(f'No DV full report found for {example_id}.')
 
         # download selected products
         if download_products:
@@ -171,10 +174,10 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
                                                            description='Data validation mini report' if not spoc_ffi
                                                            else 'PDF',
                                                            productFilename=filtered_products_filenames)
-        try:
-            uris['DV mini-report'] = obs_products_filter['dataURI'].tolist()[0]
-        except:
-            print(f'No DV mini-report found for {example_id}')
+        if len(obs_products_filter) > 0:
+            uris['DV mini-report'] = obs_products_filter['dataURI'].tolist()
+        else:
+            print(f'No DV mini-report found for {example_id}.')
 
         # download selected products
         if download_products:
@@ -185,7 +188,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
 
 def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
-                             verbose=True, csv_fp=None):
+                             verbose=True, csv_fp=None, get_most_recent_products=True):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -197,27 +200,42 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         reports: str, choose which reports to get.
             'dv_summary': downloads only TCE DV summary reports.
             'dv_report': downloads only full DV reports.
-            'tcert': downloads only TCERT reports.
-            'dv': downloads both TCE DV summary and full DV reports.
-            'all': downloads DV and TCERT reports.
+            'dv_mini_report': downloads only DV mini-reports.
+            'all': downloads DV reports.
         spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
         verbose: bool, verbose
         csv_fp: str, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
+        get_most_recent_products: bool, if True get only most recent products available (i.e., from the latest SPOC run)
 
-    Returns: uris_dict, dictionary that contains the URIs for the data products downloaded for each object
+    # Returns: uris_dict, dictionary that contains the URIs for the data products downloaded for each object
 
     """
 
     proc_id = os.getpid()
 
-    uris_dict = {'uid': [''] * len(objs_list)}
-    uris_dict.update({field: [''] * len(objs_list) for field in data_products_lst})
+    uris_dict = {'uid': []}
+    uris_dict.update({field: [] for field in data_products_lst})
     for obj_i, obj in enumerate(objs_list):
-        print(f'[{proc_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
-        uris_dict['uid'][obj_i] = obj
+
+        print(f'[Process ID {proc_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
+
         _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
-        for field in data_products_lst:
-            uris_dict[field][obj_i] = URL_HEADER + uris[field] if uris[field] != '' else ''
+
+        n_tces = len(uris[data_products_lst[0]])
+
+        if n_tces == 0:
+            continue
+
+        if get_most_recent_products and 'X' not in obj:
+            uris_dict['uid'] += [obj]
+            for field in data_products_lst:
+                uris_dict[field].append(URL_HEADER + uris[field][-1] if uris[field][-1] != '' else '')
+
+        else:
+            uris_dict['uid'] += [obj] * n_tces
+            for tce_i in range(n_tces):
+                for field in data_products_lst:
+                    uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
 
     if csv_fp:
         uris_df = pd.DataFrame(uris_dict)
@@ -235,32 +253,42 @@ if __name__ == "__main__":
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
     # TESS
-    objs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois.csv')
-    objs = objs.loc[objs['sector_run'].isin(['14'])]
-    objs['uid'] = objs['uid'].apply(correct_sector_field)
-    print(f'Found {len(objs)} events. Downloading DV reports...')
-    objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
-                       objs.groupby('sector_run')}
+    # objs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s88_3-27-2025_1316_label.csv')
+    # objs = objs.loc[objs['sector_run'].isin(['14'])]
+    # objs['uid'] = objs['uid'].apply(correct_sector_field)
+    # print(f'Found {len(objs)} events. Downloading DV reports...')
+    # objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
+    #                    objs.groupby('sector_run')}
     # objs_list_jobs = np.array_split(objs_list, n_jobs)
+    objs_list = [
+        '193831684-1-S13-13',
+        '1883519478-1-S14-14',
+    ]
+    n_jobs = 1
+    objs_list_jobs = np.array_split(objs_list, n_jobs)
 
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/tess_spoc_2min_urls/tess_spoc_2min_s1-s68_1-24-2025_1709')
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/test_7-24-2025')
     download_dir.mkdir(parents=True, exist_ok=True)
     spoc_ffi = False
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
-    download_products = False
+    download_products = True
     csv_fp = download_dir / f'{download_dir.name}.csv'
     verbose = True
-    n_procs = 12
+    get_most_recent_products = True
+    n_procs = 6
     n_jobs = len(objs_list_jobs)
     print(f'Split work into {n_jobs} jobs.')
 
     # parallelize jobs
     pool = multiprocessing.Pool(processes=n_procs)
-    # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp)
-    #         for objs_list_job in objs_list_jobs]
-    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
-            for sector_run, objs_list_job in objs_list_jobs.items()]
+    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp,
+             get_most_recent_products)
+            for objs_list_job in objs_list_jobs]
+    # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
+    #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
+    #         for sector_run, objs_list_job in objs_list_jobs.items()
+    #         if not (download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv').exists()]
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
     pool.join()
