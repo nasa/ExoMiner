@@ -194,7 +194,7 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
     Returns: norm_diff_img_feat, dict with normalized difference image features for the example
     """
 
-    MAX_MAG = 25
+    MAX_MAG_RATIO = 5
 
     # initialize dictionary to store the normalized features
     norm_diff_img_feat = {}
@@ -242,8 +242,8 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
         # x_n = (x - med(x)) / (std(x) + eps)
         for img_type, img_data in data_example.items():
 
-#             if 'neighbors_imgs' in img_type:
-#                continue
+            # if 'neighbors_imgs' in img_type:
+            #    continue
 
             img_data_std = np.array(img_data)
             img_data_std = ((img_data_std - normStatsDiff_img[img_type]['median']) /
@@ -259,7 +259,7 @@ def normalize_diff_img(example, normStatsDiff_img, imgs_dims, zero_division_eps=
                 continue
 
             img_data_minmaxn_fixed = np.array(img_data)
-            img_data_minmaxn_fixed =  img_data_minmaxn_fixed / MAX_MAG
+            img_data_minmaxn_fixed =  img_data_minmaxn_fixed / MAX_MAG_RATIO
 
             norm_diff_img_feat[f'{img_type}_fixed_min_max_norm'] = img_data_minmaxn_fixed
 

@@ -140,6 +140,11 @@ def compute_diff_img_data_norm_stats(diff_imgDict, config):
     }
         for diffimgs in config['diff_imgList']}
 
+    for diffimgs in config['diff_imgList']:
+        if 'neighbor' in config['diff_imgList']:
+            normStatsDiff_img[diffimgs]['std'] = stats.mad_std(diff_imgDict[diffimgs][diff_imgDict[diffimgs] != 0],
+                                                               ignore_nan=True)
+
     np.save(config['norm_dir'] / 'train_diffimg_norm_stats.npy', normStatsDiff_img)
 
     # create additional csv file with normalization statistics
@@ -308,19 +313,20 @@ def compute_normalization_stats(tfrec_fps, config):
     idxs_nontransitcadences_loc = get_out_of_transit_idxs_loc(config['num_bins_loc'],
                                                               config['nr_transit_durations'])  # same for all TCEs
 
-    if config['n_processes_compute_norm_stats'] is not None:
+    print(f'Started extracting data from {len(tfrec_fps)} TFRecord files...')
+
+    if config['n_processes_compute_norm_stats'] > 1:
         pool = multiprocessing.Pool(processes=config['n_processes_compute_norm_stats'])
 
-        tfrecTrainFiles_split = np.array_split(tfrec_fps, config['n_processes_compute_norm_stats'])
-        jobs = [(files, config['scalarParams'], config['centroidList'], config['diff_imgList'])
-                for files in tfrecTrainFiles_split]
+        # tfrecTrainFiles_split = np.array_split(tfrec_fps, config['n_processes_compute_norm_stats'])
+        # number of jobs is equal to number of TFRecord files
+        jobs = [([tfrec_fp], config['scalarParams'], config['centroidList'], config['diff_imgList'])
+                for tfrec_fp in tfrec_fps]
         async_results = [pool.apply_async(get_values_from_tfrecords, job,
                                           kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
                                                 'num_bins_loc': config['num_bins_loc'],
                                                 'num_bins_glob': config['num_bins_glob']})
                          for job in jobs]
-        pool.close()
-        pool.join()
         for async_result in async_results:
             partial_values = async_result.get()
             if config['scalarParams'] is not None:
@@ -332,6 +338,9 @@ def compute_normalization_stats(tfrec_fps, config):
             if config['diff_imgList'] is not None:
                 for param in config['diff_imgList']:
                     diff_imgDict[param].extend(partial_values[2][param])
+        pool.close()
+        pool.join()
+        print('Aggregated extracted data.')
     else:
         scalarParamsDict, centroidDict, diff_imgDict = \
             get_values_from_tfrecords(tfrec_fps,
@@ -343,20 +352,36 @@ def compute_normalization_stats(tfrec_fps, config):
                                       num_bins_glob=config['num_bins_glob']
                                       )
 
+    print('Finished extracting data. Started computing normalization statistics...')
+
     if config['scalarParams'] is not None:
+
+        print('Computing normalization statistics for scalar parameters...')
 
         scalar_norm_stats_df = compute_scalar_params_norm_stats(scalarParamsDict, config)
         scalar_norm_stats_df.to_csv(config['norm_dir'] / 'train_scalarparam_norm_stats.csv', index=False)
 
+        print('Done.')
+
     if config['centroidList'] is not None:
+
+        print('Computing normalization statistics for centroid motion data...')
 
         centroid_norm_stats_df = compute_centroid_norm_stats(centroidDict, config)
         centroid_norm_stats_df.to_csv(config['norm_dir'] / 'train_centroid_norm_stats.csv', index=False)
 
+        print('Done.')
+
     if config['diff_imgList'] is not None:
+
+        print('Computing normalization statistics for difference image data...')
 
         diff_img_data_norm_stats = compute_diff_img_data_norm_stats(diff_imgDict, config)
         diff_img_data_norm_stats.to_csv(config['norm_dir'] / 'train_diffimg_norm_stats.csv', index=False)
+
+        print('Done.')
+
+    print('Finished computing normalization statistics for the data.')
 
 
 if __name__ == '__main__':

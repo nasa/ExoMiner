@@ -214,12 +214,12 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
     """
 
     tfrec_tbls = []
-    for fp in tfrec_fps:
+    for fp_i, fp in enumerate(tfrec_fps):
         if verbose:
             if logger:
-                logger.info(f'Iterating over {fp}...')
+                logger.info(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')
             else:
-                print(f'Iterating over {fp}...')
+                print(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')
 
         try:
             tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))

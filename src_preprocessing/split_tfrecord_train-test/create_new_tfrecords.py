@@ -146,11 +146,12 @@ if __name__ == '__main__':
 
     # check the number of Examples in the TFRecord shards and that each TCE example for a given dataset is in the
     # TFRecords
+    print('Checking for examples in the dataset tables that are missing from the TFRecord shards...')
     dest_tfrec_fps = list(destTfrecDir.glob('*-shard-*'))
     _ = count_examples_new_tfrecord_dataset(dest_tfrec_fps, datasetTbl)
     print(f'Finished checking for examples in the dataset tables that are missing from the TFRecord shards.')
 
-    print('Create yaml file with datasets filepaths')
+    print('Creating yaml file with datasets filepaths...')
     json_dict = {key: val for key, val in config.items()}
     with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
         yaml.dump(json_dict, preproc_run_file)
