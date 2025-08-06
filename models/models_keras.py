@@ -1293,6 +1293,7 @@ class ExoMinerJointLocalFlux(object):
         self.outputs, self.attn_scores_normalized = self.build()
         
         self.kerasModel = keras.Model(inputs=self.inputs, outputs=[self.outputs, self.attn_scores_normalized])
+        self.branch_only_model = self._build_branch_only_model()
 
     def prepare_joint_local_flux_inputs(self, conv_branches):
         """ Prepares local flux inputs to be processed by the same convolutional branch.
@@ -2461,6 +2462,44 @@ class ExoMinerJointLocalFlux(object):
             net = tf.keras.layers.Dropout(self.config['clf_head_fc_dropout_rate'], name=f'dropout_fc{fc_layer_i}')(net)
 
         return net
+    
+        def _build_branch_only_model(self):
+            # 1) Re‑run each branch builder to get its output tensor
+            branches_net = {}
+            if self.config.get('scalar_branches') is not None:
+                branches_net.update(self.build_scalar_branches())
+            if self.config.get('conv_branches') is not None:
+                branches_net.update(self.build_conv_branches())
+                branches_net.update(self.build_joint_local_conv_branches())
+            if self.config.get('diff_img_branch') is not None:
+                branches_net.update(self.build_diff_img_branch())
+
+            # 2) All branches at this point have shape (batch, branch_num_fc_units)
+            branch_names = list(branches_net.keys())
+            branch_dim   = self.config['branch_num_fc_units']
+
+            # 3) Create one Input() per branch
+            branch_inputs = {
+                br: tf.keras.Input(shape=(branch_dim,), name=f'branch_input_{br}')
+                for br in branch_names
+            }
+
+            # 4) Concatenate exactly as in connect_segments → build_fc_block → logits
+            merged = tf.keras.layers.Concatenate(axis=1, name='branch_concat')(
+                list(branch_inputs.values())
+            )
+            head   = self.build_fc_block(merged)
+            logits = tf.keras.layers.Dense(units=self.output_size, name='branch_logits')(head)
+            if self.output_size == 1:
+                out = tf.keras.layers.Activation(tf.nn.sigmoid, name='branch_sigmoid')(logits)
+            else:
+                out = tf.keras.layers.Activation(tf.nn.softmax, name='branch_softmax')(logits)
+
+            return tf.keras.Model(
+                inputs=list(branch_inputs.values()),
+                outputs=out,
+                name='branch_only_model'
+            )
 
     def build(self):
         """ Builds the model.
