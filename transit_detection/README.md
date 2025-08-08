@@ -1,41 +1,115 @@
+# High-Level Dataset Build & Processing Workflow
 
+## 1. Build Dataset
 
+1. **Set conditions** in `config_build_dataset.yaml`.
+2. **Run**:
 
-Basic process
+   ```bash
+   python build_dataset.py
+   ```
 
-Set up conditions in config_build_dataset.yaml
-Run build_dataset.py
-NOTE: build_dataset_t_sr.py is the logic for the previous dataset build approach - migrated to target level masking to prevent erroneous cases of example overlap that caused label noise.
-    - Recommend not overwhelming number of targets per shard - can results in core dumps & interrupted building. 
-    - Creates dataset in the form (assuming current config):
-        dataset_name/
-                    tfrecords/
-                            data_tbl_0001-XXXX.csv
-                                . . .
-                            data_tbl_XXXX-XXXX.csv
-                            raw_shard_0001-XXXX.tfrecord
-                                . . .
-                            raw_shard_XXXX-XXXX.tfrecord
-### NOTE: At each further stage ensure the "num_shards" in relevant scripts corresponds to the XXXX value in the original dataset.
-### NOTE: Ensure that if using multiprocessing - the num_processes <= number of available cores (ie matches desired number of processes)
-Split dataset into train, val, test using dataset_handling/split_tfrec_dataset.py
-    - Creates split dataset in the form
-        dataset_name_split/
-                            tfrecords/
-                                        train/
-                                            train_shard_0001-XXXX.tfrecord
-                                        val/
-                                        test/
-Once split compute norm statistics on train set @ the target level using norm_pipeline/compute_train_stats.py
-    - Note: Current max number of examples per tce = 4 for stats computation
-    - Creates .npy file with training set statistics, used by normalization
-Once stats have been computed, the split dataset can be normalized using the provided statistics using norm_pipeline/norm_tfrec_dataset_split.py
-    - If using current setup, tfrecord shards will be transformed from:
-        raw_train_shard_0001-XXXX.tfrecord
-        ->
-        norm_train_shard_0001-XXXX.tfrecord
-    NOTE: The rest of the pipeline depends on shards being titled in this format - would need to accomodate for changes.
-At this stage, a model can be trained using keras_model/train_model.py
-    NOTE: keras_model/train_model.py is dependent on configuration parameters in keras_model/config_train.yaml.
-Alternatively, the dataset can be further filtered to remove examples based on provided conditions, using dataset_handling/remove_examples_by_condition.py
-    NOTE: conditions are manually defined within the process_shard function.
+### Notes
+* `build_dataset.py relies on various masking procedures, each with tuneable params, to compute examples with minimal noise, including a negative disposition transit mask, weak secondary transit mask, 
+    * Due to dataset construction changes, not all plotting functionality is functional - often best done after construction for visualization - or construction on a subset for testing w/ post processing.
+    * Due to dataset construction changes, logging was heuristic and improvements should be made if neccesary.
+* `build_dataset_t_sr.py` contains the **previous** dataset build logic — replaced by **target-level masking** to prevent erroneous example overlap and label noise.
+* Avoid **too many targets per shard** — may cause **core dumps** or interrupted builds.
+* Output structure (current config example):
+
+  ```
+  dataset_name/
+      tfrecords/
+          data_tbl_0001-XXXX.csv
+          ...
+          data_tbl_XXXX-XXXX.csv
+          raw_shard_0001-XXXX.tfrecord
+          ...
+          raw_shard_XXXX-XXXX.tfrecord
+  ```
+
+> **Important**: For all subsequent steps, `num_shards` in relevant scripts must match `XXXX` from the original dataset.
+> If using multiprocessing: `num_processes` ≤ number of available CPU cores.
+
+---
+
+## 2. Split Dataset
+
+Run:
+
+```bash
+python dataset_handling/split_tfrec_dataset.py
+```
+
+Output:
+
+```
+dataset_name_split/
+    tfrecords/
+        train/
+            train_shard_0001-XXXX.tfrecord
+        val/
+        test/
+```
+
+---
+
+## 3. Compute Normalization Statistics
+
+Run:
+
+```bash
+python norm_pipeline/compute_train_stats.py
+```
+
+### Notes
+
+* Computed at **target level**.
+* Max examples per TCE for stats: **4**.
+* Produces `.npy` file with training stats for normalization.
+
+---
+
+## 4. Normalize Dataset
+
+Run:
+
+```bash
+python norm_pipeline/norm_tfrec_dataset_split.py
+```
+
+Shards transform:
+
+```
+raw_train_shard_0001-XXXX.tfrecord
+    ↓
+norm_train_shard_0001-XXXX.tfrecord
+```
+
+> **Pipeline dependency**: Naming format must stay the same unless the pipeline is updated.
+
+---
+
+## 5. Train Model
+
+Run:
+
+```bash
+python keras_model/train_model.py
+```
+
+* Uses config in `keras_model/config_train.yaml`.
+
+---
+
+## 6. Optional: Filter Dataset
+
+Run:
+
+```bash
+python dataset_handling/remove_examples_by_condition.py
+```
+
+* Filtering logic is **manually defined** in `process_shard`.
+
+---
