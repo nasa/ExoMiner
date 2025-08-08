@@ -71,8 +71,7 @@ def normalize_img_feature(img_feature, img_set_med, img_set_std):
 
 def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
     if not src_tfrec_fp.exists():
-        print("FILEPATH DOES NOT EXIST")
-        print(src_tfrec_fp.name)
+        print(f"FILEPATH DOES NOT EXIST: {src_tfrec_fp}")
         return False
 
     try:
@@ -110,7 +109,6 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
                         src_norm_stats_dir / f"train_set_{img_feature}_stats.npy",
                         allow_pickle=True,
                     ).item()
-                    print(f"Using norm stats: {norm_stats}")
 
                     img_feature_set_med, img_feature_set_std = (
                         norm_stats["median"],
@@ -145,83 +143,91 @@ def normalize_and_write_shard(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir):
 
 
 if __name__ == "__main__":
+    tf.config.set_visible_devices([], "GPU")
+
+    dataset_name = "TESS_exoplanet_dataset_07-24-2025_no_detrend_split"
 
     # Define split name when processing multiple split directories
-    SPLIT_NAME = "test"  # TODO: normalize train, test, val
-    print(f"Beginning processing for {SPLIT_NAME} set")
+    for SPLIT_NAME in ["val", "test", "train"]:
+        print(f"Beginning processing for {SPLIT_NAME} set")
+        num_shards = 8593
 
-    # Define logging directory
-    log_dir = Path(
-        f"/nobackupp27/jochoa4/work_dir/data/logging/norm_sets_05-04-2025/{SPLIT_NAME}_set"
-    )
-    log_dir.mkdir(parents=True, exist_ok=True)
+        # Define logging directory
+        log_dir = Path(
+            f"/nobackupp27/jochoa4/work_dir/data/logging/norm_{dataset_name}/{SPLIT_NAME}"
+        )
+        log_dir.mkdir(parents=True, exist_ok=True)
 
-    # # Define source dataset directory & dest dataset directory with same structure + norm suffix
-    src_dataset_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split"
-    )
-    dest_dataset_dir = src_dataset_dir.parent / (str(src_dataset_dir.name) + "_norm")
+        # # Define source dataset directory & dest dataset directory with same structure + norm suffix
+        src_dataset_dir = Path(
+            f"/nobackupp27/jochoa4/work_dir/data/datasets/{dataset_name}"
+        )
+        dest_dataset_dir = src_dataset_dir.parent / (
+            str(src_dataset_dir.name) + "_norm"
+        )
 
-    # Define source/destination tfrec directory based on src dataset + split_name specification
-    src_tfrec_dir = src_dataset_dir / "tfrecords" / SPLIT_NAME
+        # Define source/destination tfrec directory based on src dataset + split_name specification
+        src_tfrec_dir = src_dataset_dir / "tfrecords" / SPLIT_NAME
 
-    dest_tfrec_dir = dest_dataset_dir / "tfrecords" / SPLIT_NAME
-    dest_tfrec_dir.mkdir(parents=True, exist_ok=True)
+        dest_tfrec_dir = dest_dataset_dir / "tfrecords" / SPLIT_NAME
+        dest_tfrec_dir.mkdir(parents=True, exist_ok=True)
 
-    # Define destination norm stats directory for the split
-    src_norm_stats_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_05-04-2025_split"
-    )
-    src_norm_stats_dir.mkdir(parents=True, exist_ok=True)
+        # Define destination norm stats directory for the split
+        src_norm_stats_dir = Path(
+            f"/nobackupp27/jochoa4/work_dir/data/stats/{dataset_name}"
+        )
+        src_norm_stats_dir.mkdir(parents=True, exist_ok=True)
 
-    # Define pool for multiprocessing
-    pool = multiprocessing.Pool(processes=60)
+        # Define pool for multiprocessing
+        pool = multiprocessing.Pool(processes=8)
 
-    # Setup logger for overseeing parallelized processes
-    logger = logging.getLogger(f"norm_logger_{SPLIT_NAME}")
-    logger.setLevel(logging.INFO)
+        # Setup logger for overseeing parallelized processes
+        logger = logging.getLogger(f"norm_logger_{SPLIT_NAME}")
+        logger.setLevel(logging.INFO)
 
-    log_path = Path(log_dir) / f"norm_{SPLIT_NAME}.log"
-    file_handler = logging.FileHandler(log_path)
-    logger_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(logger_formatter)
-    logger.addHandler(file_handler)
+        log_path = Path(log_dir) / f"norm_{SPLIT_NAME}.log"
+        file_handler = logging.FileHandler(log_path)
+        logger_formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s"
+        )
+        file_handler.setFormatter(logger_formatter)
+        logger.addHandler(file_handler)
 
-    # Create list of shard_nums to process from 1 to NUM_SHARDS bound
-    shards_to_process = [shard_num for shard_num in range(0, 8611 + 1)]
+        # Create list of shard_nums to process from 1 to NUM_SHARDS bound
+        shards_to_process = [shard_num for shard_num in range(0, num_shards + 1)]
 
-    results = []
+        results = []
 
-    # Process shards in parallel using pool
-    for shard_num in shards_to_process:
-        logger.info(f"Processing chunk {shard_num}.")
-        print((f"Processing chunk {shard_num}."))
-        try:
-            # define title in {SHARD_PREFIX}_{SHARD_NUM}-{NUM_SHARDS} format ex) test_shard_XXXX-8611 format
-            SHARD_TITLE = (
-                SPLIT_NAME
-                + "_shard_"
-                + str(shard_num).zfill(4)
-                + "-"
-                + str(8611).zfill(4)
-                + ".tfrecord"
-            )
+        # Process shards in parallel using pool
+        for shard_num in shards_to_process:
+            logger.info(f"Processing chunk {shard_num}.")
+            print((f"Processing chunk {shard_num}."))
+            try:
+                # define title in {SHARD_PREFIX}_{SHARD_NUM}-{NUM_SHARDS} format ex) test_shard_XXXX-8611 format
+                SHARD_TITLE = (
+                    SPLIT_NAME
+                    + "_shard_"
+                    + str(shard_num).zfill(4)
+                    + "-"
+                    + str(num_shards).zfill(4)
+                    + ".tfrecord"
+                )
 
-            # define src tfrec to process and dest tfrec to write to
-            src_tfrec_fp = src_tfrec_dir / SHARD_TITLE
-            dest_tfrec_fp = dest_tfrec_dir / ("norm_" + SHARD_TITLE)
+                # define src tfrec to process and dest tfrec to write to
+                src_tfrec_fp = src_tfrec_dir / SHARD_TITLE
+                dest_tfrec_fp = dest_tfrec_dir / ("norm_" + SHARD_TITLE)
 
-            result = pool.apply_async(
-                normalize_and_write_shard,
-                args=(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir),
-            )
-            results.append(result.get())
-        except:
-            print(f"ERROR Processing chunk {shard_num}")
-            continue
+                result = pool.apply_async(
+                    normalize_and_write_shard,
+                    args=(src_tfrec_fp, dest_tfrec_fp, src_norm_stats_dir),
+                )
+                results.append(result.get())
+            except:
+                print(f"ERROR Processing chunk {shard_num}")
+                continue
 
-    pool.close()
-    pool.join()
+        pool.close()
+        pool.join()
 
-    print(f"TFRecord shards successfully processed: {sum(results)}")
-    logger.info(f"TFRecord shards successfully processed: {sum(results)}")
+        print(f"TFRecord shards successfully processed: {sum(results)}")
+        logger.info(f"TFRecord shards successfully processed: {sum(results)}")

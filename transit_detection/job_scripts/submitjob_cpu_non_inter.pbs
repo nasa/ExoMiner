@@ -1,4 +1,4 @@
-# Used to run interactive jobs
+# Used to run non-interactive cpu jobs
 #PBS -S /bin/bash
 #PBS -N plot_dataset_examples_05-04-2025_split_norm
 #PBS -l walltime=06:00:00

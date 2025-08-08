@@ -1,4 +1,4 @@
-# Used to run interactive jobs
+# Used to run interactive cpu jobs
 #PBS -S /bin/bash
 #PBS -N transit_detection_dataset
 #PBS -l walltime=00:40:00

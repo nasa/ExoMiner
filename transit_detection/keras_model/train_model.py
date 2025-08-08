@@ -142,11 +142,12 @@ def train_model(config, model_dir, logger=None):
 
 if __name__ == "__main__":
 
-    # TODO: update file paths
+    # TODO: update test fps
 
+    dataset_name = "TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp"  # _bal_eb_ic"
     # output directory
     model_dir_fp = Path(
-        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/"  # v3 using str labels
+        f"/nobackupp27/jochoa4/work_dir/job_runs/train_model_{dataset_name}_low_lr/"  # v3 using str labels
     )
     model_dir_fp.mkdir(parents=True, exist_ok=True)
 

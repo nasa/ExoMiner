@@ -4,6 +4,8 @@ from astropy.io import fits
 from typing import Union
 import numpy as np
 from astropy.table import Table
+import warnings
+from astropy.units import UnitsWarning
 
 
 def fill_missing_tess_lc_timestamps(
@@ -71,6 +73,8 @@ def search_and_read_lcfs_and_tpfs(
             found_lcfs: List [lk.LightCurve objs] of valid light curve file objects
             found_tpfs: List [lk.TargetPixelFile objs] of valid target pixel file objects
     """
+    # Suppress all astropy unit warnings ( not using units for conversions directly)
+    warnings.filterwarnings("ignore", category=UnitsWarning)
 
     tpf_sector_paths = (
         [Path(f"{tpf_dir}/sector_{sector}") for sector in sectors] if sectors else []

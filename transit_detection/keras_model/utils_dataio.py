@@ -16,6 +16,81 @@ from src.train.data_augmentation import (
 )
 
 
+# def check_numerics_fn(*args):
+#     def safe_check(tensor, name):
+#         if tensor.dtype.is_floating:
+#             tf.debugging.check_numerics(tensor, name)
+
+#     if len(args) == 2:
+#         features, label = args
+#         if isinstance(features, dict):
+#             for k, v in features.items():
+#                 if k != "source_file":
+#                     safe_check(v, f"features[{k}]")
+#         else:
+#             safe_check(features, "features")
+#         safe_check(label, "label")
+#         return features, label
+
+#     elif len(args) == 3:
+#         features, label, weight = args
+#         if isinstance(features, dict):
+#             for k, v in features.items():
+#                 if k != "source_file":
+#                     safe_check(v, f"features[{k}]")
+#         else:
+#             safe_check(features, "features")
+#         safe_check(label, "label")
+#         if isinstance(weight, dict):
+#             for k, v in weight.items():
+#                 safe_check(v, f"weight[{k}]")
+#         else:
+#             safe_check(weight, "weight")
+#         return features, label, weight
+
+#     else:
+#         raise ValueError(f"Unexpected dataset element format: {len(args)}")
+
+# def strict_sanity_check(*args):
+#     def get_flat_float_tensors(features):
+#         if isinstance(features, dict):
+#             return [
+#                 tf.reshape(v, [-1]) for v in features.values() if v.dtype.is_floating
+#             ]
+#         return [tf.reshape(features, [-1])] if features.dtype.is_floating else []
+
+#     if len(args) == 2:
+#         features, label = args
+#         float_inputs = get_flat_float_tensors(features)
+#         if float_inputs:
+#             x = tf.concat(float_inputs, axis=0)
+#             tf.debugging.assert_all_finite(x, "Inputs have NaNs or Infs")
+#             tf.debugging.assert_less(
+#                 tf.reduce_max(tf.abs(x)), 1e6, "Inputs have huge values"
+#             )
+#         return features, label
+
+#     elif len(args) == 3:
+#         features, label, weight = args
+#         float_inputs = get_flat_float_tensors(features)
+#         if float_inputs:
+#             x = tf.concat(float_inputs, axis=0)
+#             tf.debugging.assert_all_finite(x, "Inputs have NaNs or Infs")
+#             tf.debugging.assert_less(
+#                 tf.reduce_max(tf.abs(x)), 1e6, "Inputs have huge values"
+#             )
+#         if isinstance(weight, dict):
+#             for k, v in weight.items():
+#                 if v.dtype.is_floating:
+#                     tf.debugging.assert_all_finite(v, f"weight[{k}] has NaNs or Infs")
+#         elif weight.dtype.is_floating:
+#             tf.debugging.assert_all_finite(weight, "weight has NaNs or Infs")
+#         return features, label, weight
+
+#     else:
+#         raise ValueError(f"Unexpected number of elements in dataset tuple: {len(args)}")
+
+
 def get_data_from_tfrecords_for_predictions_table(datasets, data_fields, datasets_fps):
     """Get data of the `data_fields` in the TFRecord files for different data sets defined in `datasets` and create a
     pandas DataFrame with those data for each data set.
@@ -235,12 +310,12 @@ class InputFnv2(object):
 
             # map label to integer value
             label_id = tf.cast(0, dtype=tf.int32, name="cast_label_to_int32")
-            
+
             if include_labels:
                 # map label to integer
                 # label_id = parsed_label[
                 #     self.label_field_name
-                # ] 
+                # ]
                 label_id = label_to_id.lookup(parsed_label[self.label_field_name])
 
                 # print(f"label_id: {(label_id)}, {type(label_id)}")
@@ -306,6 +381,7 @@ class InputFnv2(object):
 
                     # phase shift some bins
                     value = phase_shift(value, shift)
+                # output["source_file"] = fn  # attach tfrec fn
 
                 if feature_name in list(self.feature_map.keys()):
                     output[self.feature_map[feature_name]] = value
@@ -324,10 +400,12 @@ class InputFnv2(object):
 
         # Create a HashTable mapping label strings to integer ids.
 
-        table_initializer = tf.lookup.KeyValueTensorInitializer(keys=list(self.label_map.keys()),
-                                                                values=list(self.label_map.values()),
-                                                                key_dtype=tf.string,
-                                                                value_dtype=tf.int32)
+        table_initializer = tf.lookup.KeyValueTensorInitializer(
+            keys=list(self.label_map.keys()),
+            values=list(self.label_map.values()),
+            key_dtype=tf.string,
+            value_dtype=tf.int32,
+        )
 
         label_to_id = tf.lookup.StaticHashTable(table_initializer, default_value=-1)
 
@@ -374,6 +452,16 @@ class InputFnv2(object):
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True if self.mode == "PREDICT" else False,
         )
+
+        # dataset = dataset.map(
+        #     check_numerics_fn,
+        #     num_parallel_calls=tf.data.AUTOTUNE,
+        # )
+
+        # dataset = dataset.map(
+        #     strict_sanity_check,
+        #     num_parallel_calls=tf.data.AUTOTUNE,
+        # )
 
         if (
             self.filter_fn

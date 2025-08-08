@@ -7,6 +7,8 @@ import numpy as np
 from astropy.stats import mad_std
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 import warnings
 from scipy.ndimage import gaussian_filter1d
 
@@ -153,7 +155,11 @@ def interpolate_missing_flux(time, flux):
         flux[valid_flux_mask],
         kind="linear",
         bounds_error=False,
-        fill_value="extrapolate",  # assume_sorted=True
+        fill_value=(
+            # "extrapolate"
+            flux[valid_flux_mask][0],
+            flux[valid_flux_mask][-1],
+        ),  # assume_sorted=True
     )
 
     flux = f(time)
@@ -164,8 +170,10 @@ def interpolate_missing_flux(time, flux):
     quality_mask[valid_flux_mask] = 1.0
 
     quality_mask[~valid_flux_mask] = gaussian_filter1d(
-        np.isfinite(flux).astype(float), sigma=1.0, mode="reflect"
+        valid_flux_mask.astype(float), sigma=1.0, mode="reflect"
     )[~valid_flux_mask]
+
+    quality_mask = np.clip(quality_mask, 0.0, 1.0)  # clip [0, 1]
 
     return flux, cadence_mask, quality_mask
 
@@ -258,6 +266,12 @@ def resample_time_flux_quality_and_mask(
         resampled_mask: NumPy array, resampled mask
     """
 
+    assert (
+        len(time) == len(flux) == len(flux_quality) == len(mask)
+    ), f"ERROR: Cannot resample, length mismatch for: time: {time.shape}, flux: {flux.shape}, flux_quality: {flux_quality.shape}, mask: {mask.shape}"
+
+    resampled_time = np.linspace(time[0], time[-1], num=num_resampled_points)
+
     f_flux = interp1d(
         time,
         flux,
@@ -265,8 +279,6 @@ def resample_time_flux_quality_and_mask(
         bounds_error=False,
         fill_value="extrapolate",  # assume_sorted=True
     )
-
-    resampled_time = np.linspace(time[0], time[-1], num=num_resampled_points)
 
     resampled_flux = f_flux(resampled_time)
 
@@ -406,7 +418,7 @@ def extract_flux_windows_for_tce(
                 exclude_idxs_mtp_arr.append(mtp_i)
         if logger and (len(exclude_idxs_mtp_arr) > 0):
             logger.info(
-                f"Excluding {len(exclude_idxs_mtp_arr)} / {len(midtransit_points_arr)} possible midtransit points for negative disposition tce: {tce_uid}"
+                f"Excluding {len(exclude_idxs_mtp_arr)} / {len(midtransit_points_arr)} midtransit points for neg disp ({disposition}) tce, based on window overlap with pos disp tce for: {tce_uid}"
             )
         midtransit_points_arr = np.delete(
             np.array(midtransit_points_arr), exclude_idxs_mtp_arr, axis=0
@@ -562,7 +574,7 @@ def extract_flux_windows_for_tce(
 
     if n_oot_windows < n_it_windows:
         if logger:
-            logger.warn(
+            logger.warning(
                 f"Number of out-of-transit windows: ({n_oot_windows}) is less than number of transit windows: ({n_it_windows})."
             )
         # warnings.warn(
@@ -603,13 +615,20 @@ def extract_flux_windows_for_tce(
         resampled_flux_it_windows_arr,
         resampled_flux_quality_it_windows_arr,
         resampled_true_it_mask_it_windows_arr,
-    ) = ([], [], [])
+    ) = ([], [], [], [])
 
-    for time_window, flux_window, flux_quality_window, true_it_mask_window in zip(
+    for (
+        time_window,
+        flux_window,
+        flux_quality_window,
+        true_it_mask_window,
+        midtransit_point,
+    ) in zip(
         time_it_windows_arr,
         flux_it_windows_arr,
         flux_quality_it_windows_arr,
         true_it_mask_it_windows_arr,
+        midtransit_points_windows_arr,
     ):
         (
             resampled_time_window,
@@ -624,6 +643,10 @@ def extract_flux_windows_for_tce(
             resampled_num_points,
         )
 
+        # logger.info(
+        #     f"IT {tce_uid}_t_{midtransit_point} has max unsampled flux_window {max(flux_window)} and resampled flux_window of {max(resampled_flux_window)}"
+        # )
+
         resampled_time_it_windows_arr.append(resampled_time_window)
         resampled_flux_it_windows_arr.append(resampled_flux_window)
         resampled_flux_quality_it_windows_arr.append(resampled_flux_quality_window)
@@ -637,11 +660,18 @@ def extract_flux_windows_for_tce(
         resampled_true_it_mask_oot_windows_arr,
     ) = ([], [], [], [])
 
-    for time_window, flux_window, flux_quality_window, true_it_mask_window in zip(
+    for (
+        time_window,
+        flux_window,
+        flux_quality_window,
+        true_it_mask_window,
+        midoot_point,
+    ) in zip(
         time_oot_windows_arr,
         flux_oot_windows_arr,
         flux_quality_oot_windows_arr,
         true_it_mask_oot_windows_arr,
+        midoot_points_windows_arr,
     ):
         (
             resampled_time_window,
@@ -652,9 +682,12 @@ def extract_flux_windows_for_tce(
             time_window,
             flux_window,
             flux_quality_window,
-            true_it_mask,
+            true_it_mask_window,
             resampled_num_points,
         )
+        # logger.info(
+        #     f"OOT {tce_uid}_t_{midoot_point} has max unsampled flux_window {max(flux_window)} and resampled flux_window of {max(resampled_flux_window)}"
+        # )
 
         resampled_time_oot_windows_arr.append(resampled_time_window)
         resampled_flux_oot_windows_arr.append(resampled_flux_window)
@@ -699,40 +732,40 @@ def extract_flux_windows_for_tce(
     )
 
 
-def plot_detrended_flux_time_series_sg(
-    time, flux, detrend_time, detrend_flux, trend, sector, plot_dir=None
-):
-    """
-    Builds plot for a given time series that was detrended using savitzky golay. Builds three plots over time:
-    1. Raw Flux
-    2. Detrended Normalized Flux
-    3. Trend against Detrended Normalized Flux
+# def plot_detrended_flux_time_series_sg(
+#     time, flux, detrend_time, detrend_flux, trend, sector, plot_dir=None
+# ):
+#     """
+#     Builds plot for a given time series that was detrended using savitzky golay. Builds three plots over time:
+#     1. Raw Flux
+#     2. Detrended Normalized Flux
+#     3. Trend against Detrended Normalized Flux
 
-    Args:
-        time: NumPy array, timestamps
-        flux: NumPy array, flux time series
-        detrend_time: NumPy array, timestamps associated with detrended flux
-        detrend_flux: NumPy array, flux time series detrended with savitzky golay
-        trend: NumPy array, trend returned by savitzky golay detrending.
-        sector: String, of an integer, for the sector corresponding to the time series
-        plot_dir: Path, directory to create plot
+#     Args:
+#         time: NumPy array, timestamps
+#         flux: NumPy array, flux time series
+#         detrend_time: NumPy array, timestamps associated with detrended flux
+#         detrend_flux: NumPy array, flux time series detrended with savitzky golay
+#         trend: NumPy array, trend returned by savitzky golay detrending.
+#         sector: String, of an integer, for the sector corresponding to the time series
+#         plot_dir: Path, directory to create plot
 
-    Returns:
-        None
-    """
+#     Returns:
+#         None
+#     """
 
-    if plot_dir:
-        f, ax = plt.subplots(3, 1, figsize=(12, 8))
-        ax[0].scatter(time, flux, s=8, label="PDCSAP Flux")
-        ax[0].set_ylabel("PDCSAP Flux [e-/cadence]")
-        ax[1].scatter(detrend_time, detrend_flux, s=8)
-        ax[1].set_ylabel("Detrended Normalized Flux")
-        ax[2].scatter(detrend_time, detrend_flux, s=8, label="Detrended")
-        ax[2].scatter(detrend_time, trend, s=8)
-        ax[2].set_ylabel("Flux Trend [e-/cadence]")
-        ax[2].set_xlabel("Time - 2457000 [BTJD days]")
-        f.savefig(plot_dir / f"sector_{sector}_detrended_flux.png")
-        plt.close()
+#     if plot_dir:
+#         f, ax = plt.subplots(3, 1, figsize=(12, 8))
+#         ax[0].scatter(time, flux, s=8, label="PDCSAP Flux")
+#         ax[0].set_ylabel("PDCSAP Flux [e-/cadence]")
+#         ax[1].scatter(detrend_time, detrend_flux, s=8)
+#         ax[1].set_ylabel("Detrended Normalized Flux")
+#         ax[2].scatter(detrend_time, detrend_flux, s=8, label="Detrended")
+#         ax[2].scatter(detrend_time, trend, s=8)
+#         ax[2].set_ylabel("Flux Trend [e-/cadence]")
+#         ax[2].set_xlabel("Time - 2457000 [BTJD days]")
+#         f.savefig(plot_dir / f"sector_{sector}_detrended_flux.png")
+#         plt.close()
 
 
 def build_transit_mask_for_lightcurve(
@@ -869,37 +902,287 @@ def build_secondary_transit_mask_for_lightcurve(
     return sec_in_transit_mask
 
 
-def plot_detrended_flux_time_series_sg(
-    time, flux, detrend_time, detrend_flux, trend, sector, plot_dir=None
+def plot_interpolated_flux_mask(
+    time,
+    flux,
+    cadence_mask,
+    flux_quality,
+    sector=None,
+    plot_dir=None,
+    figsize=(10, 4),
 ):
     """
-    Builds plot for a given time series that was detrended using savitzky golay. Builds three plots over time:
-    1. Raw Flux
-    2. Detrended Normalized Flux
-    3. Trend against Detrended Normalized Flux
+    Show the interpolated flux with shaded regions for both
+    interpolation gaps and low-quality intervals using fill_between.
 
-    Args:
-        time: NumPy array, timestamps
-        flux: NumPy array, flux time series
-        detrend_time: NumPy array, timestamps associated with detrended flux
-        detrend_flux: NumPy array, flux time series detrended with savitzky golay
-        trend: NumPy array, trend returned by savitzky golay detrending.
-        sector: String, of an integer, for the sector corresponding to the time series
-        plot_dir: Path, directory to create plot
-
-    Returns:
-        None
+    Single-panel plot:
+      • Solid blue line: filled flux
+      • Green fill: interpolation mask
+      • Red fill: low-quality cadences (where quality<1)
     """
+    plt.style.use("default")
 
-    if plot_dir:
-        f, ax = plt.subplots(3, 1, figsize=(12, 8))
-        ax[0].scatter(time, flux, s=8, label="PDCSAP Flux")
-        ax[0].set_ylabel("PDCSAP Flux [e-/cadence]")
-        ax[1].scatter(detrend_time, detrend_flux, s=8)
-        ax[1].set_ylabel("Detrended Normalized Flux")
-        ax[2].scatter(detrend_time, detrend_flux, s=8, label="Detrended")
-        ax[2].scatter(detrend_time, trend, s=8)
-        ax[2].set_ylabel("Flux Trend [e-/cadence]")
-        ax[2].set_xlabel("Time - 2457000 [BTJD days]")
-        f.savefig(plot_dir / f"sector_{sector}_detrended_flux.png")
-        plt.close()
+    mask_max_alpha = 0.4
+    palette = {
+        "flux": "#0a3553",  # blue
+        "interp_mask": "#a5f369",  # green
+        "quality": "#e24e4e",  # red
+    }
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    ax.set_facecolor("white")
+
+    # 1) Shade interpolation gaps under everything
+    ymin, ymax = np.nanmin(flux), np.nanmax(flux)
+    ax.fill_between(
+        time,
+        ymin,
+        ymax,
+        where=cadence_mask,
+        color=palette["interp_mask"],
+        alpha=0.3,
+        label="Interp Mask",
+        zorder=1,
+    )
+
+    # 2) Shade low-quality cadences under the line
+    lowq = flux_quality < 1.0
+    if np.any(lowq):
+        ax.fill_between(
+            time,
+            ymin,
+            ymax,
+            where=lowq,
+            color=palette["quality"],
+            alpha=mask_max_alpha,
+            label="Low Quality",
+            zorder=2,
+        )
+
+    # 3) Plot the flux on top
+    ax.plot(time, flux, color=palette["flux"], lw=1.5, label="Flux", zorder=3)
+
+    # 4) Construct a clear legend
+    handles = [
+        Line2D([0], [0], color=palette["flux"], lw=1.5, label="Flux"),
+        Patch(facecolor=palette["interp_mask"], alpha=0.3, label="Interp Mask"),
+        Patch(facecolor=palette["quality"], alpha=mask_max_alpha, label="Low Quality"),
+    ]
+    ax.legend(handles=handles, loc="upper right", fontsize="small", frameon=False)
+
+    ax.set_xlabel("Time [BTJD days]")
+    ax.set_ylabel("Flux [e⁻/cadence]")
+    ax.set_title("Interpolated Flux & Quality")
+
+    if sector is not None:
+        fig.suptitle(f"Sector {sector}", y=1.02)
+
+    fig.tight_layout()
+    if plot_dir is not None:
+        plot_dir.mkdir(parents=True, exist_ok=True)
+        fig.savefig(plot_dir / f"sector_{sector}_interpolated_mask.png", dpi=150)
+        plt.close(fig)
+    else:
+        plt.show()
+
+
+def plot_flux_diagnostics_sg(
+    time,
+    flux,
+    detrend_time,
+    detrended_flux,
+    trend,
+    detrend_mask,
+    quality_mask,
+    sector=None,
+    plot_dir=None,
+    figsize=(16, 12),
+):
+    """
+    Eight-panel diagnostics of raw vs detrended light curves using fill_between:
+
+    Panels (4×2):
+      0) Raw + low-quality + detrend-mask
+      1) Raw + detrend-mask only
+      2) Detrended only
+      3) Detrended + trend line
+      4) Detrended + detrend-mask only
+      5) Detrended + low-quality only
+      6) Raw summary: both masks
+      7) Detrended summary: both masks
+    """
+    plt.style.use("default")
+    mask_max_alpha = 0.4
+    palette = {
+        "flux": "#0a3553",  # blue
+        "trend": "#ff963a",  # orange
+        "detrend_mask": "#8edd52",  # green
+        "quality": "#e24e4e",  # red
+    }
+
+    fig, axes = plt.subplots(4, 2, figsize=figsize)
+    axes = axes.flatten()
+    ymin_raw, ymax_raw = np.min(flux), np.max(flux)
+    ymin_det, ymax_det = np.min(detrended_flux), np.max(detrended_flux)
+
+    def add_masks(ax, x, y0, y1, mask, color, alpha, label):
+        """Fill under mask with given color/alpha."""
+        ax.fill_between(
+            x, y0, y1, where=mask, color=color, alpha=alpha, label=label, zorder=1
+        )
+
+    # Panel 0: Raw + quality + detrend-mask
+    ax = axes[0]
+    add_masks(
+        ax,
+        time,
+        ymin_raw,
+        ymax_raw,
+        detrend_mask,
+        palette["detrend_mask"],
+        0.3,
+        "Detrend Mask",
+    )
+    add_masks(
+        ax,
+        time,
+        ymin_raw,
+        ymax_raw,
+        quality_mask < 1.0,
+        palette["quality"],
+        mask_max_alpha,
+        "Low Quality",
+    )
+    ax.plot(time, flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.set_title("Raw: Quality & Detrend Mask")
+    ax.set_ylabel("Flux")
+
+    # Panel 1: Raw + detrend-mask only
+    ax = axes[1]
+    add_masks(
+        ax,
+        time,
+        ymin_raw,
+        ymax_raw,
+        detrend_mask,
+        palette["detrend_mask"],
+        0.3,
+        "Detrend Mask",
+    )
+    ax.plot(time, flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.set_title("Raw: Detrend Mask")
+
+    # Panel 2: Detrended only
+    ax = axes[2]
+    ax.plot(detrend_time, detrended_flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.set_title("Detrended Flux")
+    ax.set_ylabel("Flux")
+
+    # Panel 3: Detrended + trend line
+    ax = axes[3]
+    ax.plot(detrend_time, detrended_flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.plot(detrend_time, trend, color=palette["trend"], lw=1.5, zorder=4)
+    ax.set_title("Detrended & Trend")
+
+    # Panel 4: Detrended + detrend-mask only
+    ax = axes[4]
+    add_masks(
+        ax,
+        detrend_time,
+        ymin_det,
+        ymax_det,
+        detrend_mask,
+        palette["detrend_mask"],
+        0.3,
+        "Detrend Mask",
+    )
+    ax.plot(detrend_time, detrended_flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.set_title("Detrended: Detrend Mask")
+    ax.set_ylabel("Flux")
+
+    # Panel 5: Detrended + low-quality only
+    ax = axes[5]
+    add_masks(
+        ax,
+        detrend_time,
+        ymin_det,
+        ymax_det,
+        quality_mask < 1.0,
+        palette["quality"],
+        mask_max_alpha,
+        "Low Quality",
+    )
+    ax.plot(detrend_time, detrended_flux, color=palette["flux"], lw=1.5, zorder=3)
+    ax.set_title("Detrended: Quality Mask")
+
+    # Panel 6: Raw summary both masks
+    ax = axes[6]
+    add_masks(
+        ax,
+        time,
+        ymin_raw,
+        ymax_raw,
+        detrend_mask,
+        palette["detrend_mask"],
+        0.3,
+        "Detrend Mask",
+    )
+    add_masks(
+        ax,
+        time,
+        ymin_raw,
+        ymax_raw,
+        quality_mask < 1.0,
+        palette["quality"],
+        mask_max_alpha,
+        "Low Quality",
+    )
+    ax.plot(time, flux, color=palette["flux"], lw=1.5, zorder=3, label="Flux")
+    ax.set_title("Raw Summary")
+    ax.set_xlabel("Time [BTJD days]")
+    ax.legend(loc="upper right", fontsize="small", frameon=False)
+
+    # Panel 7: Detrended summary both masks
+    ax = axes[7]
+    add_masks(
+        ax,
+        detrend_time,
+        ymin_det,
+        ymax_det,
+        detrend_mask,
+        palette["detrend_mask"],
+        0.3,
+        "Detrend Mask",
+    )
+    add_masks(
+        ax,
+        detrend_time,
+        ymin_det,
+        ymax_det,
+        quality_mask < 1.0,
+        palette["quality"],
+        mask_max_alpha,
+        "Low Quality",
+    )
+    ax.plot(
+        detrend_time,
+        detrended_flux,
+        color=palette["flux"],
+        lw=1.5,
+        zorder=3,
+        label="Flux",
+    )
+    ax.set_title("Detrended Summary")
+    ax.set_xlabel("Time [BTJD days]")
+    ax.legend(loc="upper right", fontsize="small", frameon=False)
+
+    if sector is not None:
+        fig.suptitle(f"Sector {sector}", y=0.98)
+
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    if plot_dir is not None:
+        plot_dir.mkdir(parents=True, exist_ok=True)
+        fig.savefig(plot_dir / f"sector_{sector}_flux_diagnostics.png", dpi=150)
+        plt.close(fig)
+    else:
+        plt.show()
