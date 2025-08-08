@@ -1,0 +1,10 @@
+# Used for job on a GH  node
+#PBS -S /bin/bash
+#PBS -N test_gh_ssh
+#PBS -l walltime=01:00:00
+#PBS -lselect=1:model=gh200
+#PBS -q dsggh_gpu@pbs05a
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/test_gh_ssh.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/test_gh_shs.err
+#PBS -W group_list=a1509
+#PBS -m bea

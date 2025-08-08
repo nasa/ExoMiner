@@ -186,6 +186,12 @@ def serialize_set_examples_for_tce(data_for_tce):
                         )
                     ],
                 )
+                # informational window source feature
+                example_util.set_bytes_feature(
+                    example,
+                    "transit_example",
+                    ["1" if example_type == "transit_examples" else "0"],
+                )
                 # set auxiliary data
                 example_util.set_bytes_feature(
                     example, "sector", [data_for_sector["sector"]]

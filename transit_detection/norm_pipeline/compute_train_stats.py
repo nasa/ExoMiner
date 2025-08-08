@@ -150,26 +150,28 @@ def retrieve_shard_feature_img_pixels(
 
 
 if __name__ == "__main__":
+    tf.config.set_visible_devices([], "GPU")
+
+    num_shards = 8593
+    dataset_name = "TESS_exoplanet_dataset_07-24-2025_no_detrend_split"
 
     # src directory containing training set tfrecords
     train_set_tfrec_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split/tfrecords/train"
+        f"/nobackupp27/jochoa4/work_dir/data/datasets/{dataset_name}/tfrecords/train"
     )
 
     # src directory containing set aux_tbls
     src_aux_tbl_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split/tfrecords/aux_tbls"
+        f"/nobackupp27/jochoa4/work_dir/data/datasets/{dataset_name}/tfrecords/aux_tbls"
     )
 
     # TRUE RUNS
     # destination directory for computed training stats
-    dest_stats_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/stats/TESS_exoplanet_dataset_05-04-2025_split/"
-    )
+    dest_stats_dir = Path(f"/nobackupp27/jochoa4/work_dir/data/stats/{dataset_name}")
 
     # destination directory for logging
     log_dir = Path(
-        "/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_05-04-2025_logs"
+        f"/nobackup/jochoa4/work_dir/data/logging/compute_train_stats_{dataset_name}"
     )
 
     # # TESTING
@@ -206,11 +208,11 @@ if __name__ == "__main__":
     start = time.time()
 
     # using N-2 = 126 as tested working value
-    pool = multiprocessing.Pool(processes=100)
+    pool = multiprocessing.Pool(processes=8)
 
     # jobs = [str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)] # chunk 1 to chunk 8611
     jobs = [
-        str(shard_num).zfill(4) for shard_num in range(1, 8611 + 1)
+        str(shard_num).zfill(4) for shard_num in range(1, num_shards + 1)
     ]  # chunk 1 to chunk 8611
 
     logger.info(
@@ -220,13 +222,19 @@ if __name__ == "__main__":
 
     results = []
     for shard_num in jobs:
-        shard_fp = train_set_tfrec_dir / f"train_shard_{shard_num}-8611.tfrecord"
-        aux_tbl_fp = src_aux_tbl_dir / f"shards_tbl_{shard_num}-8611.csv"
-        if shard_fp.exists():
+        shard_fp = (
+            train_set_tfrec_dir / f"train_shard_{shard_num}-{num_shards}.tfrecord"
+        )
+        aux_tbl_fp = src_aux_tbl_dir / f"shards_tbl_{shard_num}-{num_shards}.csv"
+        if shard_fp.exists() and aux_tbl_fp.exists():
             shard_pixels = pool.apply_async(
                 partial_func, args=[shard_fp, aux_tbl_fp]
             ).get()
             results.append(shard_pixels)  # add flattened images to it
+        else:
+            logger.warning(
+                f"Skipping processing for shard_num {shard_num} because {shard_fp} or {aux_tbl_fp} does not exist."
+            )
 
     logger.info(f"Succesfully finished retrieving pixels for {len(results)} shards.")
 

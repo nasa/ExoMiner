@@ -99,6 +99,7 @@ def predict_model(config, model_path, res_dir, logger=None):
 
         uids, dispositions, times = [], [], []
         labels, preds = [], []
+        tw_flags = []
 
         model_input_keys = set(model.input_names)
 
@@ -124,6 +125,12 @@ def predict_model(config, model_path, res_dir, logger=None):
                 [x[0].decode("utf-8") for x in batch_features["disposition"].numpy()]
             )
             times.extend(t[0] for t in batch_features["t"].numpy().tolist())
+            tw_flags.extend(
+                [
+                    x[0].decode("utf-8")
+                    for x in batch_features["transit_example"].numpy()
+                ]
+            )
 
         print(f"Finished processing batch_features")
         df = pd.DataFrame(
@@ -132,30 +139,32 @@ def predict_model(config, model_path, res_dir, logger=None):
                 "disposition": dispositions,
                 "time": times,
                 "label": labels,
-                "bin_pred": preds,
-                "raw_pred": preds,
+                "pred_label": preds,
+                "pred_prob": preds,
+                "tw_flag": tw_flags,
             }
         )
 
         if model.output_shape[-1] == 1:
-            df["bin_pred"] = (df["bin_pred"] > 0.5).astype(int)
+            df["pred_label"] = (df["pred_label"] > 0.5).astype(int)
 
         print(f"Saving to csv")
         df.to_csv(res_dir / f"preds_{dataset}.csv", index=False)
 
 
 if __name__ == "__main__":
-
-    model_fp = Path(
-        "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/model_checkpoints/model_epoch_019.keras"
-    )  # Model file path.
+    model_name = "TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr"
 
     config_fp = Path(
         "/nobackupp27/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/config_train.yaml"
     )  # File path to YAML config file
 
+    model_fp = Path(
+        f"/nobackupp27/jochoa4/work_dir/job_runs/train_model_{model_name}/model.keras"
+    )  # Model file path.
+
     output_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/job_runs/predict_model_05-04-2025_v2_e19"
+        f"/nobackupp27/jochoa4/work_dir/job_runs/predict_model_{model_name}"
     )  # Output directory path
 
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -18,7 +18,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   target_id: 'int_scalar'
   tce_plnt_num: 'int_scalar'
 
-  disposition: 'float_scalar'
+  disposition: 'string'
   # label: 'float_scalar'
 
   tce_period: 'float_scalar'
@@ -38,7 +38,7 @@ config:
     # conv_block
     weight_initializer: 
     # fc_conv
-    num_fc_conv_units: 4
+    num_fc_conv_units: 8
     dropout_rate_fc_conv: 0.0
 
   flux_window_branch_settings:
@@ -83,7 +83,7 @@ config:
   # kernel_stride: 1
 
   optimizer: 'Adam' #null for sgd
-  lr: 0.001 # standard for adam? TODO: update?
+  lr: 0.0001 # standard for adam? TODO: update?
 
 
 
@@ -98,6 +98,7 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   uid: { 'dim': [ 1, ], 'dtype': string }
   disposition: { 'dim': [ 1, ], 'dtype': string }
   t: { 'dim': [ 1, ], 'dtype': float }
+  transit_example: { 'dim': [ 1, ], 'dtype': string }
 
   #flux windows
   flux_norm: { 'dim': [ 100, ], 'dtype': float }
@@ -153,26 +154,24 @@ callbacks:
   early_stopping:
     monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
     min_delta: 0
-    patience: 50
+    patience: 10
     verbose: 1
     mode: max  # maximize/minimize monitored metric in early stopping
     baseline: null
     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   backup_and_restore:
-    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
     save_freq: epoch
     delete_checkpoint: true # Overwrite previous model @ each save_freq
   model_checkpoint:
-    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/model_checkpoints/model_epoch_{epoch:03d}.keras"
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/model_checkpoints/model_epoch_{epoch:03d}.keras"
     save_freq: 'epoch'
     save_weights_only: false
     save_best_only: false
     verbose: 1
   csv_logger:
-    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_keras_model_05-04-2025_v2/training_metrics_log.csv"
+    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/training_metrics_log.csv"
     append: true # If training paused
-
-
   tensorboard:
     histogram_freq: 1
     write_graph: true
@@ -189,10 +188,9 @@ label_map: # maps label to a label id
 labels: ['0', '1']
 
 datasets_fps: # TODO: update fps
-  # train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_11-12-2024_split_norm_v3_20_percent_str_label/tfrecords/train/norm_train_shard_????-????
-  train: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/train/norm_train_shard_????-????.tfrecord
-  val: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/val/norm_val_shard_????-????.tfrecord
-  test: /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/norm_test_shard_????-????.tfrecord
+  train:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/train/norm_train_shard_????-????.tfrecord
+  val:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/val/norm_val_shard_????-????.tfrecord
+  test:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/test/norm_test_shard_????-????.tfrecord
 
 datasets:
   - train

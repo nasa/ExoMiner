@@ -24,12 +24,20 @@ from src_preprocessing.lc_preprocessing.utils_manipulate_tfrecords import (
 
 
 def process_shard(
-    input_shard_num, input_dir, output_dir, train_targets, val_targets, test_targets
+    input_shard_num,
+    input_dir,
+    output_dir,
+    train_targets,
+    val_targets,
+    test_targets,
+    num_shards,
 ):
     try:
         input_shard_num = str(input_shard_num).zfill(4)
 
-        input_shard_fp = input_dir / f"raw_shard_{input_shard_num}-8611.tfrecord"
+        input_shard_fp = (
+            input_dir / f"raw_shard_{input_shard_num}-{num_shards}.tfrecord"
+        )
 
         train_tfrec_dir = output_dir / "train"
         train_tfrec_dir.mkdir(parents=True, exist_ok=True)
@@ -39,10 +47,14 @@ def process_shard(
         test_tfrec_dir.mkdir(parents=True, exist_ok=True)
 
         train_tfrec_fp = (
-            train_tfrec_dir / f"train_shard_{input_shard_num}-8611.tfrecord"
+            train_tfrec_dir / f"train_shard_{input_shard_num}-{num_shards}.tfrecord"
         )
-        val_tfrec_fp = val_tfrec_dir / f"val_shard_{input_shard_num}-8611.tfrecord"
-        test_tfrec_fp = test_tfrec_dir / f"test_shard_{input_shard_num}-8611.tfrecord"
+        val_tfrec_fp = (
+            val_tfrec_dir / f"val_shard_{input_shard_num}-{num_shards}.tfrecord"
+        )
+        test_tfrec_fp = (
+            test_tfrec_dir / f"test_shard_{input_shard_num}-{num_shards}.tfrecord"
+        )
 
         train_count = 0
         val_count = 0
@@ -123,7 +135,7 @@ def process_shard(
         aux_tbl_path.mkdir(parents=True, exist_ok=True)
 
         tfrec_tbl.to_csv(
-            aux_tbl_path / f"shards_tbl_{input_shard_num}-8611.csv", index=False
+            aux_tbl_path / f"shards_tbl_{input_shard_num}-{num_shards}.csv", index=False
         )
 
         print(f"COMPLETED processing tfrecord {Path(input_shard_fp).name} successfully")
@@ -165,21 +177,25 @@ def get_merged_aux_tbl_df(aux_tbl_dir: Path, aux_tbl_pattern: str) -> pd.DataFra
 
 
 if __name__ == "__main__":
+    tf.config.set_visible_devices([], "GPU")
+
+    num_shards = 8593  # 8611
+
+    dataset_name = "TESS_exoplanet_dataset_07-24-2025_no_detrend"
+
     # src directory for raw tfrecord shards
     src_tfrec_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_06-20-2025/tfrecords"
+        f"/nobackupp27/jochoa4/work_dir/data/datasets/{dataset_name}/tfrecords"
     )
 
     # destination directory for tfrecord shard splits
     dest_tfrec_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_06-20-2025_split/tfrecords"
+        f"/nobackupp27/jochoa4/work_dir/data/datasets/{dataset_name}_split/tfrecords"
     )
     dest_tfrec_dir.mkdir(parents=True, exist_ok=True)
 
     # destination directory for logging
-    log_dir = Path(
-        "/nobackupp27/jochoa4/work_dir/data/logging/split_TESS_exoplanet_dataset_06-20-2025"
-    )
+    log_dir = Path(f"/nobackupp27/jochoa4/work_dir/data/logging/split_{dataset_name}")
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # log dataset split
@@ -237,7 +253,7 @@ if __name__ == "__main__":
     dataset_targets["test_set"] = test_targets
 
     # save targets to numpy for later validation
-    target_npy_path = Path("/nobackupp27/jochoa4/work_dir/data/stats/")
+    target_npy_path = Path(f"/nobackupp27/jochoa4/work_dir/data/stats/{dataset_name}")
     target_npy_path.mkdir(parents=True, exist_ok=True)
     target_npy_path = target_npy_path / "split_dataset_targets.npy"
 
@@ -254,12 +270,15 @@ if __name__ == "__main__":
         train_targets=train_targets,
         val_targets=val_targets,
         test_targets=test_targets,
+        num_shards=num_shards,
     )
     start = time.time()
     # using N-2 = 126 as tested working value
-    pool = multiprocessing.Pool(processes=16, maxtasksperchild=1)
+    pool = multiprocessing.Pool(processes=8, maxtasksperchild=1)
 
-    jobs = [shard_num for shard_num in range(1, 8611 + 1)]  # chunk 1 to chunk 8611
+    jobs = [
+        shard_num for shard_num in range(1, num_shards + 1)
+    ]  # chunk 1 to chunk 8611
 
     logger.info(
         f"Beginning processing {len(jobs)} chunks from range {jobs[0]} to {jobs[-1]}"
