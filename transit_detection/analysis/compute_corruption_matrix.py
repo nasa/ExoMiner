@@ -16,10 +16,10 @@ from pathlib import Path
 if __name__ == "__main__":
 
     plot_dir = Path(
-        "/Users/jochoa4/Desktop/plots/compute_corrupted_labels_05-04-2025_v1"
+        "/nobackupp27/jochoa4/work_dir/data/plots/compute_corrupted_labels_05-04-2025_v1"
     )
     csv_dir = Path(
-        "/Users/jochoa4/Desktop/pfe_transfers/compute_corrupted_labels_05-04-2025_v1/"
+        "/nobackupp27/jochoa4/work_dir/job_runs/compute_corrupted_labels_05-04-2025_v1"
     )
 
     for split in ["train", "test", "val"]:
@@ -41,7 +41,7 @@ if __name__ == "__main__":
             ws_windows = [0.0, 3.0]
             ex_windows = [1.0, 2.5, 5.0]
 
-            corruption_sources = ["self_", "t_sr_", ""]
+            corruption_sources = ["self_", "cross_tce_", ""]
 
             corruption_matrix = pd.DataFrame(
                 0.0,
@@ -84,8 +84,8 @@ if __name__ == "__main__":
             pretty_labels = {
                 "self_ws_0.0": "Same-TCE Secondary (Center Only)",
                 "self_ws_3.0": "Same-TCE Secondary (± 1.5 TD)",
-                "t_sr_ws_0.0": "Cross-TCE Secondary (Center Only)",
-                "t_sr_ws_3.0": "Cross-TCE Secondary (± 1.5 TD)",
+                "cross_tce_ws_0.0": "Cross-TCE Secondary (Center Only)",
+                "cross_tce_ws_3.0": "Cross-TCE Secondary (± 1.5 TD)",
                 "ws_0.0": "Any Secondary (Center Only)",
                 "ws_3.0": "Any Secondary (± 1.5 TD)",
             }
