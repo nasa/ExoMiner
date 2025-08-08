@@ -14,11 +14,12 @@ setup:
   data:
     paths:
       build_dataset_config_fp: "/Users/jochoa4/Desktop/ExoMiner/exoplanet_dl/transit_detection/config_build_dataset.yaml"
-      tfrec_dir: "/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_06-18-2025_test_group_raw" #"/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/"
-      storage_dir: "/Users/jochoa4/Desktop/test/apps/visualize_dataset_examples/storage/"
-    json:
-      index_fn: "index.json"
-      cache_fn: "cache.json"
+      # tfrec_dir: "/Users/jochoa4/Desktop/datasets/test_dataset/" #"/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/"
+      tfrec_dir: "/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_07-11-2025_no_ntp_no_detrend_split_norm_filtered/tfrecords/" #"/Users/jochoa4/Desktop/datasets/TESS_exoplanet_dataset_05-04-2025_split_norm/tfrecords/test/"
+      storage_dir: "/Users/jochoa4/Desktop/apps/visualize_dataset_examples/TESS_exoplanet_dataset_07-11-2025_no_ntp_no_detrend_split_norm_filtered/storage"
+    # json:
+      # index_fn: "index.json"
+      # cache_fn: "cache.json"
     plot:
       title:
     flask:

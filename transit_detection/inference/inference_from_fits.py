@@ -215,7 +215,7 @@ def perform_inference_on_target_sector_run(
 
             # TODO: handle edges?
 
-            valid_start_idx = num_window_points // 2
+            valid_start_idx = num_window_points // 2 # TODO: update
             valid_end_idx = len(time) - num_window_points // 2
 
             valid_midpoints = np.arange(valid_start_idx, valid_end_idx)
@@ -305,7 +305,7 @@ def perform_inference_on_target_sector_run(
             res_inference = model.predict(
                 x=inference_input_fn(),
                 # y=None,
-                batch_size=None,
+                # batch_size=None,
                 verbose=config["verbose_model"],
                 sample_weight=None,
                 steps=None,
@@ -314,6 +314,7 @@ def perform_inference_on_target_sector_run(
                 # workers=1,
                 # use_multiprocessing=False,
             )
+            # TODO: add return for 
 
             # TODO: validate logic -> ensure match between res_inference & possible splitting?
             lc_pred_sum = np.zeroslike(flux)
