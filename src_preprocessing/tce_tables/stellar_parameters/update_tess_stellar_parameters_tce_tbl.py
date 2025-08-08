@@ -58,15 +58,21 @@ MAP_DV_FIELDS = {  # map stellar parameter fields in the TCE table to those extr
 }
 
 
-def updated_stellar_parameters_with_tic8(tce_tbl, res_dir):
-    """ Update stellar parameters in TCE table `tce_tbl` using TIC-8.  `tce_tbl` must contain column 'target_id' which
-    stores the TIC ID of the targets associated with the TCEs, and columns with the stellar parameters with the names
-    given by the keys in dictionary `MAP_DV_FIELDS`.
+def updated_stellar_parameters(tce_tbl, res_dir, stellar_parameters_source='ticv8'):
+    """ Update stellar parameters in TCE table `tce_tbl` using a source of stellar parameters. `tce_tbl` must contain
+    column 'target_id' which stores the TIC ID of the targets associated with the TCEs, and columns with the stellar
+    parameters with the names given by the keys in dictionary `MAP_DV_FIELDS`. Three sources of stellar parameters are
+    accepted: `ticv8` to query TIC v8 from the MAST; `tess-spoc` which means using the parameters stored in the DV XML
+    files that are already present in `tce_tbl`; or using an external catalog whose filepath is provided by
+    `stellar_parameters_source`. The external catalog should contain as columns the values of the dictionary
+    `MAP_TIC8_FIELDS` (e.g., tic_steff, tic_steff_err, ...). Missing values in the catalog should be set to NaN. TIC ID
+    column should be named 'target_id'.
 
     :param tce_tbl: pandas DataFrame, TCE table
-    :param res_dir: Path, save directory of queried results for TIC-8
+    :param res_dir: Path, save directory of queried results for the TICs
+    :param stellar_parameters_source: str/Path, the stellar parameters source to use for the queried TICs.
 
-    :return: tce_tbl, pandas DataFrame with updated stellar parameters using TIC-8
+    :return: tce_tbl, pandas DataFrame with updated stellar parameters
     """
 
     # set up logger
@@ -79,21 +85,42 @@ def updated_stellar_parameters_with_tic8(tce_tbl, res_dir):
     logger.info(f'Starting run...')
 
     # get TIC parameters from TIC catalog
-    logger.info('Getting stellar parameters from TIC catalog...')
 
     # query from TIC all targets in the TCE table
-    tics = tce_tbl['target_id'].unique().astype('int').tolist()
-    logger.info(f'Querying results for {len(tics)} TICs using TIC-8 catalog...')
-    catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tics).to_pandas()
-    catalog_data.to_csv(res_dir / 'tic8_results.csv', index=False)
+    if stellar_parameters_source == 'ticv8':
+        logger.info('Getting stellar parameters from TIC catalog...')
 
-    # rename parameters names to expected names in the TCE table
-    catalog_data = catalog_data.rename(columns=MAP_TIC8_FIELDS)
-    catalog_data = catalog_data.astype({'target_id': np.int64})
+        tics = tce_tbl['target_id'].unique().astype('int').tolist()
+        logger.info(f'Querying results for {len(tics)} TICs using TIC-8 catalog...')
+        catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tics).to_pandas()
+        catalog_data.to_csv(res_dir / 'tic8_results.csv', index=False)
 
-    # add values from the TIC catalog to the TCE table
-    logger.info('Adding TIC values to the TCE table...')
-    tce_tbl = tce_tbl.merge(catalog_data[list(MAP_TIC8_FIELDS.values())], on=['target_id'], validate='many_to_one')
+        # rename parameters names to expected names in the TCE table
+        catalog_data = catalog_data.rename(columns=MAP_TIC8_FIELDS)
+        catalog_data = catalog_data.astype({'target_id': np.int64})
+
+        # add values from the TIC catalog to the TCE table
+        logger.info('Adding TIC values to the TCE table...')
+        tce_tbl = tce_tbl.merge(catalog_data[list(MAP_TIC8_FIELDS.values())], on=['target_id'], validate='many_to_one')
+
+    elif isinstance(stellar_parameters_source, Path):  # use external catalog
+
+        logger.info(f'Reading stellar parameters from {stellar_parameters_source}...')
+        external_stellar_catalog = pd.read_csv(stellar_parameters_source)
+        tce_tbl = tce_tbl.merge(external_stellar_catalog[list(MAP_TIC8_FIELDS.values())], on=['target_id'],
+                                validate='many_to_one')
+
+    elif stellar_parameters_source == 'tess-spoc':  # use stellar parameters stored in the DV XML files
+
+        logger.info('Using stellar parameters from the TESS SPOC DV XML files...')
+        logger.info('Stellar mass is not avaialble in TESS SPOC DV XML files. Setting it to missing value...')
+
+        # DV XML files do not contain any value for the stellar mass
+        tce_tbl['tce_smass'] = np.nan
+        tce_tbl['tce_smass_err'] = np.nan
+
+    else:
+        raise ValueError(f'Unknown stellar parameters source: {stellar_parameters_source}')
 
     # logger.info(f'Checking number of DV SPOC TCEs with solar parameters...')
     # logger.info(f'Using Solar parameters: {SOLAR_PARAMS}')
@@ -125,10 +152,11 @@ def updated_stellar_parameters_with_tic8(tce_tbl, res_dir):
     # print(f'Number of TCEs with stellar parameters changed from TIC: {len(np.where(np.array(tce_params_cnt) > 0)[0])}')
 
     # update stellar parameters using the TIC catalog
-    tce_tbl[list(MAP_DV_FIELDS.keys())] = tce_tbl[list(MAP_DV_FIELDS.values())]
+    if stellar_parameters_source != 'tess-spoc':
+        tce_tbl[list(MAP_DV_FIELDS.keys())] = tce_tbl[list(MAP_DV_FIELDS.values())]
 
-    # add stellar mass which is not available in the TCE table
-    tce_tbl[['tce_smass', 'tce_smass_err']] = tce_tbl[['tic_smass', 'tic_smass_err']]
+        # add stellar mass which is not available in the TCE table
+        tce_tbl[['tce_smass', 'tce_smass_err']] = tce_tbl[['tic_smass', 'tic_smass_err']]
 
     # fill missing values with values previously available in the DV TCE table
     for tic_i, tic in enumerate(tce_tbl['target_id'].unique()):
@@ -163,7 +191,7 @@ if __name__ == '__main__':
     tce_tbl = pd.read_csv(tce_tbl_fp)
     print(f'Loaded TCE table {tce_tbl_fp}.')
 
-    tce_tbl = updated_stellar_parameters_with_tic8(tce_tbl, res_dir)
+    tce_tbl = updated_stellar_parameters(tce_tbl, res_dir)
 
     tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_tic8stellar.csv', index=False)
     print('Saved TCE table with updated stellar parameters from TIC-8')

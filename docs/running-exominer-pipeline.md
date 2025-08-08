@@ -22,33 +22,72 @@ use TESS SPOC `2-min` data (see `data_collection_mode` variable) and `1` process
 TIC IDs are split across `2` jobs. The results will be saved into the filepath that `exominer_pipeline_run_dir` points 
 to. Furthermore, because `download_spoc_data_products` was set to `true`, a CSV file with the MAST URLs for the TESS 
 SPOC DV reports generated for the TCEs of the queried TIC IDs will be generated. Since `external_data_repository` was 
-set to `null`, the pipeline will download the light curve FITS and DV XML files for the queried TICs from the MAST. For 
-information on the structure of the input CSV file, see section [TIC IDs input](#tic-ids-input).
+set to `null`, the pipeline will download the light curve FITS and DV XML files for the queried TICs from the MAST. 
+Similarly, the source for the stellar parameters and Gaia RUWE value - `stellar_parameters_source` and `ruwe_source`-  
+were set to `ticv8` and `gaiadr2`, respectively. This means that the pipeline will query TIC-8 and Gaia DR2 to extract 
+these parameters for the queried, but the user can also provide their own source catalogs by setting these variables to 
+the path of the intended CSV tables. More information on using local source catalogs in [here](#local-source-catalogs). 
+For information on the structure of the input CSV file, see section [TIC IDs input](#tic-ids-input).
 
 ```bash
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir=/path/to/directory/with/saved/inputs
+inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fn=tics_tbl_filename.csv
+tics_tbl_fn=tics_tbl_356473034_S60.csv
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=exominer_pipeline_run_{date, e.g. 7-10-2025_1925}
+exominer_pipeline_run=exominer_pipeline_run_7-21-2025_1432
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/path/to/stored_runs/$exominer_pipeline_run
+exominer_pipeline_run_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/$exominer_pipeline_run"
 # data collection mode: either 2min or ffi
-data_collection_mode=2min
+data_collection_mode=ffi
 # number of processes
 num_processes=1
 # number of jobs to split the TIC IDs
-num_jobs=2
+num_jobs=1
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
 download_spoc_data_products=true
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
 external_data_repository=null
+# define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
+# parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
+# parameters, it will use those values.
+stellar_parameters_source=ticv8
+# define source of Gaia RUWE for TICs. If set to 'gaiadr2', Gaia DR2 is queried; if set to 'unavailable', it assumes the
+# values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
+# values.
+ruwe_source=gaiadr2
 
 mkdir -p $exominer_pipeline_run_dir
+
+# set up volume mounts
+volume_mounts="-v $inputs_dir:/inputs:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+
+# conditionally add external_data_repository mount
+if [ "$external_data_repository" != "null" ]; then
+  volume_mounts="$volume_mounts -v $external_data_repository:/external_data_repository:Z"
+  external_data_repository_arg="--external_data_repository=/external_data_repository"
+else
+  external_data_repository_arg=""
+fi
+
+# add mount to external TICs stellar parameters catalog if filepath provided
+if [ -f "$stellar_parameters_source" ]; then
+    volume_mounts="$volume_mounts -v $stellar_parameters_source:/tics_stellar_parameters.csv:Z"
+    stellar_parameters_source_arg=/tics_stellar_parameters.csv
+else
+    stellar_parameters_source_arg=$stellar_parameters_source
+fi
+
+# add mount to external TICs RUWE catalog if filepath provided
+if [ -f "$ruwe_source" ]; then
+    volume_mounts="$volume_mounts -v $ruwe_source:/tics_ruwe.csv:Z"
+    ruwe_source_arg=/tics_ruwe.csv
+else
+    ruwe_source_arg=$ruwe_source
+fi
 
 echo "Started ExoMiner Pipeline run $exominer_pipeline_run..."
 echo "Running ExoMiner Pipeline with the following parameters:"
@@ -57,16 +96,17 @@ echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
-  -v $inputs_dir:/inputs:Z \
-  -v $exominer_pipeline_run_dir:/outputs:Z \
-  ghcr.io/nasa/exominer  \
+  ${volume_mounts} \
+   ghcr.io/nasa/exominer  \
   --tic_ids_fp=/inputs/$tics_tbl_fn \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
   --num_jobs=$num_jobs \
   --download_spoc_data_products=$download_spoc_data_products \
-  --external_data_repository=$external_data_repository \
+  --stellar_parameters_source=$stellar_parameters_source_arg \
+  --ruwe_source=$ruwe_source_arg \
+  $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
 ```
@@ -143,6 +183,35 @@ exominer_pipeline_run_name
     - `manifest_requested_products_2min.csv`: CSV file that includes information on the location of the downloaded files from the MAST and whether the download was successful. The "2min" suffix means that 2-min data was downloaded.
     - `requested_products_2min.csv`: CSV file that shows all data products that are requested for download (light curves FITS files and DV XML files) from the MAST.
     - `mastDownload`: includes the light curve FITS files and DV XML files downloaded from the MAST for the assigned TIC IDs and sector runs. If the download is successful, each target should have a directory with a DV XML file related to the corresponding sector run, and a set of one or more folders related to the sectors the target was observed, each one containing the corresponding light curve FITS file.
+
+## Local source catalogs
+
+Instead of querying external repositories such as TIC-8 and Gaia DR2 to get the set of stellar parameters and Gaia RUWE 
+for each queried TIC, the user can also provide their own source catalogs as CSV files. These catalogs should have the 
+following format:
+
+- TICs stellar parameters catalog
+```csv
+target_id, tic_steff, tic_steff_err, tic_smass, tic_smass_err, tic_smet, tic_smet_err, tic_sradius, tic_sradius_err, tic_sdens, tic_sdens_err, tic_slogg, tic_slogg_err, tic_ra, tic_dec, kic_id, gaia_id, tic_tmag, tic_tmag_err
+
+167526485, 5778, 0, 1, 0, 0, 0, 1, 1, ... 
+```
+
+with the following mapping: `tic_steff` stellar effective temperature (K), `tic_smass` stellar mass (Solar mass), 
+`tic_smet` stellar metallicity (dex), `tic_sradius` stellar radius (Solar Radii), tic_sdens is stellar density (g/cm3), 
+`tic_slogg` stellar gravity (log10(cm/s)), `ra` right ascension (deg), `deg` declination (deg),`kic_id` KIC ID, 
+`gaia_id` Gaia ID, `tic_tmag` TESS magnitude. 
+
+KIC ID, Gaia ID, and parameter uncertainties (i.e., "_err") are not used and can be missing while `ra` and `dec` should 
+be available. All the remaining parameters can be missing, but it is encouraged that they are present - otherwise the 
+pipeline will replace those values automatically.
+
+- RUWE catalog
+```csv
+target_id, ruwe
+
+167526485, 1 
+```
 
 ## Running the pipeline without Podman
 

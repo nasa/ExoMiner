@@ -16,17 +16,20 @@ import numpy as np
 
 # local
 from src_preprocessing.tce_tables.xml_tbls_rename_cols_add_uid import rename_dv_xml_fields
-from src_preprocessing.tce_tables.stellar_parameters.update_tess_stellar_parameters_tce_tbl import updated_stellar_parameters_with_tic8
+from src_preprocessing.tce_tables.stellar_parameters.update_tess_stellar_parameters_tce_tbl import (
+    updated_stellar_parameters)
 from src_preprocessing.tce_tables.ruwe.ruwe_in_tics import query_gaiadr_for_ruwe
 from src_preprocessing.tce_tables.preprocess_params_tce_tbl_tess import preprocess_parameters_tess_tce_table
 
 
-def preprocess_tce_table(tce_tbl_fp, res_dir):
+def preprocess_tce_table(tce_tbl_fp, res_dir, stellar_parameters_source=None, ruwe_source=None):
     """ Preprocess TCE table.
 
     Args:
         tce_tbl_fp: Path, filepath to TCE table
         res_dir: Path, results directory
+        stellar_parameters_source: str/Path, the stellar parameters source to use for the queried TICs.
+        ruwe_source: str/Path, the RUWE source to use for the queried TICs.
 
     Returns: tce_tbl_preprocessed_params, pandas.DataFrame with preprocessed TCE table
 
@@ -47,18 +50,19 @@ def preprocess_tce_table(tce_tbl_fp, res_dir):
     tce_cols = ['uid'] + [col for col in tce_tbl_renamed_cols_uid.columns if col != 'uid']
     tce_tbl_renamed_cols_uid = tce_tbl_renamed_cols_uid[tce_cols]
 
-    # updated stellar parameters using TIC-8
-    res_dir_stellar = res_dir / 'stellar_tic8'
+    # updated stellar parameters from TIC v8 or some other source defined by `stellar_parameters_source`
+    res_dir_stellar = res_dir / 'stellar_parameters'
     res_dir_stellar.mkdir(exist_ok=True)
-    tce_tbl_tic8stellar = updated_stellar_parameters_with_tic8(tce_tbl_renamed_cols_uid, res_dir_stellar)
+    tce_tbl_tic8stellar = updated_stellar_parameters(tce_tbl_renamed_cols_uid, res_dir_stellar,
+                                                     stellar_parameters_source)
 
-    # get RUWE values from Gaia DR2
+    # get RUWE values from Gaia DR2 or some other source defined by `ruwe_source`
     res_dir_ruwe = res_dir / 'ruwe'
     res_dir_ruwe.mkdir(exist_ok=True)
-    tce_tbl_gaiadr2_ruwe = query_gaiadr_for_ruwe(tce_tbl_tic8stellar, res_dir_ruwe)
+    tce_tbl_ruwe = query_gaiadr_for_ruwe(tce_tbl_tic8stellar, res_dir_ruwe, ruwe_source)
 
     # preprocess parameters in TCE table
-    tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_gaiadr2_ruwe)
+    tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_ruwe)
 
     # add dispositions
     tce_tbl_preprocessed_params.loc[:, 'label'] = 'UNK'

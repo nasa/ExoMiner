@@ -89,7 +89,10 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         tce_tbl_dir = run_config['job_dir'] / 'tce_table'
         tce_tbl_dir.mkdir(exist_ok=True)
         if run_config['external_data_repository'] == 'null':
-            tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger)
+            tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger,
+                                       run_config['stellar_parameters_source'], run_config['ruwe_source'],
+                                       filter_tics=None,
+                                       )
         else:
             tics_pattern = (
                 tics_df.apply(lambda x: create_tic_id_pattern(x,
@@ -97,6 +100,7 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
                               axis=1).to_list())
 
             tce_tbl = create_tce_table(tce_tbl_dir, job_id, run_config['data_products_dir'], logger,
+                                       run_config['stellar_parameters_source'], run_config['ruwe_source'],
                                        filter_tics=tics_pattern)
 
         tce_tbl_fp = tce_tbl_dir / f'tess-spoc-dv_tces_{job_id}_processed.csv'
@@ -203,7 +207,8 @@ def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
             logger.info(f'Job {result_job["job_id"]} is complete.')
 
 def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1,
-                               num_jobs=1, download_spoc_data_products='false', external_data_repository='null'):
+                               num_jobs=1, download_spoc_data_products='false', external_data_repository='null',
+                               stellar_parameters_source='ticv8', ruwe_source='gaiadr2'):
     """ Run ExoMiner pipeline.
 
     Args:
@@ -217,6 +222,10 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
             queried TICs.
         external_data_repository: str, the external data repository to use for light curve FITS files and DV XML files
             for queried TICs.
+        stellar_parameters_source: str, the stellar parameters source to use for the queried TICs. Set to either
+            'ticv8', 'tess-spoc', or filepath to external catalog of stellar parameters for the queried TICs.
+        ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
+            filepath to external catalog of RUWE values for the queried TICs.
 
     Returns:
 
@@ -246,7 +255,10 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     run_config, tics_df = process_inputs(output_dir, CONFIG_FP, tic_ids_fp, data_collection_mode, logger,
                                          tic_ids=tic_ids, num_processes=num_processes, num_jobs=num_jobs,
                                          download_spoc_data_products=download_spoc_data_products,
-                                         external_data_repository=external_data_repository)
+                                         external_data_repository=external_data_repository,
+                                         stellar_parameters_source=stellar_parameters_source,
+                                         ruwe_source=ruwe_source,
+                                         )
     logger.info('Done.')
     
     # TODO: check structure of TIC IDs CSV file
@@ -353,12 +365,31 @@ if __name__ == "__main__":
                                                                      'files for the TIC IDs and sector runs that you '
                                                                      'want to query. Otherwise, set to "null" so the '
                                                                      'pipeline downloads the required files from the '
-                                                                     'MAST. Set to "null" by default.',
+                                                                     'MAST. By default, it is set to "null".',
                         default=None)
+
+    parser.add_argument('--stellar_parameters_source', type=str, help='Provide the path to a CSV file '
+                                                                     'containing the stellar parameters for the queried '
+                                                                      'TICs. Set to "ticv8" to query TIC-8 from the '
+                                                                      'MAST. Set to "tess-spoc" to use the values '
+                                                                      'provided in DV (no stellar mass provided, which '
+                                                                      'is set to 1). '
+                                                                      'By default, this argument is set to "ticv8".',
+                        default='ticv8')
+
+    parser.add_argument('--ruwe_source', type=str, help='Provide the path to a CSV file '
+                                                                     'containing the Gaia RUWE value for the queried '
+                                                                      'TICs. Set to "gaiadr2" to query Gaia DR2. '
+                                                                      'MAST. Set to "unavailable" to set RUWE to missing'
+                                                                      ' value.'
+                                                                      'By default, this argument is set to "gaiadr2".',
+                        default='gaiadr2')
 
     parsed_args = parser.parse_args()
 
     run_exominer_pipeline_main(parsed_args.output_dir, parsed_args.tic_ids_fp,
                                parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes,
                                parsed_args.num_jobs, parsed_args.download_spoc_data_products,
-                               parsed_args.external_data_repository)
+                               parsed_args.external_data_repository, parsed_args.stellar_parameters_source,
+                               parsed_args.ruwe_source
+                               )

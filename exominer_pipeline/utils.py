@@ -142,7 +142,8 @@ def check_config(run_config, logger):
 
 
 def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
-                   num_jobs=1, download_spoc_data_products='false', external_data_repository=None):
+                   num_jobs=1, download_spoc_data_products='false', external_data_repository=None,
+                   stellar_parameters_source='ticv8', ruwe_source='gaiadr2'):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -156,6 +157,10 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         num_jobs: int, number of jobs to split the TIC IDs through.
         download_spoc_data_products: str, whether to download a CSV file with URLs to the SPOC DV reports
         external_data_repository: str, whether to use external data repository.
+        stellar_parameters_source: str, the stellar parameters source to use for the queried TICs. Set to either
+            'ticv8', 'tess-spoc', or filepath to external catalog of stellar parameters for the queried TICs.
+        ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
+            filepath to external catalog of RUWE values for the queried TICs.
 
     Returns:
         run_config: dict with parameters for running the ExoMiner pipeline.
@@ -176,7 +181,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
 
     if tic_ids_fp is not None:  # overwrite filepath in configuration file
         run_config['tic_ids_fp'] = tic_ids_fp
-        tics_df = pd.read_csv(tic_ids_fp)
+        tics_df = pd.read_csv(tic_ids_fp, skipinitialspace=True)
 
     elif tic_ids is not None:
         tics_dict = {field: [] for field in ['tic_id', 'sector_run']}
@@ -225,6 +230,37 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     # overwrite data repository path using the command-line argument
     if external_data_repository is not None:
         run_config['external_data_repository'] = external_data_repository
+
+    if stellar_parameters_source not in ['ticv8', 'tess-spoc']:
+        if not Path(stellar_parameters_source).exists():
+            logger.error(f'TIC stellar parameters catalog does not exist: {str(stellar_parameters_source)}. Either '
+                         f'set --stellar_parameters_source to "ticv8", "tess-spoc", or provide a path to an external '
+                         f'catalog of TIC stellar parameters.')
+            raise FileNotFoundError(f'TIC stellar parameters catalog does not exist: {str(stellar_parameters_source)}. '
+                                    f'Either '
+                         f'set --stellar_parameters_source to "ticv8", "tess-spoc", or provide a path to an external '
+                         f'catalog of TIC stellar parameters.')
+
+        stellar_parameters_source = Path(stellar_parameters_source)
+
+        # TODO: check structure of catalog
+
+    run_config['stellar_parameters_source'] = stellar_parameters_source
+
+    if ruwe_source not in ['gaiadr2', 'unavailable']:
+        if not Path(ruwe_source).exists():
+            logger.error(f'TIC RUWE catalog does not exist: {str(ruwe_source)}. Either set --ruwe_source '
+                        f'to "gaiadr2" or "unavailable" or provide a path to an external catalog with '
+                        f'RUWE values.')
+            raise FileNotFoundError(f'TIC RUWE catalog does not exist: {str(ruwe_source)}. Either set --ruwe_source '
+                                    f'to "gaiadr2" or "unavailable" or provide a path to an external catalog with '
+                                    f'RUWE values.')
+
+        ruwe_source = Path(ruwe_source)
+
+        # TODO: check structure of catalog
+
+    run_config['ruwe_source'] = ruwe_source
 
     # update parameters in auxiliary configuration files
     with open(run_config['lc_preprocessing_config_fp'], 'r') as f:
@@ -351,7 +387,8 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
     sys.stdout = sys.__stdout__
 
 
-def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logger: logging.Logger, filter_tics=None) \
+def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logger: logging.Logger,
+                     stellar_parameters_source, ruwe_source, filter_tics=None) \
         -> pd.DataFrame:
     """ Create TCE table using data from DV XML files.
 
@@ -361,6 +398,10 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
         dv_xml_products_dir: Path, directory containing DV XML files
         logger: logging.Logger
         filter_tics: list of TIC IDs with sector run ID used to filter DV XML files; if None, no filtering is done
+        stellar_parameters_source: str, the stellar parameters source to use for the queried TICs. Set to either
+            'ticv8', 'tess-spoc', or filepath to external catalog of stellar parameters for the queried TICs.
+        ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
+            filepath to external catalog of RUWE values for the queried TICs.
 
     Returns: tce_tbl, pandas DataFrame containing TCEs to be processed and that were extracted from the DV XML files
 
@@ -379,7 +420,7 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
 
 
     sys.stdout = StreamToLogger(logger)
-    tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir)
+    tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir, stellar_parameters_source, ruwe_source)
     sys.stdout = sys.__stdout__
 
     return tce_tbl

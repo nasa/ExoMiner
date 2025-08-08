@@ -15,7 +15,6 @@ src_hpo/
 src_cv/
 transit_detection/
 exominer_pipeline/test_pipeline
-#exominer_pipeline/data
 others/envs
 others/images
 others/3rd_party_licenses.md
@@ -23,3 +22,7 @@ others/get_3rd_party_licenses_pkgs.py
 tess_spoc_ffi/
 .gitignore
 .git
+src/postprocessing
+src/evaluate
+src_preprocessing/split_tfrecord_train-test
+src_preprocessing/tce_tables/ephemeris_matching
