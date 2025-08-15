@@ -784,6 +784,12 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                     f'{models_info_df.index[0]}')
 
         flux_lininterp = None
+
+    elif config['detrending_method'] is None:
+        time, flux = np.concatenate(time_arrs), np.concatenate(flux_arrs)
+        trend = np.nanmedian(flux) * np.ones(len(flux))
+        detrended_flux = flux / trend
+        flux_lininterp = None
     else:
         raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')
 
@@ -894,6 +900,11 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
 
             logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info. '
                         f'Chosen polynomial order: {models_info_df.index[0]}')
+
+        elif config['detrending_method'] is None:
+            time, centroid_arr = (np.concatenate(time_arrs), np.concatenate(centroid_coord_data))
+            trend = np.nanmedian(centroid_arr) * np.ones(len(centroid_arr))
+            detrended_centroid = centroid_arr / trend
 
         else:
             raise ValueError(f'Detrending method not recognized: {config["detrending_method"]}')

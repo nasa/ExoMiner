@@ -77,23 +77,26 @@ def compile_model(model, config, metrics_list, train=True):
     """
 
     # set loss
-    if config['config']['multi_class']:  # multiclass
-        model_loss = losses.CategoricalCrossentropy(from_logits=False, name='categorical_crossentropy')
+    if config['task'] == 'regression':
+        model_loss = losses.MeanAbsoluteError(name='mean_abs_error')
+    elif config['task'] == 'classification':
+        if config['config']['multi_class']:  # multiclass
+            model_loss = losses.CategoricalCrossentropy(from_logits=False, name='categorical_crossentropy')
 
-    else:
-        if config['config']['loss'] == 'focal_crossentropy':
-            model_loss = losses.BinaryFocalCrossentropy(
-                apply_class_balancing=config['config']['focal_class_balancing'],
-                alpha=config['config']['focal_loss_alpha'],
-                gamma=config['config']['focal_loss_gamma'],
-                from_logits=False,
-                label_smoothing=0.0,
-                axis=-1,
-                reduction='sum_over_batch_size',
-                name='binary_focal_crossentropy'
-            )
-        elif config['config']['loss'] == 'crossentropy':
-            model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
+        else:
+            if config['config']['loss'] == 'focal_crossentropy':
+                model_loss = losses.BinaryFocalCrossentropy(
+                    apply_class_balancing=config['config']['focal_class_balancing'],
+                    alpha=config['config']['focal_loss_alpha'],
+                    gamma=config['config']['focal_loss_gamma'],
+                    from_logits=False,
+                    label_smoothing=0.0,
+                    axis=-1,
+                    reduction='sum_over_batch_size',
+                    name='binary_focal_crossentropy'
+                )
+            elif config['config']['loss'] == 'crossentropy':
+                model_loss = losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy')
 
     # set optimizer
     if train:

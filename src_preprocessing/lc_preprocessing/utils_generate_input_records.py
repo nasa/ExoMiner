@@ -155,11 +155,8 @@ def get_tce_table(config):
     logger.info(f'Read TCE table with {len(tce_table)} examples.')
 
     cols_change_data_type = {
-        # 'sectors': str,
         'sector_run': str,
-        # 'TOI': str,
         'label': str,
-        # 'toi_sectors': str,
         'Comments': str,
         'TESS Disposition': str,
         'TFOPWG Disposition': str,
@@ -176,13 +173,6 @@ def get_tce_table(config):
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)
-    # filter_tbl = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709/shards_tbl.csv')
-    # filter_tbl = pd.concat([
-    #     filter_tbl,
-    #                         pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_2ndrun/shards_tbl.csv'),
-    #                         ], axis=0, ignore_index=True)
-    # # filter TCE table in real-time
-    # preprocess_tce_table = preprocess_tce_table.loc[~preprocess_tce_table['uid'].isin(filter_tbl['uid'])]
 
     # when using external parallelization framework to preprocess chunks of the TCE table in parallel
     if config['external_parallelization']:

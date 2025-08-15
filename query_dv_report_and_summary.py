@@ -261,15 +261,22 @@ if __name__ == "__main__":
     #                    objs.groupby('sector_run')}
     # objs_list_jobs = np.array_split(objs_list, n_jobs)
     objs_list = [
-        '193831684-1-S13-13',
-        '1883519478-1-S14-14',
+        # '193831684-1-S13-13',
+        # '1883519478-1-S14-14',
+        # '24695725-1-S1-2',
+        # '13829713-1-S17-17',
+        # '1716106614-1-S14-14',
+        # '1400803888-1-S56-69',
+        # '94816342-1-S44-44',
+        '1400803888-1-S54-54',
     ]
+
     n_jobs = 1
     objs_list_jobs = np.array_split(objs_list, n_jobs)
 
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/test_7-24-2025')
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/missing_dv_reports_ffi_8-8-2025')
     download_dir.mkdir(parents=True, exist_ok=True)
-    spoc_ffi = False
+    spoc_ffi = True
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = True

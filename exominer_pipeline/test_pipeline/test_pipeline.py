@@ -17,44 +17,44 @@ if __name__ == '__main__':
 
     physical_devices = tf.config.list_physical_devices('CPU')
     tf.config.set_visible_devices(physical_devices, 'CPU')
-
-    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_vspodman_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+        
+    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic235678745_s14-78_2-min_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     # exp_run_dir = Path('/Users/msaragoc/Downloads/exominer_pipeline_run_20250701-130322/')
-    # exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic356473034.1_s60_2min_nodetrending_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    # exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic356473034.1_s60_2min_s14-78_nodetrending_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     exp_run_dir.mkdir(parents=True, exist_ok=True)
 
     # # create CSV file with TICs
-    # twomin = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s88_3-27-2025_1316_label.csv')
-    # twomin = twomin.loc[twomin['uid'] == '273574141-1-S14']
+    twomin = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s88_3-27-2025_1316_label.csv')
+    twomin = twomin.loc[((twomin['target_id'] == 235678745) & (twomin['sector_run'] == '14-78'))]
     # # twomin = twomin.loc[twomin['sector_run'] == '36']
 
-    # tics_tbl = twomin[['target_id', 'sector_run']]
-    # tics_tbl['sector_run'] = tics_tbl['sector_run'].apply(lambda x: f'{x}-{x}' if '-' not in x else x)
-    # tics_tbl = tics_tbl.drop_duplicates(subset=['target_id', 'sector_run'])
-    # tics_tbl = tics_tbl.rename(columns={'target_id': 'tic_id'})
+    tics_tbl = twomin[['target_id', 'sector_run']]
+    tics_tbl['sector_run'] = tics_tbl['sector_run'].apply(lambda x: f'{x}-{x}' if '-' not in x else x)
+    tics_tbl = tics_tbl.drop_duplicates(subset=['target_id', 'sector_run'])
+    tics_tbl = tics_tbl.rename(columns={'target_id': 'tic_id'})
 
     # tics_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl_356473034_S60.csv')
 
-    tics_tbl = pd.DataFrame(
-        data = {
-            'tic_id': [
-                # 167526485,
-                # 167526485,
-                # 167526485,
-                # 184240683,  # non-existing ffi
-                356473034,  # both ffi and 2min
-                # 420114776,
-            ],
-            'sector_run': [
-                # '6-6',
-                # '7-7',
-                # '1-39',
-                # '29-29',  # non-existing ffi
-                '60-60',
-                # '24-24',
-            ]
-        }
-    )
+    # tics_tbl = pd.DataFrame(
+    #     data = {
+    #         'tic_id': [
+    #             # 167526485,
+    #             # 167526485,
+    #             # 167526485,
+    #             # 184240683,  # non-existing ffi
+    #             356473034,  # both ffi and 2min
+    #             # 420114776,
+    #         ],
+    #         'sector_run': [
+    #             # '6-6',
+    #             # '7-7',
+    #             # '1-39',
+    #             # '29-29',  # non-existing ffi
+    #             '60-60',
+    #             # '24-24',
+    #         ]
+    #     }
+    # )
     # pred_tbl_prev_exp = pd.read_csv('/Users/msaragoc/Downloads/exominer_pipeline_run_20250630-174917/predictions_exominer_pipeline_run_20250630-174917.csv')
     # tics_tbl = tics_tbl.loc[~tics_tbl['tic_id'].isin(pred_tbl_prev_exp['target_id'])]
 

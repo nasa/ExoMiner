@@ -6,7 +6,7 @@ inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiment
 tics_tbl_fn=tics_tbl_356473034_S60.csv
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=exominer_pipeline_run_7-19-2025_1304
+exominer_pipeline_run=exominer_pipeline_run_8-7-2025_1426
 # directory where the ExoMiner Pipeline run is saved
 exominer_pipeline_run_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/$exominer_pipeline_run"
 # data collection mode: either 2min or ffi
@@ -65,9 +65,11 @@ echo "Inputs directory: $inputs_dir"
 echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
+#   ghcr.io/nasa/exominer  \
+
 podman run \
   ${volume_mounts} \
-   ghcr.io/nasa/exominer  \
+  localhost/exominer_pipeline:arm64 \
   --tic_ids_fp=/inputs/$tics_tbl_fn \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \

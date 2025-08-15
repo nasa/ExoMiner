@@ -8,3 +8,4 @@ local_scripts/
 .idea/
 others/conda_vulnerabilities_jake.txt
 /exominer_pipeline/data/
+.vscode/

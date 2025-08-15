@@ -318,12 +318,13 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
 
         # get table with all available products for queried observations
         products = Observations.get_product_list(obs_table)
+
         if len(products) == 0:
             logger.error(f'No products found for TIC {tic_data["tic_id"]}. Skipping...')
             continue
 
-        # filter for light curve FITS files
-        lc_products = products[[fn.endswith('lc.fits') for fn in products["productFilename"]]]
+        # filter for light curve FITS files (exclude also 20-sec light curves)
+        lc_products = products[[fn.endswith('lc.fits') and 'fast-lc' not in fn for fn in products["productFilename"]]]
         # filter lc FITS files for sectors of interest
         lc_products = lc_products[
             [any(re.search(lc_sector_pattern, data_url) for lc_sector_pattern in lc_sectors_patterns) for data_url in

@@ -1464,7 +1464,7 @@ class ExoMinerJointLocalFlux(object):
                 if self.config['use_skip_connection_conv_block']:
                     if seq_conv_block_i == conv_ls_per_block - 1:
                         # apply conv to have same number of channels as extracted feature map
-                        if input_conv_block.shape[-1] != net.shape[-1]:
+                        if input_conv_block.shape != net.shape:
                             input_conv_block = tf.keras.layers.Conv2D(
                                 filters=net.shape[-1],
                                 kernel_size=1,
@@ -1681,7 +1681,7 @@ class ExoMinerJointLocalFlux(object):
                     if self.config['use_skip_connection_conv_block']:
                         if seq_conv_block_i == conv_ls_per_block - 1:
                             # apply conv to have same number of channels as extracted feature map
-                            if input_conv_block.shape[-1] != net.shape[-1]:
+                            if input_conv_block.shape != net.shape:
                                 input_conv_block = tf.keras.layers.Conv1D(
                                     filters=net.shape[-1],
                                     kernel_size=1,
@@ -1884,7 +1884,7 @@ class ExoMinerJointLocalFlux(object):
                 if self.config['use_skip_connection_conv_block']:
                     if seq_conv_block_i == conv_ls_per_block - 1:
                         # apply conv to have same number of channels as extracted feature map
-                        if input_conv_block.shape[-1] != net.shape[-1]:
+                        if input_conv_block.shape != net.shape:
                             input_conv_block = tf.keras.layers.Conv2D(
                                 filters=net.shape[-1],
                                 kernel_size=1,
@@ -2092,7 +2092,7 @@ class ExoMinerJointLocalFlux(object):
                 if self.config['use_skip_connection_conv_block']:
                     if seq_conv_block_i == n_layers_per_block - 1:
                         # apply conv to have same number of channels as extracted feature map
-                        if input_conv_block.shape[-1] != net.shape[-1]:
+                        if input_conv_block.shape != net.shape:
                             input_conv_block = tf.keras.layers.Conv3D(
                                             filters=net.shape[-1],
                                             kernel_size=1,
