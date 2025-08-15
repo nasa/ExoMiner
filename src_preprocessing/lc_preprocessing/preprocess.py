@@ -261,25 +261,12 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
         idx_tce, index of TCE of interest in `target_intransit_cadences_arr`
     """
 
-    # get all TCEs detected for the target stars' TCE of interest
-    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
     # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
     if 'sector_run' in tce:  # all TCEs in same target and sector run (TESS)
         tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
                                    (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
     else:  # all TCEs in the same target (Kepler)
         tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-    # get all TCEs detected for the target star's TCE of interest that share at least one sector observation
-    # tce_sectors = np.array([el for el in tce['sectors_observed']]) == '1'
-    # valid_tces = []
-    # tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-    # for _, tce_cand in tces_in_target.iterrows():
-    #     tce_cand_sectors = np.array([el for el in tce_cand['sectors_observed']]) == '1'
-    #     overlaping_sectors_check = np.any(tce_sectors & tce_cand_sectors)
-    #     if overlaping_sectors_check:
-    #         valid_tces.append(tce_cand['uid'])
-    #
-    # tces_in_target = table.loc[table['uid'].isin(valid_tces)].reset_index(inplace=False, drop=True)
 
     # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
     idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
