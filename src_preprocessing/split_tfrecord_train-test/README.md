@@ -12,7 +12,8 @@
 - Test shards: TFRecord files with prefix 'test-'. Used as hold out set.
 - Predict shards: TFRecord files with prefix 'predict-'. Used as set to run inference on (e.g., new set of examples).
 
-## Requirements: An existing TFRecord dataset and a table for that dataset that can be generated using function 
+## Requirements
+An existing TFRecord dataset and a table for that dataset that can be generated using function 
 `create_table_for_tfrecord_dataset()` in `src_preprocessing/utils_manipulate_tfrecords.py`. See the 
 [README.md](../lc_preprocessing/README.md) for more information on TFRecord datasets.      
 

@@ -8,7 +8,7 @@ TIC ID and sector run are processed in the same job.
 
 ## Command-line arguments
 Before you run the pipeline, you have to set the filepaths to the command-line arguments. Run 
-```podman run exominer_pipeline --help``` for a detailed description on these inputs. 
+```podman run ghcr.io/nasa/exominer --help``` for a detailed description on these inputs. 
 You can modify the command ```podman run``` to suit your use case (e.g., give TIC IDs as a comma-separated list instead 
 of a CSV file).
 
@@ -16,7 +16,7 @@ of a CSV file).
 
 The contents of [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) are displayed below. To run 
 the podman image for the ExoMiner Pipeline, simply set the arguments for your use case in the shell script file and run 
-in your terminal `./path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
+in your terminal `/path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
 IDs and sector runs found in the CSV file that the variable `tics_tbl_fp` points to in your system. The pipeline will 
 use TESS SPOC `2-min` data (see `data_collection_mode` variable) and `1` process will be used (no parallelization). The 
 TIC IDs are split across `2` jobs. The results will be saved into the filepath that `exominer_pipeline_run_dir` points 
@@ -33,7 +33,7 @@ For information on the structure of the input CSV file, see section [TIC IDs inp
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fn=tics_tbl_356473034_S60.csv
+tics_tbl_fn=tics_tbl_filename.csv
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_7-21-2025_1432
@@ -64,7 +64,6 @@ mkdir -p $exominer_pipeline_run_dir
 
 # set up volume mounts
 volume_mounts="-v $inputs_dir:/inputs:Z -v $exominer_pipeline_run_dir:/outputs:Z"
-
 # conditionally add external_data_repository mount
 if [ "$external_data_repository" != "null" ]; then
   volume_mounts="$volume_mounts -v $external_data_repository:/external_data_repository:Z"

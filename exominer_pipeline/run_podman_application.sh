@@ -3,7 +3,7 @@
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fn=tics_tbl_356473034_S60.csv
+tics_tbl_fn=tics_tbl.csv
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
 exominer_pipeline_run=exominer_pipeline_run_8-7-2025_1426

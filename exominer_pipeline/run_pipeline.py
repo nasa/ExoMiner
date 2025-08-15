@@ -12,7 +12,8 @@ import pandas as pd
 import yaml
 
 # local
-from exominer_pipeline.utils import (process_inputs, check_config, download_tess_spoc_data_products, create_tce_table,
+from exominer_pipeline.utils import (process_inputs, check_config, validate_tic_ids_csv_structure, 
+                                     download_tess_spoc_data_products, create_tce_table,
                                      inference_pipeline)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
@@ -261,9 +262,17 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
                                          )
     logger.info('Done.')
     
-    # TODO: check structure of TIC IDs CSV file
-    
-    logger.info(f'Found {len(tics_df)} TIC IDs. Saving TIC IDs to {str(tic_ids_fp)}...')
+    # Validate structure of TIC IDs CSV file
+    logger.info('Validating TIC IDs CSV file structure...')
+    validate_tic_ids_flag = validate_tic_ids_csv_structure(tics_df, logger)
+    if not validate_tic_ids_flag:
+        raise SystemExit('TIC IDs CSV file structure validation failed.')
+    else:
+        logger.info('TIC IDs CSV file structure validation completed.')
+
+    output_tics_tbl_fp = output_dir / 'tics_tbl.csv'
+    tics_df.to_csv(output_tics_tbl_fp, index=False)
+    logger.info(f'Found {len(tics_df)} TIC IDs. Saving TIC IDs to {str(output_tics_tbl_fp.name)}...')
 
     logger.info(f'Checking validity of configuration file...')
     check_config(run_config, logger)

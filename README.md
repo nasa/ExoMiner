@@ -18,8 +18,8 @@ on potential transiting planet candidates.
 The main goals of the `ExoMiner` project are:
 
 1. Perform classification of transit signals in Kepler and TESS data;
-2. Create vetted catalogs of Threshold Crossing Events (TCEs) for Kepler and TESS sector runs/cycles.
-3. Validate new exoplanets in Kepler and TESS.
+2. Create vetted catalogs of Threshold Crossing Events (TCEs) for Kepler and TESS runs for the exoplanet community.
+3. Validate new exoplanets using Kepler and TESS data.
 
 ## ExoMiner Pipeline [**NEW**]
 
@@ -65,12 +65,6 @@ Models currently implemented in [models](models/models_keras.py):
 1. `ExoMiner++` [**CURRENT**]: Improved architecture for TESS. Used in TESS paper (see [References](#references)).
 
 ![ExoMiner++ architecture.](others/images/exominer_architecture_tess.png)
-
-2. `ExoMiner`Multi-branch Convolutional Neural Network (CNN) whose design is inspired in the different diagnostic
-   tests used in the Data Validation (DV) module of the SPOC pipeline. Used in the Kepler paper and multiplicity boost 
-    work for Kepler data (see [References](#references))
-
-![ExoMiner architecture.](others/images/exominer_architecture_kepler.png)
 
 [//]: # (2. Astronet: see https://github.com/google-research/exoplanet-ml and Shallue, Christopher J., and Andrew Vanderburg. ")
 
@@ -146,7 +140,7 @@ Research Center (NASA ARC).
        Classification Robustness)
 
 1 - NASA Ames Research Center (NASA ARC)\
-2 - Universities Space Research Association (USRA)\
+2 - KBR Inc.\
 3 - The SETI Institute\
 4 - NASA International Internship Program (NASA I<sup>2</sup>)\
 5 - NASA Internships, Fellowships & Scholarships (NIFS)\

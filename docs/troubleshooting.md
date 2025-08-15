@@ -23,7 +23,7 @@ and the Gaia servers to download the RUWE for the queried TIC IDs. See if there 
 [manifest file](/docs/running-exominer-pipeline.md#outputs) that were not downloaded successfully.
 - Incorrect input format: the TIC IDs and sector runs are provided in a way that does not follow the expected format. 
 We detail the structure of the inputs in [running-exominer-pipeline.md](/docs/running-exominer-pipeline.md).
-- Missing data or non-existing TIC ID: the data are not available for a given TIC ID and sector run in the MAST. It 
+- Missing data or non-existent TIC ID: the data are not available for a given TIC ID and sector run in the MAST. It 
 might happen that the data are still not available at the MAST, the TESS SPOC pipeline was not run for that case, or 
 the TIC ID was not observed for that sector run and/or data collection mode (i.e., 2-min or FFI data). One way to check 
 that is to see whether the expected target light curve FITS files and DV XML files were downloaded. If the naming 
@@ -36,7 +36,7 @@ If none of the points [above](#errors-while-running-the-pipeline) resolved your 
 pipeline failed. Check the results produced at the several steps in the run, including available logs, to find the point 
 of failure. For assistance, you can open/search for issues in the 
 [GitHub repository](https://github.com/nasa/ExoMiner/issues). You can also contact the 
-[developers](https://github.com/nasa/ExoMiner). If you would like to share information about the run, please submit 
+[developers](../README.md#contacts). If you would like to share information about the run, please submit 
 the run folder as a compressed file (include the inputs used). Be sure to exclude large files, such as the light curve 
 FITS files and the DV XML files, and include the logs. **Keep your pipeline up-to-date by checking newer versions of 
 the pipeline! You can watch the repository to keep track of all new activity including updates.**
