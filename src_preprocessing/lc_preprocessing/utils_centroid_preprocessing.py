@@ -6,10 +6,14 @@ Auxiliary functions used preprocess the centroid time-series
 import os
 import numpy as np
 
+# local
+from src_preprocessing.lc_preprocessing import utils_visualization
+
 CCD_SIZE_ROW = 1044  # number of physical pixels
 CCD_SIZE_COL = 1100  # number of physical pixels
 COL_OFFSET = 12
 ROW_HALFWIDTH_GAP = 40
+DEGREETOARCSEC = 3600
 
 
 def kepler_transform_pxcoordinates_mod13(all_centroids, add_info):
@@ -344,3 +348,63 @@ def compute_centroid_distance(centroid_dict, target_position, delta_dec=None):
     # #                      for i in range(len(all_centroid_dist))]
 
     return all_centroid_dist
+
+
+def preprocess_centroid_motion_for_tce(tce, detrended_centroid_time, detrended_centroid_dict, avg_centroid_oot, target_position, config, plot_preprocessing_tce=False):
+    """ Preprocess centroid motion time series for a given TCE. This involves correcting the centroid motion time series using transit depth information, 
+        and then compute the distance of the centroid to the target position in TIC/KIC RA and Dec coordinates.
+
+    :param tce: pandas Series, TCE parameters and DV diagnostics
+    :param detrended_centroid_time: NumPy array with timestmaps for the centroid motion time series
+    :param detrended_centroid_dict: dict, containing detrended centroid time series for 'x' and 'y' coordinates and timestamps 'time'
+    :param avg_centroid_oot: dict, average out-of-transit centroid position 'x', and 'y' coordinates
+    :param target_position: list, target star position in 'x' and 'y'
+    :param config: dict, preprocessing parameters
+    :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
+    
+    :return:
+        NumPy array, timestamps for preprocessed centroid time series
+        NumPy array, preprocessed centroid time series which is an estimate of the distance of the
+            transit to the target
+    """
+    
+    
+    transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
+    corrected_centroids = correct_centroid_using_transit_depth(detrended_centroid_dict['x'],
+                                                               detrended_centroid_dict['y'],
+                                                               transit_depth,
+                                                               avg_centroid_oot)
+    # corrected_centroids = {'x': detrended_centroid_dict['x']['detrended'],
+    #                        'y': detrended_centroid_dict['y']['detrended']}
+
+    if plot_preprocessing_tce:
+        utils_visualization.plot_corrected_centroids(detrended_centroid_time,
+                                                     corrected_centroids,
+                                                     avg_centroid_oot,
+                                                     tce,
+                                                     config,
+                                                     config['plot_dir'] /
+                                                     f'{tce["uid"]}_{tce["label"]}_'
+                                                     f'3_2_correctedcentroids.png',
+                                                     config['px_coordinates'],
+                                                     target_position=target_position,
+                                                     delta_dec=config['delta_dec']
+                                                     )
+
+    # compute distance of centroid to target position
+    centroid_dist = compute_centroid_distance(corrected_centroids, target_position, config['delta_dec'])
+
+    # convert from degree to arcsec
+    if not config['px_coordinates']:
+        centroid_dist *= DEGREETOARCSEC
+
+    if plot_preprocessing_tce:
+        utils_visualization.plot_dist_centroids(detrended_centroid_time,
+                                                centroid_dist,
+                                                tce,
+                                                config,
+                                                config['plot_dir'] /
+                                                f'{tce["uid"]}_{tce["label"]}_'
+                                                f'3_3_distcentr.png')
+
+    return detrended_centroid_time, centroid_dist

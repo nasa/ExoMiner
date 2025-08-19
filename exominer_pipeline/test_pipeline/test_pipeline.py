@@ -18,7 +18,7 @@ if __name__ == '__main__':
     physical_devices = tf.config.list_physical_devices('CPU')
     tf.config.set_visible_devices(physical_devices, 'CPU')
         
-    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic235678745_s14-78_2-min_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tesnewlcpipeline_tic235678745_s14-78_2-min_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     # exp_run_dir = Path('/Users/msaragoc/Downloads/exominer_pipeline_run_20250701-130322/')
     # exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic356473034.1_s60_2min_s14-78_nodetrending_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     exp_run_dir.mkdir(parents=True, exist_ok=True)

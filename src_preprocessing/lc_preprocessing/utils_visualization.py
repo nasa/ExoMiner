@@ -83,18 +83,18 @@ def plot_intransit_binary_timeseries(all_time, all_flux, intransit_cadences_targ
     plt.close()
 
 
-def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, pxcoordinates=False,
+def plot_centroids(time, centroids, detrended_centroids, target_uid, config, savefp, pxcoordinates=False,
                    target_position=None, delta_dec=None):
     """ Creates and saves a figure with plots that show the centroid, trend, and detrended centroid timeseries for a
     given TCE.
 
     :param time: numpy array, time
     :param centroids: dict with 'x' and 'y' keys for the coordinates, and values are numpy arrays. Holds the raw
-    centroid timeseries
+        centroid timeseries
     :param detrended_centroids: dict with 'x' and 'y' keys for the coordinates, and values are dictionaries with the
-    detrended centroid 'detrended', removed trend 'trend', residual time series 'residual', and, optionally, the
-    linearly interpolated raw centroid timeseries used for fitting 'linear_interp'
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+        detrended centroid 'detrended', removed trend 'trend', residual time series 'residual', and, optionally, the
+        linearly interpolated raw centroid timeseries used for fitting 'linear_interp'
+    :param target_uid: str, target unique identifier (UID)
     :param config: dict, preprocessing parameters
     :param savefp: Path, filepath to saved figure
     :param pxcoordinates: bool, whether centroid values are in row/col pixel values or celestial coordinates
@@ -178,13 +178,13 @@ def plot_centroids(time, centroids, detrended_centroids, tce, config, savefp, px
     ax[0, 0].set_title('Raw Centroids')
     ax[0, 1].set_title('Detrended Centroids')
 
-    f.suptitle(f'{tce.uid} {tce.label}\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} '
+    f.suptitle(f'{target_uid}\nTarget: {target_position_plot[0]:.3f}, {target_position_plot[1]:.3f} '
                f'({target_position_unit})')
     plt.savefig(savefp)
     plt.close()
 
 
-def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename, flux_interp=None):
+def plot_flux_detrend(time, flux, trend, detrended_flux, target_uid, savedir, basename, flux_interp=None):
     """ Creates and saves a 2x1 figure with plots that show the flux time series and the fitted trend and
      the respective detrended flux time series for a given TCE.
 
@@ -192,7 +192,7 @@ def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename,
     :param flux: numpy array, flux
     :param trend: numpy array, fitted trend
     :param detrended_flux: numpy array, detrended flux
-    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param target_uid: str, target unique identifier (UID)
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :param flux_interp: numpy array, linearly interpolated flux used for detrending
@@ -215,8 +215,8 @@ def plot_flux_detrend(time, flux, trend, detrended_flux, tce, savedir, basename,
     ax[1].set_xlabel('Time [day]')
     ax[1].set_title('Detrended Flux')
     ax[1].set_xlim(time[[0, -1]])
-    f.suptitle(f'TCE {tce.uid} {tce.label}')
-    plt.savefig(savedir / f'{tce.uid}_{tce.label}_{basename}.png')
+    f.suptitle(f'Target {target_uid}')
+    plt.savefig(savedir / f'{target_uid}_{basename}.png')
     plt.close()
 
 
@@ -1171,13 +1171,12 @@ def plot_momentum_dump(loc_mom_dump_view, loc_mom_dump_view_var, binned_time, mo
     # plt.close()
 
 
-def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, tce, savefp):
+def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, savefp):
     """ Plot momentum dump timeseries.
 
     Args:
         time_momentum_dump: NumPy array, time array
         momentum_dump: NumPy array, momentum dump
-        tce: Pandas Series, TCE information
         savefp: Path, save filepath
 
     Returns:

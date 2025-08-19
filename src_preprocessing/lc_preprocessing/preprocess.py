@@ -10,11 +10,10 @@ import lightkurve as lk
 import logging
 
 # local
-from src_preprocessing.lc_preprocessing import utils_visualization, kepler_io, tess_io
+from src_preprocessing.lc_preprocessing import utils_visualization
 from src_preprocessing.tf_util import example_util
 from src_preprocessing.lc_preprocessing.utils_centroid_preprocessing import (kepler_transform_pxcoordinates_mod13,
-                                                                             compute_centroid_distance,
-                                                                             correct_centroid_using_transit_depth)
+                                                                             preprocess_centroid_motion_for_tce)
 from src_preprocessing.lc_preprocessing.utils_ephemeris import create_binary_time_series, \
     find_first_epoch_after_this_time
 from src_preprocessing.lc_preprocessing.utils_imputing import imputing_gaps
@@ -24,7 +23,7 @@ from src_preprocessing.lc_preprocessing.utils_preprocessing import (remove_non_f
                                                                     check_inputs_generate_example,
                                                                     remove_outliers,
                                                                     check_inputs)
-from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion
+from src_preprocessing.lc_preprocessing.utils_preprocessing_io import report_exclusion, read_light_curve
 from src_preprocessing.lc_preprocessing.detrend_timeseries import detrend_flux_using_spline, \
     detrend_flux_using_sg_filter
 from src_preprocessing.lc_preprocessing.phase_fold_and_binning import (global_view, local_view,
@@ -35,7 +34,6 @@ from src_preprocessing.lc_preprocessing.phase_fold_and_binning import (global_vi
 from src_preprocessing.lc_preprocessing.lc_periodogram import lc_periodogram_pipeline
 
 
-DEGREETOARCSEC = 3600
 NORM_SIGMA_EPS = 1e-12
 PHASEFOLD_GRID_PLOTS = (3, 3)
 MAP_VIEWS_TO_OLD_NAMES = {
@@ -125,89 +123,6 @@ BINNED_TIMESERIES_JOINT_PLOT = [
 logger = logging.getLogger(__name__)
 
 
-def read_light_curve(tce, config):
-    """ Reads the FITS files pertaining to a Kepler/TESS target.
-
-    Args:
-        tce: row of DataFrame, information on the TCE (ID, ephemeris, ...).
-        config: Config object, preprocessing parameters
-
-    Returns: dictionary with data extracted from the FITS files
-        all_time: A list of numpy arrays; the time values of the raw light curve
-        all_flux: A list of numpy arrays corresponding to the PDC flux time series
-        all_centroid: A list of numpy arrays corresponding to the raw centroid time series
-        add_info: A dict with additional data extracted from the FITS files; 'quarter' is a list of quarters for each
-        NumPy
-        array of the light curve; 'module' is the same but for the module in which the target is in every quarter;
-        'target position' is a list of two elements which correspond to the target star position, either in world
-        (RA, Dec) or local CCD (x, y) pixel coordinates
-
-    Raises:
-        IOError: If the light curve files for this target cannot be found.
-    """
-
-    # gets data from the lc FITS files for the TCE's target star
-    if config['satellite'] == 'kepler':  # Kepler
-
-        # get lc FITS files for the respective target star
-        file_names = kepler_io.kepler_filenames(config['lc_data_dir'],
-                                                tce.target_id,
-                                                injected_group=config['injected_group'])
-
-        if not file_names:
-            raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
-                                    f'KIC {tce.target_id}')
-
-        fits_data, fits_files_not_read = kepler_io.read_kepler_light_curve(
-            file_names,
-            centroid_radec=not config['px_coordinates'],
-            prefer_psfcentr=config['prefer_psfcentr'],
-            light_curve_extension=config['light_curve_extension'],
-            scramble_type=config['scramble_type'],
-            cadence_no_quarters_tbl_fp=config['cadence_no_quarters_tbl_fp'],
-            invert=config['invert'],
-            dq_values_filter=config['dq_values_filter'],
-            get_momentum_dump=config['get_momentum_dump'],
-        )
-
-    else:  # TESS
-
-        # get sectors for the run
-        if '-' in tce['sector_run']:
-            s_sector, e_sector = [int(sector) for sector in tce['sector_run'].split('-')]
-        else:
-            s_sector, e_sector = [int(tce['sector_run'])] * 2
-        sectors = range(s_sector, e_sector + 1)
-
-        # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
-        if config['using_exominer_pipeline']:
-            file_names = tess_io.get_tess_light_curve_files(config['lc_data_dir'], tce.target_id, tce.sectors_observed)
-        else:
-            if config['ffi_data']:
-                file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], tce.target_id, sectors)
-            else:
-                file_names = tess_io.tess_filenames(config['lc_data_dir'], tce.target_id, sectors)
-
-            if not file_names:
-
-                raise FileNotFoundError(f'No available lightcurve FITS files in {config["lc_data_dir"]} for '
-                                        f'TIC {tce.target_id}')
-
-        fits_data, fits_files_not_read = tess_io.read_tess_light_curve(file_names,
-                                                                       centroid_radec=not config['px_coordinates'],
-                                                                       prefer_psfcentr=config['prefer_psfcentr'],
-                                                                       light_curve_extension=config[
-                                                                           'light_curve_extension'],
-                                                                       get_momentum_dump=config['get_momentum_dump'],
-                                                                       dq_values_filter=config['dq_values_filter'],
-                                                                       )
-
-    if len(fits_files_not_read) > 0:
-        raise IOError(f'FITS files not read correctly for target {tce.target_id}: {fits_files_not_read}')
-
-    return fits_data
-
-
 def sample_ephemerides(tce, config):
     """ Sample ephemerides using ephemerides uncertainty.
 
@@ -243,40 +158,31 @@ def sample_ephemerides(tce, config):
     return tce
 
 
-def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_secondary=None):
-    """ Find in-transit cadences (primary and secondary transits) for TCE of interest and also other detected TCEs for
-    the target star found in `table`.
+def find_intransit_cadences(tces_in_target, time_arrs, transit_duration_factor):
+    """ Find in-transit cadences (primary and secondary transits) for TCEs in target.
 
     Args:
-        tce: pandas Series, TCE of interest
-        table: pandas Dataframe, TCE dataset
+        tces_in_target: pandas DataFrame, target TCEs
         time_arrs: list of NumPy arrays, timestamp values
-        duration_primary: float, primary transit duration
-        duration_secondary: float, secondary transit duration; if `None`, then secondary transits are not considered.
-        To account for secondary transits, the TCEs in `table` must contain the secondary phase 'tce_maxmesd'
 
     Returns:
         target_intransit_cadences_arr, list of boolean NumPy arrays (n_tces_in_target, n_cadences); each row is for a
-        given TCE in the target star; True for in-transit cadences, False otherwise
-        idx_tce, index of TCE of interest in `target_intransit_cadences_arr`
+            given TCE in the target star; True for in-transit cadences, False otherwise
     """
 
-    # get all TCEs detected for the target stars' TCE of interest that are part of the same sector run
-    if 'sector_run' in tce:  # all TCEs in same target and sector run (TESS)
-        tces_in_target = table.loc[((table['target_id'] == tce['target_id']) &
-                                   (table['sector_run'] == tce['sector_run']))].reset_index(inplace=False, drop=True)
-    else:  # all TCEs in the same target (Kepler)
-        tces_in_target = table.loc[table['target_id'] == tce['target_id']].reset_index(inplace=False, drop=True)
-
-    # bookkeeping: get index of TCE of interest in the table of detected TCEs for the target star
-    idx_tce = tces_in_target.loc[tces_in_target['uid'] == tce['uid']].index[0]
     n_tces_in_target = len(tces_in_target)
-    logger.info(f'[{tce["uid"]}] Found {n_tces_in_target} TCEs in target {tce["target_id"]}.')
 
     target_intransit_cadences_arr = [np.zeros((n_tces_in_target, len(time_arr)), dtype='bool')
                                      for time_arr in time_arrs]
     for tce_in_target_i, tce_in_target in tces_in_target.iterrows():  # iterate on target's TCEs
 
+        duration_primary, duration_secondary = set_duration_gap_for_tce(
+            tce_in_target['tce_duration'], 
+            tce_in_target['tce_period'], 
+            transit_duration_factor, 
+            tce_in_target['tce_maxmesd']
+            )
+        
         # get epoch of first transit for each time array
         first_transit_time = [find_first_epoch_after_this_time(tce_in_target['tce_time0bk'],
                                                                tce_in_target['tce_period'],
@@ -290,7 +196,7 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
                                                                 tce_in_target['tce_period'])
                                       for first_transit_time, time in zip(first_transit_time, time_arrs)]
 
-        if 'tce_maxmesd' in tce_in_target and duration_secondary:  # do the same for the detected secondary transits
+        if 'tce_maxmesd' in tce_in_target and duration_secondary is not None:  # do the same for the detected secondary transits
 
             first_transit_time_secondary = [find_first_epoch_after_this_time(tce_in_target['tce_time0bk'] +
                                                                              tce_in_target['tce_maxmesd'],
@@ -314,7 +220,7 @@ def find_intransit_cadences(tce, table, time_arrs, duration_primary, duration_se
         for arr_i, intransit_cadences_arr in enumerate(tce_intransit_cadences_arr):
             target_intransit_cadences_arr[arr_i][tce_in_target_i] = intransit_cadences_arr
 
-    return target_intransit_cadences_arr, idx_tce
+    return target_intransit_cadences_arr
 
 
 def gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data, gap_keep_overlap=True,
@@ -523,7 +429,7 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            PHASEFOLD_GRID_PLOTS,
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
-                                                           f'5_phasefolded_timeseries_aug{tce["augmentation_idx"]}.png',
+                                                           f'5_phasefolded_timeseries.png',
                                                            None
                                                            )
 
@@ -564,42 +470,155 @@ def phase_fold_timeseries(data, config, tce, plot_preprocessing_tce):
                                                            PHASEFOLD_GRID_PLOTS,
                                                            config['plot_dir'] /
                                                            f'{tce["uid"]}_{tce["label"]}_'
-                                                           f'5_phasefolded_timeseries_outlierrem_' 
-                                                           f'aug{tce["augmentation_idx"]}.png',
+                                                           f'5_phasefolded_timeseries_outlierrem.png',
                                                            None
                                                            )
 
     return phasefolded_timeseries
 
 
-def process_tce(tce, table, config):
-    """ Preprocesses the light curve time series data and scalar features for the TCE and returns an Example proto.
+def set_duration_gap_for_tce(tce_duration, tce_period, transit_duration_factor, tce_secondary_offset=None):
+    
+    # setting primary and secondary transit gap duration
+    if tce_secondary_offset is not None:
+        duration_gapped_primary = max(
+            min(transit_duration_factor * tce_duration,
+                2 * np.abs(tce_secondary_offset) - tce_duration,
+                tce_period),
+            tce_duration
+        )
+        # setting secondary gap duration
+        duration_gapped_secondary = duration_gapped_primary
+        # config['duration_gapped_secondary'] = (
+        #     min(
+        #         max(
+        #             0,
+        #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
+        #         config['gap_padding'] * tce['tce_duration']))
+    else:
+        # config['tr_dur_f']
+        duration_gapped_primary = min(transit_duration_factor * tce_duration, tce_period)
+        duration_gapped_secondary = None
+    
+    return duration_gapped_primary, duration_gapped_secondary
 
-    :param tce: pandas Series, TCE parameters and statistics
-    :param table: pandas DataFrame, TCE table
+
+def process_single_tce(tce, detrended_data, data, target_position, config, plot_preprocessing_tce=False):
+    """ Preprocesses the detrended light curve time series data and scalar features for a given SPOC TCE `tce`, and 
+        returns a dictionary of TCEs' Example proto to be writtend to TFRecord files.
+
+    :param tce: pandas Series, SPOC TCE parameters and statistics
+    :param detrended_data: dict, detrended flux and centroid motion time series for the target
+    :param data: dict, raw flux and centroid motion time series for the target
+    :param target_position: list of RA and Dec coordinates of the target star
     :param config: dict, holds preprocessing parameters
+    :param plot_preprocessing_tce: bool, if True it generates preprocesssing plots for the TCE
 
     return: a tensorflow.train.Example proto containing TCE features
     """
+    
+    # # sample TCE ephemeris using uncertainty interval
+    # tce = sample_ephemerides(tce, config)
+    
+    # get boolean array with in-transit cadences for the TCE of interest
+    tce_intransit_cadences_arr = [target_intransit_cadences[config['idx_tce']]
+                                  for target_intransit_cadences in config['target_intransit_cadences_arr']]
+    config['intransit_cadences_tce'] = tce_intransit_cadences_arr
+    
+    if plot_preprocessing_tce:
+        utils_visualization.plot_intransit_binary_timeseries(data['all_time'],
+                                                             data['all_flux'],
+                                                             config['intransit_cadences_target'],
+                                                             config['intransit_cadences_tce'],
+                                                             tce,
+                                                             config['plot_dir'] /
+                                                             f'{tce["uid"]}_{tce["label"]}_'
+                                                             f'1_intransit_cadences.png')
 
-    # check if preprocessing pipeline figures are saved for the TCE
-    plot_preprocessing_tce = False  # False
+    # FIX data being updated
+    # gap cadences belonging to the transits of other TCEs in the same target star
+    if config['gapped']:
+        logger.info(f'[{tce["uid"]}] Gap in-transit cadences from other TCEs in target {tce["target_id"]}.')
+        data_to_be_gapped = {ts_name: ts_data for ts_name, ts_data in data.items()
+                             if ts_name in ['all_flux', 'all_centroids']}
+        # if config['get_momentum_dump']:
+        #     data_to_be_gapped['momentum_dump'] = data['momentum_dump']
+
+        data_gapped = gap_intransit_cadences_other_tces(
+            config['target_intransit_cadences_arr'], 
+            config['idx_tce'], 
+            data_to_be_gapped,
+            config['gap_keep_overlap'], 
+            config['gap_imputed'],
+            seed=config['random_seed'], 
+            tce=tce, 
+            config=config
+            )
+        data.update(data_gapped)
+
+    # preprocess centroid motion distance into distance from target coordinates
+    centroid_dist_time, centroid_dist = preprocess_centroid_motion_for_tce(
+        tce,
+        detrended_data['centroid_time'], 
+        detrended_data['centroid'], 
+        detrended_data['avg_centroid_oot'], 
+        target_position, 
+        config, 
+        plot_preprocessing_tce
+        )
+    
+    detrended_data['centroid_dist_time'] = centroid_dist_time
+    detrended_data['centroid_dist'] = centroid_dist
+    
+    # compute lc periodogram
+    logger.info(f'[{tce["uid"]}] Computing periodogram data for TCE...')
+    pgram_data = lc_periodogram_pipeline(
+        config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
+        config['smooth_filter_type'], config['smooth_filter_w_f'],
+        config['tr_dur_f'],
+        tce, data['all_time'], data['all_flux'], data['all_flux_err'],
+        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram.png' if config['plot_figures'] else None,
+        plot_preprocessing_tce=plot_preprocessing_tce)
+
+    # phase fold detrended data using detected orbital period
+    logger.info(f'[{tce["uid"]}] Phase-folding time series for using TCE\'s orbital period found in TCE table...')
+    phase_folded_data = phase_fold_timeseries(detrended_data, config, tce, plot_preprocessing_tce)
+
+    # bin phase folded data and generate TCE example based on the preprocessed data
+    logger.info(f'[{tce["uid"]}] Generating features for TCE based on preprocessed light curve data...')
+    example_tce = generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_preprocessing_tce)
+    
+    return example_tce
+    
+    
+def process_target_tces(target_uid, target_tces_tbl, config):
+    """ Preprocesses the light curve time series data and scalar features for the SPOC TCEs detected for the KIC/TIC ID 
+     (for a specific sector run, in the case of TESS), and returns a dictionary of TCEs' Example proto to be writtend to TFRecord files.
+
+    :param target_uid: str, target unique id (TIC ID-Sector run/KIC ID)
+    :param target_tces_tbl: pandas Series, target TCEs parameters and statistics
+    :param config: dict, holds preprocessing parameters
+
+    return: a dictionary mapping TCEs unique IDs to a tensorflow.train.Example proto containing TCE features
+    """
+
+    # check if preprocessing pipeline figures are saved for the target and its TCEs
+    plot_preprocessing_tce = False
     if np.random.random() < config['plot_prob']:
         plot_preprocessing_tce = config['plot_figures']
 
-    # sample TCE ephemeris using uncertainty interval
-    tce = sample_ephemerides(tce, config)
-
+    target_dict = {k: v for k, v in target_tces_tbl.iloc[0].items() if k in ['target_id', 'sector_run', 'sectors_observed']}
     # get cadence, flux and centroid data for the tce
-    logger.info(f'[{tce["uid"]}] Reading light curve data for target {tce["target_id"]}.')
-    data = read_light_curve(tce, config)
+    logger.info(f'[{target_uid}] Reading light curve data for target {target_uid}.')
+    data = read_light_curve(target_dict, config)
     if data is None:
-        raise IOError(f'Issue when reading data from the FITS file(s) for target {tce["target_id"]}.')
+        raise IOError(f'Issue when reading data from the FITS file(s) for target {target_uid}.')
 
     # update target position in FITS file with that from the TCE table
-    if ~np.isnan(tce['ra']) and ~np.isnan(tce['dec']):
-        logger.info(f'[{tce["uid"]}] Using targets\' RA and Dec coordinates from the TCE table.')
-        data['target_position'] = [tce['ra'], tce['dec']]
+    tce_table_target_ra, tce_table_target_dec = target_tces_tbl[['ra', 'dec']].values[0, :]
+    if ~np.isnan(tce_table_target_ra) and ~np.isnan(tce_table_target_dec):
+        logger.info(f'[{target_uid}] Using targets\' RA and Dec coordinates from the TCE table.')
+        data['target_position'] = [tce_table_target_ra, tce_table_target_dec]
     config['delta_dec'] = np.cos(data['target_position'][1] * np.pi / 180)
 
     # config['primary_buffer_time'] = (config['primary_buffer_nsamples'] /
@@ -609,28 +628,25 @@ def process_tce(tce, table, config):
     # get number of samples per hour
     config['sampling_rate_h'] = 1 / (np.median(np.diff(np.concatenate(data['all_time']))) * 24)
 
-    # setting primary and secondary transit gap duration
-    if 'tce_maxmesd' in tce:
-        config['duration_gapped_primary'] = max(
-            min(config['tr_dur_f'] * tce['tce_duration'],
-                2 * np.abs(tce['tce_maxmesd']) - tce['tce_duration'],
-                tce['tce_period']),
-            tce['tce_duration']
+    # find transits for all detected TCEs in the target
+    logger.info(f'[{target_uid}] Finding transits for all detected TCEs in target.')
+    target_intransit_cadences_arr = find_intransit_cadences(
+        target_tces_tbl,
+        data['all_time'],
+        config['tr_dur_f'],
         )
-        # setting secondary gap duration
-        config['duration_gapped_secondary'] = config['duration_gapped_primary']
-        # config['duration_gapped_secondary'] = (
-        #     min(
-        #         max(
-        #             0,
-        #             2 * np.abs(tce['tce_maxmesd']) - config['duration_gapped_primary'] - 2 * config['primary_buffer_time']),
-        #         config['gap_padding'] * tce['tce_duration']))
-    else:
-        config['duration_gapped_primary'] = min(config['tr_dur_f'] * tce['tce_duration'], tce['tce_period'])
-        config['duration_gapped_secondary'] = 0
+    config['target_intransit_cadences_arr'] = target_intransit_cadences_arr
+    # build boolean array with in-transit cadences based on all detected TCEs in the target
+    target_intransit_cadences_bool_arr = [np.sum(target_intransit_cadences, axis=0) != 0
+                                          for target_intransit_cadences in target_intransit_cadences_arr]
+    config['intransit_cadences_target'] = target_intransit_cadences_bool_arr
+    # # get boolean array with out-of-transit cadences based on all detected TCEs in the target
+    # target_outoftransit_cadences_bool_arr = [~target_intransit_cadences_bool
+    #                                          for target_intransit_cadences_bool in target_intransit_cadences_bool_arr]
+    # config['outoftransit_cadences_target'] = target_outoftransit_cadences_bool_arr  # NOTE Is this needed?
 
-    # set Savitzky-Golay window
-    if config['detrending_method'] == 'savitzky-golay':
+    # detrend the flux and centroid time series
+    if config['detrending_method'] == 'savitzky-golay':  # set Savitzky-Golay window
         # config['sg_win_len'] = int(config['sg_n_durations_win'] * tce['tce_duration'] * 24 *
         #                            config['sampling_rate_h'][f'{config["satellite"]}'])
         # win_dur_h = config['sg_n_durations_win'] * tce['tce_duration'] * 24
@@ -638,88 +654,36 @@ def process_tce(tce, table, config):
         config['sg_win_len'] = int(win_dur_h * config['sampling_rate_h'])  # [f'{config["satellite"]}'])
         config['sg_win_len'] = config['sg_win_len'] if config['sg_win_len'] % 2 != 0 else config['sg_win_len'] + 1
 
-    # # TODO: use this?
-    # if config['satellite'] == 'kepler':
-    #     add_info = {'quarter': data['quarter'], 'module': data['module']}
-    # else:
-    #     add_info = {'sectors': data['sectors']}
+    logger.info(f'[{target_uid}] Preprocessing light curve data for target {target_uid}...')
+    detrended_data = process_light_curve(data, config, target_uid, plot_preprocessing_tce)
+    logger.info(f'[{target_uid}] Finished preprocessing light curve data for target {target_uid}.\n Started preprocessing {len(target_tces_tbl)} TCEs...')
 
-    # find transits for all detected TCEs in the target
-    logger.info(f'[{tce["uid"]}] Finding transits for all detected TCEs in target.')
-    target_intransit_cadences_arr, idx_tce = find_intransit_cadences(tce, table,
-                                                                     data['all_time'],
-                                                                     config['duration_gapped_primary'],
-                                                                     config['duration_gapped_secondary'])
-
-    # build boolean array with in-transit cadences based on all detected TCEs in the target
-    target_intransit_cadences_bool_arr = [np.sum(target_intransit_cadences, axis=0) != 0
-                                          for target_intransit_cadences in target_intransit_cadences_arr]
-    config['intransit_cadences_target'] = target_intransit_cadences_bool_arr
-
-    # get boolean array with out-of-transit cadences based on all detected TCEs in the target
-    target_outoftransit_cadences_bool_arr = [~target_intransit_cadences_bool
-                                             for target_intransit_cadences_bool in target_intransit_cadences_bool_arr]
-    config['outoftransit_cadences_target'] = target_outoftransit_cadences_bool_arr
-
-    # get boolean array with in-transit cadences for the TCE of interest
-    tce_intransit_cadences_arr = [target_intransit_cadences[idx_tce]
-                                  for target_intransit_cadences in target_intransit_cadences_arr]
-    config['intransit_cadences_tce'] = tce_intransit_cadences_arr
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_intransit_binary_timeseries(data['all_time'],
-                                                             data['all_flux'],
-                                                             config['intransit_cadences_target'],
-                                                             config['intransit_cadences_tce'],
-                                                             tce,
-                                                             config['plot_dir'] /
-                                                             f'{tce["uid"]}_{tce["label"]}_'
-                                                             f'1_intransit_cadences_aug{tce["augmentation_idx"]}.png')
-
-    # gap cadences belonging to the transits of other TCEs in the same target star
-    if config['gapped']:
-        logger.info(f'[{tce["uid"]}] Gap in-transit cadences from other TCEs in target {tce["target_id"]}.')
-        data_to_be_gapped = {ts_name: ts_data for ts_name, ts_data in data.items()
-                             if ts_name in ['all_flux', 'all_centroids']}
-        # if config['get_momentum_dump']:
-        #     data_to_be_gapped['momentum_dump'] = data['momentum_dump']
-
-        data_gapped = gap_intransit_cadences_other_tces(target_intransit_cadences_arr, idx_tce, data_to_be_gapped,
-                                                        config['gap_keep_overlap'], config['gap_imputed'],
-                                                        seed=config['random_seed'], tce=tce, config=config)
-        data.update(data_gapped)
-
-    # compute lc periodogram
-    logger.info(f'[{tce["uid"]}] Computing periodogram data for TCE...')
-    pgram_data = lc_periodogram_pipeline(
-        config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
-        config['smooth_filter_type'], config['smooth_filter_w_f'],
-        config['tr_dur_f'],
-        tce, data['all_time'], data['all_flux'], data['all_flux_err'],
-        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram_aug{tce["augmentation_idx"]}.png' if config['plot_figures'] else None,
-        plot_preprocessing_tce=plot_preprocessing_tce)
-
-    # detrend the flux and centroid time series
-    logger.info(f'[{tce["uid"]}] Preprocessing light curve data for TCE...')
-    detrended_data = process_light_curve(data, config, tce, plot_preprocessing_tce)
-
-    # phase fold detrended data using detected orbital period
-    logger.info(f'[{tce["uid"]}] Phase-folding time series for using TCE\'s orbital period found in TCE table...')
-    phase_folded_data = phase_fold_timeseries(detrended_data, config, tce, plot_preprocessing_tce)
-
-    # bin phase folded data and generate TCE example based on the preprocessed data
-    logger.info(f'[{tce["uid"]}] Generating features for TCE based on preprocessed light curve data...')
-    example_tce = generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_preprocessing_tce)
-
-    return example_tce
+    examples_tces_dict = {tce_uid: {field: None for field in ['data', 'processed', 'error']} for tce_uid in target_tces_tbl['uid']}
+    for tce_i, tce in target_tces_tbl.iterrows():  # preprocess data for each TCE
+        
+        logger.info(f'Preprocessing TCE {tce["uid"]} for target {target_uid}...')
+        
+        config['idx_tce'] = tce_i  # set TCE index
+        
+        try:
+            example_tce_data = process_single_tce(tce, detrended_data, data, data['target_position'], config, plot_preprocessing_tce)
+            examples_tces_dict[tce['uid']]['data'] = example_tce_data
+            examples_tces_dict[tce['uid']]['processed'] = True
+        except Exception as tce_preprocessing_error:
+            examples_tces_dict[tce['uid']]['error'] = tce_preprocessing_error
+            examples_tces_dict[tce['uid']]['processed'] = False
+        
+        logger.info(f'Finished preprocessed TCE {tce["uid"]} for target {target_uid}. Status: {examples_tces_dict[tce["uid"]]["processed"]}')
+                
+    return examples_tces_dict
 
 
-def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
+def flux_preprocessing(all_time, all_flux, target_uid, config, plot_preprocessing_tce):
     """ Preprocess the flux time series.
 
     :param all_time: list of NumPy arrays, timestamps
     :param all_flux: list of NumPy arrays, flux time series
-    :param tce: pandas Series, TCE parameters
+    :param target_uid: str, target unique id (TIC ID-Sector run/KIC ID)
     :param config: dict, preprocessing parameters
     :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
     :return:
@@ -729,19 +693,17 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
     """
 
     # copy arrays
-    time_arrs, flux_arrs, intransit_cadences_target, intransit_cadences_tce = \
+    time_arrs, flux_arrs, intransit_cadences_target = \
         ([np.array(el) for el in all_time],
          [np.array(el) for el in all_flux],
          [np.array(el) for el in config['intransit_cadences_target']],
-         [np.array(el) for el in config['intransit_cadences_tce']])
-
+        )
     # remove non-finite values
-    time_arrs, flux_arrs, intransit_cadences_target, intransit_cadences_tce = (
+    time_arrs, flux_arrs, intransit_cadences_target = (
         remove_non_finite_values([
             time_arrs,
             flux_arrs,
             intransit_cadences_target,
-            intransit_cadences_tce
         ]))
 
     flux = np.concatenate(flux_arrs)
@@ -767,7 +729,7 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                                                                    config['sg_break_tolerance']
                                                                    )
 
-        logger.info(f'[{tce["uid"]}] SG detrending model flux data info. Chosen polynomial order: '
+        logger.info(f'[{target_uid}] SG detrending model flux data info. Chosen polynomial order: '
                     f'{models_info_df.index[0]}')
 
         flux_lininterp = None
@@ -785,59 +747,58 @@ def flux_preprocessing(all_time, all_flux, tce, config, plot_preprocessing_tce):
                                               flux,
                                               trend,
                                               detrended_flux,
-                                              tce,
+                                              target_uid,
                                               config['plot_dir'],
-                                              f'2_detrendedflux_aug{tce["augmentation_idx"]}',
+                                              f'2_detrendedflux',
                                               flux_interp=flux_lininterp)
 
     return time, detrended_flux, trend
 
 
-def centroid_preprocessing(all_time, all_centroids, target_position, add_info, tce, config, plot_preprocessing_tce):
+def centroid_preprocessing(all_time, all_centroids, target_position, add_info, target_uid, config, plot_preprocessing_tce):
     """ Preprocess the centroid timeseries.
 
     :param all_time: list of NumPy arrays, timestamps
     :param all_centroids: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to a list of
-    NumPy arrays for the respective centroid coordinate time series
+        NumPy arrays for the respective centroid coordinate time series
     # :param avg_centroid_oot: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to the
     # estimate of the average out-of-transit centroid
     :param target_position: list, target star position in 'x' and 'y'
     :param add_info: dictionary, additional information such as quarters and modules
-    :param tce: Pandas Series, TCE parameters
+    :param target_uid: str, target unique id (TIC ID-Sector run/KIC ID)
     :param config: dict, preprocessing parameters
     :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
+    
     :return:
-        time: NumPy array, timestamps for preprocessed centroid time series
-        centroid_dist: NumPy array, preprocessed centroid time series which is an estimate of the distance of the
-        transit to the target
+        NumPy array, centroid timestamps
+        dict, containing detrended centroid time series for 'x' and 'y' coordinates and timestamps 'time'
+        dict, average out-of-transit centroid position 'x', and 'y' coordinates
     """
 
     # copy arrays
-    time_arrs, centroid_dict, intransit_cadences_target, intransit_cadences_tce = (
+    time_arrs, centroid_dict, intransit_cadences_target = (
         [np.array(el) for el in all_time],
         {coord: [np.array(el) for el in centroid_arrs] for coord, centroid_arrs in all_centroids.items()},
         [np.array(el) for el in config['intransit_cadences_target']],
-        [np.array(el) for el in config['intransit_cadences_tce']]
     )
 
     if np.isnan(np.concatenate(centroid_dict['x'])).all():  # when there's no centroid data
         time_centroid = np.concatenate(time_arrs)
         centroid_dist = np.zeros(len(time_centroid), dtype='float')
 
-        report_exclusion(f'No available flux-weighted centroid data for target {tce.target_id}. '
+        report_exclusion(f'No available flux-weighted centroid data for target {target_uid}. '
                          f'Setting transit offset distance from target to zero.',
-                         config['exclusion_logs_dir'] / f'exclusions_{tce["uid"]}.txt')
+                         config['exclusion_logs_dir'] / f'exclusions_{target_uid}.txt')
 
         return time_centroid, centroid_dist
 
     # remove missing NaN values from the time series
-    time_arrs, centroid_dict['x'], centroid_dict['y'], intransit_cadences_target, intransit_cadences_tce = (
+    time_arrs, centroid_dict['x'], centroid_dict['y'], intransit_cadences_target = (
         remove_non_finite_values([
             time_arrs,
             centroid_dict['x'],
             centroid_dict['y'],
             intransit_cadences_target,
-            intransit_cadences_tce,
         ]
         ))
 
@@ -885,7 +846,7 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
                                                                                         config['sg_break_tolerance'],
                                                                                         )
 
-            logger.info(f'[{tce["uid"]}] SG detrending model centroid {centroid_coord} data info. '
+            logger.info(f'[{target_uid}] SG detrending model centroid {centroid_coord} data info. '
                         f'Chosen polynomial order: {models_info_df.index[0]}')
 
         elif config['detrending_method'] is None:
@@ -913,11 +874,11 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
         utils_visualization.plot_centroids(time_centroid,
                                            centroid_dict_concat,
                                            detrended_centroid_dict,
-                                           tce,
+                                           target_uid,
                                            config,
                                            config['plot_dir'] /
-                                           f'{tce["uid"]}_{tce["label"]}_'
-                                           f'3_1_detrendedcentroids_aug{tce["augmentation_idx"]}.png',
+                                           f'{target_uid}_'
+                                           f'3_1_detrendedcentroids.png',
                                            config['px_coordinates'],
                                            target_position,
                                            config['delta_dec'],
@@ -960,55 +921,17 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     #                                               f'4_centroidtimeseries_it-ot-target_aug{tce["augmentation_idx"]}',
     #                                               target_center=True)
 
-    transit_depth = tce['tce_depth'] + 1  # avoid zero transit depth
-    corrected_centroids = correct_centroid_using_transit_depth(detrended_centroid_dict['x']['detrended'],
-                                                               detrended_centroid_dict['y']['detrended'],
-                                                               transit_depth,
-                                                               avg_centroid_oot)
-    # corrected_centroids = {'x': detrended_centroid_dict['x']['detrended'],
-    #                        'y': detrended_centroid_dict['y']['detrended']}
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_corrected_centroids(time_centroid,
-                                                     corrected_centroids,
-                                                     avg_centroid_oot,
-                                                     tce,
-                                                     config,
-                                                     config['plot_dir'] /
-                                                     f'{tce["uid"]}_{tce["label"]}_'
-                                                     f'3_2_correctedcentroids_aug{tce["augmentation_idx"]}.png',
-                                                     config['px_coordinates'],
-                                                     target_position=target_position,
-                                                     delta_dec=config['delta_dec']
-                                                     )
-
-    # compute distance of centroid to target position
-    centroid_dist = compute_centroid_distance(corrected_centroids, target_position, config['delta_dec'])
-
-    # convert from degree to arcsec
-    if not config['px_coordinates']:
-        centroid_dist *= DEGREETOARCSEC
-
-    if plot_preprocessing_tce:
-        utils_visualization.plot_dist_centroids(time_centroid,
-                                                centroid_dist,
-                                                tce,
-                                                config,
-                                                config['plot_dir'] /
-                                                f'{tce["uid"]}_{tce["label"]}_'
-                                                f'3_3_distcentr_aug{tce["augmentation_idx"]}.png')
-
-    return time_centroid, centroid_dist
+    
+    return time_centroid, detrended_centroid_dict, avg_centroid_oot 
 
 
-def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
+def process_light_curve(data, config, target_uid, plot_preprocessing_tce=False):
     """ Detrends different time series (e.g., detrending) such as flux and centroid motion.
 
     Args:
       data: dictionary containing raw lc data
       config: dict, holds preprocessing parameters
-      tce: Pandas Series, row of the TCE table for the TCE that is being processed; it contains data such as the
-        ephemerides
+      target_uid: str, target unique id (TIC ID-Sector run/KIC ID)
       plot_preprocessing_tce: bool, if True plots figures for several steps in the preprocessing pipeline
 
     Returns:
@@ -1021,19 +944,23 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
     else:
         add_info_centr = None
 
-    flux_time, flux, flux_trend = flux_preprocessing(data['all_time'],
-                                                     data['all_flux'],
-                                                     tce,
-                                                     config,
-                                                     plot_preprocessing_tce)
+    flux_time, flux, flux_trend = flux_preprocessing(
+        data['all_time'],
+        data['all_flux'],
+        target_uid,
+        config,
+        plot_preprocessing_tce
+        )
 
-    centroid_dist_time, centroid_dist = centroid_preprocessing(data['all_time'],
-                                                               data['all_centroids'],
-                                                               data['target_position'],
-                                                               add_info_centr,
-                                                               tce,
-                                                               config,
-                                                               plot_preprocessing_tce)
+    centroid_time, detrended_centroid_dict, avg_centroid_oot = centroid_preprocessing(
+        data['all_time'],
+        data['all_centroids'],
+        data['target_position'],
+        add_info_centr,
+        target_uid,
+        config,
+        plot_preprocessing_tce
+        )
 
     if config['get_momentum_dump']:
         momentum_dump_time, momentum_dump = remove_non_finite_values([data['time_momentum_dump'],
@@ -1043,9 +970,8 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
         if plot_preprocessing_tce:
             utils_visualization.plot_momentum_dump_timeseries(momentum_dump_time,
                                                               momentum_dump,
-                                                              tce,
                                                               config['plot_dir'] /
-                                                              f'{tce["uid"]}_{tce["label"]}_'
+                                                              f'{target_uid}_'
                                                               f'4_momentum_dump_timeseries.png')
 
     # dictionary with detrended time series
@@ -1053,8 +979,12 @@ def process_light_curve(data, config, tce, plot_preprocessing_tce=False):
         'flux_time': flux_time,
         'flux': flux,
         'flux_trend': flux_trend,
-        'centroid_dist_time': centroid_dist_time,
-        'centroid_dist': centroid_dist,
+        'centroid_time': centroid_time,
+        'centroid': {centroid_coord: centroid_data['detrended'] 
+                     for centroid_coord, centroid_data in detrended_centroid_dict.items()},
+        'centroid_trend': {centroid_coord: centroid_data['trend'] 
+                     for centroid_coord, centroid_data in detrended_centroid_dict.items()},
+        'avg_centroid_oot': avg_centroid_oot,
     }
 
     if config['get_momentum_dump']:
@@ -1215,7 +1145,7 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
                                           config,
                                           config['plot_dir'] /
                                           f'{tce["uid"]}_{tce["label"]}_8_1_oddeven_transitdepth_phasefoldedbinned_'
-                                          f'timeseries_aug{tce["augmentation_idx"]}.png'
+                                          f'timeseries.png'
                                           )
 
     # add statistics
@@ -1303,7 +1233,7 @@ def generate_flux_binned_views(data, tce, config, plot_preprocessing_tce):
                                            tce,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'6_riverplot_flux_aug{tce["augmentation_idx"]}.png')
+                                           f'6_riverplot_flux_aug.png')
 
     # create local flux view
     loc_flux_view, loc_binned_time, loc_flux_view_var, _, bin_counts = \
@@ -1484,7 +1414,7 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
                                            tce,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'7_1_riverplot_flux_trend_aug{tce["augmentation_idx"]}.png')
+                                           f'7_1_riverplot_flux_trend.png')
 
     # create local flux view
     loc_flux_view, loc_binned_time, loc_flux_view_var, _, bin_counts = \
@@ -1590,7 +1520,7 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
             tce,
             config['plot_dir'] /
             f'{tce["uid"]}_{tce["label"]}_'
-            f'7_2_phasefoldedbinned_trend_aug{tce["augmentation_idx"]}.png')
+            f'7_2_phasefoldedbinned_trend.png')
 
     return binned_timeseries
 
@@ -1728,7 +1658,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
             tce,
             config['plot_dir'] /
             f'{tce["uid"]}_{tce["label"]}_'
-            f'8_3_flux_weak_secondary_aug{tce["augmentation_idx"]}.png')
+            f'8_3_flux_weak_secondary.png')
 
     return binned_timeseries
 
@@ -2079,8 +2009,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                                                         config,
                                                         config['plot_dir'] /
                                                         f'{tce["uid"]}_{tce["label"]}_'
-                                                        f'9_1_phasefoldedbinned_timeseries_'
-                                                        f'aug{tce["augmentation_idx"]}.png'
+                                                        f'9_1_phasefoldedbinned_timeseries.png'
                                                         )
 
         utils_visualization.plot_all_views({ts_name: ts_data for ts_name, ts_data in binned_timeseries.items()
@@ -2091,7 +2020,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                                            BINNED_TIMESERIES_JOINT_PLOT_GRID,
                                            config['plot_dir'] /
                                            f'{tce["uid"]}_{tce["label"]}_'
-                                           f'9_2_binned_timeseries_aug{tce["augmentation_idx"]}.png',
+                                           f'9_2_binned_timeseries.png',
                                            plot_var=True
                                            )
 

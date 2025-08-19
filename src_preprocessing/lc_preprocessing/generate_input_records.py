@@ -97,7 +97,7 @@ def preprocess_lc_data(config_fp, output_dir=None, lc_data_dir=None, tce_table_f
         config['plot_dir'].mkdir(exist_ok=True)
 
     # get TCE and gapping ephemeris tables
-    shards_tce_tables, tce_table = get_tce_table(config)
+    shards_tce_tables = get_tce_table(config)
 
     if config['process_i'] in [0, -1]:
         np.save(config['output_dir'] / 'preprocessing_params.npy', config)
@@ -121,14 +121,14 @@ def preprocess_lc_data(config_fp, output_dir=None, lc_data_dir=None, tce_table_f
 
         logger.info(f'Started processing {len(shards_tce_tables[config["process_i"]])} items in shard {shard_filename}')
 
-        process_file_shard(shards_tce_tables[config['process_i']], shard_fp, tce_table, config)
+        process_file_shard(shards_tce_tables[config['process_i']], shard_fp, config)
 
         logger.info(f'Finished processing {len(shards_tce_tables[config["process_i"]])} items in shard '
                     f'{shard_filename}')
 
     else:  # use multiprocessing.Pool
 
-        file_shards = create_shards(config, shards_tce_tables, tce_table)
+        file_shards = create_shards(config, shards_tce_tables)
 
         # launch subprocesses for the file shards
         logger.info(f'Launching {config["n_processes"]} processes for {config["n_shards"]} total file shards.')
