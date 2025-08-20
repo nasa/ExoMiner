@@ -7,10 +7,10 @@
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir="/data3/exoplnt_dl/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fn="tics_S72-72.csv"
+tics_tbl_fn="test_tics_S72-72.csv"
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=test_exominer_pipeline_run_8-19-2025_1753
+exominer_pipeline_run=test_exominer_pipeline_run_8-20-2025_1210
 # directory where the ExoMiner Pipeline run is saved
 exominer_pipeline_run_dir=/data3/exoplnt_dl/experiments/exominer_pipeline/runs/$exominer_pipeline_run
 # data collection mode: either 2min or ffi
@@ -21,7 +21,7 @@ num_processes=1
 num_jobs=1
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
-download_spoc_data_products=false
+download_spoc_data_products=true
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
 external_data_repository=null
@@ -39,7 +39,6 @@ show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    # echo "  --inputs_dir DIR                     Directory for TIC IDs input tables"
     echo "  --tics_tbl_fp FILE                   TIC IDs table filepath"
     echo "  --exominer_pipeline_run_dir DIR      Directory to store pipeline run output"
     echo "  --data_collection_mode MODE          Data collection mode (2min or ffi)"
@@ -57,7 +56,6 @@ show_help() {
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        # --inputs_dir) inputs_dir="$2"; shift 2 ;;
         --tics_tbl_fp) tics_tbl_fp="$2"; shift 2 ;;
         --exominer_pipeline_run_dir) exominer_pipeline_run_dir="$2"; shift 2 ;;
         --data_collection_mode) data_collection_mode="$2"; shift 2 ;;
@@ -81,7 +79,6 @@ done
 mkdir -p $exominer_pipeline_run_dir
 
 # set up volume mounts
-# volume_mounts="-v $inputs_dir:/inputs:Z -v $exominer_pipeline_run_dir:/outputs:Z"
 volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
 
 # conditionally add external_data_repository mount
@@ -108,9 +105,7 @@ else
     ruwe_source_arg=$ruwe_source
 fi
 
-# echo "Started ExoMiner Pipeline run $exominer_pipeline_run..."
 echo "Running ExoMiner Pipeline with the following parameters:"
-# echo "Inputs directory: $inputs_dir"
 echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 

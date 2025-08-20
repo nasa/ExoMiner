@@ -363,7 +363,7 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
     sys.stdout = StreamToLogger(logger)
 
     requested_products_lst, requested_products_manifest_lst = [], []
-    for tic_i, tic_data in tics_df.iterrows():
+    for _, tic_data in tics_df.iterrows():
 
         logger.info(f'Downloading light curve and DV XML data for TIC {tic_data["tic_id"]} in sector run '
                     f'{tic_data["sector_run"]} ({data_collection_mode} data)...')

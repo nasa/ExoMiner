@@ -9,4 +9,4 @@ local_scripts/
 others/conda_vulnerabilities_jake.txt
 /exominer_pipeline/data/
 .vscode/
-/exominer_pipeline/test_pipeline/
+# /exominer_pipeline/test_pipeline/
