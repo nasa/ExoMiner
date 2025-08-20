@@ -11,7 +11,7 @@ num_processes: -1
 num_jobs: -1
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
-download_spoc_data_products: null
+download_spoc_data_products: 'false'
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
 external_data_repository: null

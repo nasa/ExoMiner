@@ -200,7 +200,7 @@ def check_config(run_config, logger):
 
     # check if data collection mode is valid
     if run_config['download_spoc_data_products'] not in  ['true', 'false']:
-        logger.info(f'Downloading SPOC DV mini-report variable "{run_config["data_collection_mode"]}" is not supported. '
+        logger.info(f'Downloading SPOC DV mini-report variable "{run_config["download_spoc_data_products"]}" is not supported. '
                     f'Choose from "true" or "false".')
         raise SystemExit("Invalid SPOC DV mini-report flag. Choose from 'true' or 'false'.")
 
@@ -293,8 +293,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         run_config['data_collection_mode'] = data_collection_mode
 
     # overwrite download DV mini-report flag using the command-line argument
-    if download_spoc_data_products == 'true':
-        run_config['download_spoc_data_products'] = download_spoc_data_products
+    run_config['download_spoc_data_products'] = download_spoc_data_products
 
     # overwrite data repository path using the command-line argument
     if external_data_repository is not None:
