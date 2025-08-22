@@ -88,20 +88,32 @@ def updated_stellar_parameters(tce_tbl, res_dir, stellar_parameters_source='ticv
 
     # query from TIC all targets in the TCE table
     if stellar_parameters_source == 'ticv8':
-        logger.info('Getting stellar parameters from TIC catalog...')
+        try:
+            logger.info('Getting stellar parameters from TIC catalog...')
 
-        tics = tce_tbl['target_id'].unique().astype('int').tolist()
-        logger.info(f'Querying results for {len(tics)} TICs using TIC-8 catalog...')
-        catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tics).to_pandas()
-        catalog_data.to_csv(res_dir / 'tic8_results.csv', index=False)
+            tics = tce_tbl['target_id'].unique().astype('int').tolist()
+            logger.info(f'Querying results for {len(tics)} TICs using TIC-8 catalog...')
+            catalog_data = Catalogs.query_criteria(catalog='TIC', ID=tics).to_pandas()
+            catalog_data.to_csv(res_dir / 'tic8_results.csv', index=False)
 
-        # rename parameters names to expected names in the TCE table
-        catalog_data = catalog_data.rename(columns=MAP_TIC8_FIELDS)
-        catalog_data = catalog_data.astype({'target_id': np.int64})
+            # rename parameters names to expected names in the TCE table
+            catalog_data = catalog_data.rename(columns=MAP_TIC8_FIELDS)
+            catalog_data = catalog_data.astype({'target_id': np.int64})
 
-        # add values from the TIC catalog to the TCE table
-        logger.info('Adding TIC values to the TCE table...')
-        tce_tbl = tce_tbl.merge(catalog_data[list(MAP_TIC8_FIELDS.values())], on=['target_id'], validate='many_to_one')
+            # add values from the TIC catalog to the TCE table
+            logger.info('Adding TIC values to the TCE table...')
+            tce_tbl = tce_tbl.merge(catalog_data[list(MAP_TIC8_FIELDS.values())], on=['target_id'], validate='many_to_one')
+            
+        except Exception as e:
+        
+            logger.error(f'Error querying TIC-8 catalog: {e}')
+            
+            logger.info('Using stesllar parameters from the TESS SPOC DV XML files...')
+            logger.info('Stellar mass is not avaialble in TESS SPOC DV XML files. Setting it to missing value...')
+
+            # DV XML files do not contain any value for the stellar mass
+            tce_tbl['tce_smass'] = np.nan
+            tce_tbl['tce_smass_err'] = np.nan
 
     elif isinstance(stellar_parameters_source, Path):  # use external catalog
 
