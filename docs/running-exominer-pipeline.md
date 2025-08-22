@@ -30,17 +30,23 @@ the path of the intended CSV tables. More information on using local source cata
 For information on the structure of the input CSV file, see section [TIC IDs input](#tic-ids-input).
 
 ```bash
+#!/bin/bash
+
+### Run ExoMiner Pipeline by running a container of a Podman image
+
+### default values ## 
+
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs"
+inputs_dir="/path/to/inputs"
 # file path to the TICs table
-tics_tbl_fn=tics_tbl_filename.csv
+tics_tbl_fn="tics_tbl.csv"
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=exominer_pipeline_run_7-21-2025_1432
+exominer_pipeline_run=run_name
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/$exominer_pipeline_run"
+exominer_pipeline_run_dir=/path/to/run/$exominer_pipeline_run
 # data collection mode: either 2min or ffi
-data_collection_mode=ffi
+data_collection_mode="2min"
 # number of processes
 num_processes=1
 # number of jobs to split the TIC IDs
@@ -60,10 +66,53 @@ stellar_parameters_source=ticv8
 # values.
 ruwe_source=gaiadr2
 
+# Help message
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --tics_tbl_fp FILE                   TIC IDs table filepath"
+    echo "  --exominer_pipeline_run_dir DIR      Directory to store pipeline run output"
+    echo "  --data_collection_mode MODE          Data collection mode (2min or ffi)"
+    echo "  --num_processes N                    Number of processes"
+    echo "  --num_jobs N                         Number of jobs"
+    echo "  --download_spoc_data_products BOOL   Whether to download TESS SPOC DV reports for the detected TCEs: true or false"
+    echo "  --external_data_repository DIR       Path to external data repository containing light curve FITS files and DV XML files for the TIC IDs in the TICs table"
+    echo "  --stellar_parameters_source SOURCE   Source for TICs stellar parameters"
+    echo "  --ruwe_source SOURCE                 Source for TICs Gaia RUWE parameters"
+    echo "  --help                               Show ExoMiner Pipeline help"
+    echo ""
+    exit 
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tics_tbl_fp) tics_tbl_fp="$2"; shift 2 ;;
+        --exominer_pipeline_run_dir) exominer_pipeline_run_dir="$2"; shift 2 ;;
+        --data_collection_mode) data_collection_mode="$2"; shift 2 ;;
+        --num_processes) num_processes="$2"; shift 2 ;;
+        --num_jobs) num_jobs="$2"; shift 2 ;;
+        --download_spoc_data_products) download_spoc_data_products="$2"; shift 2 ;;
+        --external_data_repository) external_data_repository="$2"; shift 2 ;;
+        --stellar_parameters_source) stellar_parameters_source="$2"; shift 2 ;;
+        --ruwe_source) ruwe_source="$2"; shift 2 ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
 mkdir -p $exominer_pipeline_run_dir
 
 # set up volume mounts
-volume_mounts="-v $inputs_dir:/inputs:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+
 # conditionally add external_data_repository mount
 if [ "$external_data_repository" != "null" ]; then
   volume_mounts="$volume_mounts -v $external_data_repository:/external_data_repository:Z"
@@ -88,16 +137,14 @@ else
     ruwe_source_arg=$ruwe_source
 fi
 
-echo "Started ExoMiner Pipeline run $exominer_pipeline_run..."
 echo "Running ExoMiner Pipeline with the following parameters:"
-echo "Inputs directory: $inputs_dir"
 echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-   ghcr.io/nasa/exominer  \
-  --tic_ids_fp=/inputs/$tics_tbl_fn \
+  ghcr.io/nasa/exominer:latest \
+  --tic_ids_fp=/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
   --num_processes=$num_processes \
@@ -107,7 +154,8 @@ podman run \
   --ruwe_source=$ruwe_source_arg \
   $external_data_repository_arg \
 
-echo "Finished ExoMiner Pipeline run $exominer_pipeline_run."
+echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."
+
 ```
 
 ## TIC IDs input
