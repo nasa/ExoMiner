@@ -68,7 +68,7 @@ def process_file_shard(tce_table, file_name, config):
 
     logger.info(f'{config["process_i"]}: Processing {num_tces_total} TCEs ({num_targets} targets) in shard {shard_name}.')
 
-    start_time = int(datetime.datetime.now().strftime("%s"))
+    start_time = int(datetime.datetime.now().timestamp())
 
     num_targets_processed = 0
     num_tces_processed = 0
@@ -83,7 +83,7 @@ def process_file_shard(tce_table, file_name, config):
             logger.info(f'{config["process_i"]}: Processing {n_tces_target} TCEs for target {target_uid} in shard {shard_name} '
                         f'({num_tces_processed}/{num_tces_total})...')
             
-            start_preproc_target_tces = int(datetime.datetime.now().strftime("%s"))
+            start_preproc_target_tces = int(datetime.datetime.now().timestamp())
             try:
                 examples_tces_dict = process_target_tces(target_uid, target_tces_tbl, config)
             except Exception as error:  # uncaught exception/target-level exception
@@ -94,12 +94,12 @@ def process_file_shard(tce_table, file_name, config):
                     config['exclusion_logs_dir'] / f'exclusions-{target_uid}.txt',
                     error)
 
-                preproc_target_tces = (int(datetime.datetime.now().strftime("%s")) - start_preproc_target_tces) / 60
+                preproc_target_tces = (int(datetime.datetime.now().timestamp())) - start_preproc_target_tces) / 60
                 logger.info(f'Spent {preproc_target_tces} minutes preprocessing {n_tces_target} TCEs for target {target_uid}. Failed preprocessing TCEs with error: {error}.')
 
                 continue
 
-            preproc_target_tces = (int(datetime.datetime.now().strftime("%s")) - start_preproc_target_tces) / 60
+            preproc_target_tces = (int(datetime.datetime.now().timestamp())) - start_preproc_target_tces) / 60
             logger.info(f'Spent {preproc_target_tces} minutes preprocessing {n_tces_target} TCEs for target {target_uid}.')
 
             if len(examples_tces_dict) > 0:  # at least one TCE preprocessed successfully
@@ -141,17 +141,18 @@ def process_file_shard(tce_table, file_name, config):
                     shard_df = examples_df
                     shard_df_empty = False
                 else:
-                    shard_df = pd.read_csv(config['output_dir'] / f'{shard_name}.csv', index_col=0)
                     shard_df = pd.concat([shard_df, examples_df], ignore_index=True)
 
-                shard_df.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
+                # shard_df.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
+                shard_df.to_csv(config['output_dir'] / f'{shard_name}.csv', mode='a', header=not (config['output_dir'] / f'{shard_name}.csv').exists(), index=True)
 
-            num_tces_processed += len(shard_df)
-            num_targets_processed += 1
+                num_tces_processed += len(examples_df)
+                num_targets_processed += 1
+                
             num_tces_remaining = np.sum(num_tces_per_target_lst[target_i + 1:])  # remaining TCEs in the tables
             num_tces_failed = np.sum(num_tces_per_target_lst[:target_i + 1]) - num_tces_processed
             if num_tces_processed % LOG_EVERY_N_TCES == 0 and num_tces_processed > 0:
-                cur_time = int(datetime.datetime.now().strftime("%s"))
+                cur_time = int(datetime.datetime.now().timestamp())
                 eta = (cur_time - start_time) / num_tces_processed * num_tces_remaining
                 eta = str(datetime.timedelta(seconds=eta))
                 printstr = f'{config["process_i"]}: Processed {num_tces_processed}/{num_tces_total} TCEs in {num_targets_processed}/{num_targets} targets in shard ' \
@@ -159,77 +160,13 @@ def process_file_shard(tce_table, file_name, config):
 
                 logger.info(printstr)
 
-    cur_time = int(datetime.datetime.now().strftime("%s"))
+    cur_time = int(datetime.datetime.now().timestamp())
     all_time = cur_time - start_time
     all_time = str(datetime.timedelta(seconds=all_time))
     num_tces_failed_total = num_tces_total - num_tces_processed
     logger.info(f'{config["process_i"]}: Wrote {num_tces_processed}/{num_tces_total} TCEs in {num_targets_processed}/{num_targets} targets to shard ' \
                 f'{shard_name}. Failed to preprocess {num_tces_failed_total} TCEs. Spent (HH:MM:SS): {all_time}.')
     
-        # for _, tce in tce_table.iterrows():  # iterate over DataFrame rows
-
-        #     logger.info(f'{config["process_i"]}: Processing TCE {tce["uid"]} in shard {shard_name} '
-        #                 f'({num_processed}/{shard_size})...')
-
-        #     preproc_tce_time = int(datetime.datetime.now().strftime("%s"))
-
-        #     # preprocess TCE and add it to the TFRecord
-        #     for example_i in range(config['num_examples_per_tce']):
-
-        #         tce['augmentation_idx'] = example_i
-
-        #         try:
-        #             example = process_tce(tce, eph_table, config)
-        #         except Exception as error:
-
-        #             # for python 3.11
-        #             report_exclusion(
-        #                 '',
-        #                 config['exclusion_logs_dir'] / f'exclusions-{tce["uid"]}.txt',
-        #                 error)
-
-        #             preproc_tce_time = (int(datetime.datetime.now().strftime("%s")) - preproc_tce_time) / 60
-        #             logger.info(f'Spent {preproc_tce_time} minutes preprocessing TCE {tce["uid"]}.')
-
-        #             continue
-
-        #         preproc_tce_time = (int(datetime.datetime.now().strftime("%s")) - preproc_tce_time) / 60
-        #         logger.info(f'Spent {preproc_tce_time} minutes preprocessing TCE {tce["uid"]}.')
-
-        #         if example is not None:
-        #             example, example_stats = example
-        #             writer.write(example.SerializeToString())
-
-        #             tceData = {column: [tce[column]] for column in tceColumns}
-        #             tceData['shard'] = [shard_name]
-        #             tceData['augmentation_idx'] = [example_i]
-        #             tceData.update({key: [val] for key, val in example_stats.items()})
-        #             exampleDf = pd.DataFrame(data=tceData)
-
-        #             if firstTceInDf:
-        #                 examplesDf = exampleDf
-        #                 firstTceInDf = False
-        #             else:
-        #                 examplesDf = pd.read_csv(config['output_dir'] / f'{shard_name}.csv', index_col=0)
-        #                 examplesDf = pd.concat([examplesDf, exampleDf], ignore_index=True)
-
-        #             examplesDf.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
-        #         else:
-        #             logger.info(f'Example {tce.uid} was `None`.')
-
-    #     num_processed += 1
-    #     if not num_processed % 10:
-    #         cur_time = int(datetime.datetime.now().strftime("%s"))
-    #         eta = (cur_time - start_time) / num_processed * (shard_size - num_processed)
-    #         eta = str(datetime.timedelta(seconds=eta))
-    #         printstr = f'{config["process_i"]}: Processed {num_processed}/{shard_size} items in shard ' \
-    #                     f'{shard_name}, time remaining (HH:MM:SS): {eta}.'
-
-    #         logger.info(printstr)
-
-    # logger.info(f'{config["process_i"]}: Wrote {num_processed} items (out of {shard_size} total) in shard '
-    #             f'{shard_name}.')
-
 
 def create_shards(config, shards_tce_tables):
     """ Distributes examples across shards for preprocessing.

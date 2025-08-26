@@ -34,6 +34,7 @@ class StreamToLogger:
     def flush(self):
         pass
 
+
 def validate_tic_ids_csv_structure(tics_df, logger):
     """
     Validates the structure of the TIC IDs CSV file.
@@ -146,6 +147,7 @@ def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection
     if not isinstance(num_jobs, int):
         logger.error(f'Number of jobs is not an integer: {num_jobs}')
         raise SystemExit(f"Number of processes is not an integer: {num_jobs}")
+
 
 def check_config(run_config, logger):
     """ Check validity of parameters in the configuration file.

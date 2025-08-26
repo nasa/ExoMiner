@@ -6,6 +6,7 @@ Query Gaia data releases for RUWE values.
 from astroquery.gaia import Gaia
 from astropy.table import Table
 from astropy.io.votable import from_table
+import time
 
 
 def query_gaia(source_ids, query_gaia_dr, res_dir, logger=None):
@@ -18,6 +19,8 @@ def query_gaia(source_ids, query_gaia_dr, res_dir, logger=None):
     :return:
     """
 
+    Gaia.timeout = 10 * 60  # set timeout to 10 minutes
+    
     # select the objects to query using their source id
     source_ids_tbl = Table.from_pandas(source_ids)
     source_ids_tbl.to_pandas().to_csv(res_dir / 'sourceids_fromtbl.csv', index=False)
@@ -42,14 +45,40 @@ def query_gaia(source_ids, query_gaia_dr, res_dir, logger=None):
     if logger is not None:
         logger.info(f'Query to be performed: {query}')
 
-    j = Gaia.launch_job_async(query=query,
-                              upload_resource=str(upload_resource),
-                              upload_table_name=upload_tbl_name,
-                              verbose=True,
-                              output_file=str(output_fp),
-                              dump_to_file=True,
-                              output_format='csv',
-                              )
+    # j = Gaia.launch_job_async(query=query,
+    #                           upload_resource=str(upload_resource),
+    #                           upload_table_name=upload_tbl_name,
+    #                           verbose=True,
+    #                           output_file=str(output_fp),
+    #                           dump_to_file=True,
+    #                           output_format='csv',
+    #                           )
 
-    r = j.get_results()
-    r.pprint()
+    # r = j.get_results()
+    # r.pprint()
+    
+    job = Gaia.launch_job_async(query=query,
+                                upload_resource=str(upload_resource),
+                                upload_table_name=upload_tbl_name,
+                                verbose=True,
+                                output_format='csv')
+
+    # poll job status
+    while job.phase not in ['COMPLETED', 'ERROR', 'ABORTED']:
+        if logger:
+            logger.info(f"Job status: {job.phase}")
+        time.sleep(1 * 60)  # wait for 1 minute before polling again
+        job = Gaia.refresh_job(job.jobid)
+
+    # Handle job completion or failure
+    if job.phase == 'COMPLETED':
+        if logger:
+            logger.info("Job completed successfully. Retrieving results...")
+        result = job.get_results()
+        result.write(output_fp, format='csv', overwrite=True)
+        return result
+    else:
+        error_msg = f"Gaia query failed with status: {job.phase}"
+        if logger:
+            logger.error(error_msg)
+        raise RuntimeError(error_msg)

@@ -581,7 +581,7 @@ def process_single_tce(tce, detrended_data, data, target_position, config, plot_
         plot_preprocessing_tce=plot_preprocessing_tce)
 
     # phase fold detrended data using detected orbital period
-    logger.info(f'[{tce["uid"]}] Phase-folding time series for using TCE\'s orbital period found in TCE table...')
+    logger.info(f'[{tce["uid"]}] Phase-folding time series using TCE\'s orbital period found in TCE table...')
     phase_folded_data = phase_fold_timeseries(detrended_data, config, tce, plot_preprocessing_tce)
 
     # bin phase folded data and generate TCE example based on the preprocessed data
