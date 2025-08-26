@@ -14,7 +14,7 @@ import yaml
 # local
 from exominer_pipeline.utils import (process_inputs, check_config, validate_tic_ids_csv_structure, 
                                      download_tess_spoc_data_products, create_tce_table,
-                                     inference_pipeline)
+                                     inference_pipeline, create_tic_id_pattern)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preprocess_diff_img_tces_main
@@ -24,22 +24,6 @@ from src_preprocessing.utils_manipulate_tfrecords import create_table_for_tfreco
 from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector_field
 
 CONFIG_FP = 'exominer_pipeline/pipeline_run_config.yaml'
-
-
-def create_tic_id_pattern(row, data_collection_mode):
-
-    tic_id = str(row['tic_id']).zfill(16)
-    start_sector, end_sector = row['sector_run'].split("-")
-    sector_id = f"s{start_sector.zfill(4)}-s{end_sector.zfill(4)}"
-
-    if data_collection_mode == 'ffi':
-        tic_id_pattern = f'{tic_id}-{sector_id}'
-    elif data_collection_mode == '2min':
-        tic_id_pattern = f'{sector_id}-{tic_id}'
-    else:
-        raise ValueError(f'Data collection mode must be either "ffi" or "2min": {data_collection_mode}')
-
-    return tic_id_pattern
 
 
 def run_exominer_pipeline(run_config, tics_df, job_id):
@@ -68,6 +52,10 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
     logger.addHandler(logger_handler)
     logger.propagate = False
     logger.info(f'[{job_id}] Starting run for {len(tics_df)} TIC IDs in job {job_id}...')
+    
+    if len(tics_df) == 0:
+        logger.info(f'[{job_id}] Finished run for job {job_id} for {len(tics_df)} TIC IDs.')
+        return {'job_id': job_id, 'success': True, 'error': None}
 
     try:
 
@@ -104,6 +92,8 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
                                        run_config['stellar_parameters_source'], run_config['ruwe_source'],
                                        filter_tics=tics_pattern)
 
+        if len(tce_tbl) == 0:
+            raise ValueError(f'[{job_id}] No TCEs found for the requested {len(tics_df)} TIC IDs. Finishing job.')
         tce_tbl_fp = tce_tbl_dir / f'tess-spoc-dv_tces_{job_id}_processed.csv'
         tce_tbl.to_csv(tce_tbl_fp, index=False)
 
@@ -120,6 +110,8 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         tfrec_fps = [tfrec_fp for tfrec_fp in tfrec_dir.glob('shard-*') if tfrec_fp.suffix != '.csv']
         tfrec_tbl = create_table_for_tfrecord_dataset(tfrec_fps, run_config['data_fields_tfrec_tbl'],
                                                       delete_corrupted_tfrec_files=False, verbose=True, logger=logger)
+        if len(tfrec_tbl) == 0:
+            raise ValueError(f'[{job_id}] No TCEs were preprocessed into valid light curve TFRecord files for the requested {len(tics_df)} TIC IDs. Finishing job.')
         tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
 
         # extract difference image data
@@ -158,7 +150,7 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         inference_pipeline(run_config, prediction_dir, normalized_tfrec_dir, logger)
 
         # download CSV table with URLs to DV reports for each TCE for the queried TICs in the MAST
-        if run_config['download_spoc_data_products']:
+        if run_config['download_spoc_data_products'] == 'true':
             tce_uids_lst = tce_tbl['uid'].apply(correct_sector_field).to_list()
             get_dv_dataproducts_list(tce_uids_lst,
                                      ['DV TCE summary report', 'Full DV report', 'DV mini-report'],
@@ -206,6 +198,7 @@ def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
             logger.info(f'Error in job {result_job["job_id"]}: {result_job["error"]}')
         else:
             logger.info(f'Job {result_job["job_id"]} is complete.')
+
 
 def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1,
                                num_jobs=1, download_spoc_data_products='false', external_data_repository='null',

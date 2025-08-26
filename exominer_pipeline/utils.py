@@ -523,3 +523,19 @@ def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
 
     # restore stdout
     sys.stdout = sys.__stdout__
+
+
+def create_tic_id_pattern(row, data_collection_mode):
+
+    tic_id = str(row['tic_id']).zfill(16)
+    start_sector, end_sector = row['sector_run'].split("-")
+    sector_id = f"s{start_sector.zfill(4)}-s{end_sector.zfill(4)}"
+
+    if data_collection_mode == 'ffi':
+        tic_id_pattern = f'{tic_id}-{sector_id}'
+    elif data_collection_mode == '2min':
+        tic_id_pattern = f'{sector_id}-{tic_id}'
+    else:
+        raise ValueError(f'Data collection mode must be either "ffi" or "2min": {data_collection_mode}')
+
+    return tic_id_pattern

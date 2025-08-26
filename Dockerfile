@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:25.3.1-1
+FROM docker.io/continuumio/miniconda3:25.3.1-1
 
 LABEL org.opencontainers.image.description="This image contains the ExoMiner Pipeline application." \
       org.opencontainers.image.title="ExoMiner Pipeline" \

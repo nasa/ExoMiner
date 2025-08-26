@@ -6,13 +6,13 @@ inputs_dir="/data3/exoplnt_dl/experiments/exominer_pipeline/inputs"
 run_podman_sh_script_fp="/data3/exoplnt_dl/codebase/exominer_pipeline/run_podman_application.sh"
 
 data_collection_mode="2min"
-num_processes=1
-num_jobs=1
-download_spoc_data_products="true"
+num_processes=16
+num_jobs=32
+download_spoc_data_products="false"
 external_data_repository="null"
 stellar_parameters_source="ticv8"
 ruwe_source="gaiadr2"
-delete_data_after_run=false
+delete_data_after_run="false"
 
 # Logging setup
 timestamp=$(date +"%Y%m%d_%H%M%S")
@@ -20,7 +20,28 @@ log_file="${runs_root_dir}/exominer_pipeline_runs_${timestamp}.log"
 exec > >(tee -a "$log_file") 2>&1
 
 echo "Searching for TICs tables in $inputs_dir..."
-tics_tbls_fps=($inputs_dir/test*.csv)
+# tics_tbls_fps=($inputs_dir/tics*.csv)
+
+# Collect all matching files
+all_tics_tbls=($inputs_dir/tics*.csv)
+
+# filter files using list of patterns to exclude
+exclude_patterns=("tics_S80-80.csv" "tics_S77-77.csv" "tics_S70-70.csv" "tics_S79-79.csv" "tics_S68-68.csv")  
+tics_tbls_fps=()
+for fp in "${all_tics_tbls[@]}"; do
+    filename=$(basename "$fp")
+    skip=false
+    for pattern in "${exclude_patterns[@]}"; do
+        if [[ "$filename" == "$pattern" ]]; then
+            skip=true
+            break
+        fi
+    done
+    if [ "$skip" = false ]; then
+        tics_tbls_fps+=("$fp")
+    fi
+done
+
 echo "Found ${#tics_tbls_fps[@]} TICs tables."
 
 # Iterate over each TICs table

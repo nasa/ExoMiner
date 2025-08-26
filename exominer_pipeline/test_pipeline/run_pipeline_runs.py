@@ -1,12 +1,13 @@
 """ Run the ExoMiner Pipeline for different TICs tables."""
 
 # 3rd party
-import subprocess
+# import subprocess
 import datetime
 from pathlib import Path
 import logging
 import datetime
 import shutil
+import pandas as pd
 
 # local
 from exominer_pipeline.run_pipeline import run_exominer_pipeline_main
@@ -26,7 +27,13 @@ logger.addHandler(logger_handler)
 # base directory for inputs
 inputs_dir = "/data3/exoplnt_dl/experiments/exominer_pipeline/inputs"
 
-tics_tbls_fps = list(Path(inputs_dir).glob("test*.csv"))
+tics_tbls_fps = list(Path(inputs_dir).glob("tics*.csv"))
+
+process_target_sectors_fp = Path('/data3/exoplnt_dl/experiments/exominer_pipeline/runs/target_sector_run_pairs_processed_8-25-2025_1559.csv')
+if process_target_sectors_fp is not None:
+    process_target_sectors = pd.read_csv(process_target_sectors_fp)
+    process_target_sectors.rename(columns={'target_id': 'tic_id'}, inplace=True)
+    logger.info(f"Read {process_target_sectors_fp} to exclude already processed target/sector run pairs.")
 
 logger.info(f"Found {len(tics_tbls_fps)} TICs tables in {inputs_dir}.")
 
@@ -34,8 +41,8 @@ run_pipeline_sh_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/r
 run_pipeline_python_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/run_pipeline.py')
 
 data_collection_mode = '2min'
-num_processes = 1
-num_jobs = 1
+num_processes = 8
+num_jobs = 32
 download_spoc_data_products = 'false'
 external_data_repository = 'null'
 stellar_parameters_source = 'ticv8'
@@ -53,6 +60,21 @@ for fp_i, fp in enumerate(tics_tbls_fps):
     timestamp = datetime.datetime.now().strftime("%m-%d-%Y_%H%M%S")
     run_name = f"exominer_pipeline_run_{fp.stem}_{timestamp}"
     run_dir = runs_root_dir / run_name
+    
+    if process_target_sectors_fp is not None:
+        tics_tbl = pd.read_csv(fp)
+        # exclude already processed target/sector run pairs
+        common_pairs = tics_tbl.merge(process_target_sectors, on=['tic_id', 'sector_run'], how='inner')
+        logger.info(f"Excluding {len(common_pairs)}/{len(tics_tbl)} already processed target/sector run pairs from {fp.name}.")
+        filtered_tics_tbl = tics_tbl[~tics_tbl.set_index(['tic_id', 'sector_run']).index.isin(common_pairs.set_index(['tic_id', 'sector_run']).index)]
+        if len(filtered_tics_tbl) == 0:
+            logger.info(f"All target/sector run pairs in {fp.name} have already been processed. Skipping this run...")
+            continue
+        # Save the result if needed
+        run_dir.mkdir(parents=True, exist_ok=True)
+        filtered_tics_tbl_fp = run_dir / 'tics_tbl.csv'
+        filtered_tics_tbl.to_csv(filtered_tics_tbl_fp, index=False)
+        fp = filtered_tics_tbl_fp
 
     # # Run the shell script with the specified arguments
     # subprocess.run([
