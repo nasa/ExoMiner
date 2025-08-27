@@ -6,7 +6,7 @@ from tensorflow import keras
 from tensorflow.keras import regularizers
 import numpy as np
 import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Layer, Lambda
 
 # local
 from models.utils_models import create_inputs
@@ -145,7 +145,7 @@ class SplitLayer(Layer):
         return self._split_fn(inputs)
 
 
-def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1):
+def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1, return_attention=False):
     """ Create attention block.
 
         Args:
@@ -154,29 +154,42 @@ def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1)
              :param num_heads: int, number of attention heads
              :param key_dim: int, dimensionality of learned query and value vectors
              :param dropout_rate: float, dropout rate
+             :param return_attention: bool, if True returns also the attention scores
 
-        Returns: output TF Keras tensor from attention block
+        Returns: output TF Keras tensor from attention block; if return_attention is True, also returns the mean attention scores
      """
 
     # apply multi-head self-attention
-    attn_output = tf.keras.layers.MultiHeadAttention(num_heads=num_heads,
-                                                     key_dim=key_dim,
-                                                     name='cross_att_multihead')(query, key_value)
-    attn_output = tf.keras.layers.Dropout(dropout_rate, name='cross_att_dropout')(attn_output)
+    if return_attention:
+        attn_output, attn_scores = tf.keras.layers.MultiHeadAttention(num_heads=num_heads,
+                                                        key_dim=key_dim,
+                                                        name='att_multihead')(query, key_value, return_attention_scores=True)
+    else:
+        attn_output, attn_scores = tf.keras.layers.MultiHeadAttention(num_heads=num_heads,
+                                                        key_dim=key_dim,
+                                                        name='att_multihead')(query, key_value, return_attention_scores=True)
+        
+    attn_output = tf.keras.layers.Dropout(dropout_rate, name='att_dropout')(attn_output)
     # add residual
-    out1 = tf.keras.layers.Add(name='cross_att_skip_add_residual')([query, attn_output])
-    out1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='cross_att_layer_norm')(out1)
+    out1 = tf.keras.layers.Add(name='att_skip_add_residual')([query, attn_output])
+    out1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='att_layer_norm')(out1)
 
     # add dense layer and non-linear activity function
-    ffn_output = tf.keras.layers.Dense(query.shape[-1], activation='relu', name='cross_att_dense')(out1)
-    ffn_output = tf.keras.layers.Dropout(dropout_rate, name='cross_att_dropout_dense')(ffn_output)
-    ffn_output = tf.keras.layers.Add(name='cross_att_skip_add_residual_dense')([out1, ffn_output])
-    out2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='cross_att_layer_norm_dense')(ffn_output)
+    ffn_output = tf.keras.layers.Dense(query.shape[-1], activation='relu', name='_att_dense')(out1)
+    ffn_output = tf.keras.layers.Dropout(dropout_rate, name='att_dropout_dense')(ffn_output)
+    ffn_output = tf.keras.layers.Add(name='att_skip_add_residual_dense')([out1, ffn_output])
+    out2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='att_layer_norm_dense')(ffn_output)
 
     out2 = tf.keras.layers.Reshape((np.prod(out2.shape[1:]),), name='cross_att_output_reshape')(out2)
     # out2 = tf.keras.layers.GlobalAveragePooling1D(name='cross_att_global_average_pool')(out2)
+    
+    if return_attention:  # compute mean attention scores over all heads
+        mean_attn = Lambda(lambda x: tf.reduce_mean(x, axis=1), name='mean_attn')(attn_scores)
+        mean_attn_normalized = Lambda(lambda x: x / tf.reduce_sum(x, axis=-1, keepdims=True), name='normalized_mean_attn')(mean_attn)
+    else:
+        mean_attn_normalized = None
 
-    return out2
+    return out2, mean_attn_normalized
 
 
 class ExoMinerMLP(object):
@@ -1260,6 +1273,7 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
 
 
 class ExoMinerJointLocalFlux(object):
+    """ExoMiner architecture in progress. """
 
     def __init__(self, config, features):
         """ Initializes the ExoMiner architecture that processes local flux through the same convolutional branch
@@ -1277,6 +1291,8 @@ class ExoMinerJointLocalFlux(object):
         # model configuration (parameters and hyperparameters)
         self.config = config['config']
         self.features = features
+        
+        self.attn_scores = None  # placeholder for attention scores if needed
 
         if self.config['multi_class'] or \
                 (not self.config['multi_class'] and self.config['force_softmax']):
@@ -1286,10 +1302,20 @@ class ExoMinerJointLocalFlux(object):
 
         self.inputs = create_inputs(self.features, config['feature_map'])
 
-        # build the model
         self.outputs = self.build()
+        
+        # build the model
+        if config['use_attention_scores']:  # currently being used for XAI studies
+            
+            # builds model that outputs both prediction and attention scores for each example
+            self.kerasModel = keras.Model(inputs=self.inputs, outputs=[self.outputs, self.attn_scores])
+            
+            # builds model that uses outputs from branches as inputs - used for SHAP conducted at the classification head level
+            self.branch_only_model = self.build_branch_only_model()
+        else:
+            # builds model that outputs only prediction for each example
+            self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
-        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
 
     def prepare_joint_local_flux_inputs(self, conv_branches):
         """ Prepares local flux inputs to be processed by the same convolutional branch.
@@ -2136,8 +2162,8 @@ class ExoMinerJointLocalFlux(object):
 
         # concatenate global max pooling features for all sectors/quarters
         net = tf.keras.layers.Concatenate(axis=1, name=f'diff_imgs_global_max_pooling_concat')(diff_imgs_global_max_res)
-        input_conv_block = tf.keras.layers.Reshape(net[1:].shape[1:] + (1,),
-                                                   name='diff_imgs_global_max_pooling_expand_dims')(net)
+        input_conv_block = tf.keras.layers.Reshape(net.shape[1:] + (1,),
+                                                name='diff_imgs_global_max_pooling_expand_dims')(net)
 
         # add per-image scalar features
         if self.config['diff_img_branch']['imgs_scalars'] is not None:
@@ -2388,16 +2414,20 @@ class ExoMinerJointLocalFlux(object):
                             for branch in branches_lst]
             branches_concat = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_lst)
 
-            cross_att_key_dim = min(branches_concat.shape[-1],
+            att_key_dim = min(branches_concat.shape[-1],
                                     self.config['attention_before_classification_head_max_key_dim'])
-            cross_att_n_heads = branches_concat.shape[-1] // cross_att_key_dim
+            att_n_heads = branches_concat.shape[-1] // att_key_dim
 
-            net = attention_block(branches_concat,
-                                        branches_concat,
-                                        num_heads=cross_att_n_heads,
-                                        key_dim=cross_att_key_dim,
-                                        dropout_rate=0.1
-                                        )
+            net, mean_attn = attention_block(
+                branches_concat,
+                branches_concat,
+                num_heads=att_n_heads,
+                key_dim=att_key_dim,
+                dropout_rate=0.1,
+                return_attention=self.config['use_attention_scores']
+                )
+            if mean_attn is not None:
+                self.mean_attn = mean_attn
         else:  # simple concatenation of outputs from convolutional branches
             net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_lst)
 
@@ -2458,7 +2488,50 @@ class ExoMinerJointLocalFlux(object):
             net = tf.keras.layers.Dropout(self.config['clf_head_fc_dropout_rate'], name=f'dropout_fc{fc_layer_i}')(net)
 
         return net
+    
+    def build_branch_only_model(self):
+        """Creates a model that uses as inputs the outputs of the branches into the classification head.
 
+        :return TF Keras Model: branch outputs model
+        """
+        
+        # 1) Re‑run each branch builder to get its output tensor
+        branches_net = {}
+        if self.config.get('scalar_branches') is not None:
+            branches_net.update(self.build_scalar_branches())
+        if self.config.get('conv_branches') is not None:
+            branches_net.update(self.build_conv_branches())
+            branches_net.update(self.build_joint_local_conv_branches())
+        if self.config.get('diff_img_branch') is not None:
+            branches_net.update(self.build_diff_img_branch())
+
+        # 2) All branches at this point have shape (batch, branch_num_fc_units)
+        branch_names = list(branches_net.keys())
+        branch_dim   = self.config['branch_num_fc_units']
+
+        # 3) Create one Input() per branch
+        branch_inputs = {
+            br: tf.keras.Input(shape=(branch_dim,), name=f'branch_input_{br}')
+            for br in branch_names
+        }
+
+        # 4) Concatenate exactly as in connect_segments → build_fc_block → logits
+        merged = tf.keras.layers.Concatenate(axis=1, name='branch_concat')(
+            list(branch_inputs.values())
+        )
+        head   = self.build_fc_block(merged)
+        logits = tf.keras.layers.Dense(units=self.output_size, name='branch_logits')(head)
+        if self.output_size == 1:
+            out = tf.keras.layers.Activation(tf.nn.sigmoid, name='branch_sigmoid')(logits)
+        else:
+            out = tf.keras.layers.Activation(tf.nn.softmax, name='branch_softmax')(logits)
+
+        return tf.keras.Model(
+            inputs=list(branch_inputs.values()),
+            outputs=out,
+            name='branch_only_model'
+        )
+            
     def build(self):
         """ Builds the model.
 
@@ -2474,8 +2547,6 @@ class ExoMinerJointLocalFlux(object):
         if self.config['conv_branches'] is not None:
             branches_net.update(self.build_conv_branches())
             branches_net.update(self.build_joint_local_conv_branches())
-            # if 'local_unfolded_flux' in self.config['conv_branches']:
-            #     branches_net.update(self.build_conv_unfolded_flux())
 
         if self.config['diff_img_branch'] is not None:
             branches_net.update(self.build_diff_img_branch())
@@ -3748,5 +3819,4 @@ class ExoMinerPlusPlus(object):
             output = tf.keras.layers.Activation(tf.nn.softmax, name='softmax')(logits)
 
         return output
-
 
