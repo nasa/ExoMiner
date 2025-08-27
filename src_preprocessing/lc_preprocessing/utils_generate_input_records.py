@@ -94,12 +94,12 @@ def process_file_shard(tce_table, file_name, config):
                     config['exclusion_logs_dir'] / f'exclusions-{target_uid}.txt',
                     error)
 
-                preproc_target_tces = (int(datetime.datetime.now().timestamp())) - start_preproc_target_tces) / 60
+                preproc_target_tces = (int(datetime.datetime.now().timestamp()) - start_preproc_target_tces) / 60
                 logger.info(f'Spent {preproc_target_tces} minutes preprocessing {n_tces_target} TCEs for target {target_uid}. Failed preprocessing TCEs with error: {error}.')
 
                 continue
 
-            preproc_target_tces = (int(datetime.datetime.now().timestamp())) - start_preproc_target_tces) / 60
+            preproc_target_tces = (int(datetime.datetime.now().timestamp()) - start_preproc_target_tces) / 60
             logger.info(f'Spent {preproc_target_tces} minutes preprocessing {n_tces_target} TCEs for target {target_uid}.')
 
             if len(examples_tces_dict) > 0:  # at least one TCE preprocessed successfully

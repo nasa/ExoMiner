@@ -54,6 +54,7 @@ duplicates_sorted.to_csv(runs_root_dir / 'duplicate_tces_across_runs.csv', index
 
 # drop duplicates TCEs
 pred_runs = pred_runs.drop_duplicates(subset='uid', keep='first')
+print(f'Processed {len(pred_runs)} TCEs across runs.')
 
 # get sector run ID
 def create_sector_run_id(tce):
