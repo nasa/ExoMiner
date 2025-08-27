@@ -1,0 +1,22 @@
+#Used to run non-interactive jobs
+#PBS -S /bin/bash
+#PBS -N predict_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr
+#PBS -l walltime=48:00:00
+#PBS -l select=1:ncpus=6:mem=64gb:ngpus=1:model=sky_gpu
+# PBS -l place=free:excl
+#PBS -l place=scatter:shared
+#PBS -q dsg_gpu@pbspl4
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/pbs_jobs/predict_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/pbs_jobs/predict_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr.err
+#PBS -W group_list=a1509
+#PBS -m bea
+
+module use -a /swbuild/analytix/tools/modulefiles
+module load miniconda3/v4
+source activate transit_detection_dl_tf2_13
+
+export XLA_FLAGS=--xla_gpu_cuda_data_dir=$CONDA_PREFIX/lib
+ln -sf $CONDA_PREFIX/lib/libdevice.10.bc ./libdevice.10.bc
+
+export PYTHONPATH=/nobackupp27/jochoa4/work_dir/exoplanet_dl
+python3 /nobackup/jochoa4/work_dir/exoplanet_dl/transit_detection/keras_model/predict_model.py &>> /nobackupp27/jochoa4/work_dir/data/logging/pbs_jobs/predict_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr.txt

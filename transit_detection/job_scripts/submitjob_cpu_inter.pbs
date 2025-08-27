@@ -1,0 +1,9 @@
+# Used to run interactive cpu jobs
+#PBS -S /bin/bash
+#PBS -N transit_detection_dataset
+#PBS -l walltime=00:40:00
+#PBS -l select=1:ncpus=128:mpiprocs=128:model=rom_ait
+#PBS -q debug
+#PBS -o /nobackup/jochoa4/work_dir/data/logging/test/job_compute_train_stats_v3_test.out
+#PBS -e /nobackup/jochoa4/work_dir/data/logging/test/job_compute_train_stats_v3_test.err
+#PBS -W group_list=s2857

@@ -18,7 +18,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   target_id: 'int_scalar'
   tce_plnt_num: 'int_scalar'
 
-  disposition: 'float_scalar'
+  disposition: 'string'
   # label: 'float_scalar'
 
   tce_period: 'float_scalar'
@@ -29,47 +29,79 @@ data_fields: # scalar data from TFRecords to add to ranking table
 model_architecture: ExoMiner_TESS_Transit_Detection
 
 config:
-  
-  num_fc_conv_units : 1
 
-  flux_window_branch:
+  global_branch_settings:
+    # universal - conv_block/fc_conv_layer/fc_block
+    non_lin_fn: prelu
+    kernel_initializer: glorot_uniform
+    bias_initializer: zeros
+    # conv_block
+    weight_initializer: 
+    # fc_conv
+    num_fc_conv_units: 8
+    dropout_rate_fc_conv: 0.0
+
+  flux_window_branch_settings:
     window:
-      - flux
-    # scalars: null
+      - flux_norm
+      
+    n_blocks: 3
+    kernel_size: 3 #1d conv
+    kernel_stride : 1
+    pool_size: 2 #1d max pooling
+    pool_stride: 2
+    init_conv_filters: 2
+    conv_ls_per_block: 3
 
-  diff_img_branch: # null
+  diff_img_branch_settings: # null
     imgs:
-      - oot_img
-      - diff_img
-      - snr_img
+      - oot_img_stdnorm
+      - diff_img_stdnorm
+      - snr_img_stdnorm
       - target_img
-    # imgs_scalars: null
-    # scalars: null
 
-  non_lin_fn: prelu
+    n_blocks: 3
+    kernel_size: !!python/tuple [3,3] #2d conv
+    kernel_stride : !!python/tuple [1,1]
+    pool_size: !!python/tuple [2,2] #2d max pooling
+    pool_stride: !!python/tuple [2,2] 
+    init_conv_filters: 2
+    conv_ls_per_block: 3
 
-  dropout_rate_fc_conv: 0.0
-  dropout_rate: 0.0 #dropout rate for final fc block
+  connect_segment_settings: # connect branches
+    batch_norm: null
 
-  init_fc_neurons: 512
+  fc_block_settings:
+    init_fc_neurons: 32
+    num_fc_layers: 2 # could try 1/2 vs 16 units with 2 layers & 4 neurons
+    decay_rate: null
+    dropout_rate: 0.0
 
-  num_fc_layers: 1
+  # dropout_rate: 0.0 #dropout rate for final fc block
 
-  pool_stride: 1
-  kernel_stride: 1
+  # pool_stride: 1
+  # kernel_stride: 1
 
-  optimizer: 'Adam'
+  optimizer: 'Adam' #null for sgd
+  lr: 0.0001 # standard for adam? TODO: update?
 
-  weight_initializer: null
-  force_softmax: false
 
-  decay_rate: null
-  batch_norm: false
-  multi_class: false  # switch to multiclass classification
+
+  # weight_initializer: null
+  # force_softmax: false
+
+  # decay_rate: null
+  # batch_norm: false
+  multi_class: false  # used by compile_model
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
+  uid: { 'dim': [ 1, ], 'dtype': string }
+  disposition: { 'dim': [ 1, ], 'dtype': string }
+  t: { 'dim': [ 1, ], 'dtype': float }
+  transit_example: { 'dim': [ 1, ], 'dtype': string }
+
   #flux windows
-  flux: { 'dim': [ 100, ], 'dtype': float }
+  flux_norm: { 'dim': [ 100, ], 'dtype': float }
 
   # difference image - normalize later?
   oot_img: { 'dim': [33, 33], 'dtype': float}
@@ -77,80 +109,99 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   snr_img: { 'dim': [33, 33], 'dtype': float}
   target_img: { 'dim': [33, 33], 'dtype': float}
 
+  oot_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+  diff_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+  snr_img_stdnorm: { 'dim': [33, 33], 'dtype': float}
+
+model_inputs: # For defining which features from feature set to use as input to model
+  - flux_norm
+  - target_img
+  - oot_img_stdnorm
+  - diff_img_stdnorm
+  - snr_img_stdnorm
+
 
 # maps features' names to features names expected by the model
 feature_map: null
-#  feature_name: feature_name_model
 
-training: null
-#   data_augmentation: false  # perform online data augmentation
-#   online_preprocessing_params: # online data augmentation parameters
-#     'num_bins_global': 301
-#     'num_bins_local': 31
-#     'num_transit_dur': 5
-# #  n_models: 2  # number of models in the ensemble
-#   n_epochs: 2  # number of epochs used to train each model
-#   #  use_kepler_ce: false
-#   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
-#   batch_size: 32
-#   #  ce_weights: null
-#   filter_data: null  # deprecated; useless
-#   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
-# #    '0': 68.5
-# #    '1': 0.5
-#   #    PC: 1.0
-#   #    AFP: 0.5
-#   #    NTP: 1.0
-#   # charles was using these weights
-# #  PC: 0.0002921
-# #  AFP: 0.0002229
-# #  NTP: 2.967e-05
-# #  T-NTP: 2.967e-05
-# #  T-EB: 0.0002229
-# #  T-KP: 0.0002921
-# #  T-FP: 0.0002229
-# #  T-CP: 0.0002921
-# #  T-FA: 0.0002229
-#   sample_weights: false  # use sample weights defined in the data set
-#   shuffle_buffer_size: 42000  # should be larger than size of the training set to allow perfect sampling
+training:
+  data_augmentation: false  # perform online data augmentation
+  online_preprocessing_params: null # online data augmentation parameters - not used for transit detection
+#  n_models: 2  # number of models in the ensemble
+  n_epochs: 300  # TODO: determine number of epochs? # number of epochs used to train each model
+  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
+  batch_size: 32
+  #  ce_weights: null
+  filter_data: null  # deprecated; useless
+  category_weights: null # category weights used in weighted loss; set to null for non-weighted loss
+    # '0': 0.15
+    # '1': 0.85
 
-# label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
-# evaluation:
-#   batch_size: 32
-# inference:
-#   batch_size: 32
+  sample_weights: false  # use sample weights defined in the data set
+  shuffle_buffer_size: 1000  # should be larger than size of the training set to allow perfect sampling
 
-# callbacks:
-#   early_stopping:
-#     monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
-#     min_delta: 0
-#     patience: 20
-#     verbose: 1
-#     mode: max  # maximize/minimize monitored metric in early stopping
-#     baseline: null
-#     restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
-#   tensorboard:
-#     histogram_freq: 1
-#     write_graph: true
-#     write_images: false
-#     update_freq: epoch
-#     profile_batch: 2
-#     embeddings_metadata: null
-#     embeddings_freq: 0
 
-# label_map: null
 
-# datasets:
-#   - train
-#   - val
-#   - test
+label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
-# plot_model: true
-# write_model_summary: true
-# verbose_model: 2  # for fit, eval, predict functions
-# verbose: true  # general
+evaluation:
+  batch_size: 32
+inference:
+  batch_size: 32
 
-# metrics:
-#   'clf_thr': 0.5  # classification threshold
-#   'num_thr': 1000  # number of thresholds used to compute some metrics
+callbacks:
+  early_stopping:
+    monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+    min_delta: 0
+    patience: 10
+    verbose: 1
+    mode: max  # maximize/minimize monitored metric in early stopping
+    baseline: null
+    restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
+  backup_and_restore:
+    backup_dir: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/intermediate_model" # Path to backup directory used for saving intermediate models in case of interruption
+    save_freq: epoch
+    delete_checkpoint: true # Overwrite previous model @ each save_freq
+  model_checkpoint:
+    filepath: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/model_checkpoints/model_epoch_{epoch:03d}.keras"
+    save_freq: 'epoch'
+    save_weights_only: false
+    save_best_only: false
+    verbose: 1
+  csv_logger:
+    filename: "/nobackupp27/jochoa4/work_dir/job_runs/train_model_TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp_low_lr/training_metrics_log.csv"
+    append: true # If training paused
+  tensorboard:
+    histogram_freq: 1
+    write_graph: true
+    write_images: false
+    update_freq: epoch
+    profile_batch: 2
+    embeddings_metadata: null
+    embeddings_freq: 0
+
+label_map: # maps label to a label id
+  '0': 0
+  '1': 1
+
+labels: ['0', '1']
+
+datasets_fps: # TODO: update fps
+  train:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/train/norm_train_shard_????-????.tfrecord
+  val:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/val/norm_val_shard_????-????.tfrecord
+  test:   /nobackupp27/jochoa4/work_dir/data/datasets/TESS_exoplanet_dataset_07-24-2025_no_detrend_split_norm_filt_3sig_it_EB_bal_ntp/tfrecords/test/norm_test_shard_????-????.tfrecord
+
+datasets:
+  - train
+  - val
+  - test
+
+plot_model: true
+write_model_summary: true
+verbose_model: 2  # for fit, eval, predict functions
+verbose: true  # general
+
+metrics:
+  'clf_thr': 0.5  # classification threshold
+  'num_thr': 1000  # number of thresholds used to compute some metrics
