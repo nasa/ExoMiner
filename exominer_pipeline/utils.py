@@ -19,6 +19,7 @@ from src_preprocessing.tce_tables.preprocess_tess_tce_tbl import preprocess_tce_
 from src_preprocessing.tce_tables.extract_tce_data_from_dv_xml import process_sector_run_of_dv_xmls
 from src.predict.predict_model import predict_model
 
+Observations.enable_cloud_dataset()
 
 # redirect stdout
 class StreamToLogger:

@@ -11,6 +11,8 @@ import os
 
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
+Observations.enable_cloud_dataset()
+
 
 def correct_sector_field(x):
 

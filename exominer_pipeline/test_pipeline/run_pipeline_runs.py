@@ -41,7 +41,7 @@ run_pipeline_sh_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/r
 run_pipeline_python_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/run_pipeline.py')
 
 data_collection_mode = '2min'
-num_processes = 8
+num_processes = 14
 num_jobs = 32
 download_spoc_data_products = 'false'
 external_data_repository = 'null'
