@@ -247,62 +247,65 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
 
 
 if __name__ == "__main__":
+    
+    # set parameters
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/get_mast_urls_exominer_pipeline_run_9-3-2025_1206')
+    data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
+    reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
+    download_products = False  # if True, products are downloaded
+    csv_fp = download_dir / f'{download_dir.name}.csv'  # set to None if no CSV output is desired
+    verbose = False
+    get_most_recent_products = True
+    spoc_ffi = False
+    n_procs = 10
+    n_jobs = 24
 
-    # Kepler
+    ### Kepler ###
     kic_list = []
-    download_dir = '/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/mastDownload/Kepler/'
     for kic in kic_list:
         get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
 
-    # TESS
-    # objs = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s88_3-27-2025_1316_label.csv')
-    # objs = objs.loc[objs['sector_run'].isin(['14'])]
-    # objs['uid'] = objs['uid'].apply(correct_sector_field)
-    # print(f'Found {len(objs)} events. Downloading DV reports...')
+    ### TESS ###
+    
+    # get objects from table
+    objs = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/exominer_predictions_tess-spoc-2min-s68s94_9-3-2025_1201/predictions_exominer_pipeline_run_tics_aggregated_9-3-2025_1201_with_tois_in_tic_dv-mini_toi-ephem-matched_toi-dispositions.csv', usecols=['uid', 'DV mini-report'])
+    objs = objs.loc[objs['DV mini-report'].isna()]
+    objs['uid'] = objs['uid'].apply(correct_sector_field)
+    
+    # run with a few objects
+    # objs = pd.DataFrame({'uid': [
+    #     '123213412-1-S36-36',
+    # ]})
+    
+    # split per sector run
     # objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
     #                    objs.groupby('sector_run')}
-    # objs_list_jobs = np.array_split(objs_list, n_jobs)
-    objs_list = [
-        # '193831684-1-S13-13',
-        # '1883519478-1-S14-14',
-        # '24695725-1-S1-2',
-        # '13829713-1-S17-17',
-        # '1716106614-1-S14-14',
-        # '1400803888-1-S56-69',
-        # '94816342-1-S44-44',
-        '1400803888-1-S54-54',
-    ]
+    # print(f'Number of jobs set by number of sector runs: n_jobs={len(objs_list_jobs)}')
+    # n_jobs = len(objs_list_jobs)
 
-    n_jobs = 1
+    # split in n_jobs
+    objs_list = np.array(objs['uid'])
     objs_list_jobs = np.array_split(objs_list, n_jobs)
+    
+    print(f'Found {len(objs_list)} events. Downloading DV reports...')
 
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/missing_dv_reports_ffi_8-8-2025')
     download_dir.mkdir(parents=True, exist_ok=True)
-    spoc_ffi = True
-    data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
-    reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
-    download_products = True
-    csv_fp = download_dir / f'{download_dir.name}.csv'
-    verbose = True
-    get_most_recent_products = True
-    n_procs = 6
-    n_jobs = len(objs_list_jobs)
-    print(f'Split work into {n_jobs} jobs.')
-
-    # parallelize jobs
-    pool = multiprocessing.Pool(processes=n_procs)
+    
+    # split in n_jobs
     jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp,
              get_most_recent_products)
             for objs_list_job in objs_list_jobs]
+    # split per sector run
     # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
     #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
     #         for sector_run, objs_list_job in objs_list_jobs.items()
     #         if not (download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv').exists()]
+    
+    n_jobs = len(jobs)
+    print(f'Split work into {n_jobs} jobs.')
+    
+    # parallelize jobs
+    pool = multiprocessing.Pool(processes=n_procs)
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
     pool.join()
-
-    # if create_csv:
-    #     uris_df = pd.concat([pd.DataFrame(async_result.get()) for async_result in async_results], axis=0,
-    #                         ignore_index=True)
-    #     uris_df.to_csv(download_dir / csv_name, index=False)
