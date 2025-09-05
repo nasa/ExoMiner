@@ -37,4 +37,3 @@ for label in xai_df['label'].unique():
     f.tight_layout()
     f.savefig(plot_dir / f'hist_explanation_branch_labels_disp{label}.png')
     
-# %%

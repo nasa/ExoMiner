@@ -15,6 +15,11 @@ Observations.enable_cloud_dataset()
 
 
 def correct_sector_field(x):
+    """Set TCE unique ID to match format needed to query the MAST: <target_id>-<tce_id>-<sector_run_start>-<sector_run_end>.
+
+    :param pandas Series x: TCE unique ID
+    :return str: TCE unique ID with correct sector run format
+    """
 
     target_id, tce_id = x.split('-')[:2]
 
@@ -206,10 +211,8 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
             'all': downloads DV reports.
         spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
         verbose: bool, verbose
-        csv_fp: str, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
+        csv_fp: Path, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
         get_most_recent_products: bool, if True get only most recent products available (i.e., from the latest SPOC run)
-
-    # Returns: uris_dict, dictionary that contains the URIs for the data products downloaded for each object
 
     """
 
@@ -241,9 +244,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
 
     if csv_fp:
         uris_df = pd.DataFrame(uris_dict)
-        uris_df.to_csv(csv_fp, index=False)
-
-    # return uris_dict
+        uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_proc{proc_id}.csv', index=False)
 
 
 if __name__ == "__main__":
@@ -257,8 +258,8 @@ if __name__ == "__main__":
     verbose = False
     get_most_recent_products = True
     spoc_ffi = False
-    n_procs = 10
-    n_jobs = 24
+    n_procs = 12
+    n_jobs = 36
 
     ### Kepler ###
     kic_list = []

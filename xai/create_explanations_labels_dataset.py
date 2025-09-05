@@ -20,7 +20,7 @@ tec_results = tec_results[[tec_col for tec_col in tec_results.columns if tec_col
 
 tce_tec = tce_tbl.merge(tec_results, on='uid', how='left', validate='one_to_one')
 
-#%% generate explanations labels
+#%% generate explanations labels using TEC results
 
 branches_label_cols = [
     'transitview_flux_branch_label',
@@ -95,10 +95,16 @@ tec_flagged_secondary_of_pn['uid_primary'] = tec_flagged_secondary_of_pn.apply(g
 # set weak secondary label of primary TCEs
 primary_tces_idxs = tce_tec['uid'].isin(tec_flagged_secondary_of_pn['uid_primary'])
 tce_tec.loc[primary_tces_idxs, 'weak_secondary_branch_label'] = 1
-tce_tec.to_csv(exp_dir / 'tess-spoc-2min_tces_dv_s1-s88_3-27-2025_1316_explanations_labels_9-2-2025_1658.csv', index=False)
 
 # create table with information on primary TCEs of those flagged as secondary TCEs
 primary_tces = tce_tec.loc[primary_tces_idxs, ['uid', 'label', 'matched_object']]
 primary_tces = primary_tces.rename(columns={col: f'{col}_primary' for col in primary_tces})
 tec_flagged_secondary_of_pn = tec_flagged_secondary_of_pn.merge(primary_tces, on='uid_primary', how='left', validate='many_to_one')
 tec_flagged_secondary_of_pn.to_csv(exp_dir / 'tess-spoc-2min_tec_secondaries_9-2-2025_1658.csv', index=False)
+
+#%% generate explanation labels based on NTP disposition
+
+ntps = tce_tbl.loc[tce_tbl['label'] == 'NTP', 'uid'].tolist()
+tce_tec.loc[tce_tec['uid'].isin(ntps), ['transitview_flux_branch_label', 'fullorbit_flux_branch_label', 'unfolded_flux_branch_label']] = 1
+
+tce_tec.to_csv(exp_dir / 'tess-spoc-2min_tces_dv_s1-s88_3-27-2025_1316_explanations_labels_9-2-2025_1658.csv', index=False)
