@@ -51,8 +51,8 @@ git add .gitignore
 
 # commit changes
 echo "Committing changes."
-git commit -am "Preparing repository for deployment by cleaning unnecessary files2."
+git commit -am "Preparing repository for deployment by cleaning unnecessary files."
 
 # push to remote
-# echo "Pushing changes to NASA GitHub."
-# git push nasa_github main
+echo "Pushing changes to NASA GitHub."
+git push nasa_github deploy_exominer:main
