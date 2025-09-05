@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # load table of signals of interest (usually TCEs)
     tce_tbl = pd.read_csv(config['tbl_a_fp'])
-    tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True)
+    tce_tbl.rename(columns={'tce_period': 'period', 'tce_time0bk': 'epoch', 'tce_duration': 'duration'}, inplace=True, errors='raise')
     tce_tbl = tce_tbl.dropna(subset=['period', 'epoch', 'duration'])
     tce_tbl['sector_run'] = tce_tbl['sector_run'].astype('str')
     logger.info(f'Using table of signals to be matched against: {config["tbl_a_fp"]}')
@@ -95,10 +95,11 @@ if __name__ == '__main__':
     logger.info(f'Number of targets to be iterated through: {len(targets_arr)}')
 
     logger.info(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
-    pool = multiprocessing.Pool(processes=config["n_procs"])
     targets_arr_jobs = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, config["sampling_interval"],
                          save_dir, config["plot_prob"], plot_dir)
                         for job_i, targets_arr_job in enumerate(np.array_split(targets_arr, config["n_jobs"]))]
+    
+    pool = multiprocessing.Pool(processes=config["n_procs"])
     async_results = [pool.apply_async(match_transit_signals_in_target, targets_arr_job)
                      for targets_arr_job in targets_arr_jobs]
     pool.close()

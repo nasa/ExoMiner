@@ -31,6 +31,7 @@ if __name__ == '__main__':
     jobs = [([sector_dir_fp], res_dir) for sector_dir_fp in sector_dirs_fps]
     async_results = [pool.apply_async(get_start_end_timestamps_tics_sector_runs, job) for job in jobs]
     pool.close()
+    pool.join()
     for async_result in async_results:
         _ = async_result.get()
 

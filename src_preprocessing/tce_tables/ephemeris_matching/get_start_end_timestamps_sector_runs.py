@@ -36,13 +36,8 @@ def get_start_end_timestamps_tics_sector_run(sector_dir):
             target_timestamps['sector'].append(str(fits.getheader(target_lc_fp, ignore_missing_end=True)['Sector']))
         except Exception as e:
             print(f'{target_lc_fp}|Error getting start and end timestamps from header of lc FITS file: {e}')
-            # target_timestamps['target'].append(int(target_lc_fp.name.split('-')[2]))
-            # target_timestamps['start'].append(np.nan)
-            # target_timestamps['end'].append(np.nan)
-            # target_timestamps['sector'].append(sector_dir.name)
 
     target_timestamps = pd.DataFrame(target_timestamps)
-    # target_timestamps['sector'] = int(sector_dir.name.split('_')[-1])
 
     print(f'Iterated over all target lc files in sector run {sector_dir.name}.')
 

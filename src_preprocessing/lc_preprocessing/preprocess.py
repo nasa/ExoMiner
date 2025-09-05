@@ -785,12 +785,13 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     if np.isnan(np.concatenate(centroid_dict['x'])).all():  # when there's no centroid data
         time_centroid = np.concatenate(time_arrs)
         centroid_dist = np.zeros(len(time_centroid), dtype='float')
+        avg_centroid_oot = {coord: np.zeros(len(time_centroid), dtype='float') for coord in centroid_dict}
 
         report_exclusion(f'No available flux-weighted centroid data for target {target_uid}. '
                          f'Setting transit offset distance from target to zero.',
                          config['exclusion_logs_dir'] / f'exclusions_{target_uid}.txt')
 
-        return time_centroid, centroid_dist
+        return time_centroid, centroid_dist, avg_centroid_oot
 
     # remove missing NaN values from the time series
     time_arrs, centroid_dict['x'], centroid_dict['y'], intransit_cadences_target = (

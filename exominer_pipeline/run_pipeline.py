@@ -10,6 +10,7 @@ import numpy as np
 import multiprocessing as mp
 import pandas as pd
 import yaml
+import traceback
 
 # local
 from exominer_pipeline.utils import (process_inputs, check_config, validate_tic_ids_csv_structure, 
@@ -167,12 +168,15 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         return {'job_id': job_id, 'success': True, 'error': None}
 
     except Exception as e:
+        
+        tb_str = traceback.format_exc()
+        
         logger.error(f'[{job_id}] Error: {e}', exc_info=True)
 
         # # restore stdout
         # sys.stdout = sys.__stdout__
 
-        return {'job_id': job_id, 'success': False, 'error': e}
+        return {'job_id': job_id, 'success': False, 'error': str(e), 'traceback': tb_str}
 
 
 def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
