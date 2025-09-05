@@ -5,14 +5,14 @@
 ### default values ## 
 
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir="/data3/exoplnt_dl/experiments/exominer_pipeline/inputs"
+inputs_dir="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/inputs"
 # file path to the TICs table
-tics_tbl_fn="test_tics_S72-72.csv"
+tics_tbl_fn="test_tics_tbl.csv"
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=test_exominer_pipeline_run_8-20-2025_1210
+exominer_pipeline_run=test_exominer_pipeline_run_8-29-2025_1242
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/data3/exoplnt_dl/experiments/exominer_pipeline/runs/$exominer_pipeline_run
+exominer_pipeline_run_dir=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/runs/$exominer_pipeline_run
 # data collection mode: either 2min or ffi
 data_collection_mode="2min"
 # number of processes
@@ -21,7 +21,7 @@ num_processes=1
 num_jobs=1
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
-download_spoc_data_products=true
+download_spoc_data_products="true"
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
 external_data_repository=null
@@ -115,7 +115,7 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-  ghcr.io/nasa/exominer:latest \
+  ghcr.io/nasa/exominer:amd64 \
   --tic_ids_fp=/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
