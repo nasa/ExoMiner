@@ -64,14 +64,16 @@ def query_gaia(source_ids, query_gaia_dr, res_dir, logger=None):
                                 output_format='csv')
 
     # poll job status
-    while job.phase not in ['COMPLETED', 'ERROR', 'ABORTED']:
+    while True:
+        phase = job.get_phase()
         if logger:
-            logger.info(f"Job status: {job.phase}")
-        time.sleep(1 * 60)  # wait for 1 minute before polling again
-        job = Gaia.refresh_job(job.jobid)
+            logger.info(f"Job status: {phase}")
+        if phase in ['COMPLETED', 'ERROR', 'ABORTED']:
+            break
+        time.sleep(60)  # wait 1 minute before polling again
 
     # Handle job completion or failure
-    if job.phase == 'COMPLETED':
+    if job.get_phase() == 'COMPLETED':
         if logger:
             logger.info("Job completed successfully. Retrieving results...")
         result = job.get_results()
