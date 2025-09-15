@@ -1,7 +1,5 @@
 ngpus_per_node: 1  # 4  # number of GPUs per node; each GPU is used to run a model iteration
 rank: null
-# set to true to run multiple models in parallel (one per GPU); only useful when number of GPUs > 1
-predict_parallel: false
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 paths:
   # experiment directory; results are saved here

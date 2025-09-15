@@ -25,10 +25,10 @@ def run_setup_for_cv_iter_predict(cv_iter, cv_iter_dir, config):
     # add TFRecord data set file paths for this CV iteration to config yaml file
     config = add_tfrec_dataset_fps_to_config_file(cv_iter, config, -1)
 
-    # get model config for this CV iteration
-    with open(config['paths']['model_config_fp'], 'r') as model_config_f:
-        model_config = yaml.unsafe_load(model_config_f)
-        config['config'] = model_config
+    # # get model config for this CV iteration
+    # with open(config['paths']['model_config_fp'], 'r') as model_config_f:
+    #     model_config = yaml.unsafe_load(model_config_f)
+    #     config['config'] = model_config
 
     with open(cv_iter_dir / 'config_cv.yaml', 'w') as file:
         yaml.dump(config, file, sort_keys=False)

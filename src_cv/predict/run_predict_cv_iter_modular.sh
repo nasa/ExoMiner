@@ -4,11 +4,13 @@
 # $2: Job array index
 # $3: File path to configuration yaml file for the run
 # $4: Path to output directory
-# $5: Number of GPUs per node
-# $6: Root directory for model file paths
-# $7: Boolean variable that if set to true it will preprocess data before running inference
-# $8: File path to configuration yaml file for the preprocessing the data before running inference
-# $9: Boolean variable that if set to true it will delete preprocessed data after running inference if variable
+# $5: Total number of jobs the CV iterations are split across
+# $6: Number of GPUs per node
+# $7: Root directory for model file paths
+# %8: Total number of CV iterations
+# $9: Boolean variable that if set to true it will preprocess data before running inference
+# $10: File path to configuration yaml file for the preprocessing the data before running inference
+# $11: Boolean variable that if set to true it will delete preprocessed data after running inference if variable
 # `PREPROCESS_DATA` is also true
 
 # External arguments

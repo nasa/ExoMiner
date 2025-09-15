@@ -9,13 +9,12 @@ import argparse
 import numpy as np
 
 
-def add_tfrec_dataset_fps_to_config_file(cv_iter, config, model_i, num_val_folds=1):
+def add_tfrec_dataset_fps_to_config_file(cv_iter, config, num_val_folds=1):
     """ Add the dictionary with a list of the filepaths to the TFRecord shards to be used for training, validation, and
         test.
 
     :param cv_iter: int, CV iteration number
     :param config: dict, CV run parameters
-    :param model_i: int, model ID
     :param num_val_folds: int, number of training folds to use for validation
 
     :return: config, dict with CV run parameters updated with the filepaths for the TFRecord shards to be used for
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--cv_iter', type=int, help='CV Iteration index/rank.', default=None)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
-    parser.add_argument('--model_i', type=int, help='Model ID', default=0)
+
     args = parser.parse_args()
 
     cv_i = args.cv_iter
@@ -73,4 +72,4 @@ if __name__ == "__main__":
 
     print(f'Creating config YAML file for CV iteration in {output_dir_fp}...')
 
-    add_tfrec_dataset_fps_to_config_file(cv_i, cv_iter_config, model_i=args.model_i)
+    add_tfrec_dataset_fps_to_config_file(cv_i, cv_iter_config)

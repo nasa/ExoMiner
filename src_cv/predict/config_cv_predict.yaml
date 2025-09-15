@@ -6,10 +6,10 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_data/tfrecords_tess_spoc_ffi_s36-s72_4-23-2025_1709_agg_bdslabels_diffimg_cv_5-22-2025_1038/tfrecords/predict/cv_iterations.yaml
+  cv_folds: /data3/exoplnt_dl/tfrecords/tess/tfrecords_tess-spoc-2min_s68s94_normalized_noneighborsimgs_aggexominerpipelineruns_9-9-2025_1155_with_ruwe/cv_iterations.yaml
   # path to root directory with ensemble models created in a CV experiment
-  models_cv_root_dir: null
-  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_exominernew_focal-loss-alpha0.98-gamma2_tess-spoc-ffi-s36-s72_6-2-2025_1725/cv_iter_0/ensemble_model/model_config.yaml
+  # models_cv_root_dir: null
+  model_config_fp: null
 
 data_fields: # scalar data from TFRecords to add to ranking table
   uid: 'string'
@@ -25,10 +25,9 @@ data_fields: # scalar data from TFRecords to add to ranking table
   tce_max_mult_ev: 'float_scalar'
   tce_model_snr: 'float_scalar'
 
-#config:
-#  # if true, will use transformer branches. Otherwise, will use convolutional branches for unfolded flux data
-#  use_transformer: false
-#  multi_class: false  # switch to multiclass classification
+config:
+  multi_class: false
+  use_transformer: false
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 
@@ -114,19 +113,24 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   #  tce_depth_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-#  diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  # diff_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  # oot_imgs_std_trainset: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #  #  diff_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
 #  #  oot_imgs_stdnorm: { 'dim': [ 5, 33, 33 ], 'dtype': float }
-#  target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  # target_imgs: { 'dim': [ 5, 33, 33 ], 'dtype': float }
+  
+  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  
   # ExoMiner++
-#  diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-#  oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-#  target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
-  diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
-  neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  # diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  # oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  # target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  # diff_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  # oot_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  # snr_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
+  # neighbors_imgs_tc_std_trainset: { 'dim': [ 5, 55, 55 ], 'dtype': float }
 
   quality: { 'dim': [ 5, ], 'dtype': float }
 #  quality: { 'dim': [ 5, 1], 'dtype': float }  # exominer++
@@ -136,9 +140,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_dikco_msky_err_norm: { 'dim': [ 1, ], 'dtype': float }
   # tce_dikco_msky_rat_norm: { 'dim': [ 1, ], 'dtype': float }
 
-#  # momentum dump
-#  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
-#  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
+  # momentum dump
+  local_momentum_dump_view: { 'dim': [ 31, 1 ], 'dtype': float }
+  local_momentum_dump_view_var: { 'dim': [ 31, 1 ], 'dtype': float }
 
   # flux trend
   flux_trend_global_norm: { 'dim': [ 301, 1 ], 'dtype': float }
@@ -165,14 +169,6 @@ inference:
   batch_size: 32
 
 callbacks:
-#  early_stopping:
-#    monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
-#    min_delta: 0
-#    patience: 20
-#    verbose: 1
-#    mode: max  # maximize/minimize monitored metric in early stopping
-#    baseline: null
-#    restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
   tensorboard:
     histogram_freq: 1
     write_graph: true
@@ -195,8 +191,9 @@ label_map:  # maps label to a label id
   EB: 0
 #  B: 0
 #  J: 0
-  NEB: 0
-  NPC: 0
+  FP: 0
+  # NEB: 0
+  # NPC: 0
   BD: 0
   NTP: 0
   UNK: 0
@@ -210,9 +207,6 @@ label_map:  # maps label to a label id
 
 datasets:
   - predict
-#  - train
-#  - val
-#  - test
 
 plot_model: true
 write_model_summary: true

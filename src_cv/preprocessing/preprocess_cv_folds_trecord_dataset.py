@@ -152,7 +152,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.',
-                        default='/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml')
+                        default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory', default=None)
     parser.add_argument('--log_dir', type=str, help='Log directory', default=None)
 
