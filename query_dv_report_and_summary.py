@@ -8,7 +8,6 @@ from pathlib import Path
 import multiprocessing
 import os
 
-
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
 Observations.enable_cloud_dataset()
@@ -217,6 +216,8 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
     """
 
     proc_id = os.getpid()
+    
+    print(f'[Process ID {proc_id}] Starting query for {len(objs_list)} events...')
 
     uris_dict = {'uid': []}
     uris_dict.update({field: [] for field in data_products_lst})
@@ -243,18 +244,20 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
                     uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
 
     if csv_fp:
+        print(f'[Process ID {proc_id}] Writing data products URIs for {len(uris_dict)/len(objs_list)} events to {csv_fp}...')
         uris_df = pd.DataFrame(uris_dict)
-        uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_proc{proc_id}.csv', index=False)
+        uris_df.to_csv(csv_fp, index=False)
+    
+    print(f'[Process ID {proc_id}] Finished getting data products for {len(uris_dict["uid"])}/{len(objs_list)} events.')
 
 
 if __name__ == "__main__":
     
     # set parameters
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/get_mast_urls_exominer_pipeline_run_9-3-2025_1206')
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/get_mast_urls_exominer_pipeline_run_9-8-2025_1158')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
-    csv_fp = download_dir / f'{download_dir.name}.csv'  # set to None if no CSV output is desired
     verbose = False
     get_most_recent_products = True
     spoc_ffi = False
@@ -269,7 +272,7 @@ if __name__ == "__main__":
     ### TESS ###
     
     # get objects from table
-    objs = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/exominer_predictions_tess-spoc-2min-s68s94_9-3-2025_1201/predictions_exominer_pipeline_run_tics_aggregated_9-3-2025_1201_with_tois_in_tic_dv-mini_toi-ephem-matched_toi-dispositions.csv', usecols=['uid', 'DV mini-report'])
+    objs = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/exominer_predictions_tess-spoc-2min-s68s94_9-3-2025_1201/predictions_exominer_pipeline_run_tics_aggregated_9-3-2025_1201_with_tois_in_tic_dv-mini_toi-ephem-matched_toi-dispositions_new_new.csv', usecols=['uid', 'DV mini-report'])
     objs = objs.loc[objs['DV mini-report'].isna()]
     objs['uid'] = objs['uid'].apply(correct_sector_field)
     
@@ -293,9 +296,9 @@ if __name__ == "__main__":
     download_dir.mkdir(parents=True, exist_ok=True)
     
     # split in n_jobs
-    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp,
+    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, download_dir / f'{download_dir.stem}_job{job_i}.csv',
              get_most_recent_products)
-            for objs_list_job in objs_list_jobs]
+            for job_i, objs_list_job in enumerate(objs_list_jobs)]
     # split per sector run
     # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
     #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
@@ -310,3 +313,12 @@ if __name__ == "__main__":
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
     pool.join()
+    
+    # check for errors
+    for i, result in enumerate(async_results):
+        try:
+            result.get()  # this will raise any exception that occurred in the worker
+        except Exception as e:
+            print(f"[Job {i}] Error occurred: {e}")
+
+    print(f'Finished downloading DV reports for {len(objs_list)} events.')
