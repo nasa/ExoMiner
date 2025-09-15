@@ -239,6 +239,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
                     uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
 
     if csv_fp:
+        print(f'[Process ID {proc_id}] Writing data products URIs for {len(uris_dict)/len(objs_list)} events to {csv_fp}...')
         uris_df = pd.DataFrame(uris_dict)
         uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv', index=False)
 
@@ -250,7 +251,6 @@ if __name__ == "__main__":
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
-    csv_fp = download_dir / f'{download_dir.name}.csv'  # set to None if no CSV output is desired
     verbose = False
     get_most_recent_products = True
     spoc_ffi = False
