@@ -28,4 +28,7 @@ features_set = set_tf_data_type_for_features(cv_config['features_set'])
 
 #%% create model from ensemble
 
+print('Creating ensemble model...')
 create_avg_ensemble_model(models_fps, features_set, model_save_fp)
+
+print('Done.')

@@ -33,6 +33,6 @@ echo "Finished downloading light curve FITS files"
 if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
 
 then
-  chgrp -R $GROUP $DEST_DIR
-  chmod -R 770 $DEST_DIR
+  chgrp -R $GROUP $LC_DIR
+  chmod -R 770 $LC_DIR
 fi
