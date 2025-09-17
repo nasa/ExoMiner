@@ -20,23 +20,13 @@ ARG CONDA_TOKEN
 ARG CONDA_ENV
 ARG CONDARC
 
-# adding conda token using conda token set
-#RUN conda config --remove-key default_channels
-#RUN conda install --freeze-installed conda-token
-#RUN conda token set $CONDA_TOKEN
-#RUN conda config --add channels https://repo.anaconda.cloud/repo/main
-#RUN conda config --add channels https://repo.anaconda.cloud/repo/r
-#RUN conda config --add channels https://repo.anaconda.cloud/repo/msys2
-#RUN conda config --show channels
-# adding conda token to channels
+# setting Conda channels
 RUN conda config --remove channels defaults && \
     conda config --add channels https://repo.anaconda.cloud/repo/main/t/${CONDA_TOKEN} && \
     conda config --add channels https://repo.anaconda.cloud/repo/r/t/${CONDA_TOKEN} && \
     conda config --add channels https://repo.anaconda.cloud/repo/msys2/t/${CONDA_TOKEN} && \
     conda config --add channels conda-forge && \
     echo "default_channels: []" >> ${CONDARC}
-#    echo "default_channels: []" >> /root/.condarc
-#    conda config --set channel_priority strict
 
 # copy Conda environment YAML file
 COPY exominer_pipeline/${CONDA_ENV} conda_env_exoplnt_dl.yml
@@ -55,14 +45,14 @@ RUN conda env create -f conda_env_exoplnt_dl.yml --yes && \
 # copy application code
 COPY . .
 
-# create additional folders for model and data
-RUN mkdir -p /model /data
+# # create additional folders for model and data
+# RUN mkdir -p /model /data
 
-# copy ExoMiner TF-Keras model
-COPY exominer_pipeline/data/model.keras /model/
+# # copy ExoMiner TF-Keras model
+# COPY exominer_pipeline/data/*.keras /model/
 
-# copy normalization statistics
-COPY exominer_pipeline/data/norm_stats /data/norm_stats
+# # copy normalization statistics
+# COPY exominer_pipeline/data/norm_stats /data/norm_stats
 
 # set image to always run ExoMiner Pipeline
 ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "exoplnt_dl", "python", "exominer_pipeline/run_pipeline.py"]

@@ -18,7 +18,7 @@ runs_root_dir = Path('/data3/exoplnt_dl/experiments/exominer_pipeline/runs')
 
 # create logger
 logger = logging.getLogger(name=f'run_main.log')
-logger_handler = logging.FileHandler(filename=runs_root_dir / f'exominer_pipeline_runs_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.log', mode='w')
+logger_handler = logging.FileHandler(filename=runs_root_dir / f'exominer_pipeline_run_tics_S1-92_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.log', mode='w')
 logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
 logger.setLevel(logging.INFO)
 logger_handler.setFormatter(logger_formatter)
@@ -27,7 +27,8 @@ logger.addHandler(logger_handler)
 # base directory for inputs
 inputs_dir = "/data3/exoplnt_dl/experiments/exominer_pipeline/inputs"
 
-tics_tbls_fps = list(Path(inputs_dir).glob("tics*.csv"))
+# tics_tbls_fps = list(Path(inputs_dir).glob("tics*.csv"))
+tics_tbls_fps = list(Path(inputs_dir).glob("tics_S1-92.csv"))
 
 process_target_sectors_fp = Path('/data3/exoplnt_dl/experiments/exominer_pipeline/runs/target_sector_run_pairs_processed_8-25-2025_1559.csv')
 if process_target_sectors_fp is not None:
@@ -41,12 +42,14 @@ run_pipeline_sh_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/r
 run_pipeline_python_script_fp = Path('/data3/exoplnt_dl/codebase/exominer_pipeline/run_pipeline.py')
 
 data_collection_mode = '2min'
-num_processes = 14
-num_jobs = 32
+num_processes = 14  # 14
+num_jobs = 14  # 32
 download_spoc_data_products = 'false'
-external_data_repository = 'null'
+external_data_repository = '/data3/exoplnt_dl/tess_2min_source_data/'  # 'null'
 stellar_parameters_source = 'ticv8'
 ruwe_source = 'gaiadr2'
+# which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+exominer_model = 'exominer++_single'
 # whether to delete job directories and other data after the run; keep aggregated predictions only
 delete_data_after_run = False  
 
@@ -70,7 +73,7 @@ for fp_i, fp in enumerate(tics_tbls_fps):
         if len(filtered_tics_tbl) == 0:
             logger.info(f"All target/sector run pairs in {fp.name} have already been processed. Skipping this run...")
             continue
-        # Save the result if needed
+        # save the result if needed
         run_dir.mkdir(parents=True, exist_ok=True)
         filtered_tics_tbl_fp = run_dir / 'tics_tbl.csv'
         filtered_tics_tbl.to_csv(filtered_tics_tbl_fp, index=False)
@@ -100,6 +103,7 @@ for fp_i, fp in enumerate(tics_tbls_fps):
         external_data_repository=None if external_data_repository == 'null' else external_data_repository,
         stellar_parameters_source=stellar_parameters_source,
         ruwe_source=ruwe_source,
+        exominer_model=exominer_model,
     )
     
     logger.info(f"Run completed for {fp.name}. Results saved to {run_dir}.")

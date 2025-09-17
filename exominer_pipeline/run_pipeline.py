@@ -213,7 +213,7 @@ def run_exominer_pipeline_jobs_parallel(jobs, num_processes, logger):
 
 def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1,
                                num_jobs=1, download_spoc_data_products='false', external_data_repository='null',
-                               stellar_parameters_source='ticv8', ruwe_source='gaiadr2'):
+                               stellar_parameters_source='ticv8', ruwe_source='gaiadr2', exominer_model='exominer++_single'):
     """ Run ExoMiner pipeline.
 
     Args:
@@ -231,6 +231,8 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
             'ticv8', 'tess-spoc', or filepath to external catalog of stellar parameters for the queried TICs.
         ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
             filepath to external catalog of RUWE values for the queried TICs.
+        exominer_model: str, which ExoMiner model to use for inference. Choose between "exominer++_single", 
+            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
 
     Returns:
 
@@ -263,6 +265,7 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
                                          external_data_repository=external_data_repository,
                                          stellar_parameters_source=stellar_parameters_source,
                                          ruwe_source=ruwe_source,
+                                         exominer_model=exominer_model,
                                          )
     logger.info('Done.')
     
@@ -397,6 +400,10 @@ if __name__ == "__main__":
                                                                       ' value.'
                                                                       'By default, this argument is set to "gaiadr2".',
                         default='gaiadr2')
+    
+    parser.add_argument('--exominer_model', type=str, help='Specify which ExoMiner model to use for inference. Currently, '
+                        'you can choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble". ',
+                        default='exominer++_single')
 
     parsed_args = parser.parse_args()
 
@@ -404,5 +411,6 @@ if __name__ == "__main__":
                                parsed_args.data_collection_mode, parsed_args.tic_ids, parsed_args.num_processes,
                                parsed_args.num_jobs, parsed_args.download_spoc_data_products,
                                parsed_args.external_data_repository, parsed_args.stellar_parameters_source,
-                               parsed_args.ruwe_source
+                               parsed_args.ruwe_source,
+                               parsed_args.exominer_model,
                                )

@@ -104,9 +104,6 @@ def validate_tic_ids_csv_structure(tics_df, logger):
     else:
         logger.info(f'TIC IDs CSV structure validation passed. Found {len(tics_df)} valid entries.')
         return True
-    
-    
-def check_command_line_arguments(config_fp, tic_ids_fp, tic_ids, data_collection_mode, num_processes, num_jobs, logger):
     """ Check command-line arguments.
 
     Args:
@@ -171,6 +168,7 @@ def check_config(run_config, logger):
         'num_jobs',
         'download_spoc_data_products',
         'external_data_repository',
+        'exominer_models'
     ]
     for field in required_fields_in_config:
         if field not in run_config:
@@ -213,9 +211,99 @@ def check_config(run_config, logger):
             raise SystemExit(f'Invalid external data repository path: {run_config["external_data_repository"]}')
 
 
+def check_ruwe_source(ruwe_source, tics_df, logger):
+    """Check the validity of the RUWE source provided.
+
+    :param Path ruwe_source: filepath to the RUWE catalog
+    :param pandas DataFrame tics_df: input TIC IDs dataframe
+    :param Python Logger logger: logger object
+    :raises SystemExit: if the ruwe source is invalid because 1) some TIC IDs are missing from the catalog,  
+        2) some required columns are missing from the catalog, or 3) wrong data types in some columns
+    """
+    
+    logger.info(f'Checking RUWE source: {str(ruwe_source)}')
+    
+    # read stellar parameters catalog
+    ruwe_df = pd.read_csv(ruwe_source)
+    
+    # check if all TIC IDs in tics_df are in stellar_params_df
+    n_missing_tics = ruwe_df['target_id'].isin(tics_df['tic_id']).sum()
+    if n_missing_tics > 0:
+        logger.error(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+        raise SystemExit(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+    
+    # check if required columns exist
+    required_columns = [
+        'ruwe',
+        'target_id',
+        ]
+    for col in required_columns:
+        if col not in ruwe_df.columns:
+            logger.error(f'Stellar parameters catalog is missing required column: {col}.')
+            raise SystemExit(f'Stellar parameters catalog is missing required column: {col}.')
+    
+    # check data types of columns
+    if ruwe_df['target_id'].dtype != 'int64':
+        logger.error(f'RUWE catalog column "target_id" must be of type int.')
+        raise SystemExit(f'RUWE catalog column "target_id" must be of type int.')
+    
+def check_stellar_parameters_source(stellar_parameters_source, tics_df, logger):
+    """Check the validity of the stellar parameters source provided.
+
+    :param Path stellar_parameters_source: filepath to the stellar parameters catalog
+    :param pandas DataFrame tics_df: input TIC IDs dataframe
+    :param Python Logger logger: logger object
+    :raises SystemExit: if the stellar parameters source is invalid because 1) some TIC IDs are missing from the catalog,  
+        2) some required columns are missing from the catalog, or 3) wrong data types in some columns
+    """
+    
+    logger.info(f'Checking stellar parameters source: {str(stellar_parameters_source)}')
+    
+    # read stellar parameters catalog
+    stellar_params_df = pd.read_csv(stellar_parameters_source)
+    
+    # check if all TIC IDs in tics_df are in stellar_params_df
+    n_missing_tics = stellar_params_df['target_id'].isin(tics_df['tic_id']).sum()
+    if n_missing_tics > 0:
+        logger.error(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+        raise SystemExit(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+    
+    # check if required columns exist
+    required_columns = [
+        'tic_steff',
+        'tic_steff_err',
+        'tic_smass',
+        'tic_smass_err',
+        'tic_smet',
+        'tic_smet_err',
+        'tic_sradius',
+        'tic_sradius_err',
+        'tic_sdens',
+        'tic_sdens_err',
+        'tic_slogg',
+        'tic_slogg_err',
+        'tic_ra',
+        'tic_dec',
+        'kic_id',
+        'gaia_id',
+        'tic_tmag',
+        'tic_tmag_err',
+        'target_id'
+        ]
+    for col in required_columns:
+        if col not in stellar_params_df.columns:
+            logger.error(f'Stellar parameters catalog is missing required column: {col}.')
+            raise SystemExit(f'Stellar parameters catalog is missing required column: {col}.')
+    
+    # check data types of columns
+    if stellar_params_df['target_id'].dtype != 'int64':
+        logger.error(f'Stellar parameters catalog column "target_id" must be of type int.')
+        raise SystemExit(f'Stellar parameters catalog column "target_id" must be of type int.')
+    
+    
 def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
                    num_jobs=1, download_spoc_data_products='false', external_data_repository=None,
-                   stellar_parameters_source='ticv8', ruwe_source='gaiadr2'):
+                   stellar_parameters_source='ticv8', ruwe_source='gaiadr2', exominer_model='exominer++_single'):
     """ Process input arguments to prepare them for the run.
 
     Args:
@@ -233,6 +321,8 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
             'ticv8', 'tess-spoc', or filepath to external catalog of stellar parameters for the queried TICs.
         ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
             filepath to external catalog of RUWE values for the queried TICs.
+        exominer_model: str, which ExoMiner model to use for inference. Choose between "exominer++_single", 
+            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
 
     Returns:
         run_config: dict with parameters for running the ExoMiner pipeline.
@@ -314,7 +404,7 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
 
         stellar_parameters_source = Path(stellar_parameters_source)
 
-        # TODO: check structure of catalog
+        check_stellar_parameters_source(stellar_parameters_source, tics_df, logger)
 
     run_config['stellar_parameters_source'] = stellar_parameters_source
 
@@ -329,10 +419,13 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
 
         ruwe_source = Path(ruwe_source)
 
-        # TODO: check structure of catalog
+        check_ruwe_source(ruwe_source, tics_df, logger)
 
     run_config['ruwe_source'] = ruwe_source
-
+    
+    # set model filepath to the selected ExoMiner model
+    run_config['model_fp'] = run_config['exominer_models'][exominer_model]
+    
     # update parameters in auxiliary configuration files
     with open(run_config['lc_preprocessing_config_fp'], 'r') as f:
         lc_preprocessing_config = yaml.unsafe_load(f)

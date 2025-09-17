@@ -33,6 +33,8 @@ stellar_parameters_source=ticv8
 # values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
 # values.
 ruwe_source=gaiadr2
+# which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+exominer_model="exominer++_single"
 
 # Help message
 show_help() {
@@ -48,6 +50,7 @@ show_help() {
     echo "  --external_data_repository DIR       Path to external data repository containing light curve FITS files and DV XML files for the TIC IDs in the TICs table"
     echo "  --stellar_parameters_source SOURCE   Source for TICs stellar parameters"
     echo "  --ruwe_source SOURCE                 Source for TICs Gaia RUWE parameters"
+    echo "  --exominer_model MODEL               ExoMiner model to use for inference"
     echo "  --help                               Show ExoMiner Pipeline help"
     echo ""
     exit 
@@ -65,6 +68,7 @@ while [[ $# -gt 0 ]]; do
         --external_data_repository) external_data_repository="$2"; shift 2 ;;
         --stellar_parameters_source) stellar_parameters_source="$2"; shift 2 ;;
         --ruwe_source) ruwe_source="$2"; shift 2 ;;
+        --exominer_model) exominer_model="$2"; shift 2 ;;
         --help)
             show_help
             exit 0
@@ -120,6 +124,7 @@ podman run \
   --download_spoc_data_products=$download_spoc_data_products \
   --stellar_parameters_source=$stellar_parameters_source_arg \
   --ruwe_source=$ruwe_source_arg \
+  --exominer_model=$exominer_model \
   $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."
