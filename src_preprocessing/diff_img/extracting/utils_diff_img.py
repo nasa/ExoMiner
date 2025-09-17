@@ -6,7 +6,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
-# from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 from matplotlib.colors import LogNorm
 import pandas as pd
@@ -267,7 +266,7 @@ def get_data_from_kepler_dv_xml(dv_xml_fp, tces, plot_dir, plot_prob, logger):
     return data
 
 
-def get_data_from_kepler_dv_xml_multiproc(dv_xml_fp, tces, save_dir, plot_dir, plot_prob, log_dir, job_i):
+def get_data_from_kepler_dv_xml_main(dv_xml_fp, tces, save_dir, plot_dir, plot_prob, log_dir, job_i):
     """ Wrapper for `get_data_from_kepler_dv_xml()`. Extract difference image data from the DV XML file for a set of
     Kepler Q1-Q17 DR25 TCEs.
 
@@ -552,8 +551,8 @@ def get_data_from_tess_dv_xml(dv_xml_fp, neighbors_dir, sector_run_id, plot_dir,
     return data
 
 
-def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i,
-                                        check_existence_multiple_versions=False):
+def get_data_from_tess_dv_xml_main(dv_xml_run, save_dir, neighbors_dir, plot_dir, plot_prob, log_dir, job_i, 
+                                   check_existence_multiple_versions=False, targets_sectors_tbl=None):
     """ Wrapper for `get_data_from_tess_dv_xml()`. Extract difference image data from the DV XML files for a TESS sector
     run.
 
@@ -566,6 +565,9 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
     :param job_i: int, job id
     :param check_existence_multiple_versions: bool whether to check existence of multiple versions (different runs) of
         DV
+    :param targets_sectors_tbl: pd.DataFrame or None, if provided, only extracts the DV XML files for the corresponding targets
+        in the requested sector runs. The DataFrame must contain two columns: 'tic_id' and 'sector_run', where 'sector_run' follows 
+        format <start_sector>-<end_sector> (e.g., '1-92' or '5-5' for single sector runs), and 'tic_id' is the TIC ID as an integer.
 
     :return:
     """
@@ -586,10 +588,29 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
 
     # get filepaths to xml files
     dv_xml_run_fps = list(dv_xml_run.rglob(f"*.xml"))
-    # dv_xml_run_fps = list(dv_xml_run.rglob(f"*279251669*.xml"))
-
     n_targets = len(dv_xml_run_fps)
-    logger.info(f'[{proc_id}] Found {n_targets} targets DV xml files in {dv_xml_run}.')
+    logger.info(f'[{proc_id}] Found {n_targets} targets DV xml files in {n_targets}.')
+    
+    if targets_sectors_tbl is not None:
+        targets_sectors_tbl['tic_id_str'] = targets_sectors_tbl['tic_id'].astype(str).str.zfill(16)
+
+        # normalize sector_run to match the format in filenames (e.g., '1-92' → 's0001-s0092')
+        def format_sector_run(sector_run):
+            start, end = sector_run.split('-')
+            return f"s{int(start):04d}-s{int(end):04d}"
+
+        targets_sectors_tbl['sector_run_str'] = targets_sectors_tbl['sector_run'].apply(format_sector_run)
+           
+        filtered_dv_xml_run_fps = []
+        for _, row in targets_sectors_tbl.iterrows():
+            for dv_xml_run_fp in dv_xml_run_fps:
+                if row['tic_id_str'] in dv_xml_run_fp.name and row['sector_run_str'] in dv_xml_run_fp.name:
+                    filtered_dv_xml_run_fps.append(dv_xml_run_fp)
+        
+        dv_xml_run_fps = filtered_dv_xml_run_fps
+        n_targets = len(dv_xml_run_fps)
+
+        logger.info(f'[{proc_id}] Found {n_targets} targets DV xml files in {len(dv_xml_run_fps)} after excluding files using targets-sector runs table.')
 
     for target_i, dv_xml_fp in enumerate(dv_xml_run_fps):
 
@@ -608,7 +629,6 @@ def get_data_from_tess_dv_xml_multiproc(dv_xml_run, save_dir, neighbors_dir, plo
             # check if there are results for more than one processing run for this TIC and sector run
             if check_existence_multiple_versions:
                 tic_id = re.findall('\d{16}', dv_xml_fp.name)[0]  # get tic id from filename
-                # tic_drs = [int(fp.stem.split('-')[-1][:-4]) for fp in dv_xml_run.glob(f'*{tic_id.zfill(16)}*')]
                 tic_drs = [fp for fp in dv_xml_run.glob(f'*{tic_id}*')]
                 if len(tic_drs) > 1:
                     curr_dr = int(dv_xml_fp.stem.split('-')[-1][:-4])

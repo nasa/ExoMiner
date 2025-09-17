@@ -9,7 +9,7 @@ from pathlib import Path
 import multiprocessing
 
 # local
-from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_kepler_dv_xml_multiproc
+from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_kepler_dv_xml_main
 
 if __name__ == '__main__':
 
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     tces_jobs = np.array_split(tces, n_jobs)
     jobs = [(dv_xml_fp, tces_job, data_dir, plot_dir, plot_prob, log_dir, job_i)
             for job_i, tces_job in enumerate(tces_jobs)]
-    async_results = [pool.apply_async(get_data_from_kepler_dv_xml_multiproc, job) for job in jobs]
+    async_results = [pool.apply_async(get_data_from_kepler_dv_xml_main, job) for job in jobs]
     pool.close()
 
     # aggregating difference image data into a single numpy file

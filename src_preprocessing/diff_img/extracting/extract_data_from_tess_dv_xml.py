@@ -8,7 +8,7 @@ import multiprocessing
 import logging
 
 # local
-from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
+from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_main
 
 if __name__ == '__main__':
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     n_processes = min(n_processes, n_jobs)
     logger.info(f'Using {n_processes} processes...')
     pool = multiprocessing.Pool(processes=n_processes)
-    async_results = [pool.apply_async(get_data_from_tess_dv_xml_multiproc, job) for job in jobs]
+    async_results = [pool.apply_async(get_data_from_tess_dv_xml_main, job) for job in jobs]
     pool.close()
     pool.join()
 

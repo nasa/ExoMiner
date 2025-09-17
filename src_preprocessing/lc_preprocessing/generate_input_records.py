@@ -119,12 +119,7 @@ def preprocess_lc_data(config_fp, output_dir=None, lc_data_dir=None, tce_table_f
         shard_filename = f'shard-{config["process_i"]:05d}-of-{config["n_shards"]:05d}-node-{node_id:s}'
         shard_fp = config['output_dir'] / shard_filename
 
-        logger.info(f'Started processing {len(shards_tce_tables[config["process_i"]])} items in shard {shard_filename}')
-
         process_file_shard(shards_tce_tables[config['process_i']], shard_fp, config)
-
-        logger.info(f'Finished processing {len(shards_tce_tables[config["process_i"]])} items in shard '
-                    f'{shard_filename}')
 
     else:  # use multiprocessing.Pool
 

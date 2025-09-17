@@ -1,5 +1,5 @@
 """
-Filter TIC lc sh files for 2-min/FFI data based on a target table that contains columns 'target_id' and 'sector' with
+Filter TIC lc sh files for TESS 2-min/FFI data based on a target table that contains columns 'target_id' and 'sector' with
 the TIC ID (int) and observed sector (int).
 """
 
@@ -12,9 +12,30 @@ import multiprocessing
 from astropy.io import fits
 
 
+def _convert_sectors_observed_format(x):
+    """ Convert 'sectors_observed' column from a string with sector IDs separated by '_' to a binary 
+    string of 0/1 characters of length 150.
+    
+        Args:
+            x: pandas Series, row of a DataFrame with 'sectors_observed' column
+        
+        Returns: x, pandas Series with 'sectors_observed' column converted to binary string format
+    """
+
+    MAX_NUM_SECTORS = 150
+
+    if '_' in x['sectors_observed'] or len(x['sectors_observed']) != MAX_NUM_SECTORS:
+        sectors_lst = [int(sector_str) for sector_str in x['sectors_observed'].split('_')]
+        sectors_observed = ''.join(['0' if sector_i not in sectors_lst else '1' for sector_i in
+                                    range(MAX_NUM_SECTORS)])
+        x['sectors_observed'] = sectors_observed
+
+    return x
+    
 def create_target_sector_table_from_tce_table(tce_table):
     """ Uses TCE table with columns 'target_id' and 'sectors_observed' to create a table where each row describes a
-    sector for which the target was observed.
+    sector for which the target was observed. `sectors_observed` column should be a binary string of 0/1 characters of length 150 
+    where the position indicates whether the target was observed in the corresponding sector, or a string with the IDs of the sectors separated by '_'.
 
         Args:
             tce_table: pandas DataFrame, TCE table
@@ -24,6 +45,8 @@ def create_target_sector_table_from_tce_table(tce_table):
 
     # get sectors observed for each target in the table
     targets_dict = {'target_id': [], 'sector': []}
+    
+    tce_table = tce_table.apply(_convert_sectors_observed_format, axis=1)
 
     targets = tce_table.groupby('target_id')
 
@@ -132,7 +155,9 @@ def create_targets_lc_sh_files_sector_using_target_table(targets_in_sector, obs_
 
 
 def check_existence_lc_files_for_targets_in_table(targets_tbl, lc_dir, data_collection_mode_flag):
-    """ Check whether there already exist target lc files in `lc_dir` that are not corrupted.
+    """ Check whether there already exist target lc files in `lc_dir` that are not corrupted. If `data_collection_mode_flag` is `2min`,
+    then it assumes that the lc files are in `lc_dir/sector_{sector}/` (e.g., "sector_1") and if it is `ffi`, then it assumes that the lc files are in
+    directories `lc_dir/s{sector with 4 digits zero-padded to the left}/target/{first 4 digits of ticid}/{next 4 digits of ticid}/{next 4 digits of ticid}/{last 4 digits of ticid}/`.
 
         Args:
             targets_tbl: pandas DataFrame, targets observed in 'sector'
@@ -144,7 +169,7 @@ def check_existence_lc_files_for_targets_in_table(targets_tbl, lc_dir, data_coll
 
     exclude_targets = {field: [] for field in ['target_id', 'sector']}
     n_lc_files_corrupted = 0
-    for target_i, target_data in targets_tbl.iterrows():
+    for _, target_data in targets_tbl.iterrows():
 
         ticid_str = str(target_data['target_id']).zfill(16)
 
@@ -195,18 +220,18 @@ if __name__ == '__main__':
     # Set up paths
 
     # directory with lc sh files
-    src_lc_sh_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/all_targets')
+    src_lc_sh_dir = Path('/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/all_targets')
     # destination directory to save new lc sh files after removing curl statements for targets without DV results
-    dest_lc_sh_dir = Path(f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_targets_4-16-2025_1014')
+    dest_lc_sh_dir = Path(f'/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/download_missing_targets_sectors_lcs_s1-s92_9-16-2025_1257')
     # ffi or 2-min idiosyncrasies
     data_collection_mode = '2min'  # `2min` or `ffi`
     # root directory in which lightcurve files are downloaded to; checks lc files already downloaded and not corrupted
     # - those are excluded; set to None for no verification
-    lc_dir_fp = Path('/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')
+    lc_dir_fp = Path('/data3/exoplnt_dl/lc_fits/2-min')
     # parallelize using multiprocessing
-    n_processes = 10  # set to None for sequential
+    n_processes = 14  # set to None for sequential
     # target table with 'sector' and 'target_id' columns
-    tce_tbl = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_2min_tces_dv_s1-s88_3-27-2025_1316.csv',
+    tce_tbl = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s92_9-16-2025/tess-spoc-2min-tces-dv_s1-s92_9-16-2025_uid.csv',
                           usecols=['target_id', 'sectors_observed'])
     target_tbl = create_target_sector_table_from_tce_table(tce_tbl)
 
@@ -215,7 +240,6 @@ if __name__ == '__main__':
     target_tbl.to_csv(dest_lc_sh_dir / 'targets_sectors_for_download_lcs.csv', index=False)
 
     # Get curl statements for targets in each sector run
-
     n_sectors = len(target_tbl['sector'].unique())
     targets_sectors = target_tbl.groupby('sector')
     targets_sectors_jobs = [(targets_sector, sector, src_lc_sh_dir, dest_lc_sh_dir, data_collection_mode,

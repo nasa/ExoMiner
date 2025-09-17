@@ -17,7 +17,7 @@ from exominer_pipeline.utils import (process_inputs, check_config, validate_tic_
                                      download_tess_spoc_data_products, create_tce_table,
                                      inference_pipeline, create_tic_id_pattern)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
-from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_multiproc
+from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_main
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preprocess_diff_img_tces_main
 from src_preprocessing.diff_img.preprocessing.add_data_to_tfrecords import write_diff_img_data_to_tfrec_files_main
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples_main
@@ -119,9 +119,16 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         logger.info(f'[{job_id}] Extracting difference image data from the DV XML files for the requested TIC IDs...')
         diff_img_dir = run_config['job_dir'] / 'diff_img_extracted'
         diff_img_dir.mkdir(exist_ok=True)
-        get_data_from_tess_dv_xml_multiproc(run_config['data_products_dir'], diff_img_dir, neighbors_dir=None,
-                                            plot_dir=diff_img_dir, plot_prob=0, log_dir=diff_img_dir,
-                                            job_i=job_id)
+        get_data_from_tess_dv_xml_main(
+            run_config['data_products_dir'], 
+            diff_img_dir, 
+            neighbors_dir=None,
+            plot_dir=diff_img_dir, 
+            plot_prob=0, 
+            log_dir=diff_img_dir,
+            job_i=job_id,
+            targets_sectors_tbl=tics_df,
+            )
         # preprocess difference image data
         logger.info(f'[{job_id}] Preprocessing difference image data for the requested TIC IDs...')
         preprocessed_diff_img_dir = run_config['job_dir'] / 'diff_img_preprocessed'

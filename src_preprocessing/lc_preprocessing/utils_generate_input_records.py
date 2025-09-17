@@ -64,7 +64,6 @@ def process_file_shard(tce_table, file_name, config):
     tceColumns = [
         'uid'
     ]
-    shard_df_empty = True
 
     logger.info(f'{config["process_i"]}: Processing {num_tces_total} TCEs ({num_targets} targets) in shard {shard_name}.')
 
@@ -119,7 +118,6 @@ def process_file_shard(tce_table, file_name, config):
                         writer.write(example_tce_data.SerializeToString())
 
                         # # write data extracted from the preprocessing pipeline into the auxiliary shard table for the TCEs that were successfully preprocessed
-                        # tceData['augmentation_idx'] = [example_i]
                         for key, val in example_stats.items():
                             if key not in tces_data_to_tbl:
                                 tces_data_to_tbl[key] = [val]
@@ -137,14 +135,7 @@ def process_file_shard(tce_table, file_name, config):
                 examples_df['shard'] = shard_name
                 logger.info(f'Preprocessed {len(examples_df)}/{n_tces_target} TCEs for target {target_uid} in shard {shard_name}.')
 
-                if shard_df_empty:
-                    shard_df = examples_df
-                    shard_df_empty = False
-                else:
-                    shard_df = pd.concat([shard_df, examples_df], ignore_index=True)
-
-                # shard_df.to_csv(config['output_dir'] / f'{shard_name}.csv', index=True)
-                shard_df.to_csv(config['output_dir'] / f'{shard_name}.csv', mode='a', header=not (config['output_dir'] / f'{shard_name}.csv').exists(), index=True)
+                examples_df.to_csv(config['output_dir'] / f'{shard_name}.csv', mode='a', header=not (config['output_dir'] / f'{shard_name}.csv').exists(), index=True)
 
                 num_tces_processed += len(examples_df)
                 num_targets_processed += 1
