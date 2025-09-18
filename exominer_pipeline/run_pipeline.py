@@ -324,7 +324,7 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
         logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
                     f'{dv_reports_tbl_fp}...')
-        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
+        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports_*.csv'))
         if len(dv_reports_tbls_fps) > 0:
             dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
             dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)
@@ -341,8 +341,6 @@ if __name__ == "__main__":
                                                  'Mission. For more information see NASA\'s GitHub repository at '
                                                  'https://github.com/nasa/Exominer/tree/main/docs/index.md')
 
-    # parser.add_argument('--config_fp', type=str, help='Filepath to YAML configuration file.',
-    #                     default=None)
     parser.add_argument('--output_dir', type=str, help='Output directory the results are saved into.',
                         default=None)
     parser.add_argument('--tic_ids_fp', type=str, help='Filepath to CSV file containing the TIC IDs and '

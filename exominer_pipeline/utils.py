@@ -224,10 +224,10 @@ def check_ruwe_source(ruwe_source, tics_df, logger):
     logger.info(f'Checking RUWE source: {str(ruwe_source)}')
     
     # read stellar parameters catalog
-    ruwe_df = pd.read_csv(ruwe_source)
+    ruwe_df = pd.read_csv(ruwe_source, skipinitialspace=True)
     
     # check if all TIC IDs in tics_df are in stellar_params_df
-    n_missing_tics = ruwe_df['target_id'].isin(tics_df['tic_id']).sum()
+    n_missing_tics = (~ruwe_df['target_id'].isin(tics_df['tic_id'])).sum()
     if n_missing_tics > 0:
         logger.error(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
         raise SystemExit(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
@@ -260,10 +260,10 @@ def check_stellar_parameters_source(stellar_parameters_source, tics_df, logger):
     logger.info(f'Checking stellar parameters source: {str(stellar_parameters_source)}')
     
     # read stellar parameters catalog
-    stellar_params_df = pd.read_csv(stellar_parameters_source)
+    stellar_params_df = pd.read_csv(stellar_parameters_source, skipinitialspace=True)
     
     # check if all TIC IDs in tics_df are in stellar_params_df
-    n_missing_tics = stellar_params_df['target_id'].isin(tics_df['tic_id']).sum()
+    n_missing_tics = (~stellar_params_df['target_id'].isin(tics_df['tic_id'])).sum()
     if n_missing_tics > 0:
         logger.error(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
         raise SystemExit(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')

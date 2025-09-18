@@ -166,7 +166,7 @@ echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."
 
 You can provide a set of TIC IDs by creating a CSV file with the columns "tic_id" and "sector_run" and set the variable 
 [tics_tbl_fp](#running-the-podman-container-application) to its path.
-The following example showcases the a CSV file that can be used with the pipeline to generate results for the TCEs of TIC 167526485 in single-sector run S6 and multi-sector run S1-39.
+The following example showcases a CSV file that can be used with the pipeline to generate results for the TCEs of TIC 167526485 in single-sector run S6 and multi-sector run S1-39.
 
 Example: CSV file
 
