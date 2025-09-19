@@ -2,8 +2,10 @@
 
 set -e  # Exit on error
 
-echo "Checking out or resetting 'deploy_exominer' to match local master..."
+echo "Switching to master to start clean..."
 git checkout master
+
+echo "Creating or resetting 'deploy_exominer' to match local master..."
 git branch -f deploy_exominer master
 git checkout deploy_exominer
 
@@ -33,13 +35,14 @@ find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml"
 
 # Remove tracked files from index
 git rm -r --cached xai/ transit_detection/ archived_experiments/ tess_spoc_ffi/ data_wrangling/ exominer_pipeline/test_pipeline/ job_scripts/
-git rm --cached others/3rd_party_licenses.md others/get_3rd_party_licenses_pkgs.md
-git rm -r --cached src_preprocessing/diff_img/search_neighbors
-git rm --cached models/exominer_new.yaml models/model_config.yaml
-find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml" -exec git rm --cached {} \;
-git rm --cached clean_repo_for_deployment.sh .dockerignore
-find . -type f -name "*.pbs" -exec git rm --cached {} \;
-find . -type f -path "*/__pycache__/*" -exec git rm --cached {} \;
+git rm --cached others/3rd_party_licenses.md || true
+git rm --cached others/get_3rd_party_licenses_pkgs.md || true
+git rm -r --cached src_preprocessing/diff_img/search_neighbors || true
+git rm --cached models/exominer_new.yaml models/model_config.yaml || true
+find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml" -exec git rm --cached {} \; || true
+git rm --cached clean_repo_for_deployment.sh .dockerignore || true
+find . -type f -name "*.pbs" -exec git rm --cached {} \; || true
+find . -type f -path "*/__pycache__/*" -exec git rm --cached {} \; || true
 
 git add .gitignore
 
