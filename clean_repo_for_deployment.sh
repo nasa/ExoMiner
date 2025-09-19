@@ -3,28 +3,31 @@ echo "Check out to track public ExoMiner repository."
 git checkout -b deploy_exominer nasa_github/main
 
 echo "Merging latest changes from local master branch."
-git merge master
+# git merge master
+git reset --hard master
 
 echo "Preparing repository for deployment by cleaning unnecessary files."
 
 # add paths to .gitignore
-echo "xai/" >> .gitignore
-echo "transit_detection/" >> .gitignore
-echo "archived_experiments/" >> .gitignore
-echo "tess_spoc_ffi/" >> .gitignore
-echo "data_wrangling/" >> .gitignore
-echo "exominer_pipeline/test_pipeline/" >> .gitignore
-echo "job_scripts/" >> .gitignore
-echo "others/3rd_party_licenses.md" >> .gitignore
-echo "others/get_3rd_party_licenses_pkgs.md" >> .gitignore
-echo "*.pbs" >> .gitignore
-echo "__pycache__/" >> .gitignore
-echo "src_preprocessing/diff_img/search_neighbors" >> .gitignore
-echo "models/exominer_new.yaml" >> .gitignore
-echo "models/model_config.yaml" >> .gitignore
-find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml" | sed 's/^/others\/envs\//' >> .gitignore
-echo "clean_repo_for_deployment.sh" >> .gitignore
-echo ".dockerignore" >> .gitignore
+
+cat <<EOL >> .gitignore
+xai/
+transit_detection/
+archived_experiments/
+tess_spoc_ffi/
+data_wrangling/
+exominer_pipeline/test_pipeline/
+job_scripts/
+others/3rd_party_licenses.md
+others/get_3rd_party_licenses_pkgs.md
+*.pbs
+__pycache__/
+src_preprocessing/diff_img/search_neighbors
+models/exominer_new.yaml
+models/model_config.yaml
+clean_repo_for_deployment.sh
+.dockerignore
+EOL
 
 # remove tracked files from index
 git rm -r --cached xai/
@@ -52,6 +55,12 @@ git add .gitignore
 # commit changes
 echo "Committing changes."
 git commit -am "Preparing repository for deployment by cleaning unnecessary files."
+
+echo "Rebasing to remove cleanup commit from history..."
+git rebase -i master
+# NOTE: In the interactive editor that opens:
+# - Change `pick` to `drop` for the cleanup commit
+# - Save and close the editor
 
 # push to remote
 echo "Pushing changes to NASA GitHub."
