@@ -6,8 +6,6 @@ from astroquery.mast import Observations
 import numpy as np
 from pathlib import Path
 import multiprocessing
-import os
-
 
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
@@ -195,7 +193,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
 
 def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
-                             verbose=True, csv_fp=None, get_most_recent_products=True):
+                             verbose=True, csv_fp=None, get_most_recent_products=True, job_id=0):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -213,16 +211,14 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         verbose: bool, verbose
         csv_fp: Path, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
         get_most_recent_products: bool, if True get only most recent products available (i.e., from the latest SPOC run)
-
+        job_id: int, job ID for logging purposes
     """
-
-    proc_id = os.getpid()
 
     uris_dict = {'uid': []}
     uris_dict.update({field: [] for field in data_products_lst})
     for obj_i, obj in enumerate(objs_list):
 
-        print(f'[Process ID {proc_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
+        print(f'[Job ID {job_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
 
         _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
 
@@ -244,13 +240,13 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
 
     if csv_fp:
         uris_df = pd.DataFrame(uris_dict)
-        uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_proc{proc_id}.csv', index=False)
+        uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv', index=False)
 
 
 if __name__ == "__main__":
     
     # set parameters
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/get_mast_urls_exominer_pipeline_run_9-3-2025_1206')
+    download_dir = Path('/data3/exoplnt_dl/dv_reports/tess/tess_spoc_2min_urls/tess-spoc-2min-s1-s94_s1s92_missing_9-22-2025_1004')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
@@ -258,8 +254,8 @@ if __name__ == "__main__":
     verbose = False
     get_most_recent_products = True
     spoc_ffi = False
-    n_procs = 12
-    n_jobs = 36
+    n_procs = 14
+    n_jobs = 14*4
 
     ### Kepler ###
     kic_list = []
@@ -269,7 +265,7 @@ if __name__ == "__main__":
     ### TESS ###
     
     # get objects from table
-    objs = pd.read_csv('/Users/msaragoc/Library/CloudStorage/OneDrive-NASA/Projects/exoplanet_transit_classification/data/exominer_predictions_tess-spoc-2min-s68s94_9-3-2025_1201/predictions_exominer_pipeline_run_tics_aggregated_9-3-2025_1201_with_tois_in_tic_dv-mini_toi-ephem-matched_toi-dispositions.csv', usecols=['uid', 'DV mini-report'])
+    objs = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518.csv', usecols=['uid', 'DV mini-report'])
     objs = objs.loc[objs['DV mini-report'].isna()]
     objs['uid'] = objs['uid'].apply(correct_sector_field)
     
@@ -294,8 +290,8 @@ if __name__ == "__main__":
     
     # split in n_jobs
     jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp,
-             get_most_recent_products)
-            for objs_list_job in objs_list_jobs]
+             get_most_recent_products, job_i)
+            for job_i, objs_list_job in enumerate(objs_list_jobs)]
     # split per sector run
     # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
     #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
@@ -310,3 +306,11 @@ if __name__ == "__main__":
     async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
     pool.close()
     pool.join()
+    
+    if csv_fp is not None:
+        mast_url_tbls_fps = list(download_dir.glob('*.csv'))
+        if len(mast_url_tbls_fps) > 1:
+            print('Aggregating results...')
+            mast_url_tbl_agg = pd.concat([pd.read_csv(mast_url_tbl_fp) for mast_url_tbl_fp in mast_url_tbls_fps], axis=0)
+    
+    print(f'Finished querying MAST for DV reports.')
