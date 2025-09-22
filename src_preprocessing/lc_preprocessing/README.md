@@ -60,7 +60,7 @@ code splits the table into **subsets of target stars**, preprocessing each batch
 such as GNU Parallel along with script [preprocessing_job.sh](../../src_preprocessing/lc_preprocessing/preprocessing_job.sh). The configuration file [config_preprocessing.yaml](../../src_preprocessing/lc_preprocessing/config_preprocessing.yaml) contains options on 
 how to run the pipeline (e.g., detrending method used, binning, gapping, outlier removal) and the filepaths to the [required inputs](#required-inputs).
 
-#### Preprocessing Steps
+### Preprocessing Steps
 
 The main preprocessing steps are (check [preprocessing.py](../../src_preprocessing/lc_preprocessing/preprocess.py)):
 
@@ -75,7 +75,7 @@ The main preprocessing steps are (check [preprocessing.py](../../src_preprocessi
 4. Phase-fold the timeseries over the orbital period for the transit signal of interest.
 5. Create a binned version (usually called 'view') of the phase-folded timeseries by averaging cadences in each bin.
 
-#### Features
+### Features
 
 The features set in the TFRecords come from two sources:
 
