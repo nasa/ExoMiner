@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Download TESS 2-min/HLSP FFI light curve FITS files using curl statements in sh files.
+# Assumes the curl sh files are named "*lc.sh" and inside a directory $SH_DIR. 
+
 SH_DIR="/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/download_missing_targets_sectors_lcs_s1-s92_9-16-2025_1257"
 LC_DIR="/data3/exoplnt_dl/lc_fits/2-min"
 CHANGE_PERMISSIONS_AND_GROUP=false

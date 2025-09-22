@@ -1,20 +1,34 @@
+#!/bin/bash
+
 # Create new sh script with curl commands only for xml files.
 
-TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh
-DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh_xml_only
+# define directories
+TARGET_SH_DIR="/data3/exoplnt_dl/tess_ffi_source_data/dv_xml/tesscurl_spoc"
+DEST_DIR="$TARGET_SH_DIR/dv_xml_only"
+COMPLETED_DIR="$TARGET_SH_DIR/completed"
+CHANGE_PERMISSIONS_AND_GROUP=true
 
-COMPLETED_DIR=$TARGET_SH_DIR/completed
-mkdir -p $COMPLETED_DIR
+# create necessary directories
+mkdir -p "$DEST_DIR"
+mkdir -p "$COMPLETED_DIR"
 
-for sector_shfile in "$TARGET_SH_DIR"/*dv.sh
-do
-   FILENAME_INDEX=$(echo "$sector_shfile" | grep -bo "hlsp_*" | grep -oe "[0-9]*")
-   FILENAME=${sector_shfile:$FILENAME_INDEX}
-   echo "$FILENAME"
-   grep xml "$sector_shfile" > $DEST_DIR/"$FILENAME"
-   mv "$sector_shfile" "$COMPLETED_DIR"
+# Process each dv.sh file
+for sector_shfile in "$TARGET_SH_DIR"/*dv.sh; do
+    # Extract filename from path
+    FILENAME=$(basename "$sector_shfile")
+
+    echo "Processing: $FILENAME"
+
+    # Extract curl lines containing 'xml' and save to DEST_DIR
+    grep 'xml' "$sector_shfile" > "$DEST_DIR/$FILENAME"
+
+    # Move processed file to completed directory
+    mv "$sector_shfile" "$COMPLETED_DIR/"
 done
 
-# set permissions and group when in ranokau
-chgrp -R ar-gg-ti-tess-dsg $DEST_DIR
-chmod -R 770 $DEST_DIR
+# Set permissions and group if requested
+if [[ "$CHANGE_PERMISSIONS_AND_GROUP" == "true" ]]; then
+    echo "Changing group to $GROUP and setting permissions..."
+    chgrp -R "$GROUP" "$DEST_DIR"
+    chmod -R 770 "$DEST_DIR"
+fi

@@ -1,51 +1,55 @@
-# Download xml files using curl statements in sh files.
+#!/bin/bash
 
-# directory with sh files
-TARGET_SH_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/target_sh_xml_only
-# destination directory for xml files
-DEST_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/
-# set permissions and group if needed
+# Download XML files using curl statements in sh files.
+
+# Directory with .sh files
+TARGET_SH_DIR="/data3/exoplnt_dl/tess_ffi_source_data/dv_xml/tesscurl_spoc/dv_xml_only/"
+# Destination directory for XML files
+DEST_DIR="/data3/exoplnt_dl/tess_ffi_source_data/dv_xml/sector_runs/"
 CHANGE_PERMISSIONS_AND_GROUP=false
-GROUP=ar-gg-ti-tess-dsg
 
-# create directory for completed sh scripts
-COMPLETED_DIR=$TARGET_SH_DIR/completed
-mkdir -p $COMPLETED_DIR
+# Create completed directory if it doesn't exist
+mkdir -p "$TARGET_SH_DIR/completed"
 
-for SECTOR_SHFILE in "$TARGET_SH_DIR"/*.sh
-do
-    echo "$SECTOR_SHFILE"
-    SH_FILENAME_INDEX=$(echo "$SECTOR_SHFILE" | grep -bo "hlsp_tess" | grep -oe "[0-9]*")
-    SH_FILENAME=${SECTOR_SHFILE:$SH_FILENAME_INDEX}
-    SECTOR_RUN=${SH_FILENAME:25:5}
-    echo "$SECTOR_RUN"
+# Loop through each curl shell script
+for sector_shfile in "$TARGET_SH_DIR"/hlsp_tess-spoc*dv.sh; do
+    echo "Processing: $sector_shfile"
 
-    if [[ $SH_FILENAME == *"multi"* ]]
+    # Extract filename and sector info
+    SH_FILENAME=$(basename "$sector_shfile")
+    SECTOR_RUN="${SH_FILENAME:25:5}"
 
-    then
-        echo multi "$SECTOR_RUN"
-        DEST_DIR_SECTOR=$DEST_DIR/multi-sector
-    else
-        echo single "$SECTOR_RUN"
-        DEST_DIR_SECTOR=$DEST_DIR/single-sector
-    fi
+    DEST_DIR_SECTOR="$DEST_DIR/$SECTOR_RUN"
+    # # Determine if it's a multi-sector or single-sector file
+    # if [[ "$SH_FILENAME" == *"multi"* ]]; then
+    #     echo "Detected multi-sector: $SECTOR_RUN"
+    #     DEST_DIR_SECTOR="$DEST_DIR/multi-sector/$SECTOR_RUN"
+    # else
+    #     echo "Detected single-sector: $SECTOR_RUN"
+    #     DEST_DIR_SECTOR="$DEST_DIR/single-sector/$SECTOR_RUN"
+    # fi
 
-    echo "$DEST_DIR_SECTOR"
+    echo "Destination: $DEST_DIR_SECTOR"
     mkdir -p "$DEST_DIR_SECTOR"
 
-    cd $DEST_DIR_SECTOR
+    # Copy and execute the shell script
+    cp "$sector_shfile" "$DEST_DIR_SECTOR"
+    cd "$DEST_DIR_SECTOR" || { echo "Failed to cd into $DEST_DIR_SECTOR"; continue; }
 
-    bash $SECTOR_SHFILE
-
-    cd ../
-
-    mv "$SECTOR_SHFILE" "$COMPLETED_DIR"  # move completed sh script
+    if bash "$SH_FILENAME"; then
+        echo "Successfully ran $SH_FILENAME"
+        rm -f tesscurl*dv.sh
+        mv "$sector_shfile" "$TARGET_SH_DIR/completed/"
+    else
+        echo "Error running $SH_FILENAME"
+    fi
 done
 
-# set permissions and group
-if [[ $CHANGE_PERMISSIONS_AND_GROUP == true ]]
+echo "Finished downloading DV XML files."
 
-then
-  chgrp -R $GROUP $DEST_DIR
-  chmod -R 770 $DEST_DIR
+# Set permissions and group if requested
+if [[ "$CHANGE_PERMISSIONS_AND_GROUP" == "true" ]]; then
+    echo "Changing group to $GROUP and setting permissions..."
+    chgrp -R "$GROUP" "$DEST_DIR"
+    chmod -R 770 "$DEST_DIR"
 fi
