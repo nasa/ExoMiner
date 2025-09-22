@@ -1,13 +1,19 @@
 #!/bin/bash
 
+WORK_TREE_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/exominer_deployment
+
 set -e  # Exit on error
 
 echo "Switching to master to start clean..."
 git checkout master
 
-echo "Creating or resetting 'deploy_exominer' to match local master..."
-git branch -f deploy_exominer master
-git checkout deploy_exominer
+echo "Creating or resetting 'exominer_deployment' to match local master..."
+git branch -f exominer_deployment master
+
+echo "Setting up worktree for 'exominer_deployment' in $WORK_TREE_DIR..."
+git worktree add $WORK_TREE_DIR exominer_deployment
+
+git checkout exominer_deployment
 
 echo "Preparing repository for deployment by cleaning unnecessary files..."
 
@@ -50,4 +56,7 @@ echo "Committing cleanup changes..."
 git commit -am "Preparing repository for deployment by cleaning unnecessary files."
 
 echo "Pushing cleaned branch to NASA GitHub..."
-git push -f nasa_github deploy_exominer:main
+git push -f nasa_github exominer_deployment:main
+
+echo "Cleaning up worktree..."
+git worktree remove WORK_TREE_DIR
