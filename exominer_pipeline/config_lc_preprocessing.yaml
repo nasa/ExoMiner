@@ -21,6 +21,7 @@ dq_values_filter: null
 get_momentum_dump: true
 detrending_method: savitzky-golay
 sg_sigma: 5
+impute_missing_values: true
 sg_max_poly_order: 8
 sg_penalty_weight: 1
 sg_break_tolerance: 5

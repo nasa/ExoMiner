@@ -32,6 +32,8 @@ num_bins_loc: 31  # number of bins in local views
 bin_width_factor_loc: 0.16
 num_durations: 2.5  # number of transit durations to include in the local view: 2 * num_durations
 
+impute_missing_values: true # if true, missing values for some columns in the TCE table are imputed
+
 # set which types of anomalies to be excluded from the data based on the data quality array in the lc fits file
 # set to null for no exclusion
 # otherwise list all values that map to the corresponding anomalies to be excluded based on the dq array

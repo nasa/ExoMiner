@@ -177,6 +177,74 @@ def create_shards(config, shards_tce_tables):
     return file_shards
 
 
+def check_tce_table(tce_table, mission, impute_missing_values=False):
+    """Check TCE table for required columns and their types. If impute_missing_values is True, impute missing values in 
+    certain columns.
+
+    :param pandas DataFrame tce_table: TCE table
+    :param str mission: 'tess' or 'kepler'
+    :param bool impute_missing_values: whether to impute missing values for some columns, defaults to False
+    :raises ValueError: if required columns is missing or if column types do not match expected types
+    :return pandas DataFrame: TCE table with required columns and types
+    """
+    
+    REQUIRED_COLUMNS = {
+        'uid': 'object',
+        'target_id': 'int64',
+        'tce_period': 'float64',
+        'tce_duration': 'float64',
+        'tce_time0bk': 'float64',
+        'tce_depth': 'float64',
+        'tce_depth_err': 'float64',
+        'wst_depth': 'float64',
+        'wst_depth_err': 'float64',
+        'tce_maxmesd': 'float64',
+        'ra': 'float64',
+        'dec': 'float64',
+        'label': 'object',
+    }
+    if mission == 'tess':
+        REQUIRED_COLUMNS.update({
+            'sector_run': 'object',
+            'sectors_observed': 'object',
+        })
+    
+    VALID_IMPUTING_COLUMNS = {
+        'tce_depth_err': -1,
+        'wst_depth': 0,
+        'wst_depth_err': -1,
+        'label': 'UNK',
+    }
+    if impute_missing_values:
+        for valid_imputing_col, valid_imputing_col_value in VALID_IMPUTING_COLUMNS.items():
+            if valid_imputing_col not in tce_table:
+                tce_table[valid_imputing_col] = valid_imputing_col_value
+                logger.info(f'Imputed missing column {valid_imputing_col} in the TCE table with value {valid_imputing_col_value} for all TCEs.')
+            elif tce_table[valid_imputing_col].isna().any():
+                n_missing = tce_table[valid_imputing_col].isna().sum()
+                tce_table[valid_imputing_col] = tce_table[valid_imputing_col].fillna(valid_imputing_col_value)
+                logger.info(f'Imputed missing values in column {valid_imputing_col} in the TCE table with value {valid_imputing_col_value} for {n_missing} TCEs with this missing value.')
+        
+    for req_col in REQUIRED_COLUMNS:
+        if req_col not in tce_table:
+            raise ValueError(f'Required column {req_col} not found in the TCE table.')
+    
+    # check if DataFrame columns match expected types    
+    mismatches = {}
+    for col, col_type in REQUIRED_COLUMNS.items():
+        if tce_table[col].dtype != col_type:
+            mismatches[col] = str(tce_table[col].dtype)
+
+    # Output result
+    if len(mismatches) > 0:
+        print("Found columns in the TCE table that do not have the expected column type:")
+        error_str = ''
+        for col, actual_type in mismatches.items():
+            error_str += f" - {col}: expected {REQUIRED_COLUMNS[col]}, got {actual_type}\n"
+        raise ValueError(error_str)
+    
+    return tce_table
+    
 def get_tce_table(config):
     """ Get TCE table.
 
@@ -189,6 +257,7 @@ def get_tce_table(config):
     tce_table = pd.read_csv(config['input_tce_csv_file'])
     logger.info(f'Read TCE table with {len(tce_table)} examples.')
 
+    # force certain columns to be of specific types
     cols_change_data_type = {
         'sector_run': str,
         'label': str,
@@ -198,13 +267,10 @@ def get_tce_table(config):
         'sectors_observed': str,
     }
     tce_table = tce_table.astype(dtype={k: v for k, v in cols_change_data_type.items() if k in tce_table.columns})
+    
+    tce_table = check_tce_table(tce_table, mission=config['satellite'], impute_missing_values=config['impute_missing_values'])
 
     tce_table["tce_duration"] /= 24  # Convert hours to days.
-
-    # FIXME: add wst_depth_err to the Kepler Q1-Q17 DR25 TCE table
-    if 'wst_depth_err' not in tce_table:
-        logger.info('Adding `wst_depth_err` to the TCE table. Setting value to all TCEs as -1')
-        tce_table['wst_depth_err'] = -1
 
     # table with TCEs to be preprocessed
     preprocess_tce_table = tce_table.copy(deep=True)
