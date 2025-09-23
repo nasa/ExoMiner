@@ -1,9 +1,11 @@
 #!/bin/bash
 
-WORK_TREE_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/exominer_deployment_temp
-BRANCH_DEPLOYMENT=exominer_deployment_temp
+WORK_TREE_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/exominer_deployment
+BRANCH_DEPLOYMENT=exominer_deployment
 
 set -e  # Exit on error
+
+ORIGINAL_DIR=$(pwd)
 
 echo "Switching to master to start clean..."
 git checkout master
@@ -14,7 +16,10 @@ git branch -f "$BRANCH_DEPLOYMENT" master
 echo "Setting up worktree for '$BRANCH_DEPLOYMENT' in $WORK_TREE_DIR..."
 git worktree add "$WORK_TREE_DIR" "$BRANCH_DEPLOYMENT"
 
-git checkout "$BRANCH_DEPLOYMENT"
+echo "Navigating to worktree directory $WORK_TREE_DIR..."
+cd "$WORK_TREE_DIR"
+
+# git checkout "$BRANCH_DEPLOYMENT"
 
 echo "Preparing repository for deployment by cleaning unnecessary files..."
 
@@ -53,11 +58,20 @@ find . -type f -path "*/__pycache__/*" -exec git rm --cached {} \; || true
 
 git add .gitignore
 
-echo "Committing cleanup changes..."
-git commit -am "Preparing repository for deployment by cleaning unnecessary files."
+if ! git diff --cached --quiet; then
+  echo "Committing cleanup changes..."
+  git commit -am "Preparing repository for deployment by cleaning unnecessary files."
+else
+  echo "No changes to commit."
+fi
 
 echo "Pushing cleaned branch to NASA GitHub..."
 git push -f nasa_github "$BRANCH_DEPLOYMENT":main
 
+echo "Returning to original directory $ORIGINAL_DIR..."
+cd "$ORIGINAL_DIR"
+
 echo "Cleaning up worktree..."
-git worktree remove "$WORK_TREE_DIR"
+git worktree remove "$WORK_TREE_DIR" --force
+
+echo "Deployment branch '$BRANCH_DEPLOYMENT' pushed and worktree cleaned up."
