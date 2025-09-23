@@ -2,6 +2,8 @@
 
 WORK_TREE_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/exominer_deployment
 BRANCH_DEPLOYMENT=exominer_deployment
+REMOTE_REPO=nasa_github
+REMOTE_BRANCH=main
 
 set -e  # Exit on error
 
@@ -65,8 +67,8 @@ else
   echo "No changes to commit."
 fi
 
-echo "Pushing cleaned branch to NASA GitHub..."
-git push -f nasa_github "$BRANCH_DEPLOYMENT":main
+echo "Pushing cleaned branch to $REMOTE_REPO on branch $REMOTE_BRANCH..."
+git push -f "$REMOTE_REPO" "$BRANCH_DEPLOYMENT":"$REMOTE_BRANCH"
 
 echo "Returning to original directory $ORIGINAL_DIR..."
 cd "$ORIGINAL_DIR"
@@ -74,4 +76,4 @@ cd "$ORIGINAL_DIR"
 echo "Cleaning up worktree..."
 git worktree remove "$WORK_TREE_DIR" --force
 
-echo "Deployment branch '$BRANCH_DEPLOYMENT' pushed and worktree cleaned up."
+echo "Deployment branch '$BRANCH_DEPLOYMENT' pushed to $REMOTE_REPO in branch $REMOTE_BRANCH and worktree cleaned up."
