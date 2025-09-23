@@ -11,7 +11,7 @@ echo "Creating or resetting 'exominer_deployment' to match local master..."
 git branch -f exominer_deployment master
 
 echo "Setting up worktree for 'exominer_deployment' in $WORK_TREE_DIR..."
-git worktree add $WORK_TREE_DIR exominer_deployment
+git worktree add "$WORK_TREE_DIR" exominer_deployment
 
 git checkout exominer_deployment
 
@@ -59,4 +59,4 @@ echo "Pushing cleaned branch to NASA GitHub..."
 git push -f nasa_github exominer_deployment:main
 
 echo "Cleaning up worktree..."
-git worktree remove WORK_TREE_DIR
+git worktree remove "$WORK_TREE_DIR"
