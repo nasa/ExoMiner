@@ -9,4 +9,27 @@ local_scripts/
 others/conda_vulnerabilities_jake.txt
 /exominer_pipeline/data/
 .vscode/
-# /exominer_pipeline/test_pipeline/
+# /exominer_pipeline/test_pipeline/xai/
+transit_detection/
+archived_experiments/
+tess_spoc_ffi/
+data_wrangling/
+exominer_pipeline/test_pipeline/
+job_scripts/
+others/3rd_party_licenses.md
+others/get_3rd_party_licenses_pkgs.md
+*.pbs
+__pycache__/
+src_preprocessing/diff_img/search_neighbors
+models/exominer_new.yaml
+models/model_config.yaml
+clean_repo_for_deployment.sh
+.dockerignore
+others/envs/others/envs/conda_env_exoplnt_dl_tf2_17_remembrane.yml
+others/envs/others/envs/conda_env_exoplnt_dl_gh_nfs.yml
+others/envs/others/envs/conda_env_exoplnt_dl_tf2_13_remembrane.yml
+others/envs/others/envs/conda_env_exoplnt_dl_macos_m2.yml
+others/envs/others/envs/conda_env_exoplnt_dl_gh.yml
+others/envs/others/envs/tf2_16.yml
+others/envs/others/envs/conda_env_exoplnt_dl_hecc.yml
+others/envs/others/envs/conda_env_exoplnt_dl_tf2_13.yml
