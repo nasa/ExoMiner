@@ -324,7 +324,7 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
         logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
                     f'{dv_reports_tbl_fp}...')
-        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports_*.csv'))
+        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
         if len(dv_reports_tbls_fps) > 0:
             dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
             dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)

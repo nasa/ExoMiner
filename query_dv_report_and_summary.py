@@ -239,9 +239,10 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
                     uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
 
     if csv_fp:
-        print(f'[Process ID {proc_id}] Writing data products URIs for {len(uris_dict)/len(objs_list)} events to {csv_fp}...')
+        tbl_fp = csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv'
+        print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict)/len(objs_list)} events to {str(tbl_fp)}...')
         uris_df = pd.DataFrame(uris_dict)
-        uris_df.to_csv(csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv', index=False)
+        uris_df.to_csv(tbl_fp, index=False)
 
 
 if __name__ == "__main__":
@@ -254,6 +255,7 @@ if __name__ == "__main__":
     verbose = False
     get_most_recent_products = True
     spoc_ffi = False
+    csv_fp = download_dir / f'{download_dir.stem}.csv'
     n_procs = 14
     n_jobs = 14*4
 
@@ -312,5 +314,6 @@ if __name__ == "__main__":
         if len(mast_url_tbls_fps) > 1:
             print('Aggregating results...')
             mast_url_tbl_agg = pd.concat([pd.read_csv(mast_url_tbl_fp) for mast_url_tbl_fp in mast_url_tbls_fps], axis=0)
+            mast_url_tbl_agg.to_csv(csv_fp.parent / f'{csv_fp.stem}_jobs-agg.csv', index=False)
     
     print(f'Finished querying MAST for DV reports.')
