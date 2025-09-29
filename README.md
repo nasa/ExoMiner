@@ -23,6 +23,8 @@ The main goals of the `ExoMiner` project are:
 
 ## ExoMiner Pipeline [**NEW**]
 
+![Pipeline Demo - Show pipeline run using the terminal](/others/media/2_run_exominer_pipeline_edited.gif)
+
 The [ExoMiner Pipeline](/exominer_pipeline) is a fully integrated pipeline from TIC IDs to ExoMiner prediction scores 
 for the corresponding 
 TESS SPOC TCEs in 2-min/FFI data. This pipeline makes use of Podman as a container framework to provide a seamless 

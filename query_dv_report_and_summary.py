@@ -240,7 +240,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
 
     if csv_fp:
         tbl_fp = csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv'
-        print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict)/len(objs_list)} events to {str(tbl_fp)}...')
+        print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict)}/{len(objs_list)} events to {str(tbl_fp)}...')
         uris_df = pd.DataFrame(uris_dict)
         uris_df.to_csv(tbl_fp, index=False)
 

@@ -178,6 +178,8 @@ tic_id, sector_run
 
 ## Outputs
 
+![Pipeline Demo - Show results of run](/others/media/3_check_exominer_pipeline_run_results_edited.gif)
+
 The following diagram represents the hierarchy of the data output for a run of the ExoMiner Pipeline. In this example, 
 the pipeline was run using one single job and the TESS SPOC TCEs were queried for the 2-min data. The structure was 
 ordered from most recent file/folder to the oldest.

@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import custom_object_scope, plot_model
 import numpy as np
-import  yaml
+import yaml
 from functools import partial
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -112,7 +112,9 @@ plot_model(clfh_model,
 
 # save the models
 clfh_model.save(experiment_dir / 'clf-head-model-relu-output.keras')
-aaa
+
+model.save(experiment_dir / 'full-model.keras')
+
 #%% create dataset of inputs to classification head
 
 config['eval'] = {'batch_size': 512}
@@ -216,80 +218,152 @@ config['label_map'] = {
 
 #%% get background inputs
 
-# def filter_planet_examples_tfrecord_label(parsed_features, label_id):
-#     """ Filters out examples whose label_id is `1`.
+def filter_planet_examples_tfrecord_label(parsed_features, label_id):
+    """ Filters out examples whose label_id is `1`.
 
-#     Args:
-#         parsed_features: tf tensor, parsed features for example
-#         label_id: tf tensor, label id for example
+    Args:
+        parsed_features: tf tensor, parsed features for example
+        label_id: tf tensor, label id for example
 
-#     Returns: tf boolean tensor
+    Returns: tf boolean tensor
 
-#     """
+    """
 
-#     return tf.squeeze(label_id== 1)
+    return tf.squeeze(label_id== 1)
 
-# config['eval'] = {'batch_size': 16}
-# dataset = 'train'
-# n_bckgrnd_batches = 5
-# n_bckgrnd_samples = n_bckgrnd_batches * config['inference']['batch_size']
+def filter_by_uid(parsed_features, allowed_uids):
+    """
+    Filters out examples whose 'uid' is not in the allowed_uids list.
 
-# background_input_fn = InputFn(
-#         file_paths=config['datasets_fps'][dataset],
-#         batch_size=config['eval']['batch_size'],
-#         mode='EVAL',
-#         label_map=config['label_map'],
-#         features_set=config['features_set'],
-#         multiclass=config['config']['multi_class'],
-#         feature_map=config['feature_map'],
-#         label_field_name=config['label_field_name'],
-#         filter_fn=filter_planet_examples_tfrecord_label, # partial(filter_examples_tfrecord_label, label='KP'),
-#     )
-# bckgrnd_feats_dict = {}
-# for batch_i in range(n_bckgrnd_batches):
+    Args:
+        parsed_features: dict of tf tensors, parsed features for example
+        allowed_uids: tf tensor or python list of allowed UID strings
+
+    Returns:
+        tf boolean tensor indicating whether the example should be kept
+    """
     
-#     batch = next(iter(background_input_fn()))
-#     batch_feats = batch[0] if isinstance(batch, tuple) else batch
-    
-#     for k, v in batch_feats.items():
-#         if k not in bckgrnd_feats_dict:
-#             bckgrnd_feats_dict[k] = [v]
-#         else:
-#             bckgrnd_feats_dict[k].append(v)
+    uid = parsed_features['uid']
+    # ensure allowed_uids is a tf constant for comparison
+    allowed_uids_tensor = tf.constant(allowed_uids, dtype=tf.string)
+    return tf.reduce_any(tf.equal(uid, allowed_uids_tensor))
 
 
-# for k in bckgrnd_feats_dict:
-#     bckgrnd_feats_dict[k] = tf.concat(bckgrnd_feats_dict[k], axis=0)
+def make_uid_filter_fn(allowed_uids):
+    allowed_uids_tensor = tf.constant(allowed_uids, dtype=tf.string)
 
-# # first_batch = next(iter(predict_input_fn()))
-# # feats_dict  = first_batch[0] if isinstance(first_batch, tuple) else first_batch
-# # batch_n     = next(iter(feats_dict.values())).shape[0]
+    def filter_fn(parsed_features, label_id=None):
+        uid = tf.squeeze(parsed_features['uid'])
+        return tf.reduce_any(tf.equal(uid, allowed_uids_tensor))
 
-# # bg_idx = tf.constant(
-# #     np.random.choice(config['inference']['batch_size'], 
-# #                      min(MIN_REF, config['inference']['batch_size']), 
-# #                      replace=False), dtype=tf.int32
-# # )
-# # background = {k: tf.gather(v, bg_idx, axis=0) for k, v in feats_dict.items()}
+    return filter_fn
 
-# # input_order       = [t.name.split(":")[0] for t in model.inputs]
-# # background_inputs = [background[k].numpy() for k in input_order]
+def make_uid_filter_out_fn(excluded_uids):
+    excluded_uids_tensor = tf.constant(excluded_uids, dtype=tf.string)
 
-# # background_inputs = [feat_examples.numpy() for _, feat_examples in bckgrnd_feats_dict.items()]
-# input_order       = [t.name.split(":")[0] for t in model.inputs]
-# background_inputs = [bckgrnd_feats_dict[k].numpy() for k in input_order]
+    def filter_fn(parsed_features, label_id=None):
+        uid = tf.squeeze(parsed_features['uid'])
+        return tf.logical_not(tf.reduce_any(tf.equal(uid, excluded_uids_tensor)))
+
+    return filter_fn
 
 full_df = pd.read_csv(experiment_dir / 'conv_features_dataset.csv', comment='#')
-
 planets_df = full_df[full_df['label'].isin(['CP', 'KP'])]
 planets_df = planets_df.sample(n=500, random_state=42, replace=False)
+planets_uid_lst = planets_df['uid'].to_list()
 
-feature_cols = [col for col in full_df.columns if col not in ['uid', 'label']]
-feature_grps = [feature_cols[col_i:col_i+3] for col_i in range(0, len(feature_cols), 3)]
-background_inputs = [planets_df[feature_grp].to_numpy() for feature_grp in feature_grps]
+config['features_set']['quality'] = {'dim': [5, 1], 'dtype': 'float'}
 
-examples_left_df = full_df.loc[~full_df['uid'].isin(planets_df['uid'])]
-examples_left_inputs = [examples_left_df[feature_grp].to_numpy() for feature_grp in feature_grps]
+filter_fn = make_uid_filter_fn(planets_uid_lst)
+
+dataset = 'train'
+n_bckgrnd_batches = 5
+n_bckgrnd_samples = 500
+batch_size = n_bckgrnd_samples // n_bckgrnd_batches
+features_set = config['features_set']
+features_set.update({'uid': {'dim': [1,], 'dtype': 'string'}, 'label': {'dim': [1,], 'dtype': 'string'}})
+
+background_input_fn = InputFn(
+        file_paths=dataset_dir_fps,  # config['datasets_fps'][dataset],
+        batch_size=batch_size,
+        mode='EVAL',
+        label_map=config['label_map'],
+        features_set=features_set,
+        multiclass=config['config']['multi_class'],
+        feature_map=config['feature_map'],
+        label_field_name=config['label_field_name'],
+        filter_fn=filter_fn,  # partial(filter_by_uid, allowed_uids=planets_uid_lst),  # filter_planet_examples_tfrecord_label, # partial(filter_examples_tfrecord_label, label='KP'),
+    )
+bckgrnd_feats_dict = {}
+for batch_i in range(n_bckgrnd_batches):
+    
+    batch = next(iter(background_input_fn()))
+    batch_feats = batch[0] if isinstance(batch, tuple) else batch
+    
+    for k, v in batch_feats.items():
+        if k in ['uid', 'label']:
+            continue
+        if k not in bckgrnd_feats_dict:
+            bckgrnd_feats_dict[k] = [v]
+        else:
+            bckgrnd_feats_dict[k].append(v)
+
+
+for k in bckgrnd_feats_dict:
+    bckgrnd_feats_dict[k] = tf.concat(bckgrnd_feats_dict[k], axis=0)
+
+input_order       = [t.name.split(":")[0] for t in model.inputs]
+background_inputs = [bckgrnd_feats_dict[k].numpy() for k in input_order]
+
+# get inputs for all other examples
+filter_fn = make_uid_filter_out_fn(planets_uid_lst)
+
+foreground_input_fn = InputFn(
+        file_paths=dataset_dir_fps,  # config['datasets_fps'][dataset],
+        batch_size=batch_size,
+        mode='EVAL',
+        label_map=config['label_map'],
+        features_set=features_set,
+        multiclass=config['config']['multi_class'],
+        feature_map=config['feature_map'],
+        label_field_name=config['label_field_name'],
+        filter_fn=filter_fn,  # partial(filter_by_uid, allowed_uids=planets_uid_lst),  # filter_planet_examples_tfrecord_label, # partial(filter_examples_tfrecord_label, label='KP'),
+    )
+foregrnd_feats_dict, foregrnd_data_to_tbl = {}, {field: [] for field in ['uid', 'label']}
+# for batch_i in range(n_bckgrnd_batches):
+    # batch = next(iter(background_input_fn()))
+for batch in foreground_input_fn():
+    
+    batch_feats = batch[0] if isinstance(batch, tuple) else batch
+    
+    for k, v in batch_feats.items():
+        if k in ['uid', 'label']:
+            foregrnd_data_to_tbl[k].extend(v.numpy().tolist())
+            continue
+        if k not in foregrnd_feats_dict:
+            foregrnd_feats_dict[k] = [v]
+        else:
+            foregrnd_feats_dict[k].append(v)
+
+for k in foregrnd_feats_dict:
+    foregrnd_feats_dict[k] = tf.concat(foregrnd_feats_dict[k], axis=0)
+
+input_order       = [t.name.split(":")[0] for t in model.inputs]
+foreground_inputs = [foregrnd_feats_dict[k].numpy() for k in input_order]
+
+foreground_df = pd.DataFrame(foregrnd_data_to_tbl)
+
+# # select 500 planet examples for background dataset using dataframe
+# full_df = pd.read_csv(experiment_dir / 'conv_features_dataset.csv', comment='#')
+# planets_df = full_df[full_df['label'].isin(['CP', 'KP'])]
+# planets_df = planets_df.sample(n=500, random_state=42, replace=False)
+
+# feature_cols = [col for col in full_df.columns if col not in ['uid', 'label']]
+# feature_grps = [feature_cols[col_i:col_i+3] for col_i in range(0, len(feature_cols), 3)]
+# background_inputs = [planets_df[feature_grp].to_numpy() for feature_grp in feature_grps]
+
+# foreground_df = full_df.loc[~full_df['uid'].isin(planets_df['uid'])]
+# foreground_inputs = [foreground_df[feature_grp].to_numpy() for feature_grp in feature_grps]
 
 #%% create explainer
 
@@ -314,6 +388,7 @@ examples_left_inputs = [examples_left_df[feature_grp].to_numpy() for feature_grp
         
 #         shap_values = deep_explainer.shap_values(examples_left_inputs)
 
+model_fp = experiment_dir / 'full-model.keras'
 
 # Disable eager execution
 tf.compat.v1.disable_eager_execution()
@@ -329,20 +404,25 @@ with tf.Graph().as_default() as g:
         sess = tf.compat.v1.Session(graph=g)
 
         with sess.as_default():
+            
             # Load model inside the session context
-            clfh_model = load_model(filepath=experiment_dir / 'clf-head-model-relu-output.keras', compile=False)
+            model = load_model(filepath=model_fp, compile=False)
             
             # Initialize variables
             sess.run(tf.compat.v1.global_variables_initializer())
             
             # Create DeepExplainer with the actual session
-            deep_explainer = shap.DeepExplainer(clfh_model, background_inputs, session=sess)
+            print('Creating Explainer object...')
+            deep_explainer = shap.DeepExplainer(model, background_inputs, session=sess)
 
             # Compute SHAP values
+            print('Computing SHAP values...')
             # shap_values = deep_explainer.shap_values(examples_left_inputs)
-            shap_values = deep_explainer(examples_left_inputs)
+            shap_values = deep_explainer(foreground_inputs)
 
 #%% prepare SHAP values table
+
+shap_df_fp = experiment_dir / 'shap_values_examples-not-reference_full-model.csv'
 
 shap_values_arr = np.array(shap_values.values)
 n_features_grps, n_examples, n_features_in_grp, extra_dim = shap_values_arr.shape
@@ -350,16 +430,16 @@ shap_values_arr = shap_values_arr.transpose(1, 0, 2, 3)
 shap_values_arr = shap_values_arr.reshape(n_examples, n_features_grps * n_features_in_grp)
 
 shap_df = pd.DataFrame(shap_values_arr, columns=feature_cols)
-shap_df = pd.concat([examples_left_df[['uid', 'label']], shap_df], axis=1)
+shap_df = pd.concat([foreground_df[['uid', 'label']], shap_df], axis=1)
 
 # add metadata
 shap_df.attrs['dataset'] = str(dataset_dir)
-shap_df.attrs['model'] = f'classification head model from ReLU output of {str(model_fp)}'
+shap_df.attrs['model'] = f'full ExoMiner++ model in {str(model_fp)}'
 shap_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-shap_df.attrs['shap_framework'] = 'deep-explainer'
+shap_df.attrs['shap_framework'] = 'deep explainer'
 shap_df.attrs['reference_examples'] = '500 CP/KP (planet) TCEs'
 shap_df.attrs['examples_set'] = 'examples not used for reference'
-with open(experiment_dir / 'shap_values_examples-not-reference.csv', "w") as f:
+with open(shap_df_fp, "w") as f:
     for key, value in shap_df.attrs.items():
         f.write(f"# {key}: {value}\n")
     shap_df.to_csv(f, index=False)
@@ -367,13 +447,16 @@ with open(experiment_dir / 'shap_values_examples-not-reference.csv', "w") as f:
 #%% plot SHAP values
 
 plot_dir = experiment_dir / 'shap_values'
+shap_df_fp = experiment_dir / 'shap_values_examples-not-reference_full-model.csv'
+
 plot_dir.mkdir(parents=True, exist_ok=True)
 
-shap_df = pd.read_csv(experiment_dir / 'shap_values_examples-not-reference.csv', comment='#')
+shap_df = pd.read_csv(shap_df_fp, comment='#')
 
 bins = np.linspace(-0.1, 0.1, 100)  # 'auto'  # np.logspace(-9, 4, 500)
 hist_density = False
 
+# for groups of 3 extacted features (corresponding to each branch)
 feature_cols = [col for col in shap_df.columns if col not in ['uid', 'label']]
 for col_i in range(0, len(feature_cols), 3):
     
@@ -392,44 +475,126 @@ for col_i in range(0, len(feature_cols), 3):
     f.savefig(plot_dir / f'hist_feature_{feature_name}.png')
     plt.close(f)
 
+# per branch by summing SHAP values for features in same branch
+map_branch_to_features = {
+    'Full-Orbit': ['fc_prelu_global_flux'],
+    'Centroid Motion': [],
+    'Momentum Dump': ['fc_prelu_momentum_dump'],
+    'Periodogram': ['fc_prelu_flux_periodogram'],
+    'Flux Trend': ['fc_prelu_flux_trend'],
+    'Diff Image': ['fc_prelu_diff_img'],
+}
+for branch_name, branch_features in map_branch_to_features.items():
+    
+    shap_branch = shap_df[branch_features].sum(axis=1)
+
+    f, ax = plt.subplots(figsize=(8, 6))
+    ax.hist(shap_branch[col], bins=bins, density=False, histtype='step', label=col)
+    ax.set_title(f'Branch: {branch_name}')
+    ax.set_xlabel('SHAP Value')
+    ax.set_ylabel('TCE Density' if hist_density else 'TCE Count')
+    # ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.legend()
+    f.tight_layout()
+    f.savefig(plot_dir / f'hist_shap_{branch_name}.png')
+    plt.close(f)
+
 #%% create SHAP built-in plots
 
+shap_df_fp = experiment_dir / 'shap_values_examples-not-reference_full-model.csv'
+shap_df = pd.read_csv(shap_df_fp, comment='#')
+
+shap_values_arr = shap_df[feature_cols].to_numpy()
+feature_cols = [col for col in shap_df.columns if col not in ['uid', 'label']]    
+    
+# aggregate SHAP values per branch
+agg_feature_cols = [feature_cols[i] for i in range(0, len(feature_cols), 3)]
+agg_shap_values_arr = shap_values_arr.reshape(shap_values_arr.shape[0],12, 3).sum(axis=2)
+foreground_arr = foreground_df[feature_cols].to_numpy()
+# agg_examples_left_arr = examples_left_arr.reshape(examples_left_arr.shape[0], 12, 3).sum(axis=2)
+
 explainer_output = shap.Explanation(
-    values=shap_values_arr,
-    data=examples_left_df[feature_cols].values,
-    feature_names=feature_cols
+    values=agg_shap_values_arr,  # shap_values_arr,
+    data=foreground_inputs,  # foreground_arr,  
+    feature_names=agg_feature_cols,  # feature_cols
 )
+
+plot_dir = experiment_dir / 'shap_plots_agg'
+plot_dir.mkdir(parents=True, exist_ok=True)
 
 #%% global bar plot and beeswarm
 
-shap.plots.bar(explainer_output, max_display=36)
+f, ax = plt.subplots(figsize=(10, 12))
+shap.plots.bar(explainer_output, max_display=36, ax=ax, show=False)
+# plt.xscale('log')
+ax.set_xscale('linear')
+# ax.set_xlim([-0.5, 0.5])
+f.tight_layout()
+f.savefig(plot_dir / 'shap_global_bar_plot.png')
+plt.close()
 
-shap.plots.beeswarm(explainer_output, max_display=36)
+f, ax = plt.subplots(figsize=(10, 12))
+shap.plots.beeswarm(explainer_output, max_display=36, ax=ax, show=False, plot_size=None, log_scale=True)
+ax.set_xlim([-0.5, 0.5])
+f.tight_layout()
+f.savefig(plot_dir / 'shap_global_beeswarm_plot.png')
 
-#%%
+#%% analyze SHAP values per label
 
+# loop over each label
+for label in foreground_df['label'].unique():
+    
+    # get indices for this label
+    idxs_label = foreground_df['label'] == label
+    
+    foreground_df_label = foreground_df.loc[foreground_df['label'] == label]
+    foreground_df_label_arr = foreground_df_label[feature_cols].to_numpy()
+    agg_foreground_df_label_arr = foreground_df_label_arr.reshape(foreground_df_label_arr.shape[0],12, 3).sum(axis=2)
+    
+    shap_df_label = shap_df.loc[shap_df['label'] == label]
+    shap_arr_label = shap_df_label[feature_cols].to_numpy()
+    agg_shap_arr_label = shap_arr_label.reshape(shap_arr_label.shape[0],12, 3).sum(axis=2)
 
-# Loop over each label
-for label in examples_left_df['label'].unique():
-    # Get indices for this label
-    idx = examples_left_df['label'] == label
-
-    # Subset the Explanation object
-    subset_expl = shap.Explanation(
-        values=explainer_output.values[idx],
-        data=explainer_output.data[idx],
-        feature_names=explainer_output.feature_names
+    # subset the Explanation object
+    explainer_output = shap.Explanation(
+        values=agg_shap_arr_label,
+        data=foreground_df_label_arr,
+        feature_names=agg_feature_cols,
     )
+    
+    # # subset the Explanation object
+    # subset_expl = shap.Explanation(
+    #     values=explainer_output.values[idx],
+    #     data=explainer_output.data[idx],
+    #     feature_names=explainer_output.feature_names
+    # )
 
-    # Plot
-    print(f"SHAP bar plot for label: {label}")
-    shap.plots.bar(subset_expl, max_display=36)
+    # # plot
+    # print(f"SHAP bar plot for label: {label}")
+    # shap.plots.bar(subset_expl, max_display=36)
+    
+    f, ax = plt.subplots(figsize=(10, 12))
+    shap.plots.bar(explainer_output, max_display=36, ax=ax, show=False)
+    # plt.xscale('log')
+    ax.set_xscale('linear')
+    # ax.set_xlim([-0.5, 0.5])
+    f.tight_layout()
+    f.savefig(plot_dir / f'shap_global_bar_plot_{label}.png')
+    plt.close()
+
+    f, ax = plt.subplots(figsize=(10, 12))
+    shap.plots.beeswarm(explainer_output, max_display=36, ax=ax, show=False, plot_size=None, log_scale=True)
+    ax.set_xlim([-0.5, 0.5])
+    f.tight_layout()
+    f.savefig(plot_dir / f'shap_global_beeswarm_plot_{label}.png')
+    plt.close()
 
 
 #%% local bar plot
 
-examples_left_df.reset_index(drop=True, inplace=True)
-example_idx = examples_left_df.loc[examples_left_df['uid'] == '26801525-1-S57'].index.values[0]
+foreground_df.reset_index(drop=True, inplace=True)
+example_idx = foreground_df.loc[foreground_df['uid'] == '26801525-1-S57'].index.values[0]
 
 # expl = shap.Explanation(
 #     values=shap_values[0],  # or shap_values if single output
