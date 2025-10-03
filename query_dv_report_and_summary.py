@@ -15,7 +15,7 @@ Observations.enable_cloud_dataset()
 def correct_sector_field(x):
     """Set TCE unique ID to match format needed to query the MAST: <target_id>-<tce_id>-<sector_run_start>-<sector_run_end>.
 
-    :param pandas Series x: TCE unique ID
+    :param str x: TCE unique ID
     :return str: TCE unique ID with correct sector run format
     """
 
