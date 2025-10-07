@@ -5,7 +5,16 @@
 # 3rd party
 import shap
 from pathlib import Path
+
+import os
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Optional: disables some optimizations
+os.environ["CUDA_VISIBLE_DEVICES"] = ""    # This is more relevant on Linux/NVIDIA
+
+# Disable GPU explicitly
 import tensorflow as tf
+
+tf.config.set_visible_devices([], 'GPU')
+
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import custom_object_scope, plot_model
 import numpy as np
@@ -17,6 +26,11 @@ import seaborn as sns
 from tensorflow.python.framework import ops
 from keras import backend as K
 from tqdm import tqdm
+from sklearn.decomposition import PCA, FastICA
+from sklearn.preprocessing import StandardScaler
+from scipy.cluster.hierarchy import linkage
+from joblib import Parallel, delayed
+from functools import partial
 
 # local
 from models.models_keras import Time2Vec, SplitLayer, ExoMinerPlusPlus
@@ -27,7 +41,7 @@ from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector
 
 #%% set filepaths
 
-experiment_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xai/test_deep-shap_clf-head-stellar-dvtce')
+experiment_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xai/test_kernel-shap_clf-head-stellar-dvtce')
 model_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/data/exominer-plusplus_cv-iter0-model0_tess-spoc-2min-s1s67_tess-kepler.keras')
 config_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_2min/tess_paper/cv_tess-spoc-2min_s1-s67_kepler_trainset_tcenumtransits_tcenumtransitsobs_1-12-2025_1036/cv_iter_0/models/model0/config_cv.yaml')
 dataset_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047_eval_normalized_cv_iter_0/norm_data')
@@ -342,9 +356,10 @@ def make_uid_filter_out_fn(excluded_uids):
     return filter_fn
 
 # select 500 planet examples for background dataset using dataframe
+sample_size = 50
 full_df = pd.read_csv(experiment_dir / 'conv_features_dataset.csv', comment='#')
 planets_df = full_df[full_df['label'].isin(['CP', 'KP'])]
-planets_df = planets_df.sample(n=500, random_state=42, replace=False)
+planets_df = planets_df.sample(n=sample_size, random_state=42, replace=False)
 
 config['features_set']['quality'] = {'dim': [5, 1], 'dtype': 'float'}
 
@@ -499,6 +514,107 @@ model_fp = experiment_dir / 'clf-head-model-relu-output.keras'
 model = load_model(model_fp, compile=False)
 model.save(model_fp.parent / f'{model_fp.stem}', save_format="tf")
 
+#%% create KernelExplainer with grouping
+
+# Define the group sizes
+group_sizes = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 9]
+# group_sizes = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3] + [1] * 6 + [1] * 9
+
+# Step 1: Map each group to its feature indices
+group_features = []
+start = 0
+for size in group_sizes:
+    group_features.append(list(range(start, start + size)))
+    start += size
+
+# Step 2: Create dummy vectors for each group to simulate spatial separation
+group_centers = np.array([[np.mean(indices)] for indices in group_features])
+
+# Step 3: Build linkage matrix over groups
+group_linkage = linkage(group_centers, method='average')
+
+# Step 4: Expand group-level clustering to feature-level clustering
+feature_linkage = []
+next_cluster_id = len(group_centers)
+cluster_map = {i: group_features[i] for i in range(len(group_features))}
+
+for row in group_linkage:
+    i, j, dist, _ = row.astype(int)
+    features_i = cluster_map[i]
+    features_j = cluster_map[j]
+    new_cluster = features_i + features_j
+    feature_linkage.append([features_i[0], features_j[0], dist, len(new_cluster)])
+    cluster_map[next_cluster_id] = new_cluster
+    next_cluster_id += 1
+
+# Final linkage matrix for SHAP
+feature_linkage_matrix = np.array(feature_linkage)
+
+background_inputs_arr2d = np.concatenate(background_inputs, axis=1)
+
+# Step 5: Create Partition masker
+masker = shap.maskers.Partition(background_inputs_arr2d, clustering=feature_linkage_matrix)
+
+# Step 6: Define model wrapper
+def model_wrapper(X):
+    split_inputs = np.split(X, np.cumsum(group_sizes)[:-1], axis=1)
+    return model.predict(split_inputs, verbose=0)
+
+#%%
+# Step 7: Create SHAP explainer
+# explainer = shap.KernelExplainer(model_wrapper, background_inputs_arr2d, masker=masker)
+
+# Step 8: Compute SHAP values
+foreground_inputs_arr2d = np.concatenate(foreground_inputs, axis=1)
+# shap_values = explainer(foreground_inputs_arr2d[:2])
+# shap_values = explainer.shap_values(foreground_inputs_arr2d, nsamples=100, l1_reg="num_features(5)")
+
+
+# def make_model_wrapper(model):
+#     def model_wrapper(X):
+#         split_inputs = np.split(X, np.cumsum(group_sizes)[:-1], axis=1)
+#         return model.predict(split_inputs, verbose=0)
+#     return model_wrapper
+
+base_value = shap.KernelExplainer(model_wrapper, background_inputs_arr2d, masker=masker).expected_value[0]
+
+
+def explain_samples(x, model_wrapper, background_inputs_arr2d, masker, nsamples, l1_reg):
+    
+    # model_wrapper = make_model_wrapper(model)
+
+    explainer = shap.KernelExplainer(model_wrapper, background_inputs_arr2d, masker=masker)
+    
+    return explainer.shap_values(x, nsamples=nsamples, l1_reg=l1_reg)
+
+# Create a partial function with fixed arguments
+nsamples = 100
+l1_reg = "num_features(5)"
+explain_fn = partial(explain_samples, model_wrapper=model_wrapper,
+                     background_inputs_arr2d=background_inputs_arr2d, masker=masker, nsamples=nsamples, l1_reg=l1_reg)
+
+# Use with joblib
+njobs = 8
+nchunks = 32
+foreground_inputs_arr2d_jobs = np.array_split(foreground_inputs_arr2d, nchunks, axis=0)
+shap_res_jobs = Parallel(n_jobs=njobs)(
+    delayed(explain_fn)(np.array(x), chunk_i) for chunk_i, x in enumerate(tqdm(foreground_inputs_arr2d_jobs))
+)
+
+# save SHAP values from KernelExplainer
+
+shap_values_arr = np.concatenate(shap_res_jobs, axis=0).squeeze()
+np.save(experiment_dir / f'shap_values_kernel_explainer_{model_fp.stem}_nsamples{nsamples}_l1reg{l1_reg}_njobs{njobs}.npy', shap_values_arr)
+
+feature_values_arr = foreground_inputs_arr2d.copy()
+
+n_features_in_grps = [shap_feat_grp.shape[1] for shap_feat_grp in foreground_inputs]
+
+# # Step 9: Visualize
+# shap.plots.bar(shap_values[0], clustering=feature_linkage_matrix)
+
+#%% create DeepExplainer with custom session
+
 # Disable eager execution
 tf.compat.v1.disable_eager_execution()
 
@@ -537,7 +653,8 @@ with tf.Graph().as_default() as g:
             print('Creating Explainer object...')
             deep_explainer = shap.DeepExplainer(model, background_inputs, session=sess)
 
-            print("SHAP expected value:", deep_explainer.expected_value)
+            base_value = deep_explainer.expected_value[0]
+            print("SHAP expected value:", base_value)
 
             # Compute SHAP values
             print('Computing SHAP values...')
@@ -570,15 +687,15 @@ shap_df_fp = experiment_dir / f'shap-values_{model_fp.stem}_foreground-examples.
 shap_df = pd.DataFrame(shap_values_arr, columns=feature_cols)
 shap_df = pd.concat([foreground_df[['uid', 'label']].reset_index(drop=True), shap_df.reset_index(drop=True)], axis=1)
 
-shap_df['base_value'] = float(deep_explainer.expected_value)
+shap_df['base_value'] = float(base_value)
 
 # add metadata
 shap_df.attrs['dataset'] = str(dataset_dir)
 shap_df.attrs['model'] = f'convolutional model up to ReLU output plus stellar parameters and DV TCE fit inputs of {str(model_fp)}'  # f'full ExoMiner++ model in {str(model_fp)}'
 shap_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-shap_df.attrs['shap_framework'] = 'deep explainer'
-shap_df.attrs['base_value'] = float(deep_explainer.expected_value[0])
-shap_df.attrs['reference_examples'] = '500 CP/KP (planet) TCEs'
+shap_df.attrs['shap_framework'] = f'kernel explainer | {nsamples} samples | {l1_reg} regularization'  # 'deep explainer'
+shap_df.attrs['base_value'] = base_value
+shap_df.attrs['reference_examples'] = f'{sample_size} CP/KP (planet) TCEs'  # f'{sample_size} CP/KP (planet) TCEs'
 shap_df.attrs['examples_set'] = 'examples not used for reference'
 with open(shap_df_fp, "w") as f:
     for key, value in shap_df.attrs.items():
@@ -603,51 +720,6 @@ base_value = shap_df['base_value'][0]
 
 #%% aggregate SHAP values per branch
 
-
-# def aggregate_values_by_branch(arr, n_features_in_grp, method='sum'):
-#     """
-#     Aggregates each set of 3 consecutive columns in a (N, 36) array.
-
-#     Parameters:
-#     - arr: np.ndarray of shape (n_examples, n_features)
-#     - n_features_in_grp: int, number of features in each group
-#     - method: str, one of ['sum', 'mean', 'max', 'l2']
-
-#     Returns:
-#     - aggregated_arr: np.ndarray of shape (N, 12)
-#     """
-    
-#     if arr.shape[1] % n_features_in_grp != 0:
-#         raise ValueError(f"Number of columns must be divisible by number of features in group ({n_features_in_grp}).")
-
-#     n_grps = arr.shape[1] // n_features_in_grp
-#     n_examples = arr.shape[0]
-    
-#     reshaped = arr.reshape(n_examples, n_grps, n_features_in_grp)  
-
-#     if method == 'sum':
-#         aggregated = reshaped.sum(axis=2)
-#     elif method == 'median':
-#         aggregated = reshaped.median(axis=2)
-#     elif method == 'mean':
-#         aggregated = reshaped.mean(axis=2)
-#     elif method == 'max_abs':
-#         # aggregated = reshaped.max(axis=2)
-        
-#        # get indices of max absolute values along the last axis
-#         idx = np.abs(reshaped).argmax(axis=2)
-        
-#         # use advanced indexing to get the signed values at those indices
-#         aggregated = np.take_along_axis(reshaped, idx[..., np.newaxis], axis=2).squeeze(axis=2)
-
-#     elif method == 'l2':
-#         aggregated = np.sqrt((reshaped ** 2).sum(axis=2))
-#     else:
-#         raise ValueError(f"Unknown method: {method}")
-
-#     return aggregated
-
-
 def aggregate_values_by_branch(arr, group_sizes, method='sum'):
     """
     Aggregates variable-sized groups of columns in a (N, M) array.
@@ -655,11 +727,12 @@ def aggregate_values_by_branch(arr, group_sizes, method='sum'):
     Parameters:
     - arr: np.ndarray of shape (n_examples, n_features)
     - group_sizes: list of ints, sizes of each group (must sum to arr.shape[1])
-    - method: str, one of ['sum', 'mean', 'max_abs', 'l2']
+    - method: str, one of ['sum', 'mean', 'max_abs', 'l2', 'pca', 'ica']
 
     Returns:
     - aggregated_arr: np.ndarray of shape (N, len(group_sizes))
     """
+    
     if sum(group_sizes) != arr.shape[1]:
         raise ValueError("Sum of group sizes must match number of columns in arr.")
 
@@ -678,6 +751,29 @@ def aggregate_values_by_branch(arr, group_sizes, method='sum'):
             aggregated = group[np.arange(group.shape[0]), idx]
         elif method == 'l2':
             aggregated = np.sqrt((group ** 2).sum(axis=1))
+        elif method == 'pca':    
+            if size == 1:
+                aggregated = group.flatten()
+            else:
+                # scaler = StandardScaler()
+                # standardized_group = scaler.fit_transform(group)
+
+                pca = PCA(n_components=1)  # PCA: reduce to 1 component
+                pca_transformed = pca.fit_transform(group)
+                
+                aggregated = pca_transformed.flatten()
+        elif method == 'ica':                    
+            if size == 1:
+                aggregated = group.flatten()
+            else:
+                # scaler = StandardScaler()
+                # standardized_group = scaler.fit_transform(group)
+                
+                ica = FastICA(n_components=1, random_state=0, whiten='arbitrary-variance')  # ICA: reduce to 1 component
+                ica_transformed = ica.fit_transform(group)
+                
+                aggregated = ica_transformed.flatten()
+    
         else:
             raise ValueError(f"Unknown method: {method}")
 
@@ -754,13 +850,12 @@ plot_dir.mkdir(parents=True, exist_ok=True)
 for agg_feature_name_i, agg_feature_name in enumerate(agg_feature_cols):
 
     f, ax = plt.subplots(figsize=(8, 6))
-    ax.hist(agg_shap_values_arr[:, agg_feature_name_i], bins=bins, density=False, histtype='step', label=col)
+    ax.hist(agg_shap_values_arr[:, agg_feature_name_i], bins=bins, density=False, histtype='step')
     ax.set_title(f'Branch: {agg_feature_name} (SHAP values aggregated by {agg_method})')
     ax.set_xlabel('SHAP Value')
     ax.set_ylabel('TCE Density' if hist_density else 'TCE Count')
     # ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.legend()
     f.tight_layout()
     f.savefig(plot_dir / f'hist_shap_{agg_feature_name}_agg-method-{agg_method}.png')
     plt.close(f)
@@ -906,20 +1001,20 @@ for grp_val in grp_values:
 
 agg = True
 download_dv_reports = False
-sample_name = '_sample-top100_nebs_by_dikco_msky'
-# sample_name = '_sample-few-examples'
+# sample_name = '_sample-top100_nebs_by_dikco_msky'
+sample_name = '_sample-few-examples'
 
-tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois_dv_mast_urls.csv')
-nebs = tce_tbl.loc[tce_tbl['label'] == 'NEB'].sort_values('tce_dikco_msky', ascending=False)
-tce_uid_lst = nebs['uid'].to_list()[:100]
+# tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois_dv_mast_urls.csv')
+# nebs = tce_tbl.loc[tce_tbl['label'] == 'NEB'].sort_values('tce_dikco_msky', ascending=False)
+# tce_uid_lst = nebs['uid'].to_list()[:100]
 
-# tce_uid_lst = [
-#     '26801525-1-S57', # secondary | EB
-#     '309787037-1-S35',  # centroid | FP
-#     '167526485-1-S6',  # flux trend ? | EB
-#     '273574141-1-S14',  # odd-even | EB
-#     '83053699-1-S57', # centroid motion | NEB   
-# ]
+tce_uid_lst = [
+    '26801525-1-S57', # secondary | EB
+    '309787037-1-S35',  # centroid | FP
+    '167526485-1-S6',  # flux trend ? | EB
+    '273574141-1-S14',  # odd-even | EB
+    '83053699-1-S57', # centroid motion | NEB   
+]
 
 
 if agg:
@@ -961,6 +1056,7 @@ for tce_uid in tqdm(tce_uid_lst):
             base_values=base_value,
         )
 
+    f = plt.figure()
     shap.plots.waterfall(explainer_output_tce, max_display=36, show=False)
     plt.savefig(plot_dir / f'shap_waterfall_{tce_uid}.png', bbox_inches='tight')
     plt.close()
