@@ -33,5 +33,5 @@ A stable internet connection is also required to access the TESS repositories at
 ### More information on the image
 
 You can get detailed information on the Podman image by running the command 
-```podman images inspect ghcr.io/nasa/exominer ```. Run ```podman image history ghcr.io/nasa/exominer ``` to see the list of 
+```podman image inspect ghcr.io/nasa/exominer ```. Run ```podman image history ghcr.io/nasa/exominer ``` to see the list of 
 layers and commands that were used to create it.

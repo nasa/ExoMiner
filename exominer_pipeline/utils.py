@@ -13,11 +13,14 @@ import pandas as pd
 import re
 import sys
 import logging
+from tensorflow.keras.utils import custom_object_scope
+from tensorflow.keras.models import load_model
 
 # local
 from src_preprocessing.tce_tables.preprocess_tess_tce_tbl import preprocess_tce_table
 from src_preprocessing.tce_tables.extract_tce_data_from_dv_xml import process_sector_run_of_dv_xmls
 from src.predict.predict_model import predict_model
+from models.models_keras import Time2Vec, SplitLayer
 
 Observations.enable_cloud_dataset()
 
@@ -226,12 +229,6 @@ def check_ruwe_source(ruwe_source, tics_df, logger):
     # read stellar parameters catalog
     ruwe_df = pd.read_csv(ruwe_source, skipinitialspace=True)
     
-    # check if all TIC IDs in tics_df are in stellar_params_df
-    n_missing_tics = (~ruwe_df['target_id'].isin(tics_df['tic_id'])).sum()
-    if n_missing_tics > 0:
-        logger.error(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
-        raise SystemExit(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
-    
     # check if required columns exist
     required_columns = [
         'ruwe',
@@ -239,13 +236,20 @@ def check_ruwe_source(ruwe_source, tics_df, logger):
         ]
     for col in required_columns:
         if col not in ruwe_df.columns:
-            logger.error(f'Stellar parameters catalog is missing required column: {col}.')
-            raise SystemExit(f'Stellar parameters catalog is missing required column: {col}.')
+            logger.error(f'RUWE catalog is missing required column: {col}.')
+            raise SystemExit(f'RUWE catalog is missing required column: {col}.')
     
     # check data types of columns
     if ruwe_df['target_id'].dtype != 'int64':
         logger.error(f'RUWE catalog column "target_id" must be of type int.')
         raise SystemExit(f'RUWE catalog column "target_id" must be of type int.')
+
+    # check if all TIC IDs in tics_df are in ruwe_df
+    n_missing_tics = (~ruwe_df['target_id'].isin(tics_df['tic_id'])).sum()
+    if n_missing_tics > 0:
+        logger.error(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+        raise SystemExit(f'RUWE catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+    
     
 def check_stellar_parameters_source(stellar_parameters_source, tics_df, logger):
     """Check the validity of the stellar parameters source provided.
@@ -261,12 +265,6 @@ def check_stellar_parameters_source(stellar_parameters_source, tics_df, logger):
     
     # read stellar parameters catalog
     stellar_params_df = pd.read_csv(stellar_parameters_source, skipinitialspace=True)
-    
-    # check if all TIC IDs in tics_df are in stellar_params_df
-    n_missing_tics = (~stellar_params_df['target_id'].isin(tics_df['tic_id'])).sum()
-    if n_missing_tics > 0:
-        logger.error(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
-        raise SystemExit(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
     
     # check if required columns exist
     required_columns = [
@@ -300,6 +298,12 @@ def check_stellar_parameters_source(stellar_parameters_source, tics_df, logger):
         logger.error(f'Stellar parameters catalog column "target_id" must be of type int.')
         raise SystemExit(f'Stellar parameters catalog column "target_id" must be of type int.')
     
+    # check if all TIC IDs in tics_df are in stellar_params_df
+    n_missing_tics = (~stellar_params_df['target_id'].isin(tics_df['tic_id'])).sum()
+    if n_missing_tics > 0:
+        logger.error(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+        raise SystemExit(f'Stellar parameters catalog is missing {n_missing_tics}/{len(tics_df)} TIC IDs provided for the run.')
+    
     
 def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logger, tic_ids=None, num_processes=1,
                    num_jobs=1, download_spoc_data_products='false', external_data_repository=None,
@@ -322,7 +326,8 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
         ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
             filepath to external catalog of RUWE values for the queried TICs.
         exominer_model: str, which ExoMiner model to use for inference. Choose between "exominer++_single", 
-            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble", or provide the 
+            filepath to a TensorFlow Keras model that is compatible with the pipeline
 
     Returns:
         run_config: dict with parameters for running the ExoMiner pipeline.
@@ -424,7 +429,22 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     run_config['ruwe_source'] = ruwe_source
     
     # set model filepath to the selected ExoMiner model
-    run_config['model_fp'] = run_config['exominer_models'][exominer_model]
+    if exominer_model not in run_config['exominer_models']:
+        # check if model is a valid filepath
+        if not Path(exominer_model).exists():
+            logger.error(f'ExoMiner model "{exominer_model}" is not supported. Choose from '
+                         f'{list(run_config["exominer_models"].keys())} or provide the filepath to a TensorFlow Keras '
+                         f'model that is compatible with the pipeline.')
+            raise ValueError(f'ExoMiner model "{exominer_model}" is not supported. Choose from '
+                             f'{list(run_config["exominer_models"].keys())} or provide the filepath to a TensorFlow Keras '
+                             f'model that is compatible with the pipeline.')
+        
+        # check if model is valid
+        check_custom_model(exominer_model)
+        
+        run_config['model_fp'] = exominer_model  # assume it's a filepath
+    else:
+        run_config['model_fp'] = run_config['exominer_models'][exominer_model]
     
     # update parameters in auxiliary configuration files
     with open(run_config['lc_preprocessing_config_fp'], 'r') as f:
@@ -591,6 +611,23 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
     return tce_tbl
 
 
+def check_custom_model(model_fp):
+    """ Check if custom model loads.
+
+    Args:
+        model_fp: str, model filepath
+
+    Returns:
+    """
+    
+    try:
+        custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
+        with custom_object_scope(custom_objects):
+            model = load_model(filepath=model_fp, compile=False)
+    except Exception as e:
+        raise ValueError(f'Error while loading custom model from {model_fp}. Ensure that the model is a valid '
+                         f'TensorFlow Keras model and that it is compatible with the pipeline. Error:\n {e}')
+        
 def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
     """ Run inference pipeline.
 

@@ -188,9 +188,10 @@ ordered from most recent file/folder to the oldest.
 exominer_pipeline_run_name
 ├── run_main.log
 ├── dv_reports_all_jobs.csv [optional]
-├── predictions_{exominer_pipeline_run_name}.csv
+├── predictions_outputs.csv
 ├── pipeline_run_config.yaml
 ├── tics_tbl.csv
+├── run_parameters.txt
 └── job_0
     ├── run_0.log
     ├── dv_reports.csv [optional]
@@ -211,9 +212,10 @@ exominer_pipeline_run_name
 - `run_main.log`: main log file for the run.
 - `dv_reports_all_jobs.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 
        TCE in all the queried TICs, the URLs for the TESS SPOC DV data reports found at the MAST.
-- `predictions_output.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
-- `pipeline_run_config.yaml`: YAML file that stores the run parameters.
+- `predictions_outputs.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
+- `pipeline_run_config.yaml`: YAML file that stores some of the run parameters internally used in the Podman container.
 - `tics_tbl.csv`: CSV file containing the queried TIC IDs and sector runs.
+- `run_parameters.txt`: text file containing information about the parameters used for the run, including the version of the pipeline.
 - `job_{job_id}`: directory containing the results for the TIC IDs and sector runs assigned to the job.
     - `run_{job_id}`: log file for the job.
     - `dv_reports.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 

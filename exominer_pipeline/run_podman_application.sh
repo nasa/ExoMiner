@@ -5,14 +5,14 @@
 ### default values ## 
 
 # directory where the inputs for the ExoMiner Pipeline are stored
-inputs_dir="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/inputs"
+inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/"
 # file path to the TICs table
-tics_tbl_fn="test_tics_tbl.csv"
+tics_tbl_fn="tic235678745_s14s86.csv"
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=test_exominer_pipeline_run_8-29-2025_1242
+exominer_pipeline_run=test_tic235678745-s14s86_exominer-single_model-external_10-8-2025_2113
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/runs/$exominer_pipeline_run
+exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/$exominer_pipeline_run
 # data collection mode: either 2min or ffi
 data_collection_mode="2min"
 # number of processes
@@ -21,10 +21,10 @@ num_processes=1
 num_jobs=1
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
-download_spoc_data_products="true"
+download_spoc_data_products="false"
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
-external_data_repository=null
+external_data_repository=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic235678745-s14s86_exominer-single_10-8-2025_1328/job_0/mastDownload/
 # define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
 # parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
 # parameters, it will use those values.
@@ -34,7 +34,7 @@ stellar_parameters_source=ticv8
 # values.
 ruwe_source=gaiadr2
 # which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
-exominer_model="exominer++_single"
+exominer_model="/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/data/exominer-plusplus_cv-iter0-model0_tess-spoc-2min-s1s67_tess-kepler.keras"
 
 # Help message
 show_help() {
@@ -82,6 +82,25 @@ done
 
 mkdir -p $exominer_pipeline_run_dir
 
+# Save parameters to a file inside the run directory
+echo "Saving run parameters to $exominer_pipeline_run_dir/run_parameters.txt"
+
+params_file="$exominer_pipeline_run_dir/run_parameters.txt"
+
+cat <<EOF > "$params_file"
+TICs table file: $tics_tbl_fp
+ExoMiner Pipeline run directory: $exominer_pipeline_run_dir
+Data collection mode: $data_collection_mode
+Number of processes: $num_processes
+Number of jobs: $num_jobs
+Download SPOC data products: $download_spoc_data_products
+External data repository: $external_data_repository
+Stellar parameters source: $stellar_parameters_source
+RUWE source: $ruwe_source
+ExoMiner model: $exominer_model
+Image revision: $(podman inspect ghcr.io/nasa/exominer:latest --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')
+EOF
+
 # set up volume mounts
 volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
 
@@ -109,13 +128,26 @@ else
     ruwe_source_arg=$ruwe_source
 fi
 
+# handle custom model path
+if [[ "$exominer_model" != "exominer++_single" && "$exominer_model" != "exominer++_cviter-mean-ensemble" && "$exominer_model" != "exominer++_cv-super-mean-ensemble" ]]; then
+    if [[ -f "$exominer_model" ]]; then
+        volume_mounts="$volume_mounts -v $exominer_model:/custom_model.keras:Z"
+        exominer_model_arg="/custom_model.keras"
+    else
+        echo "Error: Provided exominer_model path '$exominer_model' does not exist or is not a file."
+        exit 1
+    fi
+else
+    exominer_model_arg="$exominer_model"
+fi
+
 echo "Running ExoMiner Pipeline with the following parameters:"
 echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-  ghcr.io/nasa/exominer:amd64 \
+  ghcr.io/nasa/exominer:arm64 \
   --tic_ids_fp=/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
@@ -124,7 +156,7 @@ podman run \
   --download_spoc_data_products=$download_spoc_data_products \
   --stellar_parameters_source=$stellar_parameters_source_arg \
   --ruwe_source=$ruwe_source_arg \
-  --exominer_model=$exominer_model \
+  --exominer_model=$exominer_model_arg \
   $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."

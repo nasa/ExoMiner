@@ -232,7 +232,8 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         ruwe_source: str, the RUWE source to use for the queried TICs. Set to either 'gaiadr2', 'unavailable', or
             filepath to external catalog of RUWE values for the queried TICs.
         exominer_model: str, which ExoMiner model to use for inference. Choose between "exominer++_single", 
-            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+            "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble", or provide the filepath 
+            to a TensorFlow Keras model that is compatible with the pipeline
 
     Returns:
 
@@ -400,7 +401,8 @@ if __name__ == "__main__":
                         default='gaiadr2')
     
     parser.add_argument('--exominer_model', type=str, help='Specify which ExoMiner model to use for inference. Currently, '
-                        'you can choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble". ',
+                        'you can choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble",' 
+                        'or provide the filepath to a TensorFlow Keras model that is compatible with the pipeline.',
                         default='exominer++_single')
 
     parsed_args = parser.parse_args()

@@ -26,3 +26,4 @@ src/postprocessing
 src/evaluate
 src_preprocessing/split_tfrecord_train-test
 src_preprocessing/tce_tables/ephemeris_matching
+xai/
