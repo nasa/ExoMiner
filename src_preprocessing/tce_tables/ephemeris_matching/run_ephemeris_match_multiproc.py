@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
     logger.info(f'Using {config["n_procs"]} processes to run {config["n_jobs"]} jobs...')
     targets_arr_jobs = [(targets_arr_job, tce_tbl, toi_tbl, sector_timestamps_tbl, config["sampling_interval"],
-                         save_dir, config["plot_prob"], plot_dir)
+                         save_dir, config["plot_prob"], plot_dir, job_i)
                         for job_i, targets_arr_job in enumerate(np.array_split(targets_arr, config["n_jobs"]))]
     
     pool = multiprocessing.Pool(processes=config["n_procs"])

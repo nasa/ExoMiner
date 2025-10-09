@@ -18,7 +18,7 @@ from src_preprocessing.tf_util import example_util
 
 
 def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
-    """ Add  difference image data to an example in a TFRecord file.
+    """ Add difference image data to an example in a TFRecord file.
 
         Args:
             example: TFRecord example

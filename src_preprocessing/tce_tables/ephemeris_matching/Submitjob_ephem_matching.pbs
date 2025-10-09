@@ -1,6 +1,6 @@
 # Conduct ephemeris matching run.
 #PBS -S /bin/bash
-#PBS -N ephem_matching_tess_spoc_ffi_prsaebs_actual
+#PBS -N ephem_matching_tess_spoc_ffi_exofoptois
 #PBS -l walltime=72:00:00
 # DSG GPU V100 nodes
 #PBS -l select=1:ncpus=36:mem=360g:ngpus=1:model=sky_gpu
@@ -22,13 +22,13 @@ source activate exoplnt_dl_tf2_13
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tces_spoc_ffi_s36-s72_prsaebs_4-17-2025_2110
+OUTPUT_DIR=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matchingtces_spoc_ffi_s36-s72_ebs-kostov_10-8-2025_1600
 mkdir -p $OUTPUT_DIR
 
 # script file path
-SCRIPT_FP=$PYTHONPATH/src_preprocessing/ephemeris_matching/run_ephemeris_match_multiproc.py
+SCRIPT_FP=$PYTHONPATH/src_preprocessing/tce_tables/ephemeris_matching/run_ephemeris_match_multiproc.py
 # config file path
-CONFIG_FP=$PYTHONPATH/src_preprocessing/ephemeris_matching/config_ephem_matching.yaml
+CONFIG_FP=$PYTHONPATH/src_preprocessing/tce_tables/ephemeris_matching/config_ephem_matching.yaml
 
 LOG_DIR=$OUTPUT_DIR/logs
 mkdir -p $LOG_DIR

@@ -6,9 +6,9 @@ from pathlib import Path
 
 #%% load tables
 
-tce_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s94_9-10-2025_1701.csv')
-exofop_toi_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/exofop_toi_catalogs/exofop_tois_9-11-2025.csv')
-sg1_toi_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/sg1_toi_catalogs/sg1_tois_9-11-2025.csv')
+tce_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025.csv')
+exofop_toi_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/exofop_tois_9-11-2025.csv')
+sg1_toi_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/sg1/sg1_tois_9-11-2025.csv')
 
 tce_tbl = pd.read_csv(tce_tbl_fp, dtype={'matched_object': str})
 exofop_toi_tbl = pd.read_csv(exofop_toi_tbl_fp, dtype={'TOI': str})

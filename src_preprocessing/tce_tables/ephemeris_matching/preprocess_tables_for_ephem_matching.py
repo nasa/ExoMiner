@@ -9,7 +9,7 @@ import numpy as np
 
 #%% ExoFOP TOI catalog
 
-tbl_fp = Path('//msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/TOI/9-12-2024')
+tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/exofop_tois_9-11-2025.csv')
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns

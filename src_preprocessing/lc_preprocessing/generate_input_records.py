@@ -157,4 +157,9 @@ if __name__ == "__main__":
                         default='./config_preprocessing.yaml')
     args = parser.parse_args()
 
-    preprocess_lc_data(args.config, args.output_dir, args.rank, args.n_runs)
+    preprocess_lc_data(
+        config_fp=args.config_fp, 
+        output_dir=args.output_dir, 
+        rank=args.rank, 
+        n_runs=args.n_runs
+        )
