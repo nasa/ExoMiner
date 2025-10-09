@@ -251,9 +251,9 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared')
+    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic2356473034-S60_exominer-single_model-external_10-9-2025_0912/job_0/tfrecord_data/')
     # get filepaths for TFRecord shards
-    tfrec_fps = list(tfrec_dir.glob('shard-*'))
+    tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
         'uid': 'str',
         'target_id': 'int',

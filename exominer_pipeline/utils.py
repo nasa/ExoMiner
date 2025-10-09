@@ -13,8 +13,9 @@ import pandas as pd
 import re
 import sys
 import logging
-from tensorflow.keras.utils import custom_object_scope
-from tensorflow.keras.models import load_model
+# from tensorflow.keras.utils import custom_object_scope
+# from tensorflow.keras.models import load_model
+import subprocess
 
 # local
 from src_preprocessing.tce_tables.preprocess_tess_tce_tbl import preprocess_tce_table
@@ -430,6 +431,9 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
     
     # set model filepath to the selected ExoMiner model
     if exominer_model not in run_config['exominer_models']:
+        
+        logger.info(f'Provided external model. Checking if it exists.')
+        
         # check if model is a valid filepath
         if not Path(exominer_model).exists():
             logger.error(f'ExoMiner model "{exominer_model}" is not supported. Choose from '
@@ -439,8 +443,8 @@ def process_inputs(output_dir, config_fp, tic_ids_fp, data_collection_mode, logg
                              f'{list(run_config["exominer_models"].keys())} or provide the filepath to a TensorFlow Keras '
                              f'model that is compatible with the pipeline.')
         
-        # check if model is valid
-        check_custom_model(exominer_model)
+        # # check if model is valid
+        # check_custom_model(exominer_model)
         
         run_config['model_fp'] = exominer_model  # assume it's a filepath
     else:
@@ -620,14 +624,33 @@ def check_custom_model(model_fp):
     Returns:
     """
     
+    # try:
+    #     custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
+    #     with custom_object_scope(custom_objects):
+    #         model = load_model(filepath=model_fp, compile=False)
+    # except Exception as e:
+    #     raise ValueError(f'Error while loading custom model from {model_fp}. Ensure that the model is a valid '
+    #                      f'TensorFlow Keras model and that it is compatible with the pipeline. Error:\n {e}')
+
     try:
-        custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
-        with custom_object_scope(custom_objects):
-            model = load_model(filepath=model_fp, compile=False)
-    except Exception as e:
-        raise ValueError(f'Error while loading custom model from {model_fp}. Ensure that the model is a valid '
-                         f'TensorFlow Keras model and that it is compatible with the pipeline. Error:\n {e}')
-        
+        subprocess.run(
+            [
+                "python3", "-c",
+                f"from tensorflow.keras.models import load_model; "
+                f"from models.models_keras import Time2Vec, SplitLayer; "
+                f"from tensorflow.keras.utils import custom_object_scope; "
+                f"with custom_object_scope({{'Time2Vec': Time2Vec, 'SplitLayer': SplitLayer}}): "
+                f"load_model('{model_fp}', compile=False)"
+            ],
+            check=True,
+            timeout=10  # seconds
+        )
+        return True
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"Model loading timed out for {model_fp}")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Model loading failed: {e}")
+
 def inference_pipeline(run_config, output_dir, tfrec_dir, logger):
     """ Run inference pipeline.
 

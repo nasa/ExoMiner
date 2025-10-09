@@ -7,10 +7,10 @@
 # directory where the inputs for the ExoMiner Pipeline are stored
 inputs_dir="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/"
 # file path to the TICs table
-tics_tbl_fn="tic235678745_s14s86.csv"
+tics_tbl_fn="tics_tbl_356473034_S60.csv"
 tics_tbl_fp=$inputs_dir/$tics_tbl_fn
 # name of the run
-exominer_pipeline_run=test_tic235678745-s14s86_exominer-single_model-external_10-8-2025_2113
+exominer_pipeline_run=test_tic2356473034-S60_exominer-single_model-external_10-9-2025_0952
 # directory where the ExoMiner Pipeline run is saved
 exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/$exominer_pipeline_run
 # data collection mode: either 2min or ffi
@@ -24,7 +24,7 @@ num_jobs=1
 download_spoc_data_products="false"
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
-external_data_repository=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic235678745-s14s86_exominer-single_10-8-2025_1328/job_0/mastDownload/
+external_data_repository="null"  # "/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic2356473034-S60_exominer-single_model-external_10-8-2025_2143/job_0/mastDownload"  # null  # /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic235678745-s14s86_exominer-single_10-8-2025_1328/job_0/mastDownload/
 # define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
 # parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
 # parameters, it will use those values.
@@ -34,6 +34,7 @@ stellar_parameters_source=ticv8
 # values.
 ruwe_source=gaiadr2
 # which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+# or provide a filepath to a custom ExoMiner model (in Keras .keras format)
 exominer_model="/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/data/exominer-plusplus_cv-iter0-model0_tess-spoc-2min-s1s67_tess-kepler.keras"
 
 # Help message

@@ -65,6 +65,7 @@ stellar_parameters_source=ticv8
 # values.
 ruwe_source=gaiadr2
 # which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+# or provide a filepath to a custom ExoMiner model (in Keras .keras format)
 exominer_model="exominer++_single"
 
 # Help message
@@ -113,6 +114,25 @@ done
 
 mkdir -p $exominer_pipeline_run_dir
 
+# Save parameters to a file inside the run directory
+echo "Saving run parameters to $exominer_pipeline_run_dir/run_parameters.txt"
+
+params_file="$exominer_pipeline_run_dir/run_parameters.txt"
+
+cat <<EOF > "$params_file"
+TICs table file: $tics_tbl_fp
+ExoMiner Pipeline run directory: $exominer_pipeline_run_dir
+Data collection mode: $data_collection_mode
+Number of processes: $num_processes
+Number of jobs: $num_jobs
+Download SPOC data products: $download_spoc_data_products
+External data repository: $external_data_repository
+Stellar parameters source: $stellar_parameters_source
+RUWE source: $ruwe_source
+ExoMiner model: $exominer_model
+Image revision: $(podman inspect ghcr.io/nasa/exominer:latest --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')
+EOF
+
 # set up volume mounts
 volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
 
@@ -140,13 +160,26 @@ else
     ruwe_source_arg=$ruwe_source
 fi
 
+# handle custom model path
+if [[ "$exominer_model" != "exominer++_single" && "$exominer_model" != "exominer++_cviter-mean-ensemble" && "$exominer_model" != "exominer++_cv-super-mean-ensemble" ]]; then
+    if [[ -f "$exominer_model" ]]; then
+        volume_mounts="$volume_mounts -v $exominer_model:/custom_model.keras:Z"
+        exominer_model_arg="/custom_model.keras"
+    else
+        echo "Error: Provided exominer_model path '$exominer_model' does not exist or is not a file."
+        exit 1
+    fi
+else
+    exominer_model_arg="$exominer_model"
+fi
+
 echo "Running ExoMiner Pipeline with the following parameters:"
 echo "TICs table file: $tics_tbl_fp"
 echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-  ghcr.io/nasa/exominer:latest \
+  ghcr.io/nasa/exominer:arm64 \
   --tic_ids_fp=/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \
@@ -155,7 +188,7 @@ podman run \
   --download_spoc_data_products=$download_spoc_data_products \
   --stellar_parameters_source=$stellar_parameters_source_arg \
   --ruwe_source=$ruwe_source_arg \
-  --exominer_model=$exominer_model \
+  --exominer_model=$exominer_model_arg \
   $external_data_repository_arg \
 
 echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."
@@ -269,6 +302,8 @@ Currently, the ExoMiner Pipeline supports the use of these models:
 
 These three models are based in the ExoMiner++ architecture and were developed as part of the experiment for the [ExoMiner on TESS 2-min paper](https://doi.org/10.48550/arXiv.2502.09790). They reflect a tradeoff in generalization and robustness vs computational cost. On one side, the single model from a single CV iteration `exominer++_single` is lightweight and will produce faster inference, while `exominer++_cv-super-mean-ensemble` is recommended for those users that have 
 the computational resources to run a model that smooths out biases from individual CV iterations and tranining initializations. `exominer++_cviter-mean-ensemble` provides a balance between performance and complexity.
+
+You can also provide the filepath to a TensorFlow Keras custom model. This model must use the same features or at least a subset of them as its input. This means that the model should expect features that have the same names, dimensions, and data types as the ones used for the models shipped with the Podman application. See [exominer-features.md](exominer-features.md) for a comprehensive description of the features.
 
 ## Running the pipeline without Podman
 

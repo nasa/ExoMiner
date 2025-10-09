@@ -104,16 +104,19 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         tfrec_dir.mkdir(exist_ok=True)
         preprocess_lc_data(run_config['lc_preprocessing_config_fp'], tfrec_dir,
                            run_config['data_products_dir'], tce_tbl_fp, -1, 1)
+        logger.info(f'[{job_id}] Finished preprocessing light curve data for the requested TIC IDs.')
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
 
         # create TFRecord dataset table
+        logger.info(f'[{job_id}] Creating auxiliary shards table for the TFRecord dataset...')
         tfrec_fps = [tfrec_fp for tfrec_fp in tfrec_dir.glob('shard-*') if tfrec_fp.suffix != '.csv']
         tfrec_tbl = create_table_for_tfrecord_dataset(tfrec_fps, run_config['data_fields_tfrec_tbl'],
                                                       delete_corrupted_tfrec_files=False, verbose=True, logger=logger)
         if len(tfrec_tbl) == 0:
             raise ValueError(f'[{job_id}] No TCEs were preprocessed into valid light curve TFRecord files for the requested {len(tics_df)} TIC IDs. Finishing job.')
         tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)
+        logger.info(f'[{job_id}] Created auxiliary shards table for the TFRecord dataset.')
 
         # extract difference image data
         logger.info(f'[{job_id}] Extracting difference image data from the DV XML files for the requested TIC IDs...')
@@ -325,7 +328,7 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         dv_reports_tbl_fp = output_dir / f'dv_reports_all_jobs.csv'
         logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table in '
                     f'{dv_reports_tbl_fp}...')
-        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports.csv'))
+        dv_reports_tbls_fps = list(Path(output_dir).rglob('dv_reports*.csv'))
         if len(dv_reports_tbls_fps) > 0:
             dv_reports_tbl = pd.concat([pd.read_csv(fp) for fp in dv_reports_tbls_fps], axis=0, ignore_index=True)
             dv_reports_tbl.to_csv(dv_reports_tbl_fp, index=False)

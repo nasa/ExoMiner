@@ -18,7 +18,7 @@ if __name__ == '__main__':
     physical_devices = tf.config.list_physical_devices('CPU')
     tf.config.set_visible_devices(physical_devices, 'CPU')
         
-    exp_run_dir = Path(f'/data3/exoplnt_dl/experiments/exominer_pipeline/runs/exominer_pipeline_run_unseen_tois_8-20-2025') # {datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic2356473034-S60_exominer-single_model-external_10-8-2025_2241') # {datetime.now().strftime("%Y%m%d-%H%M%S")}')
     # exp_run_dir = Path('/Users/msaragoc/Downloads/exominer_pipeline_run_20250701-130322/')
     # exp_run_dir = Path(f'/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_tic356473034.1_s60_2min_s14-78_nodetrending_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     exp_run_dir.mkdir(parents=True, exist_ok=True)
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # tics_tbl = tics_tbl.drop_duplicates(subset=['target_id', 'sector_run'])
     # tics_tbl = tics_tbl.rename(columns={'target_id': 'tic_id'})
 
-    tics_tbl_fp = Path('/data3/exoplnt_dl/experiments/exominer_pipeline/inputs/tois_in_unseen_tics_8-20-2025.csv')
+    tics_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl_356473034_S60.csv')
     # tics_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tics_tbl_356473034_S60.csv')
 
     # tics_tbl = pd.DataFrame(
@@ -102,12 +102,13 @@ if __name__ == '__main__':
 
     # pipeline_config_fp = 'exominer_pipeline/pipeline_run_config.yaml'
     data_collection_mode = '2min'
-    num_processes = 10
-    num_jobs = 60
-    download_spoc_data_products = 'false'
+    num_processes = 1
+    num_jobs = 1
+    download_spoc_data_products = 'true'
     external_data_repository = None   # '/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/exominer_pipeline_run_7-18-2025_1213/job_0/mastDownload'
     stellar_parameters_source = 'ticv8'  # stellar_tbl_fp
     ruwe_source = 'gaiadr2'
+    exominer_model = "/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/data/exominer-plusplus_cv-iter0-model0_tess-spoc-2min-s1s67_tess-kepler.keras"
 
     start_t = perf_counter()
     print(f'OUTPUT DIRECTORY: {exp_run_dir}')
@@ -121,6 +122,7 @@ if __name__ == '__main__':
         external_data_repository=external_data_repository,
         stellar_parameters_source=stellar_parameters_source,
         ruwe_source=ruwe_source,
+        exominer_model=exominer_model,
     )
     end_t = perf_counter()
     print(f'Elapsed time: {end_t - start_t:.2f} seconds.')
