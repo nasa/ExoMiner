@@ -303,7 +303,7 @@ Currently, the ExoMiner Pipeline supports the use of these models:
 These three models are based in the ExoMiner++ architecture and were developed as part of the experiment for the [ExoMiner on TESS 2-min paper](https://doi.org/10.48550/arXiv.2502.09790). They reflect a tradeoff in generalization and robustness vs computational cost. On one side, the single model from a single CV iteration `exominer++_single` is lightweight and will produce faster inference, while `exominer++_cv-super-mean-ensemble` is recommended for those users that have 
 the computational resources to run a model that smooths out biases from individual CV iterations and tranining initializations. `exominer++_cviter-mean-ensemble` provides a balance between performance and complexity.
 
-You can also provide the filepath to a TensorFlow Keras custom model. This model must use the same features or at least a subset of them as its input. This means that the model should expect features that have the same names, dimensions, and data types as the ones used for the models shipped with the Podman application. See [exominer-features.md](exominer-features.md) for a comprehensive description of the features.
+You can also provide the filepath to a TensorFlow Keras custom model. This model needs to be compatible with TensorFlow 2.13 and must use the same features or at least a subset of them as its input. This means that the model should expect features that have the same names, dimensions, and data types as the ones used for the models shipped with the Podman application. See [exominer-features.md](exominer-features.md) for a comprehensive description of the features.
 
 ## Running the pipeline without Podman
 
