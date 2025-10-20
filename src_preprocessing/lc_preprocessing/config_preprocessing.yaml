@@ -1,9 +1,9 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518_exofop-sg1-tois_9-22-2025.csv
+input_tce_csv_file: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025_exofop-sg1-tois9-11-2025.csv
 # light curve FITS file directory
-lc_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc
+lc_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/sectors/
 
 using_exominer_pipeline: false
 
@@ -15,7 +15,7 @@ n_processes: 10  # number of processes created by the Pool
 
 random_seed: 24
 
-ffi_data: false  # set to true for TESS SPOC FFI data
+ffi_data: true  # set to true for TESS SPOC FFI data
 
 shuffle: false
 shuffle_seed: 24
@@ -66,7 +66,7 @@ gapWidth: 0.007
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
-min_n_phases: 1  # minimum number of phases that need to be available for a given example
+min_n_phases: 0  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # if 'zero_padding', baseline phases (i.e., full of ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning

@@ -1,7 +1,7 @@
 # Conduct preprocessing run that creates a TFRecord dataset; uses GNU parallel to generate multiple processes, each one
 # conducting the preprocessing of a subset of the examples.
 #PBS -S /bin/bash
-#PBS -N preprocessing_lc_data_2min
+#PBS -N preprocessing_lc_data_ffi
 #PBS -l walltime=72:00:00
 # PBS -l select=4:ncpus=128:model=rom_ait
 # PBS -l select=1:ncpus=40:model=cas_ait
@@ -9,8 +9,8 @@
 #PBS -l select=2:ncpus=36:mem=360g:model=sky_gpu
 #PBS -l place=free:excl
 #PBS -q dsg_gpu@pbspl4
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel_2min.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel_2min.err
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel_ffi.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_exoplnt_dl_preprocess_gnuparallel_ffi.err
 #PBS -W group_list=a1509
 # PBS -W group_list=s2857
 #PBS -m bea
@@ -24,14 +24,15 @@ source activate exoplnt_dl_tf2_13
 export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 
 # create output directory for preprocessing results
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-8-2025_1201
+OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101_part2
 mkdir -p $OUTPUT_DIR
 
 # create main output job file
 JOB_FP=$OUTPUT_DIR/output_job.txt
 
 # copy PBS script
-PBS_SCRIPT_FP=$(realpath $0)
+# PBS_SCRIPT_FP=$(realpath $0)
+PBS_SCRIPT_FP="$PBS_O_WORKDIR/$(basename $0)"
 cp $PBS_SCRIPT_FP $JOB_FP
 
 # copy codebase git commit hash
@@ -52,6 +53,12 @@ NUM_TOTAL_JOBS=72
 # number of jobs run simultaneously in one node
 NUM_JOBS_PARALLEL=36
 
+echo "Job started at $(date)" >> $JOB_FP
+echo "PBS Job ID: $PBS_JOBID" >> $JOB_FP
+
 # run with GNU parallel; exclude --sshloginfile argument to use one single core setup
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$PBS_NODEFILE" -joblog "$OUTPUT_DIR/joblog.txt" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j "$NUM_JOBS_PARALLEL" --sshloginfile "$PBS_NODEFILE" --joblog "$OUTPUT_DIR/joblog.txt" -- "$PREPROCESS_SH_SCRIPT" {} "$OUTPUT_DIR" "$SCRIPT_FP" "$CONFIG_FP" "$NUM_TOTAL_JOBS"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL -joblog "$OUTPUT_DIR/joblog.txt" "$PREPROCESS_SH_SCRIPT {} $OUTPUT_DIR $SCRIPT_FP $CONFIG_FP $NUM_TOTAL_JOBS"
+
+echo "Job $JOB_FP finished at $(date)" >> $JOB_FP

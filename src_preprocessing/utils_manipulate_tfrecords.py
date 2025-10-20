@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 import shutil
+import multiprocessing
 
 
 def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omitMissing=True, verbose=False):
@@ -213,6 +214,11 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
         Returns: pandas DataFrame, TFRecord dataset csv file
     """
 
+    if not isinstance(tfrec_fps, list):
+        raise TypeError("tfrec_fps must be a list file paths.")
+    if not isinstance(data_fields, dict):
+        raise TypeError("data_fields must be a list of field names.")
+    
     tfrec_tbls = []
     for fp_i, fp in enumerate(tfrec_fps):
         if verbose:
@@ -246,12 +252,84 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
     return tfrec_tbl
 
 
+def log_msg(msg, logger=None):
+    
+    if logger:
+        logger.info(msg)
+    elif verbose:
+        print(msg)
+        
+def create_table_for_tfrecord_dataset_mp_pool(tfrec_fps, data_fields, delete_corrupted_tfrec_files=False, verbose=True, logger=None, n_procs=1, n_jobs=1):
+    """Creates auxiliary shards table for TFRecord dataset containing information on the examples and their data.
+
+    :param list tfrec_fps: list of TFRecord filepaths in the dataset
+    :param list data_fields: list of attributes/features to add to the table
+    :param bool delete_corrupted_tfrec_files: delete corrupted TFRecord shards and their companion CSV files, defaults to False
+    :param bool verbose: verbose, defaults to True
+    :param Logger logger: log, defaults to None
+    :param int n_procs: number of processes to use, defaults to 1
+    :param int n_jobs: split work across these number of jobs, defaults to 1
+    :return pandas DataFrame: auxiliary shards table
+    """
+    
+    n_procs = max(1, int(n_procs)) if isinstance(n_procs, int) else 1
+    n_jobs = max(1, int(n_jobs)) if isinstance(n_jobs, int) else 1
+
+    if n_jobs > len(tfrec_fps):
+        n_jobs = len(tfrec_fps)
+    
+    if n_procs > n_jobs:
+        n_procs = n_jobs
+    
+    if not isinstance(tfrec_fps, list):
+        raise TypeError("tfrec_fps must be a list file paths.")
+    if not isinstance(data_fields, dict):
+        raise TypeError("data_fields must be a list of field names.")
+    
+    log_msg(f'Running {n_jobs} jobs in {n_procs} processes.', logger)
+        
+    results = []
+    
+    log_msg(f'Found {len(tfrec_fps)} TFRecord files.', logger)
+        
+    if not tfrec_fps:
+        log_msg("No TFRecord files provided.")
+        return pd.DataFrame()
+        
+    tfrec_fps_jobs = np.array_split(tfrec_fps, n_jobs)
+    log_msg(f'Split {len(tfrec_fps)} TFRecord files into {n_jobs} chunks.', logger)
+    
+    log_msg(f'Starting jobs to extract data...', logger)
+    with multiprocessing.Pool(processes=n_procs) as pool:
+        async_results = [pool.apply_async(create_table_for_tfrecord_dataset, 
+                                          (list(tfrec_fps_job), data_fields, delete_corrupted_tfrec_files, verbose, logger)) 
+                        for tfrec_fps_job in tfrec_fps_jobs]
+    
+        for i, async_result in enumerate(async_results):
+            try:
+                result = async_result.get()
+                results.append(result)
+            except Exception as e:
+                msg = f"Job {i} failed with error: {e}"
+                if logger:
+                    logger.error(msg)
+                elif verbose:
+                    print(msg)
+
+    log_msg(f'Finished extracting data. Concatenating tables...', logger)
+    tfrec_tbl = pd.concat(results, axis=0) if results else pd.DataFrame()
+    
+    log_msg(f'Done.', logger)
+    
+    return tfrec_tbl
+
+
 if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_tic2356473034-S60_exominer-single_model-external_10-9-2025_0912/job_0/tfrecord_data/')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101')
     # get filepaths for TFRecord shards
     tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
@@ -264,7 +342,16 @@ if __name__ == '__main__':
     delete_corrupted_tfrec_files = False
     verbose = True
 
-    tfrec_tbl = create_table_for_tfrecord_dataset(tfrec_fps, data_fields,
-                                                  delete_corrupted_tfrec_files=delete_corrupted_tfrec_files,
-                                                  verbose=verbose)
+    # tfrec_tbl = create_table_for_tfrecord_dataset(tfrec_fps, data_fields,
+    #                                               delete_corrupted_tfrec_files=delete_corrupted_tfrec_files,
+    #                                               verbose=verbose)
+    tfrec_tbl = create_table_for_tfrecord_dataset_mp_pool(tfrec_fps, 
+                                                          data_fields,
+                                                          delete_corrupted_tfrec_files=delete_corrupted_tfrec_files,
+                                                          verbose=verbose,
+                                                          logger=None,
+                                                          n_procs=36,
+                                                          n_jobs=36,
+                                                          )
+    
     tfrec_tbl.to_csv(tfrec_dir / 'shards_tbl.csv', index=False)

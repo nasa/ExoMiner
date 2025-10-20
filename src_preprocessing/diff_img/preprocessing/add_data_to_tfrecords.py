@@ -240,6 +240,10 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
     # create destination directory
     dest_tfrec_dir = config['src_tfrec_dir'].parent / f'{config["src_tfrec_dir"].name}_diffimg'
     dest_tfrec_dir.mkdir(exist_ok=True)
+    
+    # save yaml file to destination TFRecord dataset
+    with open(dest_tfrec_dir / config_fp.name, 'w') as yaml_file:
+        yaml.dump(config, yaml_file)
 
     # set logger
     log_dir = dest_tfrec_dir / 'logs'

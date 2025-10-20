@@ -141,21 +141,21 @@ def read_light_curve(target_dict, config):
 
     else:  # TESS
 
-        # get sectors for the run
-        if '-' in target_dict['sector_run']:
-            s_sector, e_sector = [int(sector) for sector in target_dict['sector_run'].split('-')]
-        else:
-            s_sector, e_sector = [int(target_dict['sector_run'])] * 2
-        sectors = range(s_sector, e_sector + 1)
+        # # get sectors for the run
+        # if '-' in target_dict['sector_run']:
+        #     s_sector, e_sector = [int(sector) for sector in target_dict['sector_run'].split('-')]
+        # else:
+        #     s_sector, e_sector = [int(target_dict['sector_run'])] * 2
+        # sectors = range(s_sector, e_sector + 1)
 
         # get lc FITS files for the respective target star if it was observed for that modality in the given sectors
         if config['using_exominer_pipeline']:
             file_names = tess_io.get_tess_light_curve_files(config['lc_data_dir'], target_dict['target_id'], target_dict['sectors_observed'])
         else:
             if config['ffi_data']:
-                file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], target_dict['target_id'], sectors)
+                file_names = tess_io.tess_ffi_filenames(config['lc_data_dir'], target_dict['target_id'], target_dict['sectors_observed'])
             else:
-                file_names = tess_io.tess_filenames(config['lc_data_dir'], target_dict['target_id'], sectors)
+                file_names = tess_io.tess_filenames(config['lc_data_dir'], target_dict['target_id'], target_dict['sectors_observed'])
 
             if not file_names:
 

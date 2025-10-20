@@ -61,7 +61,9 @@ def tess_filenames(base_dir, ticid, sectors):
     Args:
         base_dir: Base directory containing TESS 2-min cadence data
         ticid: ID of the TESS target star. It can be an int or a possibly zero-padded string
-        sectors: list of observation sector(s)
+        sectors: string of observation sector(s) as a binary string of 150 charecters where bit at index 
+            i corresponds to sector i (e.g., "0000111" -> target observed in sectors 4-6) or as sectors 
+            separated by an underscore (e.g., "46_67")
 
     Returns:
         A list of filepaths to the FITS files for a given TIC and observation sector(s)
@@ -72,6 +74,11 @@ def tess_filenames(base_dir, ticid, sectors):
 
     # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
     tess_id = str(ticid).zfill(16)
+    
+    if '_' in sectors:
+        sectors = sectors.split('_')
+    else:
+        sectors = [str(bit_i) for bit_i, bit_val in enumerate(sectors) if bit_val == '1']
 
     for sector in sectors:
 
@@ -88,7 +95,7 @@ def tess_filenames(base_dir, ticid, sectors):
     return filenames
 
 
-def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):
+def tess_ffi_filenames(base_dir, tic_id, sectors, check_existence=True):
     """ Returns the light curve filenames for a TESS target star observed in the TESS SPOC FFI data.
 
         This function assumes the filenames for a particular TESS target star have the following format:
@@ -103,7 +110,9 @@ def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):
         Args:
             base_dir: str, base directory containing TESS SPOC FFI data.
             tic_id: int, id of the TIC target star. It may be an int or a possibly zero-padded string.
-            sector_run: list of ints, for all the sector runs the TIC was observed.
+            sectors: string of observation sector(s) as a binary string of 150 charecters where bit at index 
+                i corresponds to sector i (e.g., "0000111" -> target observed in sectors 4-6) or as sectors 
+                separated by an underscore (e.g., "46_67")
             check_existence: If True, only return filenames corresponding to files that exist (not all stars have data for
             all sector runs).
 
@@ -113,14 +122,21 @@ def tess_ffi_filenames(base_dir, tic_id, sector_run, check_existence=True):
 
     # pad the TIC id with zeros to length 16
     tic_id = f'{tic_id}'.zfill(16)
-    # pad the sector runs ids with zeros to length 4
-    sector_runs_ids = [f'{sector_i}'.zfill(4) for sector_i in sector_run]
+    # # pad the sector runs ids with zeros to length 4
+    # sector_runs_ids = [f'{sector_i}'.zfill(4) for sector_i in sector_run]
+    
+    if '_' in sectors:
+        sectors = sectors.split('_')
+    else:
+        sectors = [str(bit_i) for bit_i, bit_val in enumerate(sectors) if bit_val == '1']
+    
+    sectors = [f'{sector_i}'.zfill(4) for sector_i in sectors]
 
     filenames = []
-    for sector_run_id in sector_runs_ids:
-        base_dir_sector_run = os.path.join(base_dir, f's{sector_run_id}', 'target', tic_id[0:4], tic_id[4:8],
+    for sector in sectors:
+        base_dir_sector_run = os.path.join(base_dir, f's{sector}', 'target', tic_id[0:4], tic_id[4:8],
                                            tic_id[8:12], tic_id[12:16])
-        base_name = f'hlsp_tess-spoc_tess_phot_{tic_id}-s{sector_run_id}_tess_v1_lc.fits'
+        base_name = f'hlsp_tess-spoc_tess_phot_{tic_id}-s{sector}_tess_v1_lc.fits'
         filename = os.path.join(base_dir_sector_run, base_name)
         # not all stars have data for all sector runs
         if not check_existence or gfile.exists(filename):
