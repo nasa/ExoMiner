@@ -1,8 +1,8 @@
-parallel_processing: True
-n_processes: 72
-n_jobs: 200
+parallel_processing: true
+n_processes: 36
+n_jobs: 111
 # set source TFRecord directory
-src_tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_fixeduids
+src_tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg
 # directory with NumPy files with difference image data to be added to the examples in the TFRecord dataset
 src_diff_img_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/preprocessed_data/s1-s88_5-14-2025_0903
 # number of examples per shard

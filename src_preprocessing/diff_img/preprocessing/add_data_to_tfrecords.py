@@ -12,6 +12,7 @@ import logging
 import multiprocessing
 import os
 import yaml
+import argparse
 
 # local
 from src_preprocessing.tf_util import example_util
@@ -214,31 +215,35 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
     """
 
     with open(config_fp, 'r') as file:
-        config = yaml.unsafe_load(file)
+        config = yaml.safe_load(file)
 
     if src_tfrec_dir is not None:
         config['src_tfrec_dir'] = Path(src_tfrec_dir)
+    else:
+        src_tfrec_dir = Path(config['src_tfrec_dir'])
     if src_diff_img_fp is not None:
         config['src_diff_img_fp'] = Path(src_diff_img_fp)
+    else:
+        src_diff_img_fp = Path( config['src_diff_img_fp'])
 
     # get shard filepaths
-    src_tfrec_fps = [fp for fp in config['src_tfrec_dir'].iterdir() if fp.name.startswith('shard-') and
+    src_tfrec_fps = [fp for fp in src_tfrec_dir.iterdir() if fp.name.startswith('shard-') and
                      fp.suffix != '.csv']
 
     # table that has information on the location of examples across shards in TFRecord dataset directory
-    shards_tbl_fp = config['src_tfrec_dir'] / 'shards_tbl.csv'
+    shards_tbl_fp = src_tfrec_dir / 'shards_tbl.csv'
 
     # load shards table
     shards_tbl = pd.read_csv(shards_tbl_fp)
 
     # get filepaths to difference image data NumPy files
-    diff_img_fps = list(config['src_diff_img_fp'].rglob('*.npy'))
+    diff_img_fps = list(src_diff_img_fp.rglob('*.npy'))
 
     # set number of jobs to number of files
     n_jobs = min(config['n_jobs'], len(diff_img_fps))
 
     # create destination directory
-    dest_tfrec_dir = config['src_tfrec_dir'].parent / f'{config["src_tfrec_dir"].name}_diffimg'
+    dest_tfrec_dir = src_tfrec_dir.parent / f'{src_tfrec_dir.name}_diffimg'
     dest_tfrec_dir.mkdir(exist_ok=True)
     
     # save yaml file to destination TFRecord dataset
@@ -257,13 +262,13 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
     logger.addHandler(logger_handler)
     logger.info(f'Started adding difference image data to TFRecord dataset...')
 
-    logger.info(f'`Images to be added from preprocessed difference image to TFRecord dataset`: '
+    logger.info(f'Images to be added from preprocessed difference image to TFRecord dataset: '
                 f'{config["imgs_fields"]}.')
 
     logger.info(f'Found {len(src_tfrec_fps)} source TFRecord files.')
     logger.info(f'Found {len(diff_img_fps)} difference image NumPy files.')
 
-    # split shards across jobs
+    # split difference image files across jobs
     src_diff_img_fps_jobs = np.array_split(diff_img_fps, n_jobs)
     jobs = [(src_tfrec_dir, dest_tfrec_dir, src_diff_img_fps_job, shards_tbl, config['imgs_fields'],
              config['n_examples_shard'])
@@ -275,7 +280,12 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
         async_results = [pool.apply_async(write_diff_img_data_to_tfrec_files, job) for job in jobs]
         pool.close()
         pool.join()
-        examples_found_df_lst = [async_result.get() for async_result in async_results]
+        examples_found_df_lst = []
+        for async_result in async_results:
+            try:
+                examples_found_df_lst.append(async_result.get())
+            except Exception as e:
+                print(f'Error in multiprocessing job: {e}')
     else:
         # sequential
         examples_found_df_lst = [write_diff_img_data_to_tfrec_files(*job) for job in jobs]
@@ -297,7 +307,9 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
 if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file')
+    args = parser.parse_args()
 
-    config_fp = '/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/src_preprocessing/diff_img/preprocessing/config_add_diff_img_tfrecords.yaml'
-
-    write_diff_img_data_to_tfrec_files_main(config_fp)
+    write_diff_img_data_to_tfrec_files_main(Path(args.config_fp))

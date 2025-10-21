@@ -204,8 +204,6 @@ config:
       - tce_dikco_msky_norm
       - tce_dikco_msky_err_norm
 
-  transformer_branches: null
-
   # global branch hyperparameters ----
   num_glob_conv_blocks: 2
   glob_conv_ls_per_block: 5
