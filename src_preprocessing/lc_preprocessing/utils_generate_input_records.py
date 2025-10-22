@@ -255,6 +255,14 @@ def get_tce_table(config):
 
     # read the table with examples
     tce_table = pd.read_csv(config['input_tce_csv_file'])
+    
+    # filter tce table
+    # filt_table = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858/shards_tbl.csv')
+    # filt_table2 = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_part2/shards_tbl.csv')
+    # filt_table = pd.concat([filt_table, filt_table2], axis=0)
+    filt_table = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101/shards_tbl.csv')
+    tce_table = tce_table.loc[~tce_table['uid'].isin(filt_table['uid'])]
+    
     logger.info(f'Read TCE table with {len(tce_table)} examples.')
 
     # force certain columns to be of specific types
@@ -294,10 +302,5 @@ def get_tce_table(config):
         shards_tce_tables = split_list(tces_groups, config['n_processes'])
     else:
         shards_tce_tables = split_list(tces_groups, config['n_shards'])
-    # # when using external parallelization framework to preprocess chunks of the TCE table in parallel
-    # if config['external_parallelization']:
-    #     shards_tce_tables = np.array_split(preprocess_tce_table, config['n_processes'])
-    # else:
-    #     shards_tce_tables = np.array_split(preprocess_tce_table, config['n_shards'])
 
     return shards_tce_tables

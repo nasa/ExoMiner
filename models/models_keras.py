@@ -1602,6 +1602,8 @@ class ExoMinerJointLocalFlux(object):
                                             kernel_constraint=None,
                                             bias_constraint=None,
                                             name='{}_fc'.format(branch))(net)
+                
+                net = tf.keras.layers.BatchNormalization(name=f'{branch}_fc_batch_norm')(net)
 
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='{}_fc_lrelu'.format(branch))(net)
@@ -1845,21 +1847,23 @@ class ExoMinerJointLocalFlux(object):
                                             activity_regularizer=None,
                                             kernel_constraint=None,
                                             bias_constraint=None,
-                                            name='local_fluxes_fc_{}'.format(branch))(net)
+                                            name='local_fluxes_{}_fc'.format(branch))(net)
 
+                net = tf.keras.layers.BatchNormalization(name=f'local_fluxes_{branch}_fc_batch_norm')(net)
+                
                 if self.config['non_lin_fn'] == 'lrelu':
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='local_fluxes_fc_lrelu_{}'.format(branch))(net)
+                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='local_fluxes_{}_fc_lrelu'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='local_fluxes_fc_relu_{}'.format(branch))(net)
+                    net = tf.keras.layers.ReLU(name='local_fluxes_{}_fc_relu'.format(branch))(net)
                 elif self.config['non_lin_fn'] == 'prelu':
                     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
                                                 alpha_regularizer=None,
                                                 alpha_constraint=None,
                                                 shared_axes=[1],
-                                                name='local_fluxes_fc_prelu_{}'.format(branch))(net)
+                                                name='local_fluxes_{}_fc_prelu'.format(branch))(net)
 
                 net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
-                                              name=f'local_fluxes_dropout_fc_conv_{branch}')(net)
+                                              name=f'local_fluxes_{branch}_dropout_fc_conv')(net)
 
             conv_branches[branch] = net
 
@@ -2168,6 +2172,8 @@ class ExoMinerJointLocalFlux(object):
                                         bias_constraint=None,
                                         name='diff_imgs_fc')(net)
 
+            net = tf.keras.layers.BatchNormalization(name=f'diff_imgs_fc_batch_norm')(net)
+            
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='diff_imgs_fc_lrelu')(net)
             elif self.config['non_lin_fn'] == 'relu':

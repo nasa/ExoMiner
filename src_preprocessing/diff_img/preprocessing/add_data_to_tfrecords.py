@@ -53,8 +53,42 @@ def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
 
     return example
 
-def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fp, shards_tbl, imgs_fields,
-                                      n_examples_shard=300, logger=None):
+
+def parse_uid(serialized_example):
+    """Parse only TCE unique IDs 'uid' from the examples in the TFRecord datset.
+
+    :param TF serialized_example: serialized TFRecord example 
+    :return tuple: tuple of uid and serialized example
+    """
+    
+    # define the feature spec for just the UuidID
+    feature_spec = {
+        'uid': tf.io.FixedLenFeature([], tf.string)
+    }
+    parsed_features = tf.io.parse_single_example(serialized_example, feature_spec)
+    
+    return parsed_features['uid'], serialized_example
+
+def make_filter_by_uid_fn(chosen_uids):
+    """Create filter for TFRecord dataset that excludes TCE examples whose uid is not included in `chosen_uids`.
+
+    :param TF Tensor chosen_uids: chosen uids to filter examples
+    :return: filtering function
+    """
+    
+    def filter_uid_tf(uid):
+        """Filter function of examples in TFRecord dataset based on 'uid' feature
+
+        :param Tensor string uid: chosen uid
+        :return Tensor bool: boolean values that check for uid inclusion
+        """
+        
+        return tf.reduce_any(tf.equal(uid, chosen_uids))
+    
+    return filter_uid_tf
+
+
+def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fp, imgs_fields, n_examples_shard=300, logger=None):
     """ Write preprocessed difference image data in NumPy file `diff_im_data_fp` to TFRecord files under directory
         `src_tfrec_dir` to a new dataset in `dest_tfrec_dir`.
 
@@ -62,8 +96,8 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
             src_tfrec_dir: Path, source TFRecord dataset directory
             dest_tfrec_dir: Path, destination TFRecord dataset directory
             diff_img_data_fp: Path, filepath to preprocessed difference image data
-            shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
-                'example_i_tfrec' for the source shards in `src_tfrec_dir`
+            # shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
+            #     'example_i_tfrec' for the source shards in `src_tfrec_dir`
             imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
             n_examples_shard: int, number of examples per shard
             logger: logger
@@ -71,86 +105,73 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
         Returns: examples_added_df, pandas DataFrame with the examples that were added to the new TFRecord dataset
     """
 
+    # load data dictionary with different image data for the sector run
     logger.info(f'Reading difference image data in {diff_img_data_fp}...')
     diff_img_data = np.load(diff_img_data_fp, allow_pickle=True).item()
     logger.info(f'Read difference image data in {diff_img_data_fp}: Found {len(diff_img_data)} TCEs.')
 
-    dest_shard_suffix = 0
-    dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{dest_shard_suffix}'
-    examples_lst = []
+    # get filepaths to TFRecord files
+    src_tfrec_fps = list(src_tfrec_dir.glob('shard-*'))
+    
+    # convert list of TCE uids into a TF tensor
+    uids_tensor = tf.constant(list(diff_img_data.keys()), dtype=tf.string)
+
+    dataset = tf.data.TFRecordDataset(src_tfrec_fps)
+    # parse only uids, keep rest of example serialized
+    dataset = dataset.map(parse_uid, num_parallel_calls=tf.data.AUTOTUNE)
+    # filter examples based on chosen uids from differnece image data
+    filter_uids_fn = make_filter_by_uid_fn(uids_tensor)
+    dataset = dataset.filter(lambda uid, _: filter_uids_fn(uid))
+    # batch dataset
+    batched_dataset = dataset.batch(n_examples_shard)
+    
+    # iterate over examples in batched TFRecord dataset and add difference image data to examples and write them to new TFRecord files in destination directory
     examples_added_dict = {field : [] for field in ['uid', 'label']}
-    for tce_i, (tce_uid, tce_diff_img_data) in enumerate(diff_img_data.items()):
-
-        if tce_i % 500 == 0:
-            logger.info(f'Iterated over {tce_i + 1} TCEs out of {len(diff_img_data)} in {diff_img_data_fp}...')
-
-        # get information on storage location of example for the corresponding TCE
-        idx_tce_uid_shards_tbl = shards_tbl['uid'] == tce_uid
-        if idx_tce_uid_shards_tbl.sum() == 0:
-            logger.info(f'TCE {tce_uid} not found in shards table.')
-            continue
-
-        src_shard_example_filename, src_shard_example_i = (shards_tbl.loc[idx_tce_uid_shards_tbl, 'shard'].values[0],
-                                                           shards_tbl.loc[idx_tce_uid_shards_tbl,
-                                                           'example_i_tfrec'].values[0])
-
-        # get source TFRecord shard
-        src_shard_example_fp = src_tfrec_dir / src_shard_example_filename
-
-        # iterate through the source shard
-        tfrecord_dataset = tf.data.TFRecordDataset(str(src_shard_example_fp))
-        for example_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
-
-            if example_i != src_shard_example_i:
-                continue
-            else:
-                example = tf.train.Example()
-                example.ParseFromString(string_record)
-
-                example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
-                example_label = example.features.feature['label'].bytes_list.value[0].decode("utf-8")
-
-                if example_uid != tce_uid:
-                    raise ValueError(f'TCE ID {example_uid} found in TFRecord dataset does not match expected ID: '
-                                     f'{tce_uid}.')
-                try:
-                    example_with_diffimg_data = add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields)
-                    examples_lst.append(example_with_diffimg_data)
-                    examples_added_dict['uid'].append(example_uid)
-                    examples_added_dict['label'].append(example_label)
-                    break
-                except ValueError as e:
-                    logger.info(f'Caught an error for TCE {example_uid} while adding difference image data to example: '
-                                f'{e}')
-
-        # write examples to TFRecord file
-        if len(examples_lst) == n_examples_shard or tce_i == len(diff_img_data) - 1:
-
-            logger.info(f'Writing examples with difference image data to {dest_tfrec_fp}')
-            with tf.io.TFRecordWriter(str(dest_tfrec_fp)) as writer:
-                for example in examples_lst:
-                    writer.write(example.SerializeToString())
-
-            # reset list
-            examples_lst = []
-            dest_shard_suffix += 1
-            dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{dest_shard_suffix}'
-
-    if len(examples_lst) > 0:
-        logger.info(f'Writing examples with difference image data to {dest_tfrec_fp}')
+    for batch_i, batch in enumerate(batched_dataset):
+        
+        dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{batch_i}'
+        
+        logger.info(f'[{diff_img_data_fp.name} | {len(diff_img_data)} TCEs] Iterated over batch {batch_i} and writing into {str(dest_tfrec_fp)}...')
+        
+        batch_uids, batch_serialized = batch
+        batch_examples_cnt = 0  # count examples successfully added to new TFRecord dataset
+        
         with tf.io.TFRecordWriter(str(dest_tfrec_fp)) as writer:
-            for example in examples_lst:
-                writer.write(example.SerializeToString())
+            for batch_example_i, (example_uid, serialize_example) in enumerate(zip(batch_uids, batch_serialized)):
+                
+                if batch_example_i % 50 == 0:
+                    logger.info(f'[{diff_img_data_fp.name} | {len(diff_img_data)} TCEs] Batch {batch_i}: Iterating over example {batch_example_i} in batch...')
+                
+                example_uid_str = example_uid.numpy().decode('utf-8')
+
+                if example_uid_str not in diff_img_data:
+                    raise ValueError(f'TCE ID {example_uid_str} found in TFRecord dataset was not found in {diff_img_data_fp} (currently at batch {batch_i} TCE {batch_example_i + 1}).')
+        
+                example_proto = tf.train.Example()
+                example_proto.ParseFromString(serialize_example.numpy())
+                
+                # add diff image data
+                try:
+                    updated_example = add_diff_img_data_to_tfrec_example(example_proto, diff_img_data[example_uid_str], imgs_fields)
+                    examples_added_dict['uid'].append(example_uid_str)
+                    examples_added_dict['label'].append(example_proto.features.feature['label'].bytes_list.value[0].decode('utf-8'))
+                except ValueError as e:
+                    logger.info(f'Caught an error for TCE {example_uid_str} while adding difference image data to example (currently at batch {batch_i} TCE {batch_example_i + 1}):\n{e}\nSkipping...')
+                    continue
+                
+                writer.write(updated_example.SerializeToString())
+                batch_examples_cnt += 1
+        
+        logger.info(f'[{diff_img_data_fp.name} | {len(diff_img_data)} TCEs] Wrote {batch_examples_cnt}{batch_example_i + 1} TCEs into batch {batch_i} at {str(dest_tfrec_fp)}.')
 
     examples_added_df = pd.DataFrame(examples_added_dict)
 
-    logger.info(f'Iterated over all TCEs in {diff_img_data_fp}. Added difference image data to '
-                f'{len(examples_added_df)} TCEs.')
+    logger.info(f'Iterated over all TCEs in {diff_img_data_fp}.\nAdded difference image data to '
+                f'{len(examples_added_df)}/{len(diff_img_data)} TCEs.')
 
     return examples_added_df
 
-def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fps, shards_tbl, imgs_fields,
-                                       n_examples_shard=300):
+def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fps, imgs_fields, n_examples_shard=300):
     """ Write difference image data to a set of TFRecord files under `src_tfrec_dir` to a new dataset in
     `dest_tfrec_dir`.
 
@@ -158,8 +179,8 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_d
             src_tfrec_dir: Path, source TFRecord
             dest_tfrec_dir: Path, destination TFRecord
             diff_img_data_fps: list, list of Path objects for the NumPy files containing preprocessed image data
-            shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
-                'example_i_tfrec' for the source shards in `src_tfrec_dir`
+            # shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
+            #     'example_i_tfrec' for the source shards in `src_tfrec_dir`
             imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
             n_examples_shard: int, number of examples per shard
 
@@ -167,6 +188,8 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_d
 
     """
 
+    tf.config.set_visible_devices([], 'GPU')
+    
     pid = os.getpid()
 
     logger = logging.getLogger(name=f'add_diff_img_data_to_tfrec_files_{pid}')
@@ -188,7 +211,6 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_d
         examples_added_df = write_diff_img_data_to_tfrec_file(src_tfrec_dir,
                                                               dest_tfrec_dir,
                                                               diff_img_data_fp,
-                                                              shards_tbl,
                                                               imgs_fields,
                                                               n_examples_shard,
                                                               logger=logger,
@@ -270,8 +292,7 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
 
     # split difference image files across jobs
     src_diff_img_fps_jobs = np.array_split(diff_img_fps, n_jobs)
-    jobs = [(src_tfrec_dir, dest_tfrec_dir, src_diff_img_fps_job, shards_tbl, config['imgs_fields'],
-             config['n_examples_shard'])
+    jobs = [(src_tfrec_dir, dest_tfrec_dir, src_diff_img_fps_job, config['imgs_fields'], config['n_examples_shard'])
             for src_diff_img_fps_job in src_diff_img_fps_jobs]
 
     # parallel processing
@@ -299,12 +320,14 @@ def write_diff_img_data_to_tfrec_files_main(config_fp, src_tfrec_dir=None, src_d
     examples_not_found_df.to_csv(dest_tfrec_dir / 'examples_without_diffimg_data.csv', index=False)
     logger.info(f'Number of examples without difference image data: {len(examples_not_found_df)}.')
     if 'label' in examples_not_found_df:
-        logger.info(f'{examples_not_found_df["label"].value_counts()}')
+        logger.info(f'\n{examples_not_found_df["label"].value_counts()}')
 
     logger.info('Finished adding difference image data to TFRecords.')
 
 
 if __name__ == '__main__':
+
+    multiprocessing.set_start_method('spawn') 
 
     tf.config.set_visible_devices([], 'GPU')
     
