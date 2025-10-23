@@ -12,6 +12,7 @@ from astropy import stats
 import tensorflow as tf
 import multiprocessing
 import yaml
+import argparse
 
 # local
 from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
@@ -72,10 +73,10 @@ def compute_scalar_params_norm_stats(scalarParamsDict, config):
     # create additional csv file with normalization statistics
     scalarNormStatsDataForDf = {}
     for scalarParam in config['scalarParams']:
-        scalarNormStatsDataForDf[f'{scalarParam}_median'] = [scalarNormStats[scalarParam]['median']]
-        scalarNormStatsDataForDf[f'{scalarParam}_mad_std'] = [scalarNormStats[scalarParam]['mad_std']]
+        scalarNormStatsDataForDf[f'{scalarParam}_median'] = scalarNormStats[scalarParam]['median']
+        scalarNormStatsDataForDf[f'{scalarParam}_mad_std'] = scalarNormStats[scalarParam]['mad_std']
 
-    scalarNormStatsDf = pd.DataFrame(data=scalarNormStatsDataForDf)
+    scalarNormStatsDf = pd.Series(data=scalarNormStatsDataForDf)
 
     return scalarNormStatsDf
 
@@ -110,14 +111,14 @@ def compute_centroid_norm_stats(centroidDict, config):
     # create additional csv file with normalization statistics
     normStatsCentroidDataForDf = {}
     for timeSeries in config['centroidList']:
-        normStatsCentroidDataForDf[f'{timeSeries}_median'] = [normStatsCentroid[timeSeries]['median']]
-        normStatsCentroidDataForDf[f'{timeSeries}_std'] = [normStatsCentroid[timeSeries]['std']]
-        # normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = [normStatsCentroid[timeSeries]['clip_value']]
+        normStatsCentroidDataForDf[f'{timeSeries}_median'] = normStatsCentroid[timeSeries]['median']
+        normStatsCentroidDataForDf[f'{timeSeries}_std'] = normStatsCentroid[timeSeries]['std']
+        # normStatsCentroidDataForDf['{}_clip_value'.format(timeSeries)] = normStatsCentroid[timeSeries]['clip_value']
         normStatsCentroidDataForDf[f'{timeSeries}_clip_value'] = config['clip_value_centroid']
-        normStatsCentroidDataForDf[f'{timeSeries}_median_clip'] = [normStatsCentroid[timeSeries]['median_clip']]
-        normStatsCentroidDataForDf[f'{timeSeries}_std_clip'] = [normStatsCentroid[timeSeries]['std_clip']]
+        normStatsCentroidDataForDf[f'{timeSeries}_median_clip'] = normStatsCentroid[timeSeries]['median_clip']
+        normStatsCentroidDataForDf[f'{timeSeries}_std_clip'] = normStatsCentroid[timeSeries]['std_clip']
 
-    normStatsCentroidDf = pd.DataFrame(data=normStatsCentroidDataForDf)
+    normStatsCentroidDf = pd.Series(data=normStatsCentroidDataForDf)
 
     return normStatsCentroidDf
 
@@ -150,11 +151,11 @@ def compute_diff_img_data_norm_stats(diff_imgDict, config):
     # create additional csv file with normalization statistics
     normStatsDiff_imgForDf = {}
     for diffimgs in config['diff_imgList']:
-        normStatsDiff_imgForDf[f'{diffimgs}_median'] = [normStatsDiff_img[diffimgs]['median']]
-        normStatsDiff_imgForDf[f'{diffimgs}_std'] = [normStatsDiff_img[diffimgs]['std']]
-        normStatsDiff_imgForDf[f'{diffimgs}_min'] = [normStatsDiff_img[diffimgs]['min']]
-        normStatsDiff_imgForDf[f'{diffimgs}_max'] = [normStatsDiff_img[diffimgs]['max']]
-    normStatsDiff_imgDf = pd.DataFrame(data=normStatsDiff_imgForDf)
+        normStatsDiff_imgForDf[f'{diffimgs}_median'] = normStatsDiff_img[diffimgs]['median']
+        normStatsDiff_imgForDf[f'{diffimgs}_std'] = normStatsDiff_img[diffimgs]['std']
+        normStatsDiff_imgForDf[f'{diffimgs}_min'] = normStatsDiff_img[diffimgs]['min']
+        normStatsDiff_imgForDf[f'{diffimgs}_max'] = normStatsDiff_img[diffimgs]['max']
+    normStatsDiff_imgDf = pd.Series(data=normStatsDiff_imgForDf)
 
     return normStatsDiff_imgDf
 
@@ -292,6 +293,12 @@ def compute_normalization_stats(tfrec_fps, config):
     Returns:
 
     """
+    
+    config['norm_dir'] = Path(config['norm_dir'])
+    config['norm_dir'].mkdir(exist_ok=True)
+    
+    with open(config['norm_dir'] / 'config_compute_normalization_stats.yaml', 'w') as config_file:
+        yaml.dump(config, config_file)
 
     if config['scalarParams'] is not None:
         scalarParamsDict = {scalarParam: [] for scalarParam in config['scalarParams']}
@@ -359,7 +366,7 @@ def compute_normalization_stats(tfrec_fps, config):
         print('Computing normalization statistics for scalar parameters...')
 
         scalar_norm_stats_df = compute_scalar_params_norm_stats(scalarParamsDict, config)
-        scalar_norm_stats_df.to_csv(config['norm_dir'] / 'train_scalarparam_norm_stats.csv', index=False)
+        scalar_norm_stats_df.to_csv(config['norm_dir'] / 'train_scalarparam_norm_stats.csv')
 
         print('Done.')
 
@@ -368,7 +375,7 @@ def compute_normalization_stats(tfrec_fps, config):
         print('Computing normalization statistics for centroid motion data...')
 
         centroid_norm_stats_df = compute_centroid_norm_stats(centroidDict, config)
-        centroid_norm_stats_df.to_csv(config['norm_dir'] / 'train_centroid_norm_stats.csv', index=False)
+        centroid_norm_stats_df.to_csv(config['norm_dir'] / 'train_centroid_norm_stats.csv')
 
         print('Done.')
 
@@ -377,7 +384,7 @@ def compute_normalization_stats(tfrec_fps, config):
         print('Computing normalization statistics for difference image data...')
 
         diff_img_data_norm_stats = compute_diff_img_data_norm_stats(diff_imgDict, config)
-        diff_img_data_norm_stats.to_csv(config['norm_dir'] / 'train_diffimg_norm_stats.csv', index=False)
+        diff_img_data_norm_stats.to_csv(config['norm_dir'] / 'train_diffimg_norm_stats.csv')
 
         print('Done.')
 
@@ -387,18 +394,17 @@ def compute_normalization_stats(tfrec_fps, config):
 if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file')
+    args = parser.parse_args()
 
-    # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_compute_normalization_stats.yaml')
-
-    with(open(path_to_yaml, 'r')) as file:
+    with(open(args.config_fp, 'r')) as file:
         config = yaml.unsafe_load(file)
 
     # get only training set TFRecords
     tfrecTrainFiles = list(Path(config['tfrecDir']).glob('train-shard*'))
-
-    config['norm_dir'] = Path(config['norm_dir'])
-    config['norm_dir'].mkdir(exist_ok=True)
+    print(f'Found {len(tfrecTrainFiles)} TFRecord shards')
 
     compute_normalization_stats(tfrecTrainFiles, config)
 

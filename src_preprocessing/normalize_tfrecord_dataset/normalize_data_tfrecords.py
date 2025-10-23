@@ -14,6 +14,7 @@ import multiprocessing
 import numpy as np
 import tensorflow as tf
 import yaml
+import argparse
 
 # local
 from src_preprocessing.tf_util import example_util
@@ -377,7 +378,8 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    # get the configuration parameters
-    config_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/normalize_tfrecord_dataset/config_normalize_data.yaml')
-
-    normalize_examples_main(config_fp, )
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file')
+    args = parser.parse_args()
+    
+    normalize_examples_main(args.config_fp)

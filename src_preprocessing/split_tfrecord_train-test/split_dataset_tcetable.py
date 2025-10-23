@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import logging
+import math
 
 
 def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
@@ -56,14 +57,14 @@ def split_tce_table_by_target_stars(tce_tbl, dataset_splits, rng, logger):
 if __name__ == '__main__':
 
     # saving directory
-    dest_tfrec_dir = Path(f'/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_train-test-split_5-20-2025_1112')
+    dest_tfrec_dir = Path(f'/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458_split-tables')
     # shards table for your source TFRecord dataset
-    shards_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg/shards_tbl.csv')
+    shards_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg/shards_tbl.csv')
     rnd_seed = 24  # random seed
     # split ratio
     dataset_splits = {
-        'train': 0.8,
-        'val': 0.1,
+        'train': 0.7,
+        'val': 0.2,
         'test': 0.1,
     }
     # TCEs with these labels are put into the predict set
@@ -72,8 +73,8 @@ if __name__ == '__main__':
     ]
 
     # create dataset tables
-    if sum(dataset_splits.values()) != 1:
-        raise ValueError('Dataset splits should sum to 1.')
+    if not math.isclose(sum(dataset_splits.values()), 1.0, rel_tol=1e-9):
+        raise ValueError(f'Dataset splits should sum to 1: currently summing up to {sum(dataset_splits.values())}.')
 
     dest_tfrec_dir.mkdir(exist_ok=True)
 
@@ -117,5 +118,21 @@ if __name__ == '__main__':
         logger.info(f'Label counts for dataset {dataset}:\n{dataset_tbl["label"].value_counts()}')
         logger.info(f'Saving TCE table for dataset {dataset}...')
         dataset_tbl.to_csv(dest_tfrec_dir / f'{dataset}set.csv', index=False)
+    
+    # saving counts of examples per label into CSV file
+    dataset_counts = []
+    for dataset, dataset_tbl in datasets_tbls.items():
+        dataset_counts.append(dataset_tbl['label'].value_counts().rename(dataset))
+    dataset_counts = pd.concat(dataset_counts, axis=1).fillna(0).astype(int)
+    
+    # add metadata about dataset split
+    dataset_counts.attrs['dataset'] = str(shards_tbl_fp)
+    dataset_counts.attrs['split'] =  str(dataset_splits)
+    dataset_counts.attrs['random_seed'] =  rnd_seed
+    dataset_counts.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    with open(dest_tfrec_dir / 'datasets_counts.csv', "w") as f:
+        for key, value in dataset_counts.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        dataset_counts.to_csv(f)
 
     logger.info('Finished splitting data in table.')

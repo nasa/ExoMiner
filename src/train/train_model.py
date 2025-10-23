@@ -20,6 +20,41 @@ from models import models_keras
 # from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
 
 
+def create_callbacks_train_model(train_callbacks_config, model_dir, logger=None):
+    """Create train callbacks.
+
+    :param dict train_callbacks_config: contains parameters for the arguments of callbacks intended to be used during training
+    :param Path model_dir: model directory
+    :param Python Logger logger: logger, defaults to None
+    :return list: list of train callbacks
+    """
+    
+    callbacks_list = []
+    
+    if train_callbacks_config is not None:
+        for callback_name, callback_params in train_callbacks_config.items():
+            if callback_name == 'early_stopping':  # early stopping callback
+                callbacks_list.append(callbacks.EarlyStopping(**callback_params))
+            elif callback_name == 'tensorboard':
+                tensorboard_dir = model_dir / 'tensorboard'
+                tensorboard_dir.mkdir(exist_ok=True)
+                callbacks_list.append(callbacks.TensorBoard(log_dir=tensorboard_dir, **callback_params))
+            else:
+                if logger is None:
+                    print(f'Callback {callback_name} not implemented for training. Skipping this callback.')
+                else:
+                    logger.info(f'Callback {callback_name} not implemented for training. Skipping this callback.')
+
+    # additional callbacks that are hardcoded instead of using parameters from configuration
+    callbacks_list += [
+        # ComputePerformanceAfterFilteringLabel(config, model_dir / 'train_cats_monitoring', filter_examples_tfrecord_label),
+        # ComputePerformanceOnFFIand2min(config, model_dir / 'train_obs_type_monitoring',
+        #                                filter_examples_tfrecord_obs_type),
+    ]
+    
+    return callbacks_list
+    
+    
 def train_model(config, model_dir, logger=None):
     """ Train a model.
 
@@ -92,23 +127,7 @@ def train_model(config, model_dir, logger=None):
         val_input_fn = None
 
     # set train callbacks
-    config['callbacks_list'] = {'train': []}
-    if config['callbacks']['train'] is not None:
-        for callback_name, callback_params in config['callbacks']['train'].items():
-            if callback_name == 'early_stopping':  # early stopping callback
-                config['callbacks_list']['train'].append(
-                    callbacks.EarlyStopping(**config['callbacks']['train']['early_stopping']))
-            else:
-                if logger is None:
-                    print(f'Callback {callback_name} not implemented for training. Skipping this callback.')
-                else:
-                    logger.info(f'Callback {callback_name} not implemented for training. Skipping this callback.')
-
-    config['callbacks_list']['train'] += [
-        # ComputePerformanceAfterFilteringLabel(config, model_dir / 'train_cats_monitoring', filter_examples_tfrecord_label),
-        # ComputePerformanceOnFFIand2min(config, model_dir / 'train_obs_type_monitoring',
-        #                                filter_examples_tfrecord_obs_type),
-    ]
+    callbacks_train = create_callbacks_train_model(config['callbacks']['train'], model_dir, logger=None)
 
     # fit the model to the training data
     if logger is None:
@@ -120,7 +139,7 @@ def train_model(config, model_dir, logger=None):
                         batch_size=None,
                         epochs=config['training']['n_epochs'],
                         verbose=config['verbose_model'],
-                        callbacks=config['callbacks_list']['train'],
+                        callbacks=callbacks_train,
                         validation_split=0.,
                         validation_data=val_input_fn() if val_input_fn is not None else None,
                         shuffle=True,  # does the input function shuffle for every epoch?
