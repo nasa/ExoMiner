@@ -113,7 +113,7 @@ if __name__ == "__main__":
     config_fp = Path(args.config_fp)
     output_dir = Path(args.output_dir)
 
-    with(open(args.config_fp, 'r')) as file:
+    with(open(config_fp, 'r')) as file:
         predict_config = yaml.unsafe_load(file)
 
     # set up logger

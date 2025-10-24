@@ -13,7 +13,7 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
         metrics_list: list, metrics to be monitored
     """
 
-    threshold_range = list(np.linspace(0, 1, num=num_thresholds))
+    # threshold_range = list(np.linspace(0, 1, num=num_thresholds))
 
     auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
                                summation_method='interpolation',
@@ -28,15 +28,20 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     precision = keras.metrics.Precision(thresholds=clf_threshold, name='precision')
     recall = keras.metrics.Recall(thresholds=clf_threshold, name='recall')
 
-    precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
-    recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
+    # precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
+    # recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
 
-    tp = keras.metrics.TruePositives(name='tp', thresholds=threshold_range)
-    fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
-    tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
-    fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+    # tp = keras.metrics.TruePositives(name='tp', thresholds=threshold_range)
+    # fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
+    # tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
+    # fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+    
+    f1 = keras.metrics.F1Score(average='weighted', threshold=clf_threshold, name='f1_score')
+    
+    prec_thr = 0.95
+    rec_at_prec = keras.metrics.RecallAtPrecision(prec_thr, num_thresholds, name=f'recall_at_precision_{prec_thr}')
 
-    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, tn, fn]
+    metrics_list = [binary_acc, precision, recall, auc_pr, auc_roc, f1, rec_at_prec]
 
     return metrics_list
 

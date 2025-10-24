@@ -10,6 +10,8 @@ import argparse
 import yaml
 from pathlib import Path
 import logging
+import yaml
+import traceback
 # from functools import partial
 
 # local
@@ -19,7 +21,61 @@ from models.utils_models import compile_model
 from models import models_keras
 # from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
 
+def log_info(message, logger=None, include_traceback=False):
+    """Log information either to stdout or Python Logger if `logger` is not `None`.
 
+    :param str message: log message
+    :param Python Logger logger: logger. If `None`, message is printed to stdout
+    :param bool include_traceback: if True, includes traceback (requires being called under and try/exception block). Defaults to False
+    """
+    
+    if include_traceback:
+        message += "\n" + traceback.format_exc()
+        
+    if logger:
+        logger.info(message)
+    else:
+        print(message)
+
+
+def validate_config(config):
+    """Validates configuration for training run.
+
+    :param dict config: configuration for training run
+    :raises ValueError: if configuration is missing required tields
+    """
+    
+    required_keys = ['features_set', 'model_architecture', 'training', 'metrics', 'label_map']
+    for key in required_keys:
+        if key not in config:
+            raise ValueError(f"Missing required config key: {key}")
+
+
+def create_input_fn(config, dataset, mode):
+    """Creates input function for dataset `datasert` based on keys from a dictionary "datasets_fps" in `config`.
+
+    :param dict config: training run configuration
+    :param str dataset: dataset
+    :param str mode: input function mode. Either 'TRAIN', 'EVAL', or 'PREDICT'
+    :return input fn: input function for a given dataset
+    """
+    return InputFn(
+        file_paths=config['datasets_fps'][dataset],
+        batch_size=config['training']['batch_size'],
+        mode=mode,
+        label_map=config['label_map'],
+        data_augmentation=config['training'].get('data_augmentation', {}),
+        online_preproc_params=config['training'].get('online_preprocessing_params', {}),
+        features_set=config['features_set'],
+        category_weights=config['training'].get('category_weights'),
+        multiclass=config['config']['multi_class'],
+        feature_map=config['feature_map'],
+        shuffle_buffer_size=config['training'].get('shuffle_buffer_size', 1000),
+        label_field_name=config['label_field_name'],
+        # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type='ffi'),
+    )
+    
+    
 def create_callbacks_train_model(train_callbacks_config, model_dir, logger=None):
     """Create train callbacks.
 
@@ -65,6 +121,8 @@ def train_model(config, model_dir, logger=None):
     :return:
     """
 
+    validate_config(config)
+    
     # set tensorflow data type for features in the feature set
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
@@ -96,71 +154,43 @@ def train_model(config, model_dir, logger=None):
     # compile model - set optimizer, loss and metrics
     model = compile_model(model, config, metrics_list)
 
-    # input function for training, validation and test
-    train_input_fn = InputFn(
-        file_paths=config['datasets_fps']['train'],
-        batch_size=config['training']['batch_size'],
-        mode='TRAIN',
-        label_map=config['label_map'],
-        data_augmentation=config['training']['data_augmentation'],
-        online_preproc_params=config['training']['online_preprocessing_params'],
-        features_set=config['features_set'],
-        category_weights=config['training']['category_weights'],
-        multiclass=config['config']['multi_class'],
-        feature_map=config['feature_map'],
-        shuffle_buffer_size=config['training']['shuffle_buffer_size'],
-        label_field_name=config['label_field_name'],
-    )
-    if 'val' in config['datasets']:
-        val_input_fn = InputFn(
-            file_paths=config['datasets_fps']['val'],
-            batch_size=config['training']['batch_size'],
-            mode='EVAL',
-            label_map=config['label_map'],
-            features_set=config['features_set'],
-            multiclass=config['config']['multi_class'],
-            feature_map=config['feature_map'],
-            label_field_name=config['label_field_name'],
-            # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type='ffi'),
-        )
-    else:
-        val_input_fn = None
+    # input function for training and validation    
+    train_input_fn = create_input_fn(config, 'train', 'TRAIN')
+    val_input_fn = create_input_fn(config, 'val', 'EVAL') if 'val' in config['datasets'] else None
 
     # set train callbacks
     callbacks_train = create_callbacks_train_model(config['callbacks']['train'], model_dir, logger=None)
 
     # fit the model to the training data
-    if logger is None:
-        print('Training model...')
-    else:
-        logger.info('Training model...')
-    history = model.fit(x=train_input_fn(),
-                        y=None,
-                        batch_size=None,
-                        epochs=config['training']['n_epochs'],
-                        verbose=config['verbose_model'],
-                        callbacks=callbacks_train,
-                        validation_split=0.,
-                        validation_data=val_input_fn() if val_input_fn is not None else None,
-                        shuffle=True,  # does the input function shuffle for every epoch?
-                        class_weight=None,
-                        sample_weight=None,
-                        initial_epoch=0,
-                        steps_per_epoch=None,
-                        validation_steps=None,
-                        )
+    log_info("Training model...", logger)
+    try:
+        history = model.fit(x=train_input_fn(),
+                            epochs=config['training']['n_epochs'],
+                            verbose=config['verbose_model'],
+                            callbacks=callbacks_train,
+                            validation_data=val_input_fn(),
+                            # initial_epoch=N, # resume training from a model trained up to epoch N
+                            )
+    except Exception as e:
+        log_info(f'Training failed: {e}', logger, include_traceback=True)
+        raise
 
-    if logger is None:
-        print('Saving model...')
-    else:
-        logger.info('Saving model...')
-
+    log_info("Saving model...", logger)
+    
     # save model
     model.save(model_dir / f'model.keras')
 
     res = history.history
 
+    # save results into NumPy file
     np.save(model_dir / 'res_train.npy', res)
+    
+    # save results into human-readable YAML file
+    with open(model_dir / 'res_train.yaml', 'w') as f:
+        try:
+            yaml.dump(history.history, f, default_flow_style=False)
+        except Exception as e:
+            log_info(f"Unable to save training results into YAML file {str(model_dir / 'res_train.yaml')}:\n{e}", logger, include_traceback=True)
 
 
 if __name__ == "__main__":
@@ -174,7 +204,7 @@ if __name__ == "__main__":
     model_dir_fp = Path(args.model_dir)
     config_fp = Path(args.config_fp)
 
-    with open(args.config_fp, 'r') as file:
+    with open(config_fp, 'r') as file:
         train_config = yaml.unsafe_load(file)
 
     # set up logger

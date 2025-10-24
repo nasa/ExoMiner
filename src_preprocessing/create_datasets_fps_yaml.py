@@ -29,8 +29,8 @@ if __name__ == '__main__':
 
     tf.config.set_visible_devices([], 'GPU')
 
-    dest_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsnotshared_train-test-split_5-16-2025_1157_normalized')
-    datasets_in_tfrec_dir = ['train', 'test']
+    dest_tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458_normalized')
+    datasets_in_tfrec_dir = ['train', 'val', 'test']
 
     print(f'Creating yaml file with datasets filepaths...')
     create_datasets_fps_yaml(dest_tfrec_dir, datasets_in_tfrec_dir)

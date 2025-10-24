@@ -63,14 +63,18 @@ python "$SETUP_RUN_FP" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" &>> "$
 # get config yaml filepath
 MODEL_CONFIG_FP=$MODEL_DIR/config_run.yaml
 
-# train model
-LOG_FP_TRAIN_MODEL="$MODEL_DIR"/train_model_"$MODEL_I".log
-echo "Training model $MODEL_I out of $N_MODELS..." >> "$LOG_FP_MAIN"
-python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$MODEL_CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"
-echo "Finished training model $MODEL_I out of $N_MODELS." >> "$LOG_FP_MAIN"
-
 # get model filepath
 MODEL_FP=$MODEL_DIR/model.keras
+
+# train model
+if [ -f "$MODEL_FP" ]; then
+    echo "Model already exists at $MODEL_FP. Skipping training." >> "$LOG_FP_MAIN"
+else
+    LOG_FP_TRAIN_MODEL="$MODEL_DIR/train_model_${MODEL_I}.log"
+    echo "Training model $MODEL_I out of $N_MODELS..." >> "$LOG_FP_MAIN"
+    python "$TRAIN_MODEL_SCRIPT_FP" --config_fp="$MODEL_CONFIG_FP" --model_dir="$MODEL_DIR" &> "$LOG_FP_TRAIN_MODEL"
+    echo "Finished training model $MODEL_I out of $N_MODELS." >> "$LOG_FP_MAIN"
+fi
 
 # evaluate model
 echo "Evaluating model $MODEL_I out of $N_MODELS..." >> "$LOG_FP_MAIN"

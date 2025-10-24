@@ -17,7 +17,7 @@ from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_fe
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models.models_keras import Time2Vec, SplitLayer
-from src.evaluate.utils_eval import write_performance_metrics_to_txt_file
+from src.evaluate.utils_eval import write_performance_metrics_to_csv_file
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):
@@ -106,8 +106,8 @@ def evaluate_model(config, model_path, res_dir, logger=None):
 
     np.save(res_dir / 'res_eval.npy', res)
 
-    # write results to a txt file
-    write_performance_metrics_to_txt_file(res_dir, config['datasets'], res)
+    # write results to a csv file
+    write_performance_metrics_to_csv_file(res_dir, config['datasets'], res)
 
 
 if __name__ == "__main__":

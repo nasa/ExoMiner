@@ -67,9 +67,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   tce_period_norm: { 'dim': [ 1, ], 'dtype': float }
 
   # difference image
-  diff_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  oot_imgs_std_trainset: { 'dim': [ 33, 33, 5 ], 'dtype': float }
-  target_imgs: { 'dim': [ 33, 33, 5 ], 'dtype': float }
+  diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
 
   quality: { 'dim': [ 5, 1], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }

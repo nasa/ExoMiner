@@ -1279,6 +1279,17 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
     return output_conv
 
 
+class ReduceSumLayer(tf.keras.layers.Layer):
+    """Creates TF Keras reduce sum layer."""
+
+    def __init__(self, axis=-1, **kwargs):
+        super(ReduceSumLayer, self).__init__(**kwargs)
+        self.axis = axis
+
+    def call(self, inputs, training=None, mask=None):
+        return tf.reduce_sum(inputs, axis=1)
+
+
 def difference_img_quality_metric_attention_fusion(diffimg_features, quality_metrics, name_prefix="diff_imgs"):
     """ Applies attention-based fusion to a set of features from difference image using quality metric values.
 
@@ -1305,7 +1316,8 @@ def difference_img_quality_metric_attention_fusion(diffimg_features, quality_met
     weighted_features = tf.keras.layers.Multiply(name=f"{name_prefix}_weighted_features")([diffimg_features, quality_metrics])
 
     # Sum across the sets to get a single feature vector
-    fused_output = tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=1), name=f"{name_prefix}_fused_output")(weighted_features)
+    # fused_output = tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=1), name=f"{name_prefix}_fused_output")(weighted_features)
+    fused_output = ReduceSumLayer(name=f"{name_prefix}_fused_output")(weighted_features)
 
     return fused_output
 
@@ -2432,10 +2444,6 @@ class ExoMinerPlusPlus(object):
 
         """
 
-        # hard-coded hyperparameter for convolution of extracted statistics
-        kernel_size_conv_stats = 1
-        num_filters_conv_stats = 4
-
         config_mapper = {'blocks': 'num_unfolded_conv_blocks',
                          'pool_size': 'pool_size_unfolded',
                          'kernel_size': 'kernel_size_unfolded',
@@ -2476,18 +2484,7 @@ class ExoMinerPlusPlus(object):
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional layers for the block
-                # net = tf.keras.layers.Conv1D(dilation_rate=1,
-                #                              activation=None,
-                #                              use_bias=True,
-                #                              bias_initializer='zeros',
-                #                              kernel_regularizer=None,
-                #                              bias_regularizer=None,
-                #                              activity_regularizer=None,
-                #                              kernel_constraint=None,
-                #                              bias_constraint=None,
-                #                              name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
-                #                              **conv_kwargs)(view_inputs if conv_block_i == 0 and
-                #                                                            seq_conv_block_i == 0 else net)
+
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -2536,22 +2533,11 @@ class ExoMinerPlusPlus(object):
         net = tf.keras.layers.Permute((2, 3, 1), name='unfolded_flux_permute_merge')(net)
 
         # convolve output with conv1d to produce final output
-        conv_kwargs = {'filters': num_filters_conv_stats,
+        conv_kwargs = {'filters': self.config['n_conv_filter_unfolded_stats'],
                        'kernel_initializer': weight_initializer,
-                       'kernel_size': (kernel_size_conv_stats, 1),
+                       'kernel_size': (self.config['kernel_size_unfolded_stats'], 1),
                        }
 
-        # net = tf.keras.layers.Conv1D(dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='conv{}_{}'.format(branch, 1),
-        #                              **conv_kwargs)(net)
         net = tf.keras.layers.Conv2D(dilation_rate=1,
                                      activation=None,
                                      use_bias=True,
@@ -2594,24 +2580,6 @@ class ExoMinerPlusPlus(object):
                                         bias_constraint=None,
                                         name='fc_{}'.format(branch))(net)
 
-            # net = tf.expand_dims(net, axis=-1)
-            # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
-            #                              kernel_size=net.shape[1],
-            #                              strides=1,
-            #                              padding='valid',
-            #                              kernel_initializer=weight_initializer,
-            #                              dilation_rate=1,
-            #                              activation=None,
-            #                              use_bias=True,
-            #                              bias_initializer='zeros',
-            #                              kernel_regularizer=None,
-            #                              bias_regularizer=None,
-            #                              activity_regularizer=None,
-            #                              kernel_constraint=None,
-            #                              bias_constraint=None,
-            #                              name='conv_{}'.format(branch),
-            #                              )(net)
-
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
             elif self.config['non_lin_fn'] == 'relu':
@@ -2622,7 +2590,6 @@ class ExoMinerPlusPlus(object):
                                             alpha_constraint=None,
                                             shared_axes=[1],
                                             name='fc_prelu_{}'.format(branch))(net)
-            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
             net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_conv_{branch}')(net)
 
@@ -2948,19 +2915,7 @@ class ExoMinerPlusPlus(object):
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
-                # net = tf.keras.layers.Conv1D(dilation_rate=1,
-                #                              activation=None,
-                #                              use_bias=True,
-                #                              bias_initializer='zeros',
-                #                              kernel_regularizer=None,
-                #                              bias_regularizer=None,
-                #                              activity_regularizer=None,
-                #                              kernel_constraint=None,
-                #                              bias_constraint=None,
-                #                              name='conv{}_{}'.format(conv_block_i, seq_conv_block_i),
-                #                              **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
-                #                                                                   seq_conv_block_i == 0
-                #                                             else net)
+ 
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -3009,7 +2964,7 @@ class ExoMinerPlusPlus(object):
                 conv_branches[branch] = net[cur]
                 cur += 1
 
-        for branch_i, branch in enumerate(conv_branches):  # create a convolutional branch
+        for branch in conv_branches:  # create a convolutional branch
 
             net = conv_branches[branch]
 
@@ -3073,11 +3028,6 @@ class ExoMinerPlusPlus(object):
         :return: dict with the difference image branch
         """
 
-        # config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-        #                  'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
-        #                  'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
-        #                  }
-
         weight_initializer = tf.keras.initializers.he_normal() \
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
 
@@ -3089,37 +3039,26 @@ class ExoMinerPlusPlus(object):
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
 
-        # self.config.update(
-        #     {
-        #         'blocks_diff_img': 3,
-        #         'kernel_size_diff_img': 3,
-        #         'pool_size_diff_img'
-        #         # 'kernel_size_fc':
-        #     }
-        # )
-
         # get number of conv blocks for the given view
-        n_blocks = 3  # self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
-
-        kernel_size = (3, 3, 1)  # self.config[config_mapper['kernel_size'][('local_view', 'global_view')['global' in branch]]]
+        n_blocks = self.config['num_diffimg_conv_blocks'] 
+        kernel_size = (self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'], 1)
 
         # get pool size for the given view
-        pool_size = (2, 2, 1)  # self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+        pool_size = (self.config['pool_size_diffimg'], self.config['pool_size_diffimg'], 1)  
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
 
-            num_filters = 2 ** (2 + conv_block_i)
-            # num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+            num_filters = 2 ** (self.config['init_diffimg_conv_filters'] + conv_block_i)
 
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,  # self.config['kernel_size'],
-                           'strides': 1,  # (1, self.config['kernel_stride'])
+                           'kernel_size': kernel_size,  
+                           'strides': 1,
                            'padding': 'same'
                            }
 
-            for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
+            for seq_conv_block_i in range(self.config['diffimg_conv_ls_per_block']):  # create convolutional block
 
                 net = tf.keras.layers.Conv3D(dilation_rate=1,
                                              activation=None,
@@ -3174,24 +3113,6 @@ class ExoMinerPlusPlus(object):
             # concatenate per-image scalar features with extracted features from the difference images
             net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
 
-        # 2D convolution with kernel size equal to feature map size
-        # net = tf.expand_dims(net, axis=-1, name='expanding_input_convfc')
-        # net = tf.keras.layers.Conv2D(filters=4,  # self.config['num_fc_conv_units'],
-        #                              kernel_size=net.shape[1:-1],
-        #                              strides=1,
-        #                              padding='valid',
-        #                              kernel_initializer=weight_initializer,
-        #                              dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='convfc_{}'.format('diff_img'),
-        #                              )(net)
         net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
                                      kernel_size=net.shape[1:-1],
                                      strides=1,
@@ -3336,8 +3257,6 @@ class ExoMinerPlusPlus(object):
         :return:
             net: model with added FC block
         """
-
-        # with tf.variable_scope('FcNet'):
 
         for fc_layer_i in range(self.config['num_fc_layers']):
 

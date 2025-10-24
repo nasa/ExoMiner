@@ -283,7 +283,7 @@ class InputFnv2(object):
                 keys=list(label_map.keys()),
                 values=list(label_map.values()),
                 key_dtype=tf.string,
-                value_dtype=tf.int32
+                value_dtype=tf.float32  # tf.int32
             )
             return tf.lookup.StaticHashTable(initializer, default_value=-1)
 
@@ -357,7 +357,8 @@ class InputFnv2(object):
                 # map label to integer
                 label_id = self.label_to_id.lookup(parsed_label[self.label_field_name])
 
-                tf.debugging.assert_greater_equal(label_id, 0, message="Invalid label")
+                # tf.debugging.assert_greater_equal(label_id, 0, message="Invalid label")
+                tf.debugging.assert_greater_equal(label_id, tf.constant(0.0, dtype=tf.float32), message="Invalid label")
 
                 if self.multiclass:
                     label_id = tf.one_hot(label_id, self.n_classes)
