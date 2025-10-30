@@ -106,7 +106,7 @@ app.layout = html.Div([
 ),
     html.H2(["If you make use of this catalog for vetting, validation or other studies, please acknowledge our "
              "contribution by citing ", html.A("ExoMiner's TESS 2-min paper (2025)",
-                                               href='https://doi.org/10.48550/arXiv.2502.09790', target="_blank")],
+                                               href='https://iopscience.iop.org/article/10.3847/1538-4357/ac4399/meta', target="_blank")],
             style={
                 'color': '#79a4b5',
                 'fontSize': '15px',
@@ -119,7 +119,7 @@ app.layout = html.Div([
                 'boxShadow': '0 2px 1px rgba(0, 0, 0, 0.1)',
                 'fontFamily': 'Arial',
             }, ),
-    html.H2("Results from 1/16/2025 10:14am | Last web app update: 5/19/2025 12:52pm | "
+    html.H2("Results from 1/16/2025 10:14am | Last web app update: 10/28/2025 1:01pm | "
             "Excluded TCEs with scores < 0.1",
             style={
                 'color': '#79a4b5',

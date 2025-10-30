@@ -10,13 +10,13 @@ import argparse
 import yaml
 from pathlib import Path
 import logging
+from tensorflow.keras.utils import get_custom_objects
 
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
-from models.utils_models import compile_model
-from models.models_keras import Time2Vec, SplitLayer
+from models.utils_models import compile_model, register_custom_objects
 from src.evaluate.utils_eval import write_performance_metrics_to_csv_file
 
 
@@ -38,9 +38,9 @@ def evaluate_model(config, model_path, res_dir, logger=None):
         print('Loading model...')
     else:
         logger.info('Loading model...')
-    custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
-    with custom_object_scope(custom_objects):
-        model = load_model(filepath=model_path, compile=False)
+    
+    # register_custom_objects()
+    model = load_model(filepath=model_path, compile=False)
 
     if config['write_model_summary']:
         with open(res_dir / 'model_summary.txt', 'w') as f:
@@ -50,7 +50,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
     if config['plot_model']:
         plot_model(model,
                    to_file=res_dir / 'model.png',
-                   show_shapes=False,
+                   show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
                    expand_nested=False,

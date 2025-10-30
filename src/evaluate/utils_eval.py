@@ -59,24 +59,25 @@ def write_performance_metrics_to_csv_file(save_dir, datasets, res_eval, logger=N
         if dataset != 'predict':  # no metrics for unlabeled data set
 
             # grab metrics names for data set
-            res_eval_dataset_metrics_names = [metric_name for metric_name in res_eval.keys()
-                                                if dataset in metric_name]
+            res_eval_dataset_metrics_names = ['_'.join(metric_name.split('_')[1:]) 
+                                              for metric_name in res_eval.keys()
+                                              if dataset in metric_name]
 
             if len(metric_names_for_csv_file) == 0:
                 for metric in res_eval_dataset_metrics_names:
-                    if isinstance(res_eval[metric], float):  # only write metrics that are scalars    
+                    if isinstance(res_eval[f'{dataset}_{metric}'], float):  # only write metrics that are scalars    
                         metric_names_for_csv_file.append(metric)
                         
             for metric in metric_names_for_csv_file:
-                if metric not in res_eval:
+                if f'{dataset}_{metric}' not in res_eval:
                     if logger is None:
-                        print(f'Loss/metric {metric} not computed for dataset {dataset}. Setting it to NaN.')
+                        print(f'Loss/metric "{dataset}_{metric}" not computed. Setting it to NaN.')
                     else:
-                        logger.info(f'Loss/metric {metric} not computed for dataset {dataset}. Setting it to NaN.')
+                        logger.info(f'Loss/metric "{dataset}_{metric}" not computed for dataset {dataset}. Setting it to NaN.')
                     
                     metrics_dict[dataset].append(np.nan)
                 else:    
-                    metrics_dict[dataset].append(res_eval[metric])
+                    metrics_dict[dataset].append(res_eval[f'{dataset}_{metric}'])
                     
     metrics_df = pd.DataFrame(metrics_dict)
     metrics_df['metrics'] = res_eval_dataset_metrics_names

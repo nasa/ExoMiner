@@ -6,144 +6,10 @@ from tensorflow import keras
 from tensorflow.keras import regularizers
 import numpy as np
 import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Layer, Lambda
 
 # local
 from models.utils_models import create_inputs
-
-
-class Time2Vec(keras.layers.Layer):
-    def __init__(self, kernel_size=1, **kwargs):
-        super(Time2Vec, self).__init__(trainable=True, name='Time2VecLayer')
-        self.k = kernel_size
-
-    def build(self, input_shape):
-        # trend
-        self.wb = self.add_weight(name='wb', shape=(input_shape[1],), initializer='uniform', trainable=True)
-        self.bb = self.add_weight(name='bb', shape=(input_shape[1],), initializer='uniform', trainable=True)
-        # periodic
-        self.wa = self.add_weight(name='wa', shape=(1, input_shape[1], self.k), initializer='uniform', trainable=True)
-        self.ba = self.add_weight(name='ba', shape=(1, input_shape[1], self.k), initializer='uniform', trainable=True)
-        super(Time2Vec, self).build(input_shape)
-
-    def call(self, inputs, **kwargs):
-        bias = self.wb * inputs + self.bb
-        dp = K.dot(inputs, self.wa) + self.ba
-        wgts = K.sin(dp)  # or K.cos(.)
-
-        ret = K.concatenate([K.expand_dims(bias, -1), wgts], -1)
-        ret = K.reshape(ret, (-1, inputs.shape[1] * (self.k + 1)))
-        return ret
-
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], input_shape[1] * (self.k + 1))
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            "kernel_size": self.k
-        })
-        return config
-
-
-class StdLayer(Layer):
-    """
-    Creates TF Keras std layer. Can be called on a list of inputs with the same shape to compute standard deviation.
-    """
-
-    def __init__(self, axis=-1, **kwargs):
-        super(StdLayer, self).__init__(**kwargs)
-        self.axis = axis
-
-    # @tf.function(jit_compile=True)
-    def _std_fn(self, inputs):
-        """ Computes standard deviation from inputs.
-
-            Args:
-                inputs: list of TF Keras tensors of same shape
-
-            Returns: TF Keras tensor with same shape of `inputs` with std values
-        """
-
-        # mean = tf.reduce_mean(inputs, axis=self.axis, keepdims=True)
-        # variance = tf.reduce_mean(tf.square(inputs - mean), axis=self.axis, keepdims=True)
-        # std = tf.sqrt(variance)
-
-        stacked = tf.stack(inputs, axis=self.axis)  # shape: [20, batch, 1, 25, 8]
-        mean = tf.reduce_mean(stacked, axis=self.axis, keepdims=False)
-        variance = tf.reduce_mean(tf.square(stacked - tf.expand_dims(mean, axis=self.axis)), axis=self.axis)
-        std = tf.sqrt(variance)
-
-        return std
-
-    def call(self, inputs, training=None, mask=None):
-        """ Call the custom standard deviation layer.
-
-            Args:
-                inputs: list of TF Keras tensors of same shape
-                training: if True, behaves differently for training (not needed for this type of layer - added for
-                    compatibility)
-                mask: if not None, then specifies which inputs should be ignored (not needed for this type of layer -
-                    added for compatibility)
-
-            Returns: TF Keras tensor with same shape of `inputs` with std values
-        """
-
-        std = self._std_fn(inputs)
-
-        return std
-
-
-class SplitLayer(Layer):
-    """ Creates a custom split layer. """
-
-    def __init__(self, num_or_size_splits, axis=0, **kwargs):
-        """ Constructor for the split layer.
-
-        Args:
-            num_or_size_splits: either an int indicating the number of splits along axis or a 1-D integer Tensor or
-                Python list containing the sizes of each output tensor along axis. If an int, then it must evenly divide
-                value.shape[axis]; otherwise the sum of sizes along the split axis must match that of the value.
-            axis: An int or scalar int32 Tensor. The dimension along which to split. Must be in the range
-                [-rank(value), rank(value)). Defaults to 0.
-            **kwargs:
-        """
-
-        super(SplitLayer, self).__init__(**kwargs)
-        self.num_or_size_splits = num_or_size_splits
-        self.axis = axis
-
-    # @tf.function(jit_compile=True)
-    def _split_fn(self, inputs):
-        """ Splits the inputs.
-
-        Args:
-            inputs: TF Keras layer, input to be split
-
-        Returns: if num_or_size_splits is an int returns a list of num_or_size_splits Tensor objects; if
-            num_or_size_splits is a 1-D list for 1-D Tensor returns num_or_size_splits.get_shape[0] Tensor objects
-            resulting from splitting value.
-
-        """
-        return tf.split(inputs, num_or_size_splits=self.num_or_size_splits, axis=self.axis)
-
-    def call(self, inputs, training=None, mask=None):
-        """ Calls the custom split layer.
-
-        Args:
-            inputs: TF Keras layer, input to be split
-            training: if True, behaves differently for training (not needed for this type of layer - added for
-                compatibility)
-            mask: if not None, then specifies which inputs should be ignored (not needed for this type of layer -
-                added for compatibility)
-
-        Returns: if num_or_size_splits is an int returns a list of num_or_size_splits Tensor objects; if
-            num_or_size_splits is a 1-D list for 1-D Tensor returns num_or_size_splits.get_shape[0] Tensor objects
-            resulting from splitting value.
-        """
-
-        return self._split_fn(inputs)
-
+from models.custom_layers import Time2Vec, MeanAttentionNormalization, SplitLayer, ReduceSumLayer, StdLayer, IdentityConv1DInitializer, IdentityConv2DInitializer
 
 def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1, return_attention=False):
     """ Create attention block.
@@ -184,8 +50,9 @@ def attention_block(query, key_value, num_heads=2, key_dim=32, dropout_rate=0.1,
     # out2 = tf.keras.layers.GlobalAveragePooling1D(name='cross_att_global_average_pool')(out2)
     
     if return_attention:  # compute mean attention scores over all heads
-        mean_attn = Lambda(lambda x: tf.reduce_mean(x, axis=1), name='mean_attn')(attn_scores)
-        mean_attn_normalized = Lambda(lambda x: x / tf.reduce_sum(x, axis=-1, keepdims=True), name='normalized_mean_attn')(mean_attn)
+        # mean_attn = Lambda(lambda x: tf.reduce_mean(x, axis=1), name='mean_attn')(attn_scores)
+        # mean_attn_normalized = Lambda(lambda x: x / tf.reduce_sum(x, axis=-1, keepdims=True), name='normalized_mean_attn')(mean_attn)
+        mean_attn_normalized = MeanAttentionNormalization(name='normalized_mean_attn')(attn_scores)
     else:
         mean_attn_normalized = None
 
@@ -1225,7 +1092,7 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
             :param kernel_size_conv_stats: int, kernel size for convolutional layer
             :param weight_initializer: str, weight initializer for convolutional layer
 
-        Returns: TF Keras tensor with concatenated local flux input features
+        Returns: TF Keras tensor with flattened unfolded local flux extracted features
      """
 
     # global pooling similar to other local fluxes
@@ -1274,20 +1141,9 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
         name='local_fluxes_unfolded_flux_2conv',
         **conv_kwargs)(input_conv)
     
-    output_conv = tf.keras.layers.Reshape(output_conv.shape[1:-1], name=f'local_fluxes_unfolded_flux_squeeze')(output_conv) 
+    flattened_output = tf.keras.layers.Flatten(name='local_flux_unfolded_flux_flatten')(output_conv)
 
-    return output_conv
-
-
-class ReduceSumLayer(tf.keras.layers.Layer):
-    """Creates TF Keras reduce sum layer."""
-
-    def __init__(self, axis=-1, **kwargs):
-        super(ReduceSumLayer, self).__init__(**kwargs)
-        self.axis = axis
-
-    def call(self, inputs, training=None, mask=None):
-        return tf.reduce_sum(inputs, axis=1)
+    return flattened_output
 
 
 def difference_img_quality_metric_attention_fusion(diffimg_features, quality_metrics, name_prefix="diff_imgs"):
@@ -1320,6 +1176,7 @@ def difference_img_quality_metric_attention_fusion(diffimg_features, quality_met
     fused_output = ReduceSumLayer(name=f"{name_prefix}_fused_output")(weighted_features)
 
     return fused_output
+
 
 class ExoMinerJointLocalFlux(object):
     """ExoMiner architecture in progress. """
@@ -1447,7 +1304,7 @@ class ExoMinerJointLocalFlux(object):
         if len(conv_branches) == 0:
             return {}
 
-        for branch_i, branch in enumerate(conv_branches):  # create a convolutional branch
+        for branch in conv_branches:  # create a convolutional branch
 
             branch_view_inputs = [self.inputs[view_name] for view_name in self.config['conv_branches'][branch]['views']]
 
@@ -1491,7 +1348,7 @@ class ExoMinerJointLocalFlux(object):
                                    'kernel_initializer': weight_initializer,
                                    'kernel_size': kernel_size,
                                    'strides': kernel_stride if seq_conv_block_i == 0 else 1,
-                                   'padding': 'same'
+                                   'padding': 'valid' if seq_conv_block_i == 0 else 'same'
                                    }
 
                     net = tf.keras.layers.Conv1D(dilation_rate=1,
@@ -1559,18 +1416,13 @@ class ExoMinerJointLocalFlux(object):
                             if input_conv_block.shape != net.shape:
                                 input_conv_block = tf.keras.layers.Conv1D(
                                     filters=net.shape[-1],
-                                    kernel_size=1,
-                                    padding='same',
+                                    kernel_size=kernel_size,
+                                    padding='valid',
                                     strides=kernel_stride,
                                     dilation_rate=1,
                                     activation=None,
-                                    use_bias=True,
-                                    bias_initializer='zeros',
-                                    kernel_regularizer=None,
-                                    bias_regularizer=None,
-                                    activity_regularizer=None,
-                                    kernel_constraint=None,
-                                    bias_constraint=None,
+                                    use_bias=False,
+                                    kernel_initializer=IdentityConv1DInitializer(),
                                     name=f'{branch}_conv{conv_block_i}_input',
                                 )(input_conv_block)
                             net = tf.keras.layers.Add(
@@ -1593,7 +1445,7 @@ class ExoMinerJointLocalFlux(object):
                 else:
                     scalar_inputs = scalar_inputs[0]
 
-                scalar_inputs = tf.keras.layers.BatchNormalization(name=f'{branch}_scalar_inputs_batch_norm')(scalar_inputs)
+                # scalar_inputs = tf.keras.layers.BatchNormalization(name=f'{branch}_scalar_inputs_batch_norm')(scalar_inputs)
                 
                 net = tf.keras.layers.Concatenate(axis=1, name='{}_flatten_wscalar'.format(branch))([
                     net,
@@ -1615,7 +1467,7 @@ class ExoMinerJointLocalFlux(object):
                                             bias_constraint=None,
                                             name='{}_fc'.format(branch))(net)
                 
-                net = tf.keras.layers.BatchNormalization(name=f'{branch}_fc_batch_norm')(net)
+                # net = tf.keras.layers.BatchNormalization(name=f'{branch}_fc_batch_norm')(net)
 
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='{}_fc_lrelu'.format(branch))(net)
@@ -1628,8 +1480,8 @@ class ExoMinerJointLocalFlux(object):
                                                 shared_axes=[1],
                                                 name='{}_fc_prelu'.format(branch))(net)
 
-                net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
-                                              name=f'{branch}_dropout_fc_conv')(net)
+                # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
+                                            #   name=f'{branch}_dropout_fc_conv')(net)
 
             conv_branches[branch] = net
 
@@ -1647,7 +1499,7 @@ class ExoMinerJointLocalFlux(object):
 
         def joint_local_conv_block(net, conv_kwargs, conv_block_i, seq_conv_block_i):
             
-            conv2d_layer = tf.keras.layers.Conv1D(
+            conv1d_layer = tf.keras.layers.Conv1D(
                     dilation_rate=1,
                     activation=None,
                     use_bias=True,
@@ -1661,7 +1513,7 @@ class ExoMinerJointLocalFlux(object):
                     **conv_kwargs
                     )
             
-            net = tf.keras.layers.TimeDistributed(conv2d_layer, name=f'local_fluxes_conv{conv_block_i}_{seq_conv_block_i}_apply')(net)
+            net = tf.keras.layers.TimeDistributed(conv1d_layer, name=f'local_fluxes_conv{conv_block_i}_{seq_conv_block_i}_apply')(net)
             
             if self.config['batch_norm_after_conv_layers']:
                 batchnorm_layer = tf.keras.layers.BatchNormalization(
@@ -1767,8 +1619,8 @@ class ExoMinerJointLocalFlux(object):
                 conv_kwargs = {'filters': num_filters,
                                'kernel_initializer': weight_initializer,
                                'kernel_size': kernel_size,
-                               'strides': kernel_stride if seq_conv_block_i == 0 else (1,),
-                               'padding': 'same'
+                               'strides': kernel_stride if seq_conv_block_i == 0 else 1,
+                               'padding': 'valid' if seq_conv_block_i == 0 else 'same'
                                }
 
                 net = joint_local_conv_block(branch_view_inputs if conv_block_i == 0 and seq_conv_block_i == 0 else net, conv_kwargs, conv_block_i, seq_conv_block_i)
@@ -1780,13 +1632,14 @@ class ExoMinerJointLocalFlux(object):
                         if input_conv_block.shape != net.shape:
                             projection_layer = tf.keras.layers.Conv1D(
                                 filters=net.shape[-1],
-                                kernel_size=1,
-                                padding='same',
+                                kernel_size=kernel_size,
+                                padding='valid',
                                 strides=kernel_stride,
                                 dilation_rate=1,
                                 activation=None,
-                                use_bias=True,
+                                use_bias=False,
                                 bias_initializer='zeros',
+                                kernel_initializer=IdentityConv1DInitializer(),
                                 name=f'local_fluxes_conv{conv_block_i}_input_proj'
                             )
                             input_conv_block = tf.keras.layers.TimeDistributed(projection_layer, name=f'local_fluxes_skip_connection_{conv_block_i}')(input_conv_block)
@@ -1839,7 +1692,7 @@ class ExoMinerJointLocalFlux(object):
                 else:
                     scalar_inputs = scalar_inputs[0]
 
-                scalar_inputs = tf.keras.layers.BatchNormalization(name=f'{branch}_scalar_inputs_batch_norm')(scalar_inputs)
+                # scalar_inputs = tf.keras.layers.BatchNormalization(name=f'{branch}_scalar_inputs_batch_norm')(scalar_inputs)
                 
                 net = tf.keras.layers.Concatenate(axis=1, name='local_fluxes_flatten_wscalar_{}'.format(branch))([
                     net,
@@ -1861,7 +1714,7 @@ class ExoMinerJointLocalFlux(object):
                                             bias_constraint=None,
                                             name='local_fluxes_{}_fc'.format(branch))(net)
 
-                net = tf.keras.layers.BatchNormalization(name=f'local_fluxes_{branch}_fc_batch_norm')(net)
+                # net = tf.keras.layers.BatchNormalization(name=f'local_fluxes_{branch}_fc_batch_norm')(net)
                 
                 if self.config['non_lin_fn'] == 'lrelu':
                     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='local_fluxes_{}_fc_lrelu'.format(branch))(net)
@@ -1874,8 +1727,8 @@ class ExoMinerJointLocalFlux(object):
                                                 shared_axes=[1],
                                                 name='local_fluxes_{}_fc_prelu'.format(branch))(net)
 
-                net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
-                                              name=f'local_fluxes_{branch}_dropout_fc_conv')(net)
+                # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
+                #                               name=f'local_fluxes_{branch}_dropout_fc_conv')(net)
 
             conv_branches[branch] = net
 
@@ -1991,7 +1844,7 @@ class ExoMinerJointLocalFlux(object):
                                'kernel_initializer': weight_initializer,
                                'kernel_size': kernel_size,
                                'strides': kernel_stride if seq_conv_block_i == 0 else (1, 1),
-                               'padding': 'same'
+                               'padding': 'same'  # 'valid' if seq_conv_block_i == 0 else 'same'
                                }
 
                 net = diff_img_conv_block(branch_view_inputs if conv_block_i == 0 and seq_conv_block_i == 0 else net, conv_kwargs, conv_block_i, seq_conv_block_i)
@@ -2003,13 +1856,14 @@ class ExoMinerJointLocalFlux(object):
                         if input_conv_block.shape != net.shape:
                             projection_layer = tf.keras.layers.Conv2D(
                                 filters=net.shape[-1],
-                                kernel_size=1,
-                                padding='same',
+                                kernel_size=kernel_size,
+                                padding='same',  # 'valid',
                                 strides=kernel_stride,
                                 dilation_rate=1,
                                 activation=None,
-                                use_bias=True,
+                                use_bias=False,
                                 bias_initializer='zeros',
+                                kernel_initializer=IdentityConv2DInitializer(),
                                 name=f'diff_imgs_conv{conv_block_i}_proj'
                             )
                             input_conv_block = tf.keras.layers.TimeDistributed(projection_layer, name=f'diff_imgs_skip_connection_{conv_block_i}')(input_conv_block)
@@ -2184,7 +2038,7 @@ class ExoMinerJointLocalFlux(object):
                                         bias_constraint=None,
                                         name='diff_imgs_fc')(net)
 
-            net = tf.keras.layers.BatchNormalization(name=f'diff_imgs_fc_batch_norm')(net)
+            # net = tf.keras.layers.BatchNormalization(name=f'diff_imgs_fc_batch_norm')(net)
             
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='diff_imgs_fc_lrelu')(net)
@@ -2197,7 +2051,7 @@ class ExoMinerJointLocalFlux(object):
                                             shared_axes=[1],
                                             name='diff_imgs_fc_prelu')(net)
 
-            net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'diff_imgs_dropout_fc')(net)
+            # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'diff_imgs_dropout_fc')(net)
 
         return {'diff_img': net}
 
@@ -2250,7 +2104,7 @@ class ExoMinerJointLocalFlux(object):
             #     name=f'fc_{scalar_branch_name}_scalar_batch_norm'
             # )(scalar_fc_output)
             
-            scalar_fc_output = tf.keras.layers.BatchNormalization(name=f'{scalar_branch_name}_fc_sumarize_batch_norm')(scalar_fc_output)
+            # scalar_fc_output = tf.keras.layers.BatchNormalization(name=f'{scalar_branch_name}_fc_sumarize_batch_norm')(scalar_fc_output)
 
             if self.config['non_lin_fn'] == 'lrelu':
                 scalar_fc_output = tf.keras.layers.LeakyReLU(alpha=0.01, name=f'{scalar_branch_name}_fc_sumarize_lrelu')(
@@ -2264,7 +2118,7 @@ class ExoMinerJointLocalFlux(object):
                                                          shared_axes=[1],
                                                          name=f'{scalar_branch_name}_fc_summarize_prelu')(scalar_fc_output)
             
-            scalar_fc_output = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'{scalar_branch_name}_fc_summarize_dropout')(scalar_fc_output)
+            # scalar_fc_output = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'{scalar_branch_name}_fc_summarize_dropout')(scalar_fc_output)
             
             scalar_branches_net[scalar_branch_name] = scalar_fc_output
 
@@ -2306,6 +2160,20 @@ class ExoMinerJointLocalFlux(object):
                 self.mean_attn = mean_attn
         else:  # simple concatenation of outputs from convolutional branches
             net = tf.keras.layers.Concatenate(axis=1, name='convbranch_wscalar_concat')(branches_lst)
+        
+        # net = tf.keras.layers.BatchNormalization(name=f'input_clf_head_batch_norm')(net)
+        net = tf.keras.layers.LayerNormalization(
+        axis=-1,
+        epsilon=1e-3,
+        center=True,
+        scale=True,
+        beta_initializer="zeros",
+        gamma_initializer="ones",
+        beta_regularizer=None,
+        gamma_regularizer=None,
+        beta_constraint=None,
+        gamma_constraint=None,
+        name='input_clf_head_layer_norm')(net)
 
         return net
 
@@ -2349,6 +2217,19 @@ class ExoMinerJointLocalFlux(object):
             #         synchronized=False,
             #         name=f'fc{fc_layer_i}_batch_norm'
             #     )(net)
+            
+            net = tf.keras.layers.LayerNormalization(
+                    axis=-1,
+                    epsilon=1e-3,
+                    center=True,
+                    scale=True,
+                    beta_initializer="zeros",
+                    gamma_initializer="ones",
+                    beta_regularizer=None,
+                    gamma_regularizer=None,
+                    beta_constraint=None,
+                    gamma_constraint=None,
+                    name=f'fc{fc_layer_i}_layernorm')(net)
 
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu{}'.format(fc_layer_i))(net)

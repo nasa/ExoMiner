@@ -361,6 +361,7 @@ class InputFnv2(object):
                 tf.debugging.assert_greater_equal(label_id, tf.constant(0.0, dtype=tf.float32), message="Invalid label")
 
                 if self.multiclass:
+                    label_id = tf.cast(label_id, tf.int32)
                     label_id = tf.one_hot(label_id, self.n_classes)
 
             # prepare data augmentation

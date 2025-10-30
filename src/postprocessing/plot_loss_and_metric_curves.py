@@ -13,10 +13,10 @@ import numpy as np
 from pathlib import Path
 
 # local
-from src.train.utils_train import plot_metric_from_res_file
+from src.utils.utils_visualization import plot_metric_from_res_file
 
 # file pat to results numpy file
-res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/res_train.npy')
+res_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/res_train.npy')
 # file path to save image to
 # save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/plot_prauc_curve.png')
 
@@ -24,7 +24,7 @@ res_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experim
 res = np.load(res_fp, allow_pickle=True).item()
 print(f'Metrics/loss available: {res.keys()}')
 
-metric_name_chosen = 'loss'
+metric_name_chosen = 'auc_pr'
 
 save_fp = res_fp.parent / f'plot_{metric_name_chosen}.png'
 

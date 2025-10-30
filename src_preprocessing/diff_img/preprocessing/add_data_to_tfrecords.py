@@ -162,7 +162,7 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
                 writer.write(updated_example.SerializeToString())
                 batch_examples_cnt += 1
         
-        logger.info(f'[{diff_img_data_fp.name} | {len(diff_img_data)} TCEs] Wrote {batch_examples_cnt}{batch_example_i + 1} TCEs into batch {batch_i} at {str(dest_tfrec_fp)}.')
+        logger.info(f'[{diff_img_data_fp.name} | {len(diff_img_data)} TCEs] Wrote {batch_examples_cnt}/{batch_example_i + 1} TCEs into batch {batch_i} at {str(dest_tfrec_fp)}.')
 
     examples_added_df = pd.DataFrame(examples_added_dict)
 

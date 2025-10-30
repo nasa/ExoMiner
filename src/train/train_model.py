@@ -175,6 +175,8 @@ def train_model(config, model_dir, logger=None):
         log_info(f'Training failed: {e}', logger, include_traceback=True)
         raise
 
+    log_info("Finished training model.", logger)
+    
     log_info("Saving model...", logger)
     
     # save model
