@@ -7,8 +7,106 @@ import numpy as np
 import pandas as pd
 
 
+def create_table_folds_statistics(folds_tbls_fps, save_fp):
+    """Create table with folds statistics at the disposition level. Both counts and percentages for each disposition.
+
+    :param list folds_tbls_fps: list of Paths to the fold tables
+    :param Path save_fp: filepath where this table is saved to
+    :return:
+    """
+    
+    folds_tbls_lst = []
+    for tbl_fp in folds_tbls_fps:
+
+        fold_id = tbl_fp.stem.split('_')[-1]
+        
+        fold_tbl = pd.read_csv(tbl_fp)
+        
+        fold_counts = fold_tbl['label'].value_counts().reset_index(name=fold_id).set_index('label')
+        fold_counts.loc['total'] = fold_counts[fold_id].sum()
+        fold_counts_normalized = fold_tbl['label'].value_counts(normalize=True).reset_index(name=f'{fold_id} %').set_index('label') * 100
+        fold_counts_normalized.loc['total'] = fold_counts_normalized[f'{fold_id} %'].sum()
+        
+        fold_counts_agg = pd.concat([fold_counts, fold_counts_normalized], axis=1).fillna(0) 
+        
+        folds_tbls_lst.append(fold_counts_agg)
+    
+    folds_cnts = pd.concat(folds_tbls_lst, axis=1).fillna(0)
+    
+    # add metadata
+    folds_cnts.attrs['source dataset table'] = str(dataset_tbl_fp)
+    folds_cnts.attrs['random seed'] = rnd_seed
+    folds_cnts.attrs['split by'] = split_by
+    folds_cnts.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    
+    with open(save_fp, "w") as f:
+        for key, value in folds_cnts.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        folds_cnts.to_csv(f, index=True)
+    
+        
+def split_tces(tce_tbl, n_folds, rng=None):
+    """Split TCEs without taking into account their targets.
+
+    :param pandas DataFrame tce_tbl: TCE table
+    :param int n_folds: number of folds
+    :param NumPy rng: random generator
+    :return list: each item in the list is a list of pandas DataFrames containing the tables for each fold
+    """
+    
+    # shuffle TCEs so they are not ordered by target and can end up in different folds
+    tce_tbl = tce_tbl.sample(frac=1, random_state=rng).reset_index(drop=True)
+    
+    tce_splits = np.array_split(range(len(tce_tbl)), n_folds, axis=0)
+    folds = [[tce_tbl.iloc[tce_split]] for tce_split in tce_splits]
+        
+    return folds
+
+def split_tces_by_target(tce_tbl, n_folds):
+    """Split TCEs by target into folds. Each fold contains all TCEs that share the same target.
+
+    :param pandas DataFrame tce_tbl: TCE table
+    :param int n_folds: number of folds
+    :return list: each item in the list is a list of pandas DataFrames containing the target tables with 
+        their corresponding TCEs
+    """
+    
+    target_star_grps = [df for _, df in tce_tbl.groupby('target_id')]
+    target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds, axis=0)
+    
+    folds = [[target_star_grps[i] for i in target_stars_split] for target_stars_split in target_stars_splits]
+    
+    return folds
+
+def split_tces_by_target_balanced(tce_tbl, n_folds):
+    """Split TCEs by target into folds. Each fold contains all TCEs that share the same target.
+        To ensure balanced folds, a greedy approach is used based on the number of planet TCEs 
+        that are found for each target
+
+    :param pandas DataFrame tce_tbl: TCE table
+    :param int n_folds: number of folds
+    :return list: each item in the list is a list of pandas DataFrames containing the target tables with 
+        their corresponding TCEs
+    """
+    
+    target_groups = []
+    for target_id, group in tce_tbl.groupby('target_id'):
+        planet_score = group['label'].isin(['CP', 'KP']).sum()  # count planet-labeled TCEs
+        target_groups.append((target_id, group, planet_score))
+
+    # initialize folds and their planet score totals
+    folds = [[] for _ in range(n_folds)]
+    fold_scores = [0] * n_folds
+    # greedy assignment: place each target group in the fold with the lowest current planet score
+    for target_id, group, score in target_groups:
+        best_fold = np.argmin(fold_scores)
+        folds[best_fold].append(group)
+        fold_scores[best_fold] += score
+    
+    return folds
+
 def create_cv_folds_tables(shard_tbls_dir, dataset_tbl_fp, n_folds_eval, rnd_seed, logger, unlabeled_cats,
-                           split_by='target'):
+                           split_by='target greedy balanced'):
     """ Create cross-validation folds tables based on a dataset table.
 
     :param shard_tbls_dir: Path, directory used to save CV folds tables.
@@ -19,7 +117,8 @@ def create_cv_folds_tables(shard_tbls_dir, dataset_tbl_fp, n_folds_eval, rnd_see
     :param unlabeled_cats: bool, unlabeled categories; examples with this label are excluded from the CV dataset and
         put into a predict set.
     :param split_by: str, if 'target' examples are split by their target id, ensuring examples from same target are put
-        into the same fold to minimize data leakage. If 'tce', then splits by example
+        into the same fold to minimize data leakage. If 'target greedy balanced', a greedy approach is used to try to 
+        balance the number of planet TCEs in each fold. If 'tce', then splits by example.
 
     :return:
     """
@@ -53,7 +152,6 @@ def create_cv_folds_tables(shard_tbls_dir, dataset_tbl_fp, n_folds_eval, rnd_see
     logger.info(f'Number of target stars: {len(target_star_grps)}')
     rng.shuffle(target_star_grps)
     working_tce_tbl = pd.concat(target_star_grps).reset_index(drop=True)
-    # tce_tbl = pd.concat(rng.permutation(tce_tbl.groupby('target_id')))
 
     # # shuffle per TCE
     # logger.info('Shuffling TCE table per TCE...')
@@ -67,30 +165,33 @@ def create_cv_folds_tables(shard_tbls_dir, dataset_tbl_fp, n_folds_eval, rnd_see
     shard_tbls_eval_dir = shard_tbls_dir / 'eval'
     shard_tbls_eval_dir.mkdir(exist_ok=True, parents=True)
 
-    # split at the target star level
-    if split_by == 'target':
+    if split_by == 'target':  # split at the target star level
+    
         logger.info('Splitting at target star level...')
-        target_star_grps = [df for _, df in working_tce_tbl.groupby('target_id')]
-        target_stars_splits = np.array_split(range(len(target_star_grps)), n_folds_eval, axis=0)
-        for fold_i, target_stars_split in enumerate(target_stars_splits):
-            fold_tce_tbl = pd.concat(target_star_grps[target_stars_split[0]:target_stars_split[-1] + 1])
-            # shuffle TCEs in each fold
-            fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng,
-                                               axis=0).reset_index(drop=True)
-            fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
-    elif split_by == 'tce':
-        # split at the TCE level
+
+        folds = split_tces_by_target(working_tce_tbl, n_folds_eval)
+    
+    elif split_by == 'target greedy balanced':  # split at the target star level balanced planets
+        
+        logger.info('Splitting at target star level using a greedy approach to balance number of planets in each fold...')
+        
+        folds = split_tces_by_target_balanced(working_tce_tbl, n_folds_eval)
+                        
+    elif split_by == 'tce':  # split at the TCE level
+        
         logger.info('Splitting at TCE level...')
-        tce_splits = np.array_split(range(len(working_tce_tbl)), n_folds_eval, axis=0)
-        for fold_i, tce_split in enumerate(tce_splits):
-            fold_tce_tbl = working_tce_tbl[tce_split[0]:tce_split[-1] + 1]
-            # shuffle TCEs in each fold
-            fold_tce_tbl = fold_tce_tbl.sample(frac=1, replace=False, random_state=rng,
-                                               axis=0).reset_index(drop=True)
-            fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
+        
+        folds = split_tces(working_tce_tbl, n_folds_eval, rng)
+        
     else:
         raise ValueError(f'Invalid split method: {split_by}. Choose between `target` or `tce`.')
 
+    # save each fold
+    for fold_i, fold_groups in enumerate(folds):
+        # shuffle TCEs within the fold
+        fold_tce_tbl = pd.concat(fold_groups).sample(frac=1, random_state=rng).reset_index(drop=True)
+        fold_tce_tbl.to_csv(shard_tbls_eval_dir / f'labeled_dataset_tbl_fold{fold_i}.csv', index=False)
+        
     # tces not in the eval set
     unused_tces = ~dataset_tbl['uid'].isin(working_tce_tbl['uid'])
     if len(unused_tces) > 0:
@@ -104,28 +205,16 @@ def create_cv_folds_tables(shard_tbls_dir, dataset_tbl_fp, n_folds_eval, rnd_see
             fold_tce_tbl = dataset_noteval[tce_split[0]:tce_split[-1] + 1]
             fold_tce_tbl.to_csv(shard_tbls_predict_dir / f'unlabeled_dataset_tbl_fold{fold_i}.csv', index=False)
 
-    # Check distribution of examples per fold
+    # check distribution of examples per fold
     logger.info(f'Checking distribution of dispositions per fold in the labeled dataset...')
-    for tbl_fp in shard_tbls_eval_dir.iterdir():
-
-        tbl = pd.read_csv(tbl_fp)
-        logger.info(f'Fold {tbl_fp.name} ({len(tbl)/len(working_tce_tbl) * 100:.3f} %)')
-        logger.info(f'Number of examples: {len(tbl)}')
-        logger.info(f'Disposition distribution (counts):\n{tbl["label"].value_counts().to_string()}')
-        logger.info(f'Disposition distribution (%):\n{(tbl["label"].value_counts(normalize=True) * 100).to_string()}')
-
-        # cnt_tces_target = \
-        #     tbl['target_id'].value_counts().to_frame(name='num_tces_target').reset_index().rename(
-        #         columns={'index': 'target_id'})
-        #
-        # logger.info(f'Number of TCEs per target:\n{cnt_tces_target["num_tces_target"].value_counts()}')
-        # logger.info(f'{"#" * 100}')
+    folds_tbls_fps = list(shard_tbls_eval_dir.glob('labeled_dataset_tbl_fold*.csv'))
+    create_table_folds_statistics(folds_tbls_fps, shard_tbls_eval_dir / 'folds_statistics.csv')
 
 
 if __name__ == '__main__':
 
-    data_dir = Path(f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsshared_cv_5-23-2025_1029')
-    dataset_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsshared/shards_tbl.csv')
+    data_dir = Path(f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406')
+    dataset_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/shards_tbl.csv')
     rnd_seed = 24
     n_folds_eval = 5  # which is also the number of shards
     n_folds_predict = 100

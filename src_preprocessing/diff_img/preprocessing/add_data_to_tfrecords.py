@@ -16,6 +16,7 @@ import argparse
 
 # local
 from src_preprocessing.tf_util import example_util
+from src_preprocessing.utils_manipulate_tfrecords import parse_uid, make_filter_by_uid_fn
 
 
 def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
@@ -52,40 +53,6 @@ def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
                                    tce_diff_img_data['images_numbers'])
 
     return example
-
-
-def parse_uid(serialized_example):
-    """Parse only TCE unique IDs 'uid' from the examples in the TFRecord datset.
-
-    :param TF serialized_example: serialized TFRecord example 
-    :return tuple: tuple of uid and serialized example
-    """
-    
-    # define the feature spec for just the UuidID
-    feature_spec = {
-        'uid': tf.io.FixedLenFeature([], tf.string)
-    }
-    parsed_features = tf.io.parse_single_example(serialized_example, feature_spec)
-    
-    return parsed_features['uid'], serialized_example
-
-def make_filter_by_uid_fn(chosen_uids):
-    """Create filter for TFRecord dataset that excludes TCE examples whose uid is not included in `chosen_uids`.
-
-    :param TF Tensor chosen_uids: chosen uids to filter examples
-    :return: filtering function
-    """
-    
-    def filter_uid_tf(uid):
-        """Filter function of examples in TFRecord dataset based on 'uid' feature
-
-        :param Tensor string uid: chosen uid
-        :return Tensor bool: boolean values that check for uid inclusion
-        """
-        
-        return tf.reduce_any(tf.equal(uid, chosen_uids))
-    
-    return filter_uid_tf
 
 
 def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_data_fp, imgs_fields, n_examples_shard=300, logger=None):

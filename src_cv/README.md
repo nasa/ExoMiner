@@ -50,7 +50,7 @@ create CV dataset using CV iteration tables from Step 1 and a source TFRecord da
 #### 3. Created normalized CV dataset for training and evaluation
 
 At this point, the CV dataset consists of several CV folds. For each iteration, we need to choose at least a training 
-and a test sets (validation is optional but usually useful for model selection, specially for neural networks). Use 
+and a test sets (validation is optional but usually useful for model selection, especially for neural networks). Use 
 function [`create_cv_iterations_yaml_for_cv_dataset()`](preprocessing/create_cv_iterations_yaml_files.py) to create a YAML 
 file that shows the train-(val optional)-test split for each CV iteration. Then 
 [`Submitjob_create_data_for_cv.pbs`](preprocessing/Submitjob_create_data_for_cv.pbs), 

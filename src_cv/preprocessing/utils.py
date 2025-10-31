@@ -1,5 +1,5 @@
 """
-Utility functions for CV  dataset preprocessing.
+Utility functions for CV dataset preprocessing.
 """
 
 # 3rd party
@@ -7,81 +7,97 @@ import pandas as pd
 import tensorflow as tf
 import logging
 from pathlib import Path
+from tqdm import tqdm
+import traceback
+
+# local
+from src_preprocessing.utils_manipulate_tfrecords import parse_uid
 
 
-def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_dir, src_tfrec_tbl, log_fp=None):
+def log_info(message, logger=None, include_traceback=False):
+    """Log information either to stdout or Python Logger if `logger` is not `None`.
+
+    :param str message: log message
+    :param Python Logger logger: logger. If `None`, message is printed to stdout
+    :param bool include_traceback: if True, includes traceback (requires being called under and try/exception block). Defaults to False
+    """
+    
+    if include_traceback:
+        message += "\n" + traceback.format_exc()
+        
+    if logger:
+        logger.info(message)
+    else:
+        print(message)
+
+
+def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_fps, batch_size=128, log_fp=None):
     """ Create a TFRecord fold for cross-validation based on source TFRecords and fold TCE table.
 
     :param shard_tbl_fp: Path, shard TCE table filepath
     :param dest_tfrec_dir: Path, destination TFRecord directory
     :param fold_i: int, fold id
-    :param src_tfrec_dir: Path, source TFRecord directory
-    :param src_tfrec_tbl: pandas Dataframe, maps example to a given TFRecord shard
+    :param src_tfrec_fps: list, Paths to source TFRecord shards
+    :param batch_size: int, batch size for source TFRecord
     :param log_fp: Path, log file path; if None, does not create a logger
     :return:
-        tces_not_found: list, each sublist contains the target id and tce planet number for TCEs not found in the source
-        TFRecords
+        tces_not_found: pandas DataFrame, fold table for TCEs not found in source TFRecord
     """
 
     if log_fp:
         # set up logger
         logger = logging.getLogger(name=f'log_fold_{fold_i}')
-        logger_handler = logging.FileHandler(filename=log_fp,  # dest_tfrec_dir.parent / f'create_tfrecord_fold_{fold_i}.log',
+        logger_handler = logging.FileHandler(filename=log_fp,
                                              mode='w')
         logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
         logger.setLevel(logging.INFO)
         logger_handler.setFormatter(logger_formatter)
         logger.addHandler(logger_handler)
         logger.info(f'Starting run...')
+    else:
+        logger = None
 
-    tces_not_found = []
+    log_info(f'[Fold {fold_i}] Reading fold TCE table: {shard_tbl_fp}', logger=logger)
 
-    if log_fp:
-        logger.info(f'Reading fold TCE table: {shard_tbl_fp}')
     fold_tce_tbl = pd.read_csv(shard_tbl_fp)
+    # convert list of TCE uids into a TF tensor
+    uids_tensor = tf.constant(fold_tce_tbl['uid'].to_list(), dtype=tf.string)
 
     tfrec_new_fp = dest_tfrec_dir / f'shard-{f"{fold_i}".zfill(4)}'
-    if log_fp:
-        logger.info(f'Destination TFRecord file: {tfrec_new_fp}')
+    log_info(f'[Fold {fold_i}] Destination TFRecord file: {tfrec_new_fp}', logger=logger)
 
-    if log_fp:
-        logger.info('Iterating over the fold TCE table...')
+    log_info(f'[Fold {fold_i}] Iterating over the fold TCE table...', logger=logger)
     n_tces_in_shard = 0
-    # write examples in a new TFRecord shard
+    
+    dataset = tf.data.TFRecordDataset(src_tfrec_fps)
+    dataset = dataset.map(parse_uid, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.filter(lambda uid, _: tf.reduce_any(tf.equal(uid, uids_tensor)))
+    dataset = dataset.batch(batch_size)
+
+    n_tces_in_shard = 0
+    tces_found = []
+
     with tf.io.TFRecordWriter(str(tfrec_new_fp)) as writer:
+        for batch in tqdm(dataset, total=(len(fold_tce_tbl) // batch_size + 1), desc=f'Fold {fold_i}'):
+            uids_batch, serialized_batch = batch
 
-        for tce_i, tce in fold_tce_tbl.iterrows():
+            for uid, serialized_example in zip(uids_batch.numpy(), serialized_batch.numpy()):
+                writer.write(serialized_example)
+                n_tces_in_shard += 1
+                tces_found.append(uid.decode())
 
-            if (tce_i + 1) % 50 == 0 and log_fp:
-                logger.info(f'Iterating over fold table {fold_i} {shard_tbl_fp.name} '
-                            f'({tce_i + 1} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...')
+                if n_tces_in_shard % 50 == 0:
+                    log_info(
+                        f'[Fold {fold_i}] Iterating over fold table {fold_i} {shard_tbl_fp.name} '
+                        f'({n_tces_in_shard} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...',
+                        logger=logger
+                    )
 
-            # look for TCE in the source TFRecords table
-            tce_found = src_tfrec_tbl.loc[src_tfrec_tbl['uid'] == tce['uid'],  ['shard', 'example_i_tfrec']]
-
-            if len(tce_found) == 0:
-                tces_not_found.append([tce['uid']])
-                continue
-
-            src_tfrec_name, example_i = tce_found.values[0]
-
-            tfrecord_dataset = tf.data.TFRecordDataset(str(src_tfrec_dir / src_tfrec_name))
-            for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
-                if string_i == example_i:
-                    example = tf.train.Example()
-                    example.ParseFromString(string_record)
-
-                    example_uid = example.features.feature['uid'].bytes_list.value[0].decode("utf-8")
-
-                    assert f'{example_uid}' == f'{tce["uid"]}'
-
-                    writer.write(example.SerializeToString())
-                    n_tces_in_shard += 1
-
-        writer.close()
-
-    if log_fp:
-        logger.info(f'Finished iterating over fold table {fold_i} {shard_tbl_fp.name}.')
+    log_info(f'[Fold {fold_i}] Finished iterating over fold table {fold_i} {shard_tbl_fp.name}.', logger=logger)
+    
+    tces_not_found = fold_tce_tbl.loc[~fold_tce_tbl['uid'].isin(tces_found)]
+    
+    log_info(f'[Fold {fold_i}] Written {n_tces_in_shard} examples. Missing {len(tces_not_found)}.', logger=logger)
 
     return tces_not_found
 
@@ -116,5 +132,5 @@ def create_table_shard_example_location(tfrec_dir):
 
 if __name__ == '__main__':
 
-    tfrec_dir = Path('/data5/tess_project/Data/tfrecords/Kepler/Q1-Q17_DR25/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_data/tfrecordskeplerdr25-dv_g301-l31_spline_nongapped_newvalpcs_tessfeaturesadjs_12-1-2021_koi_fpflagec')
+    tfrec_dir = Path('')
     create_table_shard_example_location(tfrec_dir)

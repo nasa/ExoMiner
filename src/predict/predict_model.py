@@ -3,7 +3,7 @@ Run inference with a model.
 """
 
 # 3rd party
-from tensorflow.keras.utils import plot_model, custom_object_scope
+from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 import pandas as pd
 import argparse
@@ -13,7 +13,6 @@ import logging
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
-from models.utils_models import register_custom_objects
 from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
 
 

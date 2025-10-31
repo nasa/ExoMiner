@@ -10,6 +10,41 @@ import shutil
 import multiprocessing
 
 
+def parse_uid(serialized_example):
+    """Parse only TCE unique IDs 'uid' from the examples in the TFRecord datset.
+
+    :param TF serialized_example: serialized TFRecord example 
+    :return tuple: tuple of uid and serialized example
+    """
+    
+    # define the feature spec for just the UuidID
+    feature_spec = {
+        'uid': tf.io.FixedLenFeature([], tf.string)
+    }
+    parsed_features = tf.io.parse_single_example(serialized_example, feature_spec)
+    
+    return parsed_features['uid'], serialized_example
+
+
+def make_filter_by_uid_fn(chosen_uids):
+    """Create filter for TFRecord dataset that excludes TCE examples whose uid is not included in `chosen_uids`.
+
+    :param TF Tensor chosen_uids: chosen uids to filter examples
+    :return: filtering function
+    """
+    
+    def filter_uid_tf(uid):
+        """Filter function of examples in TFRecord dataset based on 'uid' feature
+
+        :param Tensor string uid: chosen uid
+        :return Tensor bool: boolean values that check for uid inclusion
+        """
+        
+        return tf.reduce_any(tf.equal(uid, chosen_uids))
+    
+    return filter_uid_tf
+
+
 def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omitMissing=True, verbose=False):
     """ Create a TFRecord file (shard) based on a set of existing TFRecord files.
 
@@ -329,7 +364,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101')
+    tfrec_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406')
     # get filepaths for TFRecord shards
     tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
@@ -338,6 +373,7 @@ if __name__ == '__main__':
         'tce_plnt_num': 'int',
         'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
+        'obs_type': 'str',
     }
     delete_corrupted_tfrec_files = False
     verbose = True

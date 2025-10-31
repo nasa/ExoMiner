@@ -3,20 +3,18 @@ Evaluate model.
 """
 
 # 3rd party
-from tensorflow.keras.utils import plot_model, custom_object_scope
+from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
 import yaml
 from pathlib import Path
 import logging
-from tensorflow.keras.utils import get_custom_objects
-
 
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
-from models.utils_models import compile_model, register_custom_objects
+from models.utils_models import compile_model
 from src.evaluate.utils_eval import write_performance_metrics_to_csv_file
 
 
