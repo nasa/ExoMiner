@@ -33,6 +33,9 @@ if __name__ == '__main__':
     unlabeled_dest_tfrec_dir = dest_dir / 'tfrecords' / 'predict'
     log_dir = dest_dir / 'create_cv_folds_logs'
     
+    # string feature used to filter examples in source TFRecord dataset into fold shards (e.g., 'uid')
+    filter_field = 'uid_obs_type'
+    
     # batch size for source TFRecord
     src_tfrec_batch_size = 128
     
@@ -72,7 +75,7 @@ if __name__ == '__main__':
     n_processes_used = min(n_processes, len(labeled_shard_tbls_fps))
     pool = multiprocessing.Pool(processes=n_processes)
     jobs = [(shard_tbl_fp, labeled_dest_tfrec_dir, fold_i, src_tfrec_fps, src_tfrec_batch_size, log_dir /
-             f'create_fold_evaluation_{fold_i}.log')
+             f'create_fold_evaluation_{fold_i}.log', filter_field)
             for fold_i, shard_tbl_fp in enumerate(labeled_shard_tbls_fps)]
     logger.info(f'Set {len(jobs)} jobs to create TFRecord shards.')
     logger.info(f'Started creating shards for evaluation...')
@@ -96,7 +99,7 @@ if __name__ == '__main__':
         n_processes_used = min(n_processes, len(unlabeled_shard_tbls_fps))
         pool = multiprocessing.Pool(processes=n_processes_used)
         jobs = [(shard_tbl_fp, unlabeled_dest_tfrec_dir, fold_i, src_tfrec_fps, src_tfrec_batch_size, log_dir /
-                 f'create_fold_predict_{fold_i}.log')
+                 f'create_fold_predict_{fold_i}.log', filter_field)
                 for fold_i, shard_tbl_fp in enumerate(unlabeled_shard_tbls_fps)]
         async_results = [pool.apply_async(create_shard_fold, job) for job in jobs]
         pool.close()

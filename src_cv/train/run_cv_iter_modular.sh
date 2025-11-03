@@ -35,7 +35,7 @@ PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
 CV_ITER=$((GNU_PARALLEL_INDEX + JOB_ARRAY_INDEX * N_JOBS))
 
 # Check if CV_ITER is greater than or equal to N_CV_ITERS
-if [ $CV_ITER -ge "$N_CV_ITERS" ]
+if [ "$CV_ITER" -ge "$N_CV_ITERS" ]
 then
   echo "CV iteration $CV_ITER is above total number of iterations ($N_CV_ITERS). Ending process."
   exit 0
@@ -99,7 +99,7 @@ do
     else
       # setup run
       echo "Setting up configuration for model $MODEL_I in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-      python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" --model_i="$MODEL_I" &>> "$LOG_FP_TRAIN_MODEL"
+      python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$MODEL_DIR" &>> "$LOG_FP_TRAIN_MODEL"
       CV_ITER_CONFIG_FP=$MODEL_DIR/config_cv.yaml
 
       echo "Training model $MODEL_I in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"

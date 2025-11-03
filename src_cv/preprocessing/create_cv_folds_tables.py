@@ -222,7 +222,7 @@ if __name__ == '__main__':
     unlabeled_cats = [
         'UNK',
     ]
-    split_by = 'target'
+    split_by = 'target greedy balanced'
 
     # prepare the shards for CV by splitting the TCE table into shards (n folds)
     data_dir.mkdir(exist_ok=True)

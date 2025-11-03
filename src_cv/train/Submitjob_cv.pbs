@@ -15,8 +15,8 @@
 # GH nodes --------
 # PBS -lselect=1:ncpus=72:ngpus=1:model=gh200
 # PBS -q dsggh_gpu@pbs05a
-#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_tess_2min_exominernew.out
-#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_tess_2min_exominernew.err
+#PBS -o /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_tess_spoc_ffi_paper.out
+#PBS -e /home6/msaragoc/jobs/Kepler-TESS_exoplanet/job_cv_tess_spoc_ffi_paper.err
 #PBS -W group_list=a1509
 # PBS -W group_list=s2857
 #PBS -m bea
@@ -28,6 +28,7 @@
 
 # initialize conda and activate conda environment
 module use -a /swbuild/analytix/tools/modulefiles
+
 # module load miniconda3/gh2
 # source activate exoplnt_dl_gh_nfs
 module load miniconda3/v4
@@ -43,8 +44,9 @@ export PYTHONPATH=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/
 CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/config_cv_train.yaml
 # job script for running the Python application
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/run_cv_iter_modular.sh
+
 # output directory
-OUTPUT_DIR=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_tess-spoc-ffi_s36-s72_multisector_s56-s69_with2mindata_valffionly_2valfolds_3-6-2025_1027
+OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_10-31-2025_1714
 mkdir -p $OUTPUT_DIR
 
 # create main output job file
@@ -72,7 +74,7 @@ NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
 # run CV sh script
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"
+seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"
 
 # testing multi-node setup...
-# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"

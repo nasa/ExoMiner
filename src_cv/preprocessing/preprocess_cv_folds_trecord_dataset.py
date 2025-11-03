@@ -177,7 +177,7 @@ if __name__ == '__main__':
 
     # load cv iterations dictionary
     with(open(config['cv_folds_fp'], 'r')) as file:  # read default YAML configuration file
-        config['data_shards_fps'] = yaml.unsafe_load(file)
+        config['data_shards_fps'] = yaml.unsafe_load(file)['data_shards_fps']
 
     if config['rank'] == 0:
         # save configuration used
