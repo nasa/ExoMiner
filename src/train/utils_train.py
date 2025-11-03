@@ -296,8 +296,9 @@ def filter_examples_tfrecord_obs_type(parsed_features, label_id, obs_type):
 
     # encoding_obs_type = table.lookup(vocabulary[obs_type])
 
+    return tf.equal(tf.squeeze(parsed_features['obs_type']), tf.constant(obs_type))
     # return tf.squeeze(parsed_features['obs_type'] == obs_type)
-    return tf.squeeze(parsed_features['obs_type_int'] == obs_type)
+    # return tf.squeeze(parsed_features['obs_type_int'] == obs_type)
     # return tf.squeeze(parsed_features['tce_period_norm'] >= 0)
     # return tf.squeeze(tf.equal(parsed_features['obs_type'], encoding_obs_type))
     # return tf.reduce_any(tf.equal(parsed_features['obs_type'], encoding_obs_type))
@@ -338,6 +339,9 @@ class ComputePerformanceOnFFIand2min(keras.callbacks.Callback):
         self.obs_types = ['ffi', '2min']
         self.filter_fn = filter_fn
         self.save_dir = save_dir
+        self.features = self.config['features_set']
+        if 'obs_type' not in self.features:
+            self.features.update({'obs_type': {'dim': [1, ], 'dtype': tf.string}})
 
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -360,7 +364,7 @@ class ComputePerformanceOnFFIand2min(keras.callbacks.Callback):
                                         batch_size=self.config['evaluation']['batch_size'],
                                         mode='EVAL',
                                         label_map=self.config['label_map'],
-                                        features_set=self.config['features_set'],
+                                        features_set=self.features,
                                         multiclass=self.config['config']['multi_class'],
                                         use_transformer=self.config['config']['use_transformer'],
                                         feature_map=self.config['feature_map'],

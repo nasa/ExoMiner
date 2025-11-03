@@ -1,7 +1,7 @@
 # source TFRecord directory
-tfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/
+tfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458
 # destination directory for computed statistics
-norm_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/
+norm_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458
 
 n_processes_compute_norm_stats: 36  # number of processes used to parallelize reading the values for the dataset
 
@@ -213,7 +213,7 @@ scalarParams:
     clip_factor: 20  # .nan  # values are truncated to  median +- mad_std * clip_factor; if .nan, values are not truncated
     dtype: float  # feature data type; mostly `float`
     log_transform: true  # if true, values are log-transformed
-    log_transform_eps: 1.0e-32  # log-transform offset factor to prevent invalid log(0)
+    log_transform_eps: 1.0e-300  # log-transform offset factor to prevent invalid log(0)
     missing_value: -1  # placeholder value for missing values; if missing value is represented by  NaN or there are no missing values, set to null
     replace_value: null  # value used to replace missing value; if null, missing values are replaced by median of the training set
     standardize: true

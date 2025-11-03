@@ -88,7 +88,7 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, ch
 
 def create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp):
     """ Create CV iterations yaml file for the normalized CV dataset based on the CV iterations yaml file for the
-    non-normalized dataset  `src_cv_iterations_fp`.
+    non-normalized dataset `src_cv_iterations_fp`.
 
     Args:
         data_dir: Path, CV dataset directory with normalized data
@@ -100,18 +100,20 @@ def create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterati
     
     # create yaml file to be used to run the CV experiment with the normalized labeled dataset
     with open(src_cv_iterations_fp, 'r') as file:
-        cv_iterations = yaml.unsafe_load(file)
+        cv_iters_dict = yaml.unsafe_load(file)
 
     cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-    for cv_iter_i, cv_iter in enumerate(cv_iterations):
+    for cv_iter_i, cv_iter in enumerate(cv_iters_dict['data_shards_fps']):
 
         cv_iter = {dataset: [data_dir / f'cv_iter_{cv_iter_i}/norm_data' / dataset_fp.name for dataset_fp in dataset_fps]
                    for dataset, dataset_fps in cv_iter.items()}
 
         cv_iters.append(cv_iter)
 
+    cv_iters_dict['data_shards_fps'] = cv_iters
+    cv_iters_dict['dataset_directory'] = str(data_dir)
     with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-        yaml.dump(cv_iters, file, sort_keys=False)
+        yaml.dump(cv_iters_dict, file, sort_keys=False)
 
 
 def create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterations):
@@ -133,17 +135,17 @@ def create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterati
 
 if __name__ == "__main__":
 
-    # Create CV iterations yaml file for the non-normalized dataset
-    data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/')
-    datasets = ['train', 'test', 'val']
-    choose_val_method = 'rotating_fold'
-    create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, choose_val_method=choose_val_method)
+    # # Create CV iterations yaml file for the non-normalized dataset
+    # data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/')
+    # datasets = ['train', 'test', 'val']
+    # choose_val_method = 'rotating_fold'
+    # create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, choose_val_method=choose_val_method)
 
-    # # Create CV iterations yaml file to be used to run the CV experiment with the normalized labeled dataset
-    # data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/')
-    # # use yaml file for CV iterations created when normalizing the data
-    # src_cv_iterations_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml')
-    # create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp)
+    # Create CV iterations yaml file to be used to run the CV experiment with the normalized labeled dataset
+    data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/')
+    # use yaml file for CV iterations created when normalizing the data
+    src_cv_iterations_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml')
+    create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp)
 
     # # Create CV iterations yaml file to be used to run the CV trained models on a predict dataset
     # data_dir = Path('')

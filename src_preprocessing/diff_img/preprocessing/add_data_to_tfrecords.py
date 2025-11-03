@@ -86,7 +86,7 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
     dataset = tf.data.TFRecordDataset(src_tfrec_fps)
     # parse only uids, keep rest of example serialized
     dataset = dataset.map(parse_uid, num_parallel_calls=tf.data.AUTOTUNE)
-    # filter examples based on chosen uids from differnece image data
+    # filter examples based on chosen uids from difference image data
     filter_uids_fn = make_filter_by_uid_fn(uids_tensor)
     dataset = dataset.filter(lambda uid, _: filter_uids_fn(uid))
     # batch dataset

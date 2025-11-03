@@ -66,7 +66,10 @@ def compute_scalar_params_norm_stats(scalarParamsDict, config):
         # compute MAD std as robust estimate of deviation from central tendency
         scalarNormStats[scalarParam]['mad_std'] = stats.mad_std(scalarParamVals) \
             if scalarParam not in ['tce_rb_tcount0n'] else np.std(scalarParamVals)
-
+        # fallback to std if MAD std is zero to prevent explosion of values
+        if scalarNormStats[scalarParam]['mad_std'] == 0:
+            scalarNormStats[scalarParam]['mad_std'] = np.std(scalarParamVals)
+        
     # save normalization statistics for scalar parameters
     np.save(config['norm_dir'] / 'train_scalarparam_norm_stats.npy', scalarNormStats)
 

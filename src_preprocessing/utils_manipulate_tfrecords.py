@@ -10,6 +10,35 @@ import shutil
 import multiprocessing
 
 
+def parse_feature(serialized_example, feature_name):
+    """Parse a specified string feature from a serialized TFRecord example.
+
+    :param serialized_example: Serialized TFRecord example
+    :param feature_name: Name of the string feature to parse
+    :return: Tuple of feature value and serialized example
+    """
+    
+    feature_spec = {
+        feature_name: tf.io.FixedLenFeature([], tf.string)
+    }
+    
+    parsed_features = tf.io.parse_single_example(serialized_example, feature_spec)
+    
+    return parsed_features[feature_name], serialized_example
+
+def make_filter_by_feature_fn(chosen_values):
+    """Create a filter function for TFRecord dataset based on inclusion in chosen string values.
+
+    :param chosen_values: Tensor of string values to filter by
+    :return: Filtering function
+    """
+    
+    def filter_fn(feature_value):
+        return tf.reduce_any(tf.equal(feature_value, chosen_values))
+    
+    return filter_fn
+
+
 def parse_uid(serialized_example):
     """Parse only TCE unique IDs 'uid' from the examples in the TFRecord datset.
 
@@ -364,7 +393,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406')
+    tfrec_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/')
     # get filepaths for TFRecord shards
     tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
@@ -374,6 +403,7 @@ if __name__ == '__main__':
         'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
         'obs_type': 'str',
+        'uid_obs_type': 'str',
     }
     delete_corrupted_tfrec_files = False
     verbose = True
