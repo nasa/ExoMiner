@@ -41,7 +41,7 @@ from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector
 
 #%% set filepaths
 
-experiment_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xai/test_kernel-shap_clf-head-stellar-dvtce')
+experiment_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/xai/test_deep-shap_clf-head-stellar-dvtce')
 model_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/data/exominer-plusplus_cv-iter0-model0_tess-spoc-2min-s1s67_tess-kepler.keras')
 config_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_2min/tess_paper/cv_tess-spoc-2min_s1-s67_kepler_trainset_tcenumtransits_tcenumtransitsobs_1-12-2025_1036/cv_iter_0/models/model0/config_cv.yaml')
 dataset_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/tfrecords/tess/cv_tfrecords_tess_spoc_2min_s1-s67_9-24-2024_1159_tcedikcorat_crowdsap_tcedikcocorr_11-23-2024_0047_eval_normalized_cv_iter_0/norm_data')
@@ -569,6 +569,43 @@ foreground_inputs_arr2d = np.concatenate(foreground_inputs, axis=1)
 # shap_values = explainer(foreground_inputs_arr2d[:2])
 # shap_values = explainer.shap_values(foreground_inputs_arr2d, nsamples=100, l1_reg="num_features(5)")
 
+#%% compute SHAP values for a different dataset than the "foreground" dataset
+
+config['eval'] = {'batch_size': 512}
+
+tfrec_fps = list(Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/tic235678745_s14s78_s14s86_sexominer-single-model_10-13-2025_1049/').rglob('tfrecord_data_diffimg_normalized/shard-tess_diffimg_TESS_0'))
+create_dataset_input_fn = InputFn(
+        file_paths=tfrec_fps,
+        batch_size=config['eval']['batch_size'],
+        mode='PREDICT',
+        label_map=config['label_map'],
+        features_set=config['features_set'],
+        multiclass=config['config']['multi_class'],
+        feature_map=config['feature_map'],
+        label_field_name=config['label_field_name'],
+    )
+
+conv_outputs = conv_model.predict(create_dataset_input_fn())
+stacked_features = np.concatenate(conv_outputs, axis=-1)
+dataset_df = pd.DataFrame(stacked_features, columns=feature_cols)
+
+metadata = get_data_from_tfrecords_for_predictions_table(['all'],
+                                                     ['uid', 'label'],
+                                                    {'all': tfrec_fps}
+                                                    )
+metadata_df = pd.DataFrame(metadata['all'])
+foreground_df = pd.concat([metadata_df, dataset_df], axis=1, ignore_index=False)
+
+foreground_inputs = [full_df[feature_grp].to_numpy() for feature_grp in feature_grps]
+foreground_inputs_arr2d = np.concatenate(foreground_inputs, axis=1)
+
+#%%
+
+njobs = 6
+nchunks = 6  # 32
+nsamples = 100
+l1_reg = "num_features(5)"
+shap_values_numpy_fn = f'shap_values_kernel_explainer_{model_fp.stem}_nsamples{nsamples}_l1reg{l1_reg}_njobs{njobs}.npy'
 
 # def make_model_wrapper(model):
 #     def model_wrapper(X):
@@ -579,8 +616,11 @@ foreground_inputs_arr2d = np.concatenate(foreground_inputs, axis=1)
 base_value = shap.KernelExplainer(model_wrapper, background_inputs_arr2d, masker=masker).expected_value[0]
 
 
-def explain_samples(x, model_wrapper, background_inputs_arr2d, masker, nsamples, l1_reg):
+def explain_samples(x, model_wrapper, background_inputs_arr2d, masker, nsamples, l1_reg, chunk_i=None):
     
+    if chunk_i is not None:    
+        print(f"Processing chunk {chunk_i} with {x.shape} examples")
+
     # model_wrapper = make_model_wrapper(model)
 
     explainer = shap.KernelExplainer(model_wrapper, background_inputs_arr2d, masker=masker)
@@ -588,23 +628,21 @@ def explain_samples(x, model_wrapper, background_inputs_arr2d, masker, nsamples,
     return explainer.shap_values(x, nsamples=nsamples, l1_reg=l1_reg)
 
 # Create a partial function with fixed arguments
-nsamples = 100
-l1_reg = "num_features(5)"
+
 explain_fn = partial(explain_samples, model_wrapper=model_wrapper,
                      background_inputs_arr2d=background_inputs_arr2d, masker=masker, nsamples=nsamples, l1_reg=l1_reg)
 
 # Use with joblib
-njobs = 8
-nchunks = 32
+
 foreground_inputs_arr2d_jobs = np.array_split(foreground_inputs_arr2d, nchunks, axis=0)
 shap_res_jobs = Parallel(n_jobs=njobs)(
-    delayed(explain_fn)(np.array(x), chunk_i) for chunk_i, x in enumerate(tqdm(foreground_inputs_arr2d_jobs))
+    delayed(explain_fn)(np.array(x), chunk_i=chunk_i) for chunk_i, x in enumerate(tqdm(foreground_inputs_arr2d_jobs))
 )
 
 # save SHAP values from KernelExplainer
 
 shap_values_arr = np.concatenate(shap_res_jobs, axis=0).squeeze()
-np.save(experiment_dir / f'shap_values_kernel_explainer_{model_fp.stem}_nsamples{nsamples}_l1reg{l1_reg}_njobs{njobs}.npy', shap_values_arr)
+np.save(experiment_dir / shap_values_numpy_fn, shap_values_arr)
 
 feature_values_arr = foreground_inputs_arr2d.copy()
 
@@ -682,7 +720,8 @@ feature_values_arr = np.concatenate(feature_values_arr, axis=1)
 
 #%% build SHAP values table
 
-shap_df_fp = experiment_dir / f'shap-values_{model_fp.stem}_foreground-examples.csv'
+shap_df_fp = experiment_dir / f'shap-values_{model_fp.stem}_tic235678745_s14s78_s17s86.csv'
+# shap_df_fp = experiment_dir / f'shap-values_{model_fp.stem}_foreground-examples.csv'
 
 shap_df = pd.DataFrame(shap_values_arr, columns=feature_cols)
 shap_df = pd.concat([foreground_df[['uid', 'label']].reset_index(drop=True), shap_df.reset_index(drop=True)], axis=1)
@@ -693,10 +732,11 @@ shap_df['base_value'] = float(base_value)
 shap_df.attrs['dataset'] = str(dataset_dir)
 shap_df.attrs['model'] = f'convolutional model up to ReLU output plus stellar parameters and DV TCE fit inputs of {str(model_fp)}'  # f'full ExoMiner++ model in {str(model_fp)}'
 shap_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-shap_df.attrs['shap_framework'] = f'kernel explainer | {nsamples} samples | {l1_reg} regularization'  # 'deep explainer'
+# shap_df.attrs['shap_framework'] = f'kernel explainer | {nsamples} samples | {l1_reg} regularization'  # 'deep explainer'
+shap_df.attrs['shap_framework'] = f'deep explainer'
 shap_df.attrs['base_value'] = base_value
 shap_df.attrs['reference_examples'] = f'{sample_size} CP/KP (planet) TCEs'  # f'{sample_size} CP/KP (planet) TCEs'
-shap_df.attrs['examples_set'] = 'examples not used for reference'
+shap_df.attrs['examples_set'] = 'SPOC TCEs for TIC 235678745 in S14-S78 and S14-S86'
 with open(shap_df_fp, "w") as f:
     for key, value in shap_df.attrs.items():
         f.write(f"# {key}: {value}\n")
@@ -1002,20 +1042,21 @@ for grp_val in grp_values:
 agg = True
 download_dv_reports = False
 # sample_name = '_sample-top100_nebs_by_dikco_msky'
-sample_name = '_sample-few-examples'
+sample_name = '_tic235678745_s14s78_s14s86'
 
 # tce_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/DV_SPOC_mat_files/preprocessing_tce_tables/09-25-2023_1608/tess_2min_tces_dv_s1-s68_all_msectors_11-29-2023_2157_newlabels_nebs_npcs_bds_ebsntps_to_unks_sg1master_allephemmatches_exofoptois_dv_mast_urls.csv')
 # nebs = tce_tbl.loc[tce_tbl['label'] == 'NEB'].sort_values('tce_dikco_msky', ascending=False)
 # tce_uid_lst = nebs['uid'].to_list()[:100]
 
-tce_uid_lst = [
-    '26801525-1-S57', # secondary | EB
-    '309787037-1-S35',  # centroid | FP
-    '167526485-1-S6',  # flux trend ? | EB
-    '273574141-1-S14',  # odd-even | EB
-    '83053699-1-S57', # centroid motion | NEB   
-]
+# tce_uid_lst = [
+#     '26801525-1-S57', # secondary | EB
+#     '309787037-1-S35',  # centroid | FP
+#     '167526485-1-S6',  # flux trend ? | EB
+#     '273574141-1-S14',  # odd-even | EB
+#     '83053699-1-S57', # centroid motion | NEB   
+# ]
 
+tce_uid_lst = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/tic235678745_s14s78_s14s86_sexominer-single-model_10-13-2025_1049/predictions_tic235678745_s14s78_s14s86_sexominer-single-model_10-13-2025_1049.csv')['uid'].to_list()
 
 if agg:
     plot_dir = experiment_dir / f'shap_waterfall_plots_{model_fp.stem}_agg-{agg_method}{sample_name}'
