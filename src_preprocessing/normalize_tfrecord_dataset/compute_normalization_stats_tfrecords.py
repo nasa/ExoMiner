@@ -13,6 +13,7 @@ import tensorflow as tf
 import multiprocessing
 import yaml
 import argparse
+from tqdm import tqdm
 
 # local
 from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
@@ -163,13 +164,16 @@ def compute_diff_img_data_norm_stats(diff_imgDict, config):
     return normStatsDiff_imgDf
 
 
-def get_values_from_tfrecord(tfrec_file, scalar_params=None, centroidList=None, diff_imgList=None, **kwargs):
+def get_values_from_tfrecord(tfrec_file, scalar_params=None, centroidList=None, diff_imgList=None, max_n_examples_shard=-1, **kwargs):
     """  Extracts feature values from a TFRecord file for computing normalization statistics.
 
     :param tfrec_file: path to source TFRecord file
     :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
     :param centroidList: list, name of centroid time series
     :param diff_imgList: list, name of difference image features
+    :param max_n_examples_shard: int, maximum number of examples used to compute statistics per TFRecord file. Computing the normalization 
+        statistics relies on having enough memory to load all the data for each feature. Use a smaller set of the data to get an 
+        approximation of the dataset statistics.
     :param kwargs: dict, auxiliary parameters
     :return:
         scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
@@ -177,26 +181,42 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, centroidList=None, 
         diff_imgDict: dict, list of values for the difference image features used to compute normalization statistics
     """
 
+    # iterate through the shard
+    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_file))
+    
+    n_examples_in_dataset = sum(1 for _ in tf.data.TFRecordDataset(tfrec_file))
+    
+    if max_n_examples_shard == -1:
+        max_n_examples_shard = np.inf
+
+    n_examples_in_dataset = min(n_examples_in_dataset, max_n_examples_shard)
+
     if scalar_params is not None:
-        scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
+        # scalarParamsDict = {scalarParam: [] for scalarParam in scalar_params}
+        scalarParamsDict = {scalarParam: np.empty(n_examples_in_dataset) for scalarParam in scalar_params}
     else:
         scalarParamsDict = None
 
     # our centroid time series normalization statistics parameters
     if centroidList is not None:
-        centroidDict = {timeSeries: [] for timeSeries in centroidList}
+        # flattened_size_centroid_ts = {timeSeries: np.prod(kwargs['centroid_ts_shape'][timeSeries]) for timeSeries in centroidList}
+        # centroidDict = {timeSeries: np.empty(n_examples_in_dataset * flattened_size_centroid_ts[timeSeries]) for timeSeries in centroidList}
+        centroidDict = {timeSeries: [] if 'glob' in timeSeries else np.empty(n_examples_in_dataset * len(kwargs['idxs_nontransitcadences_loc'][0])) for timeSeries in centroidList}
     else:
         centroidDict = None
 
     if diff_imgList is not None:
-        diff_imgDict = {diffimgs: [] for diffimgs in diff_imgList}
+        flattened_size_diff_img = np.prod(kwargs['diff_img_data_shape'])
+        diff_imgDict = {diffimgs: np.empty(n_examples_in_dataset * flattened_size_diff_img) for diffimgs in diff_imgList}
     else:
         diff_imgDict = None
-
-    # iterate through the shard
-    tfrecord_dataset = tf.data.TFRecordDataset(str(tfrec_file))
-
-    for string_record in tfrecord_dataset.as_numpy_iterator():
+        
+    # for string_i, string_record in tqdm(enumerate(tfrecord_dataset.as_numpy_iterator()), desc=f'Get data from TCEs in TFRecord {tfrec_file.name}', total=n_examples_in_dataset):
+    for string_i, string_record in enumerate(tfrecord_dataset.as_numpy_iterator()):
+        
+        if string_i == max_n_examples_shard:
+            print(f"Reached the maximum number of examples allowed ({max_n_examples_shard}) in {tfrec_file} for computing statistics. Stopping iteration over this file...")
+            break
 
         example = tf.train.Example()
         example.ParseFromString(string_record)
@@ -204,7 +224,8 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, centroidList=None, 
         # get scalar parameters data
         if scalar_params is not None:
             for scalarParam in scalar_params:
-                scalarParamsDict[scalarParam].append(get_feature(example, scalarParam)[0])
+                # scalarParamsDict[scalarParam].append(get_feature(example, scalarParam)[0])
+                scalarParamsDict[scalarParam][string_i] = get_feature(example, scalarParam)[0]
 
         # get centroid time series data
         if centroidList is not None:
@@ -217,26 +238,35 @@ def get_values_from_tfrecord(tfrec_file, scalar_params=None, centroidList=None, 
                                                                                 transitDuration,
                                                                                 orbitalPeriod)
                     centroidDict[timeSeries].extend(timeSeriesTce[idxs_nontransitcadences_glob])
+                    # centroidDict[timeSeries][string_i * len(idxs_nontransitcadences_glob[0]):(string_i + 1) * len(idxs_nontransitcadences_glob[0])] = \
+                    #     timeSeriesTce[idxs_nontransitcadences_glob]
                 else:
-                    centroidDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])
+                    # centroidDict[timeSeries].extend(timeSeriesTce[kwargs['idxs_nontransitcadences_loc']])
+                    centroidDict[timeSeries][string_i * len(kwargs['idxs_nontransitcadences_loc'][0]):(string_i + 1) * len(kwargs['idxs_nontransitcadences_loc'][0])] = \
+                        timeSeriesTce[kwargs['idxs_nontransitcadences_loc']]
 
         # get diff img data
         if diff_imgList is not None:
             for diffimgs in diff_imgList:
-                diffimgsTce = tf.io.parse_tensor(serialized=example.features.feature[diffimgs].bytes_list.value[0],
-                                                 out_type='float').numpy()
-                diff_imgDict[diffimgs].extend(diffimgsTce)
+                # diffimgsTce = tf.io.parse_tensor(serialized=example.features.feature[diffimgs].bytes_list.value[0],
+                                                #  out_type='float').numpy()
+                diffimgsTce = np.array(example.features.feature[diffimgs].float_list.value, dtype=np.float32)
+                # diff_imgDict[diffimgs].extend(diffimgsTce)
+                diff_imgDict[diffimgs][string_i * flattened_size_diff_img: (string_i + 1) * flattened_size_diff_img] = diffimgsTce
 
     return scalarParamsDict, centroidDict, diff_imgDict
 
 
-def get_values_from_tfrecords(tfrec_files, scalar_params=None, centroidList=None, diff_imgList=None, **kwargs):
+def get_values_from_tfrecords(tfrec_files, scalar_params=None, centroidList=None, diff_imgList=None, max_n_examples_shard=-1, **kwargs):
     """ Extracts feature values from a list of TFRecord files for computing normalization statistics.
 
     :param tfrec_files: list, paths to source TFRecord files
     :param scalar_params: dict, scalar parameters to be normalized and normalization info for each
     :param centroidList: list, name of centroid time series
     :param diff_imgList: list, name of difference image features
+    :param max_n_examples_shard: int, maximum number of examples used to compute statistics per TFRecord file. Computing the normalization 
+        statistics relies on having enough memory to load all the data for each feature. Use a smaller set of the data to get an 
+        approximation of the dataset statistics.
     :param kwargs: dict, auxiliary parameters needed for normalization
     :return:
         scalarParamsDict: dict, list of values for each scalar parameters used to compute normalization statistics
@@ -260,27 +290,35 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, centroidList=None
     else:
         diff_imgDict = None
 
-    for tfrec_i, tfrecFile in enumerate(tfrec_files):
-
-        print(f'[{multiprocessing.current_process().name}] Getting data from {tfrecFile.name} '
-              f'({tfrec_i / len(tfrec_files) * 100} %)')
+    for tfrecFile in tqdm(tfrec_files, desc='Get data from TFRecord files', total=len(tfrec_files)):
 
         scalarParamsDict_tfrecord, centroidDict_tfrecord, diff_imgDict_tfrecord = \
-            get_values_from_tfrecord(tfrecFile, scalar_params, centroidList, diff_imgList, **kwargs)
+            get_values_from_tfrecord(tfrecFile, scalar_params, centroidList, diff_imgList, max_n_examples_shard, **kwargs)
 
         if scalar_params is not None:
             for param in scalar_params:
-                scalarParamsDict[param].extend(scalarParamsDict_tfrecord[param])
+                scalarParamsDict[param].append(scalarParamsDict_tfrecord[param])  # append array
 
         if centroidList is not None:
             for param in centroidList:
-                centroidDict[param].extend(centroidDict_tfrecord[param])
+                centroidDict[param].append(centroidDict_tfrecord[param])
 
         if diff_imgList is not None:
             for param in diff_imgList:
-                diff_imgDict[param].extend(diff_imgDict_tfrecord[param])
+                diff_imgDict[param].append(diff_imgDict_tfrecord[param])
 
-    print(f'[{multiprocessing.current_process().name}] Finished extracting data (100 %)')
+    # concatenate all arrays at the end
+    if scalar_params is not None:
+        for param in scalar_params:
+            scalarParamsDict[param] = np.concatenate(scalarParamsDict[param])
+
+    if centroidList is not None:
+        for param in centroidList:
+            centroidDict[param] = np.concatenate(centroidDict[param])
+
+    if diff_imgList is not None:
+        for param in diff_imgList:
+            diff_imgDict[param] = np.concatenate(diff_imgDict[param])
 
     return scalarParamsDict, centroidDict, diff_imgDict
 
@@ -328,14 +366,16 @@ def compute_normalization_stats(tfrec_fps, config):
     if config['n_processes_compute_norm_stats'] > 1:
         pool = multiprocessing.Pool(processes=config['n_processes_compute_norm_stats'])
 
-        # tfrecTrainFiles_split = np.array_split(tfrec_fps, config['n_processes_compute_norm_stats'])
         # number of jobs is equal to number of TFRecord files
-        jobs = [([tfrec_fp], config['scalarParams'], config['centroidList'], config['diff_imgList'])
+        jobs = [([tfrec_fp], config['scalarParams'], config['centroidList'], config['diff_imgList'], config['max_n_examples_shard'])
                 for tfrec_fp in tfrec_fps]
         async_results = [pool.apply_async(get_values_from_tfrecords, job,
                                           kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
                                                 'num_bins_loc': config['num_bins_loc'],
-                                                'num_bins_glob': config['num_bins_glob']})
+                                                'num_bins_glob': config['num_bins_glob'],
+                                                'diff_img_data_shape': config['diff_img_data_shape'],
+                                                'centroid_ts_shape': config['centroid_ts_shape'],
+                                                })
                          for job in jobs]
         for async_result in async_results:
             partial_values = async_result.get()
@@ -359,7 +399,9 @@ def compute_normalization_stats(tfrec_fps, config):
                                       config['diff_imgList'],
                                       idxs_nontransitcadences_loc=idxs_nontransitcadences_loc,
                                       num_bins_loc=config['num_bins_loc'],
-                                      num_bins_glob=config['num_bins_glob']
+                                      num_bins_glob=config['num_bins_glob'],
+                                      diff_img_data_shape=config['diff_img_data_shape'],
+                                      centroid_ts_shape=config['centroid_ts_shape'],
                                       )
 
     print('Finished extracting data. Started computing normalization statistics...')
@@ -401,14 +443,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file')
     args = parser.parse_args()
+    
+    args.config_fp = '/u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml'
 
     with(open(args.config_fp, 'r')) as file:
         config = yaml.unsafe_load(file)
+    
+    config = config['compute_norm_stats_params']
+    config['norm_dir'] = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats')
 
     # get only training set TFRecords
-    tfrecTrainFiles = list(Path(config['tfrecDir']).glob('train-shard*'))
-    print(f'Found {len(tfrecTrainFiles)} TFRecord shards')
+    with open('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml', 'r') as dataset_fps:
+        tfrec_fps = yaml.unsafe_load(dataset_fps)['data_shards_fps'][0]['train']
+    
+    print(f'Found {len(tfrec_fps)} TFRecord shards')
 
-    compute_normalization_stats(tfrecTrainFiles, config)
+    compute_normalization_stats(tfrec_fps, config)
 
     print('Normalization statistics computed.')

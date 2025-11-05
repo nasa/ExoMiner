@@ -182,7 +182,6 @@ config:
       - tce_slogg_norm
       - tce_smass_norm
       - tce_sradius_norm
-      - ruwe_norm
 
     dv_tce_fit:
       - boot_fap_norm

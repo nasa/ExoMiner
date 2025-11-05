@@ -11,12 +11,41 @@ import copy
 import argparse
 import multiprocessing
 from pathlib import Path
+from tqdm import tqdm
 
 # local
 from src_preprocessing.normalize_tfrecord_dataset.compute_normalization_stats_tfrecords import compute_normalization_stats
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples
 
 
+def load_normalization_statistics(norm_dir, centroid_names=None, scalar_params_names=None, diff_imgs_names=None):
+    """ Load normalization statistics for a single CV iteration.
+
+    :param norm_dir: Path, directory containing NumPy files with normalization statistics files
+    :parma centroid_names: list, centroid features names
+    :param scalar_params_names: list, scalar features names
+    :param diff_imgs_names: list, difference image features names
+    :return: if the files exist and normalization statistics can be loaded from them, then it returns a dictionary; otherwise it returns `None`
+    """
+    
+    try:
+        norm_stats = {}
+        
+        if centroid_names is not None:
+                norm_stats.update({'centroid': np.load(norm_dir/ 'train_centroid_norm_stats.npy', allow_pickle=True).item()})
+        if scalar_params_names is not None:
+            scalar_params_norm_info = np.load(norm_dir / 'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
+            scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items() if k in scalar_params_names}
+            norm_stats.update({'scalar_params': scalar_params_norm_info})
+        if diff_imgs_names is not None:
+            norm_stats.update({'diff_img': np.load(norm_dir / 'train_diffimg_norm_stats.npy', allow_pickle=True).item()})
+    except Exception as e:
+        print(f'Warning when loading normalization statistics:\n {e}')
+        norm_stats = None
+    
+    return norm_stats
+
+            
 def create_cv_iteration_dataset(data_shards_fps, run_params):
     """ Create a normalized data set for a single CV iteration.
 
@@ -37,54 +66,53 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     run_params['norm_data_dir'].mkdir(exist_ok=True)
 
     run_params['compute_norm_stats_params']['norm_dir'] = run_params['norm_dir']
+    
+    run_params['compute_norm_stats_params']['diff_img_data_shape'] = run_params['diff_img_data_shape']
 
     data_shards_fps_eval = copy.deepcopy(data_shards_fps)
 
-    # split training folds into training and validation sets by randomly selecting one of the folds as the validation
-    # set
-    # if run_params['val_from_train']:
-    #     data_shards_fps_eval['val'] = run_params['rng'].choice(data_shards_fps['train'], 1, replace=False)
-    #     data_shards_fps_eval['train'] = np.setdiff1d(data_shards_fps['train'], data_shards_fps_eval['val'])
-
     # process data before feeding it to the model (e.g., normalize data based on training set statistics
     if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration')
-
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
-
-    p = multiprocessing.Process(target=compute_normalization_stats,
-                                args=(
-                                    data_shards_fps['train'],
-                                    run_params['compute_norm_stats_params'],
-                                ))
-    p.start()
-    p.join()
-
-    if run_params['logger'] is not None:
-        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Processing data for CV iteration..')
 
     # load normalization statistics
     if run_params['compute_norm_stats_params']['precomputed']:
         norm_stats = {feature_grp: np.load(norm_stats_fp, allow_pickle=True).item()
                       for feature_grp, norm_stats_fp
-                      in run_params['compute_norm_stats_params']['precomputed'].iterdir()}
+                      in run_params['compute_norm_stats_params']['precomputed'].items()}
 
     else:
-        norm_stats = {}
+        if run_params['logger'] is not None:
+            run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Checking if normalization statistics were already computed in {run_params["norm_dir"]}.')
+        norm_stats = load_normalization_statistics(run_params['norm_dir'], 
+                                                   run_params['compute_norm_stats_params']['centroidList'], 
+                                                   run_params['compute_norm_stats_params']['scalarParams'], 
+                                                   run_params['compute_norm_stats_params']['diff_imgList'])    
+        if run_params['logger'] is not None and norm_stats is not None:
+            run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Found normalization statistics already computed in {run_params["norm_dir"]}.')        
+        
+        if norm_stats is None:
+            
+            if run_params['logger'] is not None:
+                run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Computing normalization statistics')
+                
+            # p = multiprocessing.Process(target=compute_normalization_stats,
+            #                             args=(
+            #                                 data_shards_fps['train'],
+            #                                 run_params['compute_norm_stats_params'],
+            #                             ))
+            # p.start()
+            # p.join()
+            compute_normalization_stats(data_shards_fps['train'], run_params['compute_norm_stats_params'])
 
-        if run_params['compute_norm_stats_params']['centroidList'] is not None:
-            norm_stats.update({'centroid': np.load(run_params['norm_dir'] /
-                                                   'train_centroid_norm_stats.npy', allow_pickle=True).item()})
-        if run_params['compute_norm_stats_params']['scalarParams'] is not None:
-            scalar_params_norm_info = np.load(run_params['norm_dir'] /
-                                              'train_scalarparam_norm_stats.npy', allow_pickle=True).item()
-            scalar_params_norm_info = {k: v for k, v in scalar_params_norm_info.items()
-                                       if k in run_params['compute_norm_stats_params']['scalarParams']}
-            norm_stats.update({'scalar_params': scalar_params_norm_info})
-        if run_params['compute_norm_stats_params']['diff_imgList'] is not None:
-            norm_stats.update({'diff_img': np.load(run_params['norm_dir'] /
-                                                   'train_diffimg_norm_stats.npy', allow_pickle=True).item()})
+
+            norm_stats = load_normalization_statistics(run_params['norm_dir'], 
+                                                   run_params['compute_norm_stats_params']['centroidList'], 
+                                                   run_params['compute_norm_stats_params']['scalarParams'], 
+                                                   run_params['compute_norm_stats_params']['diff_imgList'])            
+
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:
@@ -93,17 +121,30 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
         raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
                          f'statistics were loaded.')
 
-    pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['norm_data_dir'], file, norm_stats, run_params)
-            for file in np.concatenate(list(data_shards_fps_eval.values()))]
-    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-    pool.close()
-    for async_result in async_results:
-        async_result.get()
+    # prepare jobs
+    files = np.concatenate(list(data_shards_fps_eval.values()))
+    jobs = [(run_params['norm_data_dir'], file, norm_stats) for file in files]
+    # for job in tqdm(jobs, desc='Normalizing TFRecord file', total=len(jobs)):
+    #     normalize_examples(*job)
+    # create the pool
+    with multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data']) as pool:
+        
+        # submit jobs asynchronously
+        async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
+
+        # track progress with tqdm
+        for result in tqdm(async_results, desc="Normalizing TFRecord file", total=len(jobs)):    
+            try:
+                result.get()
+            except Exception as e:
+                print(f"[ERROR] Subprocess failed: {e}")
 
     # # compute sample weights
     # if run_params['training']['sample_weights']:
     #     compute_sample_weights(data_shards_fps_norm, run_params)
+    
+    if run_params['logger'] is not None:
+        run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Done normalizing data for CV iteration.')
 
 
 def create_cv_dataset(config):
@@ -148,6 +189,8 @@ def create_cv_dataset(config):
 
 
 if __name__ == '__main__':
+
+    multiprocessing.set_start_method("spawn", force=True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)

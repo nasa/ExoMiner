@@ -262,7 +262,10 @@ class InputFnv2(object):
         data_fields = {}
         for feature_name, feature_info in self.features_set.items():
             if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:  # N-D feature, N > 1
-                data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
+                if 'unfolded' in feature_name:  # tensor features
+                    data_fields[feature_name] = tf.io.FixedLenFeature(1, tf.string)
+                else:  # N-D features stored as flattened arrays
+                    data_fields[feature_name] = tf.io.FixedLenFeature([np.prod(feature_info['dim'])], tf.float32)
             else:
                 data_fields[feature_name] = tf.io.FixedLenFeature(feature_info['dim'], feature_info['dtype'])
 
@@ -325,15 +328,25 @@ class InputFnv2(object):
 
             # parse the features
             parsed_features_ex = tf.io.parse_single_example(serialized=serialized_example, features=self.data_fields)
+            
             # parse tensors from strings to arrays with the correct shape
             def parse_and_reshape(feature_name):
+                
                 feature_info = self.features_set[feature_name]
+                
                 feature_value = parsed_features_ex[feature_name]
+                
                 if len(feature_info['dim']) > 1 and feature_info['dim'][-1] > 1:
-                    tensor = tf.io.parse_tensor(feature_value[0], out_type=feature_info['dtype'])
-                    return tf.reshape(tensor, feature_info['dim'])
-                else:
-                    return feature_value
+                    if 'unfolded' in feature_name:  # for features stored as Tensors
+                        tensor = tf.io.parse_tensor(feature_value[0], out_type=feature_info['dtype'])
+                        feature_value = tf.reshape(tensor, feature_info['dim'])
+                    else:  # reshape N-D features into their original dimensions from a flattened array
+                        feature_value = tf.reshape(feature_value, feature_info['dim'])
+                
+        
+                tf.debugging.check_numerics(feature_value, message=f"NaN or Inf in feature: {feature_name}")
+
+                return feature_value
 
             feature_names = list(parsed_features_ex.keys())
             parsed_features = {name: parse_and_reshape(name) for name in feature_names}
@@ -356,6 +369,8 @@ class InputFnv2(object):
 
                 # map label to integer
                 label_id = self.label_to_id.lookup(parsed_label[self.label_field_name])
+                
+                tf.debugging.check_numerics(label_id, message="NaN or Inf in label")
 
                 # tf.debugging.assert_greater_equal(label_id, 0, message="Invalid label")
                 tf.debugging.assert_greater_equal(label_id, tf.constant(0.0, dtype=tf.float32), message="Invalid label")
@@ -453,9 +468,6 @@ class InputFnv2(object):
 
         if self.filter_fn:  # use filter function to filter parsed examples in the TFRecord dataset
             dataset = dataset.filter(self.filter_fn)
-
-        if self.cache_enabled:  # any shuffle done before is fixed
-            dataset = dataset.cache()
 
         # creates batches by combining consecutive elements
         dataset = dataset.batch(self.batch_size,

@@ -8,9 +8,6 @@ paths:
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
   cv_folds: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iterations.yaml
-  # HPO run configuration directory; get configurations from an HPO run; comment to not use any
-#  hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/hpo_configs/hpo_merged_unfolded_7-5-2023
-#  hpo_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/hpo_configs/hporun_newexominer_tessspoc_2mins1-s88_notsharedtargetsffi_5-22-2025_1544
 #  model_config_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus.yaml
   model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus_ffi.yaml
 

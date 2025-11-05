@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from tqdm import tqdm
 import traceback
+import math
 
 # local
 from src_preprocessing.utils_manipulate_tfrecords import parse_feature, make_filter_by_feature_fn
@@ -69,14 +70,15 @@ def log_info(message, logger=None, include_traceback=False):
         print(message)
 
 
-def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_fps, batch_size=128, log_fp=None, filter_field='uid'):
+def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_fps, n_shards_fold=1, log_fp=None, filter_field='uid'):
     """ Create a TFRecord fold for cross-validation based on source TFRecords and fold TCE table.
 
     :param shard_tbl_fp: Path, shard TCE table filepath
     :param dest_tfrec_dir: Path, destination TFRecord directory
     :param fold_i: int, fold id
+    :param n_shards_fold: int, number of shards to create per CV fold. By default, it creates one shard per fold
     :param src_tfrec_fps: list, Paths to source TFRecord shards
-    :param batch_size: int, batch size for source TFRecord
+    # :param batch_size: int, batch size for source TFRecord
     :param log_fp: Path, log file path; if None, does not create a logger
     :param filter_field: str, string feature used to filter examples in source TFRecord dataset. Must also be present in the fold table `shard_tbl_fp`
     :return:
@@ -99,53 +101,72 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_fps, batch
     log_info(f'[Fold {fold_i}] Reading fold TCE table: {shard_tbl_fp}', logger=logger)
 
     fold_tce_tbl = pd.read_csv(shard_tbl_fp)
-    log_info(f'[Fold {fold_i}] Number of TCEs in fold table: {len(fold_tce_tbl)}', logger=logger)
+    n_fold_tces = len(fold_tce_tbl)
+    log_info(f'[Fold {fold_i}] Number of TCEs in fold table: {n_fold_tces}', logger=logger)
     # convert list of TCE uids into a TF tensor
     uids_tensor = tf.constant(fold_tce_tbl[filter_field].to_list(), dtype=tf.string)
 
-    tfrec_new_fp = dest_tfrec_dir / f'shard-{f"{fold_i}".zfill(4)}'
-    log_info(f'[Fold {fold_i}] Destination TFRecord file: {tfrec_new_fp}', logger=logger)
-
     log_info(f'[Fold {fold_i}] Iterating over the fold TCE table...', logger=logger)
-    n_tces_in_shard = 0
     
     dataset = tf.data.TFRecordDataset(src_tfrec_fps)
     
     # filter examples
-    # filter_uids_fn = make_filter_by_uid_fn(uids_tensor)
-    # dataset = dataset.filter(lambda uid, _: filter_uids_fn(uid))
-    # dataset = dataset.map(parse_uid, num_parallel_calls=tf.data.AUTOTUNE)
     dataset = dataset.map(lambda x: parse_feature(x, filter_field), num_parallel_calls=tf.data.AUTOTUNE)
     filter_fn = make_filter_by_feature_fn(uids_tensor)
     dataset = dataset.filter(lambda feature_value, _: filter_fn(feature_value))
+
+    # estimate number of examples per shard
+    expected_n_tces_in_shard = math.ceil(n_fold_tces / n_shards_fold)
     
-    # batch examples
-    dataset = dataset.batch(batch_size)
+    log_info(f'[Fold {fold_i}] Writing {n_shards_fold} shards with up to {expected_n_tces_in_shard} examples each.', logger=logger)
 
-    n_tces_in_shard = 0
+    # # batch examples
+    # batch_size = min(batch_size, expected_n_tces_in_shard)
+    # dataset = dataset.batch(batch_size)
+    
     tces_found = []
+    shard_index = 0
+    example_index = 0
+    example_shard_index = 0
+    writer = None
+    for uid_tensor, serialized_example in tqdm(dataset, total=n_fold_tces, desc=f'TCEs in fold {fold_i}'):
+        
+        if example_index % expected_n_tces_in_shard == 0:  # move to next shard
+            
+            if shard_index != 0:
+                log_info(f'[Fold {fold_i} | Shard {shard_index}] Iterated over fold table {fold_i} {shard_tbl_fp.name} '
+                        f'({example_index} out of {n_fold_tces} TCEs)\nNumber of TCEs in the shard: {example_shard_index}/{expected_n_tces_in_shard}.',
+                        logger=logger)
+            if writer:
+                writer.close()
+            
+            tfrec_fp = dest_tfrec_dir / f'shard-fold-{fold_i}_{shard_index:04d}-{n_shards_fold:04d}.tfrecord'
+            
+            # create writer
+            writer = tf.io.TFRecordWriter(str(tfrec_fp))
+            log_info(f'[Fold {fold_i} | Shard {shard_index}] Writing to {tfrec_fp}', logger=logger)
+            
+            example_shard_index = 0
+            shard_index += 1
 
-    with tf.io.TFRecordWriter(str(tfrec_new_fp)) as writer:
-        for batch in tqdm(dataset, total=(len(fold_tce_tbl) // batch_size + 1), desc=f'Fold {fold_i}'):
-            uids_batch, serialized_batch = batch
+        writer.write(serialized_example.numpy())
+        tces_found.append(uid_tensor.numpy().decode())
+        example_shard_index += 1
+        example_index += 1
+        
+        if example_index % 100 == 0:
+            log_info(f'[Fold {fold_i} | Shard {shard_index}] Iterating over fold table {fold_i} {shard_tbl_fp.name} '
+                    f'({example_index} out of {n_fold_tces} TCEs)\nNumber of TCEs in the shard: {example_shard_index}/{expected_n_tces_in_shard}.',
+                    logger=logger)
 
-            for uid, serialized_example in zip(uids_batch.numpy(), serialized_batch.numpy()):
-                writer.write(serialized_example)
-                n_tces_in_shard += 1
-                tces_found.append(uid.decode())
-
-                if n_tces_in_shard % 50 == 0:
-                    log_info(
-                        f'[Fold {fold_i}] Iterating over fold table {fold_i} {shard_tbl_fp.name} '
-                        f'({n_tces_in_shard} out of {len(fold_tce_tbl)})\nNumber of TCEs in the shard: {n_tces_in_shard}...',
-                        logger=logger
-                    )
+    if writer:
+        writer.close()
 
     log_info(f'[Fold {fold_i}] Finished iterating over fold table {fold_i} {shard_tbl_fp.name}.', logger=logger)
     
     tces_not_found = fold_tce_tbl.loc[~fold_tce_tbl[filter_field].isin(tces_found)]
     
-    log_info(f'[Fold {fold_i}] Written {n_tces_in_shard}/{len(fold_tce_tbl)} examples. Missing {len(tces_not_found)}.', logger=logger)
+    log_info(f'[Fold {fold_i}] Written {example_index}/{len(fold_tce_tbl)} TCEs. Missing {len(tces_not_found)}.', logger=logger)
 
     return tces_not_found
 

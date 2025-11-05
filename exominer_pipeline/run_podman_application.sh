@@ -148,7 +148,7 @@ echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
 
 podman run \
   ${volume_mounts} \
-  ghcr.io/nasa/exominer:arm64 \
+  ghcr.io/nasa/exominer \
   --tic_ids_fp=/tics_tbl.csv \
   --output_dir=/outputs \
   --data_collection_mode=$data_collection_mode \

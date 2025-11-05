@@ -1,0 +1,29 @@
+
+
+ # CV destination data directory
+dest_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406
+# TFRecord source directory
+src_tfrec_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406
+# table that maps a TCE to a given TFRecord file in the source TFRecords
+src_tfrec_tbl_fp: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/shards_tbl.csv
+
+n_processes: 36
+
+# directory with the TCE tables for each fold in the labeled data set
+labeled_shard_tbls_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/shard_tables/eval
+
+# directory with the TCE tables for each fold for the unlabeled data set
+unlabeled_shard_tbls_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/shard_tables/predict
+
+# string feature used to filter examples in source TFRecord dataset into fold shards (e.g., 'uid')
+filter_field: 'uid_obs_type'
+
+# # batch size for source TFRecord
+# src_tfrec_batch_size: 128
+
+# number of TFRecord shards per CV fold
+n_shards_fold: 50
+
+# pattern used to look up unlabeled dataset tables
+unlabeled_fold_tbl_pattern: unlabeled_dataset_tbl_fold*.csv
+    

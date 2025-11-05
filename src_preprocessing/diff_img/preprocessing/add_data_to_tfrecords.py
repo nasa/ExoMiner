@@ -13,6 +13,7 @@ import multiprocessing
 import os
 import yaml
 import argparse
+from tqdm import tqdm
 
 # local
 from src_preprocessing.tf_util import example_util
@@ -38,15 +39,16 @@ def add_diff_img_data_to_tfrec_example(example, tce_diff_img_data, imgs_fields):
                                  f'Check `imgs_fields` in YAML configuration file and adapt the variable accordingly.\n'
                                  f'Found images: {tce_diff_img_data["images"].keys()}.')
             img_data = np.array(tce_diff_img_data['images'][f'{img_name}{suffix_str}'])
-            example_util.set_tensor_feature(example, f'{img_name}{suffix_str}', img_data)
+            # example_util.set_tensor_feature(example, f'{img_name}{suffix_str}', img_data)
+            example_util.set_float_feature(example, f'{img_name}{suffix_str}', img_data.flatten())
 
         for pixel_feature_name in ['pixel', 'subpixel']:
             pixel_feature_data = np.vstack(
                 [tce_diff_img_data['target_position'][f'{pixel_feature_name}_x{suffix_str}'],
                  tce_diff_img_data['target_position'][f'{pixel_feature_name}_y{suffix_str}']])
 
-            example_util.set_tensor_feature(example, f'{pixel_feature_name}{suffix_str}',
-                                            pixel_feature_data)
+            # example_util.set_tensor_feature(example, f'{pixel_feature_name}{suffix_str}', pixel_feature_data)
+            example_util.set_float_feature(example, f'{pixel_feature_name}{suffix_str}', pixel_feature_data.flatten())
 
     example_util.set_float_feature(example, 'quality', tce_diff_img_data['quality'])
     example_util.set_float_feature(example, 'images_numbers',
@@ -63,8 +65,6 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
             src_tfrec_dir: Path, source TFRecord dataset directory
             dest_tfrec_dir: Path, destination TFRecord dataset directory
             diff_img_data_fp: Path, filepath to preprocessed difference image data
-            # shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
-            #     'example_i_tfrec' for the source shards in `src_tfrec_dir`
             imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
             n_examples_shard: int, number of examples per shard
             logger: logger
@@ -91,10 +91,11 @@ def write_diff_img_data_to_tfrec_file(src_tfrec_dir, dest_tfrec_dir, diff_img_da
     dataset = dataset.filter(lambda uid, _: filter_uids_fn(uid))
     # batch dataset
     batched_dataset = dataset.batch(n_examples_shard)
+    total_batches = int(np.ceil(len(uids_tensor) / n_examples_shard))
     
     # iterate over examples in batched TFRecord dataset and add difference image data to examples and write them to new TFRecord files in destination directory
     examples_added_dict = {field : [] for field in ['uid', 'label']}
-    for batch_i, batch in enumerate(batched_dataset):
+    for batch_i, batch in tqdm(enumerate(batched_dataset), total=total_batches, desc=f"[{diff_img_data_fp.stem}] Processing batches (approx. total batch number)"):
         
         dest_tfrec_fp = dest_tfrec_dir / f'shard-{diff_img_data_fp.parent.stem}_{batch_i}'
         
@@ -146,8 +147,6 @@ def write_diff_img_data_to_tfrec_files(src_tfrec_dir, dest_tfrec_dir, diff_img_d
             src_tfrec_dir: Path, source TFRecord
             dest_tfrec_dir: Path, destination TFRecord
             diff_img_data_fps: list, list of Path objects for the NumPy files containing preprocessed image data
-            # shards_tbl: pandas DataFrame, table containing shard filename 'shard' and example position in shard
-            #     'example_i_tfrec' for the source shards in `src_tfrec_dir`
             imgs_fields: list, list of images in preprocessed difference image data to be added to the TFRecord dataset
             n_examples_shard: int, number of examples per shard
 

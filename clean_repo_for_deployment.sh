@@ -7,6 +7,15 @@ REMOTE_BRANCH=main
 
 set -e  # Exit on error
 
+# Check if a commit message file is provided as the first argument
+if [[ -n "$1" && -f "$1" ]]; then
+  COMMIT_MSG=$(<"$1")
+  echo "Using commit message from file: $1"
+else
+  COMMIT_MSG="Preparing repository for deployment by cleaning unnecessary files."
+  echo "Using default commit message."
+fi
+
 ORIGINAL_DIR=$(pwd)
 
 echo "Switching to master to start clean..."
@@ -61,8 +70,8 @@ find . -type f -path "*/__pycache__/*" -exec git rm --cached {} \; || true
 git add .gitignore
 
 if ! git diff --cached --quiet; then
-  echo "Committing cleanup changes..."
-  git commit -am "Preparing repository for deployment by cleaning unnecessary files."
+  echo "Committing cleanup changes with message: '$COMMIT_MSG'"
+  git commit -am "$COMMIT_MSG"
 else
   echo "No changes to commit."
 fi

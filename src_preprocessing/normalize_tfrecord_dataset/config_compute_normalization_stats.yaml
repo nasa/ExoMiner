@@ -5,6 +5,10 @@ norm_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TE
 
 n_processes_compute_norm_stats: 36  # number of processes used to parallelize reading the values for the dataset
 
+# maximum number of examples used to approximate normalization statistics per TFRecord file when can't fit data into memory
+# default -1 means use all data
+max_n_examples_shard: -1
+
 clip_value_centroid: 30  # in arcsec; 115.5 and 30 arcsec for TESS and Kepler, respectively
 
 # get out-of-transit indices for the local and global views
@@ -16,6 +20,10 @@ centroidList:
   - 'global_centr_view'
   - 'local_centr_view'
 
+centroid_ts_shape: 
+  global_centr_view: [301 ,1]
+  local_centr_view: [31, 1]
+
 diff_imgList: # null
   - 'diff_imgs'
   - 'oot_imgs'
@@ -25,6 +33,8 @@ diff_imgList: # null
   - 'oot_imgs_tc'
   - 'snr_imgs_tc'
   - 'neighbors_imgs_tc'
+
+diff_img_data_shape: [5, 55, 55]  # set defined image size given that images
 
 # dictionary that provides information on the normalization specificities for each scalar parameters (e.g., placeholder
 # for missing value other than NaN, perform log-transform, clipping factor, data type, replace value for missing value)

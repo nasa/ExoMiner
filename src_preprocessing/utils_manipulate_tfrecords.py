@@ -8,6 +8,7 @@ import pandas as pd
 from pathlib import Path
 import shutil
 import multiprocessing
+from tqdm import tqdm
 
 
 def parse_feature(serialized_example, feature_name):
@@ -284,7 +285,7 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
         raise TypeError("data_fields must be a list of field names.")
     
     tfrec_tbls = []
-    for fp_i, fp in enumerate(tfrec_fps):
+    for fp_i, fp in tqdm(enumerate(tfrec_fps), desc=f'Iterating over TFRecord file {fp.name}', total=len(tfrec_fps)):
         if verbose:
             if logger:
                 logger.info(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')
@@ -393,7 +394,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/')
+    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406')
     # get filepaths for TFRecord shards
     tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
