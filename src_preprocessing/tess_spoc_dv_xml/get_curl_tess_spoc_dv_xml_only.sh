@@ -3,8 +3,8 @@
 # Create new sh script with curl commands only for TESS SPOC DV XML files. Works for both 2-min and FFI data.
 # Assumes the curl sh files are named "*dv.sh" and inside a directory $TARGET_SH_DIR.
 
-TARGET_SH_DIR=/data3/exoplnt_dl/dv_xml/tesscurl_spoc/
-DEST_DIR=/data3/exoplnt_dl/dv_xml/tesscurl_spoc/dv_xml_only/
+TARGET_SH_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv_sh_files/
+DEST_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv_sh_files/dv_xml_only/
 # set permissions and group if needed
 CHANGE_PERMISSIONS_AND_GROUP=false
 GROUP=ar-gg-ti-tess-dsg

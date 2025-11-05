@@ -7,21 +7,6 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 
-# destination file path
-target_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s36-s72_4-7-2025_0931.csv')
-# source table
-tce_tbl_fp = '/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label_features_adjusted.csv'
-# load tce table
-tce_tbl_cols = [
-    'target_id',
-    'sectors_observed',
-    # 'mag',  # not needed now
-    # 'uid'
-    # 'sector_run',  # not needed
-]
-tce_tbl = pd.read_csv(tce_tbl_fp)  # , usecols=tce_tbl_cols)
-
-
 def _convert_sectors_observed_format(x):
 
     MAX_NUM_SECTORS = 150
@@ -34,8 +19,29 @@ def _convert_sectors_observed_format(x):
 
     return x
 
+# destination file path
+target_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/target_sector_pairs_tess_ffi_tces_dv_s56s69_10-8-2025_1106.csv')
+# source table
+tce_tbl_fp = '/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_features_adjusted_label.csv'
+# load tce table
+tce_tbl_cols = [
+    'target_id',
+    'sectors_observed',
+    # 'mag',  # not needed now
+    # 'uid'
+    'sector_run',  # not needed
+]
+convert_sectors_obs = False
+
+tce_tbl = pd.read_csv(tce_tbl_fp, usecols=tce_tbl_cols)
+
+# # filter tce table
+# tce_tbl = tce_tbl.loc[tce_tbl['sector_run']]
+
 # if needed
-tce_tbl = tce_tbl.apply(_convert_sectors_observed_format, axis=1)
+if convert_sectors_obs:
+    print('Convert `sectors_observed` column to binary string.')
+    tce_tbl = tce_tbl.apply(_convert_sectors_observed_format, axis=1)
 
 # get sectors observed for each target in the table
 targets_dict = {'target_id': [], 'sector': []}  # , 'mag': []}
@@ -51,4 +57,15 @@ for target_id, target_data in targets:
         # targets_dict['mag'].append(target_data.loc[0, 'mag'])
 
 targets_df = pd.DataFrame(targets_dict)
-targets_df.to_csv(target_tbl_fp, index=False)
+
+# adding metadata
+targets_df.attrs['source_table'] = str(tce_tbl_fp)
+targets_df.attrs['target population'] = 'targets found in multi-sector run S56-S69 that were not searched before in any given sectors'
+
+print(f'Saving targets table to {target_tbl_fp}...')
+with open(target_tbl_fp, "w") as f:
+    for key, value in targets_df.attrs.items():
+        f.write(f"# {key}: {value}\n")
+    targets_df.to_csv(f, index=False)
+
+print('Finished creating targets table to search for neighbors.')

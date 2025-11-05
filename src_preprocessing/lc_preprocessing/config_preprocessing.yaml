@@ -1,13 +1,13 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_s36-s72_multisector_s56-s69_fromdvxml_11-22-2024_0942/tess_spoc_ffi_s36-s72_multisector_s56-s69_sfromdvxml_11-22-2024_0942_renamed_cols_added_uid_ruwe_ticstellar_label.csv
+input_tce_csv_file: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025_exofop-sg1-tois9-11-2025.csv
 # light curve FITS file directory
-lc_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc
+lc_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/sectors/
 
 using_exominer_pipeline: false
 
-using_mpi: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
+external_parallelization: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
 process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
 # multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
@@ -23,7 +23,7 @@ shuffle_seed: 24
 satellite: tess  # 'kepler' or 'tess'
 
 # plot figures for different preprocessing steps
-plot_figures: true
+plot_figures: false
 plot_prob: 0.001  # 0.1
 
 num_bins_glob: 301  # number of bins in global views
@@ -66,7 +66,7 @@ gapWidth: 0.007
 # unfolded time series
 n_max_phases: 20  # max amount of phases considered for phase split view
 keep_odd_even_order: false  # keep alternating odd/even phases
-min_n_phases: 1  # minimum number of phases that need to be available for a given example
+min_n_phases: 0  # minimum number of phases that need to be available for a given example
 frac_it_cadences_thr: 0.5  # minimum fraction of valid cadences to consider a phase as valid
 # if 'zero_padding', baseline phases (i.e., full of ones) are added; if 'copy_phases', phases are copied starting from
 # the beginning

@@ -756,7 +756,7 @@ def flux_preprocessing(all_time, all_flux, target_uid, config, plot_preprocessin
 
 
 def centroid_preprocessing(all_time, all_centroids, target_position, add_info, target_uid, config, plot_preprocessing_tce):
-    """ Preprocess the centroid timeseries.
+    """ Preprocess the centroid motion timeseries.
 
     :param all_time: list of NumPy arrays, timestamps
     :param all_centroids: dictionary for the two centroid coordinates coded as 'x' and 'y'. Each key maps to a list of
@@ -770,8 +770,8 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
     :param plot_preprocessing_tce: bool, set to True to plot figures related to different preprocessing steps
     
     :return:
-        NumPy array, centroid timestamps
-        dict, containing detrended centroid time series for 'x' and 'y' coordinates and timestamps 'time'
+        NumPy array, timestamps
+        dict, containing trend and detrended centroid motion time series for 'x' and 'y' coordinates
         dict, average out-of-transit centroid position 'x', and 'y' coordinates
     """
 
@@ -784,14 +784,16 @@ def centroid_preprocessing(all_time, all_centroids, target_position, add_info, t
 
     if np.isnan(np.concatenate(centroid_dict['x'])).all():  # when there's no centroid data
         time_centroid = np.concatenate(time_arrs)
-        centroid_dist = np.zeros(len(time_centroid), dtype='float')
         avg_centroid_oot = {coord: np.zeros(len(time_centroid), dtype='float') for coord in centroid_dict}
 
+        detrended_centroid_dict = {centroid_coord: {'detrended': np.zeros(len(time_centroid)), 'trend': np.zeros(len(time_centroid))} 
+                                   for centroid_coord in centroid_dict.keys()}
+        
         report_exclusion(f'No available flux-weighted centroid data for target {target_uid}. '
                          f'Setting transit offset distance from target to zero.',
                          config['exclusion_logs_dir'] / f'exclusions_{target_uid}.txt')
-
-        return time_centroid, centroid_dist, avg_centroid_oot
+        
+        return time_centroid, detrended_centroid_dict, avg_centroid_oot
 
     # remove missing NaN values from the time series
     time_arrs, centroid_dict['x'], centroid_dict['y'], intransit_cadences_target = (
@@ -2075,7 +2077,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
     # set other features from the TCE table - diagnostic statistics, transit fits, stellar parameters...
     for name, value in tce.items():
 
-        if name == 'Public Comment':  # can add special characters that are not serializable in the TFRecords
+        if name == 'Public Comment' or name == 'sg1_comments':  # can add special characters that are not serializable in the TFRecords
             continue
         try:
             if isinstance(value, str):

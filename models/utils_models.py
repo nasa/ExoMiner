@@ -6,7 +6,10 @@ Utility functions associated with building TF/Keras models.
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import losses, optimizers
+from tensorflow.keras.utils import get_custom_objects
 
+# local
+from models.custom_layers import Time2Vec, SplitLayer, StdLayer, ReduceSumLayer, MeanAttentionNormalization, IdentityConv2DInitializer, IdentityConv1DInitializer
 
 def create_inputs(features, feature_map=None):
     """ Create input layers for the input features.
@@ -145,3 +148,19 @@ def compile_model(model, config, metrics_list, train=True):
         model.compile(loss=model_loss, metrics=metrics_list)
 
     return model
+
+
+def register_custom_objects():
+    """Register custom TF Keras objects like layers and initializers."""
+
+    custom_objects = {
+        'Time2Vec': Time2Vec,
+        'SplitLayer': SplitLayer,
+        'StdLayer': StdLayer,
+        'ReduceSumLayer': ReduceSumLayer,
+        'IdentityConv1DInitializer': IdentityConv1DInitializer,
+        'IdentityConv2DInitializer': IdentityConv2DInitializer,
+    }
+
+    for name, obj in custom_objects.items():
+        get_custom_objects()[name] = obj

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Download TESS 2-min/HLSP FFI light curve FITS files using curl statements in sh files.
-# Assumes the curl sh files are named "*lc.sh" and inside a directory $SH_DIR. 
+# Assumes the curl sh files follow naming pattern *s{four digits}*-lc.sh or *sector_{sector-id}*_lc.sh
 
-SH_DIR="/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/download_missing_targets_sectors_lcs_s1-s92_9-16-2025_1257"
-LC_DIR="/data3/exoplnt_dl/lc_fits/2-min"
+SH_DIR="/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_missing_targets_sectors_lcs_s89-s94_s1s92_s14s86_10-9-2025_2201/"
+LC_DIR="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/"
 CHANGE_PERMISSIONS_AND_GROUP=false
 GROUP="ar-gg-ti-tess-dsg"
 MAX_RETRIES=3
@@ -15,7 +15,15 @@ echo "📝 Starting download process at $(date)" | tee -a "$LOG_FILE"
 
 for sector_shfile in "$SH_DIR"/*lc.sh; do
     # SECTOR_RUN=$(basename "$sector_shfile" | grep -oP 'sector\S*')
-    SECTOR_RUN=$(basename "$sector_shfile" | sed -E 's/(_lc\.sh)$//')
+    # SECTOR_RUN=$(basename "$sector_shfile" | sed -E 's/(_lc\.sh)$//')
+    # works for both 2-min and FFI light curve SH files
+    # SECTOR_RUN=$(basename "$sector_shfile" | \
+    # sed -E 's/[-_]lc\.sh$//' | \
+    # grep -oE 's[0-9]{4}|sector_[0-9]+')
+    SECTOR_RUN=$(basename "$sector_shfile" | \
+    sed -E 's/[-_]lc\.sh$//' | \
+    grep -oE 's[0-9]{4}|sector_[0-9]+' | head -n 1)
+
 
     NUM_TARGETS=$(wc -l < "$sector_shfile")
     echo "🎯 $NUM_TARGETS target light curve FITS files to download for sector $SECTOR_RUN" | tee -a "$LOG_FILE"

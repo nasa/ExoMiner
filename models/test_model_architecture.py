@@ -11,10 +11,10 @@ from src.utils.utils_dataio import set_tf_data_type_for_features
 from models import models_keras
 
 # load file with features and model config
-yaml_config_fp = '/Users/msaragoc/Downloads/hpo_debug/config(0, 0, 0)/model_config.yaml'
-model_fn = 'model_exominer_diffimg_tess-spoc-2min_7-30-2025_1314'
-model_plot_fp = f'/Users/msaragoc/Downloads/hpo_debug/config(0, 0, 0)/models/{model_fn}_plot.png'
-model_summary_fp = f'/Users/msaragoc/Downloads/hpo_debug/config(0, 0, 0)/models/{model_fn}_summary.txt'
+yaml_config_fp = '/u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml'
+model_fn = 'model_exominer_new_10-21-2025_1414'
+model_plot_fp = f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/{model_fn}_plot.png'
+model_summary_fp = f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/{model_fn}_summary.txt'
 
 with open(yaml_config_fp, 'r') as file:
     config = yaml.unsafe_load(file)
@@ -37,3 +37,5 @@ plot_model(model,
    rankdir='TB',
    expand_nested=False,
    dpi=48)
+
+print('Done.')

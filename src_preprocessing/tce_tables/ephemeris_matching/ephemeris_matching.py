@@ -105,7 +105,7 @@ def match_transit_signals(transit_signal_a, transit_signal_b, sampling_interval,
 
 
 def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_timestamps_tbl, sampling_interval,
-                                    save_dir, plot_prob=0, plot_dir=None):
+                                    save_dir, plot_prob=0, plot_dir=None, job_id=-1):
     """ Compute matching correlation coefficient between signals/objects for each TIC in each sector run.
 
     Args:
@@ -117,13 +117,15 @@ def match_transit_signals_in_target(targets_arr, tce_tbl, objects_tbl, sector_ti
         save_dir: Path, directory used to save the matching tables
         plot_prob: float, probability to create plot with both binary time series
         plot_dir: Path, directory in which to save the plots
+        job_id: int, job ID. If -1, process ID is used
 
     Returns:
 
     """
 
-    pid = os.getpid()
-    logging.basicConfig(filename=save_dir.parent / 'logs' / f'ephem_matching_{pid}.log',
+    if job_id == -1:
+        job_id = f'proc_{os.getpid()}'
+    logging.basicConfig(filename=save_dir.parent / 'logs' / f'ephem_matching_{job_id}.log',
                         level=logging.INFO,
                         format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',

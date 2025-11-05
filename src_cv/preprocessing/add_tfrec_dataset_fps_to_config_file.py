@@ -22,7 +22,7 @@ def add_tfrec_dataset_fps_to_config_file(cv_iter, config, num_val_folds=1):
     """
 
     with(open(config['paths']['cv_folds'], 'r')) as file:
-        config['datasets_fps'] = yaml.unsafe_load(file)[cv_iter]
+        config['datasets_fps'] = yaml.unsafe_load(file)['data_shards_fps'][cv_iter]
 
     # randomly pick validation set from the training set
     if 'val_from_train' in config:

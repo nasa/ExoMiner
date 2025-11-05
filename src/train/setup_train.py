@@ -6,10 +6,6 @@ Run setup for training iteration.
 import yaml
 from pathlib import Path
 import argparse
-# import numpy as np
-
-# 3rd party
-# from src_hpo.utils_hpo import load_hpo_config
 
 
 def run_setup_for_train_iter(run_dir, config):
@@ -21,11 +17,6 @@ def run_setup_for_train_iter(run_dir, config):
     :return:
     """
 
-    # # load model hyperparameters from HPO run; overwrites the one in the yaml file
-    # if config['paths']['hpo_dir']:
-    #     hpo_dir = Path(config['paths']['hpo_dir'])
-    #     config_hpo_chosen, config['hpo_config_id'] = load_hpo_config(hpo_dir)
-    #     config['config'].update(config_hpo_chosen)
     # load model hyperparameters from model config yaml
     with open(config['paths']['model_config_fp'], 'r') as model_config_f:
         model_config = yaml.unsafe_load(model_config_f)
@@ -35,16 +26,8 @@ def run_setup_for_train_iter(run_dir, config):
     with open(config['paths']['datasets_fps_yaml'], 'r') as file:
         config['datasets_fps'] = yaml.unsafe_load(file)
 
-    # # TODO remove!!!
-    # if 'val' not in config['datasets']:
-    #     print('VALIDATION SET IS SET TO TEST SET TO ALLOW FOR EARLY STOPPING!!!')
-    #     config['datasets'].append('val')
-    #     config['datasets_fps']['val'] = config['datasets_fps']['test']
-
     with open(run_dir / 'config_run.yaml', 'w') as file:
         yaml.dump(config, file, sort_keys=False)
-    # # save configuration used as a NumPy file to preserve everything that is cannot go into a YAML
-    # np.save(run_dir / 'config.npy', config)
 
     # save model's architecture and hyperparameters used
     with open(run_dir / 'model_config.yaml', 'w') as file:

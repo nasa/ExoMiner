@@ -11,6 +11,22 @@ from pathlib import Path
 import tensorflow as tf
 
 
+def map_softmax_predictions_to_class(row, pred_cols, label_map, clf_thr=0):
+    
+    # get the column with the highest score
+    max_col = row[pred_cols].idxmax()
+    
+    # extract the class name from the column name (e.g., 'score_CP' -> 'CP')
+    class_name = max_col.replace('score_', '')
+    
+    label_id = label_map.get(class_name, -1)
+    
+    if row[max_col] < clf_thr:
+        label_id = -1
+    
+    return label_id
+
+
 def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
                                      class_name='label_id', cat_name='label', multiclass=False,
                                      multiclass_target_score=None):
@@ -18,24 +34,24 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
 
     Args:
         predictions_tbl: pandas DataFrame, csv file with predictions. The predictions file must contain the
-        following columns: a `cat_name` column from where the category of the example is retrieved; a `class_name`
-        columns from where the class id of the example is obtained; if binary class setting, a `score` column with the
-        model prediction for the example. Otherwise, two or more columns 'score_{category_name}' that show the score for
-        each category in the multiclass setting. `multiclass_target_score` defines which category is used as positive
+            following columns: a `cat_name` column from where the category of the example is retrieved; a `class_name`
+            columns from where the class id of the example is obtained; if binary class setting, a `score` column with the
+            model prediction for the example. Otherwise, two or more columns 'score_{category_name}' that show the score for
+            each category in the multiclass setting. `multiclass_target_score` defines which category is used as positive
         class to compute binary classification metrics (kind of one-vs-all setting).
         cats: dict, categories `str` of predictions. Should be a supraset of the categories in the `cat_name` column in
-        the predictions csv file. Each category is a key that maps to an integer label id. This depends on the
-        experiment that generated the predictions file.
-        E.g.: binary classification scenario planet vs non-planet {'PC': 1, 'AFP': 0, 'NTP': 0}
+            the predictions csv file. Each category is a key that maps to an integer label id. This depends on the
+            experiment that generated the predictions file.
+            E.g.: binary classification scenario planet vs non-planet {'PC': 1, 'AFP': 0, 'NTP': 0}
         num_thresholds: int, number of thresholds to compute metrics that are defined for a set of thresholds
         clf_threshold:  float, classification threshold ([0, 1])
         top_k_vals: list, k values used to compute precision-at-top k
         class_name: str, column name for column used a ground truth integer class id
         cat_name: str, column name for column used a ground truth category
         multiclass: bool, set to True if multiclass scenario (i.e, `class_name` column has more than two unique label
-        ids)
+            ids)
         multiclass_target_score: str, for the multiclass scenario, use one category in `cat_name` as the positive class.
-        All other categories are seen as negative class.
+            All other categories are seen as negative class.
 
     Returns: pandas DataFrame with compute metrics for the set of predictions in the csv file
 
@@ -55,10 +71,13 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     data_to_tbl = {col: [] for col in metrics_lst}
 
     # compute predictions based on scores and classification threshold
-    predictions_tbl['predicted_class'] = 0
+    
     if multiclass:
-        predictions_tbl.loc[predictions_tbl[f'score_{multiclass_target_score}' > clf_threshold], 'predicted_class'] = 1
+        # predictions_tbl.loc[predictions_tbl[f'score_{multiclass_target_score}'] > clf_threshold, 'predicted_class'] = 1
+        pred_columns = [f'score_{cat}' for cat in cats]
+        predictions_tbl['predicted_class'] = predictions_tbl.apply(lambda row: map_softmax_predictions_to_class(row, pred_columns, cats, clf_thr=0), axis=1)
     else:
+        predictions_tbl['predicted_class'] = 0
         predictions_tbl.loc[predictions_tbl['score'] > clf_threshold, 'predicted_class'] = 1
 
     # compute metrics
@@ -77,7 +96,7 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
 
     # if it is multi classification get specific score
-    scores = predictions_tbl[multiclass_target_score].tolist() if multiclass else predictions_tbl['score'].tolist()
+    scores = predictions_tbl[f'score_{multiclass_target_score}'].tolist() if multiclass else predictions_tbl['score'].tolist()
 
     # if multiclass change labels
     if multiclass:
@@ -91,6 +110,8 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
 
     _ = auc_roc.update_state(labels, scores)
     data_to_tbl['auc_roc'].append(auc_roc.result().numpy())
+    
+    data_to_tbl['avg_precision'].append(average_precision_score(labels, scores))
 
     _ = precision.update_state(labels, scores)
     data_to_tbl['precision'].append(precision.result().numpy())
@@ -103,7 +124,6 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels,
                                                                     predictions_tbl['predicted_class']))
 
-    data_to_tbl['avg_precision'].append(average_precision_score(labels, scores))
 
     for class_id in class_ids:  # computing recall per class id
         data_to_tbl[f'recall_class_{class_id}'].append(
@@ -154,18 +174,25 @@ if __name__ == '__main__':
         # 'SCR1': 0,
         # 'SCR2': 0,
         # # 'SCR3': 0,
-        # TESS
-        'KP': 1,
+        # # TESS
+        # 'KP': 1,
+        # 'CP': 1,
+        # 'EB': 0,
+        # # 'B': 0,
+        # 'FP': 0,
+        # # 'J': 0,
+        # # 'FA': 0,
+        # 'NEB': 0,
+        # 'NPC': 0,
+        # 'NTP': 0,
+        # 'BD': 0,
+        # multiclass
         'CP': 1,
-        'EB': 0,
-        # 'B': 0,
-        'FP': 0,
-        # 'J': 0,
-        # 'FA': 0,
-        'NEB': 0,
-        'NPC': 0,
+        'KP': 1,
+        'EB': 2,
+        'FP': 2,
+        'BD': 2,
         'NTP': 0,
-        'BD': 0,
     }
     num_thresholds = 1000
     clf_threshold = 0.5
@@ -173,18 +200,31 @@ if __name__ == '__main__':
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
-    multiclass = False
-    multiclass_target_score = None
+    multiclass = True
+    multiclass_target_score = 'KP'
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/Users/msaragoc/Downloads/ensemble_ranked_predictions_testset 2.csv")
+    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/ranked_predictions_valset.csv")
     # save path
-    save_fp = Path(f"/Users/msaragoc/Downloads//metrics_prev2.csv")
+    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/metrics_ranked_predictions_valset.csv")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp)
 
     predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
     metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
-                                                  class_name, cat_name)
+                                                  class_name, cat_name, multiclass, multiclass_target_score)
 
-    metrics_df.to_csv(save_fp, index=False)
+    
+    # add metadata
+    metrics_df.attrs['predictions table'] = str(predictions_tbl_fp)
+    metrics_df.attrs['label map'] = cats
+    metrics_df.attrs['clf_thr'] = clf_threshold
+    metrics_df.attrs['num_thresholds'] = num_thresholds
+    metrics_df.attrs['multiclass'] = multiclass
+    metrics_df.attrs['multiclass_to_binary_class'] = multiclass_target_score
+    metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    with open(save_fp, "w") as f:
+        for key, value in metrics_df.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        metrics_df.to_csv(f, index=False)
+    

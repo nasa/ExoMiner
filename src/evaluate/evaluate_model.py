@@ -3,7 +3,7 @@ Evaluate model.
 """
 
 # 3rd party
-from tensorflow.keras.utils import plot_model, custom_object_scope
+from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
@@ -11,13 +11,11 @@ import yaml
 from pathlib import Path
 import logging
 
-
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
-from models.models_keras import Time2Vec, SplitLayer
-from src.evaluate.utils_eval import write_performance_metrics_to_txt_file
+from src.evaluate.utils_eval import write_performance_metrics_to_csv_file
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):
@@ -38,9 +36,9 @@ def evaluate_model(config, model_path, res_dir, logger=None):
         print('Loading model...')
     else:
         logger.info('Loading model...')
-    custom_objects = {"Time2Vec": Time2Vec, 'SplitLayer': SplitLayer}
-    with custom_object_scope(custom_objects):
-        model = load_model(filepath=model_path, compile=False)
+    
+    # register_custom_objects()
+    model = load_model(filepath=model_path, compile=False)
 
     if config['write_model_summary']:
         with open(res_dir / 'model_summary.txt', 'w') as f:
@@ -50,7 +48,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
     if config['plot_model']:
         plot_model(model,
                    to_file=res_dir / 'model.png',
-                   show_shapes=False,
+                   show_shapes=True,
                    show_layer_names=True,
                    rankdir='TB',
                    expand_nested=False,
@@ -106,8 +104,8 @@ def evaluate_model(config, model_path, res_dir, logger=None):
 
     np.save(res_dir / 'res_eval.npy', res)
 
-    # write results to a txt file
-    write_performance_metrics_to_txt_file(res_dir, config['datasets'], res)
+    # write results to a csv file
+    write_performance_metrics_to_csv_file(res_dir, config['datasets'], res)
 
 
 if __name__ == "__main__":

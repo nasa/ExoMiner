@@ -6,7 +6,7 @@ output_dir: null
 # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord file paths
 # for each training, validation and test set folds combination (i.e., {'train': ['/path/to/TFRec_file_x', ...],
 # 'test': ['/path/to/TFRec_file_y', ...]}
-cv_folds_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_bdslabels_diffimg_targetsshared_cv_5-23-2025_1029/tfrecords/eval/cv_iterations.yaml
+cv_folds_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 
@@ -14,6 +14,10 @@ diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are
 
 compute_norm_stats_params:
 
+  # maximum number of examples used to approximate normalization statistics per TFRecord file when can't fit data into memory
+  # default -1 means use all data
+  max_n_examples_shard: -1
+  
   precomputed:  null
 #    centroid:
 #    diff_img:
@@ -30,10 +34,15 @@ compute_norm_stats_params:
     - 'global_centr_view'
     - 'local_centr_view'
 
+  centroid_ts_shape: 
+    global_centr_view: [301, 1]
+    local_centr_view: [31, 1]
+
   diff_imgList:  # null
     - 'diff_imgs'
     - 'oot_imgs'
     - 'snr_imgs'
+    - 'target_imgs'
     - 'neighbors_imgs'
     - 'diff_imgs_tc'
     - 'oot_imgs_tc'
@@ -51,7 +60,7 @@ compute_norm_stats_params:
       clip_factor: 20  # .nan  # values are truncated to  median +- mad_std * clip_factor; if .nan, values are not truncated
       dtype: float  # feature data type; mostly `float`
       log_transform: true  # if true, values are log-transformed
-      log_transform_eps: 1.0e-32  # log-transform offset factor to prevent invalid log(0)
+      log_transform_eps: 1.0e-300  # log-transform offset factor to prevent invalid log(0)
       missing_value: -1  # placeholder value for missing values; if missing value is represented by  NaN or there are no missing values, set to null
       replace_value: null  # value used to replace missing value; if null, missing values are replaced by median of the training set
       standardize: true
@@ -530,7 +539,7 @@ compute_norm_stats_params:
 
 norm_examples_params:
   # SET TO 1 WHEN RUNNING ON THE HECC
-  n_processes_norm_data: 1  # number of processes to parallelize data normalization for each CV iteration
+  n_processes_norm_data: 36  # number of processes to parallelize data normalization for each CV iteration
 
   aux_params: # online data augmentation parameters and needed for normalization of some features
     nr_transit_durations: 5  # number of transit durations in the local view

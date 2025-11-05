@@ -2,18 +2,21 @@
 
 from tensorflow import keras
 import numpy as np
+import tensorflow as tf
 
 
-def get_metrics(clf_threshold=0.5, num_thresholds=1000):
-    """ Setup metrics to be monitored.
+def get_metrics(clf_threshold=0.5, num_thresholds=1000, prec_thr=0.95, rec_thr=0.95):
+    """ Set up metrics to be monitored.
 
-    :param clf_threshold: float, classification threshold (between 0 and 1)
-    :param num_thresholds: int, number of thresholds to be tested
+    :param clf_threshold: float, classification threshold (between 0 and 1). Defaults to 0.5
+    :param num_thresholds: int, number of thresholds to be tested (linearly separated in the range). Defaults to 1000
+    :param prec_thr; float, precision value at which to compute recall (between 0 and 1). Defaults to 0.95
+    :param rec_thr: float, recall value at which to compute precision (between 0 and 1). Defaults to 0.95
     :return:
         metrics_list: list, metrics to be monitored
     """
 
-    threshold_range = list(np.linspace(0, 1, num=num_thresholds))
+    # threshold_range = list(np.linspace(0, 1, num=num_thresholds))
 
     auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
                                summation_method='interpolation',
@@ -28,23 +31,31 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000):
     precision = keras.metrics.Precision(thresholds=clf_threshold, name='precision')
     recall = keras.metrics.Recall(thresholds=clf_threshold, name='recall')
 
-    precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
-    recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
+    # precision_thr = keras.metrics.Precision(thresholds=threshold_range, top_k=None, name='prec_thr')
+    # recall_thr = keras.metrics.Recall(thresholds=threshold_range, top_k=None, name='rec_thr')
 
-    tp = keras.metrics.TruePositives(name='tp', thresholds=threshold_range)
-    fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
-    tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
-    fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+    # tp = keras.metrics.TruePositives(name='tp', thresholds=threshold_range)
+    # fp = keras.metrics.FalsePositives(name='fp', thresholds=threshold_range)
+    # tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
+    # fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
+    
+    f1 = keras.metrics.F1Score(average='weighted', threshold=clf_threshold, name='f1_score')
+    
+    rec_at_prec = keras.metrics.RecallAtPrecision(prec_thr, num_thresholds, name=f'recall_at_precision_{prec_thr}')
+    prec_at_rec = keras.metrics.PrecisionAtRecall(rec_thr, num_thresholds, name=f'precision_at_recall_{rec_thr}')
 
-    metrics_list = [binary_acc, precision, recall, precision_thr, recall_thr, auc_pr, auc_roc, tp, fp, tn, fn]
+    metrics_list = [binary_acc, precision, recall, auc_pr, auc_roc, f1, rec_at_prec, prec_at_rec]
 
     return metrics_list
 
 
-def get_metrics_multiclass(label_map):
-    """ Setup metrics to be monitored for multiclass. 
+def get_metrics_multiclass(label_map, clf_threshold=0.5, num_thresholds=1000):
+    """ Set up metrics to be monitored for multiclass. 
 
     :param label_map: dict, map from label to label id
+    :param clf_threshold: float, classification threshold (between 0 and 1). Defaults to 0.5
+    :param num_thresholds: int, number of thresholds to be tested (linearly separated in the range). Defaults to 1000
+
     :return:
         metrics_list: list, metrics to be monitored
     """
@@ -53,14 +64,63 @@ def get_metrics_multiclass(label_map):
 
     # acc = keras.metrics.SparseCategoricalAccuracy(name='accuracy')
     acc = keras.metrics.CategoricalAccuracy(name='accuracy')
+    
+    auc_pr = keras.metrics.AUC(num_thresholds=num_thresholds,
+                               summation_method='interpolation',
+                               multi_label=True,
+                               curve='PR',
+                               name='auc_pr')
+    auc_roc = keras.metrics.AUC(num_thresholds=num_thresholds,
+                                summation_method='interpolation',
+                                multi_label=True,
+                                curve='ROC',
+                                name='auc_roc')
+    
+    f1 = keras.metrics.F1Score(average='weighted', threshold=clf_threshold, name='f1_score')
+    
+    auc_pr_planet = PlanetVsRestPRAUC(name='auc_pr_planet')
 
-    metrics_list.append(acc)
+    metrics_list += [acc, auc_pr, auc_roc, f1, auc_pr_planet]
 
     for label, label_id in label_map.items():
-        metrics_list.append(keras.metrics.Recall(name=f'recall_{label}', class_id=label_id, thresholds=0.5))
-        metrics_list.append(keras.metrics.Precision(name=f'precision_{label}', class_id=label_id, thresholds=0.5))
+        metrics_list.append(keras.metrics.Recall(name=f'recall_{label}', class_id=label_id, thresholds=clf_threshold))
+        metrics_list.append(keras.metrics.Precision(name=f'precision_{label}', class_id=label_id, thresholds=clf_threshold))
 
     return metrics_list
+
+
+class PlanetVsRestPRAUC(keras.metrics.Metric):
+    
+    def __init__(self, name='planet_vs_rest_pr_auc', num_thresholds=1000, planet_label_id=1, **kwargs):
+        
+        self.num_thresholds = num_thresholds
+        self.planet_label_id = planet_label_id
+        
+        super(PlanetVsRestPRAUC, self).__init__(name=name, **kwargs)
+        
+        self.auc = keras.metrics.AUC(curve='PR',
+                                     name='planet_vs_rest_pr_auc', 
+                                     num_thresholds=self.num_thresholds,
+                                     summation_method='interpolation',)
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # If labels are one-hot encoded, convert to class indices
+        if y_true.shape[-1] > 1:
+            y_true = tf.argmax(y_true, axis=-1)
+
+        # Binary ground truth: 1 if label == 1 (planet), else 0
+        is_planet = tf.cast(tf.equal(y_true, self.planet_label_id), tf.float32)
+
+        # Predicted probability for planet class (index 1)
+        planet_score = y_pred[:, self.planet_label_id]
+
+        self.auc.update_state(is_planet, planet_score, sample_weight)
+
+    def result(self):
+        return self.auc.result()
+
+    def reset_states(self):
+        self.auc.reset_states()
 
 
 def compute_precision_at_k(labels, k_vals):

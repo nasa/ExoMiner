@@ -6,11 +6,12 @@ from pathlib import Path
 
 #%% load tables
 
-tce_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess_2min_tces_dv_s1-s94_9-10-2025_1701.csv')
-exofop_toi_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/exofop_toi_catalogs/exofop_tois_9-11-2025.csv')
-sg1_toi_tbl_fp = Path('/data3/exoplnt_dl/ephemeris_tables/tess/sg1_toi_catalogs/sg1_tois_9-11-2025.csv')
+tce_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025.csv')
+exofop_toi_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/exofop_tois_9-11-2025.csv')
+sg1_toi_tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/sg1/sg1_tois_9-11-2025.csv')
+suffix_new_tbl = '_exofop-sg1-tois9-11-2025'
 
-tce_tbl = pd.read_csv(tce_tbl_fp, dtype={'matched_object': str})
+tce_tbl = pd.read_csv(tce_tbl_fp, dtype={'matched_toiexofop': str})
 exofop_toi_tbl = pd.read_csv(exofop_toi_tbl_fp, dtype={'TOI': str})
 sg1_toi_tbl = pd.read_csv(sg1_toi_tbl_fp, dtype={'TOI': str})
 sg1_toi_tbl.drop_duplicates('TOI', inplace=True)
@@ -41,7 +42,7 @@ exofop_toi_tbl_cols = [
     'Date Modified',
 ]
 exofop_toi_tbl = exofop_toi_tbl[exofop_toi_tbl_cols]
-exofop_toi_tbl.rename(columns={'TOI': 'matched_object', 'Epoch (BJD)': 'epoch_exofop', 'Period (days)': 'period_exofop', 'Duration (hours)': 'duration_exofop'}, inplace=True, errors='raise')
+exofop_toi_tbl.rename(columns={'TOI': 'matched_toiexofop', 'Epoch (BJD)': 'epoch_exofop', 'Period (days)': 'period_exofop', 'Duration (hours)': 'duration_exofop'}, inplace=True, errors='raise')
 
 sg1_toi_tbl_cols = [
     'TOI',
@@ -54,13 +55,13 @@ sg1_toi_tbl_cols = [
     'SG2 Notes',
 ]
 sg1_toi_tbl = sg1_toi_tbl[sg1_toi_tbl_cols]
-sg1_toi_tbl.rename(columns={'TOI': 'matched_object', 'Comments': 'sg1_comments', 'Master Disposition': 'sg1_master_disp', 'Gaia\nRU\nWE': 'sg1_gaia_ruwe'}, inplace=True, errors='raise')
+sg1_toi_tbl.rename(columns={'TOI': 'matched_toiexofop', 'Comments': 'sg1_comments', 'Master Disposition': 'sg1_master_disp', 'Gaia\nRU\nWE': 'sg1_gaia_ruwe'}, inplace=True, errors='raise')
 
 #%% update existent columns 
 
-tce_tbl.set_index('matched_object', inplace=True)
-exofop_toi_tbl.set_index('matched_object', inplace=True)
-sg1_toi_tbl.set_index('matched_object', inplace=True)
+tce_tbl.set_index('matched_toiexofop', inplace=True)
+exofop_toi_tbl.set_index('matched_toiexofop', inplace=True)
+sg1_toi_tbl.set_index('matched_toiexofop', inplace=True)
 
 existent_cols_exofop = [col for col in exofop_toi_tbl.columns if col in tce_tbl.columns]
 existent_cols_sg1 = [col for col in sg1_toi_tbl.columns if col in tce_tbl.columns]
@@ -76,8 +77,8 @@ sg1_toi_tbl.reset_index(inplace=True)
 nonexistent_cols_exofop = [col for col in exofop_toi_tbl.columns if col not in tce_tbl.columns]
 nonexistent_cols_sg1 = [col for col in sg1_toi_tbl.columns if col not in tce_tbl.columns]
 
-tce_tbl = tce_tbl.merge(exofop_toi_tbl[['matched_object'] + nonexistent_cols_exofop], on='matched_object', how='left', validate='many_to_one')
-tce_tbl = tce_tbl.merge(sg1_toi_tbl[['matched_object'] + nonexistent_cols_sg1], on='matched_object', how='left', validate='many_to_one')
+tce_tbl = tce_tbl.merge(exofop_toi_tbl[['matched_toiexofop'] + nonexistent_cols_exofop], on='matched_toiexofop', how='left', validate='many_to_one')
+tce_tbl = tce_tbl.merge(sg1_toi_tbl[['matched_toiexofop'] + nonexistent_cols_sg1], on='matched_toiexofop', how='left', validate='many_to_one')
 
 #%% update labels based on updated TOIs dispositions
 
@@ -85,7 +86,11 @@ print('Before', tce_tbl['label'].value_counts())
 
 tfopwg_disps = ['CP', 'KP', 'FP']
 for tfopwg_disp in tfopwg_disps:  # set TFOPWG labels first since they have higher priority
-    tce_tbl.loc[tce_tbl['TFOPWG Disposition'] == tfopwg_disp, ['label', 'label_source']] = [tfopwg_disp, 'TFOPWG']
+    idxs_tces_tfopwg_disp = tce_tbl['TFOPWG Disposition'] == tfopwg_disp
+    # update label and label source
+    tce_tbl.loc[idxs_tces_tfopwg_disp, ['label', 'label_source']] = [tfopwg_disp, 'TFOPWG']
+    # update matched object
+    tce_tbl.loc[idxs_tces_tfopwg_disp, 'matched_object'] = tce_tbl.loc[idxs_tces_tfopwg_disp, 'matched_toiexofop'] 
 
 # set CP BDs to BDs
 tce_tbl.loc[tce_tbl['sg1_master_disp'] == 'BD', ['label', 'label_source']] = ['BD', 'SG1']
@@ -133,7 +138,8 @@ tce_tbl['tois_in_tic'] = tce_tbl['tois_in_tic'].fillna('')
 
 #%% save TCE table
 
-tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}_exofop-sg1-tois9-11-2025.csv', index=False)
+tce_tbl = tce_tbl.set_index('uid')  # just to have uid as the leftmost column
+tce_tbl.to_csv(tce_tbl_fp.parent / f'{tce_tbl_fp.stem}{suffix_new_tbl}.csv', index=True)
 
 # for col in exofop_toi_tbl.columns:
 #     if col not in tce_tbl.columns:
