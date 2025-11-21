@@ -20,8 +20,7 @@ def create_cv_folds_yaml_from_dir(data_dir, config, cv_iter):
     :return:
     """
 
-    dataset_fps = [{'predict': None} for cv_i in range(cv_iter + 1)]
-    dataset_fps[cv_iter]['predict'] = list(data_dir.glob('shard-*'))
+    dataset_fps = {'data_shards_fps': [{'predict': list(data_dir.glob('shard-*'))} for _ in range(cv_iter + 1)]}
 
     # save cv folds filepaths
     dataset_fps_config_fp = data_dir / 'cv_folds.yaml'

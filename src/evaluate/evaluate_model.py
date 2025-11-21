@@ -16,6 +16,7 @@ from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_fe
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from src.evaluate.utils_eval import write_performance_metrics_to_csv_file
+from src.utils.utils import log_info
 
 
 def evaluate_model(config, model_path, res_dir, logger=None):
@@ -32,11 +33,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
     config['features_set'] = set_tf_data_type_for_features(config['features_set'])
 
     # load models
-    if logger is None:
-        print('Loading model...')
-    else:
-        logger.info('Loading model...')
-    
+    log_info('Loading model...', logger)
     # register_custom_objects()
     model = load_model(filepath=model_path, compile=False)
 
@@ -71,11 +68,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
         if dataset == 'predict':
             continue
 
-        if logger is None:
-            print(f'Evaluating on dataset {dataset}')
-        else:
-            logger.info(f'Evaluating on dataset {dataset}')
-
+        log_info(f'Evaluating on dataset {dataset}...')
         # input function for evaluating on each dataset
         eval_input_fn = InputFn(file_paths=config['datasets_fps'][dataset],
                                 batch_size=config['evaluation']['batch_size'],
@@ -105,6 +98,7 @@ def evaluate_model(config, model_path, res_dir, logger=None):
     np.save(res_dir / 'res_eval.npy', res)
 
     # write results to a csv file
+    log_info(f'Writing performance metrics to csv file in {str(res_dir)}.')
     write_performance_metrics_to_csv_file(res_dir, config['datasets'], res)
 
 

@@ -39,12 +39,15 @@ def get_metrics(clf_threshold=0.5, num_thresholds=1000, prec_thr=0.95, rec_thr=0
     # tn = keras.metrics.TrueNegatives(name='tn', thresholds=threshold_range)
     # fn = keras.metrics.FalseNegatives(name='fn', thresholds=threshold_range)
     
+    # these metrics expect float32 inputs
     f1 = keras.metrics.F1Score(average='weighted', threshold=clf_threshold, name='f1_score')
     
     rec_at_prec = keras.metrics.RecallAtPrecision(prec_thr, num_thresholds, name=f'recall_at_precision_{prec_thr}')
     prec_at_rec = keras.metrics.PrecisionAtRecall(rec_thr, num_thresholds, name=f'precision_at_recall_{rec_thr}')
 
-    metrics_list = [binary_acc, precision, recall, auc_pr, auc_roc, f1, rec_at_prec, prec_at_rec]
+    metrics_list = [binary_acc, precision, recall, auc_pr, auc_roc, 
+                    f1, rec_at_prec, prec_at_rec
+                    ]
 
     return metrics_list
 

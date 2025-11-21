@@ -28,7 +28,8 @@ DELETE_DATA_AFTER_INFERENCE="${11}"
 CHECK_GPU=${12:-0}
 
 # set up Python scripts
-SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
+# SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
+SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/train/setup_cv_iter.py
 PREPROCESS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/preprocess_cv_folds_predict_trecord_dataset.py
 CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/create_cv_folds_yaml_from_dir.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
@@ -52,6 +53,24 @@ LOG_FP_CV_ITER="$CV_ITER_DIR"/cv_iter_"$CV_ITER"_run.log
 
 echo "Starting job $GNU_PARALLEL_INDEX in job array $JOB_ARRAY_INDEX for CV iteration $CV_ITER..." > "$LOG_FP_CV_ITER"
 
+# preprocess data
+export CUDA_VISIBLE_DEVICES=""
+if [ "$PREPROCESS_DATA" = true ] ; then
+    echo "Started preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+
+    export DATA_DIR="$CV_DIR"/data
+    mkdir -p "$DATA_DIR"
+
+    python "$PREPROCESS_SCRIPT" --rank=$CV_ITER --config_fp="$CONFIG_PREPROCESS_FP" --output_dir="$DATA_DIR" &>> "$LOG_FP_CV_ITER"
+
+    echo "Finished preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+else
+    export DATA_DIR="$CV_DIR"/data
+fi
+
+python "$CREATE_CV_FOLDS_SCRIPT" --config_fp="$CONFIG_FP" --data_dir="$DATA_DIR"/cv_iter_$CV_ITER --cv_iter=$CV_ITER &>> "$LOG_FP_CV_ITER"
+CONFIG_FP="$DATA_DIR"/cv_iter_"$CV_ITER"/config_cv.yaml
+
 GPU_ID=$(($CV_ITER % $N_GPUS_PER_NODE))
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 echo "Set visible GPUs to $CUDA_VISIBLE_DEVICES." >> "$LOG_FP_CV_ITER"
@@ -67,21 +86,6 @@ if [ "$CHECK_GPU" -eq 1 ]; then
     done
 
     echo "GPU $GPU_ID is available. Resuming CV iteration." >> "$LOG_FP_CV_ITER"
-fi
-
-# preprocess data
-if [ "$PREPROCESS_DATA" = true ] ; then
-    echo "Started preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-
-    export DATA_DIR="$CV_DIR"/data
-    mkdir -p "$DATA_DIR"
-
-    python "$PREPROCESS_SCRIPT" --rank=$CV_ITER --config_fp="$CONFIG_PREPROCESS_FP" --output_dir="$DATA_DIR" &>> "$LOG_FP_CV_ITER"
-
-    python "$CREATE_CV_FOLDS_SCRIPT" --config_fp="$CONFIG_FP" --data_dir="$DATA_DIR"/cv_iter_$CV_ITER --cv_iter=$CV_ITER &>> "$LOG_FP_CV_ITER"
-    CONFIG_FP=$DATA_DIR/cv_iter_$CV_ITER/config_cv.yaml
-
-    echo "Finished preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 fi
 
 # setup run

@@ -5,13 +5,14 @@ Train a model.
 # 3rd party
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras import callbacks
+# from tensorflow.keras import mixed_precision 
+# mixed_precision.set_global_policy('mixed_float16')
 import numpy as np
 import argparse
 import yaml
 from pathlib import Path
 import logging
 import yaml
-import traceback
 # from functools import partial
 
 # local
@@ -19,24 +20,8 @@ from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_fe
 from src.utils.utils_metrics import get_metrics, get_metrics_multiclass
 from models.utils_models import compile_model
 from models import models_keras
+from src.utils.utils import log_info
 # from src.train.utils_train import filter_examples_tfrecord_obs_type  # ComputePerformanceOnFFIand2min, filter_examples_tfrecord_obs_type
-
-def log_info(message, logger=None, include_traceback=False):
-    """Log information either to stdout or Python Logger if `logger` is not `None`.
-
-    :param str message: log message
-    :param Python Logger logger: logger. If `None`, message is printed to stdout
-    :param bool include_traceback: if True, includes traceback (requires being called under and try/exception block). Defaults to False
-    """
-    
-    if include_traceback:
-        message += "\n" + traceback.format_exc()
-        
-    if logger:
-        logger.info(message)
-    else:
-        print(message)
-
 
 def validate_config(config):
     """Validates configuration for training run.

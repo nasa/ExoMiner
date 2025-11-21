@@ -4,7 +4,7 @@ Compute performance metrics for a set of model scores.
 
 # 3rd party
 import pandas as pd
-from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy
+from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy, F1Score, PrecisionAtRecall, RecallAtPrecision
 from sklearn.metrics import balanced_accuracy_score, average_precision_score
 import numpy as np
 from pathlib import Path
@@ -29,7 +29,7 @@ def map_softmax_predictions_to_class(row, pred_cols, label_map, clf_thr=0):
 
 def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
                                      class_name='label_id', cat_name='label', multiclass=False,
-                                     multiclass_target_score=None):
+                                     multiclass_target_score=None, recall_at_precision_thr=0.95, precision_at_recall_thr=0.95):
     """ Generate performance metrics for set of predictions in a csv file.
 
     Args:
@@ -52,6 +52,8 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
             ids)
         multiclass_target_score: str, for the multiclass scenario, use one category in `cat_name` as the positive class.
             All other categories are seen as negative class.
+        recall_at_precision_thr: float, precision value used to compute recall
+        precision_at_recall_thr: float, recall value used to compute precision
 
     Returns: pandas DataFrame with compute metrics for the set of predictions in the csv file
 
@@ -60,7 +62,7 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     class_ids = np.unique(list(cats.values()))  # get unique list of class ids
 
     # define list of metrics to be computed
-    metrics_lst = ['auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced_accuracy', 'avg_precision']
+    metrics_lst = ['auc_pr', 'auc_roc', 'precision', 'recall', 'accuracy', 'balanced_accuracy', 'avg_precision', 'f1_score', 'precision_at_recall', 'recall_at_precision']
     metrics_lst += [f'precision_at_{k_val}' for k_val in top_k_vals]
     metrics_lst += [f'recall_class_{class_id}' for class_id in class_ids]
     metrics_lst += [f'precision_class_{class_id}' for class_id in class_ids]
@@ -94,17 +96,22 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     recall = Recall(name='recall', thresholds=clf_threshold)
 
     binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
+    
+    f1_score = F1Score(name='f1_score', threshold=clf_threshold)
+    
+    prec_at_rec = PrecisionAtRecall(precision_at_recall_thr, name='precision_at_recall', num_thresholds=num_thresholds)
+    rec_at_prec = RecallAtPrecision(recall_at_precision_thr, name='recall_at_precision', num_thresholds=num_thresholds)
 
     # if it is multi classification get specific score
     scores = predictions_tbl[f'score_{multiclass_target_score}'].tolist() if multiclass else predictions_tbl['score'].tolist()
-
+    
     # if multiclass change labels
     if multiclass:
         label_1 = cats[multiclass_target_score.split('_')[-1]]
         labels = [int(label == label_1) for label in predictions_tbl[class_name].tolist()]
     else:
         labels = predictions_tbl[class_name].tolist()
-
+    
     _ = auc_pr.update_state(labels, scores)
     data_to_tbl['auc_pr'].append(auc_pr.result().numpy())
 
@@ -121,6 +128,15 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     _ = binary_accuracy.update_state(labels, scores)
     data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
+    _ = f1_score.update_state(np.array(labels).reshape(-1, 1), np.array(scores).reshape(-1, 1))
+    data_to_tbl['f1_score'].append(f1_score.result().numpy()[0])
+    
+    _ = prec_at_rec.update_state(labels, scores)
+    data_to_tbl['precision_at_recall'].append(prec_at_rec.result().numpy())
+    
+    _ = rec_at_prec.update_state(labels, scores)
+    data_to_tbl['recall_at_precision'].append(rec_at_prec.result().numpy())
+    
     data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels,
                                                                     predictions_tbl['predicted_class']))
 
@@ -151,6 +167,14 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
             data_to_tbl[f'precision_at_{k_val}'].append(np.nan)
 
     metrics_df = pd.DataFrame(data_to_tbl)
+    
+    # add metadata
+    metrics_df.attrs['clf_thr'] = clf_threshold
+    metrics_df.attrs['num_thresholds'] = num_thresholds
+    if multiclass:
+        metrics_df.attrs['multiclass'] = multiclass
+        metrics_df.attrs['multiclass_to_binary_class'] = multiclass_target_score
+    metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
 
     return metrics_df
 
@@ -160,7 +184,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # mapping between category label and class id in predictions file
-    cats = {
+    label_map = {
         # Kepler
         #  'PC': 1,
         # 'AFP': 0,
@@ -189,9 +213,9 @@ if __name__ == '__main__':
         # multiclass
         'CP': 1,
         'KP': 1,
-        'EB': 2,
-        'FP': 2,
-        'BD': 2,
+        'EB': 0,
+        'FP': 0,
+        'BD': 0,
         'NTP': 0,
     }
     num_thresholds = 1000
@@ -200,29 +224,23 @@ if __name__ == '__main__':
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
-    multiclass = True
+    multiclass = False  # it True, converts multiclass to binary classification by choosing positive class as `multiclass_target_score`; all other classes become negative
     multiclass_target_score = 'KP'
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/ranked_predictions_valset.csv")
+    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-4-2025_1353/predictions_testset_allfolds.csv")
     # save path
-    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/metrics_ranked_predictions_valset.csv")
+    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-4-2025_1353/metrics_predictions_testset_allfolds_ffi.csv")
 
-    predictions_tbl = pd.read_csv(predictions_tbl_fp)
+    predictions_tbl = pd.read_csv(predictions_tbl_fp, comment='#')
+    predictions_tbl = predictions_tbl.loc[predictions_tbl['obs_type'] == 'ffi']
 
-    predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: cats[x['label']], axis=1)
-    metrics_df = compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_threshold, top_k_vals,
+    predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: label_map[x['label']], axis=1)
+    metrics_df = compute_metrics_from_predictions(predictions_tbl, label_map, num_thresholds, clf_threshold, top_k_vals,
                                                   class_name, cat_name, multiclass, multiclass_target_score)
 
-    
-    # add metadata
-    metrics_df.attrs['predictions table'] = str(predictions_tbl_fp)
-    metrics_df.attrs['label map'] = cats
-    metrics_df.attrs['clf_thr'] = clf_threshold
-    metrics_df.attrs['num_thresholds'] = num_thresholds
-    metrics_df.attrs['multiclass'] = multiclass
-    metrics_df.attrs['multiclass_to_binary_class'] = multiclass_target_score
-    metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    metrics_df.attrs['predictions_table'] = str(predictions_tbl_fp)
+    metrics_df.attrs['label_map'] = label_map
     with open(save_fp, "w") as f:
         for key, value in metrics_df.attrs.items():
             f.write(f"# {key}: {value}\n")

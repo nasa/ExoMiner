@@ -22,7 +22,7 @@
 #PBS -m bea
 #PBS -J 0-1
 
-# PBS_ARRAY_INDEX=0
+# PBS_ARRAY_INDEX=4
 # export TMPDIR=/var/tmp/pbs.34282.pbs05a.gh.nas.nasa.gov
 # mkdir -p "$TMPDIR"
 
@@ -46,7 +46,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/c
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/run_cv_iter_modular.sh
 
 # output directory
-OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_10-31-2025_1714
+OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-21-2025_1256
 mkdir -p $OUTPUT_DIR
 
 # create main output job file
@@ -78,3 +78,12 @@ seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {
 
 # testing multi-node setup...
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile $PBS_NODEFILE "$RUN_SH_SCRIPT {} 0 $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER"
+
+# use one CV iteration per job in job array
+# $RUN_SH_SCRIPT 0 $PBS_ARRAY_INDEX 1 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER
+
+# just run one CV iteration per job
+# $RUN_SH_SCRIPT 0 0 1 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER
+
+# run GNU parallel for specific CV iterations
+# parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} 0 $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER" ::: 0

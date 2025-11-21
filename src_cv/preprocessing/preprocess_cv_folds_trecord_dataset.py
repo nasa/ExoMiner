@@ -126,6 +126,7 @@ def create_cv_iteration_dataset(data_shards_fps, run_params):
     jobs = [(run_params['norm_data_dir'], file, norm_stats) for file in files]
     # for job in tqdm(jobs, desc='Normalizing TFRecord file', total=len(jobs)):
     #     normalize_examples(*job)
+    
     # create the pool
     with multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data']) as pool:
         

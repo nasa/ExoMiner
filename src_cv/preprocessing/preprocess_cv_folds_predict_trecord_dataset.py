@@ -11,6 +11,7 @@ import argparse
 import multiprocessing
 from pathlib import Path
 import pandas as pd
+from tqdm import tqdm
 
 # local
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples
@@ -32,14 +33,14 @@ def create_cv_iteration_dataset(cv_fold_fp, run_params):
         run_params['logger'].info(f'[cv_iter_{run_params["cv_id"]}] Normalizing the data...')
 
     # load normalization statistics
-    # norm_stats = {feature_grp: np.load(Path(cv_fold_fp) / norm_stats_fn, allow_pickle=True).item()
-    #               for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
+    norm_stats = {feature_grp: np.load(Path(cv_fold_fp) / norm_stats_fn, allow_pickle=True).item()
+                  for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
     # norm_stats = {feature_grp: pd.read_csv(Path(cv_fold_fp) / norm_stats_fn).iloc[0].to_dict()
     #               for feature_grp, norm_stats_fn in run_params['norm_stats'].items()}
-    norm_stats = {}
-    for feature_grp, norm_stats_fn in run_params['norm_stats'].items():
-        with open(Path(cv_fold_fp) / norm_stats_fn, 'r') as f:
-            norm_stats[feature_grp] = yaml.safe_load(f)
+    # norm_stats = {}
+    # for feature_grp, norm_stats_fn in run_params['norm_stats'].items():
+    #     with open(Path(cv_fold_fp) / norm_stats_fn, 'r') as f:
+    #         norm_stats[feature_grp] = yaml.safe_load(f)
 
     # normalize data using the normalization statistics
     if len(norm_stats) == 0:
@@ -47,14 +48,20 @@ def create_cv_iteration_dataset(cv_fold_fp, run_params):
                                   f'statistics were loaded.')
         raise ValueError(f'[cv_iter_{run_params["cv_id"]}] Data cannot be normalized since no normalization '
                          f'statistics were loaded.')
+    # prepare jobs
+    jobs = [(run_params['cv_iter_dir'], file, norm_stats) for file in config['src_tfrec_fps']]
+    
+    with multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data']) as pool:
+    
+        # submit jobs asynchronously
+        async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
 
-    pool = multiprocessing.Pool(processes=run_params['norm_examples_params']['n_processes_norm_data'])
-    jobs = [(run_params['cv_iter_dir'], file, norm_stats, run_params)
-            for file in config['src_tfrec_fps']]
-    async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-    pool.close()
-    for async_result in async_results:
-        async_result.get()
+        # track progress with tqdm
+        for result in tqdm(async_results, desc="Normalizing TFRecord file", total=len(jobs)):    
+            try:
+                result.get()
+            except Exception as e:
+                print(f"[ERROR] Subprocess failed: {e}")
 
 
 def create_cv_dataset(config):
@@ -99,6 +106,8 @@ def create_cv_dataset(config):
 
 
 if __name__ == '__main__':
+    
+    multiprocessing.set_start_method("spawn", force=True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--rank', type=int, help='Job index', default=0)

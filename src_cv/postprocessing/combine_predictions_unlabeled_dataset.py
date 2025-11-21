@@ -9,25 +9,27 @@ from pathlib import Path
 import pandas as pd
 
 
-def aggregate_cv_fold_predictions(cv_pred_run_dir):
+def aggregate_cv_fold_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_predictset.csv'):
     """ Combine predictions from all CV iterations in the unlabeled dataset. `cv_pred_run_dir` should contain
     directories for each CV iteration named 'cv_iter_<iteration_number>'. Each CV iteration directory should contain a
-    file with the predictions for the unlabeled dataset named 'ranked_predictions_predictset.csv'.
+    file with the predictions for the unlabeled dataset named `pred_tbl_fn`.
 
     The resulting table will contain the predictions for all CV iterations, with an additional column 'fold'.
 
     Args:
         cv_pred_run_dir: Path, directory containing the CV iterations directories
+        pred_tbl_fn: str, filename for predictions tables in each CV iteration
 
     Returns: ranking_tbl_cv, DataFrame with the predictions for all CV folds
     """
 
     # get directories of cv iterations in cv run
-    cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
+    cv_iters_dirs = sorted([fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')],
+                            key=lambda d: int(d.name.split('_')[-1]))
 
     cv_iters_tbls = []
     for cv_iter_dir in cv_iters_dirs:
-        ranking_tbl = pd.read_csv(cv_iter_dir / 'ranked_predictions_predictset.csv')
+        ranking_tbl = pd.read_csv(cv_iter_dir / pred_tbl_fn, comment='#')
         ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
         cv_iters_tbls.append(ranking_tbl)
 
@@ -36,52 +38,73 @@ def aggregate_cv_fold_predictions(cv_pred_run_dir):
     return ranking_tbl_cv
 
 
-def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir):
-    """ Get mean and std score across all folds for the prediction on the unlabeled dataset. `cv_pred_run_dir` should
-    contain directories for each CV iteration named 'cv_iter_<iteration_number>'. Each CV iteration directory should
-    contain a file with the predictions for the unlabeled dataset named 'ranked_predictions_predictset.csv'. This table
-    should contain column 'uid' with the unique identifier for each example in the dataset and column 'score' with the
-    score for that CV iteration.
+def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_predictset.csv', merge_on='uid'):
+    """
+    Get mean and std score across all folds for predictions on the unlabeled dataset.
+    `cv_pred_run_dir` should contain directories for each CV iteration named 'cv_iter_<iteration_number>'.
+    Each CV iteration directory should contain a file with predictions named `pred_tbl_fn`.
+    This file must have columns: `merge_on` (unique identifier(s)) and 'score' (score for that CV iteration).
 
-    The resulting table will contain the predictions for all CV iterations with column name
-    'score_fold_<iteration_number>' , with additional columns 'mean_score' and 'std_score'.
+    The resulting DataFrame will contain:
+        - Columns: `merge_on` columns, 'score_cv_iter_<iteration_number>' for each fold
+        - Additional columns: 'mean_score', 'std_score'
 
     Args:
-        cv_pred_run_dir: Path, directory containing the CV iterations directories
+        cv_pred_run_dir (Path): Directory containing CV iteration directories.
+        pred_tbl_fn (str): Filename of the prediction table in each CV iteration directory.
+        merge_on (str or lst): column(s) used to merge the predictions results across CV iterations.
 
-    Returns: tbl, DataFrame with the predictions for all CV folds combined with mean and std score columns
-
+    Returns:
+        pd.DataFrame: Combined predictions with mean and std score columns.
     """
-
-    # get directories of cv iterations in cv run
-    cv_iters_dirs = [fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
+    
+    if not isinstance(merge_on, list):
+        merge_on = [merge_on]
+        
+    cv_iters_dirs = sorted([fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')],
+                            key=lambda d: int(d.name.split('_')[-1]))
 
     tbl = None
-    n_folds = len(cv_iters_dirs)
-    for cv_iter_dir in cv_iters_dirs:
-        ranking_tbl = pd.read_csv(cv_iter_dir / 'ranked_predictions_predictset.csv')
-        ranking_tbl['fold'] = cv_iter_dir.name.split('_')[-1]
-        ranking_tbl[f'score_fold_{cv_iter_dir.name.split("_")[-1]}'] = ranking_tbl['score']
-        if tbl is None:
-            tbl = ranking_tbl
-        else:
-            tbl = pd.merge(tbl, ranking_tbl[['uid', f'score_fold_{cv_iter_dir.name.split("_")[-1]}']],
-                           on=['uid'])
+    cv_iter_ids = []
 
-    tbl.drop(columns=['fold', 'score'], inplace=True)
-    tbl['mean_score'] = tbl[[f'score_fold_{i}' for i in range(n_folds)]].mean(axis=1)
-    tbl['std_score'] = tbl[[f'score_fold_{i}' for i in range(n_folds)]].std(axis=1)
+    for cv_iter_dir in cv_iters_dirs:
+        fold_id = cv_iter_dir.name.split('_')[-1]
+        cv_iter_ids.append(fold_id)
+
+        ranking_tbl = pd.read_csv(cv_iter_dir / pred_tbl_fn, comment='#')
+        ranking_tbl[f'score_cv_iter_{fold_id}'] = ranking_tbl['score']
+
+        if tbl is None:
+            tbl = ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']]
+        else:
+            tbl = pd.merge(tbl, ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']], on=merge_on, how='inner')
+
+    tbl['mean_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].mean(axis=1)
+    tbl['std_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].std(axis=1)
 
     return tbl
 
 if __name__ == '__main__':
 
-    cv_pred_run_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_2min/toi_2095/s14-s86/cv_predict_tess-spoc-2min_s14-s86_toi-2095_4-10-2025_1212')
+    cv_pred_run_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv-predict-11-20-2025-1025_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505')
 
-    ranking_tbl_cv = aggregate_cv_fold_predictions(cv_pred_run_dir)
+    pred_tbl_cv_agg = aggregate_cv_fold_predictions(cv_pred_run_dir)
+    # add metadata
+    pred_tbl_cv_agg.attrs['CV experiment'] = str(cv_pred_run_dir)
+    pred_tbl_cv_agg.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    pred_tbl_cv_agg.attrs['description'] = 'Aggregates predictions for all CV iterations. Each TCE shows up as N rows where N is the number of CV iterations'
+    with open(cv_pred_run_dir / 'predictions_allfolds.csv', "w") as f:
+        for key, value in pred_tbl_cv_agg.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        pred_tbl_cv_agg.to_csv(f, index=False)
 
-    ranking_tbl_cv.to_csv(cv_pred_run_dir / 'ranked_predictions_allfolds.csv', index=False)
-
-    ranking_tbl_cv_with_stats = get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir)
-
-    ranking_tbl_cv_with_stats.to_csv(cv_pred_run_dir / 'ranked_predictions_allfolds_avg.csv', index=False)
+    pred_tbl_cv_agg_with_stats = get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, merge_on=['uid', 'obs_type'])
+    # add metadata
+    pred_tbl_cv_agg_with_stats.attrs['CV experiment'] = str(cv_pred_run_dir)
+    pred_tbl_cv_agg_with_stats.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    pred_tbl_cv_agg.attrs['description'] = 'Aggregates predictions for all CV iterations. Each TCE shows up as one row containing all CV iterations predictions as well as mean and std statistics'
+    with open(cv_pred_run_dir / 'predictions_allfolds_mean-std-stats.csv', "w") as f:
+        for key, value in pred_tbl_cv_agg_with_stats.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        pred_tbl_cv_agg_with_stats.to_csv(f, index=False)
+        

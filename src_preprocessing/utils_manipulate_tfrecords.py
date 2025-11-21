@@ -285,7 +285,7 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
         raise TypeError("data_fields must be a list of field names.")
     
     tfrec_tbls = []
-    for fp_i, fp in tqdm(enumerate(tfrec_fps), desc=f'Iterating over TFRecord file {fp.name}', total=len(tfrec_fps)):
+    for fp_i, fp in tqdm(enumerate(tfrec_fps), desc=f'Iterating over TFRecord files', total=len(tfrec_fps)):
         if verbose:
             if logger:
                 logger.info(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')

@@ -14,6 +14,8 @@ import logging
 # local
 from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
 from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
+import models.custom_layers
+from src.utils.utils import log_info
 
 
 def predict_model(config, model_path, res_dir, logger=None):
@@ -35,11 +37,7 @@ def predict_model(config, model_path, res_dir, logger=None):
                                                          config['datasets_fps'])
 
     # load models
-    if logger is None:
-        print('Loading model...')
-    else:
-        logger.info('Loading model...')
-    
+    log_info('Loading model...', logger)
     # register_custom_objects()
     model = load_model(filepath=model_path, compile=False)
 
@@ -60,10 +58,7 @@ def predict_model(config, model_path, res_dir, logger=None):
     scores = {dataset: [] for dataset in config['datasets']}
     for dataset in scores:
 
-        if logger is None:
-            print(f'Predicting on dataset {dataset}...')
-        else:
-            logger.info(f'Predicting on dataset {dataset}...')
+        log_info(f'Predicting on dataset {dataset}...', logger)
 
         predict_input_fn = InputFn(
             file_paths=config['datasets_fps'][dataset],
@@ -83,6 +78,8 @@ def predict_model(config, model_path, res_dir, logger=None):
 
     # write results to a csv file
     for dataset in config['datasets']:
+        
+        log_info(f'Writing predictions for dataset {dataset}...', logger)
         
         if not config['config']['multi_class']:
             data[dataset]['score'] = scores[dataset].ravel()
@@ -135,6 +132,6 @@ if __name__ == "__main__":
     predict_config['logger'].setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     predict_config['logger'].addHandler(logger_handler)
-    predict_config['logger'].info(f'Starting evaluating model {model_fp} in {output_dir}')
+    predict_config['logger'].info(f'Starting running inference with model {model_fp} in {output_dir}')
 
     predict_model(predict_config, model_fp, output_dir, logger=predict_config['logger'])

@@ -84,7 +84,7 @@ def write_performance_metrics_to_csv_file(save_dir, datasets, res_eval, logger=N
     metrics_df.set_index('metrics', inplace=True)
                         
     # add metadata
-    metrics_df.attrs['dataset'] = str(save_dir)
+    metrics_df.attrs['save directory'] = str(save_dir)
     metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
     with open(save_dir / 'loss_and_performance_metrics.csv', "w") as f:
         for key, value in metrics_df.attrs.items():

@@ -23,7 +23,7 @@
 #PBS -W group_list=a1509
 # PBS -W group_list=s2857
 #PBS -m bea
-#PBS -J 0-2
+#PBS -J 0-4
 
 # PBS_ARRAY_INDEX=0
 # echo $TMPDIR
@@ -53,7 +53,7 @@ CONFIG_FP=$PYTHONPATH/src_cv/predict/config_cv_predict.yaml
 CONFIG_PREPROCESS_FP=$PYTHONPATH/src_cv/preprocessing/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
 
 # output directory
-OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_exominernew_focal-loss-alpha0.98-gamma2_tess-spoc-ffi-s36-s72_6-2-2025_1725_predictunks_6-3-2025_1648/
+OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv-predict-11-20-2025-1025_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505
 mkdir -p $OUTPUT_DIR
 
 PBS_SCRIPT_FP=$(realpath $0)
@@ -64,7 +64,7 @@ COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
 echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 
 # root directory for model file paths
-MODELS_CV_ROOT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi/cv_exominernew_focal-loss-alpha0.98-gamma2_tess-spoc-ffi-s36-s72_6-2-2025_1725/
+MODELS_CV_ROOT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/
 N_CV_ITERS=5  # number of CV folds/iterations
 
 # whether to preprocess data before running inference
@@ -83,7 +83,10 @@ NUM_JOBS_PARALLEL=4
 
 # run with GNU parallel
 # run CV sh script
-seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $NUM_TOTAL_JOBS $N_GPUS_TOTAL $MODELS_CV_ROOT_DIR" "$N_CV_ITERS" "$PREPROCESS_DATA" $CONFIG_PREPROCESS_FP "$DELETE_PREPROCESSED_DATA"
+# seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $NUM_TOTAL_JOBS $N_GPUS_TOTAL $MODELS_CV_ROOT_DIR" "$N_CV_ITERS" "$PREPROCESS_DATA" $CONFIG_PREPROCESS_FP "$DELETE_PREPROCESSED_DATA"
 
 # testing multi-node setup...
 # seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL --sshloginfile "$RUN_SH_SCRIPT {} $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR $NUM_TOTAL_JOBS $N_GPUS_TOTAL $MODELS_CV_ROOT_DIR" "$N_CV_ITERS" "$PREPROCESS_DATA" $CONFIG_PREPROCESS_FP "$DELETE_PREPROCESSED_DATA"
+
+# use one CV iteration per job in job array
+$RUN_SH_SCRIPT 0 $PBS_ARRAY_INDEX $CONFIG_FP $OUTPUT_DIR 1 $N_GPUS_TOTAL "$MODELS_CV_ROOT_DIR" "$N_CV_ITERS" "$PREPROCESS_DATA" "$CONFIG_PREPROCESS_FP" "$DELETE_PREPROCESSED_DATA"

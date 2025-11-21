@@ -132,9 +132,13 @@ python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --outpu
 CV_ITER_CONFIG_FP=$ENSEMBLE_MODEL_DIR/config_cv.yaml
 
 # create ensemble model
-python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
-
-echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+if [ -f "$ENSEMBLE_MODEL_FP" ]; then
+    echo "Ensemble model in CV iteration $CV_ITER already exists. Skipping creating ensemble..." >> "$LOG_FP_CV_ITER"
+    # continue
+else
+    python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
+    echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+fi
 
 # evaluate ensemble model
 echo "Started evaluating ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
