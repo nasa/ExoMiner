@@ -146,10 +146,12 @@ tce_tbl.loc[idxs_matched_exofop, ['label_source']] = 'TFOPWG'
 tce_tbl.loc[idxs_matched_exofop, 'label'] = tce_tbl.loc[idxs_matched_exofop, 'TFOPWG Disposition']
 tce_tbl.loc[idxs_matched_exofop, 'matched_object'] = tce_tbl.loc[idxs_matched_exofop, 'matched_toiexofop']
 
-# 2) Villanova's EBs
+# 2) Prsa's EBs
 idxs_matched_villanovaebs = ((~tce_tbl['matched_villanova_ebs'].isna()) &
                              (tce_tbl['label'] == 'UNK') &
-                             ~tce_tbl['TFOPWG Disposition'].isin(['KP', 'CP', 'FP', 'PC', 'APC', 'FA']))
+                            #  ~tce_tbl['TFOPWG Disposition'].isin(['KP', 'CP', 'FP', 'PC', 'APC', 'FA'])
+                             ~tce_tbl['matched_toiexofop'].isna()
+                             )
 tce_tbl.loc[idxs_matched_villanovaebs, ['label_source']] = 'Villanova'
 tce_tbl.loc[idxs_matched_villanovaebs, 'label'] = 'EB'
 tce_tbl.loc[idxs_matched_villanovaebs, 'matched_object'] = (
@@ -160,7 +162,9 @@ tce_tbl.loc[idxs_matched_villanovaebs, 'matched_object'] = (
 # for TESS SPOC 2-min TCEs
 idxs_matched_tec_ntps = ((tce_tbl['tec_fluxtriage_pass'] == 0) &
                          (~tce_tbl['tec_fluxtriage_comment'].str.contains('SecondaryOfPN', na=False)) &
-                         (tce_tbl['label'] == 'UNK'))
+                         ~tce_tbl['matched_toiexofop'].isna() &
+                         (tce_tbl['label'] == 'UNK')
+                         )
 tce_tbl.loc[idxs_matched_tec_ntps, ['label', 'label_source']] = 'NTP', 'TEC flux triage'
 # set to UNK those TCEs that did not pass the TEC flux triage because they failed AltDet and their period is less or
 # equal to 0.3 days
@@ -171,7 +175,7 @@ tce_tbl.loc[(tce_tbl['tec_fluxtriage_pass'] == 0) &
 
 # # for TESS SPOC FFI TCEs, match to 2-min NTP TCEs
 # idxs_matched_tec_ntps = ((~tce_tbl['matched_tecntps'].isna()) &
-#                          (~tce_tbl['TFOPWG Disposition'].isin(['KP', 'CP', 'FP', 'PC', 'APC', 'FA'])))
+#                          (~tce_tbl['matched_toiexofop'].isna()))
 # tce_tbl.loc[idxs_matched_tec_ntps, ['label', 'label_source']] = 'NTP', 'TEC flux triage'
 
 #%% add SG1 dispositions

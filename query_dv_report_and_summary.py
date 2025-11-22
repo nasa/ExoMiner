@@ -6,10 +6,35 @@ from astroquery.mast import Observations
 import numpy as np
 from pathlib import Path
 import multiprocessing
+from tqdm import tqdm
 
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
 Observations.enable_cloud_dataset()
+
+
+def inverse_correct_sector_field(x: str) -> str:
+    """
+    Revert a corrected TCE unique ID back to its original format by collapsing
+    the sector run start and end into a single token if possible.
+
+    Example:
+        Input:  "123456789-01-S36-S36"
+        Output: "123456789-01-S36"
+
+    :param str x: Corrected TCE unique ID
+    :return str: Original TCE unique ID format
+    """
+    parts = x.split('-')
+    if len(parts) == 4:
+        target_id, tce_id, sector_start, sector_end = parts
+        sector_start = sector_start[1:] # Remove 'S' prefix
+        # If start and end sectors are the same, collapse them
+        if sector_start == sector_end:
+            return f"{target_id}-{tce_id}-S{sector_start}"
+        else:
+            return x  # Keep as is if different sectors
+    return x  # Already in original format
 
 
 def correct_sector_field(x):
@@ -57,7 +82,7 @@ def get_kic_dv_report_and_summary(kic, download_dir, verbose=False):
 
 def get_dv_dataproducts(example_id, download_dir, download_products, reports='all', spoc_ffi=False, verbose=False):
     """ Download DV reports and summaries available in the MAST for a given observation, which can be either a target,
-    sector run, or TCE.
+        sector run, or TCE.
 
     :param example_id: str, example identifier. Must follow format {tic_id}-{tce_id}-S{start_sector}-{end_sector}. To
         not condition on a specific field, use `X` as placeholder. E.g. {tic_id}-X-S{start_sector}-{end_sector}.
@@ -193,7 +218,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
 
 def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
-                             verbose=True, csv_fp=None, get_most_recent_products=True, job_id=0):
+                             verbose=True, create_mast_url_csv=False, get_most_recent_products=True, job_id=0):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -209,16 +234,14 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
             'all': downloads DV reports.
         spoc_ffi: bool, if True it gets results from HLSP TESS SPOC FFI
         verbose: bool, verbose
-        csv_fp: Path, if not None, write results to CSV file with URLS to the DV reports hosted at MAST
+        create_mast_url_csv: bool, set to True to write MAST URLs for DV SPOC data products for the queried objects
         get_most_recent_products: bool, if True get only most recent products available (i.e., from the latest SPOC run)
         job_id: int, job ID for logging purposes
     """
 
     uris_dict = {'uid': []}
     uris_dict.update({field: [] for field in data_products_lst})
-    for obj_i, obj in enumerate(objs_list):
-
-        print(f'[Job ID {job_id}] Getting data products for event {obj} ({obj_i + 1}/{len(objs_list)})...')
+    for obj in tqdm(objs_list, desc=f'[Job ID {job_id}] Getting data products for object', unit='obj', total=len(objs_list)):
 
         _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
 
@@ -238,37 +261,108 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
                 for field in data_products_lst:
                     uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
 
-    if csv_fp:
-        tbl_fp = csv_fp.parent / f'{csv_fp.stem}_job{job_id}.csv'
+    if create_mast_url_csv:
+        mast_urls_tbls_dir = download_dir / 'mast_urls_tables'
+        mast_urls_tbls_dir.mkdir(parents=True, exist_ok=True)
+        tbl_fp = mast_urls_tbls_dir / f'spoc-dv_mast-urls_job{job_id}.csv'
         print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict)}/{len(objs_list)} events to {str(tbl_fp)}...')
         uris_df = pd.DataFrame(uris_dict)
         uris_df.to_csv(tbl_fp, index=False)
 
 
+def main(objs_list, download_dir, data_products_lst, reports, mission, spoc_ffi, download_products=True, verbose=True, 
+         get_most_recent_products=True, create_mast_url_csv=False, n_procs=1, n_jobs=1):
+    """Main function used to query the MAST for SPOC DV reports and summaries for a list of KICs or TICs. Objects should have format {target_id}-{tce_id}-S{start_sector}-{end_sector}.
+
+    :param list objs_list: objects to be queried
+    :param Path download_dir: results download directory
+    :param list data_products_lst: list with SPOC data products to be queried
+    :param list reports: list with names of reports
+    :param str mission: mission, either 'kepler' or 'tess'
+    :param bool spoc_ffi: set to True to query HLSP TESS SPOC FFI
+    :param bool download_products: set to True to download data products, defaults to True
+    :param bool verbose: set to True for verbose printed to stdout console, defaults to True
+    :param bool get_most_recent_products: only get data products for the most recent SPOC runs for a given sector run, defaults to True
+    :param bool create_mast_url_csv: set to True to write MAST URLs for DV SPOC data products for the queried objects, defaults to False
+    :param int n_procs: number of processes to use for parallelization, defaults to 1
+    :param int n_jobs: number of jobs to use for parallelization, defaults to 1
+    """
+    
+    print(f'Found {len(objs_list)} events. Downloading DV reports...')
+
+    download_dir.mkdir(parents=True, exist_ok=True)
+    
+    if create_mast_url_csv:
+        mast_urls_tbls_dir = download_dir / 'mast_urls_tables'
+        mast_urls_tbls_dir.mkdir(parents=True, exist_ok=True)
+    
+    if mission == 'kepler':
+        
+        jobs = [(obj, download_dir, verbose) for obj in objs_list]
+
+        n_jobs = len(jobs)
+        print(f'Split work into {n_jobs} jobs.')
+        
+        # parallelize jobs
+        with multiprocessing.Pool(processes=n_procs) as pool:
+            async_results = [pool.apply_async(get_kic_dv_report_and_summary, job) for job in jobs]
+            _ = [r.get() for r in async_results]  # collect results
+            
+    elif mission == 'tess':
+        
+        objs_list_jobs = np.array_split(objs_list, n_jobs)
+
+        # split in n_jobs
+        jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, create_mast_url_csv,
+                get_most_recent_products, job_i)
+                for job_i, objs_list_job in enumerate(objs_list_jobs)]
+        # split per sector run
+        # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
+        #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
+        #         for sector_run, objs_list_job in objs_list_jobs.items()
+        #         if not (download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv').exists()]
+        
+        n_jobs = len(jobs)
+        print(f'Split work into {n_jobs} jobs.')
+        
+        # parallelize jobs
+        with multiprocessing.Pool(processes=n_procs) as pool:
+            async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
+            _ = [r.get() for r in async_results]  # collect results
+        
+        if create_mast_url_csv:
+            mast_url_tbls_fps = list(mast_urls_tbls_dir.glob('spoc-dv_mast-urls_job*.csv'))
+            if len(mast_url_tbls_fps) > 1:
+                print('Aggregating results...')
+                mast_url_tbl_agg = pd.concat([pd.read_csv(mast_url_tbl_fp) for mast_url_tbl_fp in mast_url_tbls_fps], axis=0)
+                mast_url_tbl_agg.to_csv(download_dir / f'spoc-dv_mast-urls_jobs-agg.csv', index=False)
+        
+    print(f'Finished querying MAST for DV reports.')
+    
+    
 if __name__ == "__main__":
     
     # set parameters
-    download_dir = Path('/data3/exoplnt_dl/dv_reports/tess/tess_spoc_2min_urls/tess-spoc-2min-s1-s94_s1s92_missing_9-22-2025_1004')
+    # download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/check_top_ntps_tess_ffi_paper_11-11-2025_1608')
+    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/oct_nov_2025/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/tec_ntps/check_ntps_model-score-geq0.9_ffi_11-20-2025_1159/')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
-    verbose = False
+    verbose = True
     get_most_recent_products = True
-    spoc_ffi = False
-    csv_fp = download_dir / f'{download_dir.stem}.csv'
-    n_procs = 14
-    n_jobs = 14*4
-
-    ### Kepler ###
-    kic_list = []
-    for kic in kic_list:
-        get_kic_dv_report_and_summary(kic, download_dir, verbose=False)
-
-    ### TESS ###
+    spoc_ffi = True
+    create_mast_url_csv = True
+    n_procs = 10
+    n_jobs = 20
+    mission = 'tess'
     
     # get objects from table
-    objs = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518.csv', usecols=['uid', 'DV mini-report'])
-    objs = objs.loc[objs['DV mini-report'].isna()]
+    # objs = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518.csv', usecols=['uid', 'DV mini-report'])
+    # objs = objs.loc[objs['DV mini-report'].isna()]
+    pred_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/oct_nov_2025/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/predictions_testset_allfolds.csv', comment='#')
+    objs = pred_tbl.loc[((pred_tbl['label'] == 'NTP') & (pred_tbl['obs_type'] == 'ffi') & (pred_tbl['score'] >= 0.9))].sort_values(by='score', ascending=False)
+    
+    # convert uid to format required for query
     objs['uid'] = objs['uid'].apply(correct_sector_field)
     
     # run with a few objects
@@ -282,38 +376,7 @@ if __name__ == "__main__":
     # print(f'Number of jobs set by number of sector runs: n_jobs={len(objs_list_jobs)}')
     # n_jobs = len(objs_list_jobs)
 
-    # split in n_jobs
+    # convert to list or NumPy array
     objs_list = np.array(objs['uid'])
-    objs_list_jobs = np.array_split(objs_list, n_jobs)
     
-    print(f'Found {len(objs_list)} events. Downloading DV reports...')
-
-    download_dir.mkdir(parents=True, exist_ok=True)
-    
-    # split in n_jobs
-    jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose, csv_fp,
-             get_most_recent_products, job_i)
-            for job_i, objs_list_job in enumerate(objs_list_jobs)]
-    # split per sector run
-    # jobs = [(objs_list_job, data_products_lst, download_dir, download_products, reports, spoc_ffi, verbose,
-    #          download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv')
-    #         for sector_run, objs_list_job in objs_list_jobs.items()
-    #         if not (download_dir / f'{download_dir.stem}_sector_run_{sector_run}.csv').exists()]
-    
-    n_jobs = len(jobs)
-    print(f'Split work into {n_jobs} jobs.')
-    
-    # parallelize jobs
-    pool = multiprocessing.Pool(processes=n_procs)
-    async_results = [pool.apply_async(get_dv_dataproducts_list, job) for job in jobs]
-    pool.close()
-    pool.join()
-    
-    if csv_fp is not None:
-        mast_url_tbls_fps = list(download_dir.glob('*.csv'))
-        if len(mast_url_tbls_fps) > 1:
-            print('Aggregating results...')
-            mast_url_tbl_agg = pd.concat([pd.read_csv(mast_url_tbl_fp) for mast_url_tbl_fp in mast_url_tbls_fps], axis=0)
-            mast_url_tbl_agg.to_csv(csv_fp.parent / f'{csv_fp.stem}_jobs-agg.csv', index=False)
-    
-    print(f'Finished querying MAST for DV reports.')
+    main(objs_list, download_dir, data_products_lst, reports, mission, spoc_ffi, download_products, verbose, get_most_recent_products, create_mast_url_csv, n_procs, n_jobs)    

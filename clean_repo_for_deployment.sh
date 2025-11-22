@@ -43,6 +43,7 @@ tess_spoc_ffi/
 data_wrangling/
 exominer_pipeline/test_pipeline/
 job_scripts/
+local_scripts/
 others/3rd_party_licenses.md
 others/get_3rd_party_licenses_pkgs.md
 *.pbs
