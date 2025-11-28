@@ -53,7 +53,7 @@ CONFIG_FP=$PYTHONPATH/src_cv/predict/config_cv_predict.yaml
 CONFIG_PREPROCESS_FP=$PYTHONPATH/src_cv/preprocessing/config_preprocess_cv_folds_predict_tfrecord_dataset.yaml
 
 # output directory
-OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv-predict-11-20-2025-1025_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505
+OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv-predict-11-25-2025-1108_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-23-2025_1213/
 mkdir -p $OUTPUT_DIR
 
 PBS_SCRIPT_FP=$(realpath $0)
@@ -64,14 +64,15 @@ COMMIT_HASH=$(git -C $PYTHONPATH rev-parse HEAD)
 echo "Git hash commit: $COMMIT_HASH"  >> $JOB_FP
 
 # root directory for model file paths
-MODELS_CV_ROOT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/
+MODELS_CV_ROOT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-23-2025_1213/
 N_CV_ITERS=5  # number of CV folds/iterations
 
 # whether to preprocess data before running inference
+# set to path to use preprocessed data under that path; set to true to preprocess data
 PREPROCESS_DATA=true
 
 # whether to delete preprocessed data after running inference
-DELETE_PREPROCESSED_DATA=true
+DELETE_PREPROCESSED_DATA=false
 
 # number of GPUs to be used by this job array
 N_GPUS_TOTAL=4

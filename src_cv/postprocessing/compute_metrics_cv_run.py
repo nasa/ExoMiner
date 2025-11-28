@@ -12,9 +12,67 @@ from tqdm import tqdm
 from src.postprocessing.compute_metrics_from_predictions_csv_file import compute_metrics_from_predictions
 
 def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=0.5, num_thresholds=1000, class_name='label_id', cat_name='label', pred_tbl_prefix='predictions', results_sub_dir='ensemble', compute_mean_std_metrics=True, compute_metrics_all_dataset=True):
+    """ Compute evaluation metrics for a cross-validation (CV) experiment across multiple datasets and CV iterations.
+
+    This function aggregates metrics computed from prediction tables generated during a CV run. It supports:
+    - Per-fold metrics for each dataset.
+    - Mean and standard deviation of metrics across CV folds.
+    - Optional computation of metrics for the entire dataset by combining folds (for non-overlapping CV splits).
+    - Saving aggregated metrics tables with metadata.
+
+    Parameters
+    ----------
+    cv_run_dir : pathlib.Path
+        Path to the directory containing the CV run results. Each CV iteration should be in a subdirectory named `cv_iter*`.
+    top_k_vals : list of int
+        List of top-k values for ranking-based metrics (e.g., top-1, top-5 accuracy).
+    datasets : list of str
+        Names of datasets to process (e.g., ['train', 'val', 'test']).
+    label_map : dict
+        Mapping from categorical labels to numeric IDs.
+    clf_threshold : float, optional (default=0.5)
+        Classification threshold for binary/multi-class predictions.
+    num_thresholds : int, optional (default=1000)
+        Number of thresholds for computing metrics like AUC.
+    class_name : str, optional (default='label_id')
+        Column name for numeric class labels in the predictions table.
+    cat_name : str, optional (default='label')
+        Column name for categorical labels in the predictions table.
+    pred_tbl_prefix : str, optional (default='predictions')
+        Prefix for prediction table filenames.
+    results_sub_dir : str, optional (default='ensemble')
+        Subdirectory within each CV iteration directory containing prediction tables.
+    compute_mean_std_metrics : bool, optional (default=True)
+        Whether to compute and append mean and standard deviation of metrics across CV folds.
+    compute_metrics_all_dataset : bool, optional (default=True)
+        Whether to compute metrics for the entire dataset by combining folds (only valid for non-overlapping splits).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated metrics for all datasets and CV folds, including mean and standard deviation if requested.
+        The DataFrame includes metadata in its `.attrs` attribute.
+
+    Side Effects
+    ------------
+    - Writes per-dataset metrics tables and an aggregated metrics table to `cv_run_dir`.
+    - Adds metadata (CV experiment path, timestamp, thresholds, label map) as comments in saved CSV files.
+
+    Notes
+    -----
+    - Assumes prediction tables exist in each CV iteration directory under `results_sub_dir`.
+    - For combined test set metrics, requires a file named `{pred_tbl_prefix}_testset_allfolds.csv` in `cv_run_dir`.
+    - Uses CPU for metric computation to avoid GPU overhead.
+
+    Example
+    -------
+    >>> compute_metrics_stats_cv_run(
+    ...     cv_run_dir=Path('/path/to/cv_run'),
+    ...     top_k_vals=[1, 5],
+    ...     datasets=['val', 'test'],
+    ...     label_map={'cat': 0, 'dog': 1}
+    ... )
     """
-    
-    """    
 
     print(f'Getting metrics for experiment {cv_run_dir}...')
 
@@ -104,6 +162,8 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
 
 if __name__ == '__main__':
     
+    tf.config.set_visible_devices([], 'GPU')
+    
     num_thresholds = 1000  # number of thresholds used to compute AUC
     clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
     multiclass = False  # multiclass or bin class?
@@ -144,7 +204,7 @@ if __name__ == '__main__':
 
     # cv experiment directories
     cv_run_dirs = [
-        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505'),
+        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew-nolayernorm_11-27-2025_1124'),
     ]
     for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 

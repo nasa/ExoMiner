@@ -16,7 +16,7 @@ from pathlib import Path
 from src.utils.utils_visualization import plot_metric_from_res_file
 
 # file pat to results numpy file
-res_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/res_train.npy')
+res_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew-nolayernorm_11-27-2025_1124/cv_iter_0/models/model0/res_train.npy')
 # file path to save image to
 # save_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_paper/test_new_data/cv_tess-spoc-2min_s1-s67_test_addedpgrambranch_8-28-2024_1708/cv_iter_0/models/model0/plot_prauc_curve.png')
 
@@ -24,15 +24,20 @@ res_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exomi
 res = np.load(res_fp, allow_pickle=True).item()
 print(f'Metrics/loss available: {res.keys()}')
 
-metric_name_chosen = 'auc_pr'
+metrics_lst = [
+    'loss',
+    'auc_pr',
+]
 
-save_fp = res_fp.parent / f'plot_{metric_name_chosen}.png'
+for metric_name_chosen in metrics_lst:
 
-# set epochs array
-epochs_arr = np.arange(len(res[metric_name_chosen]))
+    save_fp = res_fp.parent / f'plot_{metric_name_chosen}.png'
 
-# choose metrics to be plotted
-chosen_metrics = [metric_name for metric_name in res if metric_name_chosen in metric_name]
-chosen_res = {metric_name: {'epochs': epochs_arr, 'values': res[metric_name]} for metric_name in chosen_metrics}
+    # set epochs array
+    epochs_arr = np.arange(len(res[metric_name_chosen]))
 
-plot_metric_from_res_file(chosen_res, save_fp, logscale=True)
+    # choose metrics to be plotted
+    chosen_metrics = [metric_name for metric_name in res if metric_name_chosen in metric_name]
+    chosen_res = {metric_name: {'epochs': epochs_arr, 'values': res[metric_name]} for metric_name in chosen_metrics}
+
+    plot_metric_from_res_file(chosen_res, save_fp, logscale=True)

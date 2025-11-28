@@ -65,7 +65,7 @@ if [ "$PREPROCESS_DATA" = true ] ; then
 
     echo "Finished preprocessing data for CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
 else
-    export DATA_DIR="$CV_DIR"/data
+    export DATA_DIR="$PREPROCESS_DATA"
 fi
 
 python "$CREATE_CV_FOLDS_SCRIPT" --config_fp="$CONFIG_FP" --data_dir="$DATA_DIR"/cv_iter_$CV_ITER --cv_iter=$CV_ITER &>> "$LOG_FP_CV_ITER"

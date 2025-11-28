@@ -266,3 +266,6 @@ config:
   optimizer: Adam
   lr: 4.176171931455995e-05
   loss: crossentropy
+  focal_loss_gamma: 2.0
+  focal_loss_alpha: 0.96
+  focal_class_balancing: false
