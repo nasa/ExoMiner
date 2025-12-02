@@ -9,7 +9,7 @@ paths:
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
   cv_folds: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iterations.yaml
 #  model_config_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus.yaml
-  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus_ffi.yaml
+  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 num_val_folds: -1  # assuming `val_from_train` is true, this variable sets the number of training folds used for validation
@@ -43,10 +43,10 @@ training:
     'num_transit_dur': 5
   n_epochs: 300  # number of epochs used to train each model
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
-  batch_size: 32
+  batch_size: 32  # 256  # 32
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
   sample_weights: false  # use sample weights defined in the data set
-  shuffle_buffer_size: 5000  # should be larger than size of the training set to allow perfect sampling
+  shuffle_buffer_size: 1000  # 5000  # should be larger than size of the training set to allow perfect sampling
 
 label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
@@ -60,19 +60,19 @@ callbacks:
     early_stopping:
       monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
-      patience: 50
+      patience: 20
       verbose: 1
       mode: max  # maximize/minimize monitored metric in early stopping
       baseline: null
       restore_best_weights: true  # get model from epoch that had the best performance according to monitored metric
-    tensorboard:
-      histogram_freq: 1
-      write_graph: true
-      write_images: false
-      update_freq: epoch
-      profile_batch: 2
-      embeddings_metadata: null
-      embeddings_freq: 0
+    # tensorboard:
+    #   histogram_freq: 1
+    #   write_graph: true
+    #   write_images: false
+    #   update_freq: epoch
+    #   profile_batch: 2
+    #   embeddings_metadata: null
+    #   embeddings_freq: 0
 
 label_map:  # maps label to a label id
 #  # Kepler

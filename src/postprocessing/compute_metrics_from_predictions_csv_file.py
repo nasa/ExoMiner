@@ -228,12 +228,12 @@ if __name__ == '__main__':
     multiclass_target_score = 'KP'
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-4-2025_1353/predictions_testset_allfolds.csv")
+    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/predictions_testset_allfolds_agg-objects-weighted-tce_num_transits_obs.csv")
     # save path
-    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-4-2025_1353/metrics_predictions_testset_allfolds_ffi.csv")
+    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/metrics_predictions_testset_allfolds_agg-objects-weighted-tce_num_transits_obs.csv")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp, comment='#')
-    predictions_tbl = predictions_tbl.loc[predictions_tbl['obs_type'] == 'ffi']
+    # predictions_tbl = predictions_tbl.loc[predictions_tbl['obs_type'] == 'ffi']
 
     predictions_tbl['label_id'] = predictions_tbl.apply(lambda x: label_map[x['label']], axis=1)
     metrics_df = compute_metrics_from_predictions(predictions_tbl, label_map, num_thresholds, clf_threshold, top_k_vals,
