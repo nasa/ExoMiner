@@ -11,7 +11,8 @@ from tqdm import tqdm
 # local
 from src.postprocessing.compute_metrics_from_predictions_csv_file import compute_metrics_from_predictions
 
-def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=0.5, num_thresholds=1000, class_name='label_id', cat_name='label', pred_tbl_prefix='predictions', results_sub_dir='ensemble', compute_mean_std_metrics=True, compute_metrics_all_dataset=True):
+def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=0.5, num_thresholds=1000, recall_at_precision_thr=0.95, precision_at_recall_thr=0.95, 
+                                 class_name='label_id', cat_name='label', pred_tbl_prefix='predictions', results_sub_dir='ensemble', compute_mean_std_metrics=True, compute_metrics_all_dataset=True):
     """ Compute evaluation metrics for a cross-validation (CV) experiment across multiple datasets and CV iterations.
 
     This function aggregates metrics computed from prediction tables generated during a CV run. It supports:
@@ -34,6 +35,8 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
         Classification threshold for binary/multi-class predictions.
     num_thresholds : int, optional (default=1000)
         Number of thresholds for computing metrics like AUC.
+    recall_at_precision_thr: float, precision value used to compute recall
+    precision_at_recall_thr: float, recall value used to compute precision
     class_name : str, optional (default='label_id')
         Column name for numeric class labels in the predictions table.
     cat_name : str, optional (default='label')
@@ -99,7 +102,9 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
             # compute metrics
             with tf.device('/cpu:0'):
                 metrics_df_cv_iter = compute_metrics_from_predictions(ranking_tbl, label_map, num_thresholds,
-                                                                      clf_threshold, top_k_vals, class_name, cat_name)
+                                                                      clf_threshold, top_k_vals, class_name, cat_name, 
+                                                                      recall_at_precision_thr=recall_at_precision_thr, 
+                                                                      precision_at_recall_thr=precision_at_recall_thr)
                 metrics_df_cv_iter['fold'] = cv_iter_dir.name
 
             metrics_df.append(metrics_df_cv_iter)
@@ -136,7 +141,9 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
 
             # compute metrics
             metrics_df = compute_metrics_from_predictions(ranking_tbl, label_map, num_thresholds, clf_threshold,
-                                                        top_k_vals, class_name, cat_name)
+                                                        top_k_vals, class_name, cat_name, 
+                                                        recall_at_precision_thr=recall_at_precision_thr, 
+                                                        precision_at_recall_thr=precision_at_recall_thr)
             metrics_df.attrs['predictions_table'] = str(pred_tbl_fp)
             metrics_df.attrs['label_map'] = label_map
             with open(cv_run_dir / f'metrics_{dataset}_all.csv', "w") as f:
@@ -166,6 +173,8 @@ if __name__ == '__main__':
     
     num_thresholds = 1000  # number of thresholds used to compute AUC
     clf_threshold = 0.5  # classification threshold used to compute accuracy, precision and recall
+    recall_at_precision_thr=0.99
+    precision_at_recall_thr=0.99
     multiclass = False  # multiclass or bin class?
     target_score = 'score_AFP'  # get auc_pr metrics for different class labels
     class_name = 'label_id'
@@ -204,8 +213,10 @@ if __name__ == '__main__':
 
     # cv experiment directories
     cv_run_dirs = [
-        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew-nolayernorm_11-27-2025_1124'),
+        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-23-2025_1213'),
     ]
     for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
-        compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=clf_threshold, num_thresholds=num_thresholds, class_name=class_name, cat_name=cat_name, pred_tbl_prefix=pred_tbl_prefix, results_sub_dir=results_sub_dir, compute_mean_std_metrics=compute_mean_std_metrics, compute_metrics_all_dataset=compute_metrics_all_dataset)
+        compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=clf_threshold, num_thresholds=num_thresholds, recall_at_precision_thr=recall_at_precision_thr, 
+                                     precision_at_recall_thr=precision_at_recall_thr, class_name=class_name, cat_name=cat_name, pred_tbl_prefix=pred_tbl_prefix, results_sub_dir=results_sub_dir, 
+                                     compute_mean_std_metrics=compute_mean_std_metrics, compute_metrics_all_dataset=compute_metrics_all_dataset)

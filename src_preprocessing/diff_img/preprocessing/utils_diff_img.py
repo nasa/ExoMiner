@@ -579,7 +579,7 @@ def create_neighbors_img(neighbor_data, img_shape, target_mag, exclude_objs_outs
         return np.zeros(img_shape, dtype='float')
 
     # initialize with all infinity values
-    neighbor_img = np.inf * np.ones(img_shape + (n_neighbors,), dtype='float')
+    neighbor_img = np.zeros(img_shape + (n_neighbors,), dtype='float')
 
     # sort neighbors from brightest to dimmest
     neighbor_data = dict(sorted(neighbor_data.items(), key=lambda item: item[1]['Tmag']))
@@ -595,10 +595,7 @@ def create_neighbors_img(neighbor_data, img_shape, target_mag, exclude_objs_outs
         neighbor_img[neighbor_row, neighbor_col, neighbor_i] = target_mag / neighbor_data[neighbor_id]['Tmag']
 
     # in each pixel, choose only the brightest target
-    neighbor_img = np.min(neighbor_img, axis=-1)
-
-    # set pixels with no neighbors to zero (TMag = 0)
-    neighbor_img[~np.isfinite(neighbor_img)] = 0
+    neighbor_img = np.max(neighbor_img, axis=-1)
 
     return neighbor_img
 

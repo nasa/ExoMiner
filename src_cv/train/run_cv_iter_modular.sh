@@ -108,6 +108,24 @@ do
     fi
 done
 
+# initialize a variable to collect directories with missing model files
+missing_models=""
+
+# check each directory for the presence of model.keras
+for dir in "$MODELS_DIR"/*/; do
+    if [[ ! -f "$dir/model.keras" ]]; then
+        missing_models+="$dir\n"
+    fi
+done
+
+# if there are any missing models, log and exit
+if [[ -n "$missing_models" ]]; then
+    echo -e "The following models failed to be trained:\n$missing_models" >> "$LOG_FP_CV_ITER"
+    exit 1
+fi
+
+echo "All models trained successfully in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+
 #PROC_IN_GPU=$(nvidia-smi -i $GPU_ID --query-compute-apps=pid --format=csv,noheader)
 #until [ "$PROC_IN_GPU" == "" ]
 #do
@@ -131,14 +149,14 @@ ENSEMBLE_MODEL_FP="$ENSEMBLE_MODEL_DIR"/ensemble_avg_model.keras
 python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$ENSEMBLE_MODEL_DIR" &>> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
 CV_ITER_CONFIG_FP=$ENSEMBLE_MODEL_DIR/config_cv.yaml
 
-# create ensemble model
-if [ -f "$ENSEMBLE_MODEL_FP" ]; then
-    echo "Ensemble model in CV iteration $CV_ITER already exists. Skipping creating ensemble..." >> "$LOG_FP_CV_ITER"
-    # continue
-else
-    python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
-    echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-fi
+# # create ensemble model
+# if [ -f "$ENSEMBLE_MODEL_FP" ]; then
+#     echo "Ensemble model in CV iteration $CV_ITER already exists. Skipping creating ensemble..." >> "$LOG_FP_CV_ITER"
+#     # continue
+# else
+python "$CREATE_ENSEMBLE_MODEL_SCRIPT_FP" --config_fp="$CV_ITER_CONFIG_FP" --models_dir="$MODELS_DIR" --ensemble_fp="$ENSEMBLE_MODEL_FP" &> "$LOG_FP_CREATE_ENSEMBLE_MODEL"
+echo "Created ensemble model in CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
+# fi
 
 # evaluate ensemble model
 echo "Started evaluating ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"

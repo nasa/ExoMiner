@@ -46,7 +46,7 @@ CONFIG_FP=/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/c
 RUN_SH_SCRIPT=/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/train/run_cv_iter_modular.sh
 
 # output directory
-OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-21-2025_1256
+OUTPUT_DIR=/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exominernew-adamw-batch32-samedropout_11-30-2025_2248
 mkdir -p $OUTPUT_DIR
 
 # create main output job file
@@ -86,4 +86,4 @@ seq 0 $((NUM_TOTAL_JOBS - 1)) | parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {
 # $RUN_SH_SCRIPT 0 0 1 $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER
 
 # run GNU parallel for specific CV iterations
-# parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} 0 $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER" ::: 0
+# parallel -j $NUM_JOBS_PARALLEL "$RUN_SH_SCRIPT {} 0 $NUM_JOBS_PARALLEL $CONFIG_FP $OUTPUT_DIR $N_GPUS_TOTAL $N_CV_ITERS $N_MODELS_PER_CV_ITER" ::: 0 2 3 4
