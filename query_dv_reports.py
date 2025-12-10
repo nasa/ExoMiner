@@ -373,7 +373,7 @@ if __name__ == "__main__":
     
     # set parameters
     # download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/check_top_ntps_tess_ffi_paper_11-11-2025_1608')
-    download_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/mast_urls_dv_reports_spoc_ffi_12-9-2025_0700')
+    download_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/mast_urls_dv_reports_spoc_ffi_12-10-2025_0817')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
@@ -381,7 +381,7 @@ if __name__ == "__main__":
     get_most_recent_products = True
     spoc_ffi = True
     create_mast_url_csv = True
-    n_procs = 1
+    n_procs = 4
     n_jobs = 300
     mission = 'tess'
     

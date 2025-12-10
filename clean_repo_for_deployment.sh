@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORK_TREE_DIR=/Users/msaragoc/Projects/exoplanet_transit_classification/exominer_deployment
+WORK_TREE_DIR=/Users/miguelmartinho/Projects/exominer_deployment
 BRANCH_DEPLOYMENT=exominer_deployment
 REMOTE_REPO=nasa_github
 REMOTE_BRANCH=main
@@ -48,8 +48,6 @@ others/3rd_party_licenses.md
 others/get_3rd_party_licenses_pkgs.md
 *.pbs
 __pycache__/
-src_preprocessing/diff_img/search_neighbors
-models/exominer_new.yaml
 models/model_config.yaml
 clean_repo_for_deployment.sh
 .dockerignore
