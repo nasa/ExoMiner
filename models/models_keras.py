@@ -1487,18 +1487,18 @@ class ExoMinerJointLocalFlux(object):
                 # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
                                             #   name=f'{branch}_dropout_fc_conv')(net)
 
-            net = tf.keras.layers.LayerNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            center=True,
-            scale=True,
-            beta_initializer="zeros",
-            gamma_initializer="ones",
-            beta_regularizer=None,
-            gamma_regularizer=None,
-            beta_constraint=None,
-            gamma_constraint=None,
-            name=f'{branch}_layer_norm')(net)
+            # net = tf.keras.layers.LayerNormalization(
+            # axis=-1,
+            # epsilon=1e-3,
+            # center=True,
+            # scale=True,
+            # beta_initializer="zeros",
+            # gamma_initializer="ones",
+            # beta_regularizer=None,
+            # gamma_regularizer=None,
+            # beta_constraint=None,
+            # gamma_constraint=None,
+            # name=f'{branch}_layer_norm')(net)
             
             conv_branches[branch] = net
 
@@ -1750,18 +1750,18 @@ class ExoMinerJointLocalFlux(object):
                 # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'],
                 #                               name=f'local_fluxes_{branch}_dropout_fc_conv')(net)
             
-            net = tf.keras.layers.LayerNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            center=True,
-            scale=True,
-            beta_initializer="zeros",
-            gamma_initializer="ones",
-            beta_regularizer=None,
-            gamma_regularizer=None,
-            beta_constraint=None,
-            gamma_constraint=None,
-            name=f'local_fluxes_{branch}_layer_norm')(net)
+            # net = tf.keras.layers.LayerNormalization(
+            # axis=-1,
+            # epsilon=1e-3,
+            # center=True,
+            # scale=True,
+            # beta_initializer="zeros",
+            # gamma_initializer="ones",
+            # beta_regularizer=None,
+            # gamma_regularizer=None,
+            # beta_constraint=None,
+            # gamma_constraint=None,
+            # name=f'local_fluxes_{branch}_layer_norm')(net)
 
             conv_branches[branch] = net
 
@@ -2068,7 +2068,7 @@ class ExoMinerJointLocalFlux(object):
             else:
                 scalar_inputs = scalar_inputs[0]
 
-            # scalar_inputs = tf.keras.layers.BatchNormalization(name='diff_imgs_scalars_inputs_batch_norm')(scalar_inputs)
+            scalar_inputs = tf.keras.layers.BatchNormalization(name='diff_imgs_scalars_inputs_batch_norm')(scalar_inputs)
 
             # concatenate scalar features with remaining features
             net = tf.keras.layers.Concatenate(axis=1,
@@ -2103,18 +2103,18 @@ class ExoMinerJointLocalFlux(object):
                                             name='diff_imgs_fc_prelu')(net)
 
             # net = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'diff_imgs_dropout_fc')(net)
-            net = tf.keras.layers.LayerNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            center=True,
-            scale=True,
-            beta_initializer="zeros",
-            gamma_initializer="ones",
-            beta_regularizer=None,
-            gamma_regularizer=None,
-            beta_constraint=None,
-            gamma_constraint=None,
-            name='diff_imgs_layer_norm')(net)
+            # net = tf.keras.layers.LayerNormalization(
+            # axis=-1,
+            # epsilon=1e-3,
+            # center=True,
+            # scale=True,
+            # beta_initializer="zeros",
+            # gamma_initializer="ones",
+            # beta_regularizer=None,
+            # gamma_regularizer=None,
+            # beta_constraint=None,
+            # gamma_constraint=None,
+            # name='diff_imgs_layer_norm')(net)
 
         return {'diff_img': net}
 
@@ -2183,18 +2183,18 @@ class ExoMinerJointLocalFlux(object):
             
             # scalar_fc_output = tf.keras.layers.Dropout(self.config['branch_dropout_rate_fc'], name=f'{scalar_branch_name}_fc_summarize_dropout')(scalar_fc_output)
             
-            scalar_fc_output = tf.keras.layers.LayerNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            center=True,
-            scale=True,
-            beta_initializer="zeros",
-            gamma_initializer="ones",
-            beta_regularizer=None,
-            gamma_regularizer=None,
-            beta_constraint=None,
-            gamma_constraint=None,
-            name=f'{scalar_branch_name}_layer_norm')(scalar_fc_output)
+            # scalar_fc_output = tf.keras.layers.LayerNormalization(
+            # axis=-1,
+            # epsilon=1e-3,
+            # center=True,
+            # scale=True,
+            # beta_initializer="zeros",
+            # gamma_initializer="ones",
+            # beta_regularizer=None,
+            # gamma_regularizer=None,
+            # beta_constraint=None,
+            # gamma_constraint=None,
+            # name=f'{scalar_branch_name}_layer_norm')(scalar_fc_output)
             
             scalar_branches_net[scalar_branch_name] = scalar_fc_output
 

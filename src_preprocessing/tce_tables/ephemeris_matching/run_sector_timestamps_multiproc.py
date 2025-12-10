@@ -14,7 +14,7 @@ from src_preprocessing.tce_tables.ephemeris_matching.get_start_end_timestamps_se
 if __name__ == '__main__':
 
     # directory used to save start/end timestamps target tables for each sector run
-    res_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tess_spoc_2min_start_end_timestamps_tics_lc_s36-s72_4-17-2024_1421')
+    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/ephemeris_matching/tess-spoc-2min_start-end-timestamps_tics_lc_s1-s88_10-9-2025_2234')
     res_dir.mkdir(exist_ok=True)
     # lightcurve root directory for the target data of interest from where to get the timestamps
     lc_root_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc')

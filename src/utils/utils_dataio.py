@@ -2,6 +2,10 @@
 
 # 3rd party
 import os
+
+# tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback to /tmp if not set
+# cache_path = os.path.join(tmpdir, "cache.tfdata")
+
 import tensorflow as tf
 # tf.data.experimental.enable_debug_mode()
 import numpy as np
@@ -329,6 +333,7 @@ class InputFnv2(object):
             # parse the features
             parsed_features_ex = tf.io.parse_single_example(serialized=serialized_example, features=self.data_fields)
             
+            # TODO: make this a generic function
             # parse tensors from strings to arrays with the correct shape
             def parse_and_reshape(feature_name):
                 
@@ -444,6 +449,12 @@ class InputFnv2(object):
             num_parallel_calls=tf.data.AUTOTUNE if self.mode != 'PREDICT' else 1
         )
 
+        # if self.mode == 'TRAIN':  # self.cache_enabled:  # any shuffle done before is fixed
+        #     # dataset = dataset.cache()
+        #     if tf.io.gfile.exists(cache_path):
+        #         tf.io.gfile.rmtree(cache_path)
+        #     dataset = dataset.cache(cache_path)
+            
         # shuffle the examples in the dataset if training
         if self.mode == 'TRAIN':
             # if 'eval_with_2mindata_transferlearning' in filenames[0]:

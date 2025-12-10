@@ -10,7 +10,7 @@ paths:
   # path to root directory with ensemble models created in a CV experiment
   models_cv_root_dir: null
   # potentially remove this since it is not used and it is only useful to track the model config yaml file
-  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus_ffi.yaml
+  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml
 
 data_fields: # scalar data from TFRecords to add to ranking table
   uid: 'string'

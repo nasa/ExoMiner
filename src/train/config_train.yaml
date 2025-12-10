@@ -28,7 +28,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   tce_max_mult_ev: 'float_scalar'
 
 # set general architecture of the model based on implementations under models.models_keras.py
-model_architecture: ExoMinerJointLocalFlux  # ExoMinerPlusPlus
+model_architecture: ExoMinerJointLocalFlux  # ExoMinerPlusPlus  # ExoMinerJointLocalFlux  # ExoMinerPlusPlus
 
 # maps features' names to features names expected by the model
 feature_map: null
@@ -42,17 +42,22 @@ training:
     'num_transit_dur': 5
   n_epochs: 300  # number of epochs used to train each model
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
-  batch_size: 256
+  batch_size: 256  # 256  # 32
   filter_data: null  # deprecated; useless
-  category_weights:   null  # category weights used in weighted loss; set to null for non-weighted loss
-    # non-planet: 6278 -> 0.52
-    # planet: 253 -> 12.91
-#    KP: 12.91  # 44.23  # 12.91 (N_total / [2 * N_class])
-#    CP: 12.91  # 62.20  # 12.91
-#    FP: 0.52  # 35.49 # 0.52
-#    NTP: 0.52  # 1.14  # 0.52
-#    EB: 0.52  # 18.29  # 0.52
-#    BD: 0.52  # 1632.75  # 0.52
+  category_weights:   #null  # category weights used in weighted loss; set to null for non-weighted loss
+    # NTP: 0.2497995480720169
+    # EB: 0.8516401590457257
+    # CP: 3.486266531027467
+    # KP: 3.7556164383561645
+    # FP: 3.797229916897507
+    # BD: 163.1904761904762
+    NTP: 0.37469932
+    EB: 1.27746024
+    CP: 2.71194935
+    KP: 2.71194935
+    FP: 5.56632377
+    BD: 5.56632377
+
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 5000  # should be larger than size of the training set to allow perfect sampling
 
@@ -66,7 +71,7 @@ inference:
 callbacks:
   train:
     early_stopping:
-      monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+      monitor: val_auc_pr_planet  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
       patience: 100
       verbose: 1
@@ -87,15 +92,22 @@ label_map:  # maps label to a label id
 #  PC: 1
   # AFP: 0
 #  NTP: 0
-  # TESS
+#   # TESS
+#   KP: 1
+#   CP: 1
+#   FP: 0
+#   EB: 0
+#   NTP: 0
+# #  NEB: 0
+# #  NPC: 0
+#   BD: 0
+  # multiclass
   KP: 1
   CP: 1
-  FP: 0
-  EB: 0
+  FP: 2
+  EB: 2
   NTP: 0
-#  NEB: 0
-#  NPC: 0
-  BD: 0
+  BD: 2
   # Kepler Sim
 #  INJ1: 1
 #  INJ2: 0

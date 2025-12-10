@@ -70,6 +70,9 @@ features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype
   diff_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
   oot_imgs_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
   target_imgs: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  # snr_imgs_tc_std_trainset: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+  # neighbors_imgs_tc_fixed_min_max_norm: { 'dim': [ 55, 55, 5 ], 'dtype': float }
+
 
   quality: { 'dim': [ 5, 1], 'dtype': float }
   tce_dikco_msky_norm: { 'dim': [ 1, ], 'dtype': float }
@@ -199,10 +202,14 @@ config:
       - diff_imgs_std_trainset
       - oot_imgs_std_trainset
       - target_imgs
+      # - snr_imgs_tc_std_trainset
+      # - neighbors_imgs_tc_fixed_min_max_norm
     imgs_scalars:
       - quality
     scalars:
       - mag_shift_norm
+      # - tce_dikco_msky_norm
+      # - tce_dikco_msky_err_norm
 
   # global branch hyperparameters ----
   num_glob_conv_blocks: 2

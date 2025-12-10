@@ -196,7 +196,7 @@ config:
   focal_loss_alpha: 0.96
   focal_class_balancing: false
   lr: 4.176171931455995e-05  # 3.34e-04  # 4.176171931455995e-05
-  optimizer: AdamW  # AdamW
+  optimizer: Adam  # Adam # AdamW
   
   # applied to dense layers in classification head and in scalar branches
   decay_rate: null  
