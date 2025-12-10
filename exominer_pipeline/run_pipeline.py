@@ -22,7 +22,7 @@ from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preproc
 from src_preprocessing.diff_img.preprocessing.add_data_to_tfrecords import write_diff_img_data_to_tfrec_files_main
 from src_preprocessing.normalize_tfrecord_dataset.normalize_data_tfrecords import normalize_examples_main
 from src_preprocessing.utils_manipulate_tfrecords import create_table_for_tfrecord_dataset
-from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector_field
+from query_dv_reports import get_dv_dataproducts_list, correct_sector_field
 
 CONFIG_FP = 'exominer_pipeline/pipeline_run_config.yaml'
 

@@ -37,7 +37,7 @@ from models.models_keras import Time2Vec, SplitLayer, ExoMinerPlusPlus
 from src.utils.utils_dataio import InputFnv2 as InputFn
 # from src.train.utils_train import filter_examples_tfrecord_label
 from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
-from query_dv_report_and_summary import get_dv_dataproducts_list, correct_sector_field
+from query_dv_reports import get_dv_dataproducts_list, correct_sector_field
 
 #%% set filepaths
 

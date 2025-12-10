@@ -7,6 +7,7 @@ import numpy as np
 from pathlib import Path
 import multiprocessing
 from tqdm import tqdm
+import time
 
 URL_HEADER = 'https://mast.stsci.edu/api/v0.1/Download/file?uri='
 
@@ -239,27 +240,55 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         job_id: int, job ID for logging purposes
     """
 
+    # Define retry parameters
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5 # seconds
+
     uris_dict = {'uid': []}
     uris_dict.update({field: [] for field in data_products_lst})
     for obj in tqdm(objs_list, desc=f'[Job ID {job_id}] Getting data products for object', unit='obj', total=len(objs_list)):
 
-        _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
+        success = False
+        last_error = None
 
-        n_tces = len(uris[data_products_lst[0]])
+        for attempt in range(MAX_RETRIES):
+            try:
+                _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
+                success = True
+                break # Exit retry loop on success
+            except Exception as e:
+                last_error = e
+                # Check if it is a network error worth retrying
+                if "RemoteDisconnected" in str(e) or "Connection aborted" in str(e) or "ReadTimeout" in str(e):
+                    if verbose:
+                        print(f"Connection dropped for {obj} (Attempt {attempt+1}/{MAX_RETRIES}). Retrying in {RETRY_DELAY}s...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    # If it's a logic error (not network), break immediately
+                    break
+        
+        if not success:
+            print(f"Error processing {obj} after {MAX_RETRIES} attempts: {str(last_error)}")
+            continue # Skip to next object
 
-        if n_tces == 0:
-            continue
+        try:
+            n_tces = len(uris[data_products_lst[0]])
 
-        if get_most_recent_products and 'X' not in obj:
-            uris_dict['uid'] += [obj]
-            for field in data_products_lst:
-                uris_dict[field].append(URL_HEADER + uris[field][-1] if uris[field][-1] != '' else '')
+            if n_tces == 0:
+                if verbose:
+                    print(f'No data products found for {obj}.')
+                continue
 
-        else:
             uris_dict['uid'] += [obj] * n_tces
             for tce_i in range(n_tces):
                 for field in data_products_lst:
-                    uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
+                    if uris[field]:
+                        uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
+                    else:
+                        uris_dict[field].append('')
+
+        except Exception as e:
+            print(f"Error parsing results for {obj}: {str(e)}")
 
     if create_mast_url_csv:
         mast_urls_tbls_dir = download_dir / 'mast_urls_tables'
@@ -344,26 +373,33 @@ if __name__ == "__main__":
     
     # set parameters
     # download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/check_top_ntps_tess_ffi_paper_11-11-2025_1608')
-    download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/oct_nov_2025/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/tec_ntps/check_ntps_model-score-geq0.9_ffi_11-20-2025_1159/')
+    download_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/mast_urls_dv_reports_spoc_ffi_12-9-2025_0700')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
-    verbose = True
+    verbose = False
     get_most_recent_products = True
     spoc_ffi = True
     create_mast_url_csv = True
-    n_procs = 10
-    n_jobs = 20
+    n_procs = 1
+    n_jobs = 300
     mission = 'tess'
     
     # get objects from table
     # objs = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518.csv', usecols=['uid', 'DV mini-report'])
     # objs = objs.loc[objs['DV mini-report'].isna()]
-    pred_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/tess_spoc_ffi/oct_nov_2025/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/predictions_testset_allfolds.csv', comment='#')
-    objs = pred_tbl.loc[((pred_tbl['label'] == 'NTP') & (pred_tbl['obs_type'] == 'ffi') & (pred_tbl['score'] >= 0.9))].sort_values(by='score', ascending=False)
-    
+    objs = pd.read_csv('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025_exofop-sg1-tois9-11-2025_fixedtointps_nontpstois.csv', comment='#', usecols=['uid'])
+    print(f'Total number of objects in input table: {len(objs)}')
+
     # convert uid to format required for query
     objs['uid'] = objs['uid'].apply(correct_sector_field)
+    
+    filt_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/')
+    filt_tbl = pd.concat([pd.read_csv(fp) for fp in filt_dir.rglob('spoc-dv_mast-urls_job*.csv')], axis=0)
+    objs = objs.loc[~objs['uid'].isin(filt_tbl['uid'])]
+    objs = objs.loc[~objs['uid'].str.contains('56-69')]
+    
+    print(f'Number of objects to query: {len(objs)}')
     
     # run with a few objects
     # objs = pd.DataFrame({'uid': [
