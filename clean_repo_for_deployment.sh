@@ -59,8 +59,7 @@ find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml"
 git rm -r --cached xai/ transit_detection/ archived_experiments/ tess_spoc_ffi/ data_wrangling/ exominer_pipeline/test_pipeline/ job_scripts/
 git rm --cached others/3rd_party_licenses.md || true
 git rm --cached others/get_3rd_party_licenses_pkgs.md || true
-git rm -r --cached src_preprocessing/diff_img/search_neighbors || true
-git rm --cached models/exominer_new.yaml models/model_config.yaml || true
+git rm --cached models/model_config.yaml || true
 find others/envs -type f -name "*.yml" ! -name "*amd64.yml" ! -name "*arm64.yml" -exec git rm --cached {} \; || true
 git rm --cached clean_repo_for_deployment.sh .dockerignore || true
 find . -type f -name "*.pbs" -exec git rm --cached {} \; || true
