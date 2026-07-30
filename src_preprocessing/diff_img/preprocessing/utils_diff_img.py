@@ -48,14 +48,26 @@ def check_for_missing_values_in_preproc_diff_data(data):
 
     missing_value_found = False
 
+    # Only invalidate an example when a model-input array actually has missing values.
+    # 'images_numbers' is bookkeeping (which sampled slot maps to which sector/quarter) and
+    # 'neighbors_imgs'/'neighbors_imgs_tc' are not fed to the model. Both are legitimately
+    # NaN-padded when a TCE has fewer observed sectors than num_sampled_imgs or has no
+    # qualifying neighbors. Guarding on them discarded fully valid difference images and
+    # replaced them with a zero placeholder, which blanked the whole difference-image input
+    # for single-sector TCEs (e.g. TESS FFI), silently biasing predictions.
+    model_input_scalar_arrays = ['quality']
+    non_model_input_image_arrays = ['neighbors_imgs', 'neighbors_imgs_tc']
+
     for k, v in data.items():
         if k in ['quality', 'images_numbers']:
+            if k not in model_input_scalar_arrays:
+                continue
             missing_value_found = np.isnan(v).sum() > 0
             if missing_value_found:
                 return missing_value_found
         else:
             for k2, v2 in v.items():
-                if k2 in ['neighbors_imgs', 'neighbors_imgs_tc'] and v2[0] is None: # neighbors data is not used
+                if k2 in non_model_input_image_arrays:  # not fed to the model
                     continue
 
                 missing_value_found = np.isnan(v2).sum() > 0
