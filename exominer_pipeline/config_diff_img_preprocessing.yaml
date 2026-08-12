@@ -4,14 +4,23 @@ dest_root_dir: null
 diff_img_data_dir: null
 mission: tess  # either 'kepler' or 'tess'
 num_sampled_imgs: 5  # number of sampled quarters/sector runs
-final_size:  # final size for preprocessed images before resizing
-  x: 11
-  y: 11
-# upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
-upscale_f:
-  x: 3  # 5
-  y: 3  # 5
-# exclude neighbors that are outside the target mask
-exclude_neighbor_objs_outside: true
+final_size:  # size for preprocessed images before resizing; actual final size depends on upscale factor (final_size * upscale_f)
+  x: 11 # 11
+  y: 11 # 11
+resize_images: false
+upscale_f:  # upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
+  # x: 3
+  # y: 3
+  ### new architecture ###
+  x: 5
+  y: 5
+# magnitude difference range for including neighboring objects (mag_diff = target_mag - neighbor_mag)
+tmag_diff_range: [-12, 12]
 n_processes: 1  # number of processes to run jobs in parallel
-plot_prob: 0  # probability to plot preprocessing results for each example
+plot_prob: 0 # 0.001  # probability to plot preprocessing results for each example
+check_exist: false  # checks whether there is already a NumPy file with preprocessed difference image data for the sector run
+# needed for neighbors feature compact representation
+top_k: 5 # number of neighbors represented
+max_neighbor_distance: 8  # based on search radius in pixels
+# neighbor_delta_tmag_bound: [-12, 12]  # same range as tmag_diff_range
+gaussian_att_sigma: 1  # smoothing pixel factor when ranking neighbors based on distance and mag diff relative to target

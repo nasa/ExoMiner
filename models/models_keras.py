@@ -1097,8 +1097,9 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
 
     # global pooling similar to other local fluxes
     global_avg_pool_layer = tf.keras.layers.GlobalAveragePooling1D(name=f'local_fluxes_unfolded_flux_global_avg_pooling')
-    # flatten_layer = tf.keras.layers.Flatten(name=f'local_fluxes_unfolded_flux_flatten')
-    unfolded_flux_extracted_features = tf.keras.layers.TimeDistributed(global_avg_pool_layer, name=f'local_fluxes_unfolded_flux_flatten_apply')(unfolded_flux_extracted_features)
+    # local_fluxes_flatten_layer = tf.keras.layers.Flatten(name=f'local_fluxes_unfolded_flux_flatten')
+    
+    unfolded_flux_extracted_features = tf.keras.layers.TimeDistributed(local_fluxes_flatten_layer, name=f'local_fluxes_unfolded_flux_flatten_apply')(unfolded_flux_extracted_features)
     
     # split layer in preparation to avg/min/max
     unfolded_flux_extracted_features_split = SplitLayer(unfolded_flux_extracted_features.shape[1],
@@ -1147,8 +1148,8 @@ def process_extracted_conv_features_unfolded_flux(unfolded_flux_extracted_featur
     return flattened_output
 
 
-def difference_img_quality_metric_attention_fusion(diffimg_features, quality_metrics, name_prefix="diff_imgs"):
-    """ Applies attention-based fusion to a set of features from difference image using quality metric values.
+def combine_quality_metric(diffimg_features, quality_metrics, name_prefix="diff_imgs"):
+    """ Combines quality metric values with the extracted features from the difference image data.
 
     Args:
         diffimg_features: Tensor of shape (batch_size, num_sets, feature_dim) with difference image features for a set of images
@@ -1169,16 +1170,73 @@ def difference_img_quality_metric_attention_fusion(diffimg_features, quality_met
     # # Normalize to get attention weights
     # attention_weights = tf.keras.layers.Softmax(axis=1, name=f"{name_prefix}_attention_weights")(quality_metrics)
 
+    # FIX: fix the multiplication that is now element-wise and across sectors
+
     # Apply attention weights to features
-    weighted_features = tf.keras.layers.Multiply(name=f"{name_prefix}_weighted_features")([diffimg_features, quality_metrics])
+    # weighted_features = tf.keras.layers.Multiply(name=f"{name_prefix}_weighted_features")([diffimg_features, quality_metrics])
 
     # Sum across the sets to get a single feature vector
     # fused_output = tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x, axis=1), name=f"{name_prefix}_fused_output")(weighted_features)
-    fused_output = ReduceSumLayer(name=f"{name_prefix}_fused_output")(weighted_features)
+    # fused_output = ReduceSumLayer(name=f"{name_prefix}_fused_output")(weighted_features)
+    
+    # # add per-image scalar features        
+        # if self.config['diff_img_branch']['imgs_scalars'] is not None:
+
+        #     # get quality metric values for the images
+        #     qmetrics_inputs = self.inputs['quality']
+
+        #     # # option 1: multiply extracted features by quality metrics
+        #     # # repeat them to get same dimension of extracted feature maps
+        #     # qmetrics_inputs = tf.keras.layers.RepeatVector(n=input_conv_block.shape[2],
+        #     #                                                name='diff_imgs_repeat_qmetrics')(qmetrics_inputs)
+        #     # # reshape to match same shape as extracted feature maps
+        #     # qmetrics_inputs = tf.keras.layers.Permute((2, 1), name='diff_imgs_permute_qmetrics')(qmetrics_inputs)
+        #     # # expand dims to match
+        #     # qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1,),
+        #     #                                           name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
+        #     #
+        #     # input_conv_block = tf.keras.layers.Multiply(name='diff_imgs_qmetrics_mult')([input_conv_block,
+        #     #                                                                              qmetrics_inputs])
+
+    # option 2: concatenate quality metric features
+    quality_metrics = tf.keras.layers.Reshape(quality_metrics.shape[1:] + (1,), name='diff_imgs_qmetrics_expand_dims')(quality_metrics)
+    combine_qmetrics_diffimg_feats = tf.keras.layers.Concatenate(axis=2, name='diff_imgs_qmetrics_concat')([diffimg_features, quality_metrics])
+    fused_output = ReduceSumLayer(axis=1, keepdims=True, name='reduc_sum_imgs')(combine_qmetrics_diffimg_feats)
 
     return fused_output
 
 
+def create_diff_img_aux_head(diffimg_features, config):
+        """Create a small projection head dedicated to the auxiliary task for the difference image branch.
+        
+        :param diffimg_features: TensorFlow Keras tensor (flattened) with extracted features from the difference image branch
+        :return: TensorFlow Keras tensor with sigmoid output for the auxiliary head
+        """
+        
+        aux = tf.keras.layers.LayerNormalization(name='aux_bg_ln')(diffimg_features)
+        aux = tf.keras.layers.Dense(
+            units=config.get('aux_bg_units1', 128),
+            activation=None,
+            kernel_regularizer=regularizers.l2(config.get('aux_bg_l2', 0.0)),
+            name='aux_bg_dense1')(aux)
+        # aux = tf.keras.layers.LeakyReLU(alpha=0.01, name='aux_bg_lrelu1')(aux)
+        aux = tf.keras.layers.PReLU(name='aux_bg_prelu1')(aux)
+        aux = tf.keras.layers.Dropout(config.get('aux_bg_dropout1', 0.3), name='aux_bg_dropout1')(aux)
+
+        aux = tf.keras.layers.Dense(
+            units=config.get('aux_bg_units2', 64),
+            activation=None,
+            kernel_regularizer=regularizers.l2(config.get('aux_bg_l2', 0.0)),
+            name='aux_bg_dense2')(aux)
+        # aux = tf.keras.layers.LeakyReLU(alpha=0.01, name='aux_bg_lrelu2')(aux)
+        aux = tf.keras.layers.PReLU(name='aux_bg_prelu2')(aux)
+        aux = tf.keras.layers.Dropout(config.get('aux_bg_dropout2', 0.2), name='aux_bg_dropout2')(aux)
+
+        # final logistic output
+        diff_img_bg_score = tf.keras.layers.Dense(1, activation='sigmoid', name='aux_bg')(aux)
+                
+        return diff_img_bg_score
+    
 class ExoMinerJointLocalFlux(object):
     """ExoMiner architecture in progress. """
 
@@ -1200,6 +1258,7 @@ class ExoMinerJointLocalFlux(object):
         self.features = features
         
         self.attn_scores = None  # placeholder for attention scores if needed
+        self.aux_outputs = {}  # placeholder for auxiliary outputs
 
         if self.config['multi_class'] or \
                 (not self.config['multi_class'] and self.config['force_softmax']):
@@ -1209,17 +1268,25 @@ class ExoMinerJointLocalFlux(object):
 
         self.inputs = create_inputs(self.features, config['feature_map'])
 
+        # build model graph from inputs to main output
         self.outputs = self.build()
         
+        self.all_outputs = {'main': self.outputs}
+        
+        # add auxiliary outputs
+        self.all_outputs.update(self.aux_outputs)
+        
         # build the model
-        if self.config['use_attention_scores']:  # currently being used for XAI studies
+        # TODO: adapt code for attention scores
+        # if self.config['use_attention_scores']:  # currently being used for XAI studies
             
-            # builds model that outputs both prediction and attention scores for each example
-            self.kerasModel = keras.Model(inputs=self.inputs, outputs=[self.outputs, self.attn_scores])
+        #     # builds model that outputs both prediction and attention scores for each example
+        #     self.kerasModel = keras.Model(inputs=self.inputs, outputs=[self.outputs, self.attn_scores])
             
-        else:
-            # builds model that outputs only prediction for each example
-            self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
+        # else:
+        #     # builds model that outputs only prediction for each example
+            # self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
+        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.all_outputs)
 
 
     def prepare_joint_local_flux_inputs(self, conv_branches):
@@ -1435,7 +1502,7 @@ class ExoMinerJointLocalFlux(object):
                 # net = tf.keras.layers.MaxPooling1D(**pool_kwargs,
                 #                                    name=f'{branch}_maxpooling_{conv_block_i}')(net)
 
-            net = tf.keras.layers.GlobalAveragePooling1D(name=f'{branch}_global_max_pooling')(net)
+            net = tf.keras.layers.GlobalAveragePooling1D(name=f'{branch}_global_avg_pooling')(net)
             # net = tf.keras.layers.Flatten(name=f'{branch}_flatten')(net)
 
             # concatenate scalar features with features extracted in the convolutional branch for the time series views
@@ -1700,7 +1767,7 @@ class ExoMinerJointLocalFlux(object):
 
             # global pooling of the convolutional branch
             if branch != 'local_unfolded_flux':
-                net = tf.keras.layers.GlobalAveragePooling2D(name=f'local_fluxes_{branch}_global_max_pooling')(net)
+                net = tf.keras.layers.GlobalAveragePooling2D(name=f'local_fluxes_{branch}_global_avg_pooling')(net)
                 # net = tf.keras.layers.Flatten(name=f'local_fluxes_{branch}_flatten')(net)
 
             # concatenate scalar features with features extracted in the convolutional branch for the time series views
@@ -1766,7 +1833,7 @@ class ExoMinerJointLocalFlux(object):
             conv_branches[branch] = net
 
         return conv_branches
-
+        
     def build_diff_img_branch(self):
         """ Builds the difference image branch.
 
@@ -1909,6 +1976,9 @@ class ExoMinerJointLocalFlux(object):
         # apply global average pooling for all sectors/quarters
         global_avg_pooling = tf.keras.layers.GlobalAveragePooling2D(name=f'diff_imgs_global_avg_pooling')
         diff_imgs_global_avg_pool = tf.keras.layers.TimeDistributed(global_avg_pooling, name='diff_imgs_global_avg_pooling_apply')(net)
+        # diff_imgs_flatten = tf.keras.layers.Flatten(name=f'diff_imgs_flatten')
+        # diff_imgs_flatten_apply = tf.keras.layers.TimeDistributed(diff_imgs_flatten, name='diff_imgs_flatten_apply')(net)
+        
         # # instead of GlobalAveragePooling2D, use 1x1 Conv2D inside TimeDistributed
         # conv_diff_1x1 = tf.keras.layers.Conv2D(
         #     filters=4,              # reduce channels to 4
@@ -1927,134 +1997,14 @@ class ExoMinerJointLocalFlux(object):
         # # apply attention weights
         # diff_imgs_attention_applied = tf.keras.layers.Multiply(name='diff_imgs_attention_multiply')([diff_imgs_conv_1x1, attention])
 
-        # flatten each time slice separately (preserve time dimension)
-        diff_imgs_flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten(), name='diff_imgs_flatten')(diff_imgs_global_avg_pool)
+        # # flatten each time slice separately (preserve time dimension)
+        # diff_imgs_flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten(), name='diff_imgs_flatten')(diff_imgs_global_avg_pool)
 
-        # reshape global pooling features for all sectors/quarters
-        input_conv_block = tf.keras.layers.Reshape(diff_imgs_flatten.shape[1:] + (1,),
-                                                   name='diff_imgs_global_expand_dims')(diff_imgs_flatten)
+        # # reshape global pooling features for all sectors/quarters
+        # input_conv_block = tf.keras.layers.Reshape(diff_imgs_flatten.shape[1:] + (1,), name='diff_imgs_global_expand_dims')(diff_imgs_flatten)
 
         # use difference image quality metric information
-        net = difference_img_quality_metric_attention_fusion(input_conv_block, self.inputs['quality'])
-        
-        # # add per-image scalar features        
-        # if self.config['diff_img_branch']['imgs_scalars'] is not None:
-
-        #     # get quality metric values for the images
-        #     qmetrics_inputs = self.inputs['quality']
-
-        #     # # option 1: multiply extracted features by quality metrics
-        #     # # repeat them to get same dimension of extracted feature maps
-        #     # qmetrics_inputs = tf.keras.layers.RepeatVector(n=input_conv_block.shape[2],
-        #     #                                                name='diff_imgs_repeat_qmetrics')(qmetrics_inputs)
-        #     # # reshape to match same shape as extracted feature maps
-        #     # qmetrics_inputs = tf.keras.layers.Permute((2, 1), name='diff_imgs_permute_qmetrics')(qmetrics_inputs)
-        #     # # expand dims to match
-        #     # qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1,),
-        #     #                                           name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
-        #     #
-        #     # input_conv_block = tf.keras.layers.Multiply(name='diff_imgs_qmetrics_mult')([input_conv_block,
-        #     #                                                                              qmetrics_inputs])
-
-        #     # option 2: concatenate quality metric features
-        #     qmetrics_inputs = tf.keras.layers.Reshape(qmetrics_inputs.shape[1:] + (1, 1),
-        #                                               name='diff_imgs_qmetrics_expand_dims')(qmetrics_inputs)
-        #     input_conv_block = tf.keras.layers.Concatenate(axis=2, name='diff_imgs_qmetrics_concat')([input_conv_block,
-        #                                                                                               qmetrics_inputs])
-
-        # #     scalar_inputs = [self.inputs[feature_name]
-        # #                      if 'pixel' not in feature_name else self.inputs[feature_name]
-        # #                      for feature_name in self.config['diff_img_branch']['imgs_scalars']]
-        # #     if len(scalar_inputs) > 1:
-        # #         scalar_inputs = tf.keras.layers.Concatenate(axis=0,
-        # #                                                     name=f'diff_imgs_imgs_scalars_inputs_concat')(scalar_inputs)
-        # #     else:
-        # #         scalar_inputs = scalar_inputs[0]
-        # #
-        # #     net = tf.keras.layers.Concatenate(axis=2, name='diff_imgs_imgsscalars_concat')([net, scalar_inputs])
-        # #
-        # # input_with_img_scalars = tf.keras.layers.Reshape(net.shape[1:] + (1, ),
-        # #                                                  name=f'diff_imgs_expanding_w_imgs_scalars')(net)
-
-        # # compress features from image and scalar sector data into a set of features
-        # net = tf.keras.layers.Conv2D(filters=self.config['diff_img_conv_scalar_num_filters'],
-        #                              kernel_size=(1, input_conv_block.shape[2]),
-        #                              strides=(1, 1),
-        #                              padding='valid',
-        #                              kernel_initializer=weight_initializer,
-        #                              dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='diff_imgs_convfc',
-        #                              )(input_conv_block)
-
-        # if self.config['batch_norm_after_conv_layers']:
-        #     net = tf.keras.layers.BatchNormalization(
-        #         axis=-1,
-        #         momentum=0.99,
-        #         epsilon=0.001,
-        #         center=True,
-        #         scale=True,
-        #         beta_initializer='zeros',
-        #         gamma_initializer='ones',
-        #         moving_mean_initializer='zeros',
-        #         moving_variance_initializer='ones',
-        #         beta_regularizer=None,
-        #         gamma_regularizer=None,
-        #         beta_constraint=None,
-        #         gamma_constraint=None,
-        #         synchronized=False,
-        #         name=f'diff_imgs_convfc_batch_norm'
-        #     )(net)
-
-        # if self.config['use_attention_after_conv_layers']:
-        #     net = tf.keras.layers.Attention(
-        #         use_scale=True,
-        #         score_mode='dot',
-        #         dropout=0.0,
-        #         seed=None,
-        #         name=f'diff_imgs_convfc_self-attention_')([net, net])
-
-        # if self.config['non_lin_fn'] == 'lrelu':
-        #     net = tf.keras.layers.LeakyReLU(alpha=0.01, name='diff_imgs_convfc_lrelu')(net)
-        # elif self.config['non_lin_fn'] == 'relu':
-        #     net = tf.keras.layers.ReLU(name='diff_imgs_convfc_relu')(net)
-        # elif self.config['non_lin_fn'] == 'prelu':
-        #     net = tf.keras.layers.PReLU(alpha_initializer='zeros',
-        #                                 alpha_regularizer=None,
-        #                                 alpha_constraint=None,
-        #                                 shared_axes=[1],
-        #                                 name='diff_imgs_convfc_prelu')(net)
-
-        # # add skip connection of branch inputs
-        # if self.config['use_skip_connection_conv_block']:
-        #     # apply conv to have same number of channels as extracted feature map
-        #     if input_conv_block.shape[-1] != net.shape[-1]:
-        #         input_conv_block = tf.keras.layers.Conv2D(
-        #             filters=net.shape[-1],
-        #             kernel_size=1,
-        #             padding='same',
-        #             strides=1,
-        #             dilation_rate=1,
-        #             activation=None,
-        #             use_bias=True,
-        #             bias_initializer='zeros',
-        #             kernel_regularizer=None,
-        #             bias_regularizer=None,
-        #             activity_regularizer=None,
-        #             kernel_constraint=None,
-        #             bias_constraint=None,
-        #             name=f'diff_imgs_convfc_input',
-        #         )(input_conv_block)
-        #
-        #     net = tf.keras.layers.Add(
-        #         name=f'diff_imgs_convfc_skip_connection')([net, input_conv_block])
+        net = combine_quality_metric(diff_imgs_global_avg_pool, self.inputs['quality'])
 
         net = tf.keras.layers.Flatten(data_format='channels_last', name='diff_imgs_flatten_convfc')(net)
 
@@ -2068,7 +2018,7 @@ class ExoMinerJointLocalFlux(object):
             else:
                 scalar_inputs = scalar_inputs[0]
 
-            scalar_inputs = tf.keras.layers.BatchNormalization(name='diff_imgs_scalars_inputs_batch_norm')(scalar_inputs)
+            # scalar_inputs = tf.keras.layers.BatchNormalization(name='diff_imgs_scalars_inputs_batch_norm')(scalar_inputs)
 
             # concatenate scalar features with remaining features
             net = tf.keras.layers.Concatenate(axis=1,
@@ -2115,6 +2065,11 @@ class ExoMinerJointLocalFlux(object):
             # beta_constraint=None,
             # gamma_constraint=None,
             # name='diff_imgs_layer_norm')(net)
+        
+        # create diff img background score
+        if self.config['use_aux_bg_head']: 
+            # add to list of auxiliary output
+            self.aux_outputs['aux_bg'] = create_diff_img_aux_head(net, self.config)
 
         return {'diff_img': net}
 
@@ -3326,226 +3281,17 @@ class ExoMinerPlusPlusTemp(object):
 
         self.inputs = create_inputs(self.features, config['feature_map'])
 
+        self.aux_outputs = {} 
+        
         # build the model
         self.outputs = self.build()
+        
+        self.all_outputs = {'main': self.outputs}
 
-        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.outputs)
-
-    @staticmethod
-    def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout, name):
-        """ Implements encoder-only transformer.
-
-        :param inputs:
-        :param head_size: int, head size
-        :param num_heads: int, number of heads
-        :ff_dim: kernel size
-        :dropout: float, dropout rate
-        :name: str, name for layers
-        :return: encoder output
-
-        """
-
-        # Normalization and Attention
-        x = tf.keras.layers.LayerNormalization(epsilon=1e-6,
-                                               name=f'{name}-layer_normalization-1')(inputs)
-
-        x = tf.keras.layers.MultiHeadAttention(
-            key_dim=head_size, num_heads=num_heads, dropout=dropout,
-            name=f'{name}-multi_head_attention'
-        )(x, x)
-        x = tf.keras.layers.Dropout(dropout)(x)
-        res = x + inputs
-
-        # Feed Forward Part
-        x = tf.keras.layers.LayerNormalization(epsilon=1e-6,
-                                               name=f'{name}-multi_normalization-2')(res)
-        x = tf.keras.layers.Conv1D(filters=ff_dim, kernel_size=1, activation="relu",
-                                   name=f'{name}-conv1d-1')(x)
-        x = tf.keras.layers.Dropout(dropout)(x)
-        x = tf.keras.layers.Conv1D(filters=inputs.shape[-1], kernel_size=1,
-                                   name=f'{name}-conv1d-2')(x)
-        return x + res
-
-    def build_transformer_layers(self):
-        """ Builds the transformer branches.
-
-        :return:
-            transformer_branches, dict with the different transformer branches
-        """
-
-        transformer_branches = {branch_name: None for branch_name in self.config['transformer_branches']}
-        for branch_i, branch in enumerate(self.config['transformer_branches']):  # create a transformer branch
-
-            branch_view_inputs = self.inputs[self.config['transformer_branches'][branch][0]]
-
-            net = branch_view_inputs
-
-            if self.config['time_encoding']:
-                time2vec = Time2Vec(kernel_size=1)
-                time_embedding = keras.layers.TimeDistributed(time2vec)(net)
-                net = K.concatenate([net, time_embedding], -1)
-
-            # generate lstm blocks
-            for transformer_block_i in range(self.config['num_transformer_blocks']):
-                net = self.transformer_encoder(net,
-                                               self.config['head_size'],
-                                               self.config['num_heads'],
-                                               self.config['ff_dim'],
-                                               self.config['dropout_rate_transformer'],
-                                               f'transformer_{branch}_{transformer_block_i}')
-
-            # channels last makes shape [301]
-            # channels first makes shape [20]
-            if self.config['transformer_output'] == 'bin_average_pooling':
-                net = tf.keras.layers.GlobalAveragePooling1D(data_format="channels_last")(net)
-            elif self.config['transformer_output'] == 'phase_average_pooling':
-                net = tf.keras.layers.GlobalAveragePooling1D(data_format="channels_first")(net)
-            elif self.config['transformer_output'] == 'flat':
-                net = tf.reshape(net, (-1, net.shape[1] * net.shape[2]))
-
-            if 'global' in branch:
-                self.config['num_units_transformer_fc_layers'] = self.config['global-num_units_transformer_fc_layers']
-            elif 'local' in branch:
-                self.config['num_units_transformer_fc_layers'] = self.config['local-num_units_transformer_fc_layers']
-
-            for fc_layer_i, num_units in enumerate(self.config['num_units_transformer_fc_layers']):
-                # add FC layer that extracts features from the combined feature vector of features from the lstm
-                # branch (flattened) and corresponding scalar features
-                net = tf.keras.layers.Dense(units=num_units,
-                                            kernel_regularizer=None,
-                                            activation=None,
-                                            use_bias=True,
-                                            kernel_initializer='glorot_uniform',
-                                            bias_initializer='zeros',
-                                            bias_regularizer=None,
-                                            activity_regularizer=None,
-                                            kernel_constraint=None,
-                                            bias_constraint=None,
-                                            name=f'fc_{branch}_{fc_layer_i}')(net)
-
-                if self.config['non_lin_fn'] == 'lrelu':
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
-                elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
-                elif self.config['non_lin_fn'] == 'prelu':
-                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                                alpha_regularizer=None,
-                                                alpha_constraint=None,
-                                                shared_axes=[1],
-                                                name=f'fc_prelu_{branch}_{fc_layer_i}')(net)
-
-                net = tf.keras.layers.Dropout(self.config['dropout_rate_trans_fc'])(net)
-
-            transformer_branches[branch] = net
-
-        return transformer_branches
-
-    def build_conv_unfolded_flux_alt(self):
-        """ Uses Conv2D as a way to process unfolded flux.
-
-        Returns: net, output of this unfolded flux branch
-
-        """
-
-        config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-                         'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
-                         'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
-                         }
-
-        weight_initializer = tf.keras.initializers.he_normal() if self.config['weight_initializer'] == 'he' \
-            else 'glorot_uniform'
-
-        # initialize branch
-        view_inputs = self.inputs["unfolded_local_flux_view_fluxnorm"]
-
-        # expand dims to prevent last dimension being "lost"
-        view_inputs = tf.keras.layers.Reshape(view_inputs.shape + (1,), name='expanding_unfolded_flux_dim')(view_inputs)
-
-        branch = "local_unfolded_flux"
-
-        # get number of conv blocks for the given view
-        n_blocks = self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
-
-        # get pool size for the given view
-        kernel_size = self.config[config_mapper['kernel_size']['local_view']]
-
-        # get pool size for the given view
-        pool_size = self.config[config_mapper['pool_size']['local_view']]
-
-        for conv_block_i in range(n_blocks):  # create convolutional blocks
-
-            num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
-
-            # set convolution layer parameters from config
-            conv_kwargs = {'filters': num_filters,
-                           'kernel_initializer': weight_initializer,
-                           'kernel_size': (kernel_size, kernel_size),  # self.config['kernel_size'],
-                           'strides': (self.config['kernel_stride'], self.config['kernel_stride']),
-                           'padding': 'same'
-                           }
-
-            for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
-                net = tf.keras.layers.Conv2D(dilation_rate=1,
-                                             activation=None,
-                                             use_bias=True,
-                                             bias_initializer='zeros',
-                                             kernel_regularizer=None,
-                                             bias_regularizer=None,
-                                             activity_regularizer=None,
-                                             kernel_constraint=None,
-                                             bias_constraint=None,
-                                             name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
-                                             **conv_kwargs)(view_inputs if conv_block_i == 0 and
-                                                                           seq_conv_block_i == 0 else net)
-
-                if self.config['non_lin_fn'] == 'lrelu':
-                    net = tf.keras.layers.LeakyReLU(alpha=0.01,
-                                                    name='lrelu{}_{}_{}'.format(branch, conv_block_i,
-                                                                                seq_conv_block_i))(net)
-                elif self.config['non_lin_fn'] == 'relu':
-                    net = tf.keras.layers.ReLU(name='relu{}_{}_{}'.format(branch, conv_block_i,
-                                                                          seq_conv_block_i))(net)
-                elif self.config['non_lin_fn'] == 'prelu':
-                    net = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                                alpha_regularizer=None,
-                                                alpha_constraint=None,
-                                                shared_axes=[1, 2],
-                                                name='prelu{}_{}_{}'.format(branch, conv_block_i,
-                                                                            seq_conv_block_i))(net)
-
-            net = tf.keras.layers.MaxPooling2D(pool_size=(pool_size, pool_size),
-                                               strides=(self.config['pool_stride'], self.config['pool_stride']),
-                                               name='maxpooling_{}_{}'.format(branch, conv_block_i))(net)
-        net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten_{}'.format(branch))(net)
-
-        if self.config['num_fc_conv_units'] > 0:
-            net = tf.keras.layers.Dense(units=self.config['num_fc_conv_units'],
-                                        kernel_regularizer=None,
-                                        activation=None,
-                                        use_bias=True,
-                                        kernel_initializer='glorot_uniform',
-                                        bias_initializer='zeros',
-                                        bias_regularizer=None,
-                                        activity_regularizer=None,
-                                        kernel_constraint=None,
-                                        bias_constraint=None,
-                                        name='fc_{}'.format(branch))(net)
-
-        if self.config['non_lin_fn'] == 'lrelu':
-            net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
-        elif self.config['non_lin_fn'] == 'relu':
-            net = tf.keras.layers.ReLU(name='fc_relu_{}'.format(branch))(net)
-        elif self.config['non_lin_fn'] == 'prelu':
-            net = tf.keras.layers.PReLU(alpha_initializer='zeros',
-                                        alpha_regularizer=None,
-                                        alpha_constraint=None,
-                                        shared_axes=[1],
-                                        name='fc_prelu_{}'.format(branch))(net)
-        # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
-
-        net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'])(net)
-
-        return net
+        # add auxiliary outputs
+        self.all_outputs.update(self.aux_outputs)
+        
+        self.kerasModel = keras.Model(inputs=self.inputs, outputs=self.all_outputs)
 
     def build_conv_unfolded_flux(self):
         """ Creates a separate branch to process the unfolded flux feature. Max, min, and average features are extracted
@@ -3556,10 +3302,6 @@ class ExoMinerPlusPlusTemp(object):
         Returns: dict, unfolded convolutional branch
 
         """
-
-        # hard-coded hyperparameter for convolution of extracted statistics
-        kernel_size_conv_stats = 1
-        num_filters_conv_stats = 4
 
         config_mapper = {'blocks': 'num_unfolded_conv_blocks',
                          'pool_size': 'pool_size_unfolded',
@@ -3601,18 +3343,7 @@ class ExoMinerPlusPlusTemp(object):
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional layers for the block
-                # net = tf.keras.layers.Conv1D(dilation_rate=1,
-                #                              activation=None,
-                #                              use_bias=True,
-                #                              bias_initializer='zeros',
-                #                              kernel_regularizer=None,
-                #                              bias_regularizer=None,
-                #                              activity_regularizer=None,
-                #                              kernel_constraint=None,
-                #                              bias_constraint=None,
-                #                              name='conv{}_{}_{}'.format(branch, conv_block_i, seq_conv_block_i),
-                #                              **conv_kwargs)(view_inputs if conv_block_i == 0 and
-                #                                                            seq_conv_block_i == 0 else net)
+
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -3661,22 +3392,11 @@ class ExoMinerPlusPlusTemp(object):
         net = tf.keras.layers.Permute((2, 3, 1), name='unfolded_flux_permute_merge')(net)
 
         # convolve output with conv1d to produce final output
-        conv_kwargs = {'filters': num_filters_conv_stats,
+        conv_kwargs = {'filters': self.config['n_conv_filter_unfolded_stats'],
                        'kernel_initializer': weight_initializer,
-                       'kernel_size': (kernel_size_conv_stats, 1),
+                       'kernel_size': (self.config['kernel_size_unfolded_stats'], 1),
                        }
 
-        # net = tf.keras.layers.Conv1D(dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='conv{}_{}'.format(branch, 1),
-        #                              **conv_kwargs)(net)
         net = tf.keras.layers.Conv2D(dilation_rate=1,
                                      activation=None,
                                      use_bias=True,
@@ -3719,24 +3439,6 @@ class ExoMinerPlusPlusTemp(object):
                                         bias_constraint=None,
                                         name='fc_{}'.format(branch))(net)
 
-            # net = tf.expand_dims(net, axis=-1)
-            # net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
-            #                              kernel_size=net.shape[1],
-            #                              strides=1,
-            #                              padding='valid',
-            #                              kernel_initializer=weight_initializer,
-            #                              dilation_rate=1,
-            #                              activation=None,
-            #                              use_bias=True,
-            #                              bias_initializer='zeros',
-            #                              kernel_regularizer=None,
-            #                              bias_regularizer=None,
-            #                              activity_regularizer=None,
-            #                              kernel_constraint=None,
-            #                              bias_constraint=None,
-            #                              name='conv_{}'.format(branch),
-            #                              )(net)
-
             if self.config['non_lin_fn'] == 'lrelu':
                 net = tf.keras.layers.LeakyReLU(alpha=0.01, name='fc_lrelu_{}'.format(branch))(net)
             elif self.config['non_lin_fn'] == 'relu':
@@ -3747,7 +3449,6 @@ class ExoMinerPlusPlusTemp(object):
                                             alpha_constraint=None,
                                             shared_axes=[1],
                                             name='fc_prelu_{}'.format(branch))(net)
-            # net = tf.keras.layers.Flatten(data_format='channels_last', name='flatten2_{}'.format(branch))(net)
 
             net = tf.keras.layers.Dropout(self.config['dropout_rate_fc_conv'], name=f'dropout_fc_conv_{branch}')(net)
 
@@ -4073,19 +3774,7 @@ class ExoMinerPlusPlusTemp(object):
                            }
 
             for seq_conv_block_i in range(conv_ls_per_block):  # create convolutional block
-                # net = tf.keras.layers.Conv1D(dilation_rate=1,
-                #                              activation=None,
-                #                              use_bias=True,
-                #                              bias_initializer='zeros',
-                #                              kernel_regularizer=None,
-                #                              bias_regularizer=None,
-                #                              activity_regularizer=None,
-                #                              kernel_constraint=None,
-                #                              bias_constraint=None,
-                #                              name='conv{}_{}'.format(conv_block_i, seq_conv_block_i),
-                #                              **conv_kwargs)(branch_view_inputs if conv_block_i == 0 and
-                #                                                                   seq_conv_block_i == 0
-                #                                             else net)
+ 
                 net = tf.keras.layers.Conv2D(dilation_rate=1,
                                              activation=None,
                                              use_bias=True,
@@ -4134,7 +3823,7 @@ class ExoMinerPlusPlusTemp(object):
                 conv_branches[branch] = net[cur]
                 cur += 1
 
-        for branch_i, branch in enumerate(conv_branches):  # create a convolutional branch
+        for branch in conv_branches:  # create a convolutional branch
 
             net = conv_branches[branch]
 
@@ -4198,11 +3887,6 @@ class ExoMinerPlusPlusTemp(object):
         :return: dict with the difference image branch
         """
 
-        # config_mapper = {'blocks': {'global_view': 'num_glob_conv_blocks', 'local_view': 'num_loc_conv_blocks'},
-        #                  'pool_size': {'global_view': 'pool_size_glob', 'local_view': 'pool_size_loc'},
-        #                  'kernel_size': {'global_view': 'kernel_size_glob', 'local_view': 'kernel_size_loc'},
-        #                  }
-
         weight_initializer = tf.keras.initializers.he_normal() \
             if self.config['weight_initializer'] == 'he' else 'glorot_uniform'
 
@@ -4214,37 +3898,26 @@ class ExoMinerPlusPlusTemp(object):
 
         branch_view_inputs = tf.keras.layers.Concatenate(axis=4, name='input_diff_img_concat')(branch_view_inputs)
 
-        # self.config.update(
-        #     {
-        #         'blocks_diff_img': 3,
-        #         'kernel_size_diff_img': 3,
-        #         'pool_size_diff_img'
-        #         # 'kernel_size_fc':
-        #     }
-        # )
-
         # get number of conv blocks for the given view
-        n_blocks = 3  # self.config[config_mapper['blocks'][('local_view', 'global_view')['global' in branch]]]
-
-        kernel_size = (3, 3, 1)  # self.config[config_mapper['kernel_size'][('local_view', 'global_view')['global' in branch]]]
+        n_blocks = self.config['num_diffimg_conv_blocks'] 
+        kernel_size = (self.config['kernel_size_diffimg'], self.config['kernel_size_diffimg'], 1)
 
         # get pool size for the given view
-        pool_size = (2, 2, 1)  # self.config[config_mapper['pool_size'][('local_view', 'global_view')['global' in branch]]]
+        pool_size = (self.config['pool_size_diffimg'], self.config['pool_size_diffimg'], 1)  
 
         for conv_block_i in range(n_blocks):  # create convolutional blocks
 
-            num_filters = 2 ** (2 + conv_block_i)
-            # num_filters = 2 ** (self.config['init_conv_filters'] + conv_block_i)
+            num_filters = 2 ** (self.config['init_diffimg_conv_filters'] + conv_block_i)
 
             # set convolution layer parameters from config
             conv_kwargs = {'filters': num_filters,
                            'kernel_initializer': weight_initializer,
-                           'kernel_size': kernel_size,  # self.config['kernel_size'],
-                           'strides': 1,  # (1, self.config['kernel_stride'])
+                           'kernel_size': kernel_size,  
+                           'strides': 1,
                            'padding': 'same'
                            }
 
-            for seq_conv_block_i in range(self.config['conv_ls_per_block']):  # create convolutional block
+            for seq_conv_block_i in range(self.config['diffimg_conv_ls_per_block']):  # create convolutional block
 
                 net = tf.keras.layers.Conv3D(dilation_rate=1,
                                              activation=None,
@@ -4299,24 +3972,6 @@ class ExoMinerPlusPlusTemp(object):
             # concatenate per-image scalar features with extracted features from the difference images
             net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_imgsscalars')([net, scalar_inputs])
 
-        # 2D convolution with kernel size equal to feature map size
-        # net = tf.expand_dims(net, axis=-1, name='expanding_input_convfc')
-        # net = tf.keras.layers.Conv2D(filters=4,  # self.config['num_fc_conv_units'],
-        #                              kernel_size=net.shape[1:-1],
-        #                              strides=1,
-        #                              padding='valid',
-        #                              kernel_initializer=weight_initializer,
-        #                              dilation_rate=1,
-        #                              activation=None,
-        #                              use_bias=True,
-        #                              bias_initializer='zeros',
-        #                              kernel_regularizer=None,
-        #                              bias_regularizer=None,
-        #                              activity_regularizer=None,
-        #                              kernel_constraint=None,
-        #                              bias_constraint=None,
-        #                              name='convfc_{}'.format('diff_img'),
-        #                              )(net)
         net = tf.keras.layers.Conv1D(filters=self.config['num_fc_conv_units'],
                                      kernel_size=net.shape[1:-1],
                                      strides=1,
@@ -4358,6 +4013,11 @@ class ExoMinerPlusPlusTemp(object):
 
             # concatenate scalar features with remaining features
             net = tf.keras.layers.Concatenate(axis=1, name='flatten_wscalar_diff_img_scalars')([net, scalar_inputs])
+
+        # create diff img background score
+        if self.config['use_aux_bg_head']: 
+            # add to list of auxiliary output
+            self.aux_outputs['aux_bg'] = create_diff_img_aux_head(net, self.config)
 
         # add FC layer that extracts features from the combined feature vector of features from the convolutional
         # branch (flattened) and corresponding scalar features
@@ -4462,8 +4122,6 @@ class ExoMinerPlusPlusTemp(object):
             net: model with added FC block
         """
 
-        # with tf.variable_scope('FcNet'):
-
         for fc_layer_i in range(self.config['num_fc_layers']):
 
             fc_neurons = self.config['init_fc_neurons']
@@ -4519,9 +4177,6 @@ class ExoMinerPlusPlusTemp(object):
 
         branches_net = {}
 
-        if self.config['transformer_branches'] is not None:
-            branches_net.update(self.build_transformer_layers())
-
         if self.config['scalar_branches'] is not None:
             branches_net.update(self.build_scalar_branches())
 
@@ -4544,8 +4199,9 @@ class ExoMinerPlusPlusTemp(object):
         logits = tf.keras.layers.Dense(units=self.output_size, name="logits")(net)
 
         if self.output_size == 1:
-            output = tf.keras.layers.Activation(tf.nn.sigmoid, name='sigmoid')(logits)
+            output = tf.keras.layers.Activation(tf.nn.sigmoid, name='main')(logits)
         else:
-            output = tf.keras.layers.Activation(tf.nn.softmax, name='softmax')(logits)
+            output = tf.keras.layers.Activation(tf.nn.softmax, name='main')(logits)
 
         return output
+        

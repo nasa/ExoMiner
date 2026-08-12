@@ -109,6 +109,8 @@ def updated_stellar_parameters(tce_tbl, res_dir, stellar_parameters_source='ticv
             logger.error(f'Error querying TIC-8 catalog: {e}')
             
             logger.info('Using stesllar parameters from the TESS SPOC DV XML files...')
+            stellar_parameters_source = 'tess-spoc'
+
             logger.info('Stellar mass is not avaialble in TESS SPOC DV XML files. Setting it to missing value...')
 
             # DV XML files do not contain any value for the stellar mass
@@ -194,9 +196,9 @@ def updated_stellar_parameters(tce_tbl, res_dir, stellar_parameters_source='ticv
 if __name__ == '__main__':
 
     # set results directory for TIC-8 query
-    res_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tic_stellar')
+    res_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s89-s98_s1s92_2-13-2026_1010/tic_stellar')
     # set filepath to TCE table
-    tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945/tess_spoc_2min_tces_dv_s69-s88_s1s69_s2s72_s14s78_3-18-2025_0945_uid.csv')
+    tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_tces_dv_s89-s98_s1s92_2-13-2026_1010/tess_spoc_2min_tces_dv_s89-s98_s1s92_2-13-2026_1010_stellartic8_ruwegaiadr2_preproc_ruwe.csv')
 
     res_dir.mkdir(exist_ok=True)
 

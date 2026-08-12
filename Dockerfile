@@ -1,61 +1,60 @@
-FROM docker.io/continuumio/miniconda3:25.3.1-1
+# ------------------------------------------------------------
+# Base image with micromamba
+# ------------------------------------------------------------
+FROM mambaorg/micromamba:2.3.0
 
 LABEL org.opencontainers.image.description="This image contains the ExoMiner Pipeline application." \
       org.opencontainers.image.title="ExoMiner Pipeline" \
-      org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.authors="Miguel Martinho, <miguel.martinho@nasa.gov>" \
       org.opencontainers.image.source="https://github.com/nasa/ExoMiner" \
-      org.opencontainers.image.documentation="https://github.com/nasa/ExoMiner/tree/main/docs/index.md" \
-      org.opencontainers.image.exominer.model="ExoMiner++ (TESS SPOC 2-min S1-S67, Ensemble from CV Iteration 0) | DOI: https://doi.org/10.48550/arXiv.2502.09790" \
-      org.opencontainers.image.revision="" \
-      org.opencontainers.image.created=""
+      org.opencontainers.image.exominer.model="ExoMiner++ (TESS SPOC 2-min) | DOI: https://doi.org/10.48550/arXiv.2502.09790"
 
-# set working directory
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+ARG ENV_FILE=environment.yml
+ARG REQS_FILE=requirements.txt
+ARG GIT_COMMIT_HASH
+ARG BUILD_DATE
+
+USER root
 WORKDIR /app
-
-# set environment variable so Python recognizes modules in code repository
 ENV PYTHONPATH="/app"
 
-ARG CONDA_TOKEN
-ARG CONDA_ENV
-ARG CONDARC
+RUN mkdir -p /app /models /data
 
-# setting Conda channels
-RUN conda config --remove channels defaults && \
-    conda config --add channels https://repo.anaconda.cloud/repo/main/t/${CONDA_TOKEN} && \
-    conda config --add channels https://repo.anaconda.cloud/repo/r/t/${CONDA_TOKEN} && \
-    conda config --add channels https://repo.anaconda.cloud/repo/msys2/t/${CONDA_TOKEN} && \
-    conda config --add channels conda-forge && \
-    echo "default_channels: []" >> ${CONDARC}
+# ------------------------------------------------------------
+# Install dependencies first
+# ------------------------------------------------------------
+COPY exominer_pipeline/${ENV_FILE} /app/environment.yml
+COPY exominer_pipeline/${REQS_FILE} /app/requirements.txt
 
-# copy Conda environment YAML file
-COPY exominer_pipeline/${CONDA_ENV} conda_env_exoplnt_dl.yml
+# Conda env & Pip stack
+RUN MAMBA_EXTRACT_THREADS=1 MAMBA_NUM_THREADS=1 micromamba install -vv -y -n base -f /app/environment.yml \
+ && micromamba run -n base python -m pip install uv \
+ && micromamba run -n base uv pip install --system --no-cache -r /app/requirements.txt \
+ && micromamba clean --all --yes \
+ && rm -rf /root/.cache
 
-# miniconda ------
-# when not using NASA system
-#RUN conda config --remove-key channels
-#RUN conda config --add channels conda-forge
+# ------------------------------------------------------------
+# Copy models, data and app Code 
+# ------------------------------------------------------------
+ADD exominer_pipeline_data/models/models.tar /models/
+RUN chmod -R u+rwX /models/
 
-# use the modified YAML to create the environment
-RUN conda env create -f conda_env_exoplnt_dl.yml --yes && \
-    conda clean --all -f -y && \
-    pip cache purge && \
-    rm -f ${CONDARC}
+COPY exominer_pipeline_data/norm_stats/phot_vetting /data/norm_stats/phot_vetting/
+COPY exominer_pipeline_data/norm_stats/planet_validation /data/norm_stats/planet_validation/
 
-# copy application code
-COPY . .
+# 2. Copy the pipeline AND your other necessary root scripts to /app
+COPY exominer_pipeline /app/exominer_pipeline
+COPY src /app/src
+COPY src_preprocessing /app/src_preprocessing
+COPY models /app/models
+COPY query_dv_reports.py /app/query_dv_reports.py
 
-# # create additional folders for model and data
-# RUN mkdir -p /model /data
+# 4. Modify pipeline info 
+RUN sed -i "s|^Git Commmit Hash:.*|Git Commmit Hash: ${GIT_COMMIT_HASH}|" /app/exominer_pipeline/pipeline_info.yaml \
+ && sed -i "s|^Build Date:.*|Release Date: ${BUILD_DATE}|" /app/exominer_pipeline/pipeline_info.yaml
 
-# # copy ExoMiner TF-Keras model
-# COPY exominer_pipeline/data/*.keras /model/
-
-# # copy normalization statistics
-# COPY exominer_pipeline/data/norm_stats /data/norm_stats
-
-# set image to always run ExoMiner Pipeline
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "exoplnt_dl", "python", "exominer_pipeline/run_pipeline.py"]
-
-# show information about the arguments if no argument is provided
-CMD ["--help"]
+# ------------------------------------------------------------
+# Entrypoint: run ExoMiner pipeline
+# ------------------------------------------------------------
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh", "python", "exominer_pipeline/run_pipeline.py"]

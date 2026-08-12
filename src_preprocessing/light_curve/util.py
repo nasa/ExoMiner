@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import numpy as np
 import scipy.interpolate
-from six.moves import range  # pylint:disable=redefined-builtin
+# from six.moves import range  # pylint:disable=redefined-builtin
 
 
 def phase_fold_time(time, period, t0):

@@ -3,8 +3,8 @@
 # Download TESS 2-min/HLSP FFI light curve FITS files using curl statements in sh files.
 # Assumes the curl sh files follow naming pattern *s{four digits}*-lc.sh or *sector_{sector-id}*_lc.sh
 
-SH_DIR="/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc_sh_files/download_missing_targets_sectors_lcs_s89-s94_s1s92_s14s86_10-9-2025_2201/"
-LC_DIR="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/"
+SH_DIR="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/lc_sh_files/download_targets_3-19-2026_1042/filtered_lcs/"
+LC_DIR="/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/sectors/"
 CHANGE_PERMISSIONS_AND_GROUP=false
 GROUP="ar-gg-ti-tess-dsg"
 MAX_RETRIES=3
@@ -14,12 +14,9 @@ mkdir -p "$SH_DIR/completed"
 echo "📝 Starting download process at $(date)" | tee -a "$LOG_FILE"
 
 for sector_shfile in "$SH_DIR"/*lc.sh; do
-    # SECTOR_RUN=$(basename "$sector_shfile" | grep -oP 'sector\S*')
-    # SECTOR_RUN=$(basename "$sector_shfile" | sed -E 's/(_lc\.sh)$//')
-    # works for both 2-min and FFI light curve SH files
-    # SECTOR_RUN=$(basename "$sector_shfile" | \
-    # sed -E 's/[-_]lc\.sh$//' | \
-    # grep -oE 's[0-9]{4}|sector_[0-9]+')
+
+    SECTOR_SHFILENAME=$(basename "$sector_shfile")
+
     SECTOR_RUN=$(basename "$sector_shfile" | \
     sed -E 's/[-_]lc\.sh$//' | \
     grep -oE 's[0-9]{4}|sector_[0-9]+' | head -n 1)
@@ -37,15 +34,25 @@ for sector_shfile in "$SH_DIR"/*lc.sh; do
     LC_SECTOR_DIR="$LC_DIR/$SECTOR_RUN"
     echo "📥 Downloading data for sector $SECTOR_RUN ..." | tee -a "$LOG_FILE"
     mkdir -p "$LC_SECTOR_DIR"
-    cp "$sector_shfile" "$LC_SECTOR_DIR"
 
-    pushd "$LC_SECTOR_DIR" > /dev/null
+    if [[ "$SECTOR_SHFILENAME" == *"hlsp_tess-spoc"* ]]; then
+        TEMP_SECTOR_SHFILE=$LC_DIR/$SECTOR_SHFILENAME
+        cp "$sector_shfile" "$TEMP_SECTOR_SHFILE"
+
+        pushd "$LC_DIR" > /dev/null
+    else
+        TEMP_SECTOR_SHFILE=$LC_SECTOR_DIR/$SECTOR_SHFILENAME
+        cp "$sector_shfile" "$TEMP_SECTOR_SHFILE"
+
+        pushd "$LC_SECTOR_DIR" > /dev/null
+    fi
 
     RETRY_COUNT=0
     SUCCESS=false
     while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
         echo "🔄 Attempt $((RETRY_COUNT + 1)) for sector $SECTOR_RUN" | tee -a "$LOG_FILE"
-        bash "$(basename "$sector_shfile")"
+
+        bash "$TEMP_SECTOR_SHFILE"
         if [[ $? -eq 0 ]]; then
             SUCCESS=true
             echo "✅ Sector $SECTOR_RUN downloaded successfully." | tee -a "$LOG_FILE"
@@ -59,7 +66,7 @@ for sector_shfile in "$SH_DIR"/*lc.sh; do
 
     if [[ "$SUCCESS" == true ]]; then
         mv "$sector_shfile" "$SH_DIR/completed/"
-        rm -f "$(basename "$sector_shfile")"  # Remove the copied .sh file
+        rm -f "$TEMP_SECTOR_SHFILE"  # Remove the copied .sh file
 
     else
         echo "🚫 Failed to download sector $SECTOR_RUN after $MAX_RETRIES attempts." | tee -a "$LOG_FILE"

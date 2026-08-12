@@ -1,0 +1,38 @@
+name: exoplnt_dl_tf2_13_gpu
+channels:
+  - conda-forge
+  - nvidia
+dependencies:
+  - astropy=5.3.4
+  - autograd
+  - brotli
+  - certifi
+  - cuda-nvcc=11.8
+  - cudatoolkit=11.8
+  - curl
+  - dask=2023.6.0
+  - graphviz
+  - h5py>=3.10        # leave the floor; pip will install exact wheel later without deps
+  - hdf5=1.14.3
+  - ipykernel
+  - libnghttp2
+  - matplotlib-base=3.7.1
+  - mpi4py
+  - nbformat
+  - numpy             # keep here so conda provides headers/ABI; pip pin will not upgrade due to --no-deps
+  - oktopus
+  - openmpi
+  - openpyxl
+  - openssl>=3
+  - pandas=2.2
+  - pip               # provides pip inside the env
+  - plotly
+  - pydl
+  - pydot
+  - python=3.11
+  - python-graphviz
+  - scikit-learn=1.4
+  - scipy
+  - seaborn
+  - tqdm
+  - zstd

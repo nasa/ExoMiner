@@ -8,7 +8,7 @@ std, ...
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from astropy import stats
+from astropy.stats import mad_std
 import tensorflow as tf
 import multiprocessing
 import yaml
@@ -19,6 +19,75 @@ from tqdm import tqdm
 from src_preprocessing.lc_preprocessing.utils_preprocessing import (get_out_of_transit_idxs_glob,
                                                                     get_out_of_transit_idxs_loc)
 from src_preprocessing.tf_util.example_util import get_feature
+
+
+
+def robust_scale_per_image(arr, eps=1e-10):
+    """Per-image robust scaling: (x - median) / (MAD-based sigma).
+    
+    param arr: np.ndarray, input array
+    param eps: float, small value to avoid division-by-zero
+    return: np.ndarray, robustly scaled array
+    """
+    
+    med = np.nanmedian(arr)
+    sigma = mad_std(arr, ignore_nan=True) + eps
+    return (arr - med) / sigma
+
+def compute_global_percentiles_after_per_image_scaling(tfrec_fps, channels,
+                                                       sample_per_image=1024,
+                                                       eps=1e-6):
+    """
+    Iterate TFRecord files; for each example and channel:
+      - parse the image
+      - per-image robust-scale it
+      - sample normalized pixels to build a pooled distribution
+    Then compute p1/p99 and 'a' (= max(|p1|, |p99|)) per channel.
+
+    param tfrec_fps: list, paths to TFRecord files
+    param channels: list, names of channels to compute percentiles for
+    param sample_per_image: int, number of pixels to sample per image after per-image robust scaling; set to -1 to use all pixels
+    param eps: float, small value to avoid division-by-zero
+    return: dict, percentiles per channel
+    """
+    
+    pools = {ch: [] for ch in channels}
+
+    for tfrecFile in tfrec_fps:
+        ds = tf.data.TFRecordDataset(str(tfrecFile))
+        for string_record in ds.as_numpy_iterator():
+            ex = tf.train.Example()
+            ex.ParseFromString(string_record)
+
+            for ch in channels:
+                if ch not in ex.features.feature:
+                    continue
+                vals = np.array(ex.features.feature[ch].float_list.value, dtype=np.float32)
+                # Per-image robust scale
+                z = robust_scale_per_image(vals, eps=eps)
+                z = z[np.isfinite(z)]
+                if z.size == 0:
+                    continue
+                n = min(sample_per_image, z.size)
+                if sample_per_image == -1:
+                    pools[ch].append(z)
+                else:
+                    idx = np.random.choice(z.size, n, replace=False)
+                    pools[ch].append(z[idx])
+
+    # Aggregate & compute percentiles per channel
+    percentiles = {}
+    for ch, chunks in pools.items():
+        if len(chunks) == 0:
+            # No samples collected for this channel; skip
+            continue
+        pool = np.concatenate(chunks)
+        p1 = np.percentile(pool, 1.0)
+        p99 = np.percentile(pool, 99.0)
+        # a = max(abs(p1), abs(p99)) + eps
+        percentiles[ch] = {'p1': float(p1), 'p99': float(p99)}  # , 'a': float(a)}
+        
+    return percentiles
 
 
 def compute_scalar_params_norm_stats(scalarParamsDict, config):
@@ -38,6 +107,8 @@ def compute_scalar_params_norm_stats(scalarParamsDict, config):
         scalarParam: {'median': np.nan, 'mad_std': np.nan, 'info': config['scalarParams'][scalarParam]}
         for scalarParam in config['scalarParams']}
     for scalarParam in config['scalarParams']:
+
+        print(f'Computing normalization statistics for {scalarParam}...')
 
         scalarParamVals = scalarParamsDict[scalarParam]
 
@@ -65,14 +136,16 @@ def compute_scalar_params_norm_stats(scalarParamsDict, config):
         # compute median as robust estimate of central tendency
         scalarNormStats[scalarParam]['median'] = np.median(scalarParamVals)
         # compute MAD std as robust estimate of deviation from central tendency
-        scalarNormStats[scalarParam]['mad_std'] = stats.mad_std(scalarParamVals) \
+        scalarNormStats[scalarParam]['mad_std'] = mad_std(scalarParamVals) \
             if scalarParam not in ['tce_rb_tcount0n'] else np.std(scalarParamVals)
         # fallback to std if MAD std is zero to prevent explosion of values
         if scalarNormStats[scalarParam]['mad_std'] == 0:
             scalarNormStats[scalarParam]['mad_std'] = np.std(scalarParamVals)
-        
+    
+    save_fp = config['norm_dir'] / 'train_scalarparam_norm_stats.npy'
+    print(f'Saving computed normalization statistics for scalar parameters to {save_fp.resolve()}')
     # save normalization statistics for scalar parameters
-    np.save(config['norm_dir'] / 'train_scalarparam_norm_stats.npy', scalarNormStats)
+    np.save(save_fp, scalarNormStats)
 
     # create additional csv file with normalization statistics
     scalarNormStatsDataForDf = {}
@@ -95,23 +168,30 @@ def compute_centroid_norm_stats(centroidDict, config):
         normStatsCentroidDf, pandas DataFrame with normalization statistics for the data
     """
 
+    print(f"Computing normalization statistics for centroid time series: {config['centroidList']}")
+
     # save normalization statistics for centroid time series
     normStatsCentroid = {timeSeries: {
         'median': np.median(centroidDict[timeSeries]),
-        'std': stats.mad_std(centroidDict[timeSeries]),
+        'std': mad_std(centroidDict[timeSeries]),
         'clip_value': config['clip_value_centroid']
         # 'clip_value': np.percentile(centroidMat[timeSeries], 75) +
         #               1.5 * np.subtract(*np.percentile(centroidMat[timeSeries], [75, 25]))
     }
         for timeSeries in config['centroidList']}
+    
     for timeSeries in config['centroidList']:
         centroidMatClipped = np.clip(centroidDict[timeSeries], a_max=config['clip_value_centroid'], a_min=None)
         clipStats = {
             'median_clip': np.median(centroidMatClipped),
-            'std_clip': stats.mad_std(centroidMatClipped)
+            'std_clip': mad_std(centroidMatClipped)
         }
         normStatsCentroid[timeSeries].update(clipStats)
-    np.save(config['norm_dir'] / 'train_centroid_norm_stats.npy', normStatsCentroid)
+    
+    save_fp = config['norm_dir'] / 'train_centroid_norm_stats.npy'
+    print(f'Saving computed normalization statistics for centroid time series to {save_fp.resolve()}')
+    np.save(save_fp, normStatsCentroid)
+    
     # create additional csv file with normalization statistics
     normStatsCentroidDataForDf = {}
     for timeSeries in config['centroidList']:
@@ -136,21 +216,31 @@ def compute_diff_img_data_norm_stats(diff_imgDict, config):
     :return:
         normStatsDiff_imgDF, pandas DataFrame with normalization statistics for the data
     """
+    
+    print(f"Computing normalization statistics for difference image data: {config['diff_imgList']}")
 
     normStatsDiff_img = {diffimgs: {
         'median': np.nanmedian(diff_imgDict[diffimgs]),  # need to flatten each entry
-        'std': stats.mad_std(diff_imgDict[diffimgs], ignore_nan=True),
+        'std': mad_std(diff_imgDict[diffimgs], ignore_nan=True),
         'min': np.nanmin(diff_imgDict[diffimgs]),
         'max': np.nanmax(diff_imgDict[diffimgs]),
     }
         for diffimgs in config['diff_imgList']}
 
+    # # recompute std only for neighbor images ignoring zero values
+    # for diffimgs in config['diff_imgList']:
+    #     if 'neighbor' in config['diff_imgList']:
+    #         normStatsDiff_img[diffimgs]['std'] = stats.mad_std(diff_imgDict[diffimgs][diff_imgDict[diffimgs] != 0],
+    #                                                            ignore_nan=True)
+    # get min and max only for neighbor images from config so min-max normalization maps to [-1, 1]
     for diffimgs in config['diff_imgList']:
-        if 'neighbor' in config['diff_imgList']:
-            normStatsDiff_img[diffimgs]['std'] = stats.mad_std(diff_imgDict[diffimgs][diff_imgDict[diffimgs] != 0],
-                                                               ignore_nan=True)
+        if 'neighbor' in diffimgs:
+            normStatsDiff_img[diffimgs]['max'] = config['neighbors_img_tmag_diff_range'][1]  # max of the range
+            normStatsDiff_img[diffimgs]['min'] = (config['neighbors_img_tmag_diff_range'][1] + config['neighbors_img_tmag_diff_range'][0]) / 2  # midpoint of the range
 
-    np.save(config['norm_dir'] / 'train_diffimg_norm_stats.npy', normStatsDiff_img)
+    save_fp = config['norm_dir'] / 'train_diffimg_norm_stats.npy'
+    print(f'Saving computed normalization statistics for difference image data to {save_fp.resolve()}')
+    np.save(save_fp, normStatsDiff_img)
 
     # create additional csv file with normalization statistics
     normStatsDiff_imgForDf = {}
@@ -290,7 +380,8 @@ def get_values_from_tfrecords(tfrec_files, scalar_params=None, centroidList=None
     else:
         diff_imgDict = None
 
-    for tfrecFile in tqdm(tfrec_files, desc='Get data from TFRecord files', total=len(tfrec_files)):
+    # for tfrecFile in tqdm(tfrec_files, desc='Finished getting data from TFRecord file', total=len(tfrec_files), unit='job'):
+    for tfrecFile in tfrec_files:
 
         scalarParamsDict_tfrecord, centroidDict_tfrecord, diff_imgDict_tfrecord = \
             get_values_from_tfrecord(tfrecFile, scalar_params, centroidList, diff_imgList, max_n_examples_shard, **kwargs)
@@ -364,32 +455,43 @@ def compute_normalization_stats(tfrec_fps, config):
     print(f'Started extracting data from {len(tfrec_fps)} TFRecord files...')
 
     if config['n_processes_compute_norm_stats'] > 1:
-        pool = multiprocessing.Pool(processes=config['n_processes_compute_norm_stats'])
-
+        
         # number of jobs is equal to number of TFRecord files
         jobs = [([tfrec_fp], config['scalarParams'], config['centroidList'], config['diff_imgList'], config['max_n_examples_shard'])
                 for tfrec_fp in tfrec_fps]
-        async_results = [pool.apply_async(get_values_from_tfrecords, job,
-                                          kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
-                                                'num_bins_loc': config['num_bins_loc'],
-                                                'num_bins_glob': config['num_bins_glob'],
-                                                'diff_img_data_shape': config['diff_img_data_shape'],
-                                                'centroid_ts_shape': config['centroid_ts_shape'],
-                                                })
-                         for job in jobs]
-        for async_result in async_results:
-            partial_values = async_result.get()
-            if config['scalarParams'] is not None:
-                for param in config['scalarParams']:
-                    scalarParamsDict[param].extend(partial_values[0][param])
-            if config['centroidList'] is not None:
-                for param in config['centroidList']:
-                    centroidDict[param].extend(partial_values[1][param])
-            if config['diff_imgList'] is not None:
-                for param in config['diff_imgList']:
-                    diff_imgDict[param].extend(partial_values[2][param])
-        pool.close()
-        pool.join()
+        
+        with multiprocessing.Pool(processes=config['n_processes_compute_norm_stats']) as pool, tqdm(desc='Finished computing norm stats job', total=len(jobs), unit='job') as pbar:
+
+            def _on_end(_):
+                pbar.update(1)
+                
+            async_results = []
+            for job in jobs:
+                ar_apply= pool.apply_async(
+                    get_values_from_tfrecords, 
+                    job,
+                    callback=_on_end,
+                    kwds={'idxs_nontransitcadences_loc': idxs_nontransitcadences_loc,
+                          'num_bins_loc': config['num_bins_loc'],
+                          'num_bins_glob': config['num_bins_glob'],
+                          'diff_img_data_shape': config['diff_img_data_shape'],
+                          'centroid_ts_shape': config['centroid_ts_shape'],
+                          }
+                )
+                async_results.append(ar_apply)
+            
+            for async_result in async_results:
+                partial_values = async_result.get()
+                if config['scalarParams'] is not None:
+                    for param in config['scalarParams']:
+                        scalarParamsDict[param].extend(partial_values[0][param])
+                if config['centroidList'] is not None:
+                    for param in config['centroidList']:
+                        centroidDict[param].extend(partial_values[1][param])
+                if config['diff_imgList'] is not None:
+                    for param in config['diff_imgList']:
+                        diff_imgDict[param].extend(partial_values[2][param])
+            
         print('Aggregated extracted data.')
     else:
         scalarParamsDict, centroidDict, diff_imgDict = \
@@ -432,6 +534,30 @@ def compute_normalization_stats(tfrec_fps, config):
         diff_img_data_norm_stats.to_csv(config['norm_dir'] / 'train_diffimg_norm_stats.csv')
 
         print('Done.')
+        
+        # compute global percentiles after per-image scaling
+        # skip neighbors here (they're already clipped to use affine mapping)
+        channels_for_pcts = [ch for ch in config['diff_imgList'] if 'neighbors' not in ch]
+
+        print('Computing global percentiles in normalized space (per-image robust scaling)...')
+        pcts = compute_global_percentiles_after_per_image_scaling(
+            tfrec_fps=tfrec_fps,
+            channels=channels_for_pcts,
+            sample_per_image=config.get('sample_per_image_pcts', 1024),
+        )
+        print('Done. Merging percentiles into train_diffimg_norm_stats.npy ...')
+
+        # Load the previously saved dict and update it with p1/p99/a per channel
+        diff_stats_fp = config['norm_dir'] / 'train_diffimg_norm_stats.npy'
+        normStatsDiff_img = np.load(diff_stats_fp, allow_pickle=True).item()
+
+        for ch, stats_dict in pcts.items():
+            if ch not in normStatsDiff_img:
+                normStatsDiff_img[ch] = {}
+            normStatsDiff_img[ch].update(stats_dict)
+
+        np.save(diff_stats_fp, normStatsDiff_img)
+
 
     print('Finished computing normalization statistics for the data.')
 
@@ -444,18 +570,16 @@ if __name__ == '__main__':
     parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file')
     args = parser.parse_args()
     
-    args.config_fp = '/u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_preprocess_cv_folds_tfrecord_dataset.yaml'
-
     with(open(args.config_fp, 'r')) as file:
         config = yaml.unsafe_load(file)
     
-    config = config['compute_norm_stats_params']
-    config['norm_dir'] = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats')
+    # config = config['compute_norm_stats_params']
+    # config['norm_dir'] = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats')
 
     # get only training set TFRecords
-    with open('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml', 'r') as dataset_fps:
-        tfrec_fps = yaml.unsafe_load(dataset_fps)['data_shards_fps'][0]['train']
-    
+    # with open('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml', 'r') as dataset_fps:
+    #     tfrec_fps = yaml.unsafe_load(dataset_fps)['data_shards_fps'][0]['train']
+    tfrec_fps = list(Path(config['tfrecDir']).glob('train-shard*'))
     print(f'Found {len(tfrec_fps)} TFRecord shards')
 
     compute_normalization_stats(tfrec_fps, config)

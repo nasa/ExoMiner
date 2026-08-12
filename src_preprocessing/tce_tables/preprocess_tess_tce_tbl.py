@@ -46,27 +46,29 @@ def preprocess_tce_table(tce_tbl_fp, res_dir, stellar_parameters_source=None, ru
                                                                                                   x['tce_plnt_num'],
                                                                                                   x['sector_run']),
                                                     axis=1)
+
     # move uid to become leftmost column
     tce_cols = ['uid'] + [col for col in tce_tbl_renamed_cols_uid.columns if col != 'uid']
-    tce_tbl_renamed_cols_uid = tce_tbl_renamed_cols_uid[tce_cols]
+    tce_tbl_preprocessed_params = tce_tbl_renamed_cols_uid[tce_cols]
 
     # updated stellar parameters from TIC v8 or some other source defined by `stellar_parameters_source`
-    res_dir_stellar = res_dir / 'stellar_parameters'
-    res_dir_stellar.mkdir(exist_ok=True)
-    tce_tbl_tic8stellar = updated_stellar_parameters(tce_tbl_renamed_cols_uid, res_dir_stellar,
-                                                     stellar_parameters_source)
+    if stellar_parameters_source is not None:
+        res_dir_stellar = res_dir / 'stellar_parameters'
+        res_dir_stellar.mkdir(exist_ok=True)
+        tce_tbl_preprocessed_params = updated_stellar_parameters(tce_tbl_renamed_cols_uid, res_dir_stellar, stellar_parameters_source)
 
     # get RUWE values from Gaia DR2 or some other source defined by `ruwe_source`
-    res_dir_ruwe = res_dir / 'ruwe'
-    res_dir_ruwe.mkdir(exist_ok=True)
-    tce_tbl_ruwe = query_gaiadr_for_ruwe(tce_tbl_tic8stellar, res_dir_ruwe, ruwe_source)
+    if ruwe_source is not None:
+        res_dir_ruwe = res_dir / 'ruwe'
+        res_dir_ruwe.mkdir(exist_ok=True)
+        tce_tbl_preprocessed_params = query_gaiadr_for_ruwe(tce_tbl_preprocessed_params, res_dir_ruwe, ruwe_source)
 
     # preprocess parameters in TCE table
-    tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_ruwe)
+    tce_tbl_preprocessed_params = preprocess_parameters_tess_tce_table(tce_tbl_preprocessed_params)
 
     # add dispositions
     tce_tbl_preprocessed_params.loc[:, 'label'] = 'UNK'
-    tce_tbl_preprocessed_params.loc[:, 'label_source'] = np.nan
+    tce_tbl_preprocessed_params.loc[:, 'label_source'] = 'None'
 
     return tce_tbl_preprocessed_params
 
@@ -122,20 +124,20 @@ def update_num_tois_in_tic(
 
 if __name__ == "__main__":
 
-    # # set TCE table filepath
-    # tce_tbl_fp = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014/tess_spoc_2min_s14-s86_toi-2095_fromdvxml_4-10-2025_1014.csv')
-    # # set results directory
-    # res_dir = tce_tbl_fp.parent
-    # tce_tbl_preprocessed_params = preprocess_tce_table(tce_tbl_fp, res_dir)
-    # tce_tbl_preprocessed_params.to_csv(res_dir / f'{tce_tbl_fp.stem}_stellartic8_ruwegaiadr2_preproc.csv', index=False)
+    # set TCE table filepath
+    tce_tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/test_tess-spoc-2min-tces-dv_s1-s98_4-29-2026_0951/test_tess-spoc-2min-tces-dv_s1-s98_4-29-2026_0951.csv')
+    # set results directory
+    res_dir = tce_tbl_fp.parent
+    tce_tbl_preprocessed_params = preprocess_tce_table(tce_tbl_fp, res_dir)
+    tce_tbl_preprocessed_params.to_csv(res_dir / f'{tce_tbl_fp.stem}_stellartic8_ruwegaiadr2_preproc.csv', index=False)
     
-    # update number of TOIs in TIC
-    print('Updating TCE table with number of TOIs in TICs...')
-    toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/exofop_tois/exofop_tois_9-11-2025_processed_ephem_matching.csv')
-    tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518_exofop-sg1-tois_9-22-2025_fixedtointps.csv')
-    tce_tbl = pd.read_csv(tce_tbl_fp)
-    print(tce_tbl['n_tois_in_tic'].value_counts())
-    tce_tbl = update_num_tois_in_tic(tce_tbl, toi_tbl, toi_id_col='uid', target_col='target_id')
-    print(tce_tbl['n_tois_in_tic'].value_counts())
-    tce_tbl.to_csv(tce_tbl_fp, index=False)
-    print('Done updating TCE table with number of TOIs in TICs.')
+    # # update number of TOIs in TIC
+    # print('Updating TCE table with number of TOIs in TICs...')
+    # toi_tbl = pd.read_csv('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/exofop_tois/exofop_tois_9-11-2025_processed_ephem_matching.csv')
+    # tce_tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518_exofop-sg1-tois_9-22-2025_fixedtointps.csv')
+    # tce_tbl = pd.read_csv(tce_tbl_fp)
+    # print(tce_tbl['n_tois_in_tic'].value_counts())
+    # tce_tbl = update_num_tois_in_tic(tce_tbl, toi_tbl, toi_id_col='uid', target_col='target_id')
+    # print(tce_tbl['n_tois_in_tic'].value_counts())
+    # tce_tbl.to_csv(tce_tbl_fp, index=False)
+    # print('Done updating TCE table with number of TOIs in TICs.')

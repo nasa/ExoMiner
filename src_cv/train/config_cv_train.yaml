@@ -7,9 +7,8 @@ paths:
   # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
   # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
   # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
-  cv_folds: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iterations.yaml
-#  model_config_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_plusplus.yaml
-  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml
+  cv_folds: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_stricter-phot-pcs_7-14-2026_1417/tfrecords/eval_normalized/cv_iterations.yaml
+  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase_aux_loss_source_offset/models/exominer_plusplus_ffi.yaml
 
 val_from_train: false  # if true, the validation fold is chosen randomly from the training split. The training split must contain more than one fold
 num_val_folds: -1  # assuming `val_from_train` is true, this variable sets the number of training folds used for validation
@@ -31,9 +30,7 @@ data_fields: # scalar data from TFRecords to add to ranking table
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
   tce_model_snr: 'float_scalar'
-  obs_type: 'string'
-#  tce_dikco_msky_rat: 'float_scalar'
-#  tce_dicco_msky_rat: 'float_scalar'
+  # obs_type: 'string'
 
 training:
   data_augmentation: false  # perform online data augmentation
@@ -42,13 +39,11 @@ training:
     'num_bins_local': 31
     'num_transit_dur': 5
   n_epochs: 300  # number of epochs used to train each model
-  opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
+  opt_metric: auc_pr  # auc_pr  # main_auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 32  # 256  # 32
   category_weights: null  # category weights used in weighted loss; set to null for non-weighted loss
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 1000  # 5000  # should be larger than size of the training set to allow perfect sampling
-
-label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 
 evaluation:
   batch_size: 32
@@ -58,7 +53,7 @@ inference:
 callbacks:
   train:
     early_stopping:
-      monitor: val_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
+      monitor: val_auc_pr_class1 # val_auc_pr  # val_main_auc_pr  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
       patience: 20
       verbose: 1
@@ -74,23 +69,24 @@ callbacks:
     #   embeddings_metadata: null
     #   embeddings_freq: 0
 
+label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
 label_map:  # maps label to a label id
 #  # Kepler
 #  PC: 1
 #  AFP: 0
 #  NTP: 0
-  # TESS
-  KP: 1
-  CP: 1
-  FP: 0
-#  FA: 0
-  EB: 0
-#  B: 0
-#  J: 0
-  NTP: 0
-#  NEB: 0
-#  NPC: 0
-  BD: 0
+#   # TESS
+#   KP: 1
+#   CP: 1
+#   FP: 0
+# #  FA: 0
+#   EB: 0
+# #  B: 0
+# #  J: 0
+#   NTP: 0
+# #  NEB: 0
+# #  NPC: 0
+#   BD: 0
   # Kepler Sim
 #  INJ1: 1
 #  INJ2: 0
@@ -98,6 +94,17 @@ label_map:  # maps label to a label id
 #  SCR1: 0
 #  SCR2: 0
 #  INV: 0
+  # Phot disps
+  PC: 1
+  AFP: 2
+  NTP: 0
+
+# set auxiliary labels
+aux_labels:  null
+  # aux_bg:
+  #   dtype: int
+  #   one_hot: false
+  #   example_weight_field: aux_bg_weight  # or set to null and defaults to weights=1
 
 datasets:
   - train

@@ -38,9 +38,13 @@ def inverse_correct_sector_field(x: str) -> str:
     return x  # Already in original format
 
 
-def correct_sector_field(x):
+def correct_sector_field(x: str) -> str:
     """Set TCE unique ID to match format needed to query the MAST: <target_id>-<tce_id>-<sector_run_start>-<sector_run_end>.
 
+    Example:
+        Input:  "123456789-01-S36"
+        Output: "123456789-01-S36-36"
+        
     :param str x: TCE unique ID
     :return str: TCE unique ID with correct sector run format
     """
@@ -102,8 +106,6 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
     """
 
     prods = []
-    uris = {'DV TCE summary report': [], 'Full DV report': [], 'DV mini-report': []}
-
     if verbose:
         print(f'Started run for example {example_id}...')
 
@@ -115,6 +117,8 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
         'dv_mini_report': ['Data validation mini report'],
     }
     reports_to_get = report_type_map[reports]
+    
+    uris = {report_name: '' for report_name in reports_to_get}
 
     tic_id, tce_id, s_sector, e_sector = '.' * 12, '[0-9][0-9]' * 2, '.' * 4, '.' * 4
 
@@ -219,7 +223,7 @@ def get_dv_dataproducts(example_id, download_dir, download_products, reports='al
 
 
 def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, download_products, reports, spoc_ffi=False,
-                             verbose=True, create_mast_url_csv=False, get_most_recent_products=True, job_id=0):
+                             verbose=True, create_mast_url_csv=False, get_most_recent_products=True, job_id=0, max_retries=3, retry_delay=5):
     """ Download DV reports and summaries available in the MAST for a list of observation, which can be either a target,
     sector run, or TCE.
 
@@ -238,11 +242,9 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         create_mast_url_csv: bool, set to True to write MAST URLs for DV SPOC data products for the queried objects
         get_most_recent_products: bool, if True get only most recent products available (i.e., from the latest SPOC run)
         job_id: int, job ID for logging purposes
+        max_retries: int, maximum number of retries for network errors
+        retry_delay: int, delay between retries in seconds
     """
-
-    # Define retry parameters
-    MAX_RETRIES = 3
-    RETRY_DELAY = 5 # seconds
 
     uris_dict = {'uid': []}
     uris_dict.update({field: [] for field in data_products_lst})
@@ -251,7 +253,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         success = False
         last_error = None
 
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(max_retries):
             try:
                 _, uris = get_dv_dataproducts(obj, str(download_dir), download_products, reports, spoc_ffi, verbose)
                 success = True
@@ -261,31 +263,44 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
                 # Check if it is a network error worth retrying
                 if "RemoteDisconnected" in str(e) or "Connection aborted" in str(e) or "ReadTimeout" in str(e):
                     if verbose:
-                        print(f"Connection dropped for {obj} (Attempt {attempt+1}/{MAX_RETRIES}). Retrying in {RETRY_DELAY}s...")
-                    time.sleep(RETRY_DELAY)
+                        print(f"Connection dropped for {obj} (Attempt {attempt+1}/{max_retries}). Retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
                 else:
                     # If it's a logic error (not network), break immediately
                     break
         
         if not success:
-            print(f"Error processing {obj} after {MAX_RETRIES} attempts: {str(last_error)}")
+            print(f"Error processing {obj} after {max_retries} attempts: {str(last_error)}")
             continue # Skip to next object
 
         try:
-            n_tces = len(uris[data_products_lst[0]])
+            n_tces = len(uris.get(data_products_lst[0], []))
+            
+            if n_tces == 0:
+                n_tces = max([len(uris.get(field, [])) for field in data_products_lst if isinstance(uris.get(field), list)], default=0)
 
             if n_tces == 0:
                 if verbose:
                     print(f'No data products found for {obj}.')
                 continue
 
-            uris_dict['uid'] += [obj] * n_tces
             for tce_i in range(n_tces):
+                row = {'uid': obj}
                 for field in data_products_lst:
-                    if uris[field]:
-                        uris_dict[field].append(URL_HEADER + uris[field][tce_i] if uris[field][tce_i] != '' else '')
+                    val = uris.get(field)
+                    if isinstance(val, list) and len(val) > 0:
+                        if tce_i < len(val):
+                            url = val[tce_i]
+                        elif len(val) == 1:
+                            url = val[0]
+                        else:
+                            url = ''
+                        row[field] = URL_HEADER + url if url != '' else ''
                     else:
-                        uris_dict[field].append('')
+                        row[field] = ''
+                
+                for k, v in row.items():
+                    uris_dict[k].append(v)
 
         except Exception as e:
             print(f"Error parsing results for {obj}: {str(e)}")
@@ -294,7 +309,7 @@ def get_dv_dataproducts_list(objs_list, data_products_lst, download_dir, downloa
         mast_urls_tbls_dir = download_dir / 'mast_urls_tables'
         mast_urls_tbls_dir.mkdir(parents=True, exist_ok=True)
         tbl_fp = mast_urls_tbls_dir / f'spoc-dv_mast-urls_job{job_id}.csv'
-        print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict)}/{len(objs_list)} events to {str(tbl_fp)}...')
+        print(f'[Job ID {job_id}] Writing data products URIs for {len(uris_dict["uid"])}/{len(objs_list)} events to {str(tbl_fp)}...')
         uris_df = pd.DataFrame(uris_dict)
         uris_df.to_csv(tbl_fp, index=False)
 
@@ -364,49 +379,89 @@ def main(objs_list, download_dir, data_products_lst, reports, mission, spoc_ffi,
             if len(mast_url_tbls_fps) > 1:
                 print('Aggregating results...')
                 mast_url_tbl_agg = pd.concat([pd.read_csv(mast_url_tbl_fp) for mast_url_tbl_fp in mast_url_tbls_fps], axis=0)
-                mast_url_tbl_agg.to_csv(download_dir / f'spoc-dv_mast-urls_jobs-agg.csv', index=False)
+                mast_url_tbl_agg.to_csv(download_dir / 'spoc-dv_mast-urls_jobs-agg.csv', index=False)
         
-    print(f'Finished querying MAST for DV reports.')
+    print('Finished querying MAST for DV reports.')
     
     
 if __name__ == "__main__":
     
     # set parameters
-    # download_dir = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/dv_reports/TESS/check_top_ntps_tess_ffi_paper_11-11-2025_1608')
-    download_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/mast_urls_dv_reports_spoc_ffi_12-10-2025_0817')
+    download_dir = Path('/data/exoplnt_dl/dv_reports/tess/tess_spoc_2min_urls/get_missing_urls_dv-reports_up-to-S100_6-9-2026_1550')
     data_products_lst = ['DV TCE summary report', 'Full DV report', 'DV mini-report']
     reports = 'all'   # 'dv_summary', 'dv_report', 'dv_mini_report', 'all'
     download_products = False  # if True, products are downloaded
-    verbose = False
+    verbose = True
     get_most_recent_products = True
-    spoc_ffi = True
+    spoc_ffi = False
     create_mast_url_csv = True
-    n_procs = 4
-    n_jobs = 300
+    n_procs = 12
+    n_jobs = 36
     mission = 'tess'
     
-    # get objects from table
-    # objs = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s94_s1s92_9-19-2025_1518.csv', usecols=['uid', 'DV mini-report'])
-    # objs = objs.loc[objs['DV mini-report'].isna()]
-    objs = pd.read_csv('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025_exofop-sg1-tois9-11-2025_fixedtointps_nontpstois.csv', comment='#', usecols=['uid'])
-    print(f'Total number of objects in input table: {len(objs)}')
+    download_dir.mkdir(parents=True, exist_ok=True)
 
-    # convert uid to format required for query
-    objs['uid'] = objs['uid'].apply(correct_sector_field)
+    # # get objects from table
+    # objs = pd.read_csv('/data/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s98_labels_mast-urls_new_ntps-to-s100_updt-tois.csv', comment='#', usecols=['uid', 'sector_run', 'DV mini-report'])
+    # objs = objs.loc[objs['DV mini-report'].isna()]
+    # print(f"Before:\n{objs[['DV mini-report']].isna().sum()}")
+    # already_preprocessed_fps = list((download_dir / 'mast_urls_tables/').glob('*.csv'))
+    # if len(already_preprocessed_fps) > 0:
+    #     already_preprocessed = pd.concat([pd.read_csv(fp) for fp in already_preprocessed_fps], axis=0)
+    # else:
+    #     already_preprocessed = pd.DataFrame(columns=['uid'] + data_products_lst)
+    # already_preprocessed_agg_df_fp = download_dir / 'preprocessed_temp.csv'
+    # if already_preprocessed_agg_df_fp.exists():
+    #     already_preprocessed_agg_df = pd.read_csv(already_preprocessed_agg_df_fp)
+    #     already_preprocessed_agg_df = pd.concat([already_preprocessed_agg_df, already_preprocessed], axis=0)
+    #     already_preprocessed_agg_df.drop_duplicates(inplace=True)
+    # already_preprocessed.to_csv(download_dir / 'preprocessed_temp.csv', index=False)
+    # for fp in already_preprocessed_fps:
+    #     fp.unlink()
+
+    # objs = objs[~objs['uid'].isin(already_preprocessed['uid'])]
+
+    # # convert uid to format required for query
+    # objs['uid'] = objs['uid'].apply(correct_sector_field)
     
-    filt_dir = Path('/Users/miguelmartinho/Projects/tess_spoc_ffi_exominer_paper/')
-    filt_tbl = pd.concat([pd.read_csv(fp) for fp in filt_dir.rglob('spoc-dv_mast-urls_job*.csv')], axis=0)
-    objs = objs.loc[~objs['uid'].isin(filt_tbl['uid'])]
-    objs = objs.loc[~objs['uid'].str.contains('56-69')]
+    # run with a few objects
+    objs = pd.DataFrame({'uid': [
+        
+        # '55404385-1-S35-35',  # NTP
+        # '55404385-1-S9-9',  # EB
+        
+        # '59859387-1-S1-65', #NEB
+        # '59859387-1-S61-61', # NEB
+        
+        # '461591646-1-S78-78',  # BD
+        
+        # '198242676-1-S56-56',  # EB
+        # '198242676-2-S14-60',  # EB
+        
+        # '188768068-1-S14-60', # CP
+        # '422655579-1-S1-46', # KP
+        # '422655579-1-S4-4', # KP
+        # '422655579-1-S43-43', # KP
+        # '273874849-2-S41-41',
+        # '300038935-1-S1-65',
+        # '267574918-1-S14-19',
+        # '166527623-2-S38-38',
+        # '202426247-1-S14-41',
+        # '130181866-2-S20-20'
+        # '410214986-1-S27-27'
+        # '130181866-1-S44-44',
+        # '267572272-1-S80-80',
+        # '55652896-2-S1-65',
+        '232077041-1-S96-96',
+        '1883519478-1-S14-14',
+        '1883519478-2-S14-14',
+        '1716106614-1-S14-14',
+        '232077041-1-S96-96',
+    ]})
     
     print(f'Number of objects to query: {len(objs)}')
     
-    # run with a few objects
-    # objs = pd.DataFrame({'uid': [
-    #     '123213412-1-S36-36',
-    # ]})
-    
-    # split per sector run
+    # # split per sector run
     # objs_list_jobs = {sector_run: np.array(objs_in_sector_run['uid']) for sector_run, objs_in_sector_run in
     #                    objs.groupby('sector_run')}
     # print(f'Number of jobs set by number of sector runs: n_jobs={len(objs_list_jobs)}')

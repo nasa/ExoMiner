@@ -1,0 +1,6 @@
+outs:
+- md5: c3983e87d96266f3089fdd0e151c0d90.dir
+  size: 124392
+  nfiles: 21
+  hash: md5
+  path: norm_stats

@@ -4,15 +4,14 @@ The [src_preprocessing](/src_preprocessing/) module contains several modules rel
 
 **Note**: some of these modules might not be compatible or designed with Kepler in mind since we have moved to work mostly with TESS data.
 
-## Get TESS Target Lightcurve Data
+## Get TESS Target Light Curve Data
 
 Note that this step involves excluding those targets that were observed but no DV results were generated, and hence no 
 TCEs were detected for those targets.
 
 1. Download LC and DV SH files for sector runs of interest. These SH files can be downloaded from the MAST, for example.
-2. Use script `src_preprocessing/filter_lc_targets_using_target_table.py` to filter lightcurves for targets of interest.
-3. Download LC FITS files for targets of interest using script 
-`src_preprocessing/tess_spoc_ffi/download_tess_spoc_ffi_lc_files.sh`.
+2. Use script [filter_lc_targets_using_target_table.py](./filter_lc_targets_using_target_table.py) to filter lightcurves for targets of interest.
+3. Download LC FITS files for targets of interest using script [download_tess_lc_files.sh](./download_tess_lc_files.sh).
 
 ## Get TESS SPOC Target DV XML data
 

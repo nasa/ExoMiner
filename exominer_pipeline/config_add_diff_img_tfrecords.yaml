@@ -9,8 +9,12 @@ n_jobs: 1
 n_examples_shard: 300
 # images to add to the dataset
 imgs_fields:
+  # - diff_imgs
+  # - oot_imgs
+  # - target_imgs
+### new architecture ###
   - diff_imgs
   - oot_imgs
   - target_imgs
-#  - snr_imgs
-#  - neighbors_imgs
+  - snr_imgs
+overwrite: false  # if true, overwrites difference image data in the TFRecord dataset

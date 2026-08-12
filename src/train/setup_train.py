@@ -18,7 +18,8 @@ def run_setup_for_train_iter(run_dir, config):
     """
 
     # load model hyperparameters from model config yaml
-    with open(config['paths']['model_config_fp'], 'r') as model_config_f:
+    model_config_fp = Path(config['paths']['model_config_fp'])
+    with open(model_config_fp, 'r') as model_config_f:
         model_config = yaml.unsafe_load(model_config_f)
         config.update(model_config)
 

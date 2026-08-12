@@ -1,0 +1,66 @@
+*.uuid
+*.ipynb_checkpoints*
+.DS_Store
+*.pyc
+*/__pycache__/*
+__pycache__/
+local_scripts/
+**/old/
+.idea/
+others/conda_vulnerabilities_jake.txt
+archived_experiments/
+data_wrangling/
+job_scripts/
+src_hpo/
+src_cv/
+transit_detection/
+exominer_pipeline/test_pipeline
+others/envs
+others/images
+others/3rd_party_licenses.md
+others/get_3rd_party_licenses_pkgs.py
+tess_spoc_ffi/
+.gitignore
+.git
+src/evaluate
+src_preprocessing/split_tfrecord_train-test
+src_preprocessing/tce_tables/ephemeris_matching
+xai/
+.continue
+.claude
+.vscode
+CLAUDE.md
+anomaly_tces
+docs
+clean_repo_for_deployment.sh
+exominer_vetting_pc_catalog_dash-render-web-app
+
+# Python virtual environments
+.venv
+.venv/
+venv/
+env/
+ENV/
+
+# Any local Pip/uv caches if they exist in the directory
+.cache/
+.uv/
+
+# Just in case you have local FITS test files lying around in the root
+*.fits
+*.fits.gz
+
+# Ignore everything in the new data folder
+/exominer_pipeline_data/*
+
+# -- MODELS --
+!exominer_pipeline_data/models/
+exominer_pipeline_data/models/*
+# Allow the tarball (which ADD will extract and throw away)
+!exominer_pipeline_data/models/models.tar
+# Allow the specific uncompressed model folders
+!exominer_pipeline_data/models/planet_validation/
+!exominer_pipeline_data/models/phot_vetting/
+
+# -- NORM STATS --
+!exominer_pipeline_data/norm_stats/

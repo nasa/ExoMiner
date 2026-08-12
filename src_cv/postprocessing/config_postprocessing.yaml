@@ -1,0 +1,60 @@
+tbl_sub_dir: "ensemble_model" # 'ensemble_model'  # 'models/model0'
+tbl_fn: "predictions_testset" # which set to aggregate across CV iterations (test set is unique; validation and training might not be)
+
+# Note: apply glob() to this string in your Python script
+cv_iters_pattern: "cv_iter_*"
+
+# compute metrics
+num_thresholds: 1000 # number of thresholds used to compute AUC
+clf_threshold: 0.5 # classification threshold used to compute accuracy, precision and recall
+recall_at_precision_thr: 0.99
+precision_at_recall_thr: 0.99
+multiclass: true # multiclass or bin class?
+target_score: "PC" # get OvR metrics for a specific class when in multiclass setting
+class_name: "label_id"
+cat_name: "label" # 'obs_type'  # 'label'
+
+label_map:
+  # CP: 1
+  # KP: 1
+  # FP: 0
+  # EB: 0
+  # NTP: 0
+  # BD: 0
+  PC: 1
+  AFP: 2
+  NTP: 0
+
+# mapping of category/disposition to label id
+# cats: null
+# class_ids: [0, 1]  # should match unique label ids in 'cats'
+
+top_k_vals:
+  - 50
+  - 100
+  - 150
+  - 200
+  - 500
+  - 1000
+  - 2000
+  - 3000
+
+# top_k_vals:
+#   train: [50, 100, 250, 500, 1000, 2000]  # , 2500]
+#   val: [25, 50, 100, 200]
+#   test: [25, 50, 100, 200]
+
+datasets:
+  - train
+  - val
+  - test
+
+
+# compute metrics for the whole dataset by combining the test set folds from all CV iterations
+# ONLY VALID FOR NON-OVERLAPPING CV ITERATIONS' SETS!!!
+compute_metrics_all_dataset: True,
+# if True, computes mean and std metrics' values across CV iterations
+compute_mean_std_metrics: True,
+
+results_sub_dir: "ensemble_model"
+pred_tbl_prefix: "predictions"

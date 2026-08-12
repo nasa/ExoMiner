@@ -155,12 +155,24 @@ class SplitLayer(keras.layers.Layer):
 class ReduceSumLayer(tf.keras.layers.Layer):
     """Creates TF Keras reduce sum layer."""
 
-    def __init__(self, axis=-1, **kwargs):
+    def __init__(self, axis=-1, keepdims=False, **kwargs):
         super(ReduceSumLayer, self).__init__(**kwargs)
         self.axis = axis
+        self.keepdims = keepdims
 
     def call(self, inputs, training=None, mask=None):
-        return tf.reduce_sum(inputs, axis=1)
+        return tf.reduce_sum(inputs, axis=self.axis, keepdims=self.keepdims)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                'axis': self.axis,
+                'keepdims': self.keepdims
+            }
+        )
+        
+        return config
 
 
 @tf.keras.utils.register_keras_serializable()

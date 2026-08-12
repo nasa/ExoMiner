@@ -1,7 +1,7 @@
 # source TFRecord directory
-tfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458
+tfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits
 # destination directory for computed statistics
-norm_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458
+norm_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits
 
 n_processes_compute_norm_stats: 36  # number of processes used to parallelize reading the values for the dataset
 
@@ -35,6 +35,8 @@ diff_imgList: # null
   - 'neighbors_imgs_tc'
 
 diff_img_data_shape: [5, 55, 55]  # set defined image size given that images
+
+neighbors_img_tmag_diff_range: [-11, 15]  # magnitude difference range for including neighboring objects (mag_diff = target_mag - neighbor_mag)
 
 # dictionary that provides information on the normalization specificities for each scalar parameters (e.g., placeholder
 # for missing value other than NaN, perform log-transform, clipping factor, data type, replace value for missing value)

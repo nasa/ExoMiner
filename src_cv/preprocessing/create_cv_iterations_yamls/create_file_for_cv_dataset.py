@@ -1,10 +1,5 @@
 """
-Create yaml CV iteration files for CV experiments.
-
-1) Create CV iterations yaml for the non-normalized dataset.
-2) Create CV iterations yaml for the normalized dataset based on the CV iterations yaml for the non-normalized dataset.
-3) Create CV iterations yaml for inference on a CV dataset already normalized and using a set of trained models from a
-    CV experiment.
+Create CV iterations yaml for the non-normalized CV dataset.
 """
 
 # 3rd party
@@ -13,9 +8,10 @@ from pathlib import Path
 import numpy as np
 from collections import defaultdict
 import re
+import argparse
 
 
-def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, choose_val_method='rotating_fold'):
+def create_cv_iterations_yaml_for_cv_dataset(data_dir: Path, datasets: list=['train', 'test'], rnd_seed: int=21, choose_val_method: str='rotating_fold'):
     """ Create CV iterations yaml file for the non-normalized dataset. In each CV iteration, a different fold is 
         used as test set. If using a validation set, the strategy used to choose the validation fold is dependent on
         `choose_val_method` argument. TFRecord filenames must follow pattern "shard-fold-{X digits}-{Y digits}-{Z digits}.tfrecord".
@@ -33,9 +29,6 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, ch
 
     """
 
-    # get filepaths for the CV folds tfrecord files
-    # cv_folds_fps = sorted([fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')])
-    
     fold_shards = defaultdict(list)
     pattern = re.compile(r'shard-fold-(\d+)_\d+-\d+\.tfrecord')
 
@@ -79,7 +72,7 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, ch
             elif choose_val_method == 'random_fold':  # choose validation fold randomly
                 val_fold_id = rng.choice(remaining_folds_ids)
             else:
-                raise ValueError(f'Method used to choose the validation fold in each iteration must be either: "fixed_fold", "rotating_fold", or "random_fold".')
+                raise ValueError('Method used to choose the validation fold in each iteration must be either: "fixed_fold", "rotating_fold", or "random_fold".')
                             
             train_fold_ids = [fid for fid in remaining_folds_ids if fid != val_fold_id]
             cv_iter['val'] = fold_shards[val_fold_id]
@@ -113,70 +106,21 @@ def create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, ch
     cv_iters_dict['data_shards_names'] = cv_iters_names
     with open(data_dir / 'cv_iterations.yaml', 'w') as file:
         yaml.dump(cv_iters_dict, file, sort_keys=False)
-
-
-def create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp):
-    """ Create CV iterations yaml file for the normalized CV dataset based on the CV iterations yaml file for the
-    non-normalized dataset `src_cv_iterations_fp`.
-
-    Args:
-        data_dir: Path, CV dataset directory with normalized data
-        src_cv_iterations_fp: Path, path to the yaml file with the CV iterations for the non-normalized dataset
-
-    Returns:
-
-    """
     
-    # create yaml file to be used to run the CV experiment with the normalized labeled dataset
-    with open(src_cv_iterations_fp, 'r') as file:
-        cv_iters_dict = yaml.unsafe_load(file)
-
-    cv_iters = []  # aggregate CV iterations (each is a dictionary that maps to 'train', 'val', and 'test' sets)
-    for cv_iter_i, cv_iter in enumerate(cv_iters_dict['data_shards_fps']):
-
-        cv_iter = {dataset: [data_dir / f'cv_iter_{cv_iter_i}/norm_data' / dataset_fp.name for dataset_fp in dataset_fps]
-                   for dataset, dataset_fps in cv_iter.items()}
-
-        cv_iters.append(cv_iter)
-
-    cv_iters_dict['data_shards_fps'] = cv_iters
-    cv_iters_dict['dataset_directory'] = str(data_dir)
-    with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-        yaml.dump(cv_iters_dict, file, sort_keys=False)
-
-
-def create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterations):
-    """ Create CV iterations yaml file to be used to run CV trained models on a predict dataset (already normalized).
-    Args:
-        data_dir: Path, CV dataset directory
-        n_cv_iterations: int, number of CV iterations trained models
-
-    Returns:
-
-    """
-
-    data_fps = [fp for fp in data_dir.iterdir() if fp.name.startswith('shard-')]
-    cv_iters = [{'predict': data_fps} for cv_i in range(n_cv_iterations)]
-
-    with open(data_dir / 'cv_iterations.yaml', 'w') as file:
-        yaml.dump(cv_iters, file, sort_keys=False)
+    print(f"Created CV iterations yaml file: {data_dir / 'cv_iterations.yaml'}.")
 
 
 if __name__ == "__main__":
 
-    # # Create CV iterations yaml file for the non-normalized dataset
-    # data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/')
-    # datasets = ['train', 'test', 'val']
-    # choose_val_method = 'rotating_fold'
-    # create_cv_iterations_yaml_for_cv_dataset(data_dir, datasets, rnd_seed=21, choose_val_method=choose_val_method)
+    # example terminal command: python create_cv_yaml.py --data_dir /path/to/your/data --datasets train val test --val_method random_fold --rnd_seed 42
+    
+    parser = argparse.ArgumentParser()
 
-    # Create CV iterations yaml file to be used to run the CV experiment with the normalized labeled dataset
-    data_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/')
-    # use yaml file for CV iterations created when normalizing the data
-    src_cv_iterations_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval/cv_iterations.yaml')
-    create_cv_iterations_yaml_for_normalized_cv_dataset(data_dir, src_cv_iterations_fp)
+    parser.add_argument('--data_dir', type=str, required=True, help='CV data directory')
+    parser.add_argument('--datasets', type=str, nargs='+', required=True, help='List of dataset names in the CV iterations')
+    parser.add_argument('--val_method', type=str, default='rotating_fold', choices=['rotating_fold', 'random_fold', 'fixed_fold'], help='')
+    parser.add_argument('--rnd_seed', type=int, help='random_seed', default=21)
 
-    # # Create CV iterations yaml file to be used to run the CV trained models on a predict dataset
-    # data_dir = Path('')
-    # n_cv_iterations = 5
-    # create_cv_iterations_yaml_for_inference_on_cv_dataset(data_dir, n_cv_iterations)
+    args = parser.parse_args()
+
+    create_cv_iterations_yaml_for_cv_dataset(Path(args.data_dir), args.datasets, rnd_seed=args.rnd_seed, choose_val_method=args.val_method)

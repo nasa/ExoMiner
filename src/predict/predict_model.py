@@ -12,8 +12,7 @@ from pathlib import Path
 import logging
 
 # local
-from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features
-from src.utils.utils_dataio import get_data_from_tfrecords_for_predictions_table
+from src.utils.utils_dataio import InputFnv2 as InputFn, set_tf_data_type_for_features, get_data_from_tfrecords_for_predictions_table
 import models.custom_layers
 from src.utils.utils import log_info
 
@@ -81,17 +80,28 @@ def predict_model(config, model_path, res_dir, logger=None):
         
         log_info(f'Writing predictions for dataset {dataset}...', logger)
         
+        if isinstance(scores[dataset], dict):
+            scores_main = scores[dataset]['main']
+            scores_aux = {scores_k: scores_v for scores_k, scores_v in scores[dataset].items() if scores_k != 'main'}
+        else:  # if scores[dataset] is not a dict, assume it's the main scores; for backward compatibility with older model versions that don't output auxiliary scores in a dict
+            scores_main = scores[dataset]
+            scores_aux = {}
+
         if not config['config']['multi_class']:
-            data[dataset]['score'] = scores[dataset].ravel()
+            data[dataset]['score'] = scores_main.ravel()
         else:
             for class_label, label_id in config['label_map'].items():
-                data[dataset][f'score_{class_label}'] = scores[dataset][:, label_id]
+                data[dataset][f'score_{class_label}'] = scores_main[:, label_id]
 
+        # add auxiliary scores
+        for aux_score_name, aux_score_vals in scores_aux.items():
+            data[dataset][f'score_{aux_score_name}'] = aux_score_vals
+            
         predictions_df = pd.DataFrame(data[dataset])
 
-        # map labels to a label id that was used to train the model        
-        predictions_df['label_id'] = predictions_df['label'].apply(lambda x: config['label_map'].get(x, -1))  # -1 as default
-
+        # map labels to a label id that was used to train the model     
+        if 'label' in predictions_df.columns:   
+            predictions_df['label_id'] = predictions_df['label'].apply(lambda x: config['label_map'].get(x, -1))  # -1 as default
 
         # sort in descending order of output
         if not config['config']['multi_class']:
@@ -102,7 +112,8 @@ def predict_model(config, model_path, res_dir, logger=None):
         # add metadata
         predictions_df.attrs['experiment'] = res_dir.name
         predictions_df.attrs['dataset'] = dataset
-        predictions_df.attrs['label map'] =  config['label_map']
+        if 'label_map' in config:
+            predictions_df.attrs['label map'] =  config['label_map']
         predictions_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
         with open(predictions_df_fp, "w") as f:
             for key, value in predictions_df.attrs.items():

@@ -57,6 +57,7 @@ def create_input_fn(config, dataset, mode):
         feature_map=config['feature_map'],
         shuffle_buffer_size=config['training'].get('shuffle_buffer_size', 1000),
         label_field_name=config['label_field_name'],
+        aux_labels=config['aux_labels'],
         # filter_fn=partial(filter_examples_tfrecord_obs_type, obs_type='ffi'),
     )
     

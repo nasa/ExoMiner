@@ -120,6 +120,56 @@ BINNED_TIMESERIES_JOINT_PLOT = [
     'momentum_dump_local',  # -> has a plot
 ]
 
+BINNED_TIMESERIES_JOINT_PLOT_GRID_EXOMINER_PIPELINE = (3, 3)
+BINNED_TIMESERIES_JOINT_PLOT_EXOMINER_PIPELINE = [
+    # flux ###
+
+    'flux_global',
+    'flux_local',
+    # 'flux_global_norm',
+    # 'flux_local_norm',
+
+    # flux_global_unfolded -> has a plot
+    # flux_global_unfolded_norm
+
+    # 'flux_local_unfolded',
+    # 'flux_local_unfolded_norm',
+
+    # trend ###
+    'flux_trend_global',
+    # 'flux_trend_local',
+    # 'flux_trend_global_norm',
+    # 'flux_trend_local_norm',
+
+    # flux_trend_global_unfolded
+    # flux_trend_global_unfolded_norm
+
+    # flux_trend_local_unfolded
+    # flux_trend_local_unfolded_norm
+
+    # wks ###
+    'flux_weak_secondary_local',
+    # 'flux_weak_secondary_local_norm',
+
+    # odd/even ###
+    'flux_odd_local',  # -> has a plot
+    'flux_even_local',  # -> has a plot
+
+    # 'flux_odd_local_norm',
+    # 'flux_even_local_norm',
+
+    # centroid ###
+    'centroid_offset_distance_to_target_global',
+    'centroid_offset_distance_to_target_local',
+
+    # momentum ###
+    'momentum_dump_local',  # -> has a plot
+
+    # # pgram ###
+    # 'pgram_smooth',
+    # 'pgram_tps_smooth',
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -572,13 +622,23 @@ def process_single_tce(tce, detrended_data, data, target_position, config, plot_
     
     # compute lc periodogram
     logger.info(f'[{tce["uid"]}] Computing periodogram data for TCE...')
+    is_exominer_pipeline = config.get('plot_inputs_to_exominer_model', False)
+    if is_exominer_pipeline:
+        plot_fp = config['plot_dir'] / f'tess-spoc-tce_tic{tce["uid"]}_input-periodogram-views.png'
+        plot_flag = True
+    elif config['plot_figures']:
+        plot_fp = config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram.png'
+        plot_flag = True
+    else:
+        plot_fp = None
+        plot_flag = False
     pgram_data = lc_periodogram_pipeline(
         config['p_min_tce'], config['k_harmonics'], config['p_max_obs'], config['downsampling_f'],
         config['smooth_filter_type'], config['smooth_filter_w_f'],
         config['tr_dur_f'],
         tce, data['all_time'], data['all_flux'], data['all_flux_err'],
-        save_fp=config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_2_lc_periodogram.png' if config['plot_figures'] else None,
-        plot_preprocessing_tce=plot_preprocessing_tce)
+        save_fp=plot_fp,
+        plot_preprocessing_tce=plot_flag)
 
     # phase fold detrended data using detected orbital period
     logger.info(f'[{tce["uid"]}] Phase-folding time series using TCE\'s orbital period found in TCE table...')
@@ -672,9 +732,21 @@ def process_target_tces(target_uid, target_tces_tbl, config):
         except Exception as tce_preprocessing_error:
             examples_tces_dict[tce['uid']]['error'] = tce_preprocessing_error
             examples_tces_dict[tce['uid']]['processed'] = False
-        
+
         logger.info(f'Finished preprocessed TCE {tce["uid"]} for target {target_uid}. Status: {examples_tces_dict[tce["uid"]]["processed"]}')
-                
+
+    if plot_preprocessing_tce:
+        try:
+            logger.info(f'[{target_uid}] Compiling preprocessing figures to PDF...')
+            utils_visualization.compile_preprocessing_figures_to_pdf(
+                target_uid,
+                target_tces_tbl,
+                config['plot_dir'],
+                config['plot_dir'] / f'{target_uid}_summary.pdf'
+            )
+        except Exception as e:
+            logger.error(f'[{target_uid}] Failed to compile PDF: {e}')
+
     return examples_tces_dict
 
 
@@ -1088,7 +1160,7 @@ def create_example_stats(binned_timeseries, odd_even_flag, t_min_transit, t_max_
     return example_stats
 
 
-def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preprocessing_tce):
+def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preprocessing_tce, plot_fp):
     """ Generates odd and even flux local binned time series from phase folded data.
 
          Args:
@@ -1098,6 +1170,7 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
            config: dict; preprocessing parameters.
            norm_stats: dict, normalization statistics
            plot_preprocessing_tce: bool, if True, generates figure plots
+           plot_fp: Path, plot filepath
 
          Returns:
            A dict with keys 'flux_odd_local' and 'flux_even_local' plus their normalization versions ({}_norm). Each key
@@ -1146,9 +1219,7 @@ def generate_odd_even_binned_views(data, tce, config, norm_stats, plot_preproces
                                           {ts_name: data[ts_name] for ts_name in ['flux_odd', 'flux_even']},
                                           tce,
                                           config,
-                                          config['plot_dir'] /
-                                          f'{tce["uid"]}_{tce["label"]}_8_1_oddeven_transitdepth_phasefoldedbinned_'
-                                          f'timeseries.png'
+                                          plot_fp,
                                           )
 
     # add statistics
@@ -1528,7 +1599,7 @@ def generate_flux_trend_binned_views(data, tce, config, plot_preprocessing_tce):
     return binned_timeseries
 
 
-def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plot_preprocessing_tce=False):
+def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plot_preprocessing_tce=False, plot_fp=None):
     """ Generates weak secondary flux local binned time series from phase folded data.
 
         Args:
@@ -1538,6 +1609,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
           config: dict; preprocessing parameters.
           norm_stats: dict, containing normalization statistics
           plot_preprocessing_tce: boolean, if True plots figure
+          plot_fp: Path, path to save the figure
 
         Returns:
           A dict with keys 'flux_weak_secondary_local' and 'flux_weak_secondary_local_norm'
@@ -1545,6 +1617,9 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
           companion variability binned time series, and the number of phase folded cycles used when binning.
           Additionally, there is one key that maps to the absolute minimum of the local weak secondary flux.
     """
+
+    # preserves data before processing required for the finall binned views like gapping the primary
+    data_plot = {k: [ts.copy() for ts in v] for k, v in data.items() if k == 'flux_weak_secondary'}
 
     # gap primary in-transit cadences in the phase folded secondary time series by imputing them with Gaussian noise
     # estimated from the full phase folded time series
@@ -1656,12 +1731,7 @@ def generate_weak_secondary_binned_views(data, tce, config, norm_stats=None, plo
     }
 
     if plot_preprocessing_tce:
-        utils_visualization.plot_phasefolded_and_binned_weak_secondary_flux(
-            data, binned_timeseries,
-            tce,
-            config['plot_dir'] /
-            f'{tce["uid"]}_{tce["label"]}_'
-            f'8_3_flux_weak_secondary.png')
+        utils_visualization.plot_phasefolded_and_binned_weak_secondary_flux(data_plot, binned_timeseries, tce, plot_fp)
 
     return binned_timeseries
 
@@ -1956,6 +2026,8 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
       quantities, .... it returns None if some exception while creating these features occurs
     """
 
+    is_exominer_pipeline = config.get('plot_inputs_to_exominer_model', False)
+
     # time interval for the transit
     t_min_transit, t_max_transit = max(-tce['tce_period'] / 2, -tce['tce_duration'] / 2), \
         min(tce['tce_period'] / 2, tce['tce_duration'] / 2)
@@ -1970,8 +2042,7 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
     # inds_bin_nan = {}
 
     # create binned time series for flux
-    binned_timeseries_flux, binned_flux_global_norm_stats, binned_flux_local_norm_stats = (
-        generate_flux_binned_views(phase_folded_data, tce, config, plot_preprocessing_tce))
+    binned_timeseries_flux, _, binned_flux_local_norm_stats = (generate_flux_binned_views(phase_folded_data, tce, config, plot_preprocessing_tce))
     binned_timeseries.update(binned_timeseries_flux)
 
     # create binned time series for flux trend
@@ -1980,19 +2051,41 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
     binned_timeseries.update(binned_timeseries_flux_trend)
 
     # create binned time series for odd/even flux
+    if is_exominer_pipeline:
+        plot_fp = config['plot_dir'] / f'tess-spoc-tce_tic{tce["uid"]}_input-flux-odd-even-views.png'
+        plot_preprocessing_test_flag = True
+    elif plot_preprocessing_tce:
+        plot_fp = config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_8_1_oddeven_transitdepth_phasefoldedbinned_timeseries.png'
+        plot_preprocessing_test_flag = True
+    else:
+        plot_preprocessing_test_flag = False
+        plot_fp = None
     binned_timeseries_odd_even_flux, odd_even_flag = generate_odd_even_binned_views(phase_folded_data,
                                                                                     tce,
                                                                                     config,
                                                                                     binned_flux_local_norm_stats,
-                                                                                    plot_preprocessing_tce)
+                                                                                    plot_preprocessing_test_flag,
+                                                                                    plot_fp,
+                                                                                    )
     binned_timeseries.update(binned_timeseries_odd_even_flux)
 
     # create binned time series for weak secondary flux
+    if is_exominer_pipeline:
+        plot_fp = config['plot_dir'] / f'tess-spoc-tce_tic{tce["uid"]}_input-flux-weak-secondary-views.png'
+        plot_preprocessing_test_flag = True
+    elif plot_preprocessing_tce:
+        plot_fp = config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_8_3_flux_weak_secondary.png'
+        plot_preprocessing_test_flag = True
+    else:
+        plot_preprocessing_test_flag = False
+        plot_fp = None
     binned_timeseries_wksecondary = generate_weak_secondary_binned_views(phase_folded_data,
                                                                          tce,
                                                                          config,
                                                                          norm_stats=None,
-                                                                         plot_preprocessing_tce=plot_preprocessing_tce)
+                                                                         plot_preprocessing_tce=plot_preprocessing_test_flag,
+                                                                         plot_fp=plot_fp,
+                                                                         )
     binned_timeseries.update(binned_timeseries_wksecondary)
 
     # create binned time series for centroid motion
@@ -2015,17 +2108,44 @@ def generate_example_for_tce(phase_folded_data, pgram_data, tce, config, plot_pr
                                                         f'9_1_phasefoldedbinned_timeseries.png'
                                                         )
 
-        utils_visualization.plot_all_views({ts_name: ts_data for ts_name, ts_data in binned_timeseries.items()
-                                            if ts_name in BINNED_TIMESERIES_JOINT_PLOT and
-                                            ts_name in binned_timeseries},
-                                           tce,
-                                           config,
-                                           BINNED_TIMESERIES_JOINT_PLOT_GRID,
-                                           config['plot_dir'] /
-                                           f'{tce["uid"]}_{tce["label"]}_'
-                                           f'9_2_binned_timeseries.png',
-                                           plot_var=True
-                                           )
+    if is_exominer_pipeline:
+        plot_fp = config['plot_dir'] / f'tess-spoc-tce_tic{tce["uid"]}_input-flux-and-centroid-views-to-exominer-model.png'
+        
+        plot_binned_views = {
+            ts_name: ts_data 
+            for ts_name, ts_data in binned_timeseries.items()
+            if ts_name in BINNED_TIMESERIES_JOINT_PLOT_EXOMINER_PIPELINE
+        }
+        
+        utils_visualization.plot_view_exominer_pipeline(
+            plot_binned_views,
+            tce,
+            config,
+            BINNED_TIMESERIES_JOINT_PLOT_GRID_EXOMINER_PIPELINE,
+            plot_fp,
+            plot_var=True,
+            draw_lines=False
+        )
+
+    elif plot_preprocessing_tce:
+        # this block only runs if plot_preprocessing_tce is True AND is_exominer is False
+        plot_fp = config['plot_dir'] / f'{tce["uid"]}_{tce["label"]}_9_2_binned_timeseries.png'
+        
+        plot_binned_views = {
+            ts_name: ts_data 
+            for ts_name, ts_data in binned_timeseries.items()
+            if ts_name in BINNED_TIMESERIES_JOINT_PLOT
+        }
+        
+        utils_visualization.plot_all_views(
+            plot_binned_views,
+            tce,
+            config,
+            BINNED_TIMESERIES_JOINT_PLOT_GRID,
+            plot_fp,
+            plot_var=True,
+            draw_lines=True
+        )
 
     # initialize dictionary with the binned time series and statistics that will be stored in the TFRecords example for
     # this TCE

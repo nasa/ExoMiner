@@ -20,13 +20,14 @@ MOMENTUM_DUMP_VALUE = 32  # momentum dump value in the DQ array
 MAX_BIT = 12  # max number of bits in the DQ array
 
 
-def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
-    """
+def get_tess_light_curve_files(base_dir, ticid, sectors_observed, data_collection_mode):
+    """ Get TESS target light curves.
 
     Args:
         base_dir: Base directory containing TESS light curve FITS files data
         ticid: ID of the TESS target star. It can be an int or a possibly zero-padded string
         sectors_observed: str, sectors observed separated by an underscore
+        data_collection_mode: str, data collection mode (either '2min' or 'ffi')
 
     Returns: a list of filepaths to the light curve FITS files for a given TIC and set of observed sectors
 
@@ -41,7 +42,18 @@ def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
     ticid = str(ticid).zfill(16)
 
     # get all light curves FITS files in the directory for TIC ID
-    target_lc_fits_fps = list(base_dir.rglob(f'*{ticid}*lc.fits'))
+    # excludes fast lcs since they end with '*-a_fast-lc.fits'
+    target_lc_fits_fps = list(base_dir.rglob(f'*{ticid}*_lc.fits')) + list(base_dir.rglob(f'*{ticid}*_lc.fits.gz'))
+
+    # filter based on data collection mode
+    if data_collection_mode == '2min':
+        # 2-min files typically start with 'tess'
+        target_lc_fits_fps = [p for p in target_lc_fits_fps if p.name.startswith('tess')]
+    elif data_collection_mode == 'ffi':
+        # FFI files from TESS-SPOC HLSP typically start with 'hlsp'
+        target_lc_fits_fps = [p for p in target_lc_fits_fps if p.name.startswith('hlsp')]
+    else:
+        raise ValueError("data_collection_mode must be either '2min' or 'ffi'")
 
     filtered_lc_paths = []
     for sector_observed in sectors_observed:
@@ -55,6 +67,27 @@ def get_tess_light_curve_files(base_dir, ticid, sectors_observed):
     return  filtered_lc_paths
 
 
+def get_sectors_from_sectors_obs_field(sectors):
+    """ Get list of sectors where target was observed from `sectors` string. `sectors` can be in format <sector_x>_<sector_y> (multiple sectors),
+        <sector_x> (one sector), OR as a binary string of length 150, where each index/bit is either '1' or '0' if target was observed or not in that sector.
+    
+    Args:
+        sectors: string, sectors where target was observed
+    Returns: list of string of sectors observed
+    """
+    
+    
+    if len(sectors) > 4 and set(sectors).issubset({"0", "1"}):  # binary string
+        sectors_lst = [str(bit_i) for bit_i, bit_val in enumerate(sectors) if bit_val == '1']
+    else:  # sectors separated by '_'
+        if '_' in sectors:
+            sectors_lst = sectors.split('_')
+        else:  # single sector
+            sectors_lst = [sectors]
+    
+    return sectors_lst
+    
+    
 def tess_filenames(base_dir, ticid, sectors):
     """ Returns the light curve filenames for a TESS target star in 2-min cadence data.
 
@@ -75,12 +108,9 @@ def tess_filenames(base_dir, ticid, sectors):
     # a zero-padded, 16-digit target identifier that refers to an object in the TESS Input Catalog.
     tess_id = str(ticid).zfill(16)
     
-    if '_' in sectors:
-        sectors = sectors.split('_')
-    else:
-        sectors = [str(bit_i) for bit_i, bit_val in enumerate(sectors) if bit_val == '1']
+    sectors_lst = get_sectors_from_sectors_obs_field(sectors)
 
-    for sector in sectors:
+    for sector in sectors_lst:
 
         sector_dir = Path(base_dir) / f'sector_{sector}'
         fps_lst = list(sector_dir.glob(f'*{tess_id}*lc.fits'))
@@ -122,15 +152,10 @@ def tess_ffi_filenames(base_dir, tic_id, sectors, check_existence=True):
 
     # pad the TIC id with zeros to length 16
     tic_id = f'{tic_id}'.zfill(16)
-    # # pad the sector runs ids with zeros to length 4
-    # sector_runs_ids = [f'{sector_i}'.zfill(4) for sector_i in sector_run]
     
-    if '_' in sectors:
-        sectors = sectors.split('_')
-    else:
-        sectors = [str(bit_i) for bit_i, bit_val in enumerate(sectors) if bit_val == '1']
+    sectors_lst = get_sectors_from_sectors_obs_field(sectors)
     
-    sectors = [f'{sector_i}'.zfill(4) for sector_i in sectors]
+    sectors_lst = [f'{sector}'.zfill(4) for sector in sectors_lst]
 
     filenames = []
     for sector in sectors:

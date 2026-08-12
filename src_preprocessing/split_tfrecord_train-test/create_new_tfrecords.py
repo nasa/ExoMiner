@@ -26,6 +26,8 @@ import tensorflow as tf
 import itertools
 import numpy as np
 import yaml
+from tqdm import tqdm
+import argparse
 
 # local
 from src_preprocessing.utils_manipulate_tfrecords import create_shard
@@ -69,14 +71,13 @@ def count_examples_new_tfrecord_dataset(tfrec_fps, datasets_tbls):
     return countExamples
 
 
-if __name__ == '__main__':
+def main(config_fp):
+    """Main function to create TFRecord dataset from dataset tables.
 
-    tf.config.set_visible_devices([], 'GPU')
-
-    # get the configuration parameters
-    path_to_yaml = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_preprocessing/split_tfrecord_train-test/config_create_new_tfrecords.yaml')
-
-    with open(path_to_yaml, 'r') as file:
+    :param Path config_fp: path to configuration YAML
+    """
+    
+    with open(config_fp, 'r') as file:
         config = yaml.safe_load(file)
 
     # source TFRecord directory
@@ -134,13 +135,26 @@ if __name__ == '__main__':
         checkNumTcesInDatasets[shardTuple[0].split('-')[0]] += len(shardTuple[1])
     print(checkNumTcesInDatasets)
 
-    pool = multiprocessing.Pool(processes=config['n_processes'])
     jobs = [shardTuple + (srcTbl, srcTfrecDir, destTfrecDir, config['omit_missing'], config['verbose'])
             for shardTuple in shardTuples]
-    async_results = [pool.apply_async(create_shard, job) for job in jobs]
-    pool.close()
-    for async_result in async_results:
-        async_result.get()
+    
+    with multiprocessing.Pool(processes=config['n_processes']) as pool, tqdm(desc='Creating', unit='shard', total=len(jobs)) as pbar:
+    
+        def _on_end(return_msg):
+            pbar.update(1)
+            print(return_msg)
+            
+        async_results = []
+        for job in jobs:
+            job_async_apply = pool.apply_async(
+                create_shard, 
+                job,
+                callback=_on_end,
+                ) 
+            async_results.append(job_async_apply)
+            
+        for async_result in async_results:
+            _ = async_result.get()
 
     print('TFRecord dataset created.')
 
@@ -151,9 +165,20 @@ if __name__ == '__main__':
     _ = count_examples_new_tfrecord_dataset(dest_tfrec_fps, datasetTbl)
     print(f'Finished checking for examples in the dataset tables that are missing from the TFRecord shards.')
 
-    print('Creating yaml file with datasets filepaths...')
+    print('Saving yaml file with setup...')
     json_dict = {key: val for key, val in config.items()}
     with open(destTfrecDir / 'config_create_new_tfrecords.yaml', 'w') as preproc_run_file:
         yaml.dump(json_dict, preproc_run_file)
 
     print('Done.')
+    
+
+if __name__ == '__main__':
+
+    tf.config.set_visible_devices([], 'GPU')
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, required=True, help='Filepath to configuration YAML file')
+    args = parser.parse_args()
+
+    main(Path(args.config_fp))

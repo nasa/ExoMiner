@@ -26,9 +26,11 @@ Match is accepted between these two if:
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
+import argparse
 
 
-def solve_matches(tbl_fp, match_thr):
+def solve_matches(tbl_fp, match_thr, verbose=True):
     """ Solve matches among groups of transit signals.
 
     Args:
@@ -43,6 +45,9 @@ def solve_matches(tbl_fp, match_thr):
 
     corr_coef_mat_df = pd.read_csv(tbl_fp, index_col=0)  # load correlation table
     corr_coef_mat_df = corr_coef_mat_df.fillna(-1)  # set NaNs to -1
+    
+    if verbose:
+        print(f'Checking {len(corr_coef_mat_df)} matches in table {tbl_fp.name}')
 
     # thr_mask = corr_coef_mat_df > match_thr  # matches above matching threshold
     # # only match transit signals that only match between them
@@ -72,25 +77,53 @@ def solve_matches(tbl_fp, match_thr):
         multiple_matches = check_for_multiple_matches[check_for_multiple_matches].index.to_list()
         n_multiple_matches = len(multiple_matches)
         if n_multiple_matches > 1:
-            print(f'Signal {corr_coef_mat_df.index[row_i]} has a correlation score > {match_thr} '
-                  f'for {n_multiple_matches} signals: {multiple_matches}.')
+            if verbose:
+                print(f'Signal {corr_coef_mat_df.index[row_i]} has a correlation score > {match_thr} '
+                    f'for {n_multiple_matches} signals: {multiple_matches}.')
 
     matched_signals = pd.DataFrame(matched_signals)
+    
+    if verbose:
+        print(f'Found {len(matched_signals)}/{len(corr_coef_mat_df)} matches for table {tbl_fp.name}.')
 
     return matched_signals
 
 
-if __name__ == '__main__':
-
-    match_thr = 0.75  # set matching threshold
-    # get file paths to match tables for multiple sector runs
-    matching_root_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_s36-s69_2min_s1-s68_7-9-2024_1704')
-    match_dir = matching_root_dir / 'sector_run_tic_tbls'
-    matched_signals = []
-    for tbl_fp in match_dir.iterdir():  # iterate through sector run match tables.
-
-        matched_signals.append(solve_matches(tbl_fp, match_thr))
-
+def agg_matched_signals_tables(matched_signals, match_thr):
+    
     # aggregate match results into a single file
     matched_signals = pd.concat(matched_signals, axis=0)
     matched_signals.to_csv(matching_root_dir / f'matched_signals_thr{match_thr}.csv', index=False)
+    
+    print(f'{len(matched_signals)} successful matches.')
+
+
+def main(tbl_fps, match_thr, verbose=True):
+    
+    print(f'Found {len(match_tbl_fps)} match tables.')
+
+    
+    matched_signals = []
+    for tbl_fp in tqdm(tbl_fps, desc='Matching table', total=len(tbl_fps), unit='table'):  # iterate through sector run match tables.
+        matched_signals.append(solve_matches(tbl_fp, match_thr, verbose))
+    
+    agg_matched_signals_tables(matched_signals, match_thr)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ephem_res_dir', type=str, required=True, help='Filepath to directory with ephemeris run results.')
+    parser.add_argument('--thr', type=float, required=True, help='Threshold used to match objects.', default=0.75)
+    parser.add_argument('--verbose', action='store_true', help='Set verbose.')
+    args = parser.parse_args()
+    
+    verbose=args.verbose
+    match_thr = args.thr  # set matching threshold
+    
+    # get file paths to match tables for multiple sector runs
+    matching_root_dir = Path(args.ephem_res_dir)
+    match_tbl_fps = list((matching_root_dir / 'sector_run_tic_tbls').glob('*.csv'))
+    
+    main(match_tbl_fps, match_thr, verbose=verbose)
+        

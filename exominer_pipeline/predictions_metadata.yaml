@@ -1,0 +1,15 @@
+uid: Unique SPOC TCE identifier with pattern <tic_id>-<tce_plnt_num>-S<sector_run_id> (e.g., 123456789-1-S1, 123456789-1-S1-3) (string)
+target_id: TIC ID of the target star (int scalar)
+sector_run: SPOC sector run identifier. If single sector run follows format <sector>. If multisector runs follows format <start_sector>-<end_sector>(string)
+tce_plnt_num: SPOC TCE planet number (int scalar)
+tce_period: TCE period in days (float scalar)
+tce_duration: TCE duration in hours (float scalar)
+tce_time0bk: TCE time of first transit in BTJD (float scalar)
+tce_depth: TCE depth in ppm (float scalar)
+ruwe: Renormalized Unit Weight Error from Gaia (float scalar)
+tce_prad: TCE planet radius in Earth radii (float scalar)
+tce_max_mult_ev: TCE max multiple event statistic (float scalar)
+matchedToiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
+score/score_<disp>: if using ExoMiner for photometric vetting there are three columns with ExoMiner mean scores for PC/AFP/NTP classes/disposition categories summing up to 1. For planet vs not-planet validation there is a single score.
+score_std/score_std_<disp>: if using ExoMiner for photometric vetting there are three columns with ExoMiner standard deviation scores for PC/AFP/NTP classes/disposition categories summing up to 1. For planet vs not-planet validation there is a single one.
+prediction: predicted disposition based on classification threshold and ExoMiner mean score(s)

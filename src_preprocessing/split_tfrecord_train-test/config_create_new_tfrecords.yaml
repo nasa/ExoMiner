@@ -1,19 +1,19 @@
 # source TFRecord dataset directory
-src_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg
+src_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence
 # table that contains the order of the examples in the TFRecord files in the source directory
-shards_tbl_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg/shards_tbl.csv
+shards_tbl_fp: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence/shards_tbl.csv
 # destination directory
-dest_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458
+dest_tfrec_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits
 # directory with tables used to split the examples into different sets (train, validation, test, predict, ...)
-split_tbls_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_agg_diffimg_train-test-split_10-22-2025_1458_split-tables
+split_tbls_dir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits
 # defines which tables are used and the prefix of the TFRecord shards; e.g., if train split table is loaded, it will
 # put all examples from that table that can find in the shards in the source TFRecord dataset into shards starting with
 # the prefix `train-shard`
 datasets:
-  - train
-  - val
-  - test
-  # - predict
+  # - train
+  # - val
+  # - test
+  - predict # comment to prevent creating unlabeled dataset
 omit_missing: false  # skip missing TCEs in the TFRecords that exist in the dataset tables
 n_processes: 36  # number of processes used to create the new TFRecord dataset
 n_examples_per_shard: 300  # number of examples in each shard in the new TFRecord dataset; min(n_examples_per_shard, n_total_examples)

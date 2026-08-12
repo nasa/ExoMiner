@@ -94,7 +94,7 @@ def create_shard_fold(shard_tbl_fp, dest_tfrec_dir, fold_i, src_tfrec_fps, n_sha
         logger.setLevel(logging.INFO)
         logger_handler.setFormatter(logger_formatter)
         logger.addHandler(logger_handler)
-        logger.info(f'Starting run...')
+        logger.info('Starting run...')
     else:
         logger = None
 

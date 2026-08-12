@@ -1,0 +1,4 @@
+uid: Unique SPOC TCE identifier with pattern <tic_id>-<tce_plnt_num>-S<sector_run_id> (e.g., 123456789-1-S1, 123456789-1-S1-3) (string)
+DV TCE summary report: MAST URL to the SPOC DV TCE summary report for the TCE (string)
+Full DV report: MAST URL to the full SPOC DV report for the target (string)
+DV mini-report: MAST URL to the SPOC DV mini-report for the target (string)

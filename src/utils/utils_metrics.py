@@ -3,6 +3,7 @@
 from tensorflow import keras
 import numpy as np
 import tensorflow as tf
+import numpy as np
 
 
 def get_metrics(clf_threshold=0.5, num_thresholds=1000, prec_thr=0.95, rec_thr=0.95):
@@ -63,6 +64,9 @@ def get_metrics_multiclass(label_map, clf_threshold=0.5, num_thresholds=1000):
         metrics_list: list, metrics to be monitored
     """
 
+    classes_lst = set(label_map.values())
+    n_classes = len(classes_lst)
+    
     metrics_list = []
 
     # acc = keras.metrics.SparseCategoricalAccuracy(name='accuracy')
@@ -81,51 +85,127 @@ def get_metrics_multiclass(label_map, clf_threshold=0.5, num_thresholds=1000):
     
     f1 = keras.metrics.F1Score(average='weighted', threshold=clf_threshold, name='f1_score')
     
-    auc_pr_planet = PlanetVsRestPRAUC(name='auc_pr_planet')
+    macro_auc_pr = MacroPRAUC(name='macro_auc_pr', num_thresholds=num_thresholds, num_classes=n_classes)
+    
+    metrics_list += [acc, auc_pr, auc_roc, f1, macro_auc_pr]
 
-    metrics_list += [acc, auc_pr, auc_roc, f1, auc_pr_planet]
-
-    for label, label_id in label_map.items():
-        metrics_list.append(keras.metrics.Recall(name=f'recall_{label}', class_id=label_id, thresholds=clf_threshold))
-        metrics_list.append(keras.metrics.Precision(name=f'precision_{label}', class_id=label_id, thresholds=clf_threshold))
+    for label_id in classes_lst:  # set metrics per class
+        metrics_list.append(OneVsRestPRAUC(name=f'auc_pr_class{label_id}', label_id=label_id))
+        metrics_list.append(keras.metrics.Recall(name=f'recall_class{label_id}', class_id=label_id, thresholds=clf_threshold))
+        metrics_list.append(keras.metrics.Precision(name=f'precision_class{label_id}', class_id=label_id, thresholds=clf_threshold))
 
     return metrics_list
 
 
-class PlanetVsRestPRAUC(keras.metrics.Metric):
+class OneVsRestPRAUC(keras.metrics.Metric):
+    """ Implements one vs rest PR AUC. 
     
-    def __init__(self, name='planet_vs_rest_pr_auc', num_thresholds=1000, planet_label_id=1, **kwargs):
+        Args:
+            label_id: int, the class index treated as positive.
+            num_thresholds: int, discretization of PR curve (higher -> finer).
+            from_logits: bool, if True, y_pred are logits and will be softmaxed.
+            name: str, metric name shown in logs.
+
+    """
+    
+    def __init__(self, name='one_vs_rest_pr_auc', num_thresholds=1000, label_id=1, from_logits=False, **kwargs):
         
         self.num_thresholds = num_thresholds
-        self.planet_label_id = planet_label_id
+        self.label_id = label_id
+        self.from_logits = from_logits
         
-        super(PlanetVsRestPRAUC, self).__init__(name=name, **kwargs)
+        super().__init__(name=name, **kwargs)
         
         self.auc = keras.metrics.AUC(curve='PR',
-                                     name='planet_vs_rest_pr_auc', 
+                                     name=name, 
                                      num_thresholds=self.num_thresholds,
                                      summation_method='interpolation',)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        # If labels are one-hot encoded, convert to class indices
-        if y_true.shape[-1] > 1:
-            y_true = tf.argmax(y_true, axis=-1)
+        
+        y_true = tf.convert_to_tensor(y_true)
+        y_pred = tf.convert_to_tensor(y_pred)
 
-        # Binary ground truth: 1 if label == 1 (planet), else 0
-        is_planet = tf.cast(tf.equal(y_true, self.planet_label_id), tf.float32)
+        # Convert y_true to sparse integer ids if it's one-hot
+        # Works in both eager and graph modes
+        y_true_rank = tf.rank(y_true)
+        # If rank==2 and last dim > 1, treat as one-hot
+        def _as_sparse_labels():
+            return tf.argmax(y_true, axis=-1, output_type=tf.int32)
+        def _as_is_sparse():
+            return tf.cast(tf.squeeze(y_true), tf.int32)  # (batch,)
+        y_true_sparse = tf.cond(
+            tf.logical_and(tf.equal(y_true_rank, 2),
+                           tf.greater(tf.shape(y_true)[-1], 1)),
+            true_fn=_as_sparse_labels,
+            false_fn=_as_is_sparse
+        )
 
-        # Predicted probability for planet class (index 1)
-        planet_score = y_pred[:, self.planet_label_id]
+        # binary ground truth: 1 if label == label_id, else 0
+        class_y = tf.cast(tf.equal(y_true_sparse, self.label_id), tf.float32)
 
-        self.auc.update_state(is_planet, planet_score, sample_weight)
+        if self.from_logits:
+            # softmax over class dimension
+            y_pred = tf.nn.softmax(y_pred, axis=-1)
+
+        # Predicted probability for class of interest
+        class_score = y_pred[:, self.label_id]
+
+        self.auc.update_state(class_y, class_score, sample_weight)
 
     def result(self):
         return self.auc.result()
 
-    def reset_states(self):
-        self.auc.reset_states()
+    def reset_state(self):
+        self.auc.reset_state()
 
 
+    def get_config(self):
+        
+        base_config = super().get_config()
+        
+        base_config.update({
+            "label_id": self.label_id,
+            "num_thresholds": self.num_thresholds,
+            "from_logits": self.from_logits,
+        })
+        
+        return base_config
+
+
+class MacroPRAUC(keras.metrics.Metric):
+    """
+    Macro-averaged PR-AUC = mean of per-class OneVsRestPRAUC values.
+    """
+    def __init__(self, num_classes, num_thresholds=1000, from_logits=False, name="pr_auc_macro", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.num_classes = int(num_classes)
+        self.metrics_ = [
+            OneVsRestPRAUC(label_id=c, num_thresholds=num_thresholds, from_logits=from_logits,
+                           name=f"pr_auc_ovr_c{c}")
+            for c in range(self.num_classes)
+        ]
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        for m in self.metrics_:
+            m.update_state(y_true, y_pred, sample_weight)
+
+    def result(self):
+        vals = [m.result() for m in self.metrics_]
+        return tf.add_n(vals) / tf.cast(self.num_classes, tf.float32)
+
+    def reset_state(self):
+        for m in self.metrics_:
+            m.reset_state()
+
+    def get_config(self):
+        base = super().get_config()
+        base.update({
+            "num_classes": self.num_classes,
+            # num_thresholds/from_logits are stored inside the child metrics
+        })
+        return base
+    
 def compute_precision_at_k(labels, k_vals):
     """ Computes precision at k.
 

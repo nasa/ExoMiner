@@ -11,6 +11,9 @@ from pathlib import Path
 import multiprocessing
 import re
 import logging
+from tqdm import tqdm
+import gzip
+
 
 DV_XML_HEADER = '{http://www.nasa.gov/2018/TESS/DV}'
 
@@ -175,6 +178,19 @@ def get_outside_params(root):
     target_params['pm_dec.value'] = pmDec_val
     target_params['pm_dec.uncertainty'] = pmDec_unc
 
+    # toiId
+    if 'toiId' in root.attrib:
+        target_params['target_toiId'] = int(root.attrib['toiId'])
+    else:
+        target_params['target_toiId'] = np.nan
+
+    # matchedToiId
+    matched_tois = root.findall(f'{DV_XML_HEADER}matchedToiId')
+    if matched_tois:
+        target_params['matchedToiId'] = ','.join([str(m.text) for m in matched_tois if m.text is not None])
+    else:
+        target_params['matchedToiId'] = 'not_matched'
+
     # pipelineTaskId
     pipelineTaskId_val = root.attrib['pipelineTaskId']
     target_params['taskFieldId'] = pipelineTaskId_val
@@ -231,10 +247,11 @@ def find_descendants(tce_dict, descendants, keywords):
     return tce_dict
 
 
-def process_xml(dv_xml_fp, logger):
+def process_xml(dv_xml_fp: Path, logger: logging.Logger) -> pd.DataFrame:
     """ Main call for processing xml files. Will take a desired XML directory and output it to a designate output
     directory. Will output a set of individual files, with each target being restricted to one CSV file. The next
-    python files you will need to run will end up compiling these files together to form a cohesive TCE table.
+    python files you will need to run will end up compiling these files together to form a cohesive TCE table. The
+    DV XML files format can be either gzipped or not, and the function will be able to handle both formats.
 
     Args:
         dv_xml_fp: Path, path to the DV xml file
@@ -244,7 +261,12 @@ def process_xml(dv_xml_fp, logger):
         output_csv: pandas DataFrame, contains extracted data from the DV xml file
     """
 
-    tree = et.parse(dv_xml_fp)
+    if dv_xml_fp.suffix == '.gz':
+        with gzip.open(dv_xml_fp, 'rt', encoding='utf-8') as f:
+            tree = et.parse(f)
+    else:
+        tree = et.parse(dv_xml_fp)
+
     root = tree.getroot()
 
     tic_id = root.attrib['ticId']
@@ -260,6 +282,16 @@ def process_xml(dv_xml_fp, logger):
         tce_dict = {}
 
         tce_dict['planetIndexNumber'] = planet_res.attrib['planetNumber']
+
+        if 'toiId' in planet_res.attrib:
+            tce_dict['toiId'] = planet_res.attrib['toiId']
+        else:
+            tce_dict['toiId'] = np.nan
+
+        if 'toiCorrelation' in planet_res.attrib:
+            tce_dict['toiCorrelation'] = planet_res.attrib['toiCorrelation']
+        else:
+            tce_dict['toiCorrelation'] = np.nan
 
         # cur_eclipbin = planet_res[8].attrib['suspectedEclipsingBinary']
         # bool_cur_eclipbin = int(cur_eclipbin == 'true')
@@ -341,14 +373,51 @@ def process_xml(dv_xml_fp, logger):
     return tces_df
 
 
-def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp, filter_tics=None):
+def exclude_dv_xmls_older_versions(dv_xml_fps: list[Path]) -> list:
+    """ Given a list of target DV XML files, return only the paths corresponding
+        to the highest version number for each base filename.
+        
+    Args:
+        dv_xml_fps: list of Path objects corresponding to target DV XML filepaths, which may include multiple 
+        versions of the same base filename (e.g. tess2019307033525-s0018-s0018-0000000327010115-00267_dvr.xml, 
+        tess2019307033525-s0018-s0018-0000000327010115-00268_dvr.xml)
+    Returns:
+        list of Path objects corresponding to DV XML filepaths, with only the highest version number target DV XML file
+    """
+
+    # regex to capture base part and version number in 2-min
+    # Example filename:
+    # tess2019307033525-s0018-s0018-0000000327010115-00267_dvr.xml
+    pattern = re.compile(r"^tess\d+-s\d+-s\d+-(\d+)-(\d+)_dvr\.xml(?:\.gz)?$")
+
+    best_versions = {}  # ticid → (version, path)
+
+    for p in dv_xml_fps:
+        m = pattern.match(p.name)
+        if not m:
+            # treat unmatched as unique
+            best_versions[p.name] = (None, p)
+            continue
+
+        ticid, version_str = m.groups()
+        version = int(version_str)
+
+        if ticid not in best_versions or version > best_versions[ticid][0]:
+            best_versions[ticid] = (version, p)
+
+    # extract only the best Path objects
+    return [v[1] for v in best_versions.values()]
+
+
+def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir: Path, dv_xml_tbl_fp: Path, filter_tics: list|None=None, exclude_older_versions: bool =True):
     """ Extracts TCE data from a set of DV xml files in a directory `dv_xml_sector_run_dir` into a table and returns
-    the table as a pandas DataFrame.
+    the table as a pandas DataFrame. Can deal with both gzipped and non-gzipped DV XML files. 
 
     Args:
         dv_xml_sector_run_dir: Path, path to the sector run directory
         dv_xml_tbl_fp: Path, filepath used to save table with DV xml results
         filter_tics: list of TIC IDs with sector run ID used to filter DV XML files; if None, no filtering is done
+        exclude_older_versions: bool, whether to exclude DV XML files with older version numbers for the same base filename
 
     Returns:
         dv_xml_tbl: pandas DataFrame, contains extracted data from the DV xml files
@@ -364,13 +433,19 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp, filter_t
     logger.addHandler(logger_handler)
     logger.info(f'Starting run...')
 
-    dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml'))
+    dv_xml_fps = list(dv_xml_sector_run_dir.rglob('*.xml')) + list(dv_xml_sector_run_dir.rglob('*.xml.gz'))
+    
     if filter_tics is not None:
         dv_xml_fps = [
             fp for fp in dv_xml_fps
             if any(filter_tic in fp.name for filter_tic in filter_tics)
         ]
 
+    if exclude_older_versions:
+        logger.info(f'Excluding target DV XML files with older version numbers. Before: {len(dv_xml_fps)}')
+        dv_xml_fps = exclude_dv_xmls_older_versions(dv_xml_fps)
+        logger.info(f'After excluding older versions: {len(dv_xml_fps)}')
+        
     n_dv_xmls = len(dv_xml_fps)
     logger.info(f'Extracting TCEs from {n_dv_xmls} xml files for {dv_xml_sector_run_dir.name}...')
 
@@ -392,47 +467,75 @@ def process_sector_run_of_dv_xmls(dv_xml_sector_run_dir, dv_xml_tbl_fp, filter_t
     logger.info(f'Finished extracting {len(dv_xml_tbl)} TCEs from {len(dv_xml_fps)} xml files for {dv_xml_tbl_fp.name}.')
 
 
-if __name__ == "__main__":
+def main(dv_xml_sector_runs_dirs_lst: list, new_tce_tbls_dir: Path, n_processes: int =1):
+    """Main function that extracts TCE data into TCE tables from DV XML files.
 
-    # output file path to csv with extracted data
-    new_tce_tbls_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess_spoc_ffi_tces_dv_s36-s72_s56s69_3-21-2025_1010/')
+    :param list dv_xml_sector_runs_dirs_lst: list of paths to sector run directories with DV XML files
+    :param Path new_tce_tbls_dir: directory used to save the new TCE tables
+    :param int n_processes: number of processes used for parallelization, defaults to 1
+    """
+    
+    print(f'Found {len(dv_xml_sector_runs_dirs_lst)} sector runs.')
+    
+    if len(dv_xml_sector_runs_dirs_lst) == 0:
+        raise ValueError('No paths to sector run directories were provided.')
+    
     new_tce_tbls_dir.mkdir(exist_ok=True)
 
     logs_dir = new_tce_tbls_dir / 'logs'
+    
     logs_dir.mkdir(exist_ok=True)
 
     dv_xml_tbl_fp = new_tce_tbls_dir / f'{new_tce_tbls_dir.name}.csv'
-
-    # get file paths to DV xml files
-    dv_xml_sector_runs_root_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/dv/xml_files/')
-    dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir()]  #  if sector_run_dir.name in [f'sector_{sector_run}' for sector_run in range(69, 88 + 1)]]
-    dv_xml_sector_runs_dirs_lst += [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()]  #  if sector_run_dir.name in [f'multisector_{sector_run}' for sector_run in ['s0014-s0078', 's0002-s0072', 's0001-s0069', 's0014-s0078']]]
-
-    print(f'Choosing sectors {dv_xml_sector_runs_dirs_lst}.')
-
-    # dv_xml_sector_runs_fps = list(dv_xml_sector_runs_dir.rglob('*dvr.xml'))
-    # print(f'Extracting TCE data from {len(dv_xml_sector_runs_fps)} DV xml files.')
-
+    
     # parallel extraction of data from multiple DV xml files
-    n_processes = len(dv_xml_sector_runs_dirs_lst)  # 36
     n_jobs = len(dv_xml_sector_runs_dirs_lst)
-    # dv_xml_arr = np.array_split(dv_xml_sector_runs_fps, n_jobs)
+    n_processes = min(n_processes, n_jobs)  
+    
     print(f'Starting {n_processes} processes to deal with {n_jobs} jobs.')
-    pool = multiprocessing.Pool(processes=n_processes)
-    async_results = [pool.apply_async(process_sector_run_of_dv_xmls,
-                                      (dv_xml_sector_run_dir,
-                                       new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv'))
-                     for _, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst)]
-    pool.close()
-    pool.join()
-
-    # for dv_xml_i, dv_xml_sector_run_dir in enumerate(dv_xml_sector_runs_dirs_lst):
-    #     process_sector_run_of_dv_xmls(dv_xml_sector_run_dir,
-    #                                    new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv')
-
-    # concatenated extracted TCE tables for each sector run
-    dv_xml_tbls = [pd.read_csv(fp) for fp in new_tce_tbls_dir.glob('*.csv') if fp != dv_xml_tbl_fp]
+    with multiprocessing.Pool(processes=n_processes) as pool, tqdm(desc='Iterating sector run', unit='sector run', total=n_jobs) as pbar:
+        
+        def _on_end(_):
+            pbar.update(1)
+            
+        async_results = []
+        for dv_xml_sector_run_dir in dv_xml_sector_runs_dirs_lst:
+            
+            new_tbl_fp = new_tce_tbls_dir / f'dv_xml_{dv_xml_sector_run_dir.name}.csv'
+            async_result = pool.apply_async(
+                process_sector_run_of_dv_xmls,
+                (dv_xml_sector_run_dir, new_tbl_fp),
+                callback=_on_end,
+                )
+            
+            async_results.append(async_result)
+            
+            for async_result in async_results:
+                _ = async_result.get()
+            
+    # concatenate extracted TCE tables for each sector run
+    dv_xml_tbls = [pd.read_csv(fp) for fp in new_tce_tbls_dir.glob('dv_xml_*.csv') if fp != dv_xml_tbl_fp]
 
     dv_xml_tbl = pd.concat(dv_xml_tbls, axis=0, ignore_index=True)
     dv_xml_tbl.to_csv(dv_xml_tbl_fp, index=False)
     print(f'Saved TCE table to {str(dv_xml_tbl_fp)}.')
+    
+    
+if __name__ == "__main__":
+
+    # output file path to csv with extracted data
+    new_tce_tbls_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/test_tess-spoc-2min-tces-dv_s1-s98_4-29-2026_0951/')
+    # get file paths to DV xml files
+    dv_xml_sector_runs_root_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs/')
+    n_processes=36
+    
+    # provide paths to directories of sector runs containing DV XML files
+    # dv_xml_sector_runs_dirs_lst = [fp for fp in (dv_xml_sector_runs_root_dir / 'single-sector').glob('sector_*') if fp.name == 'sector_5']
+    dv_xml_sector_runs_dirs_lst = list((dv_xml_sector_runs_root_dir / 'single-sector').glob('sector_*')) + list((dv_xml_sector_runs_root_dir / 'multi-sector').glob('multisector_s*'))
+    # dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in dv_xml_sector_runs_dirs_lst if sector_run_dir.name in [f'sector_{sector_run}' for sector_run in [18]]]
+    # dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir).iterdir() if sector_run_dir.name in [f's00{sector_run}' for sector_run in range(73, 81 + 1)]]
+    # dv_xml_sector_runs_dirs_lst = [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'single-sector').iterdir() if sector_run_dir.name in [f'sector_{sector_run}' for sector_run in range(89, 98 + 1)]]
+    # dv_xml_sector_runs_dirs_lst += [sector_run_dir for sector_run_dir in (dv_xml_sector_runs_root_dir / 'multi-sector').iterdir()  if sector_run_dir.name in [f'multisector_{sector_run}' for sector_run in ['s0001-s0092']]]
+
+    main(dv_xml_sector_runs_dirs_lst, new_tce_tbls_dir, n_processes=n_processes)
+    

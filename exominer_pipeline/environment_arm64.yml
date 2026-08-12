@@ -1,0 +1,29 @@
+name: exoplnt_dl
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - astropy
+  - astroquery
+  - boto3
+  - ffmpeg
+  - flask
+  - graphviz
+  - ipympl
+  - jupyter
+  - lightkurve
+  - matplotlib
+  - mpi4py
+  - openpyxl
+  - pandas
+  - pillow
+  - pip
+  - py-xgboost-cpu
+  - scikit-image
+  - scikit-learn
+  - seaborn
+  - xlsxwriter
+  # CRITICAL pin (prevents the crashing archive from being selected)  
+  - libprotobuf=4.25.3  # If the solver wants `protobuf` from conda too, keep it <5 to align with TF 2.13 
+  - protobuf<5
+  - netifaces 
