@@ -44,20 +44,7 @@ training:
   opt_metric: auc_pr  # metric shown in the epoch plots besides loss for the training, validation and test sets
   batch_size: 256  # 256  # 32
   filter_data: null  # deprecated; useless
-  category_weights:   #null  # category weights used in weighted loss; set to null for non-weighted loss
-    # NTP: 0.2497995480720169
-    # EB: 0.8516401590457257
-    # CP: 3.486266531027467
-    # KP: 3.7556164383561645
-    # FP: 3.797229916897507
-    # BD: 163.1904761904762
-    NTP: 0.37469932
-    EB: 1.27746024
-    CP: 2.71194935
-    KP: 2.71194935
-    FP: 5.56632377
-    BD: 5.56632377
-
+  category_weights:   null  # category weights used in weighted loss; set to null for non-weighted loss
   sample_weights: false  # use sample weights defined in the data set
   shuffle_buffer_size: 5000  # should be larger than size of the training set to allow perfect sampling
 
@@ -73,7 +60,7 @@ callbacks:
     early_stopping:
       monitor: val_auc_pr_planet  # val_auc_pr  # which metric used to monitor for early stopping
       min_delta: 0
-      patience: 100
+      patience: 20
       verbose: 1
       mode: max  # maximize/minimize monitored metric in early stopping
       baseline: null

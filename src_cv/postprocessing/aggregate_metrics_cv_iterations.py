@@ -1,12 +1,14 @@
 """
+Aggregate performance metrics computed for each CV iteration.
 """
 
 # 3rd party
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
 
 
-def aggregate_loss_and_metrics_cv_iterations(cv_iteration_dirs):
+def aggregate_loss_and_metrics_cv_iterations(cv_iteration_dirs : list[Path]) -> pd.DataFrame: 
     """Aggregate loss and performance metrics across CV iterations.
 
     :param list cv_iteration_dirs: contains Path objects to each CV iteration directory
@@ -18,7 +20,7 @@ def aggregate_loss_and_metrics_cv_iterations(cv_iteration_dirs):
     metric_tbl_name = 'loss_and_performance_metrics.csv'
     
     metrics_tbls = []
-    for cv_iteration_dir in sorted(cv_iteration_dirs):
+    for cv_iteration_dir in tqdm(sorted(cv_iteration_dirs), desc='CV Iteration', unit='CV iteration', total=len(cv_iteration_dirs)):
         
         cv_iter_id = cv_iteration_dir.name
         
@@ -42,7 +44,7 @@ def aggregate_loss_and_metrics_cv_iterations(cv_iteration_dirs):
 
 if __name__ == '__main__':
     
-    cv_exp_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505')
+    cv_exp_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s88_ffi-s36-s72-s56s69_exominerpp-newdiffimg-neighbos_1-26-2026_1321')
     cv_iters = list(cv_exp_dir.glob('cv_iter_*'))
     print(f'Found {len(cv_iters)} CV iteration directories')
     agg_metrics_tbl = aggregate_loss_and_metrics_cv_iterations(cv_iters)

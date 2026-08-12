@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import multiprocessing
 from tqdm import tqdm
+import traceback
 
 
 def parse_feature(serialized_example, feature_name):
@@ -84,13 +85,13 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
     :param srcTfrecDir: str, filepath to directory with the source TFRecords
     :param destTfrecDir: str, filepath to directory in which to save the new TFRecords
     :param omitMissing: bool, omit missing TCEs in teh source TCE table
-    :return:
+    :return: str, success message
     """
 
     with tf.io.TFRecordWriter(str(destTfrecDir / shardFilename)) as writer:
 
         # iterate through TCEs in the shard TCE table
-        for tce_i, tce in shardTbl.iterrows():
+        for _, tce in shardTbl.iterrows():
 
             # check if TCE is in the source TFRecords TCE table
             foundTce = srcTbl.loc[(srcTbl['uid'] == tce['uid'])]['shard']
@@ -135,6 +136,10 @@ def create_shard(shardFilename, shardTbl, srcTbl, srcTfrecDir, destTfrecDir, omi
 
                 raise ValueError(f'Example {tce["uid"]} for shard {shardFilename} not found in the TFRecords merged '
                                  f'table.')
+    
+    success_msg = f'Finished writing successfully shard {shardFilename} to {destTfrecDir}.'
+    
+    return success_msg
 
 
 def plot_features_example(viewsDict, scalarParamsStr, tceid, labelTfrec, plotDir, scheme, basename='', display=False):
@@ -231,15 +236,27 @@ def create_table_with_tfrecord_examples(tfrec_fp, data_fields=None):
         data_to_tbl['shard'].append(tfrec_fp.name)
 
         for data_field, data_type in data_fields.items():
+            
+            if data_field not in example.features.feature:
+                raise KeyError(f'Feature {data_field} not found in the dataset in {str(tfrec_fp)}.')
+            
             if data_type == 'int':
-                example_feature = example.features.feature[data_field].int64_list.value[0]
+                example_feature = example.features.feature[data_field].int64_list.value
             elif data_type == 'str':
-                example_feature = example.features.feature[data_field].bytes_list.value[0].decode("utf-8")
+                example_feature = example.features.feature[data_field].bytes_list.value
             elif data_type == 'float':
-                example_feature = example.features.feature[data_field].float_list.value[0]
+                example_feature = example.features.feature[data_field].float_list.value
             else:
                 raise ValueError(f'Data type not expected: {data_type}')
 
+            if len(example_feature) == 0:
+                raise ValueError(f'Feature {data_field} data type in {str(tfrec_fp)} does not match'
+                                 f' input data type: {data_type}\n Feature value found: {example.features.feature[data_field]}')
+            
+            example_feature = example_feature[0]
+            if data_type == 'str':
+                example_feature = example_feature.decode("utf-8")
+                
             data_to_tbl[data_field].append(example_feature)
 
     data_tbl = pd.DataFrame(data_to_tbl)
@@ -286,11 +303,6 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
     
     tfrec_tbls = []
     for fp_i, fp in tqdm(enumerate(tfrec_fps), desc=f'Iterating over TFRecord files', total=len(tfrec_fps)):
-        if verbose:
-            if logger:
-                logger.info(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')
-            else:
-                print(f'Iterating over {fp} ({fp_i + 1}/{len(tfrec_fps)})...')
 
         try:
             tfrec_tbls.append(create_table_with_tfrecord_examples(fp, data_fields))
@@ -299,7 +311,9 @@ def create_table_for_tfrecord_dataset(tfrec_fps, data_fields, delete_corrupted_t
             if logger:
                 logger.info(f'Failed to read {fp}.\n {e}')
             else:
-                print(f'Failed to read {fp}.\n {e}')
+                # print(f'Failed to read {fp}.\n {e}')
+                print(f"Failed to read {fp}.\n{traceback.format_exc()}")
+                
             if delete_corrupted_tfrec_files:
                 if logger:
                     logger.info(f'Deleting corrupted {fp}...')
@@ -394,7 +408,7 @@ if __name__ == '__main__':
     tf.config.set_visible_devices([], 'GPU')
 
     # create shards table for a tfrecord data set
-    tfrec_dir = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406')
+    tfrec_dir = Path('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence/')
     # get filepaths for TFRecord shards
     tfrec_fps = list([fp for fp in tfrec_dir.glob('shard-*') if fp.suffix != '.csv'])
     data_fields = {  # extra data fields that you want to see in the table
@@ -403,8 +417,11 @@ if __name__ == '__main__':
         'tce_plnt_num': 'int',
         'sector_run': 'str',  # COMMENT FOR KEPLER!!
         'label': 'str',
-        'obs_type': 'str',
-        'uid_obs_type': 'str',
+        'sectors_observed': 'str',
+        # 'label_source': 'str',
+        # 'obs_type': 'str',
+        # 'uid_obs_type': 'str',
+        # 'sg1_master_disp': 'str',
     }
     delete_corrupted_tfrec_files = False
     verbose = True

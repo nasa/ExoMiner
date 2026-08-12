@@ -45,27 +45,57 @@ def create_inputs(features, feature_map=None):
     return inputs
 
 
-def create_ensemble(features, models, feature_map=None):
-    """ Create a Keras ensemble.
 
-    :param features: dictionary, each key-value pair is a dictionary {'dim': feature_dim, 'dtype': feature_dtype}
-    :param models: list, list of Keras models
-    :param feature_map: maps features' names to features' names expected by the model
-
-    :return:
-        Keras average ensemble
+def create_ensemble(features, models, feature_map=None, output_keys=None, training=False):
     """
+    Average ensemble for single- or multi-output Keras models.
 
+    Args:
+        features: dict defining feature specs (used by create_inputs)
+        models: list of Keras models
+        feature_map: optional mapping of feature names
+        output_keys: optional list of output names to ensemble (e.g. ['main'] to ignore aux)
+        training: whether to call submodels with training=True/False (usually False for ensemble inference)
+
+    Returns:
+        keras.Model that outputs averaged predictions (same structure as base model outputs).
+    """
     inputs = create_inputs(features=features, feature_map=feature_map)
 
-    single_models_outputs = [model(inputs) for model in models]
+    # Call each model on the shared inputs
+    preds = [m(inputs, training=training) for m in models]
 
-    if len(single_models_outputs) == 1:
-        outputs = single_models_outputs
+    # Case 1: dict outputs (your setup)
+    if isinstance(preds[0], dict):
+        keys = list(preds[0].keys())
+        if output_keys is not None:
+            keys = [k for k in keys if k in output_keys]
+
+        avg_outputs = {}
+        for k in keys:
+            tensors = [p[k] for p in preds]   # list of tensors for that head
+            if len(tensors) == 1:
+                avg_outputs[k] = tensors[0]
+            else:
+                avg_outputs[k] = keras.layers.Average(name=f"avg_{k}")(tensors)  # list of tensors required [1](https://keras.io/api/layers/merging_layers/average/)
+        return keras.Model(inputs=inputs, outputs=avg_outputs, name="ensemble_avg_model")
+
+    # Case 2: list/tuple outputs
+    if isinstance(preds[0], (list, tuple)):
+        n_out = len(preds[0])
+        avg_list = []
+        for i in range(n_out):
+            tensors = [p[i] for p in preds]
+            avg_list.append(tensors[0] if len(tensors) == 1 else keras.layers.Average(name=f"avg_out{i}")(tensors))
+        return keras.Model(inputs=inputs, outputs=avg_list, name="ensemble_avg_model")
+
+    # Case 3: single tensor output
+    if len(preds) == 1:
+        outputs = preds[0]
     else:
-        outputs = tf.keras.layers.Average(name='avg_model_outputs')(single_models_outputs)
+        outputs = keras.layers.Average(name="avg_model_outputs")(preds)  # list of tensors required [1](https://keras.io/api/layers/merging_layers/average/)
 
-    return keras.Model(inputs=inputs, outputs=outputs, name='ensemble_avg_model')
+    return keras.Model(inputs=inputs, outputs=outputs, name="ensemble_avg_model")
 
 
 def compile_model(model, config, metrics_list, train=True):
@@ -140,12 +170,26 @@ def compile_model(model, config, metrics_list, train=True):
         else:
             raise ValueError(f'Optimizer {config["config"]["optimizer"]} is not supported. Choose among Adam, AdamW, '
                              f'and SGD.')
-
+    
+    # set main loss
+    model_losses = {'main': model_loss}
+    model_losses_weights = {'main': 1.0}
+    
+    # set optional auxiliary losses
+    model_aux_losses, model_aux_losses_weights = {}, {}
+    if config['config']['use_aux_bg_head']:
+        model_aux_losses = {'aux_bg': losses.BinaryCrossentropy(from_logits=False, label_smoothing=0, name='binary_crossentropy_aux_bg')}
+        model_aux_losses_weights = {'aux_bg': config['config']['aux_bg_weight']}
+    
+    model_losses.update(model_aux_losses)
+    model_losses_weights.update(model_aux_losses_weights)
+    
     # compile model with chosen optimizer, loss and monitored metrics
+    metrics_main_loss = {'main': metrics_list}  # set metrics only for main
     if train:
-        model.compile(optimizer=model_optimizer, loss=model_loss, metrics=metrics_list)
+        model.compile(optimizer=model_optimizer, loss=model_losses, metrics=metrics_main_loss, loss_weights=model_losses_weights, weighted_metrics=[])
     else:
-        model.compile(loss=model_loss, metrics=metrics_list)
+        model.compile(loss=model_losses, metrics=metrics_main_loss)  # , loss_weights=model_losses_weights)
 
     return model
 

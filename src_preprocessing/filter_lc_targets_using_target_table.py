@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import multiprocessing
 from astropy.io import fits
+from tqdm import tqdm
 
 
 def _convert_sectors_observed_format(x):
@@ -215,26 +216,8 @@ def check_existence_lc_files_for_targets_in_table(targets_tbl, lc_dir, data_coll
     return exclude_targets
 
 
-if __name__ == '__main__':
-
-    # Set up paths
-
-    # directory with lc sh files
-    src_lc_sh_dir = Path('/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/all_targets')
-    # destination directory to save new lc sh files after removing curl statements for targets without DV results
-    dest_lc_sh_dir = Path(f'/data3/exoplnt_dl/lc_fits/tesscurl_sectors_lcs/download_missing_targets_sectors_lcs_s1-s92_9-16-2025_1257')
-    # ffi or 2-min idiosyncrasies
-    data_collection_mode = '2min'  # `2min` or `ffi`
-    # root directory in which lightcurve files are downloaded to; checks lc files already downloaded and not corrupted
-    # - those are excluded; set to None for no verification
-    lc_dir_fp = Path('/data3/exoplnt_dl/lc_fits/2-min')
-    # parallelize using multiprocessing
-    n_processes = 14  # set to None for sequential
-    # target table with 'sector' and 'target_id' columns
-    tce_tbl = pd.read_csv('/data3/exoplnt_dl/ephemeris_tables/tess/tess_spoc_2min/tess-spoc-2min-tces-dv_s1-s92_9-16-2025/tess-spoc-2min-tces-dv_s1-s92_9-16-2025_uid.csv',
-                          usecols=['target_id', 'sectors_observed'])
-    target_tbl = create_target_sector_table_from_tce_table(tce_tbl)
-
+def main(target_tbl, src_lc_sh_dir, dest_lc_sh_dir, lc_dir_fp, data_collection_mode='2min', n_processes=1):
+    
     dest_lc_sh_dir.mkdir(exist_ok=True)
 
     target_tbl.to_csv(dest_lc_sh_dir / 'targets_sectors_for_download_lcs.csv', index=False)
@@ -246,16 +229,28 @@ if __name__ == '__main__':
                              lc_dir_fp)
                             for sector, targets_sector in targets_sectors]
     print(f'Iterating over {n_sectors} sectors...')
+    
+    n_processes = min(n_processes, n_sectors)
 
     # parallelized
-    if n_processes:
+    if n_processes > 1:
         print(f'Using {n_processes} processes...')
-        pool = multiprocessing.Pool(processes=n_processes)
-        async_results = [pool.apply_async(create_targets_lc_sh_files_sector_using_target_table, job)
-                         for job in targets_sectors_jobs]
-        pool.close()
-        pool.join()
-        targets_added_lst = [async_result.get() for async_result in async_results]
+        with multiprocessing.Pool(processes=n_processes) as pool, tqdm(desc='Finished sectors', total=n_sectors, unit='sector') as pbar:
+            
+            def _on_end(_):
+                pbar.update(1)
+                
+            async_results = []
+            for job in targets_sectors_jobs:
+                
+                async_result = pool.apply_async(
+                    create_targets_lc_sh_files_sector_using_target_table, 
+                    job,
+                    callback=_on_end,
+                    )
+                async_results.append(async_result)
+                
+            targets_added_lst = [async_result.get() for async_result in async_results]
     else:
         # sequential
         targets_added_lst = []
@@ -278,5 +273,30 @@ if __name__ == '__main__':
     targets_missed = target_tbl.merge(targets_added, on=['target_id', 'sector'], how='outer', indicator=True)
     targets_missed = targets_missed.loc[targets_missed['_merge'] == 'left_only']
     targets_missed = targets_missed.drop(columns=['_merge'])
-    print(f'Number of missed targets: {len(targets_missed)}')
-    targets_missed.to_csv(dest_lc_sh_dir / 'missed_targets_sectors.csv', index=False)
+    targets_missed_tbl_fp = dest_lc_sh_dir / 'missed_targets_sectors.csv'
+    print(f'Number of missed targets: {len(targets_missed)}. Saved table with missed targets to {str(targets_missed_tbl_fp)}')
+    targets_missed.to_csv(targets_missed_tbl_fp, index=False)
+    
+    
+if __name__ == '__main__':
+
+    # Set up paths
+
+    # directory with lc sh files
+    src_lc_sh_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/lc_sh_files/download_targets_3-19-2026_1042/')
+    # destination directory to save new lc sh files after removing curl statements for targets without DV results
+    dest_lc_sh_dir = Path(f'/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/lc_sh_files/download_targets_3-19-2026_1042/filtered_lcs')
+    # ffi or 2-min idiosyncrasies
+    data_collection_mode = 'ffi'  # `2min` or `ffi`
+    # root directory in which lightcurve files are downloaded to; checks lc files already downloaded and not corrupted
+    # - those are excluded; set to None for no verification
+    lc_dir_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/sectors')
+    # parallelize using multiprocessing
+    n_processes = 9  # set to None for sequential
+    # target table with 'sector' and 'target_id' columns
+    tce_tbl = pd.read_csv('/nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s73-s81_3-20-2026_0951/tess-spoc-ffi-tces-dv_s73-s81_3-20-2026_0951_stellartic8_ruwegaiadr2_preproc.csv',
+                          usecols=['target_id', 'sectors_observed'], dtype={'sectors_observed': str})
+    target_tbl = create_target_sector_table_from_tce_table(tce_tbl)
+    # target_tbl = target_tbl.loc[target_tbl['sector'] == 74]
+
+    main(target_tbl, src_lc_sh_dir, dest_lc_sh_dir, lc_dir_fp, data_collection_mode=data_collection_mode, n_processes=n_processes)

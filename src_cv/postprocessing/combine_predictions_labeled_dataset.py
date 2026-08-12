@@ -4,9 +4,10 @@
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
+import argparse
 
 
-def aggregate_cv_fold_predictions(cv_run_dir, tbl_sub_dir, tbl_fn='predictions_testset.csv'):
+def aggregate_cv_fold_predictions(cv_run_dir: Path, tbl_sub_dir: str='ensemble_model', tbl_fn: str='predictions_testset') -> pd.DataFrame:
     """ Combine predictions from all CV iterations in the labeled dataset. `cv_run_dir` should contain directories for
     each CV iteration named 'cv_iter_<iteration_number>'. Each CV iteration directory should contain a
     file under `tbl_sub_dir` with the predictions for the labeled dataset named 'ranked_predictions_predictset.csv'.
@@ -38,24 +39,25 @@ def aggregate_cv_fold_predictions(cv_run_dir, tbl_sub_dir, tbl_fn='predictions_t
 
     ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
 
+    # add metadata
+    ranking_tbl_cv.attrs['CV experiment'] = str(cv_run_dir)
+    ranking_tbl_cv.attrs['Created'] = str(pd.Timestamp.now().floor('min'))
+    with open(cv_run_dir / f'{tbl_fn}_allfolds.csv', "w") as f:
+        for key, value in ranking_tbl_cv.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        ranking_tbl_cv.to_csv(f, index=False)
+
     return ranking_tbl_cv
 
 
 if __name__ == '__main__':
 
-    tbl_sub_dir = 'ensemble_model'  # 'ensemble_model'  # models/model0'  # 'ensemble_model'
-    tbl_fn = 'predictions_testset'  # which set to aggregate across CV iterations (test set is unique; validation and training might not be)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cv_run_dir', type=str, required=True, help='Run directory containing the CV results.')
+    args = parser.parse_args()
 
-    cv_run_dirs = [
-        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505'),
-    ]
-    for cv_run_dir in cv_run_dirs:
+    cv_run_dir = Path(args.cv_run_dir)
+    tbl_sub_dir = 'ensemble_model'
+    tbl_fn = 'predictions_testset'
 
-        prediction_tbl_cv = aggregate_cv_fold_predictions(cv_run_dir, tbl_sub_dir, tbl_fn=tbl_fn)
-        # add metadata
-        prediction_tbl_cv.attrs['CV experiment'] = str(cv_run_dir)
-        prediction_tbl_cv.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-        with open(cv_run_dir / f'{tbl_fn}_allfolds.csv', "w") as f:
-            for key, value in prediction_tbl_cv.attrs.items():
-                f.write(f"# {key}: {value}\n")
-            prediction_tbl_cv.to_csv(f, index=True)
+    prediction_tbl_cv = aggregate_cv_fold_predictions(cv_run_dir, tbl_sub_dir=tbl_sub_dir, tbl_fn=tbl_fn)

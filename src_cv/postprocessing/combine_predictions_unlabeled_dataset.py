@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def aggregate_cv_fold_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_predictset.csv'):
+def aggregate_cv_fold_predictions(cv_pred_run_dir: Path, pred_tbl_fn: str ='predictions_predictset.csv', metadata: dict|None = None)  -> pd.DataFrame:
     """ Combine predictions from all CV iterations in the unlabeled dataset. `cv_pred_run_dir` should contain
     directories for each CV iteration named 'cv_iter_<iteration_number>'. Each CV iteration directory should contain a
     file with the predictions for the unlabeled dataset named `pred_tbl_fn`.
@@ -19,6 +19,7 @@ def aggregate_cv_fold_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_pred
     Args:
         cv_pred_run_dir: Path, directory containing the CV iterations directories
         pred_tbl_fn: str, filename for predictions tables in each CV iteration
+        metadata: dict, table metadata
 
     Returns: ranking_tbl_cv, DataFrame with the predictions for all CV folds
     """
@@ -34,16 +35,28 @@ def aggregate_cv_fold_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_pred
         cv_iters_tbls.append(ranking_tbl)
 
     ranking_tbl_cv = pd.concat(cv_iters_tbls, axis=0)
+    
+    ranking_tbl_cv.attrs['Number CV iterations'] = len(cv_iters_dirs)
+    with open(cv_pred_run_dir / 'predictions_allfolds.csv', "w") as f:
+        if metadata is not None:
+            for key, value in metadata.items():
+                f.write(f"# {key}: {value}\n")
+        for key, value in ranking_tbl_cv.attrs.items():
+            f.write(f"# {key}: {value}\n")
+
+        ranking_tbl_cv.to_csv(f, index=False)
 
     return ranking_tbl_cv
 
 
-def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, pred_tbl_fn='predictions_predictset.csv', merge_on='uid'):
+def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir: Path, pred_tbl_fn: str ='predictions_predictset.csv', merge_on: str | list ='uid', 
+                                                              multiclass: bool =False, metadata: dict|None = None) -> pd.DataFrame:
     """
     Get mean and std score across all folds for predictions on the unlabeled dataset.
     `cv_pred_run_dir` should contain directories for each CV iteration named 'cv_iter_<iteration_number>'.
     Each CV iteration directory should contain a file with predictions named `pred_tbl_fn`.
-    This file must have columns: `merge_on` (unique identifier(s)) and 'score' (score for that CV iteration).
+    This file must have columns: `merge_on` (unique identifier(s)) and 'score' (score for that CV iteration). If `multiclass` is set to True, then it assumes
+    that the columns with the class scores follow pattern 'score_<class_name>'.
 
     The resulting DataFrame will contain:
         - Columns: `merge_on` columns, 'score_cv_iter_<iteration_number>' for each fold
@@ -53,6 +66,8 @@ def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, p
         cv_pred_run_dir (Path): Directory containing CV iteration directories.
         pred_tbl_fn (str): Filename of the prediction table in each CV iteration directory.
         merge_on (str or lst): column(s) used to merge the predictions results across CV iterations.
+        multiclass (bool): if True, assumes that there are multiple columns each with the score for a class
+        metadata (dict): table metadata
 
     Returns:
         pd.DataFrame: Combined predictions with mean and std score columns.
@@ -64,7 +79,7 @@ def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, p
     cv_iters_dirs = sorted([fp for fp in cv_pred_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')],
                             key=lambda d: int(d.name.split('_')[-1]))
 
-    tbl = None
+    tbl = pd.DataFrame()
     cv_iter_ids = []
 
     for cv_iter_dir in cv_iters_dirs:
@@ -72,39 +87,60 @@ def get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, p
         cv_iter_ids.append(fold_id)
 
         ranking_tbl = pd.read_csv(cv_iter_dir / pred_tbl_fn, comment='#')
-        ranking_tbl[f'score_cv_iter_{fold_id}'] = ranking_tbl['score']
-
-        if tbl is None:
-            tbl = ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']]
+        
+        if multiclass:
+            score_cols = [col for col in ranking_tbl.columns if col.startswith('score_')]
+            agg_tbl_cols = [f'{col}_cv_iter_{fold_id}' for col in score_cols]
+            ranking_tbl[agg_tbl_cols] = ranking_tbl[score_cols]
+            if len(tbl) == 0:
+                tbl = ranking_tbl[merge_on + agg_tbl_cols]
+            else:
+                tbl = pd.merge(tbl, ranking_tbl[merge_on + agg_tbl_cols], on=merge_on, how='inner')
         else:
-            tbl = pd.merge(tbl, ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']], on=merge_on, how='inner')
+            ranking_tbl[f'score_cv_iter_{fold_id}'] = ranking_tbl['score']
 
-    tbl['mean_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].mean(axis=1)
-    tbl['std_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].std(axis=1)
+            if len(tbl) == 0:
+                tbl = ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']]
+            else:
+                tbl = pd.merge(tbl, ranking_tbl[merge_on + [f'score_cv_iter_{fold_id}']], on=merge_on, how='inner')
+
+    if multiclass:
+        for col in score_cols:
+            tbl[f'mean_{col}'] = tbl[[f'{col}_cv_iter_{fid}' for fid in cv_iter_ids]].mean(axis=1)
+            tbl[f'std_score_{col}'] = tbl[[f'{col}_cv_iter_{fid}' for fid in cv_iter_ids]].std(axis=1)
+    else:
+        tbl['mean_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].mean(axis=1)
+        tbl['std_score'] = tbl[[f'score_cv_iter_{fid}' for fid in cv_iter_ids]].std(axis=1)
+    
+    tbl.attrs['Number CV iterations'] = len(cv_iters_dirs)
+    if multiclass:
+        tbl.attrs['Number classes'] = len(score_cols)
+        tbl.attrs['Classes'] = [score_cls.split('_')[1] for score_cls in score_cols]
+    with open(cv_pred_run_dir / 'predictions_allfolds_mean-std-stats.csv', "w") as f:
+        if metadata is not None:
+            for key, value in metadata.items():
+                f.write(f"# {key}: {value}\n")
+        for key, value in tbl.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        tbl.to_csv(f, index=False)
 
     return tbl
 
 if __name__ == '__main__':
 
-    cv_pred_run_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv-predict-11-20-2025-1025_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505')
+    cv_pred_run_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/phot_disps/cv-predict_tess-spoc-tces_2min-s1-s98_exominerpp_pr-auc-pc_20260507_154605')
+    
+    tbl_metadata = {
+        'CV experiment': str(cv_pred_run_dir),
+        'Created': str(pd.Timestamp.now().floor('min')),
+    }
 
-    pred_tbl_cv_agg = aggregate_cv_fold_predictions(cv_pred_run_dir)
-    # add metadata
-    pred_tbl_cv_agg.attrs['CV experiment'] = str(cv_pred_run_dir)
-    pred_tbl_cv_agg.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-    pred_tbl_cv_agg.attrs['description'] = 'Aggregates predictions for all CV iterations. Each TCE shows up as N rows where N is the number of CV iterations'
-    with open(cv_pred_run_dir / 'predictions_allfolds.csv', "w") as f:
-        for key, value in pred_tbl_cv_agg.attrs.items():
-            f.write(f"# {key}: {value}\n")
-        pred_tbl_cv_agg.to_csv(f, index=False)
-
-    pred_tbl_cv_agg_with_stats = get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, merge_on=['uid', 'obs_type'])
-    # add metadata
-    pred_tbl_cv_agg_with_stats.attrs['CV experiment'] = str(cv_pred_run_dir)
-    pred_tbl_cv_agg_with_stats.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-    pred_tbl_cv_agg.attrs['description'] = 'Aggregates predictions for all CV iterations. Each TCE shows up as one row containing all CV iterations predictions as well as mean and std statistics'
-    with open(cv_pred_run_dir / 'predictions_allfolds_mean-std-stats.csv', "w") as f:
-        for key, value in pred_tbl_cv_agg_with_stats.attrs.items():
-            f.write(f"# {key}: {value}\n")
-        pred_tbl_cv_agg_with_stats.to_csv(f, index=False)
-        
+    # add custom metadata
+    tbl_metadata['description'] = 'Aggregates predictions for all CV iterations. Each TCE shows up as N rows where N is the number of CV iterations'
+    pred_tbl_cv_agg = aggregate_cv_fold_predictions(cv_pred_run_dir, metadata=tbl_metadata)
+    
+    merge_on = ['uid']  # ['uid', 'obs_type']
+    multiclass = True
+    tbl_metadata['description'] = 'Aggregates predictions for all CV iterations, and computes mean and standard deviation scores'
+    pred_tbl_cv_agg_with_stats = get_mean_std_score_statistics_across_cv_folds_predictions(cv_pred_run_dir, merge_on=merge_on, multiclass=multiclass, metadata=tbl_metadata)
+    

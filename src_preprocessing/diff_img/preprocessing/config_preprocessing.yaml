@@ -1,17 +1,23 @@
 # results directory for processed data
-dest_root_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/preprocessed_data/s1-s88_4-24-2025_1357/
+dest_root_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/preprocessed_data/s1-s98_4-29-2026_1023/
 # file path to directory with difference image data NumPy files
-diff_img_data_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/extracted_data/s1-s88_4-18-2025_1002/data
+diff_img_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/extracted_data/s1-s98_4-20-2026_1947/data/
 mission: tess  # either 'kepler' or 'tess'
 num_sampled_imgs: 5  # number of sampled quarters/sector runs
-final_size:  # final size for preprocessed images before resizing
-  x: 11
-  y: 11
-# upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
-upscale_f:
-  x: 5
-  y: 5
-# exclude neighbors that are outside the target mask
-exclude_neighbor_objs_outside: true
+final_size:  # size for preprocessed images before resizing; actual final size depends on upscale factor (final_size * upscale_f)
+  x: 16 # 11
+  y: 16 # 11
+resize_images: false
+upscale_f:  # upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
+  x: 1
+  y: 1
+# magnitude difference range for including neighboring objects (mag_diff = target_mag - neighbor_mag)
+tmag_diff_range: [-12, 12]
 n_processes: 36  # number of processes to run jobs in parallel
-plot_prob: 0.0001  # probability to plot preprocessing results for each example
+plot_prob: 0.001 # 0.001  # probability to plot preprocessing results for each example
+check_exist: false  # checks whether there is already a NumPy file with preprocessed difference image data for the sector run
+# needed for neighbors feature compact representation
+top_k: 5 # number of neighbors represented
+max_neighbor_distance: 8  # based on search radius in pixels
+# neighbor_delta_tmag_bound: [-12, 12]  # same range as tmag_diff_range
+gaussian_att_sigma: 1  # smoothing pixel factor when ranking neighbors based on distance and mag diff relative to target

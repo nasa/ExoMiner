@@ -2,6 +2,7 @@ output_dir: null
 input_tce_csv_file: null
 lc_data_dir: null
 external_parallelization: true
+plot_inputs_to_exominer_model: true
 using_exominer_pipeline: true
 process_i: -1
 n_shards: 1
@@ -91,3 +92,4 @@ injected_group: null
 scramble_type: null
 invert: false
 cadence_no_quarters_tbl_fp: null
+plot_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/exominer_pipeline_run_test_tics_5-20-2026_05-29-2026_150656/plot_inputs_to_model

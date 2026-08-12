@@ -9,18 +9,23 @@ import pandas as pd
 import logging
 import tensorflow as tf
 import yaml
+import argparse
 
 # local
 from src_cv.preprocessing.utils import create_shard_fold, create_table_shard_example_location
+from src_cv.preprocessing.create_cv_iterations_yamls.create_file_for_cv_dataset import create_cv_iterations_yaml_for_cv_dataset
 
-if __name__ == '__main__':
 
-    tf.config.set_visible_devices([], 'GPU')
+def create_cv_tfrecord_dataset_from_tables_main(config_fp):
+    """Main function used to create CV TFRecord dataset from CV tables.
+
+    :param str config_fp: configuration filepath
+    """
     
     # load parameters from YAML file
-    with open('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_create_cv_tfrecord_dataset.yaml', 'r') as config_file:
+    with open(config_fp, 'r') as config_file:
         config = yaml.safe_load(config_file)
-    
+        
     dest_dir = Path(config['dest_dir'])
     labeled_shard_tbls_dir = Path(config['labeled_shard_tbls_dir'])
     src_tfrec_dir = Path(config['src_tfrec_dir'])
@@ -56,13 +61,13 @@ if __name__ == '__main__':
         yaml.dump(config, config_file)
 
     # set up logger
-    logger = logging.getLogger(name=f'create_cv_folds_shards')
-    logger_handler = logging.FileHandler(filename=log_dir / f'create_cv_folds_shard.log', mode='w')
+    logger = logging.getLogger(name='create_cv_folds_shards')
+    logger_handler = logging.FileHandler(filename=log_dir / 'create_cv_folds_shard.log', mode='w')
     logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
     logger.setLevel(logging.INFO)
     logger_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_handler)
-    logger.info(f'Starting run...')
+    logger.info('Starting run...')
 
     logger.info(f'Source TFRecords: {str(src_tfrec_dir)}')
     logger.info(f'Found {len(src_tfrec_fps)} TFRecord shards.')
@@ -79,7 +84,7 @@ if __name__ == '__main__':
             for fold_i, shard_tbl_fp in enumerate(labeled_shard_tbls_fps)]
     logger.info(f'Set {len(jobs)} jobs to create TFRecord shards.')
     
-    logger.info(f'Started creating shards for evaluation...')
+    logger.info('Started creating shards for evaluation...')
     # parallel using pool
     n_processes_used = min(n_processes, len(labeled_shard_tbls_fps))
     logger.info(f'Using {n_processes_used} processes to parallelize jobs...')
@@ -98,6 +103,10 @@ if __name__ == '__main__':
     tces_not_found_df.to_csv(dest_dir / 'tces_not_found_eval.csv', index=False)
 
     logger.info('Finished creating TFRecords folds for evaluation.')
+
+    logger.info('Creating CV iterations YAML for the labeled CV dataset...')
+    create_cv_iterations_yaml_for_cv_dataset(labeled_dest_tfrec_dir, config['datasets'], config['random_seed'], config['choose_val_method'])
+    logger.info('Created CV iterations YAML for the labeled CV dataset.')
 
     # create TFRecord for examples that are not part of the evaluation set
     if unlabeled_shard_tbls_dir.exists():
@@ -121,3 +130,17 @@ if __name__ == '__main__':
         tces_not_found_df.to_csv(dest_dir / 'tces_not_found_predict.csv', index=False)
 
         logger.info('Finished creating TFRecords shards for prediction.')
+    
+
+if __name__ == '__main__':
+
+    tf.config.set_visible_devices([], 'GPU')
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_fp', type=str, help='File path to YAML configuration file.', default=None)
+    args = parser.parse_args()
+    
+    # config_fp = '/u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/src_cv/preprocessing/config_create_cv_tfrecord_dataset.yaml'
+    
+    create_cv_tfrecord_dataset_from_tables_main(args.config_fp)
+    

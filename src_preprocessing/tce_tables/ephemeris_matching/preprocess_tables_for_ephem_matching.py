@@ -6,10 +6,11 @@ Preprocesses tables to make them ready for ephemeris matching.
 import pandas as pd
 from pathlib import Path
 import numpy as np
+import re
 
 #%% ExoFOP TOI catalog
 
-tbl_fp = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/exofop_tois_9-11-2025.csv')
+tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/exofop_tois/tois_3-2-2026.csv')
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns
@@ -31,7 +32,7 @@ tbl.to_csv(tbl_fp.parent / f'{tbl_fp.stem}_processed_ephem_matching.csv', index=
 
 #%% SG1 TOI catalog
 
-tbl_fp = Path('/Users/msaragoc/Projects/exoplanet_transit_classification/data/ephemeris_tables/tess/EXOFOP_TOI_lists/sg1_toi_list/9-12-2024/sg1_toi_list_current_tess_targets.csv', dtype={'Tc_BTJD': np.float64})
+tbl_fp = Path('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/sg1/sg1_tois_2-25-2026.csv', dtype={'Tc_BTJD': np.float64})
 tbl = pd.read_csv(tbl_fp)
 
 # rename columns
@@ -42,9 +43,24 @@ tbl.rename(
 # set uid as string
 tbl['uid'] = tbl['uid'].astype('str')
 
+# parse epochs of TOIs that are a list
+def parse_epoch_cell(s):
+    if pd.isna(s):
+        return np.nan
+    # Extract floats (handles decimals, optional sign, scientific notation if you tweak the regex)
+    nums = re.findall(r'[-+]?\d*\.\d+|\d+', str(s).replace('\n', ' ').replace('\r', ' '))
+    return [float(x) for x in nums]
+
+tbl['epoch_list'] = tbl['epoch'].apply(parse_epoch_cell)
+
+# choose one epoch
+tbl['epoch'] = tbl['epoch_list'].apply(lambda x: x[0])
+
 tbl['epoch'] = tbl['epoch'].astype('float')
 
 # exclude TOIs with zero period (single-transit TOIs)
 tbl = tbl.loc[tbl['period'] > 0]
 
 tbl.to_csv(tbl_fp.parent / f'{tbl_fp.stem}_processed_ephem_matching.csv', index=False)
+
+# %%

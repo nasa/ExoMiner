@@ -16,6 +16,7 @@ import tensorflow as tf
 import yaml
 import argparse
 from tqdm import tqdm
+from astropy.stats import mad_std
 
 # local
 from src_preprocessing.tf_util import example_util
@@ -187,13 +188,13 @@ def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10):
     Args:
         example: serialized example
         normStatsDiff_img: dict, normalization statistics for the centroid views
-        # imgs_dims: tuple with the dimensions of the image features
         zero_division_eps: float, small value to avoid division by zero
     Returns:
         dict: normalized difference image features
     """
 
-    MAX_MAG_RATIO = 5
+    img_types = ['diff_imgs', 'oot_imgs', 'snr_imgs', 'neighbors_imgs']
+    
     norm_diff_img_feat = {}
 
     def parse_feature(example, feature_name):
@@ -205,20 +206,20 @@ def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10):
             return example.features.feature[feature_name].float_list.value
         return None
 
-    def min_max_normalize(data, stats):
-        return (data - stats['min']) / (stats['max'] - stats['min'] + zero_division_eps)
+    def min_max_normalize(data, min_val, max_val, zero_division_eps):
+        return (data - min_val) / (max_val - min_val + zero_division_eps)
 
-    def standardize(data, stats):
-        return (data - stats['median']) / (stats['std'] + zero_division_eps)
-
-    def fixed_min_max_normalize(data):
-        return data / MAX_MAG_RATIO
+    def standardize(data, med, sigma, zero_division_eps):
+        
+        sigma  += zero_division_eps
+        return (data - med) / sigma
     
     for prefix in ['', '_tc']:
     
         data_example = {}
     
-        for img_type in ['diff_imgs', 'oot_imgs', 'snr_imgs', 'neighbors_imgs']:
+        # extract image data from the example
+        for img_type in img_types:
             
             feature_name = f'{img_type}{prefix}'
             parsed_data = parse_feature(example, feature_name)
@@ -226,24 +227,47 @@ def normalize_diff_img(example, normStatsDiff_img, zero_division_eps=1e-10):
             if parsed_data is not None:
                 data_example[feature_name] = parsed_data
 
+        # normalize image data
         for img_type, img_data in data_example.items():
+            
+            arr = np.array(img_data, dtype=np.float32)
             
             if 'neighbors_imgs' not in img_type:  # normalize difference image data
                 
-                norm_diff_img_feat[f'{img_type}_minmaxnorm_trainset'] = min_max_normalize(
-                    np.array(img_data), normStatsDiff_img[img_type]
-                )
+                # # min-max normalization
+                # norm_diff_img_feat[f'{img_type}_minmaxnorm_trainset'] = min_max_normalize(
+                #     arr, normStatsDiff_img[img_type]['min'], normStatsDiff_img[img_type]['min'], 
+                #     zero_division_eps
+                # )
                 
+                # global standardization
                 norm_diff_img_feat[f'{img_type}_std_trainset'] = standardize(
-                    np.array(img_data), normStatsDiff_img[img_type]
+                    arr, normStatsDiff_img[img_type]['median'], normStatsDiff_img[img_type]['std'], 
+                    zero_division_eps
                 )
+                 
+                # per-image robust scaling + global percentile clipping + global rescale to ~[-1,1]
+                # 1) per-image robust scaling
+                z = standardize(arr, np.nanmedian(arr), mad_std(arr, ignore_nan=True), zero_division_eps)
+
+                # 2) global percentile clipping (training-set)
+                p1 = normStatsDiff_img[img_type]['p1']
+                p99 = normStatsDiff_img[img_type]['p99']
+                z = np.clip(z, p1, p99)
+
+                # 3) global rescale to ~[-1,1]
+                a = max(abs(p1), abs(p99))
+                z = z / (a + zero_division_eps)
+
+                norm_diff_img_feat[f'{img_type}_hybrid_norm'] = z.tolist()             
             
             else:  # normalize neighbors images
                 
-                norm_diff_img_feat[f'{img_type}_fixed_min_max_norm'] = fixed_min_max_normalize(
-                    np.array(img_data)
-                )
-
+                norm_diff_img_feat[f'{img_type}_min_max_norm'] = min_max_normalize(
+                                    arr, normStatsDiff_img[img_type]['min'], normStatsDiff_img[img_type]['max'], 
+                                    0
+                                )
+                
     return norm_diff_img_feat
 
 
@@ -253,18 +277,13 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
     :param destTfrecDir:  Path, destination TFRecord directory for the normalized data
     :param srcTfrecFile: Path, source TFRecord directory with the non-normalized data
     :param normStats: dict, normalization statistics used for normalizing the data
-    # :param config: dict, configuration parameters for the normalized data
     :return:
     """
 
     with tf.io.TFRecordWriter(str(destTfrecDir / srcTfrecFile.name)) as writer:
 
-        # # iterate through the source shard
-        # n_examples_in_dataset = sum(1 for _ in tf.data.TFRecordDataset(str(srcTfrecFile)))
-        
         tfrecord_dataset = tf.data.TFRecordDataset(str(srcTfrecFile))
 
-        # for string_record in tqdm(tfrecord_dataset.as_numpy_iterator(), desc=f'Normalizing TCEs in {srcTfrecFile.name}', total=n_examples_in_dataset):
         for string_record in tfrecord_dataset.as_numpy_iterator():
 
             example = tf.train.Example()
@@ -288,17 +307,29 @@ def normalize_examples(destTfrecDir, srcTfrecFile, normStats):
                 normalizedFeatures.update(norm_diff_img_feat)
 
             for normalizedFeature in normalizedFeatures:
+                val = normalizedFeatures[normalizedFeature]
 
-                if isinstance(normalizedFeatures[normalizedFeature], list) or len(normalizedFeatures[normalizedFeature].shape) < 2:  # check for 1-D lists and 1-D NumPy arryas
-                    example_util.set_float_feature(example, normalizedFeature,
-                                                   normalizedFeatures[normalizedFeature],
-                                                   allow_overwrite=True)
-                # elif len(normalizedFeatures[normalizedFeature].shape) >= 2:  # check for N-D Numpy arrays with N >= 2
-                #     example_util.set_tensor_feature(example, normalizedFeature,
-                #                                     np.array(normalizedFeatures[normalizedFeature]),
+                # Check for lists, scalars, or 1-D NumPy arrays
+                if isinstance(val, list) or not hasattr(val, 'shape') or len(val.shape) < 2:
+                    try:
+                        # Flatten the nested structure and convert to a standard list of floats
+                        flat_val = np.array(val).flatten().tolist()
+                        
+                        example_util.set_float_feature(example, 
+                                                    normalizedFeature,
+                                                    flat_val,
+                                                    allow_overwrite=True)
+                    except Exception as e:
+                        print(f'Failed to set feature {normalizedFeature} in example: {val}')
+                        print(f'Error reason: {e}')
+                        
+                # elif hasattr(val, 'shape') and len(val.shape) >= 2:  # check for N-D Numpy arrays with N >= 2
+                #     example_util.set_tensor_feature(example, 
+                #                                     normalizedFeature,
+                #                                     np.array(val),
                 #                                     allow_overwrite=True)
                 else:
-                    raise ValueError(f'Normalized feature {normalizedFeature} is neither a list or a 1-D NumPy array.')
+                    raise ValueError(f'Normalized feature {normalizedFeature} is neither a list nor a 1-D NumPy array.')
 
             writer.write(example.SerializeToString())
 
@@ -343,13 +374,22 @@ def normalize_examples_main(config_fp, src_tfrec_dir=None, dest_tfrec_dir=None):
 
     jobs = [(destTfrecDir, file, normStats) for file in srcTfrecFiles]
     if config['nProcesses'] > 1:
-        pool = multiprocessing.Pool(processes=config['nProcesses'])
-        async_results = [pool.apply_async(normalize_examples, job) for job in jobs]
-        pool.close()
-        pool.join()
+        with multiprocessing.Pool(processes=config['nProcesses']) as pool, tqdm(desc='Finished normalizing data in TFRecord file', unit='TFRecord file', total=len(jobs)) as pbar:
+            
+            def _on_end(_):
+                pbar.update(1)
+                
+            async_results = []
+            for job in jobs:
+                async_result = pool.apply_async(
+                    normalize_examples, 
+                    job,
+                    callback=_on_end,
+                    )
+                async_results.append(async_result)
 
-        for async_result in async_results:
-            async_result.get()
+            for async_result in async_results:
+                async_result.get()
 
     else:
         for job in jobs:

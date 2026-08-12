@@ -4,8 +4,8 @@ Compute performance metrics for a set of model scores.
 
 # 3rd party
 import pandas as pd
-from tensorflow.keras.metrics import AUC, Precision, Recall, BinaryAccuracy, F1Score, PrecisionAtRecall, RecallAtPrecision
-from sklearn.metrics import balanced_accuracy_score, average_precision_score
+from tensorflow.keras.metrics import AUC, Precision, PrecisionAtRecall, RecallAtPrecision # Recall, BinaryAccuracy, F1Score, 
+from sklearn.metrics import balanced_accuracy_score, average_precision_score, f1_score, precision_score, recall_score, accuracy_score
 import numpy as np
 from pathlib import Path
 import tensorflow as tf
@@ -13,15 +13,17 @@ import tensorflow as tf
 
 def map_softmax_predictions_to_class(row, pred_cols, label_map, clf_thr=0):
     
+    scores = row[pred_cols].astype(float)
+
     # get the column with the highest score
-    max_col = row[pred_cols].idxmax()
+    max_col = scores.idxmax()
     
     # extract the class name from the column name (e.g., 'score_CP' -> 'CP')
     class_name = max_col.replace('score_', '')
     
     label_id = label_map.get(class_name, -1)
     
-    if row[max_col] < clf_thr:
+    if scores[max_col] < clf_thr:
         label_id = -1
     
     return label_id
@@ -49,7 +51,7 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
         class_name: str, column name for column used a ground truth integer class id
         cat_name: str, column name for column used a ground truth category
         multiclass: bool, set to True if multiclass scenario (i.e, `class_name` column has more than two unique label
-            ids)
+            ids). Overall metrics are computed OvR based on `multiclass_target_score`
         multiclass_target_score: str, for the multiclass scenario, use one category in `cat_name` as the positive class.
             All other categories are seen as negative class.
         recall_at_precision_thr: float, precision value used to compute recall
@@ -73,9 +75,7 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     data_to_tbl = {col: [] for col in metrics_lst}
 
     # compute predictions based on scores and classification threshold
-    
     if multiclass:
-        # predictions_tbl.loc[predictions_tbl[f'score_{multiclass_target_score}'] > clf_threshold, 'predicted_class'] = 1
         pred_columns = [f'score_{cat}' for cat in cats]
         predictions_tbl['predicted_class'] = predictions_tbl.apply(lambda row: map_softmax_predictions_to_class(row, pred_columns, cats, clf_thr=0), axis=1)
     else:
@@ -92,12 +92,12 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
                   curve='ROC',
                   name='auc_roc')
 
-    precision = Precision(name='precision', thresholds=clf_threshold)
-    recall = Recall(name='recall', thresholds=clf_threshold)
+    # precision = Precision(name='precision', thresholds=clf_threshold)
+    # recall = Recall(name='recall', thresholds=clf_threshold)
 
-    binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
+    # binary_accuracy = BinaryAccuracy(name='binary_accuracy', threshold=clf_threshold)
     
-    f1_score = F1Score(name='f1_score', threshold=clf_threshold)
+    # f1_score = F1Score(name='f1_score', threshold=clf_threshold if not multiclass else None)
     
     prec_at_rec = PrecisionAtRecall(precision_at_recall_thr, name='precision_at_recall', num_thresholds=num_thresholds)
     rec_at_prec = RecallAtPrecision(recall_at_precision_thr, name='recall_at_precision', num_thresholds=num_thresholds)
@@ -107,8 +107,8 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     
     # if multiclass change labels
     if multiclass:
-        label_1 = cats[multiclass_target_score.split('_')[-1]]
-        labels = [int(label == label_1) for label in predictions_tbl[class_name].tolist()]
+        class_label_id = cats[multiclass_target_score]
+        labels = [int(label == class_label_id) for label in predictions_tbl[class_name].tolist()]
     else:
         labels = predictions_tbl[class_name].tolist()
     
@@ -120,16 +120,16 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     
     data_to_tbl['avg_precision'].append(average_precision_score(labels, scores))
 
-    _ = precision.update_state(labels, scores)
-    data_to_tbl['precision'].append(precision.result().numpy())
-    _ = recall.update_state(labels, scores)
-    data_to_tbl['recall'].append(recall.result().numpy())
+    # _ = precision.update_state(labels, scores)
+    # data_to_tbl['precision'].append(precision.result().numpy())
+    # _ = recall.update_state(labels, scores)
+    # data_to_tbl['recall'].append(recall.result().numpy())
 
-    _ = binary_accuracy.update_state(labels, scores)
-    data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
+    # _ = binary_accuracy.update_state(labels, scores)
+    # data_to_tbl['accuracy'].append(binary_accuracy.result().numpy())
 
-    _ = f1_score.update_state(np.array(labels).reshape(-1, 1), np.array(scores).reshape(-1, 1))
-    data_to_tbl['f1_score'].append(f1_score.result().numpy()[0])
+    # _ = f1_score.update_state(np.array(labels).reshape(-1, 1), np.array(scores).reshape(-1, 1))
+    # data_to_tbl['f1_score'].append(f1_score.result().numpy()[0])
     
     _ = prec_at_rec.update_state(labels, scores)
     data_to_tbl['precision_at_recall'].append(prec_at_rec.result().numpy())
@@ -137,10 +137,33 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
     _ = rec_at_prec.update_state(labels, scores)
     data_to_tbl['recall_at_precision'].append(rec_at_prec.result().numpy())
     
-    data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels,
-                                                                    predictions_tbl['predicted_class']))
+    if multiclass:
+        predicted_class_ovr = [int(el == class_label_id) for el in predictions_tbl['predicted_class'].to_list()]
+        
+        data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels, predicted_class_ovr))
+        data_to_tbl['accuracy'].append(accuracy_score(labels, predicted_class_ovr))
+        data_to_tbl['precision'].append(precision_score(labels, predicted_class_ovr, zero_division=0))
+        data_to_tbl['recall'].append(recall_score(labels, predicted_class_ovr, zero_division=0))
+        data_to_tbl['f1_score'].append(f1_score(labels, predicted_class_ovr, zero_division=0))
+        
+    else:
+        preds = predictions_tbl['predicted_class'].to_list()
+        
+        data_to_tbl['accuracy'].append(accuracy_score(labels, preds))
+        data_to_tbl['precision'].append(precision_score(labels, preds, zero_division=0))
+        data_to_tbl['recall'].append(recall_score(labels, preds, zero_division=0))
+        data_to_tbl['f1_score'].append(f1_score(labels, preds, zero_division=0))
+        data_to_tbl['balanced_accuracy'].append(balanced_accuracy_score(labels, preds))
 
-
+    for k_val in top_k_vals:  # computing precision-at-k
+        precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
+        if len(predictions_tbl[class_name]) >= k_val:
+            _ = precision_at_k.update_state(labels, scores)
+            data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
+        else:
+            data_to_tbl[f'precision_at_{k_val}'].append(np.nan)
+    
+    # per-class metrics
     for class_id in class_ids:  # computing recall per class id
         data_to_tbl[f'recall_class_{class_id}'].append(
             ((predictions_tbl[class_name] == class_id) & (predictions_tbl['predicted_class'] == class_id)).sum() /
@@ -152,19 +175,12 @@ def compute_metrics_from_predictions(predictions_tbl, cats, num_thresholds, clf_
             ((predictions_tbl[class_name] == class_id) & (predictions_tbl['predicted_class'] == class_id)).sum() /
             (predictions_tbl['predicted_class'] == class_id).sum())
 
+    # per-category metrics
     for cat, cat_lbl in cats.items():  # computing recall per category
         data_to_tbl[f'recall_{cat}'].append(
             ((predictions_tbl[cat_name] == cat) & (predictions_tbl['predicted_class'] == cat_lbl)).sum() / (
                     predictions_tbl[cat_name] == cat).sum())
         data_to_tbl[f'n_{cat}'].append((predictions_tbl[cat_name] == cat).sum())
-
-    for k_val in top_k_vals:  # computing precision-at-k
-        precision_at_k = Precision(name=f'precision_at_{k_val}', thresholds=clf_threshold, top_k=k_val)
-        if len(predictions_tbl[class_name]) >= k_val:
-            _ = precision_at_k.update_state(labels, scores)
-            data_to_tbl[f'precision_at_{k_val}'].append(precision_at_k.result().numpy())
-        else:
-            data_to_tbl[f'precision_at_{k_val}'].append(np.nan)
 
     metrics_df = pd.DataFrame(data_to_tbl)
     
@@ -211,26 +227,23 @@ if __name__ == '__main__':
         # 'NTP': 0,
         # 'BD': 0,
         # multiclass
-        'CP': 1,
-        'KP': 1,
-        'EB': 0,
-        'FP': 0,
-        'BD': 0,
+        'PC': 1,
+        'AFP': 2,
         'NTP': 0,
     }
     num_thresholds = 1000
-    clf_threshold = 0.5
-    top_k_vals = [50, 100, 150, 200, 500, 1000, 2000, 3000]
+    clf_threshold = 0.0 # 0.5
+    top_k_vals = [50, 100, 150, 200] # , 500, 1000, 2000, 3000]
     # top_k_vals = []
     class_name = 'label_id'
     cat_name = 'label'
-    multiclass = False  # it True, converts multiclass to binary classification by choosing positive class as `multiclass_target_score`; all other classes become negative
-    multiclass_target_score = 'KP'
+    multiclass = True  # it True, converts multiclass to binary classification by choosing positive class as `multiclass_target_score`; all other classes become negative
+    multiclass_target_score = 'PC'
 
     # predictions table filepath
-    predictions_tbl_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/predictions_testset_allfolds_agg-objects-weighted-tce_num_transits_obs.csv")
+    predictions_tbl_fp = Path(f"/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/runs/run_s14-s86_inference-main-proc_model-full-ensemble_more-cpus-preproc_6-23-2026_1603/predictions_no-unks.csv")
     # save path
-    save_fp = Path(f"/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninerpp_11-18-2025_1505/metrics_predictions_testset_allfolds_agg-objects-weighted-tce_num_transits_obs.csv")
+    save_fp = Path(f"/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/runs/run_s14-s86_inference-main-proc_model-full-ensemble_more-cpus-preproc_6-23-2026_1603/metrics.csv")
 
     predictions_tbl = pd.read_csv(predictions_tbl_fp, comment='#')
     # predictions_tbl = predictions_tbl.loc[predictions_tbl['obs_type'] == 'ffi']

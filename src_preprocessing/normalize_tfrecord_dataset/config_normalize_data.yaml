@@ -1,14 +1,14 @@
 # source TFRecord directory
-srcTfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/
+srcTfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits/
 
 # destination TFRecord suffix name
-destTfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023_normalized/
+destTfrecDir: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits_normalized/
 
 # normalization stats directory
 normStats:
-  scalar_params: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/train_scalarparam_norm_stats.npy
-  centroid: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/train_centroid_norm_stats.npy
-  diff_img: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_data/tfrecords_tess_spoc_2min_s1-s88_4-25-2025_1536_agg_diffimg_targetsnotshared_train-test-split_5-6-2025_1023/train_diffimg_norm_stats.npy
+  scalar_params: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits/train_scalarparam_norm_stats.npy
+  centroid: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits/train_centroid_norm_stats.npy
+  diff_img: /nobackupp19/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s88_1-19-2026_1459_agg_diffimg_fixedtointps_photdisps_strong-confidence_train-val-test-splits/train_diffimg_norm_stats.npy
 
 nProcesses: 36  # number of processes in parallel
 

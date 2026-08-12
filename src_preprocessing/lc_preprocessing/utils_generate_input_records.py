@@ -210,9 +210,9 @@ def check_tce_table(tce_table, mission, impute_missing_values=False):
         })
     
     VALID_IMPUTING_COLUMNS = {
-        'tce_depth_err': -1,
-        'wst_depth': 0,
-        'wst_depth_err': -1,
+        'tce_depth_err': -1.0,
+        'wst_depth': 0.0,
+        'wst_depth_err': -1.0,
         'label': 'UNK',
     }
     if impute_missing_values:
@@ -260,8 +260,8 @@ def get_tce_table(config):
     # filt_table = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858/shards_tbl.csv')
     # filt_table2 = pd.read_csv('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-2min_tces_s1-s94_10-11-2025_0858_part2/shards_tbl.csv')
     # filt_table = pd.concat([filt_table, filt_table2], axis=0)
-    filt_table = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101/shards_tbl.csv')
-    tce_table = tce_table.loc[~tce_table['uid'].isin(filt_table['uid'])]
+    # filt_table = pd.read_csv('/home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/tfrecords_tess-spoc-ffi_tces_s36-s72-s56s69_10-10-2025_1101/shards_tbl.csv')
+    # tce_table = tce_table.loc[~tce_table['uid'].isin(filt_table['uid'])]
     
     logger.info(f'Read TCE table with {len(tce_table)} examples.')
 

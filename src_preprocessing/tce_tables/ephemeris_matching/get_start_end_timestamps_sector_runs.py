@@ -7,6 +7,10 @@ the lc FITS file.
 from pathlib import Path
 import pandas as pd
 from astropy.io import fits
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_start_end_timestamps_tics_sector_run(sector_dir):
@@ -20,12 +24,12 @@ def get_start_end_timestamps_tics_sector_run(sector_dir):
 
     # get lc filepaths for all targets in the sector run
     target_fits_fps = list(sector_dir.rglob('*lc.fits'))
-    print(f'Found {len(target_fits_fps)} target lc files for sector run {sector_dir.name}.')
+    logger.info(f'Found {len(target_fits_fps)} target lc files for sector run {sector_dir.name}.')
 
     target_timestamps = {'target': [], 'start': [], 'end': [], 'sector': []}
     for target_lc_fp_i, target_lc_fp in enumerate(target_fits_fps):
         if target_lc_fp_i % 500 == 0:
-            print(f'Iterating over {target_lc_fp_i + 1} ouf of '
+            logger.info(f'Iterating over {target_lc_fp_i + 1} ouf of '
                   f'{len(target_fits_fps)} target lc files in sector run {sector_dir.name}...')
         # if target_lc_fp_i == 10:
         #     break
@@ -35,11 +39,11 @@ def get_start_end_timestamps_tics_sector_run(sector_dir):
             target_timestamps['end'].append(fits.getheader(target_lc_fp, ignore_missing_end=True)['TSTOP'])
             target_timestamps['sector'].append(str(fits.getheader(target_lc_fp, ignore_missing_end=True)['Sector']))
         except Exception as e:
-            print(f'{target_lc_fp}|Error getting start and end timestamps from header of lc FITS file: {e}')
+            logger.error(f'{target_lc_fp}|Error getting start and end timestamps from header of lc FITS file: {e}')
 
     target_timestamps = pd.DataFrame(target_timestamps)
 
-    print(f'Iterated over all target lc files in sector run {sector_dir.name}.')
+    logger.info(f'Iterated over all target lc files in sector run {sector_dir.name}.')
 
     return target_timestamps
 
@@ -57,33 +61,6 @@ def get_start_end_timestamps_tics_sector_runs(sector_dirs, save_dir):
     """
 
     for sector_dir in sector_dirs:
-        print(f'Iterating over sector {sector_dir.name}...', flush=True)
+        logger.info(f'Iterating over sector {sector_dir.name}...')
         target_sector_run_timestamps = get_start_end_timestamps_tics_sector_run(sector_dir)
         target_sector_run_timestamps.to_csv(save_dir / f'{sector_dir.name}_times_btjd_start_end.csv', index=False)
-
-
-if __name__ == '__main__':
-
-    # directory used to save start/end timestamps target tables for each sector run
-    res_dir = Path('/home/msaragoc/Projects/exoplnt_dl/experiments/ephemeris_matching/tess_spoc_ffi_start_end_timestamps_tics_lc_s36-s69_7-9-2024_1044')
-    # lightcurve root directory for the target data of interest from where to get the timestamps
-    lc_root_dir = Path('/data5/tess_project/Data/tess_spoc_ffi_data/lc/fits_files/')
-
-    # 2min data
-    # sector_dirs = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('sector_')]
-    # ffi data
-    sector_dirs_fps = [fp for fp in lc_root_dir.iterdir() if fp.name.startswith('s0061')]
-    # sector_dirs_fps = [sector_dirs_fps[0]]
-
-    print(f'Extracting start/end timestamps for targets in {len(sector_dirs_fps)} sector runs.')
-
-    res_dir.mkdir(exist_ok=True)
-
-    get_start_end_timestamps_tics_sector_runs(list(sector_dirs_fps), res_dir)
-
-    # aggregate tables into a single table
-    target_sector_run_timestamps_all = \
-        pd.concat([pd.read_csv(fp)
-                   for fp in res_dir.iterdir()], axis=0).to_csv(res_dir.parent / f'{res_dir.name}.csv', index=False)
-
-    print('Finished.')

@@ -96,6 +96,9 @@ def preprocess_lc_data(config_fp, output_dir=None, lc_data_dir=None, tce_table_f
         config['plot_dir'] = config['output_dir'] / 'plots'
         config['plot_dir'].mkdir(exist_ok=True)
 
+    if config['using_exominer_pipeline'] and config['plot_inputs_to_exominer_model']:
+        config['plot_dir'] = Path(config['plot_dir'])
+        
     # get TCE and gapping ephemeris tables
     shards_tce_tables = get_tce_table(config)
 
@@ -154,7 +157,7 @@ if __name__ == "__main__":
                         default=None)
     parser.add_argument('--config_fp', type=str,
                         help='File path to yaml config file for this preprocessing run',
-                        default='./config_preprocessing.yaml')
+                        required=True)
     args = parser.parse_args()
 
     preprocess_lc_data(

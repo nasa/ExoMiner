@@ -9,8 +9,11 @@ from astropy.stats import mad_std
 from matplotlib.ticker import FormatStrFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from astropy import units as u
+from PIL import Image
+import glob
 
 plt.switch_backend('agg')
+# plt.rcParams['text.usetex'] = True
 
 
 DEGREETOARCSEC = 3600
@@ -492,14 +495,14 @@ def plot_fluxandcentroids_views(glob_view, loc_view, glob_view_centr, loc_view_c
     plt.close()
 
 
-def plot_all_views(views, tce, config, scheme, savefp, plot_var):
+def plot_all_views(views, tce, config, scheme, savefp, plot_var, draw_lines=False):
     """ Creates and saves a figure with plots that show views for a given TCE.
 
     :param views: dict, views to be plotted
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
-    number of plots per column])
+        number of plots per column])
     :param savefp: Path, filepath to saved figure
     :param plot_var: bool, if True then dispersion-like time series (+- central tendency) are also plotted
     :return:
@@ -541,7 +544,8 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
                 # ax[i, j].scatter(np.arange(len(views[views_list[k]][1])), views[views_list[k]][1], s=10, color='k',
                 #                  zorder=2)
 
-                ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1], zorder=2, color='k')
+                if draw_lines:
+                    ax[i, j].plot(views[views_list[k]][0], views[views_list[k]][1], zorder=2, color='k')
                 ax[i, j].scatter(views[views_list[k]][0], views[views_list[k]][1], s=10, color='k',
                                  zorder=2)
                 if plot_var:
@@ -565,8 +569,12 @@ def plot_all_views(views, tce, config, scheme, savefp, plot_var):
 
             k += 1
 
-    f.suptitle(f'{tce["uid"]} {tce["label"]} | {ephemerisStr}\n{scalarParamsStr}')
+    f.suptitle(f'{tce["uid"]} {tce["label"] if tce["label"] != "UNK" else ""} | {ephemerisStr}\n{scalarParamsStr}')
     plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
+    if plot_var:
+        f.text(0.974, 0.97, 'Red dashed lines: ±1σ uncertainty envelope',
+               ha='right', va='top', fontsize=10,
+               bbox=dict(boxstyle='round', facecolor='white', edgecolor='red', alpha=0.8))
     plt.savefig(savefp)
     plt.close()
 
@@ -578,7 +586,7 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters.
     :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
-    number of plots per column])
+        number of plots per column])
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :param num_transits: dict, number of transits for each view
@@ -647,6 +655,109 @@ def plot_all_views_var(views, views_var, tce, config, scheme, savedir, basename,
     f.suptitle('{} {} | {}\n{}'.format(tce.uid, tce.label, ephemerisStr, scalarParamsStr))
     plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.83, right=0.974, bottom=0.07, left=0.05)
     plt.savefig(os.path.join(savedir, '{}_{}_{}.png'.format(tce.uid, tce.label, basename)))
+    plt.close()
+
+
+def plot_view_exominer_pipeline(views, tce, config, scheme, savefp, plot_var, draw_lines=False):
+    """ Creates and saves a figure with plots that show views for a given TCE.
+
+    :param views: dict, views to be plotted
+    :param tce: pandas Series, row of the input TCE table Pandas DataFrame
+    :param config: dict, preprocessing parameters.
+    :param scheme: list, defines the number and position of the view plots in the figure ([number of plots per row,
+        number of plots per column])
+    :param savefp: Path, filepath to saved figure
+    :param plot_var: bool, if True then dispersion-like time series (+- central tendency) are also plotted
+    :return:
+    """
+
+    # exclude normalized views
+    views_to_plot = [view_name for view_name in views if 'norm' not in view_name]
+    views_names = {
+        'flux_local': 'Transit-view flux',
+        'flux_global': 'Full-orbit flux',
+        # 'flux_trend_local': 'Transit-view trend',
+        'flux_trend_global': 'Full-orbit trend',
+        'flux_odd_local': 'Transit-view odd flux',
+        'flux_even_local': 'Transit-view even flux',
+        'flux_weak_secondary_local': 'Transit-view weak secondary flux',
+        'centroid_offset_distance_to_target_global': 'Full-orbit centroid offset to target',
+        'centroid_offset_distance_to_target_local': 'Transit-view centroid offset to target',
+        'momentum_dump_local': 'Transit-view momentum dump',
+    }
+
+    views_units = {
+        'flux_local': 'Relative Flux',
+        'flux_global': 'Relative Flux',
+        # 'flux_trend_local': 'Transit-view trend',
+        'flux_trend_global': 'Relative Flux',
+        'flux_odd_local': 'Relative Flux',
+        'flux_even_local': 'Relative Flux',
+        'flux_weak_secondary_local': 'Relative Flux',
+        'centroid_offset_distance_to_target_global': 'Centroid Offset [arcsec]',
+        'centroid_offset_distance_to_target_local': 'Centroid Offset [arcsec]',
+        'momentum_dump_local': 'Median Mom. Dump Flag',
+    }
+
+    scalarParamsStr = ''
+    for scalarParam_i in range(len(config['scalar_params'])):
+        if scalarParam_i % 7 == 0 and scalarParam_i != 0:
+            scalarParamsStr += '\n'
+        if config['scalar_params'][scalarParam_i] == 'sectors':
+            scalarParamsStr += f'Sectors: {tce["sectors"]} \n'
+        elif config['scalar_params'][scalarParam_i] in ['boot_fap']:
+            scalarParamsStr += '{}={:.3E}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
+        elif config['scalar_params'][scalarParam_i] in ['tce_rb_tcount0', 'tce_steff']:
+            scalarParamsStr += '{}={}  '.format(config['scalar_params'][scalarParam_i],
+                                                tce[config['scalar_params'][scalarParam_i]])
+        else:
+            scalarParamsStr += '{}={:.3f}  '.format(config['scalar_params'][scalarParam_i],
+                                                    tce[config['scalar_params'][scalarParam_i]])
+
+    ephemerisStr = 'Epoch (BTJD)={:.3f}, Period (day)={:.3f}, Transit Duration (hour)={:.3f}'.format(
+        tce['tce_time0bk'],
+        tce['tce_period'],
+        tce['tce_duration'] * 24
+    )
+
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
+    k = 0
+    for i in range(scheme[0]):
+        for j in range(scheme[1]):
+            if k < len(views_to_plot):
+                if draw_lines:
+                    ax[i, j].plot(views[views_to_plot[k]][0], views[views_to_plot[k]][1], zorder=2, color='k')
+                ax[i, j].scatter(views[views_to_plot[k]][0], views[views_to_plot[k]][1], s=10, color='k',
+                                 zorder=2)
+                if plot_var:
+                    ax[i, j].plot(views[views_to_plot[k]][0], views[views_to_plot[k]][1] + views[views_to_plot[k]][2], 'r--',
+                                  alpha=0.1, zorder=1)
+                    ax[i, j].plot(views[views_to_plot[k]][0], views[views_to_plot[k]][1] - views[views_to_plot[k]][2], 'r--',
+                                  alpha=0.1, zorder=1)
+
+                if views_to_plot[k] == 'momentum_dump_local':
+                    ax[i, j].set_title(f'{views_names[views_to_plot[k]]}', pad=20)
+                else:
+                    ax[i, j].set_title(f'{views_names[views_to_plot[k]]}\nN_transits={views[views_to_plot[k]][3]}', pad=20)
+
+                ax[i, j].set_xlim(views[views_to_plot[k]][0][[0, -1]])
+            if i == scheme[0] - 1:
+                ax[i, j].set_xlabel('Phase [day]')
+            # if j == 0:
+            #     ax[i, j].set_ylabel('Amplitude')
+            ax[i, j].set_ylabel(views_units[views_to_plot[k]])
+
+            k += 1
+
+    f.suptitle(r'$\mathbf{Phase-folded\ and\ binned\ flux\ and\ centroid\ views}$' + '\n' + f'==== TCE {tce["uid"]} {tce["label"] if tce["label"] != "UNK" else ""} ====' + \
+               '\n' + f'Ephemerides: {ephemerisStr}' + '\n' + '==== TCE and stellar parameters ====' + '\n' + f'{scalarParamsStr}')
+    plt.subplots_adjust(hspace=0.5, wspace=0.37, top=0.75, right=0.974, bottom=0.07, left=0.05)
+    if plot_var:
+        f.text(0.974, 0.97, 'Red dashed lines: ±1σ SEM envelope',
+               ha='right', va='top', fontsize=10,
+               bbox=dict(boxstyle='round', facecolor='white', edgecolor='red', alpha=0.8))
+    plt.savefig(savefp)
     plt.close()
 
 
@@ -1044,7 +1155,7 @@ def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp
     # if not np.isnan(range_timeseries).any():
     #     ax.set_ylim(range_timeseries)
 
-    f.suptitle('{} {}'.format(tce.uid, tce.label))
+    f.suptitle(f'Odd vs Even {tce.uid}') # {tce.label}')
     plt.savefig(savefp)
     plt.close()
 
@@ -1280,7 +1391,7 @@ def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmo
     ax[2].set_yscale('log')
     ax[2].set_xscale('log')
 
-    f.suptitle(fr'{tce_data["uid"]} {tce_data["label"]} ' 
+    f.suptitle(fr'Periodogram {tce_data["uid"]} '  # {tce_data["label"]} ' 
                fr'Period: {tce_data["tce_period"]:.3f} day | $f_0={f0_tce:.3e} /s$')
     f.tight_layout()
     plt.savefig(save_fp)
@@ -1353,6 +1464,10 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
     Returns:
 
     """
+    
+    primary_transit_midpoint = -tce['tce_maxmesd']
+    half_tce_period = tce['tce_period'] / 2
+    primary_transit_midpoint = (primary_transit_midpoint + half_tce_period) % tce['tce_period'] - half_tce_period
 
     gs = gridspec.GridSpec(2, 2)
 
@@ -1361,10 +1476,11 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
     ax = plt.subplot(gs[0, :])
     ax.scatter(phasefolded_data['flux_weak_secondary'][0], phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
                zorder=1, alpha=1)
-    ax.axvline(x=-tce['tce_maxmesd'], c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
-    ax.set_ylabel('Amplitude')
-    ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
+    ax.axvline(x=primary_transit_midpoint, c='r', label='Primary Transit Midpoint', zorder=2, linestyle='--', alpha=0.5)
+    ax.set_ylabel('Relative Flux')
+    # ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax.set_xlabel('Phase [day]')
+    ax.set_title('Full-Orbit')
     ax.legend()
 
     ax = plt.subplot(gs[1, 0])
@@ -1374,10 +1490,11 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
                c='r', zorder=3)
     ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
             zorder=2)
-    ax.axvline(x=-tce['tce_maxmesd'] * 24, c='r', label='Primary', zorder=2, linestyle='--', alpha=0.5)
-    ax.set_ylabel('Amplitude')
+    ax.axvline(x=primary_transit_midpoint * 24, c='r', label='Primary Transit Midpoint', zorder=2, linestyle='--', alpha=0.5)
+    ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase [hour]')
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
+    ax.set_title('Transit-View')
     ax.legend()
 
     ax = plt.subplot(gs[1, 1])
@@ -1386,10 +1503,84 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
     ax.plot(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
             'c', zorder=2)
     ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
-    ax.set_ylabel('Normalized Amplitude')
+    ax.set_ylabel('Relative Flux Normalized')
     ax.set_xlabel('Phase [hour]')
+    ax.set_title('Transit-View Normalized by Abs. Min. Flux')
 
-    f.suptitle(f'{tce["uid"]} {tce["label"]}')
+    f.suptitle(f'Weak Secondary {tce["uid"]}')  # {tce["label"]}')
     f.tight_layout()
     plt.savefig(save_fp)
     plt.close()
+
+
+def compile_preprocessing_figures_to_pdf(target_uid, tce_tbl, plot_dir, save_fp, delete_plots=False):
+    """
+    Compiles preprocessing PNG figures for a target and its TCEs into a single PDF.
+    
+    Args:
+        target_uid (str): Target unique ID (e.g. TIC-Sector)
+        tce_tbl (pandas.DataFrame): Table of TCEs for this target
+        plot_dir (pathlib.Path): Directory containing the PNGs
+        save_fp (pathlib.Path): Output filepath for the PDF
+    """
+
+    images_list = []
+    
+    # 1. Target-level figures
+    target_prefixes = [
+        f"{target_uid}_2_detrendedflux.png",
+        f"{target_uid}_3_1_detrendedcentroids.png",
+        f"{target_uid}_4_momentum_dump_timeseries.png"
+    ]
+    
+    for prefix in target_prefixes:
+        matches = glob.glob(str(plot_dir / f"*{prefix}"))
+        if matches:
+            images_list.append(matches[0])
+            
+    # 2. TCE-level figures
+    for _, tce in tce_tbl.iterrows():
+        tce_uid = tce["uid"]
+        tce_label = tce["label"] if "label" in tce else "UNK"
+        
+        # Expected suffixes based on typical generation order
+        tce_suffixes = [
+            "1_intransit_cadences.png",
+            "2_lc_periodogram.png",
+            "3_2_correctedcentroids.png",
+            "3_3_distcentr.png",
+            "5_phasefolded_timeseries.png",
+            "5_phasefolded_timeseries_outlierrem.png",
+            "6_riverplot_flux_aug.png",
+            "7_1_riverplot_flux_trend.png",
+            "7_2_phasefoldedbinned_trend.png",
+            "8_1_oddeven_transitdepth_phasefoldedbinned_timeseries.png",
+            "8_2_momentum_dump_phase_and_binned.png",
+            "8_3_flux_weak_secondary.png",
+            "9_1_phasefoldedbinned_timeseries.png",
+            "9_2_binned_timeseries.png"
+        ]
+        
+        for suffix in tce_suffixes:
+            matches = glob.glob(str(plot_dir / f"{tce_uid}_{tce_label}_{suffix}"))
+            # Fallback in case label is different or missing
+            if not matches:
+                matches = glob.glob(str(plot_dir / f"{tce_uid}_*_{suffix}"))
+            
+            if matches:
+                images_list.append(matches[0])
+                
+    if not images_list:
+        return
+        
+    try:
+        imgs = [Image.open(img).convert('RGB') for img in images_list]
+        imgs[0].save(str(save_fp), save_all=True, append_images=imgs[1:])
+        for img in imgs:
+            img.close()
+    except Exception as e:
+        print(f"Failed to compile PDF for {target_uid}: {e}")
+    
+    if delete_plots:
+        for image_fp in images_list:
+            os.remove(image_fp)

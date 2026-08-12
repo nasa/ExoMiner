@@ -1,0 +1,17 @@
+# Configuration file for extracting difference image data from TESS DV XML files
+
+# root directory for TESS DV XML files
+dv_xml_root_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs/
+# root directory containing neighbors data; set to 'none' if not applicable
+neighbors_dir: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/search_neighboring_stars/tess-spoc-targets-dv_search-radius-arcsec_168.0/
+# data collection mode; either '2min' or 'ffi'; need to extract neighbors data
+data_collection_mode: 2min
+# root directory with light curve data; set to 'none' if not applicable (used only when neighbors_dir is not 'none')
+lc_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/sectors/
+# output directory for extracted difference image data
+run_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/preprocessed_data/tess/2min/dv/diff_img/extracted_data/s1-s98_5-19-2026_1452
+plot_prob: 0.0001  # plot probability
+n_processes: 36  # number of processes used to parallelize extraction
+append_data: false  # appends data to existing data dictionary
+cache_neighbors_data: true  # cache neighbors tables to speed up looking when using neighbors data; check utils_diff_img for lru_cache used in `_load_sector_df()`
+beta_transit_depth: 0.5  # threshold used to exclude neighbors based on whether they could explain `beta_transit_depth` * tce_depth_frac < flux_ratio[target, neighbor]

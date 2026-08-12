@@ -28,8 +28,7 @@ DELETE_DATA_AFTER_INFERENCE="${11}"
 CHECK_GPU=${12:-0}
 
 # set up Python scripts
-# SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
-SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/train/setup_cv_iter.py
+SETUP_CV_ITER_FP=$PYTHONPATH/src_cv/predict/setup_cv_iter_predict.py
 PREPROCESS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/preprocess_cv_folds_predict_trecord_dataset.py
 CREATE_CV_FOLDS_SCRIPT=$PYTHONPATH/src_cv/preprocessing/create_cv_folds_yaml_from_dir.py
 PREDICT_MODEL_SCRIPT_FP=$PYTHONPATH/src/predict/predict_model.py
@@ -88,16 +87,21 @@ if [ "$CHECK_GPU" -eq 1 ]; then
     echo "GPU $GPU_ID is available. Resuming CV iteration." >> "$LOG_FP_CV_ITER"
 fi
 
+TRAIN_ENSEMBLE_DIR="$MODELS_CV_ROOT_DIR/cv_iter_$CV_ITER/ensemble_model/"
+TRAIN_ENSEMBLE_MODEL_CONFIG_FP=$TRAIN_ENSEMBLE_DIR/config_cv.yaml
+# cp $ENSEMBLE_MODEL_CONFIG_FP $CV_ITER_DIR
+
 # setup run
 echo "Setting up CV iteration $CV_ITER." >> "$LOG_FP_CV_ITER"
-python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"
+
+python "$SETUP_CV_ITER_FP" --cv_iter="$CV_ITER" --config_fp="$CONFIG_FP" --model_fp=$TRAIN_ENSEMBLE_MODEL_CONFIG_FP --output_dir="$CV_ITER_DIR" &>> "$LOG_FP_CV_ITER"
 CV_ITER_CONFIG_FP=$CV_ITER_DIR/config_cv.yaml
 
 # run inference with ensemble model
 echo "Started running inference with ensemble of models in CV iteration $CV_ITER..." >> "$LOG_FP_CV_ITER"
 
 # get model file path
-ENSEMBLE_MODEL_FP="$MODELS_CV_ROOT_DIR/cv_iter_$CV_ITER/ensemble_model/ensemble_avg_model.keras"
+ENSEMBLE_MODEL_FP="$TRAIN_ENSEMBLE_DIR/ensemble_avg_model.keras"
 
 # evaluate and predict with ensemble model
 LOG_FP_PREDICT_ENSEMBLE_MODEL="$CV_ITER_DIR"/predict_ensemble_model.log

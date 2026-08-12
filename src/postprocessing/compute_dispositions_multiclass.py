@@ -12,13 +12,6 @@ import numpy as np
 from pathlib import Path
 # import tensorflow as tf
 
-#%% set paths
-
-exp_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/')
-
-# get prediction CSV files
-pred_fps = list(exp_dir.rglob('ranked_predictions*.csv'))
-print(f'Found {len(pred_fps)} prediction files:\n{pred_fps}')
 
 #%% compute predicted class
 
@@ -36,47 +29,6 @@ def map_softmax_predictions_to_class(row, pred_cols, label_map, clf_thr=0):
         label_id = -1
     
     return label_id
-
-    
-clf_thr = 0
-label_map = {
-    'CP': 1,
-    'KP': 1,
-    'EB': 2,
-    'FP': 2,
-    'BD': 2,
-    'NTP': 0,
-}
-
-pred_columns = [f'score_{disp}' for disp in label_map]
-
-new_pred_tbls = []
-for pred_fp in pred_fps:
-    
-    print(f'Iterating through prediction file {pred_fp}')
-    
-    pred_df = pd.read_csv(pred_fp, comment='#')
-    
-    pred_df['predicted_class'] = pred_df.apply(lambda row: map_softmax_predictions_to_class(row, pred_columns, label_map, clf_thr), axis=1)
-    
-    pred_df['dataset'] = pred_fp.stem.split('_')[-1][:-3]
-    
-    new_pred_tbls.append(pred_df)
-
-new_pred_df = pd.concat(new_pred_tbls, axis=0)
-
-# map label to label id
-new_pred_df['label_id'] = new_pred_df['label'].apply(lambda x: label_map.get(x, -1))  # -1 as default
-
-# add metadata
-new_pred_df.attrs['experiment'] = exp_dir.name
-new_pred_df.attrs['label map'] =  label_map
-new_pred_df.attrs['clf_thr'] = clf_thr
-new_pred_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-with open(exp_dir / 'predictions_all_datasets.csv', "w") as f:
-    for key, value in new_pred_df.attrs.items():
-        f.write(f"# {key}: {value}\n")
-    new_pred_df.to_csv(f, index=False)
 
 #%% compute metrics
 
@@ -149,27 +101,79 @@ def compute_metrics_multiclass(predictions_tbl, cats, class_name='label_id', cat
     return metrics_df
 
 
-pred_df = pd.read_csv(exp_dir / 'predictions_all_datasets.csv', comment='#')
 
-metrics_df_lst = []
-for dataset, preds_dataset in pred_df.groupby('dataset'):
-    
-    print(f'Iterating on predictions for dataset {dataset}...')
-    
-    metrics_dataset = compute_metrics_multiclass(preds_dataset, label_map, class_name='label_id', cat_name='label')
-    metrics_dataset['dataset'] = dataset
 
-    metrics_df_lst.append(metrics_dataset)
-    
-metrics_df = pd.concat(metrics_df_lst, axis=0)
-metrics_df.set_index('dataset', inplace=True)
+if __name__ == '__main__':
 
-# add metadata
-metrics_df.attrs['experiment'] = exp_dir.name
-metrics_df.attrs['label map'] =  label_map
-metrics_df.attrs['clf_thr'] = clf_thr
-metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
-with open(exp_dir / 'metrics_all_datasets_multiclass.csv', "w") as f:
-    for key, value in metrics_df.attrs.items():
-        f.write(f"# {key}: {value}\n")
-    metrics_df.to_csv(f, index=True)
+    #%% set paths
+
+    exp_dir = Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/test_exominer_architectures/exominer-new_samefeatmapdim-multiclass-planet-fp-ntp_tess-spoc-2min-s1-s88_10-28-2025_1554/model0/')
+
+    # get prediction CSV files
+    pred_fps = list(exp_dir.rglob('ranked_predictions*.csv'))
+    print(f'Found {len(pred_fps)} prediction files:\n{pred_fps}')
+
+    clf_thr = 0
+    label_map = {
+        'CP': 1,
+        'KP': 1,
+        'EB': 2,
+        'FP': 2,
+        'BD': 2,
+        'NTP': 0,
+    }
+
+    pred_columns = [f'score_{disp}' for disp in label_map]
+
+    new_pred_tbls = []
+    for pred_fp in pred_fps:
+        
+        print(f'Iterating through prediction file {pred_fp}')
+        
+        pred_df = pd.read_csv(pred_fp, comment='#')
+        
+        pred_df['predicted_class'] = pred_df.apply(lambda row: map_softmax_predictions_to_class(row, pred_columns, label_map, clf_thr), axis=1)
+        
+        pred_df['dataset'] = pred_fp.stem.split('_')[-1][:-3]
+        
+        new_pred_tbls.append(pred_df)
+
+    new_pred_df = pd.concat(new_pred_tbls, axis=0)
+
+    # map label to label id
+    new_pred_df['label_id'] = new_pred_df['label'].apply(lambda x: label_map.get(x, -1))  # -1 as default
+
+    # add metadata
+    new_pred_df.attrs['experiment'] = exp_dir.name
+    new_pred_df.attrs['label map'] =  label_map
+    new_pred_df.attrs['clf_thr'] = clf_thr
+    new_pred_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    with open(exp_dir / 'predictions_all_datasets.csv', "w") as f:
+        for key, value in new_pred_df.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        new_pred_df.to_csv(f, index=False)
+
+    pred_df = pd.read_csv(exp_dir / 'predictions_all_datasets.csv', comment='#')
+
+    metrics_df_lst = []
+    for dataset, preds_dataset in pred_df.groupby('dataset'):
+        
+        print(f'Iterating on predictions for dataset {dataset}...')
+        
+        metrics_dataset = compute_metrics_multiclass(preds_dataset, label_map, class_name='label_id', cat_name='label')
+        metrics_dataset['dataset'] = dataset
+
+        metrics_df_lst.append(metrics_dataset)
+        
+    metrics_df = pd.concat(metrics_df_lst, axis=0)
+    metrics_df.set_index('dataset', inplace=True)
+
+    # add metadata
+    metrics_df.attrs['experiment'] = exp_dir.name
+    metrics_df.attrs['label map'] =  label_map
+    metrics_df.attrs['clf_thr'] = clf_thr
+    metrics_df.attrs['created'] = str(pd.Timestamp.now().floor('min'))
+    with open(exp_dir / 'metrics_all_datasets_multiclass.csv', "w") as f:
+        for key, value in metrics_df.attrs.items():
+            f.write(f"# {key}: {value}\n")
+        metrics_df.to_csv(f, index=True)

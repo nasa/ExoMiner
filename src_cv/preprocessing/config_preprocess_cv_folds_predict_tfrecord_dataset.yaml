@@ -4,16 +4,17 @@ rank: 0
 # new data set directory; results are saved here
 output_dir:  null
 # source TFRecord directory to be normalized
-src_tfrec_dir:  /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/predict
+src_tfrec_dir:  /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_5-6-2026_1552_photdisps_no-secondaries/tfrecords/predict/
 # list of file paths to the CV iterations folder with the normalization statistics to be used
 # to normalize the data in the source TFRecord directory
 # (i.e., ['/path/to/cv_iter_x/norm_stats/', 'path/to/cv_iter_y/norm_stats',...])
-cv_folds_fps:
-  - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats/
-  - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_1/norm_stats/
-  - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_2/norm_stats/
-  - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_3/norm_stats/
-  - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_4/norm_stats/
+# if using a pattern, it is expanded to get all matching paths (e.g., '/path/to/cv_run/cv_iter_*/norm_stats/')
+cv_folds_fps: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_5-6-2026_1552_photdisps_no-secondaries/tfrecords/eval_normalized/cv_iter_[0-4]/norm_stats/
+  # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats/
+  # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_1/norm_stats/
+  # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_2/norm_stats/
+  # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_3/norm_stats/
+  # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_4/norm_stats/
 
 diff_img_data_shape: [5, 55, 55]  # set defined image size given that images are stored as encoded strings
 

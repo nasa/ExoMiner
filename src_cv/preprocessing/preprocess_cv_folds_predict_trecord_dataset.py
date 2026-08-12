@@ -4,6 +4,7 @@ data.
 """
 
 # 3rd party
+from glob import glob
 import numpy as np
 import yaml
 import logging
@@ -134,6 +135,10 @@ if __name__ == '__main__':
     # set list of paths to TFRecord files in source TFRec directory to be normalized
     config['src_tfrec_fps'] = [fp for fp in config['src_tfrec_dir'].iterdir()
                                if fp.name.startswith('shard') and fp.suffix != '.csv']
+    
+    # if using a pattern, expand it to get all matching paths
+    if isinstance(config['cv_folds_fps'], str):
+        config['cv_folds_fps'] = glob(config['cv_folds_fps'])
 
     if config['rank'] == 0:
         # save configuration used

@@ -1,21 +1,22 @@
 # output directory for TFRecords data set
 output_dir: null
 # TCE table with examples to be preprocessed
-input_tce_csv_file: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_ffi/tess-spoc-ffi-tces-dv_s36-s72_multisector-s56s69_10-8-2025_exofop-sg1-tois9-11-2025.csv
+input_tce_csv_file: /home6/msaragoc/work_dir/Kepler-TESS_exoplanet/data/Ephemeris_tables/TESS/tess_spoc_2min/tess-spoc-2min-tces-dv_s14s86_3-18-2026_1132/tess-spoc-2min-tces-dv_s14s86_3-18-2026_1132.csv
 # light curve FITS file directory
-lc_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_ffi/lc/sectors/
+lc_data_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/sectors/
 
 using_exominer_pipeline: false
+plot_inputs_to_exominer_model: false
 
-external_parallelization: true  # use MPI/GNU parallel; set to False to use Python multiprocessing Pool
-process_i: -1  # process id; defined by MPI/GNU when `using_mpi` set to True
-# multiprocessing Pool arguments; overwritten if `using_mpi` is set to True
+external_parallelization: true  # use GNU parallel; set to False to use Python multiprocessing Pool
+process_i: -1  # process id; defined by GNU parallel when `external_parallelization` set to True
+# multiprocessing Pool arguments; overwritten if `external_parallelization` is set to True
 n_shards: 10  # total number of TFRecord files; examples are split into `n_shards`; Should be >= than `n_processes`
-n_processes: 10  # number of processes created by the Pool
+n_processes: 1  # number of processes created by the Pool
 
 random_seed: 24
 
-ffi_data: true  # set to true for TESS SPOC FFI data
+ffi_data: false  # set to true for TESS SPOC FFI data
 
 shuffle: false
 shuffle_seed: 24

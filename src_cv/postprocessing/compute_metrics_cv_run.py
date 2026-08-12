@@ -12,7 +12,8 @@ from tqdm import tqdm
 from src.postprocessing.compute_metrics_from_predictions_csv_file import compute_metrics_from_predictions
 
 def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=0.5, num_thresholds=1000, recall_at_precision_thr=0.95, precision_at_recall_thr=0.95, 
-                                 class_name='label_id', cat_name='label', pred_tbl_prefix='predictions', results_sub_dir='ensemble', compute_mean_std_metrics=True, compute_metrics_all_dataset=True):
+                                 class_name='label_id', cat_name='label', pred_tbl_prefix='predictions', results_sub_dir='ensemble', compute_mean_std_metrics=True, compute_metrics_all_dataset=True,
+                                 multiclass=False, multiclass_target=None):
     """ Compute evaluation metrics for a cross-validation (CV) experiment across multiple datasets and CV iterations.
 
     This function aggregates metrics computed from prediction tables generated during a CV run. It supports:
@@ -49,6 +50,10 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
         Whether to compute and append mean and standard deviation of metrics across CV folds.
     compute_metrics_all_dataset : bool, optional (default=True)
         Whether to compute metrics for the entire dataset by combining folds (only valid for non-overlapping splits).
+    multiclass: bool, optional (default=False)
+        Compute metrics for multiclass setting
+    multiclass_target: str, optional (default=None)
+        Compute OvR metrics for class of interest when in multiclass setting
 
     Returns
     -------
@@ -89,7 +94,7 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
         cv_iters_dirs = [fp for fp in cv_run_dir.iterdir() if fp.is_dir() and fp.name.startswith('cv_iter')]
 
         metrics_df = []
-        for cv_iter_dir in tqdm(sorted(cv_iters_dirs), desc='CV iteration', total=len(cv_iters_dirs)):  # iterate through each cv iteration
+        for cv_iter_dir in tqdm(sorted(cv_iters_dirs), desc='CV iteration', total=len(cv_iters_dirs), unit='CV Iteration'):  # iterate through each cv iteration
             
             pred_tbl_fp = cv_iter_dir / results_sub_dir / f'{pred_tbl_prefix}_{dataset}set.csv'
             if not pred_tbl_fp.exists():
@@ -104,7 +109,8 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
                 metrics_df_cv_iter = compute_metrics_from_predictions(ranking_tbl, label_map, num_thresholds,
                                                                       clf_threshold, top_k_vals, class_name, cat_name, 
                                                                       recall_at_precision_thr=recall_at_precision_thr, 
-                                                                      precision_at_recall_thr=precision_at_recall_thr)
+                                                                      precision_at_recall_thr=precision_at_recall_thr,
+                                                                      multiclass=multiclass, multiclass_target_score=multiclass_target)
                 metrics_df_cv_iter['fold'] = cv_iter_dir.name
 
             metrics_df.append(metrics_df_cv_iter)
@@ -143,10 +149,11 @@ def compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, cl
             metrics_df = compute_metrics_from_predictions(ranking_tbl, label_map, num_thresholds, clf_threshold,
                                                         top_k_vals, class_name, cat_name, 
                                                         recall_at_precision_thr=recall_at_precision_thr, 
-                                                        precision_at_recall_thr=precision_at_recall_thr)
+                                                        precision_at_recall_thr=precision_at_recall_thr,
+                                                        multiclass=multiclass, multiclass_target_score=multiclass_target)
             metrics_df.attrs['predictions_table'] = str(pred_tbl_fp)
             metrics_df.attrs['label_map'] = label_map
-            with open(cv_run_dir / f'metrics_{dataset}_all.csv', "w") as f:
+            with open(cv_run_dir / f'metrics_test_all.csv', "w") as f:
                 for key, value in metrics_df.attrs.items():
                     f.write(f"# {key}: {value}\n")
                 metrics_df.to_csv(f, index=False)
@@ -213,10 +220,10 @@ if __name__ == '__main__':
 
     # cv experiment directories
     cv_run_dirs = [
-        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/tess_spoc_ffi_paper/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_exomninernew_11-23-2025_1213'),
+        Path('/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/phot_disps/cv_tess-spoc-tces_2min-s1-s98_10-folds_strict-pcs_20260716_095902'),
     ]
     for cv_run_dir in cv_run_dirs:  # iterate through multiple CV runs
 
         compute_metrics_stats_cv_run(cv_run_dir, top_k_vals, datasets, label_map, clf_threshold=clf_threshold, num_thresholds=num_thresholds, recall_at_precision_thr=recall_at_precision_thr, 
                                      precision_at_recall_thr=precision_at_recall_thr, class_name=class_name, cat_name=cat_name, pred_tbl_prefix=pred_tbl_prefix, results_sub_dir=results_sub_dir, 
-                                     compute_mean_std_metrics=compute_mean_std_metrics, compute_metrics_all_dataset=compute_metrics_all_dataset)
+                                     compute_mean_std_metrics=compute_mean_std_metrics, compute_metrics_all_dataset=compute_metrics_all_dataset, multiclass_target=target_score)
