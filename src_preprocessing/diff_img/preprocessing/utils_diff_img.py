@@ -678,7 +678,10 @@ def resize_images_by_resampling(diff_img, oot_img, snr_img, valid_pxs_img, size_
     diff_img = Image.fromarray(diff_img)
     oot_img = Image.fromarray(oot_img)
     snr_img = Image.fromarray(snr_img)
-    valid_pxs_img = Image.fromarray(valid_pxs_img)
+    # valid_pxs_img can be int64, which PIL.Image.fromarray rejects
+    # ("Cannot handle this data type: (1,1), <i8"). Cast to float like the sibling
+    # crop_images_to_valid_size does.
+    valid_pxs_img = Image.fromarray(valid_pxs_img.astype('float'))
 
     diff_img_resize = diff_img.resize(size=(size_w * size_f_w, size_h * size_f_h), resample=Image.Resampling.NEAREST)
     oot_img_resize = oot_img.resize(size=(size_w * size_f_w, size_h * size_f_h), resample=Image.Resampling.NEAREST)
