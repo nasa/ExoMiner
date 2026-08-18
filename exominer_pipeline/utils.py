@@ -938,7 +938,7 @@ def check_custom_model(model_fp):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Model loading failed: {e}")
 
-def inference_pipeline(run_config, output_dir, tfrec_shards_fps, logger):
+def inference_pipeline(run_config: dict, output_dir: Path, tfrec_shards_fps: list[Path], logger: logging.Logger) -> Path:
     """ Run inference pipeline.
 
     Args:
@@ -947,7 +947,7 @@ def inference_pipeline(run_config, output_dir, tfrec_shards_fps, logger):
         tfrec_shards_fps: List[Path], list of TFRecord files
         logger: logging.Logger object
 
-    Returns:
+    Returns: Path, prediction table file path
 
     """
 
@@ -965,8 +965,11 @@ def inference_pipeline(run_config, output_dir, tfrec_shards_fps, logger):
 
     # tfrec_shards_fps = list(tfrec_dir.glob('shard-*'))
 
+    # set dataset name and predictions filename "predictions_{dataset_name}.csv"
+    dataset_name = 'spoc-tces_'
+    predict_config['datasets'] = [dataset_name]
     predict_config['datasets_fps'] = {
-        'predict' : tfrec_shards_fps
+        dataset_name : tfrec_shards_fps
     }
 
     model_fp = Path(run_config['model_fp'])
@@ -983,10 +986,12 @@ def inference_pipeline(run_config, output_dir, tfrec_shards_fps, logger):
         elif run_config['exominer_model_name'] == 'cv_ensemble':
             model_fp = model_fp[:10]
 
-    predict_model(predict_config, model_fp, output_dir, run_config['max_model_workers'], logger)
+    prediction_tbls_fps = predict_model(predict_config, model_fp, output_dir, run_config['max_model_workers'], logger)
 
     # restore stdout
     sys.stdout = sys.__stdout__
+
+    return prediction_tbls_fps[dataset_name]
 
 
 def get_optimal_worker_count(model_ram_footprint_gb=0.5, max_limit=16, logger=None):
@@ -1101,8 +1106,18 @@ def _predict_single_model(model_i, model_fp, config, res_dir, fast_temp_dir, thr
     return model_i, model_scores
 
 
-def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None):
-    """ Run inference with a set of models and average their scores. """
+def predict_model(config: dict, model_paths: list, res_dir: Path, max_model_workers:int=1, logger:logging.Logger|None=None) -> dict:
+    """ Run inference with a set of models and average their scores. 
+    
+    Args:
+        config: run configuration
+        model_paths: list of Paths for TF-Keras models
+        res_dir: Path, output directory
+        max_model_workers: int, number of workers used to spin models in parallel
+        logger: logger
+    
+    Returns: dict of dataset, Paths, prediction tables file paths for each dataset
+    """
     
     os.environ['OMP_WAIT_POLICY'] = 'PASSIVE'
     os.environ.pop('TF_NUM_INTRAOP_THREADS', None)
@@ -1119,25 +1134,11 @@ def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None
         
     scores = {dataset: [] for dataset in config['datasets']}
     
-    # ---------------------------------------------------------
-    # PARALLELIZATION LOGIC
-    # ---------------------------------------------------------
-    # Set to 4 workers by default, or read from config
-    # max_workers = config.get('inference', {}).get('max_workers', 10)
     max_workers = min(get_optimal_worker_count(max_limit=max_model_workers, logger=logger), len(model_paths))
     total_cores = mp.cpu_count()
     threads_per_model = max(1, total_cores // max_workers)
     log_info(f"Starting parallel prediction loop with {max_workers} workers, {threads_per_model} threads per model...", logger)
 
-    # try:
-    #     tf.config.threading.set_intra_op_parallelism_threads(threads_per_model)
-    #     tf.config.threading.set_inter_op_parallelism_threads(threads_per_model)
-    #     log_info(f"Set TensorFlow to use {threads_per_model} threads.", logger)
-    # except RuntimeError as e:
-    #     log_info(f"Could not change TF threads dynamically: {e}", logger)
-    #     pass 
-
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers, mp_context=mp.get_context('spawn')) as executor:
 
         # Submit all models to the thread pool
@@ -1165,10 +1166,6 @@ def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None
             except Exception as e:
                 log_info(f"Failed to process model {model_i}: {e}", logger)
     
-    # ---------------------------------------------------------
-    # AGGREGATION & SAVING LOGIC
-    # ---------------------------------------------------------
-    # We will create a new dictionary to hold the standard deviations
     scores_std = {dataset: {} for dataset in config['datasets']}
     
     # average scores across models and calculate std (uncertainty)
@@ -1193,6 +1190,7 @@ def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None
                                                          config['datasets_fps'])
     
     # write results to a csv file
+    predictions_df_fps = {}
     for dataset in config['datasets']:
         
         log_info(f'Writing predictions for dataset {dataset}...', logger)
@@ -1231,9 +1229,9 @@ def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None
         # sort in descending order of output (adjust based on multi-class vs binary)
         if not config['config']['multi_class']:
             predictions_df.sort_values(by='score', ascending=False, inplace=True)
-        # Note: If it's multi_class, you usually don't sort, or you pick a specific class to sort by (like "exoplanet")
         
         predictions_df_fp = res_dir / f'predictions_{dataset}set.csv'
+        predictions_df_fps[dataset] = predictions_df_fp
         
         # add metadata
         predictions_df.attrs['experiment'] = res_dir.name
@@ -1246,6 +1244,9 @@ def predict_model(config, model_paths, res_dir, max_model_workers=1, logger=None
             for key, value in predictions_df.attrs.items():
                 f.write(f"# {key}: {value}\n")
             predictions_df.to_csv(f, index=False)
+
+    return predictions_df_fps
+
 
 def create_tic_id_pattern(row, data_collection_mode):
     """ Create a formatted string pattern combining the TIC ID and sector ID.

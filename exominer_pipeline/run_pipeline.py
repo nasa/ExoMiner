@@ -659,14 +659,13 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     print(f'Running inference on TCEs in the TFRecord dataset using trained ExoMiner model...')
     # find all files starting with "shard-tess" inside any "tfrecord_data_diffimg_normalized" folder
     tfrec_files = list(output_dir.rglob('**/tfrecord_data_diffimg_normalized/shard-tess*'))    
-    inference_pipeline(run_config, output_dir, tfrec_files, logger)
-    pred_tbl_fp = output_dir / 'predictions_predictset.csv'
+    pred_tbl_fp = inference_pipeline(run_config, output_dir, tfrec_files, logger)
     if pred_tbl_fp.exists():
         pred_tbl = pd.read_csv(pred_tbl_fp, comment='#')
         add_metadata_to_predictions_table(pred_tbl, pred_tbl_fp, run_config, output_dir, 
                                           data_collection_mode, stellar_parameters_source, ruwe_source, 
                                           task, exominer_model)
-        logger.info(f'Saved predictions to {pred_tbl_fp}.')
+        logger.info(f'Added metadata to predictions table and saved to {pred_tbl_fp}.')
         
         if len(pred_tbl) > 0 and 'uid' in pred_tbl.columns:
             master_tracker.loc[master_tracker['uid'].isin(pred_tbl['uid']), 'has_prediction'] = True

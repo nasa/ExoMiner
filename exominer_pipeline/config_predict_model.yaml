@@ -210,12 +210,6 @@ label_field_name: label  # name of the label field in the TFRecord that is going
 inference:
   batch_size: 32
 
-label_map:  # maps label to a label id
-  UNK: 0
-
-datasets:
-  - predict
-
 plot_model: false
 write_model_summary: false
 verbose_model: 1  # for fit, eval, predict functions

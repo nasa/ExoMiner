@@ -14,7 +14,10 @@ of a CSV file).
 
 ## Running the Podman container application
 
-```bash
+![ExoMiner Pipeline flowchart.](../others/images/exominer-pipeline-flowchart.png "ExoMiner Pipeline flowchart.")
+<!-- <iframe src="../others/images/exominer-pipeline-flowchart.svg" width="100%" height="500px"></iframe> -->
+
+<!-- ```bash
 🖥️ [ Main Process ]
                                            |
                               🔀 (Multiprocessing: Splits into N Jobs)
@@ -56,9 +59,11 @@ of a CSV file).
                                 📉 - Average ensemble scores
                                 💾 - Save prediction CSVs
                                 📑 - Query MAST for DV reports [opt]
-```
+``` -->
+
+
 The pipeline is structured in two separate stages: 
-- **Stage 1 [DATA PREPROCESSING]**: the TIC IDs defined in the input table `tics_tbl_fp` are split into `num_jobs` jobs, each one responsible for downloading/reading the light curves and SPOC DV XML files for those targets, and prepocessing the inputs for the SPOC TCEs to be fed to the ExoMiner model. The number of processes `num_processes` determines how many workers to spawn in parallel to run those jobs. Set `num_processes` according to your system resources. For example, if running on an 8-core CPU machine, you can have up to 8 parallel workers processing up to 8 jobs at any given time. Keep in mind that each process takes up its own memory and you might need some resources for your other tasks. **If you are running into memory issues, decrease the number of processes used to parallelize data preprocessing.** It is recommendeded to set the number of jobs to be larger than the number of processes being used.
+- **Stage 1 [DATA EXTRACTION & PREPROCESSING]**: the TIC IDs defined in the input table `tics_tbl_fp` are split into `num_jobs` jobs, each one responsible for downloading/reading the light curves and SPOC DV XML files for those targets, and prepocessing the inputs for the SPOC TCEs to be fed to the ExoMiner model. The number of processes `num_processes` determines how many workers to spawn in parallel to run those jobs. Set `num_processes` according to your system resources. For example, if running on an 8-core CPU machine, you can have up to 8 parallel workers processing up to 8 jobs at any given time. Keep in mind that each process takes up its own memory and you might need some resources for your other tasks. **If you are running into memory issues, decrease the number of processes used to parallelize data preprocessing.** It is recommendeded to set the number of jobs to be larger than the number of processes being used.
 - **Stage 2 [MODEL INFERENCE]**: after creating the dataset in Stage 1, the model inference is performed. This stage involves loading the model and dataset into memory, and running inference to produce the final set of predictions for the SPOC TCEs found in those targets and sector runs whose data were successfully preprocessed. The `max_model_workers` defines the maximum number of processes running in parallel for the model inference in the case of choosing ensemble models. Again, the number of processes should be adjusted based on your system resources (start small and increase if you think you have enough wiggle room to increase parallelization). **More workers means faster inference when using ensemble models since more models are running inference in parallel. However, more workers also means higher memory usage (more processes and threads running for the data ingestion pipeline, loading weights, activations, and library binaries). Start with a small number of workers. If you are running into memory issues, lower the number of workers**.
 
 A **detailed explanation of the ExoMiner Pipeline outputs** can be found in [here](../docs/pipeline_outputs/exominer-pipeline-outputs.pdf).
@@ -399,7 +404,7 @@ exominer_pipeline_run_name
 ├── podman_output.log (or python_output.log)
 ├── plot_inputs_to_model [optional]
 ├── dv_reports_all_jobs.csv [optional]
-├── predictions_predictset.csv
+├── predictions_spoc-tces_set.csv
 ├── pipeline_run_config.yaml
 ├── tics_tbl.csv
 ├── run_parameters.txt
@@ -427,7 +432,7 @@ exominer_pipeline_run_name
 - `podman_output.log (or python_output.log)`: stdout/stderr output of the pipeline.
 - `plot_inputs_to_model`: this directory will contain summary PDF files for each TCE, showing the inputs provided to the model after preprocessing in the ExoMiner Pipeline. This summary includes plots such as odd/even comparison, weak secondary, periodogram, and difference images.
 - `dv_reports_all_jobs.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contains, for each TCE in all the queried TICs, the URLs for the TESS SPOC DV data reports found at the MAST.
-- `predictions_predictset.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
+- `predictions_spoc-tces_set.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
 - `pipeline_run_config.yaml`: YAML file that stores some of the run parameters internally used in the Podman container.
 - `tics_tbl.csv`: CSV file containing the queried TIC IDs and sector runs.
 - `run_parameters.txt`: text file containing information about the parameters used for the run, including the version of the pipeline.

@@ -14,6 +14,8 @@ set -euo pipefail
 IMAGE_NAME="${IMAGE_NAME:-exominer}"
 DOCKERFILE="${DOCKERFILE:-Dockerfile}"
 
+PIPELINE_YAML_FILE="exominer_pipeline/pipeline_info.yaml" 
+
 # Build metadata
 SOFTWARE_VERSION_NUMBER="2.1.0"
 GIT_REVISION="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
@@ -82,9 +84,36 @@ usage() {
     exit 1
 }
 
+update_yaml_metadata() {
+    echo "============================================================"
+    echo "Updating YAML metadata file: ${PIPELINE_YAML_FILE}"
+    echo "============================================================"
+    
+    if [[ -f "${PIPELINE_YAML_FILE}" ]]; then
+        # Use a temp file for cross-platform compatibility (macOS vs Linux)
+        local tmp_file
+        tmp_file=$(mktemp)
+        
+        sed -e "s/^Version Number:.*/Version Number: ${SOFTWARE_VERSION_NUMBER}/" \
+            -e "s/^Git Commit Hash:.*/Git Commit Hash: ${GIT_REVISION}/" \
+            -e "s/^Build Date:.*/Build Date: ${BUILD_DATE}/" \
+            "${PIPELINE_YAML_FILE}" > "${tmp_file}"
+            
+        mv "${tmp_file}" "${PIPELINE_YAML_FILE}"
+        echo "Successfully updated ${PIPELINE_YAML_FILE}!"
+    else
+        echo "Warning: ${PIPELINE_YAML_FILE} not found. Skipping YAML update."
+    fi
+    echo
+}
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
+
+# Update the YAML file before kicking off the builds
+update_yaml_metadata
+
 case "${TARGET}" in
     arm64)
         build_image "arm64"

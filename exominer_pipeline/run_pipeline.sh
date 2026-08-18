@@ -6,43 +6,43 @@
 
 # execution runner ('python' for Python or 'podman' for Podman application)
 runner="podman"
-podman_img="localhost/exominer:latest"  # "ghcr.io/nasa/exominer"
+podman_img="localhost/exominer:arm64"  # "ghcr.io/nasa/exominer"
 
 # python pipeline python script (used if runner=python)
 pipeline_python_script=/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/run_pipeline.py
 # path to TIC IDs input table
 tics_tbl_fp=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/test_tics_spoc-ffi_6-19-2026.csv
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_exominer-pipeline_planet-validation_ffi_7-2-2026_1501
+exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_exominer-pipeline_phot-vetting_ffi_8-18-2026_1024
 # data collection mode: either 2min or ffi
 data_collection_mode="ffi"
 # number of processes used for preprocessing parallelization
-num_processes=3
+num_processes=4
 # number of jobs to split the TIC IDs for preprocessing
-num_jobs=3
+num_jobs=2
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
-get_mast_urls_dv_reports="false"
+get_mast_urls_dv_reports="true"
 # path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
 # want to query; set to "null" otherwise
-dv_xml_data_repository="null" #"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/lc_dv_data" 
-lc_data_repository="null" # "/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/lc_dv_data"
+dv_xml_data_repository="null" # "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/dv/xml_files/sector_runs/" 
+lc_data_repository="null" # "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/data/FITS_files/TESS/spoc_2min/lc/sectors/" 
 # define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
 # parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
 # parameters, it will use those values.
-stellar_parameters_source="ticv8" #"/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/tic8_results.csv"
+stellar_parameters_source="ticv8" # "/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/data/source_catalogs/stellar_tics_s14-s86.csv" 
 # define source of Gaia RUWE for TICs. If set to 'gaiadr2', 'gaiadr3', or 'gaiaedr3', Gaia DR2, DR3, or EDR3, respectively is queried; if set to 'unavailable', it assumes the
 # values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
 # values.
-ruwe_source="gaiadr2" # "/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/gaiadr2.csv_with_ticid.csv"
+ruwe_source="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/ruwe_tic935675849.csv"
 # Whether to plot model input figures for all SPOC TCEs found
-plot_inputs_to_model="false"
+plot_inputs_to_model="true"
 # choose classification task between "phot-vetting" (PC vs AFP vs NTP) and "planet-validation" (planet vs not-planet).
-task="planet-validation"
+task="phot-vetting"
 # choose type of ExoMiner model among: single, cv_ensemble (avg 10 models), or full_cv_ensemble (avg 10 ensemble CV models)
-exominer_model="cv_ensemble"
+exominer_model="single"
 # max number of workers for inference parallelization
-max_model_workers=4
+max_model_workers=1
 
 # Help message
 show_help() {
@@ -88,7 +88,7 @@ while [[ $# -gt 0 ]]; do
         --plot_inputs_to_model) plot_inputs_to_model="$2"; shift 2 ;;
         --task) task="$2"; shift 2 ;;
         --exominer_model) exominer_model="$2"; shift 2 ;;
-        --max_model_workers) exominer_model="$2"; shift 2 ;;
+        --max_model_workers) max_model_workers="$2"; shift 2 ;;
         --help)
             show_help
             exit 0
@@ -138,8 +138,10 @@ EOF
 
 if [ "$runner" = "podman" ]; then
 
+    run_name=$(basename "$exominer_pipeline_run_dir")
+
     # set up volume mounts
-    volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+    volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/$run_name:Z"
 
     # conditionally add external_data_repository mount
     if [ "$dv_xml_data_repository" != "null" ]; then
@@ -206,7 +208,7 @@ if [ "$runner" = "podman" ]; then
       ${volume_mounts} \
       $podman_img \
       --tic_ids_fp=/tics_tbl.csv \
-      --output_dir=/outputs \
+      --output_dir=/$run_name \
       --data_collection_mode=$data_collection_mode \
       --num_processes=$num_processes \
       --num_jobs=$num_jobs \
