@@ -7,7 +7,7 @@ num_sampled_imgs: 5  # number of sampled quarters/sector runs
 final_size:  # size for preprocessed images before resizing; actual final size depends on upscale factor (final_size * upscale_f)
   x: 11 # 11
   y: 11 # 11
-resize_images: false
+resize_images: true
 upscale_f:  # upscale factor for resized images; final image size is (upscale_f['x'] * final_size['x'], upscale_f['y'] * final_size['y'])
   # x: 3
   # y: 3
