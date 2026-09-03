@@ -40,12 +40,12 @@ natbib=true
 \newcommand{\ExoMinerPipeline}{\texttt{ExoMiner Pipeline}}
 
 
-\title{
-    \includegraphics[width=0.35\textwidth]{images/exominer_logo.png} \\
-    \vspace{0.5cm}
-    ExoMiner Pipeline Outputs \\
-    \large For Pipeline Version 2.1
-    }
+% \title{
+%     \includegraphics[width=0.35\textwidth]{images/exominer_logo.png} \\
+%     \vspace{0.5cm}
+%     ExoMiner Pipeline Outputs \\
+%     \large For Pipeline Version 2.1
+%     }
 % \author{
 % Miguel Martinho, Hamed Valizadegan, Jon Jenkins, Douglas Caldwell, Ben Tofflemire, Marzyie Jafariyazani \\\ 
 % \href{mailto:miguel.martinho@nasa.gov}{miguel.martinho@nasa.gov} \\\ 
@@ -106,7 +106,7 @@ The file begins with a metadata header, denoted by lines starting with the \text
 \begin{itemize}
     \item \textbf{Pipeline Versioning:} Git commit hash, release date, and version number (e.g., Version 2.1).
     \item \textbf{Run Configuration:} name of the pipeline run, date the run started, classification task (e.g., \texttt{phot-vetting}), type of ExoMiner model used (e.g., single or ensemble model variant), data collection mode (either 2min or FFI), and the data sources utilized for stellar parameters and Renormalized Unit Weight Error (RUWE).
-    \item \textbf{Classification Threshold \& Label Map:} Definitions for the target classes; These include Planet Candidate (PC), Astrophysical False Positive (AFP), and Non-Transiting Phenomena (NTP) for photometric vetting, and Planet and Non-Planet for the planet validation task. For the 3-class photometric vetting task, each TCE is assigned the disposition of the class that scored the highest; for the 2-class planet vs non-planet task, the classification threshold defines the decision threshold for assigning a planet/non-planet disposition.
+    \item \textbf{Classification Threshold \& Label Map:} Definitions for the target classes; these include Planet Candidate (PC), Astrophysical False Positive (AFP), and Non-Transiting Phenomena (NTP) for photometric vetting, and Planet and Non-Planet for the planet validation task. For the 3-class photometric vetting task, each TCE is assigned the disposition of the class that scored the highest; for the 2-class planet vs non-planet task, the classification threshold defines the decision threshold for assigning a planet/non-planet disposition.
 \end{itemize}
 
 \subsubsection*{Data Columns}
@@ -163,20 +163,20 @@ Figure~\ref{fig:csv_snippet} provides an example of the raw CSV output generated
 # NTP: non-transiting phenomena
 # Column Definitions: ========================
 # Column: uid: Unique SPOC TCE identifier with pattern <tic_id>-<tce_plnt_num>-S<sector_run_id> (e.g., 123456789-1-S1, 123456789-1-S1-3) (string)
-# Column: target_id: TIC ID of the target star (int scalar)
-# Column: sector_run: SPOC sector run identifier. If single sector run follows format <sector>. If multisector runs follows format <start_sector>-<end_sector>(string)
-# Column: tce_plnt_num: SPOC TCE planet number (int scalar)
-# Column: tce_period: TCE period in days (float scalar)
-# Column: tce_duration: TCE duration in hours (float scalar)
-# Column: tce_time0bk: TCE time of first transit in BTJD (float scalar)
-# Column: tce_depth: TCE depth in ppm (float scalar)
-# Column: ruwe: Renormalized Unit Weight Error from Gaia (float scalar)
-# Column: tce_prad: TCE planet radius in Earth radii (float scalar)
-# Column: tce_max_mult_ev: TCE max multiple event statistic (float scalar)
+# Column: target_id: TIC ID of the target star ( int)
+# Column: sector_run: SPOC sector run identifier. If single sector run follows format <sector>. If multisector runs follows format <start_sector>-<end_sector> (string)
+# Column: tce_plnt_num: SPOC TCE planet number (int)
+# Column: tce_period: TCE period in days (float)
+# Column: tce_duration: TCE duration in hours (float)
+# Column: tce_time0bk: TCE time of first transit in BTJD (float)
+# Column: tce_depth: TCE depth in ppm (float)
+# Column: ruwe: Renormalized Unit Weight Error from Gaia (float)
+# Column: tce_prad: TCE planet radius in Earth radii (float)
+# Column: tce_max_mult_ev: TCE max multiple event statistic (float)
 # Column: matchedToiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
-# Column: score/score_<disp>: if using ExoMiner for photometric vetting there are three columns with ExoMiner mean scores for PC/AFP/NTP classes/disposition categories summing up to 1. For planet vs non-planet validation there is a single score.
-# Column: score_std/score_std_<disp>: uncertainty score when using an ensemble model.
-# Column: prediction: predicted disposition based on classification threshold and ExoMiner mean score(s)
+# Column: score/score_<disp>: The ExoMiner prediction score (mean score if using an ensemble). (float). For Photometric Vetting, this generates three columns (score_PC, score_AFP, score_NTP) representing the scores for each disposition category, which sum to 1.0. For Planet Validation, this generates a single score column where a value closer to 1.0 indicates higher confidence that the TCE is a true planet.
+# Column: score_std/score_std_<disp>: The uncertainty in the ExoMiner prediction, calculated as the standard deviation across an ensemble (will be 0.0 if using a single model). (float). For Photometric Vetting, this generates three columns (score_std_PC, score_std_AFP, score_std_NTP) representing the uncertainty for each respective disposition. For Planet Validation, this generates a single score_std column representing the uncertainty of the validation score.
+# Column: prediction: predicted disposition based on classification threshold and ExoMiner score (string)
 uid, target_id, sector_run, tce_plnt_num, tce_period, tce_duration, tce_time0bk, tce_depth, ruwe, tce_prad, tce_max_mult_ev, matchedToiId, score_PC,score_std_PC,score_AFP,score_std_AFP,score_NTP,score_std_NTP,prediction
 27397122-1-S14-86, 27397122, 14-86, 1, 12.732, 3.292, 1689.460, 14560.665, 1.046, 25.507, 117.426, not_matched, 0.826, 0.240, 0.172, 0.239, 0.002, 0.003, PC
 \end{lstlisting}
@@ -192,29 +192,29 @@ As supporting products, the pipeline can generate a summary report in PDF format
     \item Plots and visualizations similar to those used by expert vetters for vetting of planet candidates. The Data Validation reports generated by the SPOC pipeline~\citep{Jenkins2016SPIE} were used as a guideline when designing the summary report provided by the \ExoMinerPipeline, although both contain plots that are not shared.
 \end{itemize}
 
-In the following sections, we describe each plot and image shown in the summary report using 2-min SPOC TCE \texttt{TIC 66818296.1} in S1-S92 as an example.
+In the following sections, we describe each plot and image shown in the summary report using 2-min SPOC TCE \texttt{TIC 347538174.1} in S14-S86 as an example.
 
 \subsection{Flux and Centroid Offset}
 
 The phase-folded and binned flux and centroid plots, provided in Figure~\ref{fig:phase_folded_flux-centroid}, are a condensed representation of most of the time series data provided as input to the model. The top of the page includes the SPOC TCE's ephemerides along with several TCE fit parameters such as transit depth, MES, and planet radius. These values are sourced from the SPOC DV results. The stellar parameters provided by the source catalog (e.g., TICv8) are also shown. The names in the header follow the nomenclature used in the SPOC pipeline and can be found in the Exoplanet Archive Kepler's TCEs data columns definitions table~\citep{nexa_tce_api}. 
 
-The plots are generated by detrending the corresponding time series (i.e., flux, flux-weighted centroid motion) using a Savizkty-Golay filter and phase-folding using the epoch and orbital period of the detected SPOC TCE. Each time series datum (i.e., black dot) represents the median value within the bin, while the red dashed line shows the standard error of the mean envelope for the bins. A larger number of transit observations, as well as cleaner transits, result in a tighter envelope. For a more detailed explanation of the data preprocessing steps we refer the reader to~\citep{valizadegan2022exominer,valizadegan2025exominer++}. 
+The plots are generated by detrending the corresponding time series (i.e., flux, flux-weighted centroid motion) using a Savizkty-Golay filter and phase-folding using the epoch and orbital period of the detected SPOC TCE. Each time series datum (i.e., black dot) represents the median value within the bin, while the red dashed line shows the standard error of the mean (SEM) envelope for the bins. A larger number of transit observations, as well as cleaner transits, result in a tighter envelope. For a more detailed explanation of the data preprocessing steps we refer the reader to~\citep{valizadegan2022exominer,valizadegan2025exominer++}. 
 
 The title of each plot in this page provides the name of time series along with the number of transits phase-folded and binned to create it. The x-axis shows the phase in hours centered in the detected epoch, with the \enquote{transit-view} plots showing the phase in $[-2.5,2.5]$ transit durations while the \enquote{full-orbit} plots show the complete orbital period. The y-axis of the flux time series plots is the relative flux, and that for the centroid motion time series is the centroid offset relative to the target's TIC coordinates. In several cases, this offset can be unreliable and may differ from the vector displacements reported in standard SPOC centroid offset plots which rely on difference image analysis. This discrepancy arises because the measured center of light often contains a static baseline offset from the catalog position due to background crowding (blending), stellar proper motion, or slight coordinate systematic biases. The \enquote{full-orbit trend} plot shows the phase-folded and binned residual of the Savitzky-Golay filter. As legacy, the momentum dump flag time series is shown as part of this page, although no longer used by ExoMiner as an input feature.
 
 % \begin{figure}[htbp]
 %     \centering
 %     % Constrain to textwidth so it doesn't bleed off the edges
-%     \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
-%     \caption{Phase-folded and binned flux and centroid plots for TIC 66818296.1.}
+%     \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic347538174-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
+%     \caption{Phase-folded and binned flux and centroid plots for TIC 347538174.1.}
 %     \label{fig:phase_folded_flux}
 % \end{figure}
 
 % \begin{sidewaysfigure}[htbp]
 %     \centering
 %     % Because the page is sideways, the 'width' of the image is now matched to the 'height' of the text area!
-%     \includegraphics[width=\textheight]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
-%     \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 66818296.1}.}
+%     \includegraphics[width=\textheight]{images/tess-spoc-tce_tic347538174-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
+%     \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 347538174.1}.}
 %     \label{fig:phase_folded_flux-centroid}
 % \end
 
@@ -224,9 +224,9 @@ The title of each plot in this page provides the name of time series along with 
 % \begin{figure}[htbp]
 %     \centering
 %     \makebox[\linewidth][c]{
-%         \includegraphics[width=1.1\linewidth, height=1\textheight, keepaspectratio]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
+%         \includegraphics[width=1.1\linewidth, height=1\textheight, keepaspectratio]{images/tess-spoc-tce_tic347538174-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
 %     }
-%     \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 66818296.1}.}
+%     \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 347538174.1}.}
 %     \label{fig:phase_folded_flux-centroid}
 % \end{figure}
 
@@ -240,9 +240,9 @@ The title of each plot in this page provides the name of time series along with 
 %     \begin{figure}[htbp]
 %         \centering
 %         \makebox[\linewidth][c]{
-%             \includegraphics[width=1.1\linewidth, height=1\textheight, keepaspectratio]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
+%             \includegraphics[width=1.1\linewidth, height=1\textheight, keepaspectratio]{images/tess-spoc-tce_tic347538174-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
 %         }
-%         \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 66818296.1}.}
+%         \caption{Phase-folded and binned flux and centroid plots for \texttt{TIC 347538174.1}.}
 %         \label{fig:phase_folded_flux-centroid}
 %     \end{figure}
     
@@ -257,10 +257,10 @@ The title of each plot in this page provides the name of time series along with 
     % We use center instead of figure so it CANNOT float away
     \begin{center}
         \makebox[\linewidth][c]{
-            \includegraphics[width=1.1\linewidth, height=1\textheight, keepaspectratio]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_phasef-bin-flux-centroid.pdf}
+            \includegraphics[width=1.1\linewidth, height=0.9\textheight, keepaspectratio]{images/tess-spoc-tce_tic347538174-1-S14-86_summary_exominer-pipeline_overall.pdf}
         }
         % \captionof allows us to have a figure caption without the figure environment
-        \captionof{figure}{Phase-folded and binned flux and centroid plots for \texttt{TIC 66818296.1}.}
+        \captionof{figure}{Phase-folded and binned flux and centroid plots for \texttt{TIC 347538174.1}.}
         \label{fig:phase_folded_flux-centroid}
     \end{center}
     
@@ -269,40 +269,40 @@ The title of each plot in this page provides the name of time series along with 
 
 \subsection{Weak Secondary}
 
-The weak secondary plots shown in Figure~\ref{fig:weak_secondary} are centered on the detected secondary transit. The top plot shows the phase-folded flux time series and the red dashed vertical line points to the primary transit midpoint. The bottom plots show the \enquote{transit-view} centered also on the secondary transit midpoint and show the phase range in $[-2.5,2.5]$ transit durations. In the bottom-left plot, if the primary transit is within that interval, a red dashed vertical line will indicate its location. Finally, the bottom-right plot shows the same view as the bottom-left counterpart, but without the individual data points and the phase-folded and binned transit-view time series was normalized by the absolute minimum, which makes the differences in magnitude more salient. This is the normalized version that is given as input to the model.
+The weak secondary plots shown in Figure~\ref{fig:weak_secondary} are centered on the detected secondary transit. The top plot shows the phase-folded flux time series and the red triangle at the bottom of the plot points to the primary transit midpoint. The bottom plots show the \enquote{transit-view} centered also on the secondary transit midpoint and show the phase range in $[-2.5,2.5]$ transit durations. If the primary transit is within that interval, a red triangle at the bottom of the plot will indicate its location. \textbf{Note:} While the SPOC pipeline gaps the primary transits of previous TCEs detected in the same run and for the same target star, the ExoMiner Pipeline plots do not follow this procedure. \textit{Consequently, vetters should be aware that the flux plots may display transits associated with other previously detected TCEs.}
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_weak-secondary.pdf}
-    \caption{Weak secondary plots for \texttt{TIC 66818296.1}.}
+    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic347538174-1-S14-86_summary_exominer-pipeline_wks.pdf}
+    \caption{Weak secondary plots for \texttt{TIC 347538174.1}.}
     \label{fig:weak_secondary}
 \end{figure}
 
 \subsection{Odd-even}
 
-For the odd-even transit depth comparison, the plots in the top row of the Figure~\ref{fig:odd_even} show the phase-folded and binned transit-view flux time series for the odd (left) and even (right). The bottom plot overlaps the two binned time series for easier visual comparison. The two time series were created by using the same TCE ephemerides but using alternating phases. The red dots show the median bin values and are connected by lines. The data points used to create the binned versions are shown in black with some transparency.
+For the odd-even transit depth comparison, the plot in Figure~\ref{fig:odd_even} shows the phase-folded and binned transit-view flux time series for the odd (green) and even (red) transits. The two time series were created by using the same TCE ephemerides but using alternating phases. Similar to the plots in Figure~\ref{fig:phase_folded_flux-centroid}, the SEM envelope for both odd and even flux time series is shown using dashed lines. The data points used to create the binned versions are shown in black with some transparency.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_odd-even.pdf}
-    \caption{Odd-even plots for \texttt{TIC 66818296.1}.}
+    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic347538174-1-S14-86_summary_exominer-pipeline_odd-even.pdf}
+    \caption{Odd-even plots for \texttt{TIC 347538174.1}.}
     \label{fig:odd_even}
 \end{figure}
 
 \subsection{Periodogram}
 
-The periodogram page shown in Figure~\ref{fig:pgram} shows the full flux time series in the top plot. For multisector run TCEs whose targets were observed in multiple sectors, this plot can be squashed and hard to read since it spans the full observation time from the first to the last observed sector. The transit pulse model (TPM) time series shows a simple transit pulse created using the detected ephemerides. The figure's header shows the period and corresponding frequency detected by the SPOC pipeline. The center plot shows the periodogram for both the flux and TPM time series. The first five harmonics are highlighted using red dashed vertical lines, and the header shows the max amplitude and its corresponding frequency. Both periodograms are also shown using a smoothed version. The bottom plot shows the same data, but each periodogram was normalized by its maximum amplitude. All periodograms are shown in a log-scale in the frequency domain.
+The periodogram page shown in Figure~\ref{fig:pgram} shows the periodograms for both the flux time series as well as the transit pulse model (TPM) for the SPOC TCE. The TPM time series shows a simple transit pulse created using the detected ephemerides. The figure's header shows the period and corresponding frequency detected by the SPOC pipeline. The top plot shows the periodogram for both the flux and TPM time series. The first five harmonics of the detected period for the TCE are highlighted using red triangles at the bottom of the plot, and the header shows the max amplitude and its corresponding frequency. Both periodograms are also shown using a smoothed version. The bottom plot shows the same data, but each periodogram was normalized by its maximum amplitude. All periodograms are shown in a log-scale in the period domain.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_pgram.pdf}
-    \caption{Periodogram plots for \texttt{TIC 66818296.1}.}
+    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic347538174-1-S14-86_summary_exominer-pipeline_pgram.pdf}
+    \caption{Periodogram plots for \texttt{TIC 347538174.1}.}
     \label{fig:pgram}
 \end{figure}
 
 \subsection{Difference Image}
 
-For each sector the target was observed and it was possible for SPOC to generate difference images for the TCE, the summary report shows a page with several images related to the difference image data in that sector. Figure~\ref{fig:diff_img} shows an example for \texttt{TIC 66818296.1} in sector 12. In all these images the location of the target according to its TIC coordinates is shown as a red cross. The title of the figure shows the sector ID, the target's TESS Magnitude, and the computed quality metric in the SPOC Data Validation (DV) pipeline (correlation between the difference image and the pixel response function centered on the centroid of the difference image). Four different types of images are computed per sector:
+For each sector in which the target was observed and the SPOC pipeline was able to generate difference images for the TCE, the summary report shows a page with several images related to the difference image data in that sector. Figure~\ref{fig:diff_img} shows an example for \texttt{TIC 347538174.1} in sector 51. In all these images the location of the target according to its TIC coordinates is shown as a red cross. The title of the figure shows the sector ID, the target's TESS Magnitude, and the computed quality metric in the SPOC Data Validation (DV) pipeline (correlation between the difference image and the pixel response function centered on the centroid of the difference image). Four different types of images are computed per sector:
 \begin{itemize}
     \item Difference flux: mean image created by subtracting the in-transit image from the out-of-transit image. This image is created in the DV module of the SPOC pipeline.
     \item Out-of-transit flux: mean image created using all image data for the out-of-transit cadences. This image is created in the DV module of the SPOC pipeline. Any negative pixels are greyed out.
@@ -312,8 +312,8 @@ For each sector the target was observed and it was possible for SPOC to generate
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline_diff-img.pdf}
-    \caption{Difference image plots for \texttt{TIC 66818296.1} in sector 12.}
+    \includegraphics[width=\textwidth]{images/tess-spoc-tce_tic347538174-1-S14-86_summary_exominer-pipeline_diff-img.pdf}
+    \caption{Difference image plots for \texttt{TIC 347538174.1} in sector 51.}
     \label{fig:diff_img}
 \end{figure}
 
