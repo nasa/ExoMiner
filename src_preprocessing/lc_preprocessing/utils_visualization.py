@@ -1,6 +1,7 @@
 """ Auxiliary functions used to plot outcome from different steps along the preprocessing pipeline. """
 
 # 3rd party
+import matplotlib as mpl
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from astropy import units as u
 from PIL import Image
 import glob
+import matplotlib.lines as mlines
+import matplotlib.ticker as ticker
 
 plt.switch_backend('agg')
 # plt.rcParams['text.usetex'] = True
@@ -721,7 +724,7 @@ def plot_view_exominer_pipeline(views, tce, config, scheme, savefp, plot_var, dr
         tce['tce_duration'] * 24
     )
 
-    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 10))
+    f, ax = plt.subplots(scheme[0], scheme[1], figsize=(20, 14))
     k = 0
     for i in range(scheme[0]):
         for j in range(scheme[1]):
@@ -761,14 +764,13 @@ def plot_view_exominer_pipeline(views, tce, config, scheme, savefp, plot_var, dr
     plt.close()
 
 
-def plot_wks(glob_view, glob_view_weak_secondary, tce, config, savedir, basename):
+def plot_wks(glob_view, glob_view_weak_secondary, tce, savedir, basename):
     """ Creates and saves a figure with plots of the global flux view and global weak secondary flux view for a given
     TCE.
 
     :param glob_view: NumPy array, global flux view
     :param glob_view_weak_secondary: NumPy array, global weak secondary flux view
     :param tce: pandas Series, row of the input TCE table Pandas DataFrame
-    :param config: dict, preprocessing parameters.
     :param savedir: str, filepath to directory in which the figure is saved
     :param basename: str, added to the figure filename
     :return:
@@ -1068,8 +1070,8 @@ def plot_phasefolded_and_binned(timeseries, binned_timeseries, tce, config, save
     plt.close()
 
 
-def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp, sigma_factor=6,
-                  delta_factor=0.998):
+def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp,
+                  exclusion_prim_factor=1.5, outlier_sigma_high=5, outlier_sigma_low=3):
     """ Creates and saves a figure with plots for odd-even transit depth test for a given TCE.
 
     :param binned_timeseries: dict, binned views
@@ -1077,85 +1079,111 @@ def plot_odd_even(binned_timeseries, phasefolded_timeseries, tce, config, savefp
     :param tce: Pandas Series, row of the input TCE table Pandas DataFrame
     :param config: dict, preprocessing parameters.
     :param savefp: Path, filepath
-    :param sigma_factor: float, used for defining the maximum amplitude range in the plots
-    (med(phase_folded_flux) + sigma_factor * mad_std(phase_folded flux))
-    :param delta_factor: float, used for defining the minimum amplitude in the plots
-    (delta_factor * min(min value among all binned time series)
+    :param exclusion_prim_factor: float, factor by which to exclude primary transit from the calculation of the baseline.
+    :param outlier_sigma_high: float, sigma threshold above which a point is considered an outlier.
+    :param outliter_sigma_low: float, sigma threshold below which a point is considered an outlier.
     :return:
     """
 
-    # timeseries_madstd, timeseries_med = (mad_std(timeseries['Flux'][1], ignore_nan=True),
-    #                                      np.nanmedian(timeseries['Flux'][1]))
-    # std_range = sigma_factor * timeseries_madstd
-    # min_range = delta_factor * np.nanmin(np.concatenate([phasefolded_timeseries['odd_flux'][1],
-    #                                                      phasefolded_timeseries['even_flux'][1],
-    #                                                      binned_timeseries['odd_flux_local'][1],
-    #                                                      binned_timeseries['even_flux_local'][1]]))
-    # range_timeseries = [min_range, timeseries_med + std_range]
-
     local_view_time_interval = tce['tce_duration'] * (config['num_durations'])
 
-    gs = gridspec.GridSpec(2, 2)
+    # --- 1. Calculate robust Y-axis limits using MAD ---
+    x_odd = phasefolded_timeseries['flux_odd'][0]
+    y_odd = phasefolded_timeseries['flux_odd'][1]
+
+    x_even = phasefolded_timeseries['flux_even'][0]
+    y_even = phasefolded_timeseries['flux_even'][1]
+
+    # Extract binned data early for limit calculation
+    x_even_binned = binned_timeseries['flux_even_local'][0]
+    y_even_binned = binned_timeseries['flux_even_local'][1]
+    err_even_binned = binned_timeseries['flux_even_local'][2]
+
+    x_odd_binned = binned_timeseries['flux_odd_local'][0]
+    y_odd_binned = binned_timeseries['flux_odd_local'][1]
+    err_odd_binned = binned_timeseries['flux_odd_local'][2]
+
+    # Combine out-of-transit data to calculate the true baseline scatter
+    duration_days = tce['tce_duration']
+
+    mask_odd = np.abs(x_odd) > (exclusion_prim_factor * duration_days)
+    mask_even = np.abs(x_even) > (exclusion_prim_factor * duration_days)
+
+    # Also create masks for binned data
+    mask_odd_binned = np.abs(x_odd_binned) > (exclusion_prim_factor * duration_days)
+    mask_even_binned = np.abs(x_even_binned) > (exclusion_prim_factor * duration_days)
+
+    # Include BOTH unbinned and binned out-of-transit data
+    y_valid_combined = np.concatenate([
+        y_odd[mask_odd], 
+        y_even[mask_even],
+        y_odd_binned[mask_odd_binned],
+        y_even_binned[mask_even_binned]
+    ])
+
+    if len(y_valid_combined) > 0:
+        # Calculate robust scatter using Median Absolute Deviation (MAD)
+        median_flux = np.nanmedian(y_valid_combined)
+        mad_flux = np.nanmedian(np.abs(y_valid_combined - median_flux))
+        robust_std = mad_flux * 1.4826
+        
+        # Upper Bound: Consider binned data + error envelopes
+        y_high_candidates = [
+            median_flux + (outlier_sigma_high * robust_std),
+            np.nanmax(y_even_binned + err_even_binned),
+            np.nanmax(y_odd_binned + err_odd_binned)
+        ]
+        y_high = max(y_high_candidates)
+        
+        # Lower Bound: Consider binned data - error envelopes
+        binned_min_odd = np.nanmin(y_odd_binned - err_odd_binned)
+        binned_min_even = np.nanmin(y_even_binned - err_even_binned)
+        binned_min = min(binned_min_odd, binned_min_even)
+        
+        y_low = binned_min - (outlier_sigma_low * robust_std)
+        
+        # # Fallback safety
+        # y_low = max(y_low, median_flux - (10 * robust_std))
+        
+        ylim_bounds = [y_low, y_high]
+    else:
+        ylim_bounds = None
+
+    # --- 2. Create the Plot ---
     f = plt.figure(figsize=(20, 14))
+    ax = plt.subplot()
 
-    # odd_flux_local (phase-folded + binned ts)
-    ax = plt.subplot(gs[0, 0])
-    # if len(timeseries['Odd Flux'][0]) > 0:
-    ax.scatter(phasefolded_timeseries['flux_odd'][0] * 24, phasefolded_timeseries['flux_odd'][1], color='k', s=5,
-               alpha=0.1)
-    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='r')
-    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'c')
-    ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase [hour]')
-    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    ax.set_title('Odd')
-    # if not np.isnan(range_timeseries).any():
-    #     ax.set_ylim(range_timeseries)
+    # Scatter unbinned phase-folded data
+    ax.scatter(x_odd * 24, y_odd, color='k', s=5, alpha=0.1, zorder=1)
+    ax.scatter(x_even * 24, y_even, color='k', s=5, alpha=0.1, zorder=1)
 
-    # even_flux_local (phase-folded + binned ts)
-    ax = plt.subplot(gs[0, 1])
-    # if len(timeseries['Even Flux'][0]) > 0:
-    ax.scatter(phasefolded_timeseries['flux_even'][0] * 24, phasefolded_timeseries['flux_even'][1], color='k', s=5,
-               alpha=0.1)
-    ax.scatter(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='r')
-    ax.plot(binned_timeseries['flux_even_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'c')
-    ax.set_ylabel('Relative Flux')
-    ax.set_xlabel('Phase [hour]')
-    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    ax.set_title('Even')
-    # if not np.isnan(range_timeseries).any():
-    #     ax.set_ylim(range_timeseries)
-
-    ax = plt.subplot(gs[1, :])
-
-    ax.scatter(phasefolded_timeseries['flux_odd'][0] * 24, phasefolded_timeseries['flux_odd'][1], color='k', s=5,
-               alpha=0.1, zorder=1)
-    ax.scatter(phasefolded_timeseries['flux_even'][0] * 24, phasefolded_timeseries['flux_even'][1], color='k', s=5,
-               alpha=0.1, zorder=1)
-
-    # ax.scatter(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], color='c', zorder=2)
-    # ax.plot(binned_timeseries['Local Flux'][0] * 24, binned_timeseries['Local Flux'][1], 'c', zorder=2)
-
+    # Plot binned data (already extracted above, just convert to hours)
     # even_flux_local (binned)
-    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_even_local'][1], color='r',
-               zorder=2)
-    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_even_local'][1], 'r', label='Even',
-            zorder=2)
+    ax.scatter(x_even_binned * 24, y_even_binned, color='r', zorder=3)
+    ax.plot(x_even_binned * 24, y_even_binned, 'r', label='Even', zorder=3)
+    ax.plot(x_even_binned * 24, y_even_binned + err_even_binned, 'r--', alpha=0.3, zorder=2)
+    ax.plot(x_even_binned * 24, y_even_binned - err_even_binned, 'r--', alpha=0.3, zorder=2)
 
     # odd_flux_local (binned)
-    ax.scatter(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], color='g',
-               zorder=2)
-    ax.plot(binned_timeseries['flux_odd_local'][0] * 24, binned_timeseries['flux_odd_local'][1], 'g', label='Odd',
-            zorder=2)
+    ax.scatter(x_odd_binned * 24, y_odd_binned, color='g', zorder=3)
+    ax.plot(x_odd_binned * 24, y_odd_binned, 'g', label='Odd', zorder=3 )
+    ax.plot(x_odd_binned * 24, y_odd_binned + err_odd_binned, 'g--', alpha=0.3, zorder=2)
+    ax.plot(x_odd_binned * 24, y_odd_binned - err_odd_binned, 'g--', alpha=0.3, zorder=2)
+
+    # add a dummy line specifically for the custom legend entry.
+    ax.plot([], [], color='gray', linestyle='--', label=r'$\pm 1 \sigma$ SEM envelope')
 
     ax.legend()
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase [hour]')
-    ax.set_xlim([- local_view_time_interval * 24, local_view_time_interval * 24])
-    # if not np.isnan(range_timeseries).any():
-    #     ax.set_ylim(range_timeseries)
+    
+    # Apply X and Y limits
+    ax.set_xlim([-local_view_time_interval * 24, local_view_time_interval * 24])
+    
+    if ylim_bounds:
+        ax.set_ylim(ylim_bounds)
 
-    f.suptitle(f'Odd vs Even {tce.uid}') # {tce.label}')
+    f.suptitle(f'Odd vs Even TCE {tce["uid"]}') 
     plt.savefig(savefp)
     plt.close()
 
@@ -1304,95 +1332,107 @@ def plot_momentum_dump_timeseries(time_momentum_dump, momentum_dump, savefp):
     plt.close()
 
 
-def plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmonics=5):
+def plot_periodogram(tce_data, save_fp, pgram_res, n_harmonics=5):
     """ Creates figure with plots of 1) the raw flux time series and transit pulse model, 2) the periodograms for both
     time series (not-smoothed and smoothed versions), and 3) the corresponding normalized periodograms.
 
     Args:
         tce_data: pandas Series, TCE parameters
         save_fp: Path, save filepath
-        lc_data: lightkurve LightCurve object with raw light curve data
-        lc_tpm_data: lightkurve LightCurve object with transit pulse model data
-        pgram_res: dict that maps to different computed periodograms (e.g., whether for the lc or transit pulse model
-        data, whether smoothed, and whether normalized)
+        pgram_res: dict that maps to different computed periodograms 
         n_harmonics: int, number of harmonics to display
-
-    Returns:
     """
 
-    f0_tce = 1 / (tce_data['tce_period'] * 24 * 3600)  # in 1/s
+    f, ax = plt.subplots(2, 1, figsize=(20, 14))
 
-    f, ax = plt.subplots(3, 1, figsize=(14, 10))
+    # --- Pre-calculate PERIODS in [day] ---
+    p_raw = (1 / pgram_res['pgram'].frequency).to(u.day).value
+    p_smooth = (1 / pgram_res['pgram_smooth'].frequency).to(u.day).value
+    p_tpm = (1 / pgram_res['pgram_tpm'].frequency).to(u.day).value
+    p_tpm_smooth = (1 / pgram_res['pgram_tpm_smooth'].frequency).to(u.day).value
+    
+    p_norm = (1 / pgram_res['pgram_norm'].frequency).to(u.day).value
+    p_smooth_norm = (1 / pgram_res['pgram_smooth_norm'].frequency).to(u.day).value
+    p_tpm_norm = (1 / pgram_res['pgram_tpm_norm'].frequency).to(u.day).value
+    p_tpm_smooth_norm = (1 / pgram_res['pgram_tpm_smooth_norm'].frequency).to(u.day).value
 
-    ax[0].scatter(lc_data.time.value, lc_data.flux.value, s=6, color='b')
+    # --- TOP PLOT: Raw Periodogram ---
+    ax[0].plot(p_raw, pgram_res['pgram'].power, zorder=2, color='b', linestyle='-')
+    ax[0].plot(p_smooth, pgram_res['pgram_smooth'].power, zorder=3, color='b', linestyle='--', alpha=0.6)
+    ax[0].plot(p_tpm, pgram_res['pgram_tpm'].power, zorder=2, color='tab:orange', linestyle='-')
+    ax[0].plot(p_tpm_smooth, pgram_res['pgram_tpm_smooth'].power, zorder=3, color='tab:orange', linestyle='--', alpha=0.6)
 
-    ax[0].plot(lc_tpm_data.time.value, lc_tpm_data.flux.value, linestyle='--', label='Transit Pulse Model (TPM)',
-               color='tab:orange')
+    # --- BOTTOM PLOT: Normalized Periodogram ---
+    ax[1].plot(p_norm, pgram_res['pgram_norm'].power, zorder=2, color='b', linestyle='-')
+    ax[1].plot(p_smooth_norm, pgram_res['pgram_smooth_norm'].power, zorder=3, color='b', linestyle='--', alpha=0.6)
+    ax[1].plot(p_tpm_norm, pgram_res['pgram_tpm_norm'].power, zorder=2, color='tab:orange', linestyle='-')
+    ax[1].plot(p_tpm_smooth_norm, pgram_res['pgram_tpm_smooth_norm'].power, zorder=3, color='tab:orange', linestyle='--', alpha=0.6)
 
-    ax[0].legend()
-    ax[0].set_xlabel('Time [day]')
-    ax[0].set_ylabel(r'PDCSAP Flux [$e^-s^{-1}$]')
-    ax[0].set_xlim(lc_tpm_data.time.value[[0, -1]])
-
-    # plot periodogram of the data
-    ax[1].plot(pgram_res['pgram'].frequency.to(1 / u.s), pgram_res['pgram'].power, zorder=3, color='b', label='Data')
-    ax[1].plot(pgram_res['pgram_smooth'].frequency.to(1 / u.s), pgram_res['pgram_smooth'].power, zorder=3,
-               linestyle='--', color='c', alpha=0.5, label='Data Smoothed')
-    # add vertical line for frequency at maximum power
-    # ax[1].axvline(x=pgram_res['pgram'].frequency_at_max_power.to(1 / u.s).value, c='m', linestyle='-',
-    #               label=None, zorder=2)
-
-    # add vertical lines for f0 and harmonics of the TCE
-    # ax[1].axvline(x=f0_tce, c='k', linestyle='-.',
-    #               label=fr'$f_0={f0_tce:.3e} /s$', zorder=2, linewidth=2)
+    # --- Add Harmonics (Triangles on the X-axis) ---
     for harmonic_i in range(1, n_harmonics + 1):
-        ax[1].axvline(x=f0_tce * harmonic_i, c='r', linestyle='--',
-                      label='Harmonics' if harmonic_i == n_harmonics + 1 else None, zorder=2, linewidth=2, alpha=0.5)
+        period_val = tce_data['tce_period'] / harmonic_i
+        ax[0].plot(period_val, 0.02, marker='^', color='red', markersize=12,
+                   transform=ax[0].get_xaxis_transform(), clip_on=False, linestyle='None')
+        ax[1].plot(period_val, 0.02, marker='^', color='red', markersize=12,
+                   transform=ax[1].get_xaxis_transform(), clip_on=False, linestyle='None')
 
-    # plot periodograms of TPM model
-    ax[1].plot(pgram_res['pgram_tpm'].frequency.to(1 / u.s), pgram_res['pgram_tpm'].power, linestyle='-',
-               zorder=3, alpha=1, label='TPM', color='tab:orange')
-    ax[1].plot(pgram_res['pgram_tpm_smooth'].frequency.to(1 / u.s), pgram_res['pgram_tpm_smooth'].power, linestyle='--',
-               zorder=3, alpha=0.5, label='TPM Smoothed', color='k')
-    # # add vertical line for frequency at maximum power for TPM model
-    # ax[1].axvline(x=pgram_res['pgram_tpm_smooth'].frequency_at_max_power.to(1 / u.s).value, c='k', linestyle='-',
-    #               label=None,
-    #               zorder=2)
+    # --- Create a Custom Legend ---
+    legend_elements = [
+        mlines.Line2D([], [], color='b', lw=2, label='Data'),
+        mlines.Line2D([], [], color='tab:orange', lw=2, label='TPM'),
+        mlines.Line2D([], [], color='gray', lw=2, linestyle='-', label='Raw'),
+        mlines.Line2D([], [], color='gray', lw=2, linestyle='--', label='Smoothed'),
+        mlines.Line2D([], [], color='red', marker='^', linestyle='None', markersize=10, label='TCE Period Harmonics')
+    ]
 
-    ax[1].legend()
-    ax[1].set_ylabel('Amplitude')
-    ax[1].set_xlabel('Frequency [Hz]')
-    ax[1].set_xlim(pgram_res['pgram'].frequency.to(1 / u.s).value[[0, -1]])
-    ax[1].set_yscale('log')
-    ax[1].set_xscale('log')
+    # --- Extract Max Frequencies & Periods for the Title ---
+    f_max = pgram_res["pgram"].frequency_at_max_power.to(1 / u.day).value
+    p_max = 1 / f_max
+    f_tpm_max = pgram_res["pgram_tpm"].frequency_at_max_power.to(1 / u.day).value
+    p_tpm_max = 1 / f_tpm_max
 
-    ax[1].set_title(fr'Peak Amplitude @ '  
-                    fr'$f_{{Data, max}}={pgram_res["pgram"].frequency_at_max_power.to(1 / u.s):.3e}$:' 
-                    fr'$={pgram_res["pgram"].max_power:.3e}$ | TPM Peak Amplitude @ ' 
-                    fr'$f_{{TPM, max}}={pgram_res["pgram_tpm"].frequency_at_max_power.to(1 / u.s):.3e}$:' 
+    # ==========================================
+    # --- FORMATTING: TOP PLOT ---
+    # ==========================================
+    ax[0].legend(handles=legend_elements, loc='upper right')
+    ax[0].set_ylabel('Amplitude')
+    ax[0].set_xlabel('Period [day]')
+    ax[0].set_xscale('log')
+    ax[0].set_yscale('log')
+    ax[0].set_xlim(p_raw.min(), p_raw.max())
+    
+    # 1. Format major ticks as plain numbers (0.1, 1, 10) instead of 10^-1
+    ax[0].xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{x:g}"))
+    
+    # 2. Add X-Axis Grid Lines
+    ax[0].grid(True, which='major', axis='x', linestyle='-', linewidth=1.2, alpha=0.5, color='gray')
+    ax[0].grid(True, which='minor', axis='x', linestyle='--', linewidth=0.8, alpha=0.3, color='gray')
+
+    ax[0].set_title(fr'Peak Amplitude @ '  
+                    fr'$f_{{max}}={f_max:.3f}$ d$^{{-1}}$ ($P={p_max:.3f}$ d): ' 
+                    fr'${pgram_res["pgram"].max_power:.3e}$ | TPM Peak @ ' 
+                    fr'$f_{{TPM, max}}={f_tpm_max:.3f}$ d$^{{-1}}$ ($P={p_tpm_max:.3f}$ d): ' 
                     fr'${pgram_res["pgram_tpm"].max_power:.3e}$')
 
-    ax[2].plot(pgram_res['pgram_norm'].frequency.to(1 / u.s), pgram_res['pgram_norm'].power, zorder=2, linestyle='-',
-               color='b', label='Data')
-    ax[2].plot(pgram_res['pgram_smooth_norm'].frequency.to(1 / u.s), pgram_res['pgram_smooth_norm'].power, zorder=3,
-               linestyle='--', color='c',
-               alpha=0.5, label='Data Smoothed')
+    # ==========================================
+    # --- FORMATTING: BOTTOM PLOT ---
+    # ==========================================
+    ax[1].legend(handles=legend_elements, loc='upper right')
+    ax[1].set_ylabel('Normalized Amplitude')
+    ax[1].set_xlabel('Period [day]')
+    ax[1].set_xscale('log')
+    ax[1].set_yscale('log')
+    ax[1].set_xlim(p_norm.min(), p_norm.max())
+    
+    # 1. Format major ticks as plain numbers
+    ax[1].xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{x:g}"))
+    
+    # 2. Add X-Axis Grid Lines
+    ax[1].grid(True, which='major', axis='x', linestyle='-', linewidth=1.2, alpha=0.5, color='gray')
+    ax[1].grid(True, which='minor', axis='x', linestyle='--', linewidth=0.8, alpha=0.3, color='gray')
 
-    ax[2].plot(pgram_res['pgram_tpm_norm'].frequency.to(1 / u.s), pgram_res['pgram_tpm_norm'].power, 'tab:orange',
-               label='TPM', alpha=0.5,
-               linestyle='-', zorder=2)
-    ax[2].plot(pgram_res['pgram_tpm_smooth_norm'].frequency.to(1 / u.s), pgram_res['pgram_tpm_smooth_norm'].power,
-               'k', label='TPM Smoothed', alpha=0.5, linestyle='dashed', zorder=3)
-
-    ax[2].legend()
-    ax[2].set_ylabel('Normalized Amplitude')
-    ax[2].set_xlabel('Frequency [Hz]')
-    ax[2].set_xlim(pgram_res['pgram_norm'].frequency.to(1 / u.s).value[[0, -1]])
-    ax[2].set_yscale('log')
-    ax[2].set_xscale('log')
-
-    f.suptitle(fr'Periodogram {tce_data["uid"]} '  # {tce_data["label"]} ' 
-               fr'Period: {tce_data["tce_period"]:.3f} day | $f_0={f0_tce:.3e} /s$')
+    f.suptitle(fr'Periodogram TCE {tce_data["uid"]} | Period: {tce_data["tce_period"]:.3f} day')
+    
     f.tight_layout()
     plt.savefig(save_fp)
     plt.close()
@@ -1452,7 +1492,8 @@ def plot_phasefolded_and_binned_trend(phasefolded_data, binned_data, tce, save_f
     plt.close()
 
 
-def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_data, tce, save_fp):
+def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_data, tce, save_fp, 
+                                                    exclusion_prim_factor=1.5, outlier_sigma_high=5, outliter_sigma_low=3):
     """ Plot phase folded and binned weak secondary flux time series (before and after normalization).
 
     Args:
@@ -1460,54 +1501,102 @@ def plot_phasefolded_and_binned_weak_secondary_flux(phasefolded_data, binned_dat
         binned_data: tuple, binned time series
         tce: pandas Series, TCE data
         save_fp: Path, figure filepath
-
-    Returns:
-
+        exclusion_prim_factor: float, factor to exclude primary transit from the plot
+        outlier_sigma_high: float, sigma threshold for high outliers
+        outliter_sigma_low: float, sigma threshold for low outliers
     """
     
     primary_transit_midpoint = -tce['tce_maxmesd']
     half_tce_period = tce['tce_period'] / 2
     primary_transit_midpoint = (primary_transit_midpoint + half_tce_period) % tce['tce_period'] - half_tce_period
 
-    gs = gridspec.GridSpec(2, 2)
-
+    gs = gridspec.GridSpec(2, 1)
     f = plt.figure(figsize=(20, 14))
 
-    ax = plt.subplot(gs[0, :])
-    ax.scatter(phasefolded_data['flux_weak_secondary'][0], phasefolded_data['flux_weak_secondary'][1], s=8, c='k',
-               zorder=1, alpha=1)
-    ax.axvline(x=primary_transit_midpoint, c='r', label='Primary Transit Midpoint', zorder=2, linestyle='--', alpha=0.5)
+    # --- 1. Calculate robust Y-axis limits for the Top Plot ---
+    x_data = phasefolded_data['flux_weak_secondary'][0]
+    y_data = phasefolded_data['flux_weak_secondary'][1]
+    
+    # Identify points outside the primary transit exclusion zone (+- 1.5 durations)
+    duration_days = tce['tce_duration']
+    primary_mask = np.abs(x_data - primary_transit_midpoint) > (exclusion_prim_factor * duration_days)
+    y_valid = y_data[primary_mask]
+    
+    if len(y_valid) > 0:
+        # 1. Calculate robust scatter using Median Absolute Deviation (MAD)
+        median_flux = np.nanmedian(y_valid)
+        mad_flux = np.nanmedian(np.abs(y_valid - median_flux))
+        robust_std = mad_flux * 1.4826  # Convert MAD to equivalent standard deviation
+        
+        # 2. Upper Bound: Clip extreme positive outliers (e.g., stellar flares / cosmic rays)
+        # 5 sigma above the median is a very safe cutoff for positive outliers
+        y_high = median_flux + (outlier_sigma_high * robust_std) 
+        
+        # 3. Lower Bound: Anchor to the lowest point of the *binned* data (the true physical dip)
+        # and subtract 3 "sigmas" of scatter so the unbinned points around the bottom of the dip aren't cut off.
+        binned_min = np.nanmin(binned_data['flux_weak_secondary_local'][1])
+        y_low = binned_min - (outliter_sigma_low * robust_std)
+        
+        # # 4. Optional: If there's a massive negative outlier in the binned data itself, 
+        # # fallback to a statistical floor just in case.
+        # y_low = max(y_low, median_flux - (10 * robust_std)) 
+        
+        ylim_top = [y_low, y_high]
+    else:
+        ylim_top = None
+
+    # --- TOP PLOT (Full-Orbit) ---
+    ax = plt.subplot(gs[0, 0])
+    ax.scatter(x_data, y_data, s=8, c='k', zorder=1, alpha=1)
+    
+    # Replace axvline with a triangle pointing up, anchored to the bottom spine (Y=0 in axes coordinates)
+    ax.plot(primary_transit_midpoint, 0.02, marker='^', color='red', markersize=14, 
+            transform=ax.get_xaxis_transform(), clip_on=False, linestyle='None', 
+            label='Primary Transit Midpoint')
+    
+    if ylim_top:
+        ax.set_ylim(ylim_top)
+        
     ax.set_ylabel('Relative Flux')
-    # ax.set_xlim([- tce['tce_period'] / 2, tce['tce_period'] / 2])
     ax.set_xlabel('Phase [day]')
     ax.set_title('Full-Orbit')
     ax.legend()
 
+    # --- BOTTOM PLOT (Transit-View) ---
     ax = plt.subplot(gs[1, 0])
-    ax.scatter(phasefolded_data['flux_weak_secondary'][0] * 24, phasefolded_data['flux_weak_secondary'][1], s=5, c='k',
-               zorder=1, alpha=0.1)
-    ax.scatter(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], s=8,
-               c='r', zorder=3)
-    ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 'c',
-            zorder=2)
-    ax.axvline(x=primary_transit_midpoint * 24, c='r', label='Primary Transit Midpoint', zorder=2, linestyle='--', alpha=0.5)
+    x_bottom = x_data * 24
+    xlim_bottom = [-2.5 * duration_days * 24, 2.5 * duration_days * 24]
+    
+    ax.scatter(x_bottom, y_data, s=5, c='k', zorder=1, alpha=0.1)
+    ax.scatter(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 
+               s=8, c='r', zorder=3)
+    ax.plot(binned_data['flux_weak_secondary_local'][0] * 24, binned_data['flux_weak_secondary_local'][1], 
+            'c', zorder=2, label='Binned')
+    
+    # Only add the primary transit marker to the bottom plot IF it is inside the zoomed-in view
+    pt_x_bottom = primary_transit_midpoint * 24
+    if xlim_bottom[0] <= pt_x_bottom <= xlim_bottom[1]:
+        ax.plot(pt_x_bottom, 0.02, marker='^', color='red', markersize=14, 
+                transform=ax.get_xaxis_transform(), clip_on=False, linestyle='None', 
+                label='Primary Transit Midpoint')
+        ax.legend()
+
+    # Calculate y-limits for the bottom plot to prevent zoomed-in outliers from stretching it
+    zoom_mask = (x_bottom >= xlim_bottom[0]) & (x_bottom <= xlim_bottom[1])
+    if np.any(zoom_mask):
+        y_zoom = y_data[zoom_mask]
+        y_low_b, y_high_b = np.nanpercentile(y_zoom, [0.5, 99.5])
+        y_margin_b = (y_high_b - y_low_b) * 0.15
+        ax.set_ylim([y_low_b - y_margin_b, y_high_b + y_margin_b])
+
+    ax.set_xlim(xlim_bottom)
     ax.set_ylabel('Relative Flux')
     ax.set_xlabel('Phase [hour]')
-    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
     ax.set_title('Transit-View')
     ax.legend()
 
-    ax = plt.subplot(gs[1, 1])
-    ax.scatter(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
-               s=8, c='r', zorder=3)
-    ax.plot(binned_data['flux_weak_secondary_local_norm'][0] * 24, binned_data['flux_weak_secondary_local_norm'][1],
-            'c', zorder=2)
-    ax.set_xlim([- 2.5 * tce['tce_duration'] * 24, 2.5 * tce['tce_duration'] * 24])
-    ax.set_ylabel('Relative Flux Normalized')
-    ax.set_xlabel('Phase [hour]')
-    ax.set_title('Transit-View Normalized by Abs. Min. Flux')
-
-    f.suptitle(f'Weak Secondary {tce["uid"]}')  # {tce["label"]}')
+    f.suptitle(f'Weak Secondary TCE {tce["uid"]}\n' 
+               f'Secondary Transit Depth: {tce["wst_depth"]:.3f} (ppm) | Offset: {tce["tce_maxmesd"]:.3f} (day) | MES: {tce["tce_maxmes"]:.3f}')
     f.tight_layout()
     plt.savefig(save_fp)
     plt.close()

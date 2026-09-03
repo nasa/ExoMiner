@@ -864,18 +864,18 @@ def plot_diff_img_data(diff_imgs, target_coords, save_fp, valid_pxs_img=None, ne
         elif img_title not in ['SNR Flux', 'Valid Pixels Image']:
             cbar_im.set_label(r'Flux [$e^-/cadence$]')
 
-        # if img_title not in ['Valid Pixels Image']:
-        cbar_im.ax.set_position([cbar_im.ax.get_position().x1 - 0.02,
-                                cbar_im.ax.get_position().y0,
-                                cbar_im.ax.get_position().width,
-                                cbar_im.ax.get_position().height])
+        # # if img_title not in ['Valid Pixels Image']:
+        # cbar_im.ax.set_position([cbar_im.ax.get_position().x1 - 0.02,
+        #                         cbar_im.ax.get_position().y0,
+        #                         cbar_im.ax.get_position().width,
+        #                         cbar_im.ax.get_position().height])
 
         ax_img.set_ylabel('Row')
         ax_img.set_xlabel('Col', labelpad=10)
 
-        ax_img.set_title(img_title, pad=50)
+        ax_img.set_title(img_title, pad=15)
     
-    f = plt.figure(figsize=(14, 14))
+    f = plt.figure(figsize=(20, 14))
     
     gs = f.add_gridspec(ncols=3, nrows=2)
 
@@ -902,13 +902,13 @@ def plot_diff_img_data(diff_imgs, target_coords, save_fp, valid_pxs_img=None, ne
 
     f.suptitle(title_str)
     
-    # ADD THIS: Add a text box at the bottom center of the figure
+    # add a text box at the bottom center of the figure
     f.text(0.5, 0.01, 'x: target catalog position', 
            ha='center', va='bottom', fontsize=12,
            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
     
-    # Adjust tight_layout to leave room at the bottom for the text box
-    f.tight_layout(rect=[0, 0.05, 1, 1]) 
+    # ajust tight_layout to leave room at the bottom for the text box
+    f.tight_layout(rect=[0, 0.05, 1, 0.93]) 
     
     f.savefig(save_fp)
     plt.close()

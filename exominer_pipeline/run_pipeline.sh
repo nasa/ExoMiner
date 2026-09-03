@@ -11,11 +11,11 @@ podman_img="localhost/exominer:arm64"  # "ghcr.io/nasa/exominer"
 # python pipeline python script (used if runner=python)
 pipeline_python_script=/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/run_pipeline.py
 # path to TIC IDs input table
-tics_tbl_fp=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/test_tics_spoc-ffi_6-19-2026.csv
+tics_tbl_fp=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/test_tics_5-20-2026.csv
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_exominer-pipeline_phot-vetting_ffi_8-18-2026_1024
+exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_exominer-pipeline_planet-val_8-18-2026_0918
 # data collection mode: either 2min or ffi
-data_collection_mode="ffi"
+data_collection_mode="2min"
 # number of processes used for preprocessing parallelization
 num_processes=4
 # number of jobs to split the TIC IDs for preprocessing
@@ -34,13 +34,13 @@ stellar_parameters_source="ticv8" # "/u/msaragoc/work_dir/Kepler-TESS_exoplanet/
 # define source of Gaia RUWE for TICs. If set to 'gaiadr2', 'gaiadr3', or 'gaiaedr3', Gaia DR2, DR3, or EDR3, respectively is queried; if set to 'unavailable', it assumes the
 # values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
 # values.
-ruwe_source="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/ruwe_tic935675849.csv"
+ruwe_source="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/gaiadr2_with_ticid.csv"
 # Whether to plot model input figures for all SPOC TCEs found
 plot_inputs_to_model="true"
 # choose classification task between "phot-vetting" (PC vs AFP vs NTP) and "planet-validation" (planet vs not-planet).
-task="phot-vetting"
+task="planet-validation"
 # choose type of ExoMiner model among: single, cv_ensemble (avg 10 models), or full_cv_ensemble (avg 10 ensemble CV models)
-exominer_model="single"
+exominer_model="cv_ensemble"
 # max number of workers for inference parallelization
 max_model_workers=1
 

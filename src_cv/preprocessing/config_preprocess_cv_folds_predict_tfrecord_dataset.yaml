@@ -1,15 +1,15 @@
-process_parallel: true  # set to true to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
+process_parallel: false  # set to true to run CV iterations in parallel (one per GPU); only useful when number of GPUs > 1
 rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
 rank: 0
 # new data set directory; results are saved here
 output_dir:  null
 # source TFRecord directory to be normalized
-src_tfrec_dir:  /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_5-6-2026_1552_photdisps_no-secondaries/tfrecords/predict/
+src_tfrec_dir: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_stricter-phot-pcs_7-14-2026_1417/tfrecords/predict/
 # list of file paths to the CV iterations folder with the normalization statistics to be used
 # to normalize the data in the source TFRecord directory
 # (i.e., ['/path/to/cv_iter_x/norm_stats/', 'path/to/cv_iter_y/norm_stats',...])
 # if using a pattern, it is expanded to get all matching paths (e.g., '/path/to/cv_run/cv_iter_*/norm_stats/')
-cv_folds_fps: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_5-6-2026_1552_photdisps_no-secondaries/tfrecords/eval_normalized/cv_iter_[0-4]/norm_stats/
+cv_folds_fps: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-2min_tces_s1-s98_stricter-phot-pcs_7-14-2026_1417/tfrecords/eval_normalized/cv_iter_[0-9]/norm_stats/
   # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_0/norm_stats/
   # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_1/norm_stats/
   # - /u/msaragoc/work_dir/Kepler-TESS_exoplanet/data/tfrecords/TESS/cv_tfrecords_tess-spoc-tces_2min-s1-s94_ffi-s36-s72-s56s69_10-30-2025_1406/tfrecords/eval_normalized/cv_iter_2/norm_stats/
@@ -25,7 +25,7 @@ norm_stats:
  
 norm_examples_params:
   # SET TO 1 WHEN RUNNING ON THE HECC
-  n_processes_norm_data: 36  # number of processes to parallelize data normalization for each CV iteration
+  n_processes_norm_data: 60  # number of processes to parallelize data normalization for each CV iteration
 
   aux_params: # online data augmentation parameters and needed for normalization of some features
     nr_transit_durations: 5  # number of transit durations in the local view

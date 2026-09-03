@@ -282,7 +282,7 @@ def lc_periodogram_pipeline(p_min_tce, k_harmonics, p_max_obs, downsampling_f, s
     pgram_res = compute_lc_periodogram(f_arr, smooth_filter_type, smooth_filter_w_f, lc_data, lc_tpm_data)
 
     if plot_preprocessing_tce:
-        plot_periodogram(tce_data, save_fp, lc_data, lc_tpm_data, pgram_res, n_harmonics=5)
+        plot_periodogram(tce_data, save_fp, pgram_res, n_harmonics=5)
 
     # compute periodogram with a downsampled frequency range
     f_arr = compute_frequency_range(p_min_tce, k_harmonics, p_max_obs, downsampling_f * 2)

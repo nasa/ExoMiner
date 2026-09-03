@@ -32,17 +32,13 @@ diff_img_add_tfrecord_dataset_config_fp: exominer_pipeline/config_add_diff_img_t
 # path to configuration file used to normalize features in TFRecord dataset
 normalize_tfrec_data_config_fp: exominer_pipeline/config_normalize_data.yaml
 exominer_models:
-  # exominer_phot-vetting: /models/exominer-plusplus_cv-iter0-model0_cv_tfrecords_tess-spoc-tces_2min-s1-s88_exominerpp_pr-auc-pc_3-6-2026_1558.keras
   phot-vetting: /models/phot_vetting/
-  # phot-vetting: exominer_pipeline_data/models/phot_vetting
-    # single: /models/phot_vetting/exominer-plusplus-sngle_cv-iter0-model0_tess-spoc-tces_2min-s1-s98_10-folds_added-ntps_20260615_212500.keras
-    # cv_ensemble: /models/phot_vetting/exominer-plusplus-ensble_cv-iter0_tess-spoc-tces_2min-s1-s98_10-folds_added-ntps_20260615_212500.keras
-    # full_cv_ensemble: /models/phot_vetting/exominer-plusplus-ensble-all_cv_tess-spoc-tces_2min-s1-s98_10-folds_added-ntps_20260615_212500.keras 
   planet-validation: /models/planet_validation/
-  # planet-validation: exominer_pipeline_data/models/planet_validation
-    # single: /models/planet-validation/exominer-plusplus-sngle_cv-iter0-model0_tess-spoc-tces_2min-s1-s98_10-folds-matched-distribution-2min-paper-by-weighted-loss_exominerpp_validation_no-secondaries_20260526_151727.keras
-    # cv_ensemble: /models/planet-validation/exominer-plusplus-ensble_cv-iter0_tess-spoc-tces_2min-s1-s98_10-folds-matched-distribution-2min-paper-by-weighted-loss_exominerpp_validation_no-secondaries_20260526_151727.keras
-    # full_cv_ensemble: /models/planet-validation/exominer-plusplus-ensble-all_cv_tess-spoc-tces_2min-s1-s98_10-folds-matched-distribution-2min-paper-by-weighted-loss_exominerpp_validation_no-secondaries_20260526_151727.keras
+
+  # local
+  # phot-vetting: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/models/phot_vetting
+  # planet-validation: /models/planet_validation/
+  
 classes_descriptions:
   PC: planet candidate
   AFP: astrophysical false positive
