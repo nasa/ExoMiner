@@ -48,9 +48,9 @@ def placeholder_quality(n: int, fill_value: float = 0.0) -> list:
 def placeholder_images_numbers(n: int) -> list:
     return [np.nan] * n
 
-def placeholder_neighbors_features(n: int, top_k_neighbors: int =5, n_feats_neighbors: int = 5) -> list:
+def placeholder_neighbors_features(n: int, top_k_neighbors: int =5, n_feats_neighbors: int = 5) -> np.ndarray:
     
-    return [np.zeros((top_k_neighbors, n_feats_neighbors), dtype='float') for _ in range(n)]
+    return np.zeros((n, top_k_neighbors, n_feats_neighbors), dtype='float')
 
 def set_data_example_to_placeholder_values(
     size_h: int, size_w: int, number_of_imgs_to_sample: int,

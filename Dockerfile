@@ -49,6 +49,7 @@ COPY src /app/src
 COPY src_preprocessing /app/src_preprocessing
 COPY models /app/models
 COPY query_dv_reports.py /app/query_dv_reports.py
+COPY others /app/others
 
 # 4. Modify pipeline info 
 RUN sed -i "s|^Git Commmit Hash:.*|Git Commmit Hash: ${GIT_COMMIT_HASH}|" /app/exominer_pipeline/pipeline_info.yaml \

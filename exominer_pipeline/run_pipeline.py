@@ -3,6 +3,7 @@ Main script used to run the ExoMiner pipeline.
 """
 
 # 3rd party
+import sys
 import tensorflow as tf
 import argparse
 import logging
@@ -19,7 +20,7 @@ import subprocess
 from exominer_pipeline.utils import (process_inputs, check_config, validate_tic_ids_csv_structure, 
                                      download_tess_spoc_dv_xmls, download_tess_spoc_lightcurves, create_tce_table,
                                      inference_pipeline, create_tic_id_pattern, assign_class, 
-                                     compile_preprocessing_figures_to_pdf)
+                                     generate_first_page_pipeline_summary, compile_preprocessing_figures_to_pdf)
 from src_preprocessing.lc_preprocessing.generate_input_records import preprocess_lc_data
 from src_preprocessing.diff_img.extracting.utils_diff_img import get_data_from_tess_dv_xml_main
 from src_preprocessing.diff_img.preprocessing.preprocess_diff_img import preprocess_diff_img_tces_main
@@ -91,8 +92,6 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         return {'job_id': job_id, 'success': True, 'error': None}
 
     try:
-
-        # sys.stdout = StreamToLogger(logger)
 
         if run_config['lc_data_repository'] is None:  # download light curve FITS files
             logger.info(f'[{job_id}] Downloading light curve FITS files for the requested TIC IDs...')
@@ -214,13 +213,6 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
             valid_tfrec_uids = tfrec_tbl['uid'].unique()
             tce_tracker.loc[tce_tracker['uid'].isin(valid_tfrec_uids), 'has_diff_img'] = True
 
-        # aggregate preprocessing figures into PDF files
-        if run_config['plot_inputs_to_model']:
-            logger.info(f'[{job_id}] Created TCE summary files for the preprocessed data...')
-            for _, tce in tce_tbl.iterrows():
-                compile_preprocessing_figures_to_pdf(tce, run_config['plot_dir'], 
-                run_config['plot_dir']/ f'tess-spoc-tce_tic{tce["uid"]}_summary_exominer-pipeline.pdf',delete_plots=True)
-
         # normalize features in TFRecord dataset
         logger.info(f'[{job_id}] Normalizing features for the TCEs in the TFRecord dataset using set of normalization '
                     f'statistics provided...')
@@ -233,17 +225,6 @@ def run_exominer_pipeline(run_config, tics_df, job_id):
         if len(tfrec_tbl) > 0 and 'uid' in tfrec_tbl.columns:
             valid_tfrec_uids = tfrec_tbl['uid'].unique()
             tce_tracker.loc[tce_tracker['uid'].isin(valid_tfrec_uids), 'is_normalized'] = True
-
-        # # load trained model and run inference
-        # logger.info(f'[{job_id}] Running inference on TCEs in the TFRecord dataset using trained ExoMiner model...')
-        # prediction_dir = run_config['job_dir'] / 'predictions'
-        # prediction_dir.mkdir(exist_ok=True)
-        # inference_pipeline(run_config, prediction_dir, normalized_tfrec_dir, logger)
-        # pred_tbl_fps = list(prediction_dir.glob('*.csv'))
-        # if len(pred_tbl_fps) > 0:
-        #     pred_tbl = pd.concat([pd.read_csv(fp, comment='#') for fp in pred_tbl_fps], axis=0)
-        #     if len(pred_tbl) > 0 and 'uid' in pred_tbl.columns:
-        #         tce_tracker.loc[tce_tracker['uid'].isin(pred_tbl['uid']), 'has_prediction'] = True
 
         # download CSV table with URLs to DV reports for each TCE for the queried TICs in the MAST
         if run_config['get_mast_urls_dv_reports'] == 'true':
@@ -399,7 +380,9 @@ def add_metadata_to_predictions_table(predictions_tbl, save_fp, run_config, outp
 
     predictions_tbl['tce_duration'] *= 24  # convert back from days to hours 
 
+    # assign prediction based on scores, task, and classification threshold
     predictions_tbl = assign_class(predictions_tbl, run_config['label_map'][task], run_config['clf_thr'][task])
+    
     with open(run_config['predict_metadata_fp'], 'r') as f:
         predict_metadata = yaml.safe_load(f)
     
@@ -492,6 +475,30 @@ def aggregate_spoc_dv_reports(output_dir, run_config, data_collection_mode, logg
         logger.info(f'No DV reports CSV file generated. See logs for more information.')
 
 
+def setup_main_logger(log_fp):
+    """ Set up main logger for the pipeline.
+
+    Args:
+        log_fp: Path to the log file.
+    
+    Returns: logger object
+    """
+    
+    logger = logging.getLogger('main_pipeline')
+    logger.setLevel(logging.INFO)
+
+    # 1. Terminal output (Clean, no timestamps, replaces print())
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(console_handler)
+
+    # 2. Main File output (Detailed)
+    file_handler = logging.FileHandler(log_fp, mode='w')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - MAIN - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+    
+    return logger
+
 def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic_ids=None, num_processes=1,
                                num_jobs=1, get_mast_urls_dv_reports='false', dv_xml_data_repository=None, lc_data_repository=None,
                                stellar_parameters_source='ticv8', ruwe_source='gaiadr2', task='phot-vetting', exominer_model='single',
@@ -527,21 +534,16 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # create logger
-    logger = logging.getLogger(name=f'run_main.log')
-    logger_handler = logging.FileHandler(filename=output_dir / 'run_main.log',
-                                         mode='w')
-    logger_formatter = logging.Formatter('%(asctime)s - %(message)s')
-    logger.setLevel(logging.INFO)
-    logger_handler.setFormatter(logger_formatter)
-    logger.addHandler(logger_handler)
+    log_fp = output_dir / 'run_main.log'
+    logger = setup_main_logger(log_fp)
 
     logger.info(f'Started run for ExoMiner.')
-    print('\n######################\nDocumentation can be found at: '
+    logger.info('\n######################\nDocumentation can be found at: '
           'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
     logger.info('\n######################\nDocumentation can be found at: '
                 'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
-    print(f'Started run for ExoMiner...')
-    print(f'Logging information to run_main.log.')
+    
+    logger.info(f'Logging information to {log_fp.name}')
 
     logger.info(f'Preparing inputs and adjusting configuration file...')
     run_config, tics_df = process_inputs(output_dir, CONFIG_FP, tic_ids_fp, data_collection_mode, logger,
@@ -632,9 +634,9 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     with open(output_dir / 'pipeline_run_config.yaml', 'w') as f:
         yaml.dump(run_config, f, sort_keys=False)
 
-    print(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using '
+    logger.info(f'Splitting TIC IDs across {run_config["num_jobs"]} job(s) for parallel processing using '
           f'{run_config["num_processes"]} process(es)...')
-    print(f'The results for each job are saved into their own directories under {output_dir.name} '
+    logger.info(f'The results for each job are saved into their own directories under {output_dir.name} '
           f'following pattern job_{{job_id}}.')
 
     # split TIC IDs across jobs
@@ -648,18 +650,19 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
                 f'{run_config["num_jobs"]} job(s)...')
     run_exominer_pipeline_jobs_parallel(jobs, run_config['num_processes'], run_config['max_tasks_per_child'], logger)
 
-    print(f'Finished running preprocessing pipeline on {run_config["num_processes"]} process(es) for '
+    logger.info(f'Finished running preprocessing pipeline on {run_config["num_processes"]} process(es) for '
           f'{run_config["num_jobs"]} job(s).')
 
-    print(f'Aggregating TCE tracking summaries across all jobs...')
+    logger.info(f'Aggregating TCE tracking summaries across all jobs...')
     master_tracker = aggregate_tce_trackers(output_dir, logger)
 
     # load trained model and run inference
     logger.info('Running inference on TCEs in the TFRecord dataset using trained ExoMiner model...')
-    print(f'Running inference on TCEs in the TFRecord dataset using trained ExoMiner model...')
     # find all files starting with "shard-tess" inside any "tfrecord_data_diffimg_normalized" folder
     tfrec_files = list(output_dir.rglob('**/tfrecord_data_diffimg_normalized/shard-tess*'))    
     pred_tbl_fp = inference_pipeline(run_config, output_dir, tfrec_files, logger)
+    
+    pred_tbl = None
     if pred_tbl_fp.exists():
         pred_tbl = pd.read_csv(pred_tbl_fp, comment='#')
         add_metadata_to_predictions_table(pred_tbl, pred_tbl_fp, run_config, output_dir, 
@@ -670,8 +673,38 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         if len(pred_tbl) > 0 and 'uid' in pred_tbl.columns:
             master_tracker.loc[master_tracker['uid'].isin(pred_tbl['uid']), 'has_prediction'] = True
             master_tracker.to_csv(output_dir / 'master_tce_tracking_summary.csv', index=False)
+
+            pred_tbl.set_index('uid', inplace=True)
     else:
         logger.info(f'No predictions CSV file generated. See logs for more information.')
+
+    # generate pipeline TCE summaries
+    if run_config['plot_inputs_to_model']:
+        logger.info(f'Generating TCE summary files for the preprocessed data...')
+            
+        for _, tce in master_tracker.iterrows():
+            tce_uid = tce["uid"]
+            
+            # check if TCE got a prediction (ensure pred_tbl exists and uid is in its index)
+            if pred_tbl is not None and tce_uid in pred_tbl.index:
+                # Get only the score columns
+                score_cols = [col for col in pred_tbl.columns if col.startswith('score')]
+                tce_scores = pred_tbl.loc[tce_uid, score_cols]
+            else:
+                tce_scores = pd.Series(dtype=float)
+
+            if isinstance(tce_scores, pd.DataFrame):  # to make sure tce_scores is a pd.Series object; it is only a pd.Dataframe if for some reason there are duplicate TCE entries...
+                    tce_scores = tce_scores.iloc[0]
+
+            # create cover page for summary
+            generate_first_page_pipeline_summary(tce_uid, tce_scores, run_config['pipeline_metadata_fp'], run_config['plot_dir'])
+
+            # aggregate preprocessing figures into PDF files
+            compile_preprocessing_figures_to_pdf(tce_uid, 
+                                                 run_config['plot_dir'], 
+                                                 run_config['plot_dir'] / f'tess-spoc-tce_tic{tce_uid}_summary_exominer-pipeline.pdf', 
+                                                 delete_plots=True,
+                                                 logger=logger)
 
     # print a quick summary to the console/log
     logger.info("Pipeline Attrition Summary:")
@@ -682,12 +715,12 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     logger.info(f"TCEs with scores: {master_tracker['has_prediction'].sum()}")
 
     # summarize tracking per target id and sector run
-    print(f'Create TIC tracking summaries...')
+    logger.info(f'Create TIC tracking summaries...')
     tic_tracker_df = summarize_tce_stages(output_dir / 'master_tce_tracking_summary.csv')
     tic_tracker_df.to_csv(output_dir / 'master_tic_tracking_summary.csv', index=False)
 
     if get_mast_urls_dv_reports == 'true':
-        print(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table...')
+        logger.info(f'Aggregating CSVs with TESS SPOC DV reports URLs  across all jobs into a single table...')
         aggregate_spoc_dv_reports(output_dir, run_config, data_collection_mode, logger)
     
     end_time = pd.Timestamp.now()
@@ -699,7 +732,7 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
         yaml.dump(run_config, f, sort_keys=False)
 
     logger.info(f'Finished running ExoMiner pipeline in {spent_time} ({spent_time.total_seconds()} seconds).')
-    print(f'Finished running ExoMiner pipeline in {spent_time} ({spent_time.total_seconds()} seconds).')
+    logger.info(f'Finished running ExoMiner pipeline in {spent_time} ({spent_time.total_seconds()} seconds).')
 
 
 if __name__ == "__main__":

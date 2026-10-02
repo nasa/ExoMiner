@@ -15,9 +15,7 @@ of a CSV file).
 ## Running the Podman container application
 
 ![ExoMiner Pipeline flowchart.](../others/images/exominer-pipeline-flowchart.png "ExoMiner Pipeline flowchart.")
-<!-- <iframe src="../others/images/exominer-pipeline-flowchart.svg" width="100%" height="500px"></iframe> -->
 
-<!-- ```bash
 🖥️ [ Main Process ]
                                            |
                               🔀 (Multiprocessing: Splits into N Jobs)
@@ -483,17 +481,13 @@ target_id, ruwe
 
 ## ExoMiner Pipeline Plots
 
-In here, we showcase an example of what the ExoMiner Pipeline TCE Summary looks like. The TCE Summary is a collection of plots that show the preprocessed versions of the inputs provided to the ExoMiner models for each TCE. You can [click here](../others/images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline.pdf) to view a summary example for TIC 66818296.1 in sector run S1-S92. For a more detailed explanation of these plots, we refer to the [ExoMiner Pipeline Outputs report](pipeline_outputs/exominer-pipeline-outputs.pdf). Below you can find a brief description of each plot:
+In here, we showcase an example of what the ExoMiner Pipeline TCE Summary looks like. The TCE Summary is a collection of plots that show the preprocessed versions of the inputs provided to the ExoMiner models for each TCE. You can [click here](../docs/pipeline_outputs/tess-spoc-tce_tic100100827-1-S105_summary_exominer-pipeline.pdf) to view a summary example for TIC 100100827.1 in sector run S105 (TOI 185.01). For a more detailed explanation of these plots, we refer to the [ExoMiner Pipeline Outputs report](pipeline_outputs/exominer-pipeline-outputs.pdf). Below you can find a brief description of each plot:
 
 - **Phase-folded and binned flux and centroid views** [Page 1]: this first page shows the phase-folded and binned views of full-orbit and transit-view of the flux and flux-weighted centroid motion, as well as other transit-views for the odd and even fluxes and weak secondary. The red dashed lines represent the +-1-sigma standard error of the mean (SEM) envelope which gives an idea of the uncertainty/noise in the data used to create these binned views. For some of the views, the number of phases used to create the binned views is shown. At the top, the TCE ID and ephemerides of the TCE are shown, followed by an assortment of TCE and TIC stellar parameters are shown.
 - **Weak Secondary** [Page 2]: this page shows the views for the detected weak secondary. The top plot shows the full-orbit (i.e., one full period) weak secondary view centered on the detected secondary transit. The transit midpoint of the primary transit is indicated by a vertical red dashed line. The bottom plots show a transit-view of the weak secondary view (on the left, not normalized, on the right the normalized version using the absolute minimum that is provided as input to the model).
 - **Odd/Even** [Page 3]: this page shows the separate views for the odd and even transit-view fluxes at the top. The bottom plots shows the two binned views overlapped so it is easier to compare them.
 - **Periodogram** [Page 4]: this page shows the full flux time series at the top plot. The middle and bottom plots show the same periodogram but with no normalization (middle) and with normalization by the max amplitude (bottom). The transit pulse model (TPM) periodogram is obtained by computing the periodogram on a transit pulse model based on the detected ephemerides and transit depth, and it is used to give information to the model about the expected periodogram features for the transit signal when compared to the peridogram of the data. The red dashed vertical lines point to the harmonics.
 - **Difference Images** [Page 5+]: Each sector with available difference images that were successfully sampled and preprocessed by the ExoMiner Pipeline gets a page in this summary report. The difference images are shown in a grid format with the preprocessed difference, out-of-transit, and SNR flux images at the top. At the bottom, a "valid pixels" image is shown that describes which pixels in the image are valid (e.g., not missing; negative out-of-flux values). The header shows the quality metric of the difference image along with the target star's magnitude. The position of the target in pixel coordinates is shown as a red cross.
-
-<!-- <iframe src="../others/images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline.pdf" width="100%" height="600px">
-    This browser does not support PDFs. Please download the PDF to view it: <a href="../others/images/tess-spoc-tce_tic66818296-1-S1-92_summary_exominer-pipeline.pdf">Download PDF</a>.
-</iframe> -->
 
 
 ## ExoMiner Models

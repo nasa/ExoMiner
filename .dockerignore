@@ -16,7 +16,8 @@ src_cv/
 transit_detection/
 exominer_pipeline/test_pipeline
 others/envs
-others/images
+others/images/*
+!others/images/exominer_logo.png
 others/3rd_party_licenses.md
 others/get_3rd_party_licenses_pkgs.py
 tess_spoc_ffi/

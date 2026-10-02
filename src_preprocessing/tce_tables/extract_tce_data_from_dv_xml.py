@@ -180,9 +180,9 @@ def get_outside_params(root):
 
     # toiId
     if 'toiId' in root.attrib:
-        target_params['target_toiId'] = int(root.attrib['toiId'])
+        target_params['target_toiId'] = str(root.attrib['toiId'])
     else:
-        target_params['target_toiId'] = np.nan
+        target_params['target_toiId'] = 'not_matched'
 
     # matchedToiId
     matched_tois = root.findall(f'{DV_XML_HEADER}matchedToiId')
@@ -277,21 +277,21 @@ def process_xml(dv_xml_fp: Path, logger: logging.Logger) -> pd.DataFrame:
     logger.info(f'Found {n_tces} TCEs results in {dv_xml_fp.name}')
 
     tces_in_target = []
-    for tce_i, planet_res in enumerate(planet_res_lst):
+    for _, planet_res in enumerate(planet_res_lst):
 
         tce_dict = {}
 
         tce_dict['planetIndexNumber'] = planet_res.attrib['planetNumber']
 
         if 'toiId' in planet_res.attrib:
-            tce_dict['toiId'] = planet_res.attrib['toiId']
+            tce_dict['toiId'] = str(planet_res.attrib['toiId'])
         else:
-            tce_dict['toiId'] = np.nan
+            tce_dict['toiId'] = "not_matched"
 
         if 'toiCorrelation' in planet_res.attrib:
-            tce_dict['toiCorrelation'] = planet_res.attrib['toiCorrelation']
+            tce_dict['toiCorrelation'] = float(planet_res.attrib['toiCorrelation'])
         else:
-            tce_dict['toiCorrelation'] = np.nan
+            tce_dict['toiCorrelation'] = -1.0
 
         # cur_eclipbin = planet_res[8].attrib['suspectedEclipsingBinary']
         # bool_cur_eclipbin = int(cur_eclipbin == 'true')

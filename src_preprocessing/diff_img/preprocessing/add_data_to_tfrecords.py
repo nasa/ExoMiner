@@ -18,7 +18,7 @@ Preprocessed difference image data: NumPy files under `src_diff_img_fp` with fil
         - subpixel_x{suffix_str}
         - subpixel_y{suffix_str}
         - target_position_res{suffix_str}: offset from image center [dx_norm, dy_norm, image_valid, target_outside_crop]
-    - neighbors_feats: features related to top-K known stellar neighbors
+    - neighbors_feats: features related to top-K known stellar neighbors [2-d NP array of shape (K-neighbors, N features)]
     - quality: quality metrics of sampled quarters/sectors
     - images_number: list of sampled quarters/sectors
 

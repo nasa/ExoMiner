@@ -121,9 +121,9 @@ Following the metadata header, the file provides the model's predictions for eac
         \toprule
         \textbf{Column Name} & \textbf{Description} \\
         \midrule
-        \texttt{uid} & Unique SPOC TCE identifier formatted as \texttt{<tic\_id>-}\allowbreak\texttt{<tce\_plnt\_num>-}\allowbreak\texttt{S<sector\_run\_id>} (e.g., \texttt{1942969-1-S14-86}). \\
+        \texttt{uid} & Unique SPOC TCE identifier (string) formatted as \texttt{<tic\_id>-}\allowbreak\texttt{<tce\_plnt\_num>-}\allowbreak\texttt{S<sector\_run\_id>} (e.g., \texttt{1942969-1-S14-86}). \\
         \texttt{target\_id} & TIC ID of the target star (integer scalar). \\
-        \texttt{sector\_run} & SPOC sector run identifier. Represented as a single sector or a multi-sector range (e.g., \texttt{14-86}). \\
+        \texttt{sector\_run} & SPOC sector run identifier (string). Represented as a single sector or a multi-sector range (e.g., \texttt{14-86}). \\
         \texttt{tce\_plnt\_num} & SPOC TCE planet number (integer scalar). \\
         \texttt{tce\_period} & TCE period in days (float scalar). \\
         \texttt{tce\_duration} & TCE transit duration in hours (float scalar). \\
@@ -132,10 +132,11 @@ Following the metadata header, the file provides the model's predictions for eac
         \texttt{ruwe} & RUWE from Gaia (float scalar). \\
         \texttt{tce\_prad} & TCE planet radius in Earth radii (float scalar). \\
         \texttt{tce\_max\_mult\_ev} & TCE maximum multiple event statistic (float scalar). \\
-        \texttt{matchedToiId} & Matched TOI ID from the SPOC Data Validation (DV) report (e.g., \texttt{5459.01}), or \texttt{not\_matched} if no match is found. \\
-        \texttt{score\_<disp>} & The ExoMiner mean score for the respective disposition class calculated over the models in the ensemble (when using a single model, this is simply the score output by the model). For the photometric vetting model, these three class probabilities sum to 1. For the Planet vs. Non-planet validation model, there is a single score for the Planet class; the score for the Non-Planet class is given by one minus the Planet score. \\
-        \texttt{score\_std\_<disp>} & The ExoMiner standard deviation score for each class calculated over the models in the ensemble. \\
-        \texttt{prediction} & The final predicted disposition assigned by the pipeline, based on the classification threshold and the model score. \\
+        \texttt{toiId} & Matched TOI ID from the SPOC Data Validation (DV) report (e.g., \texttt{5459.01}), or \texttt{not\_matched} if no match is found (string). \\
+        \texttt{toiCorrelation} & Correlation score between TCE and matched TOI in range zero through 1 (-1 if no match found) (float scalar). \\
+        \texttt{score\_<disp>} & The ExoMiner mean score for the respective disposition class calculated over the models in the ensemble (when using a single model, this is simply the score output by the model). For the photometric vetting model, these three class probabilities sum to 1. For the Planet vs. Non-planet validation model, there is a single score for the Planet class; the score for the Non-Planet class is given by one minus the Planet score (float scalar) . \\
+        \texttt{score\_std\_<disp>} & The ExoMiner standard deviation score for each class calculated over the models in the ensemble (float scalar). \\
+        \texttt{prediction} & The final predicted disposition assigned by the pipeline, based on the classification threshold and the model score (string). \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -173,7 +174,8 @@ Figure~\ref{fig:csv_snippet} provides an example of the raw CSV output generated
 # Column: ruwe: Renormalized Unit Weight Error from Gaia (float)
 # Column: tce_prad: TCE planet radius in Earth radii (float)
 # Column: tce_max_mult_ev: TCE max multiple event statistic (float)
-# Column: matchedToiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
+# Column: toiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
+# Column: toiCorrelation: correlation score between TCE and matched TOI in range zero through 1 (-1 if no match found) (float)
 # Column: score/score_<disp>: The ExoMiner prediction score (mean score if using an ensemble). (float). For Photometric Vetting, this generates three columns (score_PC, score_AFP, score_NTP) representing the scores for each disposition category, which sum to 1.0. For Planet Validation, this generates a single score column where a value closer to 1.0 indicates higher confidence that the TCE is a true planet.
 # Column: score_std/score_std_<disp>: The uncertainty in the ExoMiner prediction, calculated as the standard deviation across an ensemble (will be 0.0 if using a single model). (float). For Photometric Vetting, this generates three columns (score_std_PC, score_std_AFP, score_std_NTP) representing the uncertainty for each respective disposition. For Planet Validation, this generates a single score_std column representing the uncertainty of the validation score.
 # Column: prediction: predicted disposition based on classification threshold and ExoMiner score (string)

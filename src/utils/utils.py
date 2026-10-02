@@ -19,5 +19,5 @@ def log_info(message, logger=None, include_traceback=False):
     if logger:
         logger.info(message)
     else:
-        print(message)
+        print(message, flush=True)
         

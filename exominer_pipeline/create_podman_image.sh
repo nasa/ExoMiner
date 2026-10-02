@@ -4,9 +4,16 @@
 # Builds container images for both ARM64 and AMD64 architectures.
 #
 # Usage:
-#   EXPORT_TO_REPO="ghcr.io/nasa" ./build_images.sh [arm64|amd64|all]
+#   EXPORT_TO_REPO="ghcr.io/nasa" ./build_images.sh <software_version> [arm64|amd64|all]
 
 set -euo pipefail
+
+# Require Software Version Number (Mandatory)
+if [[ $# -eq 0 || -z "$1" ]]; then
+    usage
+fi
+SOFTWARE_VERSION_NUMBER="$1"
+shift
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -17,7 +24,6 @@ DOCKERFILE="${DOCKERFILE:-Dockerfile}"
 PIPELINE_YAML_FILE="exominer_pipeline/pipeline_info.yaml" 
 
 # Build metadata
-SOFTWARE_VERSION_NUMBER="2.1.0"
 GIT_REVISION="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
 BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
@@ -80,7 +86,12 @@ build_image() {
 }
 
 usage() {
-    echo "Usage: [EXPORT_TO_REPO=ghcr.io/nasa] $0 [arm64|amd64|all] [optional_custom_env_file.yml] [optional_custom_requirements_file.txt]"
+    echo "Error: Missing required arguments."
+    echo "Usage: [EXPORT_TO_REPO=ghcr.io/nasa] $0 <software_version> [arm64|amd64|all] [optional_custom_env_file.yml] [optional_custom_req_file.txt]"
+    echo ""
+    echo "Example:"
+    echo "  $0 2.2.0 all"
+    echo "  $0 2.2.0 arm64 custom_env.yml custom_reqs.txt"
     exit 1
 }
 

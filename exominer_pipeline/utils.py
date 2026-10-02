@@ -25,6 +25,10 @@ import os
 import shutil
 import tempfile
 import psutil
+import matplotlib.pyplot as plt
+from datetime import datetime
+from matplotlib.transforms import Bbox
+import matplotlib.image as mpimg
 
 # local
 from src_preprocessing.tce_tables.preprocess_tess_tce_tbl import preprocess_tce_table
@@ -36,32 +40,6 @@ import models.custom_layers
 from src.utils.utils import log_info
 
 Observations.enable_cloud_dataset()
-
-# redirect stdout
-class StreamToLogger:
-    def __init__(self, logger, level=logging.INFO):
-        """Initialize the stream to logger redirector.
-        
-        Args:
-            logger: logging.Logger object.
-            level: int, logging level (default: logging.INFO).
-        """
-        self.logger = logger
-        self.level = level
-        self.buffer = ''
-
-    def write(self, message):
-        """Write a message to the logger if it is not empty.
-        
-        Args:
-            message: str, the message string to log.
-        """
-        if message.strip() != '':
-            self.logger.log(self.level, message.strip())
-
-    def flush(self):
-        """Flush the stream. Required for file-like objects, but does nothing here."""
-        pass
 
 
 def validate_tic_ids_csv_structure(tics_df, logger):
@@ -536,8 +514,6 @@ def download_tess_spoc_data_products(tics_df, data_collection_mode, data_dir, lo
 
     """
 
-    sys.stdout = StreamToLogger(logger)
-
     requested_products_lst, requested_products_manifest_lst = [], []
     for _, tic_data in tics_df.iterrows():
 
@@ -653,8 +629,6 @@ def download_tess_spoc_lightcurves(tics_df, data_collection_mode, data_dir, logg
     the specified `data_collection_mode` mode.
     """
 
-    sys.stdout = StreamToLogger(logger)
-
     requested_products_lst, requested_products_manifest_lst = [], []
     for _, tic_data in tics_df.iterrows():
 
@@ -756,8 +730,6 @@ def download_tess_spoc_dv_xmls(tics_df, data_collection_mode, data_dir, logger, 
     """ Download DV XML data for the set of TIC IDs and sector runs provided in `tics_df` for
     the specified `data_collection_mode` mode.
     """
-
-    sys.stdout = StreamToLogger(logger)
 
     requested_products_lst, requested_products_manifest_lst = [], []
     for _, tic_data in tics_df.iterrows():
@@ -894,8 +866,6 @@ def create_tce_table(res_dir: Path, job_id: int, dv_xml_products_dir: Path, logg
         raise ValueError(f'Error while extracting TCE(s) information from DV XMLs. Ensure that the DV XML files were '
                          f'correctly downloaded for the queried TIC IDs and that the TIC ID is correct. Error:\n {e}')
 
-
-    sys.stdout = StreamToLogger(logger)
     tce_tbl = preprocess_tce_table(dv_xml_tbl_fp, res_dir, stellar_parameters_source, ruwe_source)
     sys.stdout = sys.__stdout__
 
@@ -950,8 +920,6 @@ def inference_pipeline(run_config: dict, output_dir: Path, tfrec_shards_fps: lis
     Returns: Path, prediction table file path
 
     """
-
-    sys.stdout = StreamToLogger(logger)
 
     with open(run_config['predict_config_fp'], 'r') as file:
         predict_config = yaml.unsafe_load(file)
@@ -1302,16 +1270,16 @@ def assign_class(predictions_tbl, label_map, clf_thr):
     if len(scores_cols) == 0:
         raise ValueError('No score columns found in predictions')
 
-    if (multiclass and len(scores_cols) == 1):
+    if (multiclass and len(scores_cols) == 2):
         raise ValueError(f'Mismatch between number of score columns ({len(scores_cols)}) and multiclass setting.')
-    if not multiclass and len(scores_cols) > 1:
+    if not multiclass and len(scores_cols) > 2:
         raise ValueError(f'Mismatch between number of score columns ({len(scores_cols)}) and binary class setting.')
     
     if not multiclass and scores_cols[0] != 'score':
         raise ValueError(f'Expected column `score` but found: {scores_cols}')
     
     if multiclass:
-        predictions_tbl['prediction'] = predictions_tbl.apply(lambda row: map_softmax_predictions_to_class(row, scores_cols, label_map, clf_thr), axis=1)
+        predictions_tbl['prediction'] = predictions_tbl[scores_cols].apply(lambda row: map_softmax_predictions_to_class(row, scores_cols, label_map, clf_thr), axis=1)
         predictions_tbl['prediction'] = predictions_tbl['prediction'].map(label_map_reversed)
     else:
         neg_class, pos_class = label_map_reversed[0], label_map_reversed[1]
@@ -1320,28 +1288,111 @@ def assign_class(predictions_tbl, label_map, clf_thr):
 
     return predictions_tbl
 
-def compile_preprocessing_figures_to_pdf(tce, plot_dir, save_fp, delete_plots=False):
+
+def generate_first_page_pipeline_summary(tce_uid: str, tce_scores: pd.Series, pipeline_metadata_fp: str, plot_dir: Path):
+    """ Create the cover page for an ExoMiner Pipeline summary for a TCE.
+
+    Args:
+        tce_uid: str, TCE unique ID
+        tce_scores: pd.Series, ExoMiner prediction scores
+        pipeline_metadata_fp: str, Path to the pipeline metadata YAML file
+        plot_dir: pathlib.Path, Directory where plots will be saved
+    """
+
+    logo_path = Path("others/images/exominer_logo.png")
+
+    with open(pipeline_metadata_fp, 'r') as f:
+            pipeline_metadata = yaml.safe_load(f)
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 14))
+    ax.axis('off')
+    
+    # ---------------------------------------------------------
+    # ADD LOGO
+    # ---------------------------------------------------------
+    if logo_path.exists():
+        logo_img = mpimg.imread(str(logo_path))
+        logo_ax = fig.add_axes([0.75, 0.80, 0.15, 0.15], anchor='NE', zorder=1)
+        logo_ax.imshow(logo_img)
+        logo_ax.axis('off')
+    else:
+        print(f"Warning: Logo file not found at {logo_path.absolute()}. Skipping logo.", flush=True)
+    # ---------------------------------------------------------
+
+    with open(pipeline_metadata_fp, 'r') as f:
+            pipeline_metadata = yaml.safe_load(f)
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    info_text = (
+        f"TCE UID: {tce_uid}\n"
+        f"ExoMiner Pipeline Version: {pipeline_metadata.get('Version Number', 'N/A')}\n"
+        f"ExoMiner Pipeline Git Commit Hash: {pipeline_metadata.get('Git Commit Hash', 'N/A')}\n"
+        f"ExoMiner Pipeline Build Date: {pipeline_metadata.get('Build Date', 'N/A')}\n"
+        f"Summary generated on: {timestamp}"
+    )
+
+    # Center General Info text in the top half of the page
+    ax.text(0.5, 0.65, info_text, fontsize=28, ha='center', va='center', 
+               transform=ax.transAxes, family='monospace')
+
+    if not tce_scores.empty:
+        keys = list(tce_scores.index)
+        vals = [f"{v:.4f}" if isinstance(v, (int, float)) else str(v) for v in tce_scores.values]
+
+        # Center table in the bottom half of the page
+        table = ax.table(cellText=[vals], colLabels=keys, loc='center', cellLoc='center', 
+                         bbox=Bbox.from_bounds(0.1, 0.35, 0.8, 0.15))
+        table.auto_set_font_size(False)
+        table.set_fontsize(22)
+
+        # Style the table
+        for (row, _), cell in table.get_celld().items():
+            if row == 0:  # Header row
+                cell.set_text_props(weight='bold')
+                cell.set_facecolor('#e0e0e0')
+            else:
+                cell.set_facecolor('#ffffff')
+    else:
+        # Display a clean fallback message if no scores exist
+        ax.text(0.5, 0.40, "No ExoMiner scores were generated for this TCE.", 
+                fontsize=26, ha='center', va='center', 
+                transform=ax.transAxes, family='monospace', color='#555555', style='italic')
+
+    plt.tight_layout()
+
+    # Save the cover page
+    cover_page_fname = f'tess-spoc-tce_tic{tce_uid}_cover.png'
+    cover_page_path = plot_dir / cover_page_fname
+    fig.savefig(str(cover_page_path), bbox_inches='tight', dpi=100)
+    plt.close(fig)
+
+    return cover_page_path
+
+def compile_preprocessing_figures_to_pdf(tce_uid, plot_dir, save_fp, delete_plots=False, logger=None):
     """
     Compiles preprocessing PNG figures for a target and its TCEs into a single PDF.
     
     Args:
-        target_uid (str): Target unique ID (e.g. TIC-Sector)
-        tce_tbl (pandas.DataFrame): Table of TCEs for this target
+        tce_uid (str): TCE unique ID (e.g. TIC-Sector)
         plot_dir (pathlib.Path): Directory containing the PNGs
         save_fp (pathlib.Path): Output filepath for the PDF
+        delete_plots (bool): Whether to delete the PNGs after compiling
+        logger (logging.Logger): logger
     """
 
     images_list = []
     
     imgs_fnames = [
-        f'tess-spoc-tce_tic{tce["uid"]}_input-flux-and-centroid-views-to-exominer-model.png',
-        f'tess-spoc-tce_tic{tce["uid"]}_input-flux-weak-secondary-views.png',
-        f'tess-spoc-tce_tic{tce["uid"]}_input-flux-odd-even-views.png',
-        f'tess-spoc-tce_tic{tce["uid"]}_input-periodogram-views.png',
+        f'tess-spoc-tce_tic{tce_uid}_cover.png',
+        f'tess-spoc-tce_tic{tce_uid}_input-flux-and-centroid-views-to-exominer-model.png',
+        f'tess-spoc-tce_tic{tce_uid}_input-flux-weak-secondary-views.png',
+        f'tess-spoc-tce_tic{tce_uid}_input-flux-odd-even-views.png',
+        f'tess-spoc-tce_tic{tce_uid}_input-periodogram-views.png',
     ]
 
     # find diff image figures for TCE
-    diff_img_fnames = [fp.name for fp in plot_dir.glob(f'{tce["uid"]}*.png')]
+    diff_img_fnames = [fp.name for fp in plot_dir.glob(f'{tce_uid}*.png')]
 
     # keep track of images to delete after being aggregated to the PDF summary file
     del_img_fps = [plot_dir / fn for fn in imgs_fnames + diff_img_fnames]
@@ -1367,7 +1418,8 @@ def compile_preprocessing_figures_to_pdf(tce, plot_dir, save_fp, delete_plots=Fa
         for img in imgs:
             img.close()
     except Exception as e:
-        print(f"Failed to compile PDF for {tce['uid']}: {e}")
+        err_msg = f"Failed to compile PDF for {tce_uid}: {e}"
+        log_info(err_msg, logger=logger, include_traceback=True)
     
     if delete_plots:
         for image_fp in del_img_fps:
