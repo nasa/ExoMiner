@@ -36,8 +36,8 @@ exominer_models:
   planet-validation: /models/planet_validation/
 
   # # local
-  # phot-vetting: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/models/phot_vetting
-  # planet-validation: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/models/planet_validation/
+  # phot-vetting: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/models/phot_vetting
+  # planet-validation: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/models/planet_validation
   
 classes_descriptions:
   PC: planet candidate

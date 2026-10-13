@@ -16,6 +16,10 @@ In this section, you will find detailed instructions on how to run the Exominer 
 ### 3. [Troubleshooting](troubleshooting.md)
 If you encounter any issues while using the pipeline, this document offers solutions to common problems and troubleshooting tips to help you resolve them.
 
+### 4. [Changelog](../CHANGELOG.md)
+Version-by-version user-visible changes for the ExoMiner Pipeline (new features, fixed bugs,
+and breaking changes such as output-column renames).
+
 ## Additional Information
 For further assistance, please refer to the main [ExoMiner](https://github.com/nasa/ExoMiner) repository at NASA's GitHub and the official Podman documentation, or reach out to the developers.
 

@@ -9,9 +9,9 @@ tce_depth: TCE depth in ppm (float)
 ruwe: Renormalized Unit Weight Error from Gaia (float)
 tce_prad: TCE planet radius in Earth radii (float)
 tce_max_mult_ev: TCE max multiple event statistic (float)
-# matchedToiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
-toiId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
-toiCorrelation: correlation score between TCE and matched TOI in range zero through 1 (-1 if no match found) (float)
+toiId: target star TOI ID (e.g., "1234" or "not_toi" if it has not been deemed a TOI yet) (string)
+toiMatchId: matched TOI ID from SPOC DV (e.g., "1234.01" or "not_matched" if no match found) (string)
+toiMatchCorrelation: correlation score between TCE and matched TOI in range zero through 1 (-1 if no match found) (float)
 score/score_<disp>: The ExoMiner prediction score (mean score if using an ensemble). (float). For Photometric Vetting, this generates three columns (score_PC, score_AFP, score_NTP) representing the scores for each disposition category, which sum to 1.0. For Planet Validation, this generates a single score column where a value closer to 1.0 indicates higher confidence that the TCE is a true planet.
 score_std/score_std_<disp>: The uncertainty in the ExoMiner prediction, calculated as the standard deviation across an ensemble (will be 0.0 if using a single model). (float). For Photometric Vetting, this generates three columns (score_std_PC, score_std_AFP, score_std_NTP) representing the uncertainty for each respective disposition. For Planet Validation, this generates a single score_std column representing the uncertainty of the validation score.
 prediction: predicted disposition based on classification threshold and ExoMiner score (string)

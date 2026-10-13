@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# build_images.sh - Automate the creation of podman images for ExoMiner Pipeline
+# create_podman_image.sh - Automate the creation of podman images for ExoMiner Pipeline
 # Builds container images for both ARM64 and AMD64 architectures.
 #
 # Usage:
-#   EXPORT_TO_REPO="ghcr.io/nasa" ./build_images.sh <software_version> [arm64|amd64|all]
+#   EXPORT_TO_REPO="ghcr.io/nasa" ./create_podman_image.sh <software_version> [arm64|amd64|all]
 
 set -euo pipefail
 
@@ -118,9 +118,44 @@ update_yaml_metadata() {
     echo
 }
 
+check_changelog() {
+    local changelog_file="CHANGELOG.md"
+    local top_version
+    if [[ ! -f "${changelog_file}" ]]; then
+        echo "Warning: ${changelog_file} not found. Skipping changelog check."
+        return
+    fi
+    top_version=$(grep -m1 -E '^## ' "${changelog_file}" | sed -E 's/^## +//')
+    if [[ "${top_version}" == "${SOFTWARE_VERSION_NUMBER}"* ]]; then
+        echo "Changelog: top section '${top_version}' matches requested version ${SOFTWARE_VERSION_NUMBER}."
+        echo
+        return
+    fi
+    echo "============================================================"
+    echo " CHANGELOG CHECK — MISMATCH"
+    echo "   Requested version   : ${SOFTWARE_VERSION_NUMBER}"
+    echo "   Top changelog entry : ${top_version}"
+    echo
+    echo " Add a '## ${SOFTWARE_VERSION_NUMBER}' section to ${changelog_file}"
+    echo " describing user-visible changes before building this image."
+    echo "============================================================"
+    local answer
+    if ! read -r -p "Continue build anyway? [y/N] " answer; then
+        echo "No response (non-interactive input) — aborting."
+        exit 1
+    fi
+    if [[ ! "${answer}" =~ ^[Yy]$ ]]; then
+        echo "Aborted — nothing was built or updated."
+        exit 1
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
+
+# Ensure a changelog entry exists for the requested version before doing anything
+check_changelog
 
 # Update the YAML file before kicking off the builds
 update_yaml_metadata

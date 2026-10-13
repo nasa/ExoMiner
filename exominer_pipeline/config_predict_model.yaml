@@ -26,9 +26,9 @@ data_fields: # scalar data from TFRecords to add to ranking table
   ruwe: 'float_scalar'
   tce_prad: 'float_scalar'
   tce_max_mult_ev: 'float_scalar'
-  # matchedToiId: 'string' 
-  toiId: 'string'
-  toiCorrelation: 'float_scalar'
+  toiId: 'string' 
+  toiMatchId: 'string'
+  toiMatchCorrelation: 'float_scalar'
 
 features_set: # each key-value pair is feature_name: {'dim': feature_dim, 'dtype': feature_dtype}
 

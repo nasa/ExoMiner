@@ -16,9 +16,9 @@ normStats:
     diff_img: /data/norm_stats/planet_validation/train_diffimg_norm_stats.npy
   # # local
   # phot-vetting:
-  #   scalar_params: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/norm_stats/phot_vetting/train_scalarparam_norm_stats.npy
-  #   centroid: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/norm_stats/phot_vetting/train_centroid_norm_stats.npy
-  #   diff_img: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/norm_stats/phot_vetting/train_diffimg_norm_stats.npy  
+  #   scalar_params: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/norm_stats/phot_vetting/train_scalarparam_norm_stats.npy
+  #   centroid: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/norm_stats/phot_vetting/train_centroid_norm_stats.npy
+  #   diff_img: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/exominer_pipeline_data/norm_stats/phot_vetting/train_diffimg_norm_stats.npy  
   # planet-validation:
   #   scalar_params: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/norm_stats/planet_validation/train_scalarparam_norm_stats.npy
   #   centroid: /Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline_data/norm_stats/planet_validation/train_centroid_norm_stats.npy

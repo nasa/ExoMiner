@@ -6,20 +6,20 @@
 
 # execution runner ('python' for Python or 'podman' for Podman application)
 runner="podman"
-podman_img="localhost/exominer:arm64"  # "ghcr.io/nasa/exominer"
+podman_img="localhost/exominer:latest"  # "ghcr.io/nasa/exominer"
 
 # python pipeline python script (used if runner=python)
 pipeline_python_script=/Users/msaragoc/Projects/exoplanet_transit_classification/exoplanet_dl/exominer_pipeline/run_pipeline.py
 # path to TIC IDs input table
-tics_tbl_fp=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/tic347538174_s14-s86.csv
+tics_tbl_fp=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/inputs/test_cover-page_tic100100827_10-1-2026.csv 
 # directory where the ExoMiner Pipeline run is saved
-exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_cover-page_tic347538174_s14-s86_phot-vet_10-2-2026_1314
+exominer_pipeline_run_dir=/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/runs/test_pipeline-2.4.0_10-12-2026_1610
 # data collection mode: either 2min or ffi
 data_collection_mode="2min"
 # number of processes used for preprocessing parallelization
-num_processes=1
+num_processes=4
 # number of jobs to split the TIC IDs for preprocessing
-num_jobs=1
+num_jobs=2
 # set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
 # queried TICs
 get_mast_urls_dv_reports="true"
@@ -30,17 +30,17 @@ lc_data_repository="null" # "/nobackup/msaragoc/work_dir/Kepler-TESS_exoplanet/d
 # define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
 # parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
 # parameters, it will use those values.
-stellar_parameters_source="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/stellar_tics_s14-s86.csv"
+stellar_parameters_source="ticv8" # "/u/msaragoc/work_dir/Kepler-TESS_exoplanet/experiments/exominer_pipeline/data/source_catalogs/stellar_tics_s14-s86.csv" 
 # define source of Gaia RUWE for TICs. If set to 'gaiadr2', 'gaiadr3', or 'gaiaedr3', Gaia DR2, DR3, or EDR3, respectively is queried; if set to 'unavailable', it assumes the
 # values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
 # values.
-ruwe_source="/Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/ruwe_tics_s14-s86.csv"
+ruwe_source="gaiadr2" # /Users/msaragoc/Projects/exoplanet_transit_classification/experiments/exominer_pipeline/data/source_catalogs/gaiadr2_with_ticid.csv"
 # Whether to plot model input figures for all SPOC TCEs found
 plot_inputs_to_model="true"
 # choose classification task between "phot-vetting" (PC vs AFP vs NTP) and "planet-validation" (planet vs not-planet).
 task="phot-vetting"
 # choose type of ExoMiner model among: single, cv_ensemble (avg 10 models), or full_cv_ensemble (avg 10 ensemble CV models)
-exominer_model="cv_ensemble"
+exominer_model="single"
 # max number of workers for inference parallelization
 max_model_workers=1
 

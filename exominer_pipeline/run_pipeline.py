@@ -489,7 +489,7 @@ def setup_main_logger(log_fp):
 
     # 1. Terminal output (Clean, no timestamps, replaces print())
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter('%(message)s'))
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     logger.addHandler(console_handler)
 
     # 2. Main File output (Detailed)
@@ -540,8 +540,6 @@ def run_exominer_pipeline_main(output_dir, tic_ids_fp, data_collection_mode, tic
     logger.info(f'Started run for ExoMiner.')
     logger.info('\n######################\nDocumentation can be found at: '
           'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
-    logger.info('\n######################\nDocumentation can be found at: '
-                'https://github.com/nasa/Exominer/tree/main/docs/index.md\n######################')
     
     logger.info(f'Logging information to {log_fp.name}')
 

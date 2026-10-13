@@ -190,8 +190,8 @@ Archive for Space Telescopes (MAST).
 
 ## Release Notes
 
-Second release of ExoMiner (v2.0). Expected features to be added in subsequent releases:
-- TBD.
+See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history of the
+ExoMiner Pipeline, including breaking changes to output tables and new features.
 
 See the [NASA Open Source Agreement (NOSA)](others/licenses/nasa_open_source_agreement_ExoMiner-18792-1.pdf) for this software release.
 
