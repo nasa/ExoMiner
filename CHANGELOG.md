@@ -8,7 +8,7 @@ release time, rename that section to the new version (e.g., `## 2.3.0 — 2026-1
 the requested version. Record only things a user can observe (table columns, scores,
 flags, image contents) — internal refactors belong in the git history.
 
-## Unreleased
+## 2.4.0 - 2026-10-12
 
 ### BREAKING
 
