@@ -16,6 +16,7 @@ of a CSV file).
 
 ![ExoMiner Pipeline flowchart.](../others/images/exominer-pipeline-flowchart.png "ExoMiner Pipeline flowchart.")
 
+<!-- ```bash
 🖥️ [ Main Process ]
                                            |
                               🔀 (Multiprocessing: Splits into N Jobs)
